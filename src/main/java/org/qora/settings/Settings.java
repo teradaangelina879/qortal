@@ -43,6 +43,9 @@ public class Settings {
 	// Settings, and other config files
 	private String userPath;
 
+	// Common to all networking (UI/API/P2P)
+	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
+
 	// Node management UI
 	private boolean uiEnabled = true;
 	private Integer uiPort;
@@ -71,7 +74,6 @@ public class Settings {
 	// Peer-to-peer related
 	private boolean isTestNet = false;
 	private Integer listenPort;
-	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
 	/** Minimum number of peers to allow block generation / synchronization. */
 	private int minBlockchainPeers = 3;
 	/** Target number of outbound connections to peers we should make. */
