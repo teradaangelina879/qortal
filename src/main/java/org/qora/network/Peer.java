@@ -59,50 +59,51 @@ public class Peer {
 	private InetSocketAddress resolvedAddress = null;
 	/** True if remote address is loopback/link-local/site-local, false otherwise. */
 	private boolean isLocal;
-	private ByteBuffer byteBuffer;
+	private volatile ByteBuffer byteBuffer;
 	private Map<Integer, BlockingQueue<Message>> replyQueues;
 	private LinkedBlockingQueue<Message> pendingMessages;
 
 	/** True if we created connection to peer, false if we accepted incoming connection from peer. */
 	private final boolean isOutbound;
 	/** Numeric protocol version, typically 1 or 2. */
-	private Integer version;
-	private byte[] peerId;
+	private volatile Integer version;
+	private volatile byte[] peerId;
 
-	private Handshake handshakeStatus = Handshake.STARTED;
+	private volatile Handshake handshakeStatus = Handshake.STARTED;
+	private volatile boolean handshakeMessagePending = false;
 
-	private byte[] pendingPeerId;
-	private byte[] verificationCodeSent;
-	private byte[] verificationCodeExpected;
+	private volatile byte[] pendingPeerId;
+	private volatile byte[] verificationCodeSent;
+	private volatile byte[] verificationCodeExpected;
 
-	private PeerData peerData = null;
+	private volatile PeerData peerData = null;
 	private final ReentrantLock peerDataLock = new ReentrantLock();
 
 	/** Timestamp of when socket was accepted, or connected. */
-	private Long connectionTimestamp = null;
+	private volatile Long connectionTimestamp = null;
 
 	/** Peer's value of connectionTimestamp. */
-	private Long peersConnectionTimestamp = null;
+	private volatile Long peersConnectionTimestamp = null;
 
 	/** Version info as reported by peer. */
-	private VersionMessage versionMessage = null;
+	private volatile VersionMessage versionMessage = null;
 
 	/** Last PING message round-trip time (ms). */
-	private Long lastPing = null;
+	private volatile Long lastPing = null;
 	/** When last PING message was sent, or null if pings not started yet. */
-	private Long lastPingSent;
+	private volatile Long lastPingSent;
 
 	/** Latest block height as reported by peer. */
-	private Integer lastHeight;
+	private volatile Integer lastHeight;
 
 	/** Latest block signature as reported by peer. */
-	private byte[] lastBlockSignature;
+	private volatile byte[] lastBlockSignature;
 
 	/** Latest block timestamp as reported by peer. */
-	private Long lastBlockTimestamp;
+	private volatile Long lastBlockTimestamp;
 
 	/** Latest block generator public key as reported by peer. */
-	private byte[] lastBlockGenerator;
+	private volatile byte[] lastBlockGenerator;
 
 	// Constructors
 
@@ -149,6 +150,10 @@ public class Peer {
 
 	public void setHandshakeStatus(Handshake handshakeStatus) {
 		this.handshakeStatus = handshakeStatus;
+	}
+
+	public void resetHandshakeMessagePending() {
+		this.handshakeMessagePending = false;
 	}
 
 	public VersionMessage getVersionMessage() {
@@ -263,6 +268,11 @@ public class Peer {
 		return this.peerDataLock;
 	}
 
+	/* package */ void queueMessage(Message message) {
+		if (!this.pendingMessages.offer(message))
+			LOGGER.info(String.format("No room to queue message from peer %s - discarding", this));
+	}
+
 	@Override
 	public String toString() {
 		// Easier, and nicer output, than peer.getRemoteSocketAddress()
@@ -320,62 +330,79 @@ public class Peer {
 	 */
 	/* package */ void readChannel() throws IOException {
 		synchronized (this.byteBuffer) {
-			if (!this.socketChannel.isOpen() || this.socketChannel.socket().isClosed())
-				return;
+			while(true) {
+				if (!this.socketChannel.isOpen() || this.socketChannel.socket().isClosed())
+					return;
 
-			int bytesRead = this.socketChannel.read(this.byteBuffer);
-			if (bytesRead == -1) {
-				this.disconnect("EOF");
-				return;
-			}
-
-			if (bytesRead == 0)
-				// No room in buffer, or no more bytes to read
-				return;
-
-			LOGGER.trace(() -> String.format("Received %d bytes from peer %s", bytesRead, this));
-
-			while (true) {
-				final Message message;
-
-				// Can we build a message from buffer now?
-				try {
-					message = Message.fromByteBuffer(this.byteBuffer);
-				} catch (MessageException e) {
-					LOGGER.debug(String.format("%s, from peer %s", e.getMessage(), this));
-					this.disconnect(e.getMessage());
+				int bytesRead = this.socketChannel.read(this.byteBuffer);
+				if (bytesRead == -1) {
+					this.disconnect("EOF");
 					return;
 				}
 
-				if (message == null)
-					return;
+				LOGGER.trace(() -> String.format("Received %d bytes from peer %s", bytesRead, this));
 
-				LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
+				while (true) {
+					final Message message;
 
-				BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
-				if (queue != null) {
-					// Adding message to queue will unblock thread waiting for response
-					this.replyQueues.get(message.getId()).add(message);
-					// Consumed elsewhere
-					continue;
-				}
+					// Can we build a message from buffer now?
+					try {
+						message = Message.fromByteBuffer(this.byteBuffer);
+					} catch (MessageException e) {
+						LOGGER.debug(String.format("%s, from peer %s", e.getMessage(), this));
+						this.disconnect(e.getMessage());
+						return;
+					}
 
-				// No thread waiting for message so we need to pass it up to network layer
+					if (message == null && bytesRead == 0)
+						// No complete message in buffer and no more bytes to read from socket
+						return;
 
-				// Add message to pending queue
-				if (!this.pendingMessages.offer(message)) {
-					LOGGER.info(String.format("No room to queue message from peer %s - discarding", this));
-					return;
+					if (message == null)
+						// No complete message in buffer, but maybe more bytes to read from socket
+						break;
+
+					LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
+
+					BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
+					if (queue != null) {
+						// Adding message to queue will unblock thread waiting for response
+						this.replyQueues.get(message.getId()).add(message);
+						// Consumed elsewhere
+						continue;
+					}
+
+					// No thread waiting for message so we need to pass it up to network layer
+
+					// Add message to pending queue
+					if (!this.pendingMessages.offer(message)) {
+						LOGGER.info(String.format("No room to queue message from peer %s - discarding", this));
+						return;
+					}
+
+					// Prematurely end any blocking channel select so that new messages can be processed
+					Network.getInstance().wakeupChannelSelector();
 				}
 			}
 		}
 	}
 
 	/* package */ ExecuteProduceConsume.Task getMessageTask() {
+		// If we are still handshaking and there is a message yet to be processed
+		// then don't produce another message task.
+		// This allows us to process handshake messages sequentially.
+		if (this.handshakeMessagePending)
+			return null;
+
 		final Message nextMessage = this.pendingMessages.poll();
 
 		if (nextMessage == null)
 			return null;
+
+		LOGGER.trace(() -> String.format("Produced %s message task from peer %s", nextMessage.getType().name(), this));
+
+		if (this.handshakeStatus != Handshake.COMPLETED)
+			this.handshakeMessagePending = true;
 
 		// Return a task to process message in queue
 		return () -> Network.getInstance().onMessage(this, nextMessage);

@@ -288,11 +288,6 @@ public class Network extends Thread {
 		protected Task produceTask(boolean canBlock) throws InterruptedException {
 			Task task;
 
-			// Only this method can block to reduce CPU spin
-			task = maybeProduceChannelTask(canBlock);
-			if (task != null)
-				return task;
-
 			task = maybeProducePeerMessageTask();
 			if (task != null)
 				return task;
@@ -306,6 +301,11 @@ public class Network extends Thread {
 				return task;
 
 			task = maybeProduceBroadcastTask();
+			if (task != null)
+				return task;
+
+			// Only this method can block to reduce CPU spin
+			task = maybeProduceChannelTask(canBlock);
 			if (task != null)
 				return task;
 
@@ -688,6 +688,10 @@ public class Network extends Thread {
 
 	// Peer callbacks
 
+	/* package */ void wakeupChannelSelector() {
+		this.channelSelector.wakeup();
+	}
+
 	/** Called when Peer's thread has setup and is ready to process messages */
 	public void onPeerReady(Peer peer) {
 		this.onMessage(peer, null);
@@ -719,41 +723,48 @@ public class Network extends Thread {
 
 		Handshake handshakeStatus = peer.getHandshakeStatus();
 		if (handshakeStatus != Handshake.COMPLETED) {
-			// Still handshaking
+			try {
+				// Still handshaking
+				LOGGER.trace(() -> String.format("Handshake status %s, message %s from peer %s", handshakeStatus.name(), (message != null ? message.getType().name() : "null"), peer));
 
-			// Check message type is as expected
-			if (handshakeStatus.expectedMessageType != null && message.getType() != handshakeStatus.expectedMessageType) {
-				// v1 nodes are keen on sending PINGs early. Discard as we'll send a PING right after handshake
-				if (message.getType() == MessageType.PING)
+				// v1 nodes are keen on sending PINGs early. Send to back of queue so we'll process right after handshake
+				if (message != null && message.getType() == MessageType.PING) {
+					peer.queueMessage(message);
 					return;
+				}
 
-				LOGGER.debug(String.format("Unexpected %s message from %s, expected %s", message.getType().name(), peer, handshakeStatus.expectedMessageType));
-				peer.disconnect("unexpected message");
+				// Check message type is as expected
+				if (handshakeStatus.expectedMessageType != null && message.getType() != handshakeStatus.expectedMessageType) {
+					LOGGER.debug(String.format("Unexpected %s message from %s, expected %s", message.getType().name(), peer, handshakeStatus.expectedMessageType));
+					peer.disconnect("unexpected message");
+					return;
+				}
+
+				Handshake newHandshakeStatus = handshakeStatus.onMessage(peer, message);
+
+				if (newHandshakeStatus == null) {
+					// Handshake failure
+					LOGGER.debug(String.format("Handshake failure with peer %s message %s", peer, message.getType().name()));
+					peer.disconnect("handshake failure");
+					return;
+				}
+
+				if (peer.isOutbound())
+					// If we made outbound connection then we need to act first
+					newHandshakeStatus.action(peer);
+				else
+					// We have inbound connection so we need to respond in kind with what we just received
+					handshakeStatus.action(peer);
+
+				peer.setHandshakeStatus(newHandshakeStatus);
+
+				if (newHandshakeStatus == Handshake.COMPLETED)
+					this.onHandshakeCompleted(peer);
+
 				return;
+			} finally {
+				peer.resetHandshakeMessagePending();
 			}
-
-			Handshake newHandshakeStatus = handshakeStatus.onMessage(peer, message);
-
-			if (newHandshakeStatus == null) {
-				// Handshake failure
-				LOGGER.debug(String.format("Handshake failure with peer %s message %s", peer, message.getType().name()));
-				peer.disconnect("handshake failure");
-				return;
-			}
-
-			if (peer.isOutbound())
-				// If we made outbound connection then we need to act first
-				newHandshakeStatus.action(peer);
-			else
-				// We have inbound connection so we need to respond in kind with what we just received
-				handshakeStatus.action(peer);
-
-			peer.setHandshakeStatus(newHandshakeStatus);
-
-			if (newHandshakeStatus == Handshake.COMPLETED)
-				this.onHandshakeCompleted(peer);
-
-			return;
 		}
 
 		// Should be non-handshaking messages from now on
