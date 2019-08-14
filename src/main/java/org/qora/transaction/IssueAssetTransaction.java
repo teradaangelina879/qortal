@@ -90,7 +90,7 @@ public class IssueAssetTransaction extends Transaction {
 				return ValidationResult.INVALID_DATA_LENGTH;
 		} else {
 			// pre-v2 so disallow data field
-			if (data != null)
+			if (data != null && !data.isEmpty())
 				return ValidationResult.NOT_YET_RELEASED;
 		}
 
