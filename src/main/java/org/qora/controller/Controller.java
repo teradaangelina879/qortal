@@ -670,6 +670,47 @@ public class Controller extends Thread {
 		LOGGER.trace(() -> String.format("Processing %s message from %s", message.getType().name(), peer));
 
 		switch (message.getType()) {
+			case BLOCK: {
+				// From a v1 peer, with no message ID, this is a broadcast of peer's latest block
+
+				// Not version 1?
+				if (peer.getVersion() == null || peer.getVersion() > 1)
+					break;
+
+				// Message ID present?
+				if (message.hasId())
+					break;
+
+				BlockMessage blockMessage = (BlockMessage) message;
+				BlockData blockData = blockMessage.getBlockData();
+
+				// Update all peers with same ID
+
+				List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
+				for (Peer connectedPeer : connectedPeers) {
+					// Skip connectedPeer if they have no ID or their ID doesn't match sender's ID
+					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
+						continue;
+
+					// We want to update atomically so use lock
+					ReentrantLock peerLock = connectedPeer.getPeerDataLock();
+					peerLock.lock();
+					try {
+						connectedPeer.setLastHeight(blockData.getHeight());
+						connectedPeer.setLastBlockSignature(blockData.getSignature());
+						connectedPeer.setLastBlockTimestamp(blockData.getTimestamp());
+						connectedPeer.setLastBlockGenerator(blockData.getGeneratorPublicKey());
+					} finally {
+						peerLock.unlock();
+					}
+				}
+
+				// Potentially synchronize
+				requestSync = true;
+
+				break;
+			}
+
 			case HEIGHT: {
 				HeightMessage heightMessage = (HeightMessage) message;
 
