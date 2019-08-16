@@ -296,7 +296,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 
 		sql.append("ORDER BY price");
-		if (minimumPrice == null || haveAssetId < wantAssetId)
+		if (minimumPrice != null && haveAssetId < wantAssetId)
 			sql.append(" DESC");
 
 		sql.append(", ordered");
