@@ -28,6 +28,7 @@ import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
 import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
+import org.qora.utils.Base58;
 
 import static org.qora.transaction.Transaction.TransactionType.*;
 
@@ -938,7 +939,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 				if (transactionData == null)
 					// Something inconsistent with the repository
-					throw new DataException("Unable to fetch unconfirmed transaction from repository?");
+					throw new DataException(String.format("Unable to fetch unconfirmed transaction %s from repository?", Base58.encode(signature)));
 
 				transactions.add(transactionData);
 			} while (resultSet.next());
