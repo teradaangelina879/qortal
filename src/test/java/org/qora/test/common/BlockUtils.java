@@ -23,4 +23,9 @@ public class BlockUtils {
 		repository.saveChanges();
 	}
 
+	public static void orphanBlocks(Repository repository, int count) throws DataException {
+		for (int i = 0; i < count; ++i)
+			orphanLastBlock(repository);
+	}
+
 }

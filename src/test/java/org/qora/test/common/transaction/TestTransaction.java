@@ -12,7 +12,7 @@ public abstract class TestTransaction {
 
 	protected static final Random random = new Random();
 
-	protected static BaseTransactionData generateBase(PrivateKeyAccount account) throws DataException {
+	public static BaseTransactionData generateBase(PrivateKeyAccount account) throws DataException {
 		byte[] lastReference = account.getUnconfirmedLastReference();
 		if (lastReference == null)
 			lastReference = account.getLastReference();

@@ -127,6 +127,7 @@ public class NTP implements Runnable {
 		if (isStarted)
 			return;
 
+		isStarted = true;
 		instanceExecutor = Executors.newSingleThreadExecutor();
 		instance = new NTP();
 		instanceExecutor.execute(instance);
@@ -136,16 +137,21 @@ public class NTP implements Runnable {
 		instanceExecutor.shutdownNow();
 	}
 
+	public static synchronized void testMode() {
+		// Fix offset to match system time
+		NTP.offset = 0L;
+	}
+
 	/**
 	 * Returns our estimate of internet time.
 	 * 
 	 * @return internet time (ms), or null if unsynchronized.
 	 */
 	public static Long getTime() {
-		if (offset == null)
+		if (NTP.offset == null)
 			return null;
 
-		return System.currentTimeMillis() + offset;
+		return System.currentTimeMillis() + NTP.offset;
 	}
 
 	public void run() {

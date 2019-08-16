@@ -34,6 +34,7 @@ import org.qora.repository.RepositoryFactory;
 import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qora.settings.Settings;
+import org.qora.utils.NTP;
 
 public class Common {
 
@@ -101,6 +102,7 @@ public class Common {
 
 	public static void useDefaultSettings() throws DataException {
 		useSettings(testSettingsFilename);
+		NTP.testMode();
 	}
 
 	public static void resetBlockchain() throws DataException {

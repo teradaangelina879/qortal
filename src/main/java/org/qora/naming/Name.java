@@ -179,6 +179,7 @@ public class Name {
 	public void unbuy(BuyNameTransactionData buyNameTransactionData) throws DataException {
 		// Mark as for-sale using existing price
 		this.nameData.setIsForSale(true);
+		this.nameData.setSalePrice(buyNameTransactionData.getAmount());
 
 		// Previous name reference is taken from this transaction's cached copy
 		this.nameData.setReference(buyNameTransactionData.getNameReference());
