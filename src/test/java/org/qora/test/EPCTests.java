@@ -4,11 +4,48 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.junit.Test;
 import org.qora.utils.ExecuteProduceConsume;
 
-public class ThreadTests {
+public class EPCTests {
+
+	class RandomEPC extends ExecuteProduceConsume {
+		private final int TASK_PERCENT;
+		private final int PAUSE_PERCENT;
+
+		public RandomEPC(ExecutorService executor, int taskPercent, int pausePercent) {
+			super(executor);
+
+			this.TASK_PERCENT = taskPercent;
+			this.PAUSE_PERCENT = pausePercent;
+		}
+
+		@Override
+		protected Task produceTask(boolean canIdle) throws InterruptedException {
+			if (Thread.interrupted())
+				throw new InterruptedException();
+
+			Random random = new Random();
+
+			final int percent = random.nextInt(100);
+
+			// Sometimes produce a task
+			if (percent < TASK_PERCENT) {
+				return () -> {
+					Thread.sleep(random.nextInt(500) + 100);
+				};
+			} else {
+				// If we don't produce a task, then maybe simulate a pause until work arrives
+				if (canIdle && percent < PAUSE_PERCENT)
+					Thread.sleep(random.nextInt(100));
+
+				return null;
+			}
+		}
+	}
 
 	private void testEPC(ExecuteProduceConsume testEPC) throws InterruptedException {
 		testEPC.start();
@@ -16,7 +53,10 @@ public class ThreadTests {
 		// Let it run for a minute
 		for (int s = 1; s <= 60; ++s) {
 			Thread.sleep(1000);
-			System.out.println(String.format("After %d second%s, active threads: %d, greatest thread count: %d", s, (s != 1 ? "s" : "") , testEPC.getActiveThreadCount(), testEPC.getGreatestActiveThreadCount()));
+			System.out.println(String.format("After %d second%s, active threads: %d, greatest thread count: %d, tasks produced: %d, tasks consumed: %d",
+					s, (s != 1 ? "s" : ""),
+					testEPC.getActiveThreadCount(), testEPC.getGreatestActiveThreadCount(),
+					testEPC.getTasksProduced(), testEPC.getTasksConsumed()));
 		}
 
 		final long before = System.currentTimeMillis();
@@ -25,6 +65,9 @@ public class ThreadTests {
 
 		System.out.println(String.format("Shutdown took %d milliseconds", after - before));
 		System.out.println(String.format("Greatest thread count: %d", testEPC.getGreatestActiveThreadCount()));
+
+		System.out.println(String.format("Tasks produced: %d", testEPC.getTasksProduced()));
+		System.out.println(String.format("Tasks consumed: %d", testEPC.getTasksConsumed()));
 	}
 
 	@Test
@@ -32,32 +75,20 @@ public class ThreadTests {
 		final int TASK_PERCENT = 25; // Produce a task this % of the time
 		final int PAUSE_PERCENT = 80; // Pause for new work this % of the time
 
-		class RandomEPC extends ExecuteProduceConsume {
-			@Override
-			protected Task produceTask(boolean canIdle) throws InterruptedException {
-				Random random = new Random();
+		final ExecutorService executor = Executors.newCachedThreadPool();
 
-				final int percent = random.nextInt(100);
+		testEPC(new RandomEPC(executor, TASK_PERCENT, PAUSE_PERCENT));
+	}
 
-				// Sometimes produce a task
-				if (percent < TASK_PERCENT) {
-					return new Task() {
-						@Override
-						public void perform() throws InterruptedException {
-							Thread.sleep(random.nextInt(500) + 100);
-						}
-					};
-				} else {
-					// If we don't produce a task, then maybe simulate a pause until work arrives
-					if (canIdle && percent < PAUSE_PERCENT)
-						Thread.sleep(random.nextInt(100));
+	@Test
+	public void testRandomFixedPoolEPC() throws InterruptedException {
+		final int TASK_PERCENT = 25; // Produce a task this % of the time
+		final int PAUSE_PERCENT = 80; // Pause for new work this % of the time
+		final int MAX_THREADS = 3;
 
-					return null;
-				}
-			}
-		}
+		final ExecutorService executor = Executors.newFixedThreadPool(MAX_THREADS);
 
-		testEPC(new RandomEPC());
+		testEPC(new RandomEPC(executor, TASK_PERCENT, PAUSE_PERCENT));
 	}
 
 	/**

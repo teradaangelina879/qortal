@@ -162,8 +162,8 @@ public class Network extends Thread {
 
 		mergePeersLock = new ReentrantLock();
 
-		// We'll use a cached thread pool, but with more aggressive 10 second timeout.
-		ExecutorService networkExecutor = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+		// We'll use a cached thread pool, max 10 threads, but with more aggressive 10 second timeout.
+		ExecutorService networkExecutor = new ThreadPoolExecutor(1, 10,
 				10L, TimeUnit.SECONDS,
 				new SynchronousQueue<Runnable>());
 		networkEPC = new NetworkProcessor(networkExecutor);
