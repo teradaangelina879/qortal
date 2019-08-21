@@ -591,7 +591,10 @@ public class Network extends Thread {
 
 			// Don't consider peers with recent connection failures
 			final long lastAttemptedThreshold = now - CONNECT_FAILURE_BACKOFF;
-			peers.removeIf(peerData -> peerData.getLastAttempted() != null && peerData.getLastAttempted() > lastAttemptedThreshold);
+			peers.removeIf(peerData -> peerData.getLastAttempted() != null &&
+					peerData.getLastConnected() != null &&
+					peerData.getLastConnected() < peerData.getLastAttempted() &&
+					peerData.getLastAttempted() > lastAttemptedThreshold);
 
 			// Don't consider peers that we know loop back to ourself
 			Predicate<PeerData> isSelfPeer = peerData -> {
