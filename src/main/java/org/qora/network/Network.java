@@ -81,17 +81,17 @@ public class Network extends Thread {
 	/** Maximum message size (bytes). Needs to be at least maximum block size + MAGIC + message type, etc. */
 	/* package */ static final int MAXIMUM_MESSAGE_SIZE = 4 + 1 + 4 + Block.MAX_BLOCK_BYTES;
 
-	private static final byte[] MAINNET_MESSAGE_MAGIC = new byte[] {  0x12, 0x34, 0x56, 0x78 };
-	private static final byte[] TESTNET_MESSAGE_MAGIC = new byte[] { 0x78, 0x56, 0x34, 0x12 };
+	private static final byte[] MAINNET_MESSAGE_MAGIC = new byte[] { 0x51, 0x4f, 0x52, 0x54 }; // QORT
+	private static final byte[] TESTNET_MESSAGE_MAGIC = new byte[] { 0x71, 0x6f, 0x72, 0x54 }; // qorT
 
 	private static final String[] INITIAL_PEERS = new String[] {
-			"node1.qora.org",
-			"node2.qora.org",
-			"node3.qora.org",
-			"node4.qora.org",
-			"node5.qora.org",
-			"node6.qora.org",
-			"node7.qora.org"
+			"node1.qortal.org",
+			"node2.qortal.org",
+			"node3.qortal.org",
+			"node4.qortal.org",
+			"node5.qortal.org",
+			"node6.qortal.org",
+			"node7.qortal.org"
 	};
 
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
