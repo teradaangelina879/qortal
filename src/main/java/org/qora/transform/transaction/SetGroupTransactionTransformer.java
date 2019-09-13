@@ -26,7 +26,7 @@ public class SetGroupTransactionTransformer extends TransactionTransformer {
 
 	static {
 		layout = new TransactionLayout();
-		layout.add("txType: " + TransactionType.GROUP_INVITE.valueString, TransformationType.INT);
+		layout.add("txType: " + TransactionType.SET_GROUP.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);

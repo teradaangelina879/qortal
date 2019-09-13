@@ -32,7 +32,7 @@ public class UpdateAssetTransactionTransformer extends TransactionTransformer {
 
 	static {
 		layout = new TransactionLayout();
-		layout.add("txType: " + TransactionType.ISSUE_ASSET.valueString, TransformationType.INT);
+		layout.add("txType: " + TransactionType.UPDATE_ASSET.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);

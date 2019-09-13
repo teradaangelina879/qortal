@@ -25,7 +25,7 @@ public class ProxyForgingTransactionTransformer extends TransactionTransformer {
 
 	static {
 		layout = new TransactionLayout();
-		layout.add("txType: " + TransactionType.GROUP_INVITE.valueString, TransformationType.INT);
+		layout.add("txType: " + TransactionType.PROXY_FORGING.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
