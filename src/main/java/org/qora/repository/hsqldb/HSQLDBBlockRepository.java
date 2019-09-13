@@ -22,7 +22,8 @@ import static org.qora.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli
 public class HSQLDBBlockRepository implements BlockRepository {
 
 	private static final String BLOCK_DB_COLUMNS = "version, reference, transaction_count, total_fees, "
-			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, AT_count, AT_fees";
+			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, "
+			+ "AT_count, AT_fees, online_accounts, online_accounts_timestamp, online_accounts_signatures";
 
 	protected HSQLDBRepository repository;
 
@@ -47,9 +48,12 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			byte[] generatorSignature = resultSet.getBytes(10);
 			int atCount = resultSet.getInt(11);
 			BigDecimal atFees = resultSet.getBigDecimal(12);
+			byte[] encodedOnlineAccounts = resultSet.getBytes(13);
+			Long onlineAccountsTimestamp = getZonedTimestampMilli(resultSet, 14);
+			byte[] timestampSignatures = resultSet.getBytes(15);
 
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-					generatorPublicKey, generatorSignature, atCount, atFees);
+					generatorPublicKey, generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, timestampSignatures);
 		} catch (SQLException e) {
 			throw new DataException("Error extracting data from result set", e);
 		}
@@ -316,7 +320,10 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				.bind("transactions_signature", blockData.getTransactionsSignature()).bind("height", blockData.getHeight())
 				.bind("generation", toOffsetDateTime(blockData.getTimestamp())).bind("generating_balance", blockData.getGeneratingBalance())
 				.bind("generator", blockData.getGeneratorPublicKey()).bind("generator_signature", blockData.getGeneratorSignature())
-				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees());
+				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees())
+				.bind("online_accounts", blockData.getEncodedOnlineAccounts())
+				.bind("online_accounts_timestamp", toOffsetDateTime(blockData.getOnlineAccountsTimestamp()))
+				.bind("online_accounts_signatures", blockData.getTimestampSignatures());
 
 		try {
 			saveHelper.execute(this.repository);

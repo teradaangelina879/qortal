@@ -92,6 +92,10 @@ public class BlockGenerator extends Thread {
 				if (now == null)
 					continue;
 
+				// No online accounts? (e.g. during startup)
+				if (Controller.getInstance().getOnlineAccounts().isEmpty())
+					continue;
+
 				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
 				// No forging accounts?
 				if (forgingAccountsData.isEmpty())

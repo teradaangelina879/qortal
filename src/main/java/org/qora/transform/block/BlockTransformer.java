@@ -27,6 +27,8 @@ import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
+import io.druid.extendedset.intset.ConciseSet;
+
 public class BlockTransformer extends Transformer {
 
 	private static final int VERSION_LENGTH = INT_LENGTH;
@@ -46,6 +48,10 @@ public class BlockTransformer extends Transformer {
 	protected static final int AT_BYTES_LENGTH = INT_LENGTH;
 	protected static final int AT_FEES_LENGTH = LONG_LENGTH;
 	protected static final int AT_LENGTH = AT_FEES_LENGTH + AT_BYTES_LENGTH;
+
+	protected static final int ONLINE_ACCOUNTS_SIZE_LENGTH = INT_LENGTH;
+	protected static final int ONLINE_ACCOUNTS_TIMESTAMP_LENGTH = LONG_LENGTH;
+	protected static final int ONLINE_ACCOUNTS_SIGNATURES_COUNT_LENGTH = INT_LENGTH;
 
 	protected static final int V2_AT_ENTRY_LENGTH = ADDRESS_LENGTH + MD5_LENGTH;
 	protected static final int V4_AT_ENTRY_LENGTH = ADDRESS_LENGTH + SHA256_LENGTH + BIG_DECIMAL_LENGTH;
@@ -187,13 +193,42 @@ public class BlockTransformer extends Transformer {
 			totalFees = totalFees.add(transactionData.getFee());
 		}
 
+		// Online accounts info?
+		byte[] onlineAccounts = null;
+		byte[] timestampSignatures = null;
+		Long onlineAccountsTimestamp = null;
+
+		if (version >= 4) {
+			int conciseSetLength = byteBuffer.getInt();
+
+			if (conciseSetLength > Block.MAX_BLOCK_BYTES)
+				throw new TransformationException("Byte data too long for online account info");
+
+			if ((conciseSetLength & 3) != 0)
+				throw new TransformationException("Byte data length not multiple of 4 for online account info");
+
+			onlineAccounts = new byte[conciseSetLength];
+			byteBuffer.get(onlineAccounts);
+
+			// Note: number of signatures, not byte length
+			int timestampSignaturesCount = byteBuffer.getInt();
+
+			if (timestampSignaturesCount > 0) {
+				// Online accounts timestamp is only present if there are also signatures
+				onlineAccountsTimestamp = byteBuffer.getLong();
+
+				timestampSignatures = new byte[timestampSignaturesCount * Transformer.SIGNATURE_LENGTH];
+				byteBuffer.get(timestampSignatures);
+			}
+		}
+
 		if (byteBuffer.hasRemaining())
 			throw new TransformationException("Excess byte data found after parsing Block");
 
 		// We don't have a height!
 		Integer height = null;
 		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generatorPublicKey, generatorSignature, atCount, atFees);
+				generatorPublicKey, generatorSignature, atCount, atFees, onlineAccounts, onlineAccountsTimestamp, timestampSignatures);
 
 		return new Triple<BlockData, List<TransactionData>, List<ATStateData>>(blockData, transactions, atStates);
 	}
@@ -202,9 +237,13 @@ public class BlockTransformer extends Transformer {
 		BlockData blockData = block.getBlockData();
 		int blockLength = BASE_LENGTH;
 
-		if (blockData.getVersion() >= 4)
+		if (blockData.getVersion() >= 4) {
 			blockLength += AT_BYTES_LENGTH + blockData.getATCount() * V4_AT_ENTRY_LENGTH;
-		else if (blockData.getVersion() >= 2)
+			blockLength += ONLINE_ACCOUNTS_SIZE_LENGTH + blockData.getEncodedOnlineAccounts().length;
+			blockLength += ONLINE_ACCOUNTS_SIGNATURES_COUNT_LENGTH;
+			if (blockData.getTimestampSignatures().length > 0)
+				blockLength += ONLINE_ACCOUNTS_TIMESTAMP_LENGTH + blockData.getTimestampSignatures().length;
+		} else if (blockData.getVersion() >= 2)
 			blockLength += AT_FEES_LENGTH + AT_BYTES_LENGTH + blockData.getATCount() * V2_AT_ENTRY_LENGTH;
 
 		try {
@@ -271,6 +310,34 @@ public class BlockTransformer extends Transformer {
 				bytes.write(TransactionTransformer.toBytes(transactionData));
 			}
 
+			// Online account info
+			if (blockData.getVersion() >= 4) {
+				byte[] encodedOnlineAccounts = blockData.getEncodedOnlineAccounts();
+
+				if (encodedOnlineAccounts != null) {
+					bytes.write(Ints.toByteArray(encodedOnlineAccounts.length));
+					bytes.write(encodedOnlineAccounts);
+				} else {
+					bytes.write(Ints.toByteArray(0));
+				}
+
+				byte[] timestampSignatures = blockData.getTimestampSignatures();
+
+				if (timestampSignatures != null) {
+					// Note: we write the number of signatures, not the number of bytes
+					bytes.write(Ints.toByteArray(timestampSignatures.length / Transformer.SIGNATURE_LENGTH));
+
+					if (timestampSignatures.length > 0) {
+						// Only write online accounts timestamp if we have signatures
+						bytes.write(Longs.toByteArray(blockData.getOnlineAccountsTimestamp()));
+
+						bytes.write(timestampSignatures);
+					}
+				} else {
+					bytes.write(Ints.toByteArray(0));
+				}
+			}
+
 			return bytes.toByteArray();
 		} catch (IOException | DataException e) {
 			throw new TransformationException("Unable to serialize block", e);
@@ -285,13 +352,13 @@ public class BlockTransformer extends Transformer {
 		byte[] generatorSignature = getGeneratorSignatureFromReference(blockData.getReference());
 		PublicKeyAccount generator = new PublicKeyAccount(null, blockData.getGeneratorPublicKey());
 
-		return getBytesForGeneratorSignature(generatorSignature, blockData.getGeneratingBalance(), generator);
+		return getBytesForGeneratorSignature(generatorSignature, blockData.getGeneratingBalance(), generator, blockData.getEncodedOnlineAccounts());
 	}
 
-	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, BigDecimal generatingBalance, PublicKeyAccount generator)
+	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, BigDecimal generatingBalance, PublicKeyAccount generator, byte[] encodedOnlineAccounts)
 			throws TransformationException {
 		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH + encodedOnlineAccounts.length);
 
 			bytes.write(generatorSignature);
 
@@ -299,6 +366,8 @@ public class BlockTransformer extends Transformer {
 
 			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
 			bytes.write(Bytes.ensureCapacity(generator.getPublicKey(), GENERATOR_LENGTH, 0));
+
+			bytes.write(encodedOnlineAccounts);
 
 			return bytes.toByteArray();
 		} catch (IOException e) {
@@ -329,6 +398,37 @@ public class BlockTransformer extends Transformer {
 		} catch (IOException | DataException e) {
 			throw new TransformationException(e);
 		}
+	}
+
+	public static byte[] encodeOnlineAccounts(ConciseSet onlineAccounts) {
+		return onlineAccounts.toByteBuffer().array();
+	}
+
+	public static ConciseSet decodeOnlineAccounts(byte[] encodedOnlineAccounts) {
+		int[] words = new int[encodedOnlineAccounts.length / 4];
+		ByteBuffer.wrap(encodedOnlineAccounts).asIntBuffer().get(words);
+		return new ConciseSet(words, false);
+	}
+
+	public static byte[] encodeTimestampSignatures(List<byte[]> signatures) {
+		byte[] encodedSignatures = new byte[signatures.size() * Transformer.SIGNATURE_LENGTH];
+
+		for (int i = 0; i < signatures.size(); ++i)
+			System.arraycopy(signatures.get(i), 0, encodedSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
+
+		return encodedSignatures;
+	}
+
+	public static List<byte[]> decodeTimestampSignatures(byte[] encodedSignatures) {
+		List<byte[]> signatures = new ArrayList<>();
+
+		for (int i = 0; i < encodedSignatures.length; i += Transformer.SIGNATURE_LENGTH) {
+			byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
+			System.arraycopy(encodedSignatures, i, signature, 0, Transformer.SIGNATURE_LENGTH);
+			signatures.add(signature);
+		}
+
+		return signatures;
 	}
 
 }

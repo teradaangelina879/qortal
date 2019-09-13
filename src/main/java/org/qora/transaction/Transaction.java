@@ -80,7 +80,8 @@ public abstract class Transaction {
 		UPDATE_ASSET(35, true),
 		ACCOUNT_FLAGS(36, false),
 		ENABLE_FORGING(37, false),
-		PROXY_FORGING(38, false);
+		PROXY_FORGING(38, false),
+		ACCOUNT_LEVEL(39, false);
 
 		public final int value;
 		public final boolean needsApproval;

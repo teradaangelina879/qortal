@@ -32,6 +32,9 @@ public class BlockData implements Serializable {
 	private byte[] generatorSignature;
 	private int atCount;
 	private BigDecimal atFees;
+	private byte[] encodedOnlineAccounts;
+	private Long onlineAccountsTimestamp;
+	private byte[] timestampSignatures;
 
 	// Constructors
 
@@ -40,7 +43,8 @@ public class BlockData implements Serializable {
 	}
 
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
-			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
+			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees,
+			byte[] encodedOnlineAccounts, Long onlineAccountsTimestamp, byte[] timestampSignatures) {
 		this.version = version;
 		this.reference = reference;
 		this.transactionCount = transactionCount;
@@ -53,11 +57,20 @@ public class BlockData implements Serializable {
 		this.generatorSignature = generatorSignature;
 		this.atCount = atCount;
 		this.atFees = atFees;
+		this.encodedOnlineAccounts = encodedOnlineAccounts;
+		this.onlineAccountsTimestamp = onlineAccountsTimestamp;
+		this.timestampSignatures = timestampSignatures;
 
 		if (this.generatorSignature != null && this.transactionsSignature != null)
 			this.signature = Bytes.concat(this.generatorSignature, this.transactionsSignature);
 		else
 			this.signature = null;
+	}
+
+	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
+			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
+		this(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance, generatorPublicKey, generatorSignature, atCount, atFees,
+				null, null, null);
 	}
 
 	// Getters/setters
@@ -148,6 +161,22 @@ public class BlockData implements Serializable {
 
 	public void setATFees(BigDecimal atFees) {
 		this.atFees = atFees;
+	}
+
+	public byte[] getEncodedOnlineAccounts() {
+		return this.encodedOnlineAccounts;
+	}
+
+	public Long getOnlineAccountsTimestamp() {
+		return onlineAccountsTimestamp;
+	}
+
+	public void setOnlineAccountsTimestamp(Long onlineAccountsTimestamp) {
+		this.onlineAccountsTimestamp = onlineAccountsTimestamp;
+	}
+
+	public byte[] getTimestampSignatures() {
+		return this.timestampSignatures;
 	}
 
 	// JAXB special

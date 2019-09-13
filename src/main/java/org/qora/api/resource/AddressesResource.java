@@ -30,9 +30,11 @@ import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.ProxyKeyRequest;
 import org.qora.api.resource.TransactionsResource;
 import org.qora.asset.Asset;
+import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
 import org.qora.data.account.ProxyForgerData;
+import org.qora.data.network.OnlineAccount;
 import org.qora.data.transaction.ProxyForgingTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -149,7 +151,22 @@ public class AddressesResource {
 	public boolean validate(@PathParam("address") String address) {
 		return Crypto.isValidAddress(address);
 	}
-	
+
+	@GET
+	@Path("/online")
+	@Operation(
+		summary = "Return currently 'online' accounts",
+		responses = {
+			@ApiResponse(
+				description = "online accounts",
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = OnlineAccount.class)))
+			)
+		}
+	)
+	public List<OnlineAccount> getOnlineAccounts() {
+		return Controller.getInstance().getOnlineAccounts();
+	}
+
 	@GET
 	@Path("/generatingbalance/{address}")
 	@Operation(

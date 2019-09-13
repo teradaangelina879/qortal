@@ -26,7 +26,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		String sql = "SELECT reference, public_key, default_group_id, flags, forging_enabler FROM Accounts WHERE account = ?";
+		String sql = "SELECT reference, public_key, default_group_id, flags, forging_enabler, level FROM Accounts WHERE account = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
@@ -37,8 +37,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			int defaultGroupId = resultSet.getInt(3);
 			int flags = resultSet.getInt(4);
 			String forgingEnabler = resultSet.getString(5);
+			int level = resultSet.getInt(6);
 
-			return new AccountData(address, reference, publicKey, defaultGroupId, flags, forgingEnabler);
+			return new AccountData(address, reference, publicKey, defaultGroupId, flags, forgingEnabler, level);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -84,6 +85,20 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account's flags from repository", e);
+		}
+	}
+
+	@Override
+	public Integer getLevel(String address) throws DataException {
+		String sql = "SELECT level FROM Accounts WHERE account = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
+			if (resultSet == null)
+				return null;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's level from repository", e);
 		}
 	}
 
@@ -181,6 +196,23 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's flags into repository", e);
+		}
+	}
+
+	@Override
+	public void setLevel(AccountData accountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+		saveHelper.bind("account", accountData.getAddress()).bind("level", accountData.getLevel());
+
+		byte[] publicKey = accountData.getPublicKey();
+		if (publicKey != null)
+			saveHelper.bind("public_key", publicKey);
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save account's level into repository", e);
 		}
 	}
 
@@ -517,6 +549,41 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return proxyAccounts;
 		} catch (SQLException e) {
 			throw new DataException("Unable to find proxy forge accounts in repository", e);
+		}
+	}
+
+	@Override
+	public Integer getProxyAccountIndex(byte[] publicKey) throws DataException {
+		String sql = "SELECT COUNT(*) FROM ProxyForgers WHERE proxy_public_key < ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey)) {
+			if (resultSet == null)
+				return null;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to determine account index in repository", e);
+		}
+	}
+
+	@Override
+	public ProxyForgerData getProxyAccountByIndex(int index) throws DataException {
+		String sql = "SELECT forger, recipient, share, proxy_public_key FROM ProxyForgers "
+				+ "ORDER BY proxy_public_key ASC "
+				+ "OFFSET ? LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, index)) {
+			if (resultSet == null)
+				return null;
+
+			byte[] forgerPublicKey = resultSet.getBytes(1);
+			String recipient = resultSet.getString(2);
+			BigDecimal share = resultSet.getBigDecimal(3);
+			byte[] proxyPublicKey = resultSet.getBytes(4);
+
+			return new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account info from repository", e);
 		}
 	}
 

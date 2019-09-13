@@ -110,6 +110,12 @@ public class BlockChain {
 
 	private int maxProxyRelationships;
 
+	/** Minimum time to retain online account signatures (ms) for block validity checks. */
+	private long onlineAccountSignaturesMinLifetime;
+	/** Maximum time to retain online account signatures (ms) for block validity checks, to allow for clock variance. */
+	private long onlineAccountSignaturesMaxLifetime;
+
+
 	// Constructors, etc.
 
 	private BlockChain() {
@@ -264,6 +270,14 @@ public class BlockChain {
 
 	public int getMaxProxyRelationships() {
 		return this.maxProxyRelationships;
+	}
+
+	public long getOnlineAccountSignaturesMinLifetime() {
+		return this.onlineAccountSignaturesMinLifetime;
+	}
+
+	public long getOnlineAccountSignaturesMaxLifetime() {
+		return this.onlineAccountSignaturesMaxLifetime;
 	}
 
 	// Convenience methods for specific blockchain feature triggers

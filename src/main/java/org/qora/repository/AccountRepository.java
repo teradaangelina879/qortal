@@ -23,6 +23,9 @@ public interface AccountRepository {
 	/** Returns account's flags or null if account not found. */
 	public Integer getFlags(String address) throws DataException;
 
+	/** Returns account's level or null if account not found. */
+	public Integer getLevel(String address) throws DataException;
+
 	/** Returns whether account exists. */
 	public boolean accountExists(String address) throws DataException;
 
@@ -56,6 +59,13 @@ public interface AccountRepository {
 	 * Note: ignores other fields like last reference, default groupID.
 	 */
 	public void setFlags(AccountData accountData) throws DataException;
+
+	/**
+	 * Saves account's level, and public key if present, in repository.
+	 * <p>
+	 * Note: ignores other fields like last reference, default groupID.
+	 */
+	public void setLevel(AccountData accountData) throws DataException;
 
 	/**
 	 * Saves account's forging enabler, and public key if present, in repository.
@@ -96,6 +106,18 @@ public interface AccountRepository {
 	public List<ProxyForgerData> getProxyAccounts() throws DataException;
 
 	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, List<String> involvedAddresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
+	 * Returns index in list of proxy accounts (sorted by public key).
+	 * <p>
+	 * @return index (from 0) or null if publicKey not found in repository.
+	 */
+	public Integer getProxyAccountIndex(byte[] publicKey) throws DataException;
+
+	/**
+	 * Returns proxy forger data using index into list of proxy accounts.
+	 */
+	public ProxyForgerData getProxyAccountByIndex(int index) throws DataException;
 
 	public void save(ProxyForgerData proxyForgerData) throws DataException;
 

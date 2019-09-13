@@ -15,7 +15,13 @@ import org.qora.utils.Base58;
 
 import com.google.common.hash.HashCode;
 
+import io.druid.extendedset.intset.ConciseSet;
+
 import static org.junit.Assert.*;
+
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Random;
 
 import org.junit.Before;
 
@@ -67,6 +73,71 @@ public class SerializationTests extends Common {
 				byte[] reserializedTransaction = TransactionTransformer.toBytes(deserializedTransactionData);
 				assertEquals(String.format("Reserialized %s transaction bytes differ", txType.name()), HashCode.fromBytes(serializedTransaction).toString(), HashCode.fromBytes(reserializedTransaction).toString());
 			}
+		}
+	}
+
+	@Test
+	public void testAccountBitMap() {
+		Random random = new Random();
+
+		final int numberOfKnownAccounts = random.nextInt(1 << 17) + 1;
+		System.out.println(String.format("Number of known accounts: %d", numberOfKnownAccounts));
+
+		// 5% to 15%
+		final int numberOfAccountsToEncode = random.nextInt((numberOfKnownAccounts / 10) + numberOfKnownAccounts / 5);
+		System.out.println(String.format("Number of accounts to encode: %d", numberOfAccountsToEncode));
+
+		final int bitsLength = numberOfKnownAccounts;
+		System.out.println(String.format("Bits to fit all accounts: %d", bitsLength));
+
+		// Enough bytes to fit at least bitsLength bits
+		final int byteLength = ((bitsLength - 1) >> 3) + 1;
+		System.out.println(String.format("Uncompressed bytes to fit all accounts: %d", byteLength));
+
+		List<Integer> accountIndexes = new LinkedList<>();
+		for (int i = 0; i < numberOfAccountsToEncode; ++i) {
+			final int accountIndex = random.nextInt(numberOfKnownAccounts);
+			accountIndexes.add(accountIndex);
+			// System.out.println(String.format("Account [%d]: %d / 0x%08x", i, accountIndex, accountIndex));
+		}
+
+		ConciseSet compressedSet = new ConciseSet();
+
+		for (Integer accountIndex : accountIndexes)
+			compressedSet.add(accountIndex);
+
+		int compressedSize = compressedSet.toByteBuffer().remaining();
+
+		System.out.println(String.format("Out of %d known accounts, encoding %d accounts needs %d uncompressed bytes but only %d compressed bytes",
+				numberOfKnownAccounts, numberOfAccountsToEncode, byteLength, compressedSize));
+	}
+
+	@Test
+	public void benchmarkBitSetCompression() {
+		Random random = new Random();
+
+		System.out.println(String.format("Known Online UncompressedBitSet UncompressedIntList Compressed"));
+
+		for (int run = 0; run < 1000; ++run) {
+			final int numberOfKnownAccounts = random.nextInt(1 << 17) + 1;
+
+			// 5% to 25%
+			final int numberOfAccountsToEncode = random.nextInt((numberOfKnownAccounts / 20) + numberOfKnownAccounts / 5);
+
+			// Enough uncompressed bytes to fit one bit per known account
+			final int uncompressedBitSetSize = ((numberOfKnownAccounts - 1) >> 3) + 1;
+
+			// Size of a simple list of ints
+			final int uncompressedIntListSize = numberOfAccountsToEncode * 4;
+
+			ConciseSet compressedSet = new ConciseSet();
+
+			for (int i = 0; i < numberOfAccountsToEncode; ++i)
+				compressedSet.add(random.nextInt(numberOfKnownAccounts));
+
+			int compressedSize = compressedSet.toByteBuffer().remaining();
+
+			System.out.println(String.format("%d %d %d %d %d", numberOfKnownAccounts, numberOfAccountsToEncode, uncompressedBitSetSize, uncompressedIntListSize, compressedSize));
 		}
 	}
 

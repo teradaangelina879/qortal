@@ -8,6 +8,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,12 +21,14 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.at.AT;
 import org.qora.block.BlockChain;
+import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockTransactionData;
+import org.qora.data.network.OnlineAccount;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.ATRepository;
 import org.qora.repository.BlockRepository;
@@ -37,12 +40,17 @@ import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
+import org.qora.transform.Transformer;
 import org.qora.transform.block.BlockTransformer;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.utils.Base58;
 import org.qora.utils.NTP;
+import org.roaringbitmap.IntIterator;
 
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Longs;
+
+import io.druid.extendedset.intset.ConciseSet;
 
 /*
  * Typical use-case scenarios:
@@ -90,7 +98,12 @@ public class Block {
 		TRANSACTION_PROCESSING_FAILED(53),
 		TRANSACTION_ALREADY_PROCESSED(54),
 		TRANSACTION_NEEDS_APPROVAL(55),
-		AT_STATES_MISMATCH(61);
+		AT_STATES_MISMATCH(61),
+		ONLINE_ACCOUNT_LEVEL_ZERO(70),
+		ONLINE_ACCOUNT_UNKNOWN(71),
+		ONLINE_ACCOUNT_SIGNATURES_MISSING(72),
+		ONLINE_ACCOUNT_SIGNATURES_MALFORMED(73),
+		ONLINE_ACCOUNT_SIGNATURE_INCORRECT(74);
 
 		public final int value;
 
@@ -133,6 +146,8 @@ public class Block {
 	/** Maximum size of block in bytes */
 	// TODO push this out to blockchain config file
 	public static final int MAX_BLOCK_BYTES = 1048576;
+
+	public static final ConciseSet EMPTY_ONLINE_ACCOUNTS = new ConciseSet();
 
 	// Constructors
 
@@ -207,10 +222,48 @@ public class Block {
 		byte[] reference = parentBlockData.getSignature();
 		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
 
+		// Fetch our list of online accounts
+		List<OnlineAccount> onlineAccounts = Controller.getInstance().getOnlineAccounts();
+		if (onlineAccounts.isEmpty())
+			throw new IllegalStateException("No online accounts - not even our own?");
+
+		// Find newest online accounts timestamp
+		long onlineAccountsTimestamp = 0;
+		for (OnlineAccount onlineAccount : onlineAccounts) {
+			if (onlineAccount.getTimestamp() > onlineAccountsTimestamp)
+				onlineAccountsTimestamp = onlineAccount.getTimestamp();
+		}
+
+		// Map using account index (in list of proxy forger accounts)
+		Map<Integer, OnlineAccount> indexedOnlineAccounts = new HashMap<>();
+		for (OnlineAccount onlineAccount : onlineAccounts) {
+			// Disregard online accounts with different timestamps
+			if (onlineAccount.getTimestamp() != onlineAccountsTimestamp)
+				continue;
+
+			int accountIndex = repository.getAccountRepository().getProxyAccountIndex(onlineAccount.getPublicKey());
+			indexedOnlineAccounts.put(accountIndex, onlineAccount);
+		}
+		List<Integer> accountIndexes = new ArrayList<>(indexedOnlineAccounts.keySet());
+		accountIndexes.sort(null);
+
+		// Convert to compressed integer set
+		ConciseSet onlineAccountsSet = new ConciseSet();
+		onlineAccountsSet = onlineAccountsSet.convert(accountIndexes);
+		byte[] encodedOnlineAccounts = BlockTransformer.encodeOnlineAccounts(onlineAccountsSet);
+
+		// Concatenate online account timestamp signatures (in correct order)
+		byte[] timestampSignatures = new byte[accountIndexes.size() * Transformer.SIGNATURE_LENGTH];
+		for (int i = 0; i < accountIndexes.size(); ++i) {
+			Integer accountIndex = accountIndexes.get(i);
+			OnlineAccount onlineAccount = indexedOnlineAccounts.get(accountIndex);
+			System.arraycopy(onlineAccount.getSignature(), 0, timestampSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
+		}
+
 		byte[] generatorSignature;
 		try {
 			generatorSignature = generator
-					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator));
+					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator, encodedOnlineAccounts));
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
@@ -229,7 +282,7 @@ public class Block {
 
 		// This instance used for AT processing
 		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generator.getPublicKey(), generatorSignature, atCount, atFees);
+				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, timestampSignatures);
 
 		// Requires this.blockData and this.transactions, sets this.ourAtStates and this.ourAtFees
 		this.executeATs();
@@ -241,7 +294,7 @@ public class Block {
 
 		// Rebuild blockData using post-AT-execute data
 		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generator.getPublicKey(), generatorSignature, atCount, atFees);
+				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, timestampSignatures);
 	}
 
 	/**
@@ -273,7 +326,7 @@ public class Block {
 		byte[] generatorSignature;
 		try {
 			generatorSignature = generator
-					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator));
+					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator, this.blockData.getEncodedOnlineAccounts()));
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
@@ -289,8 +342,12 @@ public class Block {
 		int atCount = newBlock.ourAtStates.size();
 		BigDecimal atFees = newBlock.ourAtFees;
 
+		byte[] encodedOnlineAccounts = this.blockData.getEncodedOnlineAccounts();
+		Long onlineAccountsTimestamp = this.blockData.getOnlineAccountsTimestamp();
+		byte[] timestampSignatures = this.blockData.getTimestampSignatures();
+
 		newBlock.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generator.getPublicKey(), generatorSignature, atCount, atFees);
+				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, timestampSignatures);
 
 		// Resign to update transactions signature
 		newBlock.sign();
@@ -811,6 +868,50 @@ public class Block {
 		return ValidationResult.OK;
 	}
 
+	public ValidationResult areOnlineAccountsValid() throws DataException {
+		// Expand block's online accounts indexes into actual accounts
+		ConciseSet accountIndexes = BlockTransformer.decodeOnlineAccounts(this.blockData.getEncodedOnlineAccounts());
+
+		List<ProxyForgerData> expandedAccounts = new ArrayList<>();
+
+		IntIterator iterator = accountIndexes.iterator();
+		while (iterator.hasNext()) {
+			int accountIndex = iterator.next();
+			ProxyForgerData proxyAccountData = repository.getAccountRepository().getProxyAccountByIndex(accountIndex);
+
+			// Check that claimed online account actually exists
+			if (proxyAccountData == null)
+				return ValidationResult.ONLINE_ACCOUNT_UNKNOWN;
+
+			expandedAccounts.add(proxyAccountData);
+		}
+
+		// Possibly check signatures if block is recent
+		long signatureRequirementThreshold = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMinLifetime();
+		if (this.blockData.getTimestamp() >= signatureRequirementThreshold) {
+			if (this.blockData.getTimestampSignatures() == null || this.blockData.getTimestampSignatures().length == 0)
+				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MISSING;
+
+			if (this.blockData.getTimestampSignatures().length != expandedAccounts.size() * Transformer.SIGNATURE_LENGTH)
+				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
+
+			// Check signatures
+			List<byte[]> timestampSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getTimestampSignatures());
+			byte[] message = Longs.toByteArray(this.blockData.getOnlineAccountsTimestamp());
+
+			for (int i = 0; i < timestampSignatures.size(); ++i) {
+				PublicKeyAccount account = new PublicKeyAccount(null, expandedAccounts.get(i).getProxyPublicKey());
+				byte[] signature = timestampSignatures.get(i);
+
+				if (!account.verify(signature, message))
+					return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
+			}
+		}
+
+		return ValidationResult.OK;
+	}
+
+
 	/**
 	 * Returns whether Block is valid.
 	 * <p>
@@ -862,6 +963,11 @@ public class Block {
 		// Check generator is allowed to forge this block
 		if (!isGeneratorValidToForge(parentBlock))
 			return ValidationResult.GENERATOR_NOT_ACCEPTED;
+
+		// Online Accounts
+		ValidationResult onlineAccountsResult = this.areOnlineAccountsValid();
+		if (onlineAccountsResult != ValidationResult.OK)
+			return onlineAccountsResult;
 
 		// CIYAM ATs
 		if (this.blockData.getATCount() != 0) {

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -18,19 +19,24 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qora.account.PrivateKeyAccount;
+import org.qora.account.PublicKeyAccount;
 import org.qora.api.ApiService;
 import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockGenerator;
 import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.crypto.Crypto;
+import org.qora.data.account.ForgingAccountData;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockSummaryData;
+import org.qora.data.network.OnlineAccount;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;
@@ -46,6 +52,7 @@ import org.qora.network.message.BlockSummariesMessage;
 import org.qora.network.message.GetArbitraryDataMessage;
 import org.qora.network.message.GetBlockMessage;
 import org.qora.network.message.GetBlockSummariesMessage;
+import org.qora.network.message.GetOnlineAccountsMessage;
 import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.GetSignaturesV2Message;
@@ -54,6 +61,7 @@ import org.qora.network.message.GetUnconfirmedTransactionsMessage;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.HeightV2Message;
 import org.qora.network.message.Message;
+import org.qora.network.message.OnlineAccountsMessage;
 import org.qora.network.message.SignaturesMessage;
 import org.qora.network.message.TransactionMessage;
 import org.qora.network.message.TransactionSignaturesMessage;
@@ -71,6 +79,8 @@ import org.qora.ui.UiService;
 import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 import org.qora.utils.Triple;
+
+import com.google.common.primitives.Longs;
 
 public class Controller extends Thread {
 
@@ -94,6 +104,11 @@ public class Controller extends Thread {
 	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000; // ms
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000; // ms
 
+	// To do with online accounts list
+	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000; // ms
+	private static final long ONLINE_TIMESTAMP_MODULUS = 5 * 60 * 1000;
+	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000);
+
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
 	private static volatile boolean requestSync = false;
@@ -108,6 +123,8 @@ public class Controller extends Thread {
 	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
+	private long onlineAccountsTasksTimestamp = startTime + ONLINE_ACCOUNTS_TASKS_INTERVAL; // ms
+
 	/** Whether BlockGenerator is allowed to generate blocks. Mostly determined by system clock accuracy. */
 	private volatile boolean isGenerationAllowed = false;
 
@@ -137,6 +154,9 @@ public class Controller extends Thread {
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly generated block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
+
+	/** Cache of 'online accounts' */
+	List<OnlineAccount> onlineAccounts = new ArrayList<>();
 
 	// Constructors
 
@@ -198,6 +218,7 @@ public class Controller extends Thread {
 		return this.chainTip.get();
 	}
 
+	/** Cache new blockchain tip, and also wipe cache of online accounts. */
 	public void setChainTip(BlockData blockData) {
 		this.chainTip.set(blockData);
 	}
@@ -373,6 +394,12 @@ public class Controller extends Thread {
 				if (requestSysTrayUpdate) {
 					requestSysTrayUpdate = false;
 					updateSysTray();
+				}
+
+				// Perform tasks to do with managing online accounts list
+				if (now >= onlineAccountsTasksTimestamp) {
+					onlineAccountsTasksTimestamp = now + ONLINE_ACCOUNTS_TASKS_INTERVAL;
+					performOnlineAccountsTasks();
 				}
 			}
 		} catch (InterruptedException e) {
@@ -1132,6 +1159,53 @@ public class Controller extends Thread {
 				break;
 			}
 
+			case GET_ONLINE_ACCOUNTS: {
+				GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
+
+				List<OnlineAccount> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
+
+				// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
+				List<OnlineAccount> accountsToSend;
+				synchronized (this.onlineAccounts) {
+					accountsToSend = new ArrayList<>(this.onlineAccounts);
+				}
+
+				Iterator<OnlineAccount> iterator = accountsToSend.iterator();
+
+				SEND_ITERATOR:
+				while (iterator.hasNext()) {
+					OnlineAccount onlineAccount = iterator.next();
+
+					for (int i = 0; i < excludeAccounts.size(); ++i) {
+						OnlineAccount excludeAccount = excludeAccounts.get(i);
+
+						if (onlineAccount.getTimestamp() == excludeAccount.getTimestamp() && Arrays.equals(onlineAccount.getPublicKey(), excludeAccount.getPublicKey())) {
+							iterator.remove();
+							continue SEND_ITERATOR;
+						}
+					}
+				}
+
+				Message onlineAccountsMessage = new OnlineAccountsMessage(accountsToSend);
+				peer.sendMessage(onlineAccountsMessage);
+
+				LOGGER.trace(() -> String.format("Sent %d of our %d online accounts to %s", accountsToSend.size(), this.onlineAccounts.size(), peer));
+
+				break;
+			}
+
+			case ONLINE_ACCOUNTS: {
+				OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
+
+				List<OnlineAccount> onlineAccounts = onlineAccountsMessage.getOnlineAccounts();
+				LOGGER.trace(() -> String.format("Received %d online accounts from %s", onlineAccounts.size(), peer));
+
+				for (OnlineAccount onlineAccount : onlineAccounts)
+					this.verifyAndAddAccount(onlineAccount);
+
+				break;
+			}
+
 			default:
 				LOGGER.debug(String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
@@ -1139,6 +1213,158 @@ public class Controller extends Thread {
 	}
 
 	// Utilities
+
+	private void verifyAndAddAccount(OnlineAccount onlineAccount) {
+		// We would check timestamp is 'recent' here
+
+		// Verify
+		byte[] data = Longs.toByteArray(onlineAccount.getTimestamp());
+		PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccount.getPublicKey());
+		if (!otherAccount.verify(onlineAccount.getSignature(), data)) {
+			LOGGER.trace(() -> String.format("Rejecting invalid online account %s", otherAccount.getAddress()));
+			return;
+		}
+
+		synchronized (this.onlineAccounts) {
+			OnlineAccount existingAccount = this.onlineAccounts.stream().filter(account -> Arrays.equals(account.getPublicKey(), onlineAccount.getPublicKey())).findFirst().orElse(null);
+
+			if (existingAccount != null) {
+				if (existingAccount.getTimestamp() < onlineAccount.getTimestamp()) {
+					this.onlineAccounts.remove(existingAccount);
+
+					LOGGER.trace(() -> String.format("Updated online account %s with timestamp %d (was %d)", otherAccount.getAddress(), onlineAccount.getTimestamp(), existingAccount.getTimestamp()));
+				} else {
+					LOGGER.trace(() -> String.format("Not updating existing online account %s", otherAccount.getAddress()));
+
+					return;
+				}
+			} else {
+				LOGGER.trace(() -> String.format("Added online account %s with timestamp %d", otherAccount.getAddress(), onlineAccount.getTimestamp()));
+			}
+
+			this.onlineAccounts.add(onlineAccount);
+		}
+	}
+
+	private void performOnlineAccountsTasks() {
+		final long now = System.currentTimeMillis();
+
+		// Expire old entries
+		final long cutoffThreshold = now - LAST_SEEN_EXPIRY_PERIOD;
+		synchronized (this.onlineAccounts) {
+			Iterator<OnlineAccount> iterator = this.onlineAccounts.iterator();
+			while (iterator.hasNext()) {
+				OnlineAccount onlineAccount = iterator.next();
+
+				if (onlineAccount.getTimestamp() < cutoffThreshold) {
+					iterator.remove();
+
+					LOGGER.trace(() -> {
+						PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccount.getPublicKey());
+						return String.format("Removed expired online account %s with timestamp %d", otherAccount.getAddress(), onlineAccount.getTimestamp());
+					});
+				}
+			}
+		}
+
+		// Request data from another peer
+		Message message;
+		synchronized (this.onlineAccounts) {
+			message = new GetOnlineAccountsMessage(this.onlineAccounts);
+		}
+		Network.getInstance().broadcast((peer) -> message);
+
+		// Refresh our onlineness?
+		sendOurOnlineAccountsInfo();
+	}
+
+	private void sendOurOnlineAccountsInfo() {
+		final Long now = NTP.getTime();
+		if (now == null)
+			return;
+
+		List<ForgingAccountData> forgingAccounts;
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			forgingAccounts = repository.getAccountRepository().getForgingAccounts();
+
+			// We have no accounts, but don't reset timestamp
+			if (forgingAccounts.isEmpty())
+				return;
+
+			// Only proxy forging accounts allowed
+			Iterator<ForgingAccountData> iterator = forgingAccounts.iterator();
+			while (iterator.hasNext()) {
+				ForgingAccountData forgingAccountData = iterator.next();
+
+				if (!repository.getAccountRepository().isProxyPublicKey(forgingAccountData.getPublicKey()))
+					iterator.remove();
+			}
+		} catch (DataException e) {
+			LOGGER.warn("Repository issue trying to fetch forging accounts: " + e.getMessage());
+			return;
+		}
+
+
+		// 'current' timestamp
+		final long onlineAccountsTimestamp = Controller.toOnlineAccountTimestamp(now);
+		boolean hasInfoChanged = false;
+
+		byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
+		List<OnlineAccount> ourOnlineAccounts = new ArrayList<>();
+
+		FORGING_ACCOUNTS:
+		for (ForgingAccountData forgingAccountData : forgingAccounts) {
+			PrivateKeyAccount forgingAccount = new PrivateKeyAccount(null, forgingAccountData.getSeed());
+
+			byte[] signature = forgingAccount.sign(timestampBytes);
+			byte[] publicKey = forgingAccount.getPublicKey();
+
+			// Our account is online
+			OnlineAccount onlineAccount = new OnlineAccount(onlineAccountsTimestamp, signature, publicKey);
+			synchronized (this.onlineAccounts) {
+				Iterator<OnlineAccount> iterator = this.onlineAccounts.iterator();
+				while (iterator.hasNext()) {
+					OnlineAccount account = iterator.next();
+
+					if (Arrays.equals(account.getPublicKey(), forgingAccount.getPublicKey())) {
+						// If onlineAccount is already present, with same timestamp, then move on to next forgingAccount
+						if (account.getTimestamp() == onlineAccountsTimestamp)
+							continue FORGING_ACCOUNTS;
+
+						// If onlineAccount is already present, but with older timestamp, then remove it
+						iterator.remove();
+						break;
+					}
+				}
+
+				this.onlineAccounts.add(onlineAccount);
+			}
+
+			LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", forgingAccount.getAddress(), onlineAccountsTimestamp));
+			ourOnlineAccounts.add(onlineAccount);
+			hasInfoChanged = true;
+		}
+
+		if (!hasInfoChanged)
+			return;
+
+		Message message = new OnlineAccountsMessage(ourOnlineAccounts);
+		Network.getInstance().broadcast((peer) -> message);
+
+		LOGGER.trace(( )-> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
+	}
+
+	public static long toOnlineAccountTimestamp(long timestamp) {
+		return (timestamp / ONLINE_TIMESTAMP_MODULUS) * ONLINE_TIMESTAMP_MODULUS;
+	}
+
+	public List<OnlineAccount> getOnlineAccounts() {
+		final long onlineTimestamp = Controller.toOnlineAccountTimestamp(NTP.getTime());
+
+		synchronized (this.onlineAccounts) {
+			return this.onlineAccounts.stream().filter(account -> account.getTimestamp() == onlineTimestamp).collect(Collectors.toList());
+		}
+	}
 
 	public byte[] fetchArbitraryData(byte[] signature) throws InterruptedException {
 		// Build request

@@ -776,6 +776,21 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE Peers ADD COLUMN added_by VARCHAR(255)");
 					break;
 
+				case 54:
+					// Account 'level'
+					stmt.execute("ALTER TABLE Accounts ADD COLUMN level TINYINT NOT NULL DEFAULT 0");
+					// Corresponding transaction to set level
+					stmt.execute("CREATE TABLE AccountLevelTransactions (signature Signature, creator QoraPublicKey NOT NULL, target QoraAddress NOT NULL, level INT NOT NULL, "
+							+ "previous_level INT, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					break;
+
+				case 55:
+					// Storage of which level 1+ accounts were 'online' for a particular block. Used to distribute block rewards.
+					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts VARBINARY(1048576)");
+					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts_timestamp TIMESTAMP WITH TIME ZONE");
+					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts_signatures BLOB");
+					break;
+
 				default:
 					// nothing to do
 					return false;

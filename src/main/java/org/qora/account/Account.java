@@ -250,4 +250,16 @@ public class Account {
 		this.repository.getAccountRepository().setForgingEnabler(accountData);
 	}
 
+	// Account level
+
+	public Integer getLevel() throws DataException {
+		return this.repository.getAccountRepository().getLevel(this.address);
+	}
+
+	public void setLevel(int level) throws DataException {
+		AccountData accountData = this.buildAccountData();
+		accountData.setLevel(level);
+		this.repository.getAccountRepository().setLevel(accountData);
+	}
+
 }

@@ -68,7 +68,9 @@ public abstract class Message {
 		GET_UNCONFIRMED_TRANSACTIONS(21),
 		TRANSACTION_SIGNATURES(22),
 		GET_ARBITRARY_DATA(23),
-		ARBITRARY_DATA(24);
+		ARBITRARY_DATA(24),
+		GET_ONLINE_ACCOUNTS(25),
+		ONLINE_ACCOUNTS(26);
 
 		public final int value;
 		public final Method fromByteBuffer;
