@@ -25,14 +25,14 @@ import org.qora.block.BlockChain;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class Settings {
 
-	private static final int MAINNET_LISTEN_PORT = 9084;
-	private static final int TESTNET_LISTEN_PORT = 9184;
+	private static final int MAINNET_LISTEN_PORT = 12392;
+	private static final int TESTNET_LISTEN_PORT = 62392;
 
-	private static final int MAINNET_API_PORT = 9085;
-	private static final int TESTNET_API_PORT = 9185;
+	private static final int MAINNET_API_PORT = 12391;
+	private static final int TESTNET_API_PORT = 62391;
 
-	private static final int MAINNET_UI_PORT = 9080;
-	private static final int TESTNET_UI_PORT = 9180;
+	private static final int MAINNET_UI_PORT = 12390;
+	private static final int TESTNET_UI_PORT = 62390;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
