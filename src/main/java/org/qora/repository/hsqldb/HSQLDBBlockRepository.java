@@ -50,10 +50,10 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			BigDecimal atFees = resultSet.getBigDecimal(12);
 			byte[] encodedOnlineAccounts = resultSet.getBytes(13);
 			Long onlineAccountsTimestamp = getZonedTimestampMilli(resultSet, 14);
-			byte[] timestampSignatures = resultSet.getBytes(15);
+			byte[] onlineAccountsSignatures = resultSet.getBytes(15);
 
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-					generatorPublicKey, generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, timestampSignatures);
+					generatorPublicKey, generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, onlineAccountsSignatures);
 		} catch (SQLException e) {
 			throw new DataException("Error extracting data from result set", e);
 		}
@@ -323,7 +323,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees())
 				.bind("online_accounts", blockData.getEncodedOnlineAccounts())
 				.bind("online_accounts_timestamp", toOffsetDateTime(blockData.getOnlineAccountsTimestamp()))
-				.bind("online_accounts_signatures", blockData.getTimestampSignatures());
+				.bind("online_accounts_signatures", blockData.getOnlineAccountsSignatures());
 
 		try {
 			saveHelper.execute(this.repository);

@@ -253,11 +253,11 @@ public class Block {
 		byte[] encodedOnlineAccounts = BlockTransformer.encodeOnlineAccounts(onlineAccountsSet);
 
 		// Concatenate online account timestamp signatures (in correct order)
-		byte[] timestampSignatures = new byte[accountIndexes.size() * Transformer.SIGNATURE_LENGTH];
+		byte[] onlineAccountsSignatures = new byte[accountIndexes.size() * Transformer.SIGNATURE_LENGTH];
 		for (int i = 0; i < accountIndexes.size(); ++i) {
 			Integer accountIndex = accountIndexes.get(i);
 			OnlineAccount onlineAccount = indexedOnlineAccounts.get(accountIndex);
-			System.arraycopy(onlineAccount.getSignature(), 0, timestampSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
+			System.arraycopy(onlineAccount.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
 		}
 
 		byte[] generatorSignature;
@@ -282,7 +282,7 @@ public class Block {
 
 		// This instance used for AT processing
 		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, timestampSignatures);
+				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, onlineAccountsSignatures);
 
 		// Requires this.blockData and this.transactions, sets this.ourAtStates and this.ourAtFees
 		this.executeATs();
@@ -294,7 +294,7 @@ public class Block {
 
 		// Rebuild blockData using post-AT-execute data
 		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, timestampSignatures);
+				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, onlineAccountsSignatures);
 	}
 
 	/**
@@ -344,10 +344,10 @@ public class Block {
 
 		byte[] encodedOnlineAccounts = this.blockData.getEncodedOnlineAccounts();
 		Long onlineAccountsTimestamp = this.blockData.getOnlineAccountsTimestamp();
-		byte[] timestampSignatures = this.blockData.getTimestampSignatures();
+		byte[] onlineAccountsSignatures = this.blockData.getOnlineAccountsSignatures();
 
 		newBlock.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, timestampSignatures);
+				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, onlineAccountsSignatures);
 
 		// Resign to update transactions signature
 		newBlock.sign();
@@ -869,6 +869,10 @@ public class Block {
 	}
 
 	public ValidationResult areOnlineAccountsValid() throws DataException {
+		// Doesn't apply for Genesis block!
+		if (this.blockData.getHeight() != null && this.blockData.getHeight() == 1)
+			return ValidationResult.OK;
+
 		// Expand block's online accounts indexes into actual accounts
 		ConciseSet accountIndexes = BlockTransformer.decodeOnlineAccounts(this.blockData.getEncodedOnlineAccounts());
 
@@ -889,19 +893,19 @@ public class Block {
 		// Possibly check signatures if block is recent
 		long signatureRequirementThreshold = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMinLifetime();
 		if (this.blockData.getTimestamp() >= signatureRequirementThreshold) {
-			if (this.blockData.getTimestampSignatures() == null || this.blockData.getTimestampSignatures().length == 0)
+			if (this.blockData.getOnlineAccountsSignatures() == null || this.blockData.getOnlineAccountsSignatures().length == 0)
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MISSING;
 
-			if (this.blockData.getTimestampSignatures().length != expandedAccounts.size() * Transformer.SIGNATURE_LENGTH)
+			if (this.blockData.getOnlineAccountsSignatures().length != expandedAccounts.size() * Transformer.SIGNATURE_LENGTH)
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 
 			// Check signatures
-			List<byte[]> timestampSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getTimestampSignatures());
+			List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
 			byte[] message = Longs.toByteArray(this.blockData.getOnlineAccountsTimestamp());
 
-			for (int i = 0; i < timestampSignatures.size(); ++i) {
+			for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
 				PublicKeyAccount account = new PublicKeyAccount(null, expandedAccounts.get(i).getProxyPublicKey());
-				byte[] signature = timestampSignatures.get(i);
+				byte[] signature = onlineAccountsSignatures.get(i);
 
 				if (!account.verify(signature, message))
 					return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;

@@ -34,7 +34,7 @@ public class BlockData implements Serializable {
 	private BigDecimal atFees;
 	private byte[] encodedOnlineAccounts;
 	private Long onlineAccountsTimestamp;
-	private byte[] timestampSignatures;
+	private byte[] onlineAccountsSignatures;
 
 	// Constructors
 
@@ -44,7 +44,7 @@ public class BlockData implements Serializable {
 
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
 			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees,
-			byte[] encodedOnlineAccounts, Long onlineAccountsTimestamp, byte[] timestampSignatures) {
+			byte[] encodedOnlineAccounts, Long onlineAccountsTimestamp, byte[] onlineAccountsSignatures) {
 		this.version = version;
 		this.reference = reference;
 		this.transactionCount = transactionCount;
@@ -59,7 +59,7 @@ public class BlockData implements Serializable {
 		this.atFees = atFees;
 		this.encodedOnlineAccounts = encodedOnlineAccounts;
 		this.onlineAccountsTimestamp = onlineAccountsTimestamp;
-		this.timestampSignatures = timestampSignatures;
+		this.onlineAccountsSignatures = onlineAccountsSignatures;
 
 		if (this.generatorSignature != null && this.transactionsSignature != null)
 			this.signature = Bytes.concat(this.generatorSignature, this.transactionsSignature);
@@ -175,8 +175,8 @@ public class BlockData implements Serializable {
 		this.onlineAccountsTimestamp = onlineAccountsTimestamp;
 	}
 
-	public byte[] getTimestampSignatures() {
-		return this.timestampSignatures;
+	public byte[] getOnlineAccountsSignatures() {
+		return this.onlineAccountsSignatures;
 	}
 
 	// JAXB special
