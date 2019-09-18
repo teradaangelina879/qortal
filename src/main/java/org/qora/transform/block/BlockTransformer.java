@@ -49,6 +49,7 @@ public class BlockTransformer extends Transformer {
 	protected static final int AT_FEES_LENGTH = LONG_LENGTH;
 	protected static final int AT_LENGTH = AT_FEES_LENGTH + AT_BYTES_LENGTH;
 
+	protected static final int ONLINE_ACCOUNTS_COUNT_LENGTH = INT_LENGTH;
 	protected static final int ONLINE_ACCOUNTS_SIZE_LENGTH = INT_LENGTH;
 	protected static final int ONLINE_ACCOUNTS_TIMESTAMP_LENGTH = LONG_LENGTH;
 	protected static final int ONLINE_ACCOUNTS_SIGNATURES_COUNT_LENGTH = INT_LENGTH;
@@ -194,11 +195,14 @@ public class BlockTransformer extends Transformer {
 		}
 
 		// Online accounts info?
-		byte[] onlineAccounts = null;
+		byte[] encodedOnlineAccounts = null;
+		int onlineAccountsCount = 0;
 		byte[] onlineAccountsSignatures = null;
 		Long onlineAccountsTimestamp = null;
 
 		if (version >= 4) {
+			onlineAccountsCount = byteBuffer.getInt();
+
 			int conciseSetLength = byteBuffer.getInt();
 
 			if (conciseSetLength > Block.MAX_BLOCK_BYTES)
@@ -207,8 +211,13 @@ public class BlockTransformer extends Transformer {
 			if ((conciseSetLength & 3) != 0)
 				throw new TransformationException("Byte data length not multiple of 4 for online account info");
 
-			onlineAccounts = new byte[conciseSetLength];
-			byteBuffer.get(onlineAccounts);
+			encodedOnlineAccounts = new byte[conciseSetLength];
+			byteBuffer.get(encodedOnlineAccounts);
+
+			// Try to decode to ConciseSet
+			ConciseSet accountsIndexes = BlockTransformer.decodeOnlineAccounts(encodedOnlineAccounts);
+			if (accountsIndexes.size() != onlineAccountsCount)
+				throw new TransformationException("Block's online account data malformed");
 
 			// Note: number of signatures, not byte length
 			int onlineAccountsSignaturesCount = byteBuffer.getInt();
@@ -228,7 +237,7 @@ public class BlockTransformer extends Transformer {
 		// We don't have a height!
 		Integer height = null;
 		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generatorPublicKey, generatorSignature, atCount, atFees, onlineAccounts, onlineAccountsTimestamp, onlineAccountsSignatures);
+				generatorPublicKey, generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
 		return new Triple<BlockData, List<TransactionData>, List<ATStateData>>(blockData, transactions, atStates);
 	}
@@ -239,9 +248,11 @@ public class BlockTransformer extends Transformer {
 
 		if (blockData.getVersion() >= 4) {
 			blockLength += AT_BYTES_LENGTH + blockData.getATCount() * V4_AT_ENTRY_LENGTH;
-			blockLength += ONLINE_ACCOUNTS_SIZE_LENGTH + blockData.getEncodedOnlineAccounts().length;
+			blockLength += ONLINE_ACCOUNTS_COUNT_LENGTH + ONLINE_ACCOUNTS_SIZE_LENGTH + blockData.getEncodedOnlineAccounts().length;
 			blockLength += ONLINE_ACCOUNTS_SIGNATURES_COUNT_LENGTH;
-			if (blockData.getOnlineAccountsSignatures().length > 0)
+
+			byte[] onlineAccountsSignatures = blockData.getOnlineAccountsSignatures();
+			if (onlineAccountsSignatures != null && onlineAccountsSignatures.length > 0)
 				blockLength += ONLINE_ACCOUNTS_TIMESTAMP_LENGTH + blockData.getOnlineAccountsSignatures().length;
 		} else if (blockData.getVersion() >= 2)
 			blockLength += AT_FEES_LENGTH + AT_BYTES_LENGTH + blockData.getATCount() * V2_AT_ENTRY_LENGTH;
@@ -315,25 +326,27 @@ public class BlockTransformer extends Transformer {
 				byte[] encodedOnlineAccounts = blockData.getEncodedOnlineAccounts();
 
 				if (encodedOnlineAccounts != null) {
+					bytes.write(Ints.toByteArray(blockData.getOnlineAccountsCount()));
+
 					bytes.write(Ints.toByteArray(encodedOnlineAccounts.length));
 					bytes.write(encodedOnlineAccounts);
 				} else {
-					bytes.write(Ints.toByteArray(0));
+					bytes.write(Ints.toByteArray(0)); // onlineAccountsCount
+					bytes.write(Ints.toByteArray(0)); // encodedOnlineAccounts length
 				}
 
 				byte[] onlineAccountsSignatures = blockData.getOnlineAccountsSignatures();
 
-				if (onlineAccountsSignatures != null) {
+				if (onlineAccountsSignatures != null && onlineAccountsSignatures.length > 0) {
 					// Note: we write the number of signatures, not the number of bytes
 					bytes.write(Ints.toByteArray(onlineAccountsSignatures.length / Transformer.SIGNATURE_LENGTH));
 
-					if (onlineAccountsSignatures.length > 0) {
-						// Only write online accounts timestamp if we have signatures
-						bytes.write(Longs.toByteArray(blockData.getOnlineAccountsTimestamp()));
+					// We only write online accounts timestamp if we have signatures
+					bytes.write(Longs.toByteArray(blockData.getOnlineAccountsTimestamp()));
 
-						bytes.write(onlineAccountsSignatures);
-					}
+					bytes.write(onlineAccountsSignatures);
 				} else {
+					// Zero online accounts signatures (timestamp omitted also)
 					bytes.write(Ints.toByteArray(0));
 				}
 			}

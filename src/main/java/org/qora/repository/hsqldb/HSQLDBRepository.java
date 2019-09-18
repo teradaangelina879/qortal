@@ -460,17 +460,19 @@ public class HSQLDBRepository implements Repository {
 	 * @return number of changed rows
 	 * @throws SQLException
 	 */
-	private int checkedExecuteUpdateCount(PreparedStatement preparedStatement, Object... objects) throws SQLException {
-		prepareExecute(preparedStatement, objects);
+	/* package */ int checkedExecuteUpdateCount(String sql, Object... objects) throws SQLException {
+		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
+			prepareExecute(preparedStatement, objects);
 
-		if (preparedStatement.execute())
-			throw new SQLException("Database produced results, not row count");
+			if (preparedStatement.execute())
+				throw new SQLException("Database produced results, not row count");
 
-		int rowCount = preparedStatement.getUpdateCount();
-		if (rowCount == -1)
-			throw new SQLException("Database returned invalid row count");
+			int rowCount = preparedStatement.getUpdateCount();
+			if (rowCount == -1)
+				throw new SQLException("Database returned invalid row count");
 
-		return rowCount;
+			return rowCount;
+		}
 	}
 
 	/**
@@ -543,9 +545,7 @@ public class HSQLDBRepository implements Repository {
 		sql.append(" WHERE ");
 		sql.append(whereClause);
 
-		try (PreparedStatement preparedStatement = this.prepareStatement(sql.toString())) {
-			return this.checkedExecuteUpdateCount(preparedStatement, objects);
-		}
+		return this.checkedExecuteUpdateCount(sql.toString(), objects);
 	}
 
 	/**
@@ -559,9 +559,7 @@ public class HSQLDBRepository implements Repository {
 		sql.append("DELETE FROM ");
 		sql.append(tableName);
 
-		try (PreparedStatement preparedStatement = this.prepareStatement(sql.toString())) {
-			return this.checkedExecuteUpdateCount(preparedStatement);
-		}
+		return this.checkedExecuteUpdateCount(sql.toString());
 	}
 
 	/**

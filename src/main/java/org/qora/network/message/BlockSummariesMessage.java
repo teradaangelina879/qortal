@@ -15,7 +15,7 @@ import com.google.common.primitives.Ints;
 
 public class BlockSummariesMessage extends Message {
 
-	private static final int BLOCK_SUMMARY_LENGTH = BlockTransformer.BLOCK_SIGNATURE_LENGTH + Transformer.INT_LENGTH + Transformer.PUBLIC_KEY_LENGTH;
+	private static final int BLOCK_SUMMARY_LENGTH = BlockTransformer.BLOCK_SIGNATURE_LENGTH + Transformer.INT_LENGTH + Transformer.PUBLIC_KEY_LENGTH + Transformer.INT_LENGTH;
 
 	private List<BlockSummaryData> blockSummaries;
 
@@ -49,7 +49,9 @@ public class BlockSummariesMessage extends Message {
 			byte[] generatorPublicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
 			bytes.get(generatorPublicKey);
 
-			BlockSummaryData blockSummary = new BlockSummaryData(height, signature, generatorPublicKey);
+			int onlineAccountsCount = bytes.getInt();
+
+			BlockSummaryData blockSummary = new BlockSummaryData(height, signature, generatorPublicKey, onlineAccountsCount);
 			blockSummaries.add(blockSummary);
 		}
 
@@ -67,6 +69,7 @@ public class BlockSummariesMessage extends Message {
 				bytes.write(Ints.toByteArray(blockSummary.getHeight()));
 				bytes.write(blockSummary.getSignature());
 				bytes.write(blockSummary.getGeneratorPublicKey());
+				bytes.write(Ints.toByteArray(blockSummary.getOnlineAccountsCount()));
 			}
 
 			return bytes.toByteArray();

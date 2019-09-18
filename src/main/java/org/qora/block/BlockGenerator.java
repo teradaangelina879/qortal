@@ -70,26 +70,34 @@ public class BlockGenerator extends Thread {
 
 			List<Block> newBlocks = new ArrayList<>();
 
+			// Flags that allow us to track whether generating is possible changes,
+			// so we can notify Controller, and further update SysTray, etc.
+			boolean isGenerationPossible = false;
+			boolean wasGenerationPossible = isGenerationPossible;
 			while (running) {
 				// Sleep for a while
 				try {
 					repository.discardChanges(); // Free repository locks, if any
+
+					if (isGenerationPossible != wasGenerationPossible)
+						Controller.getInstance().onGenerationPossibleChange(isGenerationPossible);
+
+					wasGenerationPossible = isGenerationPossible;
+
 					Thread.sleep(1000);
 				} catch (InterruptedException e) {
 					// We've been interrupted - time to exit
 					return;
 				}
 
-				// If Controller says we can't generate, then don't...
-				if (!Controller.getInstance().isGenerationAllowed())
+				isGenerationPossible = false;
+
+				final Long now = NTP.getTime();
+				if (now == null)
 					continue;
 
 				final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 				if (minLatestBlockTimestamp == null)
-					continue;
-
-				final Long now = NTP.getTime();
-				if (now == null)
 					continue;
 
 				// No online accounts? (e.g. during startup)
@@ -121,6 +129,7 @@ public class BlockGenerator extends Thread {
 
 				// There are no peers with a recent block and/or our latest block is recent
 				// so go ahead and generate a block if possible.
+				isGenerationPossible = true;
 
 				// Check blockchain hasn't changed
 				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {

@@ -106,6 +106,7 @@ public class Controller extends Thread {
 
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000; // ms
+	private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 1 * 60 * 1000; // ms
 	private static final long ONLINE_TIMESTAMP_MODULUS = 5 * 60 * 1000;
 	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000);
 
@@ -125,8 +126,8 @@ public class Controller extends Thread {
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
 	private long onlineAccountsTasksTimestamp = startTime + ONLINE_ACCOUNTS_TASKS_INTERVAL; // ms
 
-	/** Whether BlockGenerator is allowed to generate blocks. Mostly determined by system clock accuracy. */
-	private volatile boolean isGenerationAllowed = false;
+	/** Whether we can generate new blocks, as reported by BlockGenerator. */
+	private volatile boolean isGenerationPossible = false;
 
 	/** Signature of peer's latest block that will result in no sync action needed (e.g. INFERIOR_CHAIN, NOTHING_TO_DO, OK). */
 	private byte[] noSyncPeerBlockSignature = null;
@@ -227,10 +228,6 @@ public class Controller extends Thread {
 		return this.blockchainLock;
 	}
 
-	public boolean isGenerationAllowed() {
-		return this.isGenerationAllowed;
-	}
-
 	// Entry point
 
 	public static void main(String args[]) {
@@ -243,7 +240,10 @@ public class Controller extends Thread {
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
 
 		// Load/check settings, which potentially sets up blockchain config, etc.
-		Settings.getInstance();
+		if (args.length > 0)
+			Settings.fileInstance(args[0]);
+		else
+			Settings.getInstance();
 
 		LOGGER.info("Starting NTP");
 		NTP.start();
@@ -373,7 +373,6 @@ public class Controller extends Thread {
 						ntpCheckTimestamp = now + NTP_PRE_SYNC_CHECK_PERIOD;
 					}
 
-					isGenerationAllowed = ntpTime != null;
 					requestSysTrayUpdate = true;
 				}
 
@@ -525,7 +524,7 @@ public class Controller extends Thread {
 
 		String connectionsText = Translator.INSTANCE.translate("SysTray", numberOfPeers != 1 ? "CONNECTIONS" : "CONNECTION");
 		String heightText = Translator.INSTANCE.translate("SysTray", "BLOCK_HEIGHT");
-		String generatingText = Translator.INSTANCE.translate("SysTray", isGenerationAllowed ? "GENERATING_ENABLED" : "GENERATING_DISABLED");
+		String generatingText = Translator.INSTANCE.translate("SysTray", isGenerationPossible ? "GENERATING_ENABLED" : "GENERATING_DISABLED");
 
 		String tooltip = String.format("%s - %d %s - %s %d", generatingText, numberOfPeers, connectionsText, heightText, height);
 		SysTray.getInstance().setToolTipText(tooltip);
@@ -632,6 +631,11 @@ public class Controller extends Thread {
 		network.broadcast(peer -> network.buildGetUnconfirmedTransactionsMessage(peer));
 	}
 
+	public void onGenerationPossibleChange(boolean isGenerationPossible) {
+		this.isGenerationPossible = isGenerationPossible;
+		requestSysTrayUpdate = true;
+	}
+
 	public void onGeneratedBlock() {
 		// Broadcast our new height info
 		BlockData latestBlockData;
@@ -646,6 +650,8 @@ public class Controller extends Thread {
 
 		Network network = Network.getInstance();
 		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
+
+		requestSysTrayUpdate = true;
 	}
 
 	public void onNewTransaction(TransactionData transactionData) {
@@ -1247,7 +1253,9 @@ public class Controller extends Thread {
 	}
 
 	private void performOnlineAccountsTasks() {
-		final long now = System.currentTimeMillis();
+		final Long now = NTP.getTime();
+		if (now == null)
+			return;
 
 		// Expire old entries
 		final long cutoffThreshold = now - LAST_SEEN_EXPIRY_PERIOD;
@@ -1267,15 +1275,20 @@ public class Controller extends Thread {
 			}
 		}
 
-		// Request data from another peer
-		Message message;
-		synchronized (this.onlineAccounts) {
-			message = new GetOnlineAccountsMessage(this.onlineAccounts);
+		// Request data from other peers?
+		if ((this.onlineAccountsTasksTimestamp % ONLINE_ACCOUNTS_BROADCAST_INTERVAL) < ONLINE_ACCOUNTS_TASKS_INTERVAL) {
+			Message message;
+			synchronized (this.onlineAccounts) {
+				message = new GetOnlineAccountsMessage(this.onlineAccounts);
+			}
+			Network.getInstance().broadcast((peer) -> message);
 		}
-		Network.getInstance().broadcast((peer) -> message);
 
-		// Refresh our onlineness?
+		// Refresh our online accounts signatures?
 		sendOurOnlineAccountsInfo();
+
+		// Trim blockchain by removing 'old' online accounts signatures
+		BlockChain.trimOldOnlineAccountsSignatures();
 	}
 
 	private void sendOurOnlineAccountsInfo() {
@@ -1303,7 +1316,6 @@ public class Controller extends Thread {
 			LOGGER.warn("Repository issue trying to fetch forging accounts: " + e.getMessage());
 			return;
 		}
-
 
 		// 'current' timestamp
 		final long onlineAccountsTimestamp = Controller.toOnlineAccountTimestamp(now);
@@ -1351,7 +1363,7 @@ public class Controller extends Thread {
 		Message message = new OnlineAccountsMessage(ourOnlineAccounts);
 		Network.getInstance().broadcast((peer) -> message);
 
-		LOGGER.trace(( )-> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
+		LOGGER.trace(()-> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
 	}
 
 	public static long toOnlineAccountTimestamp(long timestamp) {

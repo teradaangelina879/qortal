@@ -124,6 +124,14 @@ public interface BlockRepository {
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException;
 
 	/**
+	 * Trim online accounts signatures from blocks older than passed timestamp.
+	 * 
+	 * @param timestamp
+	 * @return number of blocks trimmed
+	 */
+	public int trimOldOnlineAccountsSignatures(long timestamp) throws DataException;
+
+	/**
 	 * Saves block into repository.
 	 * 
 	 * @param blockData

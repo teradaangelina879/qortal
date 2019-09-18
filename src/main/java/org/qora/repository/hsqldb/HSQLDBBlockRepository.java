@@ -23,7 +23,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	private static final String BLOCK_DB_COLUMNS = "version, reference, transaction_count, total_fees, "
 			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, "
-			+ "AT_count, AT_fees, online_accounts, online_accounts_timestamp, online_accounts_signatures";
+			+ "AT_count, AT_fees, online_accounts, online_accounts_count, online_accounts_timestamp, online_accounts_signatures";
 
 	protected HSQLDBRepository repository;
 
@@ -49,11 +49,13 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			int atCount = resultSet.getInt(11);
 			BigDecimal atFees = resultSet.getBigDecimal(12);
 			byte[] encodedOnlineAccounts = resultSet.getBytes(13);
-			Long onlineAccountsTimestamp = getZonedTimestampMilli(resultSet, 14);
-			byte[] onlineAccountsSignatures = resultSet.getBytes(15);
+			int onlineAccountsCount = resultSet.getInt(14);
+			Long onlineAccountsTimestamp = getZonedTimestampMilli(resultSet, 15);
+			byte[] onlineAccountsSignatures = resultSet.getBytes(16);
 
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-					generatorPublicKey, generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsTimestamp, onlineAccountsSignatures);
+					generatorPublicKey, generatorSignature, atCount, atFees,
+					encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 		} catch (SQLException e) {
 			throw new DataException("Error extracting data from result set", e);
 		}
@@ -288,7 +290,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException {
-		String sql = "SELECT signature, height, generator FROM Blocks WHERE height BETWEEN ? AND ?";
+		String sql = "SELECT signature, height, generator, online_accounts_count FROM Blocks WHERE height BETWEEN ? AND ?";
 
 		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 
@@ -300,14 +302,26 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				byte[] signature = resultSet.getBytes(1);
 				int height = resultSet.getInt(2);
 				byte[] generatorPublicKey = resultSet.getBytes(3);
+				int onlineAccountsCount = resultSet.getInt(4);
 
-				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, generatorPublicKey);
+				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, generatorPublicKey, onlineAccountsCount);
 				blockSummaries.add(blockSummary);
 			} while (resultSet.next());
 
 			return blockSummaries;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch height-ranged block summaries from repository", e);
+		}
+	}
+
+	@Override
+	public int trimOldOnlineAccountsSignatures(long timestamp) throws DataException {
+		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE generation < ? AND online_accounts_signatures IS NOT NULL";
+
+		try {
+			return this.repository.checkedExecuteUpdateCount(sql, toOffsetDateTime(timestamp));
+		} catch (SQLException e) {
+			throw new DataException("Unable to trim old online accounts signatures in repository", e);
 		}
 	}
 
@@ -321,7 +335,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				.bind("generation", toOffsetDateTime(blockData.getTimestamp())).bind("generating_balance", blockData.getGeneratingBalance())
 				.bind("generator", blockData.getGeneratorPublicKey()).bind("generator_signature", blockData.getGeneratorSignature())
 				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees())
-				.bind("online_accounts", blockData.getEncodedOnlineAccounts())
+				.bind("online_accounts", blockData.getEncodedOnlineAccounts()).bind("online_accounts_count", blockData.getOnlineAccountsCount())
 				.bind("online_accounts_timestamp", toOffsetDateTime(blockData.getOnlineAccountsTimestamp()))
 				.bind("online_accounts_signatures", blockData.getOnlineAccountsSignatures());
 

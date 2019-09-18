@@ -99,7 +99,6 @@ public class Synchronizer {
 					if (peerHeight == 1)
 						return SynchronizationResult.GENESIS_ONLY;
 
-					// XXX this may well be obsolete now
 					// If peer is too far behind us then don't them.
 					int minHeight = ourHeight - MAXIMUM_HEIGHT_DELTA;
 					if (!force && peerHeight < minHeight) {
@@ -136,7 +135,6 @@ public class Synchronizer {
 						peerHeight = commonBlockHeight;
 					}
 
-					// XXX This may well be obsolete now
 					// If common block is peer's latest block then we simply have the same, or longer, chain to peer, so exit now
 					if (commonBlockHeight == peerHeight) {
 						if (peerHeight == ourHeight)
@@ -154,7 +152,7 @@ public class Synchronizer {
 						return SynchronizationResult.TOO_DIVERGENT;
 					}
 
-					// If we have blocks after common block then decide whether we want to sync (lowest block signature wins)
+					// If we both have blocks after common block then decide whether we want to sync
 					int highestMutualHeight = Math.min(peerHeight, ourHeight);
 
 					// If our latest block is very old, we're very behind and should ditch our fork.

@@ -15,7 +15,7 @@
 	"onlineAccountSignaturesMaxLifetime": 3196800000,
 	"genesisInfo": {
 		"version": 4,
-		"timestamp": "1568360000000",
+		"timestamp": "1568720000000",
 		"generatingBalance": "100000",
 		"transactions": [
 			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT", "description": "QORTAL coin", "quantity": 10000000, "isDivisible": true, "fee": 0, "reference": "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC", "data": "{}" },
@@ -47,6 +47,9 @@
 		{ "minBlocks": 50, "maxSubAccounts": 5 },
 		{ "minBlocks": 50, "maxSubAccounts": 1 },
 		{ "minBlocks": 0, "maxSubAccounts": 0 }
+	],
+	"blockTimingsByHeight": [
+		{ "height": 1, "target": 60000, "deviation": 30000, "power": 0.2 }
 	],
 	"featureTriggers": {
 		"messageHeight": 0,

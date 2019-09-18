@@ -33,6 +33,7 @@ public class BlockData implements Serializable {
 	private int atCount;
 	private BigDecimal atFees;
 	private byte[] encodedOnlineAccounts;
+	private int onlineAccountsCount;
 	private Long onlineAccountsTimestamp;
 	private byte[] onlineAccountsSignatures;
 
@@ -44,7 +45,7 @@ public class BlockData implements Serializable {
 
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
 			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees,
-			byte[] encodedOnlineAccounts, Long onlineAccountsTimestamp, byte[] onlineAccountsSignatures) {
+			byte[] encodedOnlineAccounts, int onlineAccountsCount, Long onlineAccountsTimestamp, byte[] onlineAccountsSignatures) {
 		this.version = version;
 		this.reference = reference;
 		this.transactionCount = transactionCount;
@@ -58,6 +59,7 @@ public class BlockData implements Serializable {
 		this.atCount = atCount;
 		this.atFees = atFees;
 		this.encodedOnlineAccounts = encodedOnlineAccounts;
+		this.onlineAccountsCount = onlineAccountsCount;
 		this.onlineAccountsTimestamp = onlineAccountsTimestamp;
 		this.onlineAccountsSignatures = onlineAccountsSignatures;
 
@@ -70,7 +72,7 @@ public class BlockData implements Serializable {
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
 			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
 		this(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance, generatorPublicKey, generatorSignature, atCount, atFees,
-				null, null, null);
+				null, 0, null, null);
 	}
 
 	// Getters/setters
@@ -167,8 +169,12 @@ public class BlockData implements Serializable {
 		return this.encodedOnlineAccounts;
 	}
 
+	public int getOnlineAccountsCount() {
+		return this.onlineAccountsCount;
+	}
+
 	public Long getOnlineAccountsTimestamp() {
-		return onlineAccountsTimestamp;
+		return this.onlineAccountsTimestamp;
 	}
 
 	public void setOnlineAccountsTimestamp(Long onlineAccountsTimestamp) {

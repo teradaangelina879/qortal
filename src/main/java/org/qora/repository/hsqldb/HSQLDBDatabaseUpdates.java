@@ -787,6 +787,7 @@ public class HSQLDBDatabaseUpdates {
 				case 55:
 					// Storage of which level 1+ accounts were 'online' for a particular block. Used to distribute block rewards.
 					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts VARBINARY(1048576)");
+					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts_count INT NOT NULL DEFAULT 0");
 					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts_timestamp TIMESTAMP WITH TIME ZONE");
 					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts_signatures BLOB");
 					break;

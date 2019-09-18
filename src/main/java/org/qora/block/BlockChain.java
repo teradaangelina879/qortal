@@ -32,6 +32,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
+import org.qora.utils.NTP;
 import org.qora.utils.StringLongMapXmlAdapter;
 
 /**
@@ -98,6 +99,15 @@ public class BlockChain {
 		public BigDecimal reward;
 	}
 	List<RewardByHeight> rewardsByHeight;
+
+	/** Block times by block height */
+	public static class BlockTimingByHeight {
+		public int height;
+		public long target; // ms
+		public long deviation; // ms
+		public double power;
+	}
+	List<BlockTimingByHeight> blockTimingsByHeight;
 
 	/** Forging right tiers */
 	public static class ForgingTier {
@@ -329,6 +339,14 @@ public class BlockChain {
 		return null;
 	}
 
+	public BlockTimingByHeight getBlockTimingByHeight(int ourHeight) {
+		for (int i = blockTimingsByHeight.size() - 1; i >= 0; --i)
+			if (blockTimingsByHeight.get(i).height <= ourHeight)
+				return blockTimingsByHeight.get(i);
+
+		throw new IllegalStateException(String.format("No block timing info available for height %d", ourHeight));
+	}
+
 	/** Validate blockchain config read from JSON */
 	private void validateConfig() {
 		if (this.genesisInfo == null) {
@@ -437,6 +455,27 @@ public class BlockChain {
 			}
 		} finally {
 			blockchainLock.unlock();
+		}
+	}
+
+	public static void trimOldOnlineAccountsSignatures() {
+		final Long now = NTP.getTime();
+		if (now == null)
+			return;
+
+		try (final Repository repository = RepositoryManager.tryRepository()) {
+			if (repository == null)
+				return;
+
+			int numBlocksTrimmed = repository.getBlockRepository().trimOldOnlineAccountsSignatures(now - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime());
+
+			if (numBlocksTrimmed > 0)
+				LOGGER.debug(String.format("Trimmed old online accounts signatures from %d block%s", numBlocksTrimmed, (numBlocksTrimmed != 1 ? "s" : "")));
+
+			repository.saveChanges();
+		} catch (DataException e) {
+			LOGGER.warn("Repository issue trying to trim old online accounts signatures: " + e.getMessage());
+			return;
 		}
 	}
 
