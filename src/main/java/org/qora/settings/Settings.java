@@ -68,11 +68,12 @@ public class Settings {
 	private int maxUnconfirmedPerAccount = 100;
 	/** Max milliseconds into future for accepting new, unconfirmed transactions */
 	private int maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
-	// auto-update
+	/** Whether we check, fetch and install auto-updates */
 	private boolean autoUpdateEnabled = true;
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
+	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
 	/** Minimum number of peers to allow block generation / synchronization. */
 	private int minBlockchainPeers = 3;
@@ -97,7 +98,7 @@ public class Settings {
 		"https://raw.githubusercontent.com@151.101.16.133/catbref/qora-core/%s/qora-core.jar"
 	};
 
-	// NTP sources
+	/** Array of NTP server hostnames. */
 	private String[] ntpServers = new String[] {
 		"pool.ntp.org",
 		"0.pool.ntp.org",
@@ -110,6 +111,8 @@ public class Settings {
 		"2.cn.pool.ntp.org",
 		"3.cn.pool.ntp.org"
 	};
+	/** Additional offset added to values returned by NTP.getTime() */
+	private long testNtpOffset = 0;
 
 	// Constructors
 
@@ -326,6 +329,10 @@ public class Settings {
 
 	public String[] getNtpServers() {
 		return this.ntpServers;
+	}
+
+	public long getTestNtpOffset() {
+		return this.testNtpOffset;
 	}
 
 }

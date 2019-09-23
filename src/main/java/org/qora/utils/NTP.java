@@ -151,7 +151,7 @@ public class NTP implements Runnable {
 		if (NTP.offset == null)
 			return null;
 
-		return System.currentTimeMillis() + NTP.offset;
+		return System.currentTimeMillis() + NTP.offset + Settings.getInstance().getTestNtpOffset();
 	}
 
 	public void run() {
