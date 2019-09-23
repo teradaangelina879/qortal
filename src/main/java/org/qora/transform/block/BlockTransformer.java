@@ -89,6 +89,9 @@ public class BlockTransformer extends Transformer {
 		if (version >= 2 && byteBuffer.remaining() < BASE_LENGTH + AT_BYTES_LENGTH - VERSION_LENGTH)
 			throw new TransformationException("Byte data too short for V2+ Block");
 
+		if (byteBuffer.remaining() > Block.MAX_BLOCK_BYTES)
+			throw new TransformationException("Byte data too long for Block");
+
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[BLOCK_REFERENCE_LENGTH];
@@ -226,7 +229,11 @@ public class BlockTransformer extends Transformer {
 				// Online accounts timestamp is only present if there are also signatures
 				onlineAccountsTimestamp = byteBuffer.getLong();
 
-				onlineAccountsSignatures = new byte[onlineAccountsSignaturesCount * Transformer.SIGNATURE_LENGTH];
+				final int signaturesByteLength = onlineAccountsSignaturesCount * Transformer.SIGNATURE_LENGTH;
+				if (signaturesByteLength > Block.MAX_BLOCK_BYTES)
+					throw new TransformationException("Byte data too long for online accounts signatures");
+
+				onlineAccountsSignatures = new byte[signaturesByteLength];
 				byteBuffer.get(onlineAccountsSignatures);
 			}
 		}
