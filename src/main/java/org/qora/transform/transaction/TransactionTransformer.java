@@ -187,7 +187,7 @@ public abstract class TransactionTransformer extends Transformer {
 		if (bytes == null)
 			return null;
 
-		LOGGER.trace("tx hex: " + HashCode.fromBytes(bytes).toString());
+		LOGGER.trace(() -> "tx hex: " + HashCode.fromBytes(bytes).toString());
 
 		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
 
