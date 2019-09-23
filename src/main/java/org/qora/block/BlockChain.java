@@ -52,6 +52,8 @@ public class BlockChain {
 	private boolean isTestChain = false;
 	/** Maximum coin supply. */
 	private BigDecimal maxBalance;
+	/** Transaction expiry period, starting from transaction's timestamp, in milliseconds. */
+	private long transactionExpiryPeriod;
 
 	private BigDecimal unitFee;
 	private BigDecimal maxBytesPerUnitFee;
@@ -65,6 +67,8 @@ public class BlockChain {
 	private long maxBlockTime;
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	private long blockTimestampMargin;
+	/** Maximum block size, in bytes. */
+	private int maxBlockSize;
 
 	/** Whether transactions with txGroupId of NO_GROUP are allowed */
 	private boolean requireGroupForApproval;
@@ -241,6 +245,10 @@ public class BlockChain {
 		return this.maxBalance;
 	}
 
+	public long getTransactionExpiryPeriod() {
+		return this.transactionExpiryPeriod;
+	}
+
 	public int getBlockDifficultyInterval() {
 		return this.blockDifficultyInterval;
 	}
@@ -255,6 +263,10 @@ public class BlockChain {
 
 	public long getBlockTimestampMargin() {
 		return this.blockTimestampMargin;
+	}
+
+	public int getMaxBlockSize() {
+		return this.maxBlockSize;
 	}
 
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */

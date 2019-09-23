@@ -10,6 +10,7 @@ import java.util.List;
 
 import org.qora.account.PublicKeyAccount;
 import org.qora.block.Block;
+import org.qora.block.BlockChain;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
@@ -89,7 +90,7 @@ public class BlockTransformer extends Transformer {
 		if (version >= 2 && byteBuffer.remaining() < BASE_LENGTH + AT_BYTES_LENGTH - VERSION_LENGTH)
 			throw new TransformationException("Byte data too short for V2+ Block");
 
-		if (byteBuffer.remaining() > Block.MAX_BLOCK_BYTES)
+		if (byteBuffer.remaining() > BlockChain.getInstance().getMaxBlockSize())
 			throw new TransformationException("Byte data too long for Block");
 
 		long timestamp = byteBuffer.getLong();
@@ -116,7 +117,7 @@ public class BlockTransformer extends Transformer {
 		if (version >= 2) {
 			int atBytesLength = byteBuffer.getInt();
 
-			if (atBytesLength > Block.MAX_BLOCK_BYTES)
+			if (atBytesLength > BlockChain.getInstance().getMaxBlockSize())
 				throw new TransformationException("Byte data too long for Block's AT info");
 
 			ByteBuffer atByteBuffer = byteBuffer.slice();
@@ -185,7 +186,7 @@ public class BlockTransformer extends Transformer {
 			if (byteBuffer.remaining() < transactionLength)
 				throw new TransformationException("Byte data too short for Block Transaction");
 
-			if (transactionLength > Block.MAX_BLOCK_BYTES)
+			if (transactionLength > BlockChain.getInstance().getMaxBlockSize())
 				throw new TransformationException("Byte data too long for Block Transaction");
 
 			byte[] transactionBytes = new byte[transactionLength];
@@ -208,7 +209,7 @@ public class BlockTransformer extends Transformer {
 
 			int conciseSetLength = byteBuffer.getInt();
 
-			if (conciseSetLength > Block.MAX_BLOCK_BYTES)
+			if (conciseSetLength > BlockChain.getInstance().getMaxBlockSize())
 				throw new TransformationException("Byte data too long for online account info");
 
 			if ((conciseSetLength & 3) != 0)
@@ -230,7 +231,7 @@ public class BlockTransformer extends Transformer {
 				onlineAccountsTimestamp = byteBuffer.getLong();
 
 				final int signaturesByteLength = onlineAccountsSignaturesCount * Transformer.SIGNATURE_LENGTH;
-				if (signaturesByteLength > Block.MAX_BLOCK_BYTES)
+				if (signaturesByteLength > BlockChain.getInstance().getMaxBlockSize())
 					throw new TransformationException("Byte data too long for online accounts signatures");
 
 				onlineAccountsSignatures = new byte[signaturesByteLength];

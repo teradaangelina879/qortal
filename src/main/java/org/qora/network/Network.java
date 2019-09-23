@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qora.block.Block;
+import org.qora.block.BlockChain;
 import org.qora.controller.Controller;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.PeerData;
@@ -78,9 +78,6 @@ public class Network extends Thread {
 	/** Maximum time allowed for handshake to complete, in milliseconds. */
 	private static final long HANDSHAKE_TIMEOUT = 60 * 1000; // ms
 
-	/** Maximum message size (bytes). Needs to be at least maximum block size + MAGIC + message type, etc. */
-	/* package */ static final int MAXIMUM_MESSAGE_SIZE = 4 + 1 + 4 + Block.MAX_BLOCK_BYTES;
-
 	private static final byte[] MAINNET_MESSAGE_MAGIC = new byte[] { 0x51, 0x4f, 0x52, 0x54 }; // QORT
 	private static final byte[] TESTNET_MESSAGE_MAGIC = new byte[] { 0x71, 0x6f, 0x72, 0x54 }; // qorT
 
@@ -100,6 +97,7 @@ public class Network extends Thread {
 	public static final byte[] ZERO_PEER_ID = new byte[PEER_ID_LENGTH];
 
 	private final byte[] ourPeerId;
+	private final int maxMessageSize;
 	private List<Peer> connectedPeers;
 	private List<PeerAddress> selfPeers;
 
@@ -152,6 +150,8 @@ public class Network extends Thread {
 		// Set bit to make sure our peer ID is not 0
 		ourPeerId[ourPeerId.length - 1] |= 0x01;
 
+		maxMessageSize = 4 + 1 + 4 + BlockChain.getInstance().getMaxBlockSize();
+
 		minOutboundPeers = Settings.getInstance().getMinOutboundPeers();
 		maxPeers = Settings.getInstance().getMaxPeers();
 
@@ -187,6 +187,11 @@ public class Network extends Thread {
 
 	public byte[] getOurPeerId() {
 		return this.ourPeerId;
+	}
+
+	/** Maximum message size (bytes). Needs to be at least maximum block size + MAGIC + message type, etc. */
+	/* package */ int getMaxMessageSize() {
+		return this.maxMessageSize;
 	}
 
 	// Peer lists

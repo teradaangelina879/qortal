@@ -293,7 +293,7 @@ public class Peer {
 		this.connectionTimestamp = NTP.getTime();
 		this.socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
 		this.socketChannel.configureBlocking(false);
-		this.byteBuffer = ByteBuffer.allocate(Network.MAXIMUM_MESSAGE_SIZE);
+		this.byteBuffer = ByteBuffer.allocate(Network.getInstance().getMaxMessageSize());
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
 		this.pendingMessages = new LinkedBlockingQueue<Message>();
 	}

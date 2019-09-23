@@ -145,10 +145,6 @@ public class Block {
 
 	// Other useful constants
 
-	/** Maximum size of block in bytes */
-	// TODO push this out to blockchain config file
-	public static final int MAX_BLOCK_BYTES = 1048576;
-
 	private static final BigInteger MAX_DISTANCE;
 	static {
 		byte[] maxValue = new byte[Transformer.PUBLIC_KEY_LENGTH];
@@ -606,7 +602,7 @@ public class Block {
 
 		// Check there is space in block
 		try {
-			if (BlockTransformer.getDataLength(this) + TransactionTransformer.getDataLength(transactionData) > MAX_BLOCK_BYTES)
+			if (BlockTransformer.getDataLength(this) + TransactionTransformer.getDataLength(transactionData) > BlockChain.getInstance().getMaxBlockSize())
 				return false;
 		} catch (TransformationException e) {
 			return false;

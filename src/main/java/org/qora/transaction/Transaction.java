@@ -305,8 +305,8 @@ public abstract class Transaction {
 	// More information
 
 	public static long getDeadline(TransactionData transactionData) {
-		// 24 hour deadline to include transaction in a block
-		return transactionData.getTimestamp() + (24 * 60 * 60 * 1000);
+		// Calculate deadline to include transaction in a block
+		return transactionData.getTimestamp() + BlockChain.getInstance().getTransactionExpiryPeriod();
 	}
 
 	public long getDeadline() {
