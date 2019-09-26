@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import javax.imageio.ImageIO;
+import javax.swing.JOptionPane;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
@@ -18,7 +19,7 @@ public class Gui {
 	private static Gui instance;
 
 	private boolean isHeadless;
-	private SplashFrame splash = null;
+	private SplashFrame splashFrame = null;
 	private SysTray sysTray = null;
 
 	private Gui() {
@@ -37,8 +38,8 @@ public class Gui {
 	}
 
 	private void showSplash() {
-		LOGGER.trace("Splash");
-		this.splash = SplashFrame.getInstance();
+		LOGGER.trace(() -> "Splash");
+		this.splashFrame = SplashFrame.getInstance();
 	}
 
 	protected static BufferedImage loadImage(String resourceName) {
@@ -61,8 +62,8 @@ public class Gui {
 		if (this.isHeadless)
 			return;
 
-		this.splash.dispose();
-		this.splash = null;
+		this.splashFrame.dispose();
+		this.splashFrame = null;
 
 		this.sysTray = SysTray.getInstance();
 	}
@@ -71,11 +72,22 @@ public class Gui {
 		if (this.isHeadless)
 			return;
 
-		if (this.splash != null)
-			this.splash.dispose();
+		if (this.splashFrame != null)
+			this.splashFrame.dispose();
 
 		if (this.sysTray != null)
 			this.sysTray.dispose();
+	}
+
+	public void fatalError(String title, String message) {
+		if (this.isHeadless)
+			return;
+
+		shutdown();
+
+		JOptionPane.showConfirmDialog(null, message, title, JOptionPane.DEFAULT_OPTION, JOptionPane.ERROR_MESSAGE);
+
+		System.exit(0);
 	}
 
 }
