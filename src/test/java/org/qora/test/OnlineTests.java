@@ -13,7 +13,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
-import org.qora.data.network.OnlineAccount;
+import org.qora.data.network.OnlineAccountData;
 import org.qora.network.message.GetOnlineAccountsMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.OnlineAccountsMessage;
@@ -48,7 +48,7 @@ public class OnlineTests extends Common {
 
 		private final PrivateKeyAccount account;
 
-		private List<OnlineAccount> onlineAccounts;
+		private List<OnlineAccountData> onlineAccounts;
 		private long nextOnlineRefresh = 0;
 
 		public OnlinePeer(int id, PrivateKeyAccount account) {
@@ -65,22 +65,22 @@ public class OnlineTests extends Common {
 				case GET_ONLINE_ACCOUNTS: {
 					GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
 
-					List<OnlineAccount> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
+					List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
 
 					// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-					List<OnlineAccount> accountsToSend;
+					List<OnlineAccountData> accountsToSend;
 					synchronized (this.onlineAccounts) {
 						accountsToSend = new ArrayList<>(this.onlineAccounts);
 					}
 
-					Iterator<OnlineAccount> iterator = accountsToSend.iterator();
+					Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
 
 					SEND_ITERATOR:
 					while (iterator.hasNext()) {
-						OnlineAccount onlineAccount = iterator.next();
+						OnlineAccountData onlineAccount = iterator.next();
 
 						for (int i = 0; i < excludeAccounts.size(); ++i) {
-							OnlineAccount excludeAccount = excludeAccounts.get(i);
+							OnlineAccountData excludeAccount = excludeAccounts.get(i);
 
 							if (onlineAccount.getTimestamp() == excludeAccount.getTimestamp() && Arrays.equals(onlineAccount.getPublicKey(), excludeAccount.getPublicKey())) {
 								iterator.remove();
@@ -101,12 +101,12 @@ public class OnlineTests extends Common {
 				case ONLINE_ACCOUNTS: {
 					OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
 
-					List<OnlineAccount> onlineAccounts = onlineAccountsMessage.getOnlineAccounts();
+					List<OnlineAccountData> onlineAccounts = onlineAccountsMessage.getOnlineAccounts();
 
 					if (LOG_ACCOUNT_CHANGES)
 						System.out.println(String.format("[%d] received %d online accounts from %d", this.getId(), onlineAccounts.size(), peer.getId()));
 
-					for (OnlineAccount onlineAccount : onlineAccounts)
+					for (OnlineAccountData onlineAccount : onlineAccounts)
 						verifyAndAddAccount(onlineAccount);
 
 					break;
@@ -117,7 +117,7 @@ public class OnlineTests extends Common {
 			}
 		}
 
-		private void verifyAndAddAccount(OnlineAccount onlineAccount) {
+		private void verifyAndAddAccount(OnlineAccountData onlineAccount) {
 			// we would check timestamp is 'recent' here
 
 			// Verify
@@ -131,7 +131,7 @@ public class OnlineTests extends Common {
 			ByteArray publicKeyBA = new ByteArray(onlineAccount.getPublicKey());
 
 			synchronized (this.onlineAccounts) {
-				OnlineAccount existingAccount = this.onlineAccounts.stream().filter(account -> new ByteArray(account.getPublicKey()).equals(publicKeyBA)).findFirst().orElse(null);
+				OnlineAccountData existingAccount = this.onlineAccounts.stream().filter(account -> new ByteArray(account.getPublicKey()).equals(publicKeyBA)).findFirst().orElse(null);
 
 				if (existingAccount != null) {
 					if (existingAccount.getTimestamp() < onlineAccount.getTimestamp()) {
@@ -161,9 +161,9 @@ public class OnlineTests extends Common {
 			// Expire old entries
 			final long cutoffThreshold = now - LAST_SEEN_EXPIRY_PERIOD;
 			synchronized (this.onlineAccounts) {
-				Iterator<OnlineAccount> iterator = this.onlineAccounts.iterator();
+				Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
 				while (iterator.hasNext()) {
-					OnlineAccount onlineAccount = iterator.next();
+					OnlineAccountData onlineAccount = iterator.next();
 
 					if (onlineAccount.getTimestamp() < cutoffThreshold) {
 						iterator.remove();
@@ -211,7 +211,7 @@ public class OnlineTests extends Common {
 			byte[] publicKey = this.account.getPublicKey();
 
 			// Our account is online
-			OnlineAccount onlineAccount = new OnlineAccount(timestamp, signature, publicKey);
+			OnlineAccountData onlineAccount = new OnlineAccountData(timestamp, signature, publicKey);
 			synchronized (this.onlineAccounts) {
 				this.onlineAccounts.removeIf(account -> account.getPublicKey() == this.account.getPublicKey());
 				this.onlineAccounts.add(onlineAccount);

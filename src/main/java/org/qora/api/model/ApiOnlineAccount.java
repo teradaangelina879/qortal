@@ -1,29 +1,30 @@
-package org.qora.data.network;
+package org.qora.api.model;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
-
-import org.qora.account.PublicKeyAccount;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
-public class OnlineAccount {
+public class ApiOnlineAccount {
 
 	protected long timestamp;
 	protected byte[] signature;
 	protected byte[] publicKey;
+	protected String generatorAddress;
+	protected String recipientAddress;
 
 	// Constructors
 
 	// necessary for JAXB serialization
-	protected OnlineAccount() {
+	protected ApiOnlineAccount() {
 	}
 
-	public OnlineAccount(long timestamp, byte[] signature, byte[] publicKey) {
+	public ApiOnlineAccount(long timestamp, byte[] signature, byte[] publicKey, String generatorAddress, String recipientAddress) {
 		this.timestamp = timestamp;
 		this.signature = signature;
 		this.publicKey = publicKey;
+		this.generatorAddress = generatorAddress;
+		this.recipientAddress = recipientAddress;
 	}
 
 	public long getTimestamp() {
@@ -38,10 +39,12 @@ public class OnlineAccount {
 		return this.publicKey;
 	}
 
-	// For JAXB
-	@XmlElement(name = "address")
-	protected String getAddress() {
-		return new PublicKeyAccount(null, this.publicKey).getAddress();
+	public String getGeneratorAddress() {
+		return this.generatorAddress;
+	}
+
+	public String getRecipientAddress() {
+		return this.recipientAddress;
 	}
 
 }

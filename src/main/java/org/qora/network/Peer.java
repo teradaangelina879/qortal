@@ -17,11 +17,11 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.controller.Controller;
+import org.qora.data.network.PeerChainTipData;
 import org.qora.data.network.PeerData;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageException;
@@ -77,7 +77,6 @@ public class Peer {
 	private volatile byte[] verificationCodeExpected;
 
 	private volatile PeerData peerData = null;
-	private final ReentrantLock peerDataLock = new ReentrantLock();
 
 	/** Timestamp of when socket was accepted, or connected. */
 	private volatile Long connectionTimestamp = null;
@@ -93,17 +92,8 @@ public class Peer {
 	/** When last PING message was sent, or null if pings not started yet. */
 	private volatile Long lastPingSent;
 
-	/** Latest block height as reported by peer. */
-	private volatile Integer lastHeight;
-
-	/** Latest block signature as reported by peer. */
-	private volatile byte[] lastBlockSignature;
-
-	/** Latest block timestamp as reported by peer. */
-	private volatile Long lastBlockTimestamp;
-
-	/** Latest block generator public key as reported by peer. */
-	private volatile byte[] lastBlockGenerator;
+	/** Latest block info as reported by peer. */
+	private volatile PeerChainTipData chainTipData;
 
 	// Constructors
 
@@ -231,41 +221,12 @@ public class Peer {
 		this.verificationCodeExpected = expected;
 	}
 
-	public Integer getLastHeight() {
-		return this.lastHeight;
+	public PeerChainTipData getChainTipData() {
+		return this.chainTipData;
 	}
 
-	public void setLastHeight(Integer lastHeight) {
-		this.lastHeight = lastHeight;
-	}
-
-	public byte[] getLastBlockSignature() {
-		return lastBlockSignature;
-	}
-
-	public void setLastBlockSignature(byte[] lastBlockSignature) {
-		this.lastBlockSignature = lastBlockSignature;
-	}
-
-	public Long getLastBlockTimestamp() {
-		return lastBlockTimestamp;
-	}
-
-	public void setLastBlockTimestamp(Long lastBlockTimestamp) {
-		this.lastBlockTimestamp = lastBlockTimestamp;
-	}
-
-	public byte[] getLastBlockGenerator() {
-		return lastBlockGenerator;
-	}
-
-	public void setLastBlockGenerator(byte[] lastBlockGenerator) {
-		this.lastBlockGenerator = lastBlockGenerator;
-	}
-
-	/** Returns the lock used for synchronizing access to peer info. */
-	public ReentrantLock getPeerDataLock() {
-		return this.peerDataLock;
+	public void setChainTipData(PeerChainTipData chainTipData) {
+		this.chainTipData = chainTipData;
 	}
 
 	/* package */ void queueMessage(Message message) {
@@ -334,13 +295,14 @@ public class Peer {
 				if (!this.socketChannel.isOpen() || this.socketChannel.socket().isClosed())
 					return;
 
-				int bytesRead = this.socketChannel.read(this.byteBuffer);
+				final int bytesRead = this.socketChannel.read(this.byteBuffer);
 				if (bytesRead == -1) {
 					this.disconnect("EOF");
 					return;
 				}
 
 				LOGGER.trace(() -> String.format("Received %d bytes from peer %s", bytesRead, this));
+				final boolean wasByteBufferFull = !this.byteBuffer.hasRemaining();
 
 				while (true) {
 					final Message message;
@@ -354,8 +316,8 @@ public class Peer {
 						return;
 					}
 
-					if (message == null && bytesRead == 0)
-						// No complete message in buffer and no more bytes to read from socket
+					if (message == null && bytesRead == 0 && !wasByteBufferFull)
+						// No complete message in buffer, no more bytes to read from socket and there was room to read bytes
 						return;
 
 					if (message == null)
@@ -380,7 +342,8 @@ public class Peer {
 						return;
 					}
 
-					// Prematurely end any blocking channel select so that new messages can be processed
+					// Prematurely end any blocking channel select so that new messages can be processed.
+					// This might cause this.socketChannel.read() above to return zero into bytesRead.
 					Network.getInstance().wakeupChannelSelector();
 				}
 			}

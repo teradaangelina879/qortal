@@ -3,6 +3,7 @@ package org.qora.api.model;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
+import org.qora.data.network.PeerChainTipData;
 import org.qora.data.network.PeerData;
 import org.qora.network.Handshake;
 import org.qora.network.Peer;
@@ -49,9 +50,12 @@ public class ConnectedPeer {
 			this.buildTimestamp = peer.getVersionMessage().getBuildTimestamp();
 		}
 
-		this.lastHeight = peer.getLastHeight();
-		this.lastBlockSignature = peer.getLastBlockSignature();
-		this.lastBlockTimestamp = peer.getLastBlockTimestamp();
+		PeerChainTipData peerChainTipData = peer.getChainTipData();
+		if (peerChainTipData != null) {
+			this.lastHeight = peerChainTipData.getLastHeight();
+			this.lastBlockSignature = peerChainTipData.getLastBlockSignature();
+			this.lastBlockTimestamp = peerChainTipData.getLastBlockTimestamp();
+		}
 	}
 
 }

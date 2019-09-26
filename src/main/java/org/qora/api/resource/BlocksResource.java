@@ -321,58 +321,6 @@ public class BlocksResource {
 	}
 
 	@GET
-	@Path("/time")
-	@Operation(
-		summary = "Estimated time to forge next block",
-		description = "Calculates the time it should take for the network to generate the next block",
-		responses = {
-			@ApiResponse(
-				description = "the time in seconds",
-				content = @Content(
-					mediaType = MediaType.TEXT_PLAIN,
-					schema = @Schema(
-						type = "number"
-					)
-				)
-			)
-		}
-	)
-	@ApiErrors({
-		ApiError.REPOSITORY_ISSUE
-	})
-	public long getTimePerBlock() {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().getLastBlock();
-			return Block.calcForgingDelay(blockData.getGeneratingBalance());
-		} catch (ApiException e) {
-			throw e;
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@GET
-	@Path("/time/{generatingbalance}")
-	@Operation(
-		summary = "Estimated time to forge block given generating balance",
-		description = "Calculates the time it should take for the network to generate blocks based on specified generating balance",
-		responses = {
-			@ApiResponse(
-				description = "the time", // in seconds?
-				content = @Content(
-					mediaType = MediaType.TEXT_PLAIN,
-					schema = @Schema(
-						type = "number"
-					)
-				)
-			)
-		}
-	)
-	public long getTimePerBlock(@PathParam("generatingbalance") BigDecimal generatingbalance) {
-		return Block.calcForgingDelay(generatingbalance);
-	}
-
-	@GET
 	@Path("/height")
 	@Operation(
 		summary = "Current blockchain height",

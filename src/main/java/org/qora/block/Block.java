@@ -29,8 +29,9 @@ import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.block.BlockTransactionData;
-import org.qora.data.network.OnlineAccount;
+import org.qora.data.network.OnlineAccountData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.ATRepository;
 import org.qora.repository.BlockRepository;
@@ -127,6 +128,11 @@ public class Block {
 
 	// Other properties
 	private static final Logger LOGGER = LogManager.getLogger(Block.class);
+
+	/** Number of left-shifts to apply to block's online accounts count when calculating block's weight. */
+	private static final int ACCOUNTS_COUNT_SHIFT = Transformer.PUBLIC_KEY_LENGTH * 8;
+	/** Number of left-shifts to apply to previous block's weight when calculating a chain's weight. */
+	private static final int CHAIN_WEIGHT_SHIFT = 8;
 
 	/** Sorted list of transactions attached to this block */
 	protected List<Transaction> transactions;
@@ -228,26 +234,26 @@ public class Block {
 		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
 
 		// Fetch our list of online accounts
-		List<OnlineAccount> onlineAccounts = Controller.getInstance().getOnlineAccounts();
+		List<OnlineAccountData> onlineAccounts = Controller.getInstance().getOnlineAccounts();
 		if (onlineAccounts.isEmpty())
 			throw new IllegalStateException("No online accounts - not even our own?");
 
 		// Find newest online accounts timestamp
 		long onlineAccountsTimestamp = 0;
-		for (OnlineAccount onlineAccount : onlineAccounts) {
-			if (onlineAccount.getTimestamp() > onlineAccountsTimestamp)
-				onlineAccountsTimestamp = onlineAccount.getTimestamp();
+		for (OnlineAccountData onlineAccountData : onlineAccounts) {
+			if (onlineAccountData.getTimestamp() > onlineAccountsTimestamp)
+				onlineAccountsTimestamp = onlineAccountData.getTimestamp();
 		}
 
 		// Map using account index (in list of proxy forger accounts)
-		Map<Integer, OnlineAccount> indexedOnlineAccounts = new HashMap<>();
-		for (OnlineAccount onlineAccount : onlineAccounts) {
+		Map<Integer, OnlineAccountData> indexedOnlineAccounts = new HashMap<>();
+		for (OnlineAccountData onlineAccountData : onlineAccounts) {
 			// Disregard online accounts with different timestamps
-			if (onlineAccount.getTimestamp() != onlineAccountsTimestamp)
+			if (onlineAccountData.getTimestamp() != onlineAccountsTimestamp)
 				continue;
 
-			int accountIndex = repository.getAccountRepository().getProxyAccountIndex(onlineAccount.getPublicKey());
-			indexedOnlineAccounts.put(accountIndex, onlineAccount);
+			int accountIndex = repository.getAccountRepository().getProxyAccountIndex(onlineAccountData.getPublicKey());
+			indexedOnlineAccounts.put(accountIndex, onlineAccountData);
 		}
 		List<Integer> accountIndexes = new ArrayList<>(indexedOnlineAccounts.keySet());
 		accountIndexes.sort(null);
@@ -262,8 +268,8 @@ public class Block {
 		byte[] onlineAccountsSignatures = new byte[onlineAccountsCount * Transformer.SIGNATURE_LENGTH];
 		for (int i = 0; i < onlineAccountsCount; ++i) {
 			Integer accountIndex = accountIndexes.get(i);
-			OnlineAccount onlineAccount = indexedOnlineAccounts.get(accountIndex);
-			System.arraycopy(onlineAccount.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
+			OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
+			System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
 		}
 
 		byte[] generatorSignature;
@@ -421,8 +427,10 @@ public class Block {
 		if (this.blockData.getHeight() == null)
 			throw new IllegalStateException("Can't calculate next block's generating balance as this block's height is unset");
 
+		final int blockDifficultyInterval = BlockChain.getInstance().getBlockDifficultyInterval();
+
 		// This block not at the start of an interval?
-		if (this.blockData.getHeight() % BlockChain.getInstance().getBlockDifficultyInterval() != 0)
+		if (this.blockData.getHeight() % blockDifficultyInterval != 0)
 			return this.blockData.getGeneratingBalance();
 
 		// Return cached calculation if we have one
@@ -437,7 +445,7 @@ public class Block {
 		BlockData firstBlock = this.blockData;
 
 		try {
-			for (int i = 1; firstBlock != null && i < BlockChain.getInstance().getBlockDifficultyInterval(); ++i)
+			for (int i = 1; firstBlock != null && i < blockDifficultyInterval; ++i)
 				firstBlock = blockRepo.fromSignature(firstBlock.getReference());
 		} catch (DataException e) {
 			firstBlock = null;
@@ -451,8 +459,7 @@ public class Block {
 		long previousGeneratingTime = this.blockData.getTimestamp() - firstBlock.getTimestamp();
 
 		// Calculate expected forging time (in ms) for a whole interval based on this block's generating balance.
-		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance()) * BlockChain.getInstance().getBlockDifficultyInterval()
-				* 1000;
+		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance(), this.blockData.getHeight()) * blockDifficultyInterval;
 
 		// Finally, scale generating balance such that faster than expected previous intervals produce larger generating balances.
 		// NOTE: we have to use doubles and longs here to keep compatibility with Qora v1 results
@@ -464,20 +471,17 @@ public class Block {
 		return this.cachedNextGeneratingBalance;
 	}
 
-	public static long calcBaseTarget(BigDecimal generatingBalance) {
-		generatingBalance = Block.minMaxBalance(generatingBalance);
-		return generatingBalance.longValue() * calcForgingDelay(generatingBalance);
-	}
-
 	/**
 	 * Return expected forging delay, in seconds, since previous block based on passed generating balance.
 	 */
-	public static long calcForgingDelay(BigDecimal generatingBalance) {
+	public static long calcForgingDelay(BigDecimal generatingBalance, int previousBlockHeight) {
 		generatingBalance = Block.minMaxBalance(generatingBalance);
 
 		double percentageOfTotal = generatingBalance.divide(BlockChain.getInstance().getMaxBalance()).doubleValue();
-		long actualBlockTime = (long) (BlockChain.getInstance().getMinBlockTime()
-				+ ((BlockChain.getInstance().getMaxBlockTime() - BlockChain.getInstance().getMinBlockTime()) * (1 - percentageOfTotal)));
+
+		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(previousBlockHeight + 1);
+
+		long actualBlockTime = (long) (blockTiming.target + (blockTiming.deviation * (1 - (2 * percentageOfTotal))));
 
 		return actualBlockTime;
 	}
@@ -723,14 +727,32 @@ public class Block {
 		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), publicKey));
 	}
 
-	public static BigInteger calcGeneratorDistance(BlockData parentBlockData, byte[] generatorPublicKey) {
-		final int parentHeight = parentBlockData.getHeight();
-		final int thisHeight = parentHeight + 1;
+	public static BigInteger calcKeyDistance(int parentHeight, byte[] parentBlockSignature, byte[] publicKey) {
+		byte[] idealKey = calcIdealGeneratorPublicKey(parentHeight, parentBlockSignature);
+		byte[] perturbedKey = calcHeightPerturbedPublicKey(parentHeight + 1, publicKey);
 
-		// Convert all bits into unsigned BigInteger
-		BigInteger idealBI = new BigInteger(1, calcIdealGeneratorPublicKey(parentHeight, parentBlockData.getSignature()));
-		BigInteger generatorBI = new BigInteger(1, calcHeightPerturbedPublicKey(thisHeight, generatorPublicKey));
-		return idealBI.subtract(generatorBI).abs();
+		BigInteger keyDistance = MAX_DISTANCE.subtract(new BigInteger(idealKey).subtract(new BigInteger(perturbedKey)).abs());
+		return keyDistance;
+	}
+
+	public static BigInteger calcBlockWeight(int parentHeight, byte[] parentBlockSignature, BlockSummaryData blockSummaryData) {
+		BigInteger keyDistance = calcKeyDistance(parentHeight, parentBlockSignature, blockSummaryData.getGeneratorPublicKey());
+		BigInteger weight = BigInteger.valueOf(blockSummaryData.getOnlineAccountsCount()).shiftLeft(ACCOUNTS_COUNT_SHIFT).add(keyDistance);
+		return weight;
+	}
+
+	public static BigInteger calcChainWeight(int commonBlockHeight, byte[] commonBlockSignature, List<BlockSummaryData> blockSummaries) {
+		BigInteger cumulativeWeight = BigInteger.ZERO;
+		int parentHeight = commonBlockHeight;
+		byte[] parentBlockSignature = commonBlockSignature;
+
+		for (BlockSummaryData blockSummaryData : blockSummaries) {
+			cumulativeWeight = cumulativeWeight.shiftLeft(CHAIN_WEIGHT_SHIFT).add(calcBlockWeight(parentHeight, parentBlockSignature, blockSummaryData));
+			parentHeight = blockSummaryData.getHeight();
+			parentBlockSignature = blockSummaryData.getSignature();
+		}
+
+		return cumulativeWeight;
 	}
 
 	/**
@@ -746,7 +768,7 @@ public class Block {
 	 * So this block's timestamp is previous block's timestamp + 30s + 12s.
 	 */
 	public static long calcTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
-		BigInteger distance = calcGeneratorDistance(parentBlockData, generatorPublicKey);
+		BigInteger distance = calcKeyDistance(parentBlockData.getHeight(), parentBlockData.getSignature(), generatorPublicKey);
 		final int thisHeight = parentBlockData.getHeight() + 1;
 		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(thisHeight);
 

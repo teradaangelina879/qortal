@@ -30,13 +30,15 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.api.ApiService;
 import org.qora.block.Block;
 import org.qora.block.BlockChain;
+import org.qora.block.BlockChain.BlockTimingByHeight;
 import org.qora.block.BlockGenerator;
 import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.ForgingAccountData;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockSummaryData;
-import org.qora.data.network.OnlineAccount;
+import org.qora.data.network.OnlineAccountData;
+import org.qora.data.network.PeerChainTipData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;
@@ -77,6 +79,7 @@ import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.ui.UiService;
 import org.qora.utils.Base58;
+import org.qora.utils.ByteArray;
 import org.qora.utils.NTP;
 import org.qora.utils.Triple;
 
@@ -129,10 +132,8 @@ public class Controller extends Thread {
 	/** Whether we can generate new blocks, as reported by BlockGenerator. */
 	private volatile boolean isGenerationPossible = false;
 
-	/** Signature of peer's latest block that will result in no sync action needed (e.g. INFERIOR_CHAIN, NOTHING_TO_DO, OK). */
-	private byte[] noSyncPeerBlockSignature = null;
-	/** Signature of our latest block that will result in no sync action needed (e.g. INFERIOR_CHAIN, NOTHING_TO_DO, OK). */
-	private byte[] noSyncOurBlockSignature = null;
+	/** Latest block signatures from other peers that we know are on inferior chains. */
+	List<ByteArray> inferiorChainSignatures = new ArrayList<>();
 
 	/**
 	 * Map of recent requests for ARBITRARY transaction data payloads.
@@ -157,7 +158,7 @@ public class Controller extends Thread {
 	private final ReentrantLock blockchainLock = new ReentrantLock();
 
 	/** Cache of 'online accounts' */
-	List<OnlineAccount> onlineAccounts = new ArrayList<>();
+	List<OnlineAccountData> onlineAccounts = new ArrayList<>();
 
 	// Constructors
 
@@ -205,7 +206,7 @@ public class Controller extends Thread {
 		return this.buildVersion;
 	}
 
-	/** Returns current blockchain height, or 0 if there's a repository issue */
+	/** Returns current blockchain height, or 0 if it's not available. */
 	public int getChainHeight() {
 		BlockData blockData = this.chainTip.get();
 		if (blockData == null)
@@ -214,7 +215,7 @@ public class Controller extends Thread {
 		return blockData.getHeight();
 	}
 
-	/** Returns highest block, or null if there's a repository issue */
+	/** Returns highest block, or null if it's not available. */
 	public BlockData getChainTip() {
 		return this.chainTip.get();
 	}
@@ -240,10 +241,15 @@ public class Controller extends Thread {
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
 
 		// Load/check settings, which potentially sets up blockchain config, etc.
-		if (args.length > 0)
-			Settings.fileInstance(args[0]);
-		else
-			Settings.getInstance();
+		try {
+			if (args.length > 0)
+				Settings.fileInstance(args[0]);
+			else
+				Settings.getInstance();
+		} catch (Throwable t) {
+			Gui.getInstance().fatalError("Settings file", t.getMessage());
+			return; // Not System.exit() so that GUI can display error
+		}
 
 		LOGGER.info("Starting NTP");
 		NTP.start();
@@ -406,54 +412,72 @@ public class Controller extends Thread {
 		}
 	}
 
-	private void potentiallySynchronize() throws InterruptedException {
-		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
-		if (minLatestBlockTimestamp == null)
-			return;
+	public static final Predicate<Peer> hasMisbehaved = peer -> {
+		final Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
+		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
+	};
 
+	public static final Predicate<Peer> hasNoRecentBlock = peer -> {
+		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		final PeerChainTipData peerChainTipData = peer.getChainTipData();
+		return peerChainTipData == null || peerChainTipData.getLastBlockTimestamp() == null || peerChainTipData.getLastBlockTimestamp() < minLatestBlockTimestamp;
+	};
+
+	public static final Predicate<Peer> hasNoOrSameBlock = peer -> {
+		final BlockData latestBlockData = getInstance().getChainTip();
+		final PeerChainTipData peerChainTipData = peer.getChainTipData();
+		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peerChainTipData.getLastBlockSignature());
+	};
+
+	public static final Predicate<Peer> hasOnlyGenesisBlock = peer -> {
+		final PeerChainTipData peerChainTipData = peer.getChainTipData();
+		return peerChainTipData == null || peerChainTipData.getLastHeight() == null || peerChainTipData.getLastHeight() == 1;
+	};
+
+	public static final Predicate<Peer> hasInferiorChainTip = peer -> {
+		final PeerChainTipData peerChainTipData = peer.getChainTipData();
+		final List<ByteArray> inferiorChainTips = getInstance().inferiorChainSignatures;
+		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || inferiorChainTips.contains(new ByteArray(peerChainTipData.getLastBlockSignature()));
+	};
+
+	private void potentiallySynchronize() throws InterruptedException {
 		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
 
 		// Disregard peers that have "misbehaved" recently
-		peers.removeIf(hasPeerMisbehaved);
+		peers.removeIf(hasMisbehaved);
+
+		// Disregard peers that only have genesis block
+		peers.removeIf(hasOnlyGenesisBlock);
+
+		// Disregard peers that don't have a recent block
+		peers.removeIf(hasNoRecentBlock);
+
+		// Disregard peers that have no block signature or the same block signature as us
+		peers.removeIf(hasNoOrSameBlock);
+
+		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
+		peers.removeIf(hasInferiorChainTip);
 
 		// Check we have enough peers to potentially synchronize
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 			return;
 
-		// Disregard peers that don't have a recent block
-		peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
+		// Pick random peer to sync with
+		int index = new SecureRandom().nextInt(peers.size());
+		Peer peer = peers.get(index);
 
-		BlockData latestBlockData = getChainTip();
-
-		// Disregard peers that have no block signature or the same block signature as us
-		peers.removeIf(peer -> peer.getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peer.getLastBlockSignature()));
-
-		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
-		if (noSyncOurBlockSignature != null && Arrays.equals(noSyncOurBlockSignature, latestBlockData.getSignature()))
-			peers.removeIf(peer -> Arrays.equals(noSyncPeerBlockSignature, peer.getLastBlockSignature()));
-
-		if (!peers.isEmpty()) {
-			// Pick random peer to sync with
-			int index = new SecureRandom().nextInt(peers.size());
-			Peer peer = peers.get(index);
-
-			actuallySynchronize(peer, false);
-		}
+		actuallySynchronize(peer, false);
 	}
 
 	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
 		BlockData latestBlockData = getChainTip();
 
-		noSyncOurBlockSignature = null;
-		noSyncPeerBlockSignature = null;
-
 		SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, force);
 		switch (syncResult) {
 			case GENESIS_ONLY:
 			case NO_COMMON_BLOCK:
-			case TOO_FAR_BEHIND:
 			case TOO_DIVERGENT:
-			case INVALID_DATA:
+			case INVALID_DATA: {
 				// These are more serious results that warrant a cool-off
 				LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
 
@@ -470,13 +494,22 @@ public class Controller extends Thread {
 						LOGGER.warn("Repository issue while updating peer synchronization info", e);
 					}
 				break;
+			}
 
-			case INFERIOR_CHAIN:
-				noSyncOurBlockSignature = latestBlockData.getSignature();
-				noSyncPeerBlockSignature = peer.getLastBlockSignature();
+			case INFERIOR_CHAIN: {
+				// Update our list of inferior chain tips
+				ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
+				if (!inferiorChainSignatures.contains(inferiorChainSignature))
+					inferiorChainSignatures.add(inferiorChainSignature);
+
 				// These are minor failure results so fine to try again
 				LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
+
+				// Notify peer of our superior chain
+				if (!peer.sendMessage(Network.getInstance().buildHeightMessage(peer, latestBlockData)))
+					peer.disconnect("failed to notify peer of our superior chain");
 				break;
+			}
 
 			case NO_REPLY:
 			case NO_BLOCKCHAIN_LOCK:
@@ -488,14 +521,18 @@ public class Controller extends Thread {
 			case OK:
 				requestSysTrayUpdate = true;
 				// fall-through...
-			case NOTHING_TO_DO:
-				noSyncOurBlockSignature = latestBlockData.getSignature();
-				noSyncPeerBlockSignature = peer.getLastBlockSignature();
+			case NOTHING_TO_DO: {
+				// Update our list of inferior chain tips
+				ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
+				if (!inferiorChainSignatures.contains(inferiorChainSignature))
+					inferiorChainSignatures.add(inferiorChainSignature);
+
 				LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
 				break;
+			}
 		}
 
-		// Broadcast our new chain tip (if changed)
+		// Has our chain tip changed?
 		BlockData newLatestBlockData;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -506,8 +543,13 @@ public class Controller extends Thread {
 			return syncResult;
 		}
 
-		if (!Arrays.equals(newLatestBlockData.getSignature(), latestBlockData.getSignature()))
+		if (!Arrays.equals(newLatestBlockData.getSignature(), latestBlockData.getSignature())) {
+			// Broadcast our new chain tip
 			Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newLatestBlockData));
+
+			// Reset our cache of inferior chains
+			inferiorChainSignatures.clear();
+		}
 
 		return syncResult;
 	}
@@ -725,17 +767,9 @@ public class Controller extends Thread {
 					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
 						continue;
 
-					// We want to update atomically so use lock
-					ReentrantLock peerLock = connectedPeer.getPeerDataLock();
-					peerLock.lock();
-					try {
-						connectedPeer.setLastHeight(blockData.getHeight());
-						connectedPeer.setLastBlockSignature(blockData.getSignature());
-						connectedPeer.setLastBlockTimestamp(blockData.getTimestamp());
-						connectedPeer.setLastBlockGenerator(blockData.getGeneratorPublicKey());
-					} finally {
-						peerLock.unlock();
-					}
+					// Update peer chain tip data
+					PeerChainTipData newChainTipData = new PeerChainTipData(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getGeneratorPublicKey());
+					connectedPeer.setChainTipData(newChainTipData);
 				}
 
 				// Potentially synchronize
@@ -754,7 +788,9 @@ public class Controller extends Thread {
 					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
 						continue;
 
-					connectedPeer.setLastHeight(heightMessage.getHeight());
+					// Update peer chain tip data
+					PeerChainTipData newChainTipData = new PeerChainTipData(heightMessage.getHeight(), null, null, null);
+					connectedPeer.setChainTipData(newChainTipData);
 				}
 
 				// Potentially synchronize
@@ -769,7 +805,7 @@ public class Controller extends Thread {
 				// If peer is inbound and we've not updated their height
 				// then this is probably their initial HEIGHT_V2 message
 				// so they need a corresponding HEIGHT_V2 message from us
-				if (!peer.isOutbound() && peer.getLastHeight() == null)
+				if (!peer.isOutbound() && (peer.getChainTipData() == null || peer.getChainTipData().getLastHeight() == null))
 					peer.sendMessage(Network.getInstance().buildHeightMessage(peer, getChainTip()));
 
 				// Update all peers with same ID
@@ -780,17 +816,9 @@ public class Controller extends Thread {
 					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
 						continue;
 
-					// We want to update atomically so use lock
-					ReentrantLock peerLock = connectedPeer.getPeerDataLock();
-					peerLock.lock();
-					try {
-						connectedPeer.setLastHeight(heightV2Message.getHeight());
-						connectedPeer.setLastBlockSignature(heightV2Message.getSignature());
-						connectedPeer.setLastBlockTimestamp(heightV2Message.getTimestamp());
-						connectedPeer.setLastBlockGenerator(heightV2Message.getGenerator());
-					} finally {
-						peerLock.unlock();
-					}
+					// Update peer chain tip data
+					PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getGenerator());
+					connectedPeer.setChainTipData(newChainTipData);
 				}
 
 				// Potentially synchronize
@@ -1168,24 +1196,24 @@ public class Controller extends Thread {
 			case GET_ONLINE_ACCOUNTS: {
 				GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
 
-				List<OnlineAccount> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
+				List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
 
 				// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-				List<OnlineAccount> accountsToSend;
+				List<OnlineAccountData> accountsToSend;
 				synchronized (this.onlineAccounts) {
 					accountsToSend = new ArrayList<>(this.onlineAccounts);
 				}
 
-				Iterator<OnlineAccount> iterator = accountsToSend.iterator();
+				Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
 
 				SEND_ITERATOR:
 				while (iterator.hasNext()) {
-					OnlineAccount onlineAccount = iterator.next();
+					OnlineAccountData onlineAccountData = iterator.next();
 
 					for (int i = 0; i < excludeAccounts.size(); ++i) {
-						OnlineAccount excludeAccount = excludeAccounts.get(i);
+						OnlineAccountData excludeAccountData = excludeAccounts.get(i);
 
-						if (onlineAccount.getTimestamp() == excludeAccount.getTimestamp() && Arrays.equals(onlineAccount.getPublicKey(), excludeAccount.getPublicKey())) {
+						if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
 							iterator.remove();
 							continue SEND_ITERATOR;
 						}
@@ -1203,11 +1231,11 @@ public class Controller extends Thread {
 			case ONLINE_ACCOUNTS: {
 				OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
 
-				List<OnlineAccount> onlineAccounts = onlineAccountsMessage.getOnlineAccounts();
+				List<OnlineAccountData> onlineAccounts = onlineAccountsMessage.getOnlineAccounts();
 				LOGGER.trace(() -> String.format("Received %d online accounts from %s", onlineAccounts.size(), peer));
 
-				for (OnlineAccount onlineAccount : onlineAccounts)
-					this.verifyAndAddAccount(onlineAccount);
+				for (OnlineAccountData onlineAccountData : onlineAccounts)
+					this.verifyAndAddAccount(onlineAccountData);
 
 				break;
 			}
@@ -1220,35 +1248,35 @@ public class Controller extends Thread {
 
 	// Utilities
 
-	private void verifyAndAddAccount(OnlineAccount onlineAccount) {
+	private void verifyAndAddAccount(OnlineAccountData onlineAccountData) {
 		// We would check timestamp is 'recent' here
 
 		// Verify
-		byte[] data = Longs.toByteArray(onlineAccount.getTimestamp());
-		PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccount.getPublicKey());
-		if (!otherAccount.verify(onlineAccount.getSignature(), data)) {
+		byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
+		PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccountData.getPublicKey());
+		if (!otherAccount.verify(onlineAccountData.getSignature(), data)) {
 			LOGGER.trace(() -> String.format("Rejecting invalid online account %s", otherAccount.getAddress()));
 			return;
 		}
 
 		synchronized (this.onlineAccounts) {
-			OnlineAccount existingAccount = this.onlineAccounts.stream().filter(account -> Arrays.equals(account.getPublicKey(), onlineAccount.getPublicKey())).findFirst().orElse(null);
+			OnlineAccountData existingAccountData = this.onlineAccounts.stream().filter(account -> Arrays.equals(account.getPublicKey(), onlineAccountData.getPublicKey())).findFirst().orElse(null);
 
-			if (existingAccount != null) {
-				if (existingAccount.getTimestamp() < onlineAccount.getTimestamp()) {
-					this.onlineAccounts.remove(existingAccount);
+			if (existingAccountData != null) {
+				if (existingAccountData.getTimestamp() < onlineAccountData.getTimestamp()) {
+					this.onlineAccounts.remove(existingAccountData);
 
-					LOGGER.trace(() -> String.format("Updated online account %s with timestamp %d (was %d)", otherAccount.getAddress(), onlineAccount.getTimestamp(), existingAccount.getTimestamp()));
+					LOGGER.trace(() -> String.format("Updated online account %s with timestamp %d (was %d)", otherAccount.getAddress(), onlineAccountData.getTimestamp(), existingAccountData.getTimestamp()));
 				} else {
 					LOGGER.trace(() -> String.format("Not updating existing online account %s", otherAccount.getAddress()));
 
 					return;
 				}
 			} else {
-				LOGGER.trace(() -> String.format("Added online account %s with timestamp %d", otherAccount.getAddress(), onlineAccount.getTimestamp()));
+				LOGGER.trace(() -> String.format("Added online account %s with timestamp %d", otherAccount.getAddress(), onlineAccountData.getTimestamp()));
 			}
 
-			this.onlineAccounts.add(onlineAccount);
+			this.onlineAccounts.add(onlineAccountData);
 		}
 	}
 
@@ -1260,16 +1288,16 @@ public class Controller extends Thread {
 		// Expire old entries
 		final long cutoffThreshold = now - LAST_SEEN_EXPIRY_PERIOD;
 		synchronized (this.onlineAccounts) {
-			Iterator<OnlineAccount> iterator = this.onlineAccounts.iterator();
+			Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
 			while (iterator.hasNext()) {
-				OnlineAccount onlineAccount = iterator.next();
+				OnlineAccountData onlineAccountData = iterator.next();
 
-				if (onlineAccount.getTimestamp() < cutoffThreshold) {
+				if (onlineAccountData.getTimestamp() < cutoffThreshold) {
 					iterator.remove();
 
 					LOGGER.trace(() -> {
-						PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccount.getPublicKey());
-						return String.format("Removed expired online account %s with timestamp %d", otherAccount.getAddress(), onlineAccount.getTimestamp());
+						PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccountData.getPublicKey());
+						return String.format("Removed expired online account %s with timestamp %d", otherAccount.getAddress(), onlineAccountData.getTimestamp());
 					});
 				}
 			}
@@ -1322,7 +1350,7 @@ public class Controller extends Thread {
 		boolean hasInfoChanged = false;
 
 		byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-		List<OnlineAccount> ourOnlineAccounts = new ArrayList<>();
+		List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
 
 		FORGING_ACCOUNTS:
 		for (ForgingAccountData forgingAccountData : forgingAccounts) {
@@ -1332,28 +1360,28 @@ public class Controller extends Thread {
 			byte[] publicKey = forgingAccount.getPublicKey();
 
 			// Our account is online
-			OnlineAccount onlineAccount = new OnlineAccount(onlineAccountsTimestamp, signature, publicKey);
+			OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
 			synchronized (this.onlineAccounts) {
-				Iterator<OnlineAccount> iterator = this.onlineAccounts.iterator();
+				Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
 				while (iterator.hasNext()) {
-					OnlineAccount account = iterator.next();
+					OnlineAccountData existingOnlineAccountData = iterator.next();
 
-					if (Arrays.equals(account.getPublicKey(), forgingAccount.getPublicKey())) {
-						// If onlineAccount is already present, with same timestamp, then move on to next forgingAccount
-						if (account.getTimestamp() == onlineAccountsTimestamp)
+					if (Arrays.equals(existingOnlineAccountData.getPublicKey(), ourOnlineAccountData.getPublicKey())) {
+						// If our online account is already present, with same timestamp, then move on to next forgingAccount
+						if (existingOnlineAccountData.getTimestamp() == onlineAccountsTimestamp)
 							continue FORGING_ACCOUNTS;
 
-						// If onlineAccount is already present, but with older timestamp, then remove it
+						// If our online account is already present, but with older timestamp, then remove it
 						iterator.remove();
 						break;
 					}
 				}
 
-				this.onlineAccounts.add(onlineAccount);
+				this.onlineAccounts.add(ourOnlineAccountData);
 			}
 
 			LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", forgingAccount.getAddress(), onlineAccountsTimestamp));
-			ourOnlineAccounts.add(onlineAccount);
+			ourOnlineAccounts.add(ourOnlineAccountData);
 			hasInfoChanged = true;
 		}
 
@@ -1370,7 +1398,7 @@ public class Controller extends Thread {
 		return (timestamp / ONLINE_TIMESTAMP_MODULUS) * ONLINE_TIMESTAMP_MODULUS;
 	}
 
-	public List<OnlineAccount> getOnlineAccounts() {
+	public List<OnlineAccountData> getOnlineAccounts() {
 		final long onlineTimestamp = Controller.toOnlineAccountTimestamp(NTP.getTime());
 
 		synchronized (this.onlineAccounts) {
@@ -1423,45 +1451,93 @@ public class Controller extends Thread {
 		}
 	}
 
-	public static final Predicate<Peer> hasPeerMisbehaved = peer -> {
-		Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
-		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
-	};
+	/** Returns a list of peers that are not misbehaving, and have a recent block. */
+	public List<Peer> getRecentBehavingPeers() {
+		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		if (minLatestBlockTimestamp == null)
+			return null;
+
+		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+
+		// Filter out unsuitable peers
+		Iterator<Peer> iterator = peers.iterator();
+		while (iterator.hasNext()) {
+			final Peer peer = iterator.next();
+
+			final PeerData peerData = peer.getPeerData();
+			if (peerData == null) {
+				iterator.remove();
+				continue;
+			}
+
+			// Disregard peers that have "misbehaved" recently
+			if (hasMisbehaved.test(peer)) {
+				iterator.remove();
+				continue;
+			}
+
+			final PeerChainTipData peerChainTipData = peer.getChainTipData();
+			if (peerChainTipData == null) {
+				iterator.remove();
+				continue;
+			}
+
+			// Disregard peers that don't have a recent block
+			if (peerChainTipData.getLastBlockTimestamp() == null || peerChainTipData.getLastBlockTimestamp() < minLatestBlockTimestamp) {
+				iterator.remove();
+				continue;
+			}
+		}
+
+		return peers;
+	}
 
 	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
 	public boolean isUpToDate() {
+		// Do we even have a vaguely recent block?
 		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
 		if (minLatestBlockTimestamp == null)
 			return false;
 
-		BlockData latestBlockData = getChainTip();
-
-		// Is our blockchain too old?
-		if (latestBlockData.getTimestamp() < minLatestBlockTimestamp)
+		final BlockData latestBlockData = getChainTip();
+		if (latestBlockData == null || latestBlockData.getTimestamp() < minLatestBlockTimestamp)
 			return false;
 
 		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
-
-		// Disregard peers that have "misbehaved" recently
-		peers.removeIf(hasPeerMisbehaved);
-
-		// Check we have enough peers to potentially synchronize/generator
-		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
+		if (peers == null)
 			return false;
 
+		// Disregard peers that have "misbehaved" recently
+		peers.removeIf(hasMisbehaved);
+
 		// Disregard peers that don't have a recent block
-		peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
+		peers.removeIf(hasNoRecentBlock);
+
+		// Check we have enough peers to potentially synchronize/generate
+		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
+			return false;
 
 		// If we don't have any peers left then can't synchronize, therefore consider ourself not up to date
 		return !peers.isEmpty();
 	}
 
+	/** Returns minimum block timestamp for block to be considered 'recent', or <tt>null</tt> if NTP not synced. */
 	public static Long getMinimumLatestBlockTimestamp() {
 		Long now = NTP.getTime();
 		if (now == null)
 			return null;
 
-		return now - BlockChain.getInstance().getMaxBlockTime() * 1000L * MAX_BLOCKCHAIN_TIP_AGE;
+		int height = getInstance().getChainHeight();
+		if (height == 0)
+			return null;
+
+		long offset = 0;
+		for (int ai = 0; height >= 1 && ai < MAX_BLOCKCHAIN_TIP_AGE; ++ai, --height) {
+			BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(height);
+			offset += blockTiming.target + blockTiming.deviation;
+		}
+
+		return now - offset;
 	}
 
 }

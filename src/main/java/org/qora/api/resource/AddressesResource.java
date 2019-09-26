@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -27,6 +28,7 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
+import org.qora.api.model.ApiOnlineAccount;
 import org.qora.api.model.ProxyKeyRequest;
 import org.qora.api.resource.TransactionsResource;
 import org.qora.asset.Asset;
@@ -34,7 +36,7 @@ import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
 import org.qora.data.account.ProxyForgerData;
-import org.qora.data.network.OnlineAccount;
+import org.qora.data.network.OnlineAccountData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -159,12 +161,32 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "online accounts",
-				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = OnlineAccount.class)))
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = ApiOnlineAccount.class)))
 			)
 		}
 	)
-	public List<OnlineAccount> getOnlineAccounts() {
-		return Controller.getInstance().getOnlineAccounts();
+	@ApiErrors({ApiError.PUBLIC_KEY_NOT_FOUND, ApiError.REPOSITORY_ISSUE})
+	public List<ApiOnlineAccount> getOnlineAccounts() {
+		List<OnlineAccountData> onlineAccounts = Controller.getInstance().getOnlineAccounts();
+
+		// Map OnlineAccountData entries to OnlineAccount via proxy-relationship data
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<ApiOnlineAccount> apiOnlineAccounts = new ArrayList<>();
+
+			for (OnlineAccountData onlineAccountData : onlineAccounts) {
+				ProxyForgerData proxyForgerData = repository.getAccountRepository().getProxyForgeData(onlineAccountData.getPublicKey());
+				if (proxyForgerData == null)
+					// This shouldn't happen?
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.PUBLIC_KEY_NOT_FOUND);
+
+				apiOnlineAccounts.add(new ApiOnlineAccount(onlineAccountData.getTimestamp(), onlineAccountData.getSignature(), onlineAccountData.getPublicKey(),
+						proxyForgerData.getForger(), proxyForgerData.getRecipient()));
+			}
+
+			return apiOnlineAccounts;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET

@@ -61,10 +61,6 @@ public class BlockChain {
 
 	/** Number of blocks between recalculating block's generating balance. */
 	private int blockDifficultyInterval;
-	/** Minimum target time between blocks, in seconds. */
-	private long minBlockTime;
-	/** Maximum target time between blocks, in seconds. */
-	private long maxBlockTime;
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	private long blockTimestampMargin;
 	/** Maximum block size, in bytes. */
@@ -253,14 +249,6 @@ public class BlockChain {
 		return this.blockDifficultyInterval;
 	}
 
-	public long getMinBlockTime() {
-		return this.minBlockTime;
-	}
-
-	public long getMaxBlockTime() {
-		return this.maxBlockTime;
-	}
-
 	public long getBlockTimestampMargin() {
 		return this.blockTimestampMargin;
 	}
@@ -361,22 +349,25 @@ public class BlockChain {
 
 	/** Validate blockchain config read from JSON */
 	private void validateConfig() {
-		if (this.genesisInfo == null) {
-			LOGGER.error("No \"genesisInfo\" entry found in blockchain config");
-			throw new RuntimeException("No \"genesisInfo\" entry found in blockchain config");
-		}
+		if (this.genesisInfo == null)
+			Settings.throwValidationError("No \"genesisInfo\" entry found in blockchain config");
 
-		if (this.featureTriggers == null) {
-			LOGGER.error("No \"featureTriggers\" entry found in blockchain config");
-			throw new RuntimeException("No \"featureTriggers\" entry found in blockchain config");
-		}
+		if (this.featureTriggers == null)
+			Settings.throwValidationError("No \"featureTriggers\" entry found in blockchain config");
+
+		if (this.blockTimestampMargin <= 0)
+			Settings.throwValidationError("Invalid \"blockTimestampMargin\" in blockchain config");
+
+		if (this.transactionExpiryPeriod <= 0)
+			Settings.throwValidationError("Invalid \"transactionExpiryPeriod\" in blockchain config");
+
+		if (this.maxBlockSize <= 0)
+			Settings.throwValidationError("Invalid \"maxBlockSize\" in blockchain config");
 
 		// Check all featureTriggers are present
 		for (FeatureTrigger featureTrigger : FeatureTrigger.values())
-			if (!this.featureTriggers.containsKey(featureTrigger.name())) {
-				LOGGER.error(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
-				throw new RuntimeException("Missing feature trigger in blockchain config");
-			}
+			if (!this.featureTriggers.containsKey(featureTrigger.name()))
+				Settings.throwValidationError(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
 	}
 
 	/**

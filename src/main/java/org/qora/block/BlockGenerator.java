@@ -113,14 +113,14 @@ public class BlockGenerator extends Thread {
 				BlockData lastBlockData = blockRepository.getLastBlock();
 
 				// Disregard peers that have "misbehaved" recently
-				peers.removeIf(Controller.hasPeerMisbehaved);
+				peers.removeIf(Controller.hasMisbehaved);
 
 				// Don't generate if we don't have enough connected peers as where would the transactions/consensus come from?
 				if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 					continue;
 
 				// Disregard peers that don't have a recent block
-				peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
+				peers.removeIf(Controller.hasNoRecentBlock);
 
 				// If we have any peers with a recent block, but our latest block isn't recent
 				// then we need to synchronize instead of generating.

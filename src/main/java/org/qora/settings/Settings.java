@@ -76,7 +76,7 @@ public class Settings {
 	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
 	/** Minimum number of peers to allow block generation / synchronization. */
-	private int minBlockchainPeers = 3;
+	private int minBlockchainPeers = 5;
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 20;
 	/** Maximum number of peer connections we allow. */
@@ -128,6 +128,21 @@ public class Settings {
 		return instance;
 	}
 
+	/**
+	 * Parse settings from given file.
+	 * <p>
+	 * Throws <tt>RuntimeException</tt> with <tt>UnmarshalException</tt> as cause if settings file could not be parsed.
+	 * <p>
+	 * We use <tt>RuntimeException</tt> because it can be caught first caller of {@link #getInstance()} above,
+	 * but it's not necessary to surround later {@link #getInstance()} calls
+	 * with <tt>try-catch</tt> as they should be read-only.
+	 *
+	 * @param filename
+	 * @throws RuntimeException with UnmarshalException as cause if settings file could not be parsed
+	 * @throws RuntimeException with FileNotFoundException as cause if settings file could not be found/opened
+	 * @throws RuntimeException with JAXBException as cause if some unexpected JAXB-related error occurred
+	 * @throws RuntimeException with IOException as cause if some unexpected I/O-related error occurred
+	 */
 	public static void fileInstance(String filename) {
 		JAXBContext jc;
 		Unmarshaller unmarshaller;
@@ -147,8 +162,9 @@ public class Settings {
 			// Tell unmarshaller that there's no JSON root element in the JSON input
 			unmarshaller.setProperty(UnmarshallerProperties.JSON_INCLUDE_ROOT, false);
 		} catch (JAXBException e) {
-			LOGGER.error("Unable to process settings file", e);
-			throw new RuntimeException("Unable to process settings file", e);
+			String message = "Failed to setup unmarshaller to process settings file";
+			LOGGER.error(message, e);
+			throw new RuntimeException(message, e);
 		}
 
 		Settings settings = null;
@@ -164,24 +180,28 @@ public class Settings {
 				// Attempt to unmarshal JSON stream to Settings
 				settings = unmarshaller.unmarshal(json, Settings.class).getValue();
 			} catch (FileNotFoundException e) {
-				LOGGER.error("Settings file not found: " + path + filename);
-				throw new RuntimeException("Settings file not found: " + path + filename);
+				String message = "Settings file not found: " + path + filename;
+				LOGGER.error(message, e);
+				throw new RuntimeException(message, e);
 			} catch (UnmarshalException e) {
 				Throwable linkedException = e.getLinkedException();
 				if (linkedException instanceof XMLMarshalException) {
 					String message = ((XMLMarshalException) linkedException).getInternalException().getLocalizedMessage();
 					LOGGER.error(message);
-					throw new RuntimeException(message);
+					throw new RuntimeException(message, e);
 				}
 
-				LOGGER.error("Unable to process settings file", e);
-				throw new RuntimeException("Unable to process settings file", e);
+				String message = "Failed to parse settings file";
+				LOGGER.error(message, e);
+				throw new RuntimeException(message, e);
 			} catch (JAXBException e) {
-				LOGGER.error("Unable to process settings file", e);
-				throw new RuntimeException("Unable to process settings file", e);
+				String message = "Unexpected JAXB issue while processing settings file";
+				LOGGER.error(message, e);
+				throw new RuntimeException(message, e);
 			} catch (IOException e) {
-				LOGGER.error("Unable to process settings file", e);
-				throw new RuntimeException("Unable to process settings file", e);
+				String message = "Unexpected I/O issue while processing settings file";
+				LOGGER.error(message, e);
+				throw new RuntimeException(message, e);
 			}
 
 			if (settings.userPath != null) {
@@ -207,8 +227,14 @@ public class Settings {
 		BlockChain.fileInstance(settings.getUserPath(), settings.getBlockchainConfig());
 	}
 
+	public static void throwValidationError(String message) {
+		throw new RuntimeException(message, new UnmarshalException(message));
+	}
+
 	private void validate() {
 		// Validation goes here
+		if (this.minBlockchainPeers < 1)
+			throwValidationError("minBlockchainPeers must be at least 1");
 	}
 
 	// Getters / setters

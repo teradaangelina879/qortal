@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.qora.data.network.OnlineAccount;
+import org.qora.data.network.OnlineAccountData;
 import org.qora.transform.Transformer;
 
 import com.google.common.primitives.Ints;
@@ -16,19 +16,19 @@ import com.google.common.primitives.Longs;
 public class OnlineAccountsMessage extends Message {
 	private static final int MAX_ACCOUNT_COUNT = 1000;
 
-	private List<OnlineAccount> onlineAccounts;
+	private List<OnlineAccountData> onlineAccounts;
 
-	public OnlineAccountsMessage(List<OnlineAccount> onlineAccounts) {
+	public OnlineAccountsMessage(List<OnlineAccountData> onlineAccounts) {
 		this(-1, onlineAccounts);
 	}
 
-	private OnlineAccountsMessage(int id, List<OnlineAccount> onlineAccounts) {
+	private OnlineAccountsMessage(int id, List<OnlineAccountData> onlineAccounts) {
 		super(id, MessageType.ONLINE_ACCOUNTS);
 
 		this.onlineAccounts = onlineAccounts;
 	}
 
-	public List<OnlineAccount> getOnlineAccounts() {
+	public List<OnlineAccountData> getOnlineAccounts() {
 		return this.onlineAccounts;
 	}
 
@@ -38,7 +38,7 @@ public class OnlineAccountsMessage extends Message {
 		if (accountCount > MAX_ACCOUNT_COUNT)
 			return null;
 
-		List<OnlineAccount> onlineAccounts = new ArrayList<>(accountCount);
+		List<OnlineAccountData> onlineAccounts = new ArrayList<>(accountCount);
 
 		for (int i = 0; i < accountCount; ++i) {
 			long timestamp = bytes.getLong();
@@ -49,8 +49,8 @@ public class OnlineAccountsMessage extends Message {
 			byte[] publicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
 			bytes.get(publicKey);
 
-			OnlineAccount onlineAccount = new OnlineAccount(timestamp, signature, publicKey);
-			onlineAccounts.add(onlineAccount);
+			OnlineAccountData onlineAccountData = new OnlineAccountData(timestamp, signature, publicKey);
+			onlineAccounts.add(onlineAccountData);
 		}
 
 		return new OnlineAccountsMessage(id, onlineAccounts);
@@ -64,13 +64,13 @@ public class OnlineAccountsMessage extends Message {
 			bytes.write(Ints.toByteArray(this.onlineAccounts.size()));
 
 			for (int i = 0; i < this.onlineAccounts.size(); ++i) {
-				OnlineAccount onlineAccount = this.onlineAccounts.get(i);
+				OnlineAccountData onlineAccountData = this.onlineAccounts.get(i);
 
-				bytes.write(Longs.toByteArray(onlineAccount.getTimestamp()));
+				bytes.write(Longs.toByteArray(onlineAccountData.getTimestamp()));
 
-				bytes.write(onlineAccount.getSignature());
+				bytes.write(onlineAccountData.getSignature());
 
-				bytes.write(onlineAccount.getPublicKey());
+				bytes.write(onlineAccountData.getPublicKey());
 			}
 
 			return bytes.toByteArray();
