@@ -89,6 +89,15 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
+	public boolean exists(byte[] signature) throws DataException {
+		try {
+			return this.repository.exists("Blocks", "signature = ?", signature);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for block in repository", e);
+		}
+	}
+
+	@Override
 	public int getHeightFromSignature(byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE signature = ? LIMIT 1", signature)) {
 			if (resultSet == null)

@@ -38,6 +38,11 @@ public interface BlockRepository {
 	public BlockData fromHeight(int height) throws DataException;
 
 	/**
+	 * Returns whether block exists based on passed block signature.
+	 */
+	public boolean exists(byte[] signature) throws DataException;
+
+	/**
 	 * Return height of block in blockchain using block's signature.
 	 * 
 	 * @param signature
