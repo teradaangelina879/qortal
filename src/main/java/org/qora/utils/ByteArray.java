@@ -1,23 +1,12 @@
 package org.qora.utils;
 
-import java.util.Comparator;
-
-import com.google.common.hash.HashCode;
-
 public class ByteArray implements Comparable<ByteArray> {
 
-	private static final Comparator<ByteArray> COMPARATOR;
-	static {
-		COMPARATOR = Comparator.comparing(byteArray -> byteArray.comparable);
-	}
+	private int hash;
+	public final byte[] value;
 
-	private final String comparable;
-
-	public final byte[] raw;
-
-	public ByteArray(byte[] content) {
-		this.comparable = HashCode.fromBytes(content).toString();
-		this.raw = content;
+	public ByteArray(byte[] value) {
+		this.value = value;
 	}
 
 	@Override
@@ -25,22 +14,53 @@ public class ByteArray implements Comparable<ByteArray> {
 		if (this == other)
 			return true;
 
-		if (!(other instanceof ByteArray))
-			return false;
+		if (other instanceof ByteArray)
+			return this.compareTo((ByteArray) other) == 0;
 
-		ByteArray otherByteArray = (ByteArray) other;
+		if (other instanceof byte[])
+			return this.compareTo((byte[]) other) == 0;
 
-		return this.comparable.equals(otherByteArray.comparable);
+		return false;
 	}
 
 	@Override
 	public int hashCode() {
-		return this.comparable.hashCode();
+		int h = hash;
+		if (h == 0 && value.length > 0) {
+			byte val[] = value;
+
+			for (int i = 0; i < val.length; ++i)
+				h = 31 * h + val[i];
+
+			hash = h;
+		}
+		return h;
 	}
 
 	@Override
 	public int compareTo(ByteArray other) {
-		return COMPARATOR.compare(this, other);
+		return this.compareTo(other.value);
+	}
+
+	public int compareTo(byte[] otherValue) {
+		byte[] val = value;
+
+		if (val.length < otherValue.length)
+			return -1;
+
+		if (val.length > otherValue.length)
+			return 1;
+
+		for (int i = 0; i < val.length; ++i) {
+			int a = val[i] & 0xFF;
+			int b = otherValue[i] & 0xFF;
+			if (a < b)
+				return -1;
+			if (b > a)
+				return 1;
+		}
+
+		return 0;
 	}
 
 }
