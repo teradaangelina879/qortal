@@ -28,13 +28,19 @@ public class ByteArrayTests {
 		}
 	}
 
-	public void fillMap(Map<ByteArray, String> map) {
+	private void fillMap(Map<ByteArray, String> map) {
 		for (byte[] testValue : testValues)
 			map.put(new ByteArray(testValue), String.valueOf(map.size()));
 	}
 
+	private byte[] dup(byte[] value) {
+		byte[] copiedValue = new byte[value.length];
+		System.arraycopy(value, 0, copiedValue, 0, copiedValue.length);
+		return copiedValue;
+	}
+
 	@Test
-	public void testByteArray() {
+	public void testSameContentReference() {
 		// Create two objects, which will have different references, but same content.
 		byte[] testValue = testValues.get(0);
 		ByteArray ba1 = new ByteArray(testValue);
@@ -52,15 +58,64 @@ public class ByteArrayTests {
 	}
 
 	@Test
-	public void testByteArrayMap() {
+	public void testSameContentValue() {
+		// Create two objects, which will have different references, but same content.
+		byte[] testValue = testValues.get(0);
+		ByteArray ba1 = new ByteArray(testValue);
+
+		byte[] copiedValue = dup(testValue);
+		ByteArray ba2 = new ByteArray(copiedValue);
+
+		// Confirm JVM-assigned references are different
+		assertNotSame(ba1, ba2);
+
+		// Confirm "equals" works as intended
+		assertTrue("equals did not return true", ba1.equals(ba2));
+		assertEquals("ba1 not equal to ba2", ba1, ba2);
+
+		// Confirm "hashCode" results match
+		assertEquals("hashCodes do not match", ba1.hashCode(), ba2.hashCode());
+	}
+
+	@Test
+	public void testCompareBoxedWithPrimitive() {
+		byte[] testValue = testValues.get(0);
+		ByteArray ba1 = new ByteArray(testValue);
+
+		byte[] copiedValue = dup(testValue);
+
+		// Confirm "equals" works as intended
+		assertTrue("equals did not return true", ba1.equals(copiedValue));
+		assertEquals("boxed not equal to primitive", ba1, copiedValue);
+	}
+
+	@Test
+	public void testMapContainsKey() {
 		Map<ByteArray, String> testMap = new HashMap<>();
 		fillMap(testMap);
 
 		// Create new ByteArray object with an existing value.
-		ByteArray ba = new ByteArray(testValues.get(3));
+		byte[] copiedValue = dup(testValues.get(3));
+		ByteArray ba = new ByteArray(copiedValue);
 
 		// Confirm object can be found in map
 		assertTrue("ByteArray not found in map", testMap.containsKey(ba));
+
+		assertTrue("boxed not equal to primitive", ba.equals(copiedValue));
+
+		// This won't work because copiedValue.hashCode() will not match ba.hashCode()
+		assertFalse("Primitive shouldn't be found in map", testMap.containsKey(copiedValue));
+	}
+
+	@Test
+	public void debugBoxedVersusPrimitive() {
+		byte[] testValue = testValues.get(0);
+		ByteArray ba1 = new ByteArray(testValue);
+
+		byte[] copiedValue = dup(testValue);
+
+		System.out.println(String.format("Boxed hashCode: 0x%08x", ba1.hashCode()));
+		System.out.println(String.format("Primitive hashCode: 0x%08x", copiedValue.hashCode()));
 	}
 
 }
