@@ -125,7 +125,7 @@ public class HSQLDBDatabaseUpdates {
 					// Blocks
 					stmt.execute("CREATE TABLE Blocks (signature BlockSignature, version TINYINT NOT NULL, reference BlockSignature, "
 							+ "transaction_count INTEGER NOT NULL, total_fees QoraAmount NOT NULL, transactions_signature Signature NOT NULL, "
-							+ "height INTEGER NOT NULL, generation TIMESTAMP WITH TIME ZONE NOT NULL, generating_balance QoraAmount NOT NULL, "
+							+ "height INTEGER NOT NULL, generation TIMESTAMP WITH TIME ZONE NOT NULL, "
 							+ "generator QoraPublicKey NOT NULL, generator_signature Signature NOT NULL, AT_count INTEGER NOT NULL, AT_fees QoraAmount NOT NULL, "
 							+ "PRIMARY KEY (signature))");
 					// For finding blocks by height.

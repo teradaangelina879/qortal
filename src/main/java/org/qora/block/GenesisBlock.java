@@ -46,7 +46,6 @@ public class GenesisBlock extends Block {
 	public static class GenesisInfo {
 		public int version = 1;
 		public long timestamp;
-		public BigDecimal generatingBalance;
 
 		public TransactionData[] transactions;
 
@@ -123,21 +122,18 @@ public class GenesisBlock extends Block {
 			}).collect(Collectors.toList());
 		}
 
-		// Minor fix-up
-		info.generatingBalance.setScale(8);
-
 		byte[] reference = GENESIS_REFERENCE;
 		int transactionCount = transactionsData.size();
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
 		byte[] generatorPublicKey = GenesisAccount.PUBLIC_KEY;
-		byte[] bytesForSignature = getBytesForSignature(info.version, reference, info.generatingBalance, generatorPublicKey);
+		byte[] bytesForSignature = getBytesForSignature(info.version, reference, generatorPublicKey);
 		byte[] generatorSignature = calcSignature(bytesForSignature);
 		byte[] transactionsSignature = generatorSignature;
 		int height = 1;
 		int atCount = 0;
 		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
 
-		blockData = new BlockData(info.version, reference, transactionCount, totalFees, transactionsSignature, height, info.timestamp, info.generatingBalance,
+		blockData = new BlockData(info.version, reference, transactionCount, totalFees, transactionsSignature, height, info.timestamp,
 				generatorPublicKey, generatorSignature, atCount, atFees);
 	}
 
@@ -214,7 +210,7 @@ public class GenesisBlock extends Block {
 		return Bytes.concat(digest, digest);
 	}
 
-	private static byte[] getBytesForSignature(int version, byte[] reference, BigDecimal generatingBalance, byte[] generatorPublicKey) {
+	private static byte[] getBytesForSignature(int version, byte[] reference, byte[] generatorPublicKey) {
 		try {
 			// Passing expected size to ByteArrayOutputStream avoids reallocation when adding more bytes than default 32.
 			// See below for explanation of some of the values used to calculated expected size.
@@ -233,8 +229,6 @@ public class GenesisBlock extends Block {
 			 */
 			bytes.write(Bytes.ensureCapacity(reference, 64, 0));
 
-			bytes.write(Longs.toByteArray(generatingBalance.longValue()));
-
 			// NOTE: Genesis account's public key is only 8 bytes, not the usual 32, so we have to pad.
 			bytes.write(Bytes.ensureCapacity(generatorPublicKey, 32, 0));
 
@@ -246,8 +240,7 @@ public class GenesisBlock extends Block {
 
 	/** Convenience method for calculating genesis block signatures from block data */
 	private static byte[] calcSignature(BlockData blockData) {
-		byte[] bytes = getBytesForSignature(blockData.getVersion(), blockData.getReference(), blockData.getGeneratingBalance(),
-				blockData.getGeneratorPublicKey());
+		byte[] bytes = getBytesForSignature(blockData.getVersion(), blockData.getReference(), blockData.getGeneratorPublicKey());
 		return calcSignature(bytes);
 	}
 

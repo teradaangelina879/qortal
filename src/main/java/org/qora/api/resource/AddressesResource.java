@@ -190,33 +190,6 @@ public class AddressesResource {
 	}
 
 	@GET
-	@Path("/generatingbalance/{address}")
-	@Operation(
-		summary = "Return the generating balance of the given address",
-		description = "Returns the effective balance of the given address, used in Proof-of-Stake calculationgs when generating a new block.",
-		responses = {
-			@ApiResponse(
-				description = "the generating balance",
-				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string", format = "number"))
-			)
-		}
-	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public BigDecimal getGeneratingBalanceOfAddress(@PathParam("address") String address) {
-		if (!Crypto.isValidAddress(address))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			Account account = new Account(repository, address);
-			return account.getGeneratingBalance();
-		} catch (ApiException e) {
-			throw e;
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@GET
 	@Path("/balance/{address}")
 	@Operation(
 		summary = "Returns the confirmed balance of the given address",
@@ -228,7 +201,7 @@ public class AddressesResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public BigDecimal getGeneratingBalance(@PathParam("address") String address) {
+	public BigDecimal getConfirmedBalance(@PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
@@ -253,7 +226,7 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String getGeneratingBalance(@PathParam("address") String address, @PathParam("confirmations") int confirmations) {
+	public String getConfirmedBalance(@PathParam("address") String address, @PathParam("confirmations") int confirmations) {
 		throw new UnsupportedOperationException();
 	}
 

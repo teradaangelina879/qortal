@@ -34,7 +34,6 @@ import org.qora.data.block.BlockTransactionData;
 import org.qora.data.network.OnlineAccountData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.ATRepository;
-import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.TransactionRepository;
@@ -55,28 +54,6 @@ import com.google.common.primitives.Longs;
 
 import io.druid.extendedset.intset.ConciseSet;
 
-/*
- * Typical use-case scenarios:
- * 
- * 1. Loading a Block from the database using height, signature, reference, etc.
- * 2. Generating a new block, adding unconfirmed transactions
- * 3. Receiving a block from another node
- * 
- * Transaction count, transactions signature and total fees need to be maintained by Block.
- * In scenario (1) these can be found in database.
- * In scenarios (2) and (3) Transactions are added to the Block via addTransaction() method.
- * Also in scenarios (2) and (3), Block is responsible for saving Transactions to DB.
- * 
- * When is height set?
- * In scenario (1) this can be found in database.
- * In scenarios (2) and (3) this will need to be set after successful processing,
- * but before Block is saved into database.
- * 
- * GeneratorSignature's data is: reference + generatingBalance + generator's public key
- * TransactionSignature's data is: generatorSignature + transaction signatures
- * Block signature is: generatorSignature + transactionsSignature
- */
-
 public class Block {
 
 	// Validation results
@@ -93,7 +70,6 @@ public class Block {
 		TIMESTAMP_INCORRECT(24),
 		VERSION_INCORRECT(30),
 		FEATURE_NOT_YET_RELEASED(31),
-		GENERATING_BALANCE_INCORRECT(40),
 		GENERATOR_NOT_ACCEPTED(41),
 		GENESIS_TRANSACTIONS_INVALID(50),
 		TRANSACTION_TIMESTAMP_INVALID(51),
@@ -144,8 +120,6 @@ public class Block {
 	/** Locally-generated AT fees */
 	protected BigDecimal ourAtFees; // Generated locally
 
-	/** Cached copy of next block's generating balance */
-	protected BigDecimal cachedNextGeneratingBalance;
 	/** Minimum Qora balance for use in calculations. */
 	public static final BigDecimal MIN_BALANCE = BigDecimal.valueOf(1L).setScale(8);
 
@@ -216,10 +190,7 @@ public class Block {
 	 * Note that CIYAM ATs will be executed and AT-Transactions prepended to this block, along with AT state data and fees.
 	 * 
 	 * @param repository
-	 * @param version
-	 * @param reference
-	 * @param timestamp
-	 * @param generatingBalance
+	 * @param parentBlockData
 	 * @param generator
 	 * @throws DataException
 	 */
@@ -231,7 +202,6 @@ public class Block {
 
 		int version = parentBlock.getNextBlockVersion();
 		byte[] reference = parentBlockData.getSignature();
-		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
 
 		// Fetch our list of online accounts
 		List<OnlineAccountData> onlineAccounts = Controller.getInstance().getOnlineAccounts();
@@ -274,8 +244,7 @@ public class Block {
 
 		byte[] generatorSignature;
 		try {
-			generatorSignature = generator
-					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator, encodedOnlineAccounts));
+			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generator, encodedOnlineAccounts));
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
@@ -293,7 +262,7 @@ public class Block {
 		BigDecimal totalFees = atFees;
 
 		// This instance used for AT processing
-		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, 
 				generator.getPublicKey(), generatorSignature, atCount, atFees,
 				encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
@@ -306,7 +275,7 @@ public class Block {
 		totalFees = atFees;
 
 		// Rebuild blockData using post-AT-execute data
-		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, 
 				generator.getPublicKey(), generatorSignature, atCount, atFees,
 				encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 	}
@@ -334,12 +303,10 @@ public class Block {
 		// Calculate new block timestamp
 		int version = this.blockData.getVersion();
 		byte[] reference = this.blockData.getReference();
-		BigDecimal generatingBalance = this.blockData.getGeneratingBalance();
 
 		byte[] generatorSignature;
 		try {
-			generatorSignature = generator
-					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator, this.blockData.getEncodedOnlineAccounts()));
+			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generator, this.blockData.getEncodedOnlineAccounts()));
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
@@ -360,7 +327,7 @@ public class Block {
 		Long onlineAccountsTimestamp = this.blockData.getOnlineAccountsTimestamp();
 		byte[] onlineAccountsSignatures = this.blockData.getOnlineAccountsSignatures();
 
-		newBlock.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+		newBlock.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
 				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
 		// Resign to update transactions signature
@@ -410,80 +377,6 @@ public class Block {
 			return 3;
 		else
 			return 4;
-	}
-
-	/**
-	 * Return the next block's generating balance.
-	 * <p>
-	 * Every BLOCK_RETARGET_INTERVAL the generating balance is recalculated.
-	 * <p>
-	 * If this block starts a new interval then the new generating balance is calculated, cached and returned.<br>
-	 * Within this interval, the generating balance stays the same so the current block's generating balance will be returned.
-	 * 
-	 * @return next block's generating balance
-	 * @throws DataException
-	 */
-	public BigDecimal calcNextBlockGeneratingBalance() throws DataException {
-		if (this.blockData.getHeight() == null)
-			throw new IllegalStateException("Can't calculate next block's generating balance as this block's height is unset");
-
-		final int blockDifficultyInterval = BlockChain.getInstance().getBlockDifficultyInterval();
-
-		// This block not at the start of an interval?
-		if (this.blockData.getHeight() % blockDifficultyInterval != 0)
-			return this.blockData.getGeneratingBalance();
-
-		// Return cached calculation if we have one
-		if (this.cachedNextGeneratingBalance != null)
-			return this.cachedNextGeneratingBalance;
-
-		// Perform calculation
-
-		// Navigate back to first block in previous interval:
-		// XXX: why can't we simply load using block height?
-		BlockRepository blockRepo = this.repository.getBlockRepository();
-		BlockData firstBlock = this.blockData;
-
-		try {
-			for (int i = 1; firstBlock != null && i < blockDifficultyInterval; ++i)
-				firstBlock = blockRepo.fromSignature(firstBlock.getReference());
-		} catch (DataException e) {
-			firstBlock = null;
-		}
-
-		// Couldn't navigate back far enough?
-		if (firstBlock == null)
-			throw new IllegalStateException("Failed to calculate next block's generating balance due to lack of historic blocks");
-
-		// Calculate the actual time period (in ms) over previous interval's blocks.
-		long previousGeneratingTime = this.blockData.getTimestamp() - firstBlock.getTimestamp();
-
-		// Calculate expected forging time (in ms) for a whole interval based on this block's generating balance.
-		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance(), this.blockData.getHeight()) * blockDifficultyInterval;
-
-		// Finally, scale generating balance such that faster than expected previous intervals produce larger generating balances.
-		// NOTE: we have to use doubles and longs here to keep compatibility with Qora v1 results
-		double multiplier = (double) expectedGeneratingTime / (double) previousGeneratingTime;
-		long nextGeneratingBalance = (long) (this.blockData.getGeneratingBalance().doubleValue() * multiplier);
-
-		this.cachedNextGeneratingBalance = Block.minMaxBalance(BigDecimal.valueOf(nextGeneratingBalance).setScale(8));
-
-		return this.cachedNextGeneratingBalance;
-	}
-
-	/**
-	 * Return expected forging delay, in seconds, since previous block based on passed generating balance.
-	 */
-	public static long calcForgingDelay(BigDecimal generatingBalance, int previousBlockHeight) {
-		generatingBalance = Block.minMaxBalance(generatingBalance);
-
-		double percentageOfTotal = generatingBalance.divide(BlockChain.getInstance().getMaxBalance()).doubleValue();
-
-		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(previousBlockHeight + 1);
-
-		long actualBlockTime = (long) (blockTiming.target + (blockTiming.deviation * (1 - (2 * percentageOfTotal))));
-
-		return actualBlockTime;
 	}
 
 	/**
@@ -952,10 +845,6 @@ public class Block {
 			return ValidationResult.VERSION_INCORRECT;
 		if (this.blockData.getVersion() < 2 && this.blockData.getATCount() != 0)
 			return ValidationResult.FEATURE_NOT_YET_RELEASED;
-
-		// Check generating balance
-		if (this.blockData.getGeneratingBalance().compareTo(parentBlock.calcNextBlockGeneratingBalance()) != 0)
-			return ValidationResult.GENERATING_BALANCE_INCORRECT;
 
 		// Check generator is allowed to forge this block
 		if (!isGeneratorValidToForge(parentBlock))

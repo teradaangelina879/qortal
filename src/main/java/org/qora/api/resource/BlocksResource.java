@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +27,6 @@ import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.BlockForgerSummary;
-import org.qora.block.Block;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
 import org.qora.data.block.BlockData;
@@ -236,83 +234,6 @@ public class BlocksResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
 
 			return childBlockData;
-		} catch (ApiException e) {
-			throw e;
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@GET
-	@Path("/generatingbalance")
-	@Operation(
-		summary = "Generating balance of next block",
-		description = "Calculates the generating balance of the block that will follow the last block",
-		responses = {
-			@ApiResponse(
-				description = "the generating balance",
-				content = @Content(
-					mediaType = MediaType.TEXT_PLAIN,
-					schema = @Schema(
-						implementation = BigDecimal.class
-					)
-				)
-			)
-		}
-	)
-	@ApiErrors({
-		ApiError.REPOSITORY_ISSUE
-	})
-	public BigDecimal getGeneratingBalance() {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().getLastBlock();
-			Block block = new Block(repository, blockData);
-			return block.calcNextBlockGeneratingBalance();
-		} catch (ApiException e) {
-			throw e;
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@GET
-	@Path("/generatingbalance/{signature}")
-	@Operation(
-		summary = "Generating balance of block after specific block",
-		description = "Calculates the generating balance of the block that will follow the block that matches the signature",
-		responses = {
-			@ApiResponse(
-				description = "the block",
-				content = @Content(
-					mediaType = MediaType.TEXT_PLAIN,
-					schema = @Schema(
-						implementation = BigDecimal.class
-					)
-				)
-			)
-		}
-	)
-	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
-	})
-	public BigDecimal getGeneratingBalance(@PathParam("signature") String signature58) {
-		// Decode signature
-		byte[] signature;
-		try {
-			signature = Base58.decode(signature58);
-		} catch (NumberFormatException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE, e);
-		}
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
-
-			// Check block exists
-			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
-
-			Block block = new Block(repository, blockData);
-			return block.calcNextBlockGeneratingBalance();
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

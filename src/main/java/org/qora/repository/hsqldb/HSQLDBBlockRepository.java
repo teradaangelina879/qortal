@@ -22,7 +22,7 @@ import static org.qora.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli
 public class HSQLDBBlockRepository implements BlockRepository {
 
 	private static final String BLOCK_DB_COLUMNS = "version, reference, transaction_count, total_fees, "
-			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, "
+			+ "transactions_signature, height, generation, generator, generator_signature, "
 			+ "AT_count, AT_fees, online_accounts, online_accounts_count, online_accounts_timestamp, online_accounts_signatures";
 
 	protected HSQLDBRepository repository;
@@ -43,17 +43,16 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			byte[] transactionsSignature = resultSet.getBytes(5);
 			int height = resultSet.getInt(6);
 			long timestamp = getZonedTimestampMilli(resultSet, 7);
-			BigDecimal generatingBalance = resultSet.getBigDecimal(8);
-			byte[] generatorPublicKey = resultSet.getBytes(9);
-			byte[] generatorSignature = resultSet.getBytes(10);
-			int atCount = resultSet.getInt(11);
-			BigDecimal atFees = resultSet.getBigDecimal(12);
-			byte[] encodedOnlineAccounts = resultSet.getBytes(13);
-			int onlineAccountsCount = resultSet.getInt(14);
-			Long onlineAccountsTimestamp = getZonedTimestampMilli(resultSet, 15);
-			byte[] onlineAccountsSignatures = resultSet.getBytes(16);
+			byte[] generatorPublicKey = resultSet.getBytes(8);
+			byte[] generatorSignature = resultSet.getBytes(9);
+			int atCount = resultSet.getInt(10);
+			BigDecimal atFees = resultSet.getBigDecimal(11);
+			byte[] encodedOnlineAccounts = resultSet.getBytes(12);
+			int onlineAccountsCount = resultSet.getInt(13);
+			Long onlineAccountsTimestamp = getZonedTimestampMilli(resultSet, 14);
+			byte[] onlineAccountsSignatures = resultSet.getBytes(15);
 
-			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
 					generatorPublicKey, generatorSignature, atCount, atFees,
 					encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 		} catch (SQLException e) {
@@ -341,7 +340,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		saveHelper.bind("signature", blockData.getSignature()).bind("version", blockData.getVersion()).bind("reference", blockData.getReference())
 				.bind("transaction_count", blockData.getTransactionCount()).bind("total_fees", blockData.getTotalFees())
 				.bind("transactions_signature", blockData.getTransactionsSignature()).bind("height", blockData.getHeight())
-				.bind("generation", toOffsetDateTime(blockData.getTimestamp())).bind("generating_balance", blockData.getGeneratingBalance())
+				.bind("generation", toOffsetDateTime(blockData.getTimestamp()))
 				.bind("generator", blockData.getGeneratorPublicKey()).bind("generator_signature", blockData.getGeneratorSignature())
 				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees())
 				.bind("online_accounts", blockData.getEncodedOnlineAccounts()).bind("online_accounts_count", blockData.getOnlineAccountsCount())

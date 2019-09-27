@@ -27,7 +27,6 @@ public class BlockData implements Serializable {
 	private byte[] transactionsSignature;
 	private Integer height;
 	private long timestamp;
-	private BigDecimal generatingBalance;
 	private byte[] generatorPublicKey;
 	private byte[] generatorSignature;
 	private int atCount;
@@ -44,7 +43,7 @@ public class BlockData implements Serializable {
 	}
 
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
-			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees,
+			byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees,
 			byte[] encodedOnlineAccounts, int onlineAccountsCount, Long onlineAccountsTimestamp, byte[] onlineAccountsSignatures) {
 		this.version = version;
 		this.reference = reference;
@@ -53,7 +52,6 @@ public class BlockData implements Serializable {
 		this.transactionsSignature = transactionsSignature;
 		this.height = height;
 		this.timestamp = timestamp;
-		this.generatingBalance = generatingBalance;
 		this.generatorPublicKey = generatorPublicKey;
 		this.generatorSignature = generatorSignature;
 		this.atCount = atCount;
@@ -70,8 +68,8 @@ public class BlockData implements Serializable {
 	}
 
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
-			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
-		this(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance, generatorPublicKey, generatorSignature, atCount, atFees,
+			byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
+		this(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatorPublicKey, generatorSignature, atCount, atFees,
 				null, 0, null, null);
 	}
 
@@ -131,10 +129,6 @@ public class BlockData implements Serializable {
 
 	public long getTimestamp() {
 		return this.timestamp;
-	}
-
-	public BigDecimal getGeneratingBalance() {
-		return this.generatingBalance;
 	}
 
 	public byte[] getGeneratorPublicKey() {

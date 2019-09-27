@@ -13,8 +13,8 @@ public class Forging {
 	}
 
 	public static boolean canForge(Account account) throws DataException {
-		Integer flags = account.getFlags();
-		return flags != null && (flags & getForgingMask()) != 0;
+		Integer level = account.getLevel();
+		return level != null && level > 0;
 	}
 
 }

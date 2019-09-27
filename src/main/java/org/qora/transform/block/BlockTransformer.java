@@ -37,11 +37,10 @@ public class BlockTransformer extends Transformer {
 	private static final int GENERATOR_SIGNATURE_LENGTH = SIGNATURE_LENGTH;
 	private static final int BLOCK_REFERENCE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	private static final int TIMESTAMP_LENGTH = LONG_LENGTH;
-	private static final int GENERATING_BALANCE_LENGTH = LONG_LENGTH;
 	private static final int GENERATOR_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int TRANSACTION_COUNT_LENGTH = INT_LENGTH;
 
-	private static final int BASE_LENGTH = VERSION_LENGTH + TIMESTAMP_LENGTH + BLOCK_REFERENCE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH
+	private static final int BASE_LENGTH = VERSION_LENGTH + TIMESTAMP_LENGTH + BLOCK_REFERENCE_LENGTH + GENERATOR_LENGTH
 			+ TRANSACTIONS_SIGNATURE_LENGTH + GENERATOR_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
 
 	public static final int BLOCK_SIGNATURE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
@@ -97,8 +96,6 @@ public class BlockTransformer extends Transformer {
 
 		byte[] reference = new byte[BLOCK_REFERENCE_LENGTH];
 		byteBuffer.get(reference);
-
-		BigDecimal generatingBalance = BigDecimal.valueOf(byteBuffer.getLong()).setScale(8);
 
 		byte[] generatorPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
@@ -244,7 +241,7 @@ public class BlockTransformer extends Transformer {
 
 		// We don't have a height!
 		Integer height = null;
-		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
 				generatorPublicKey, generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
 		return new Triple<BlockData, List<TransactionData>, List<ATStateData>>(blockData, transactions, atStates);
@@ -289,8 +286,6 @@ public class BlockTransformer extends Transformer {
 			bytes.write(Ints.toByteArray(blockData.getVersion()));
 			bytes.write(Longs.toByteArray(blockData.getTimestamp()));
 			bytes.write(blockData.getReference());
-			// NOTE: generatingBalance serialized as long value, not as BigDecimal, for historic compatibility
-			bytes.write(Longs.toByteArray(blockData.getGeneratingBalance().longValue()));
 			bytes.write(blockData.getGeneratorPublicKey());
 			bytes.write(blockData.getTransactionsSignature());
 			bytes.write(blockData.getGeneratorSignature());
@@ -373,17 +368,15 @@ public class BlockTransformer extends Transformer {
 		byte[] generatorSignature = getGeneratorSignatureFromReference(blockData.getReference());
 		PublicKeyAccount generator = new PublicKeyAccount(null, blockData.getGeneratorPublicKey());
 
-		return getBytesForGeneratorSignature(generatorSignature, blockData.getGeneratingBalance(), generator, blockData.getEncodedOnlineAccounts());
+		return getBytesForGeneratorSignature(generatorSignature, generator, blockData.getEncodedOnlineAccounts());
 	}
 
-	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, BigDecimal generatingBalance, PublicKeyAccount generator, byte[] encodedOnlineAccounts)
+	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, PublicKeyAccount generator, byte[] encodedOnlineAccounts)
 			throws TransformationException {
 		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH + encodedOnlineAccounts.length);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATOR_LENGTH + encodedOnlineAccounts.length);
 
 			bytes.write(generatorSignature);
-
-			bytes.write(Longs.toByteArray(generatingBalance.longValue()));
 
 			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
 			bytes.write(Bytes.ensureCapacity(generator.getPublicKey(), GENERATOR_LENGTH, 0));

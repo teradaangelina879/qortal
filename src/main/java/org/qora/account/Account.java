@@ -5,9 +5,7 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qora.asset.Asset;
 import org.qora.block.Block;
-import org.qora.block.BlockChain;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
 import org.qora.data.block.BlockData;
@@ -51,44 +49,6 @@ public class Account {
 	 */
 	protected AccountData buildAccountData() {
 		return new AccountData(this.address);
-	}
-
-	// More information
-
-	/**
-	 * Calculate current generating balance for this account.
-	 * <p>
-	 * This is the current confirmed balance minus amounts received in the last <code>BlockChain.BLOCK_RETARGET_INTERVAL</code> blocks.
-	 * 
-	 * @throws DataException
-	 */
-	public BigDecimal getGeneratingBalance() throws DataException {
-		BigDecimal balance = this.getConfirmedBalance(Asset.QORA);
-
-		BlockRepository blockRepository = this.repository.getBlockRepository();
-		BlockData blockData = blockRepository.getLastBlock();
-
-		for (int i = 1; i < BlockChain.getInstance().getBlockDifficultyInterval() && blockData != null && blockData.getHeight() > 1; ++i) {
-			Block block = new Block(this.repository, blockData);
-
-			// CIYAM AT transactions should be fetched from repository so no special handling needed here
-			for (Transaction transaction : block.getTransactions()) {
-				if (transaction.isInvolved(this)) {
-					final BigDecimal amount = transaction.getAmount(this);
-
-					// Subtract positive amounts only
-					if (amount.compareTo(BigDecimal.ZERO) > 0)
-						balance = balance.subtract(amount);
-				}
-			}
-
-			blockData = block.getParent();
-		}
-
-		// Do not go below 0
-		balance = balance.max(BigDecimal.ZERO);
-
-		return balance;
 	}
 
 	// Balance manipulations - assetId is 0 for QORA

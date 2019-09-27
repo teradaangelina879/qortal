@@ -1,6 +1,7 @@
 package org.qora.block;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -160,8 +161,9 @@ public class BlockChain {
 			unmarshaller.setProperty(UnmarshallerProperties.JSON_INCLUDE_ROOT, false);
 
 		} catch (JAXBException e) {
-			LOGGER.error("Unable to process blockchain config file", e);
-			throw new RuntimeException("Unable to process blockchain config file", e);
+			String message = "Failed to setup unmarshaller to process blockchain config file";
+			LOGGER.error(message, e);
+			throw new RuntimeException(message, e);
 		}
 
 		BlockChain blockchain = null;
@@ -173,8 +175,9 @@ public class BlockChain {
 			File jsonFile = new File(path + filename);
 
 			if (!jsonFile.exists()) {
-				LOGGER.error("Blockchain config file not found: " + path + filename);
-				throw new RuntimeException("Blockchain config file not found: " + path + filename);
+				String message = "Blockchain config file not found: " + path + filename;
+				LOGGER.error(message);
+				throw new RuntimeException(message, new FileNotFoundException(message));
 			}
 
 			jsonSource = new StreamSource(jsonFile);
@@ -194,14 +197,16 @@ public class BlockChain {
 			if (linkedException instanceof XMLMarshalException) {
 				String message = ((XMLMarshalException) linkedException).getInternalException().getLocalizedMessage();
 				LOGGER.error(message);
-				throw new RuntimeException(message);
+				throw new RuntimeException(message, e);
 			}
 
-			LOGGER.error("Unable to process blockchain config file", e);
-			throw new RuntimeException("Unable to process blockchain config file", e);
+			String message = "Failed to parse blockchain config file";
+			LOGGER.error(message, e);
+			throw new RuntimeException(message, e);
 		} catch (JAXBException e) {
-			LOGGER.error("Unable to process blockchain config file", e);
-			throw new RuntimeException("Unable to process blockchain config file", e);
+			String message = "Unexpected JAXB issue while processing blockchain config file";
+			LOGGER.error(message, e);
+			throw new RuntimeException(message, e);
 		}
 
 		// Validate config
