@@ -34,7 +34,7 @@ public class ApiCommon extends Common {
 
 	public static Object buildResource(Class<?> resourceClass) {
 		try {
-			Object resource = resourceClass.newInstance();
+			Object resource = resourceClass.getDeclaredConstructor().newInstance();
 
 			Field requestField = resourceClass.getDeclaredField("request");
 			requestField.setAccessible(true);

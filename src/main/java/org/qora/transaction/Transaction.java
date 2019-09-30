@@ -3,6 +3,7 @@ package org.qora.transaction;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -347,7 +348,7 @@ public abstract class Transaction {
 		if (recommendedFee.compareTo(BlockChain.getInstance().getUnitFee()) <= 0) {
 			recommendedFee = BlockChain.getInstance().getUnitFee();
 		} else {
-			recommendedFee = recommendedFee.setScale(0, BigDecimal.ROUND_UP);
+			recommendedFee = recommendedFee.setScale(0, RoundingMode.CEILING);
 		}
 
 		return recommendedFee.setScale(8);

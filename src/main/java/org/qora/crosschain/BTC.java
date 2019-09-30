@@ -226,7 +226,7 @@ public class BTC {
 	protected Wallet createEmptyWallet() {
 		ECKey dummyKey = new ECKey();
 
-		KeyChainGroup keyChainGroup = new KeyChainGroup(params);
+		KeyChainGroup keyChainGroup = KeyChainGroup.createBasic(params);
 		keyChainGroup.importKeys(dummyKey);
 
 		Wallet wallet = new Wallet(params, keyChainGroup);
@@ -242,12 +242,12 @@ public class BTC {
 		WalletCoinsReceivedEventListener coinsReceivedListener = new WalletCoinsReceivedEventListener() {
 			@Override
 			public void onCoinsReceived(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
-				System.out.println("Coins received via transaction " + tx.getHashAsString());
+				System.out.println("Coins received via transaction " + tx.getTxId().toString());
 			}
 		};
 		wallet.addCoinsReceivedEventListener(coinsReceivedListener);
 
-		Address address = Address.fromBase58(params, base58Address);
+		Address address = Address.fromString(params, base58Address);
 		wallet.addWatchedAddress(address, startTime);
 
 		StoredBlock checkpoint = manager.getCheckpointBefore(startTime);

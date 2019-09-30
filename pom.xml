@@ -6,20 +6,23 @@
 	<version>0.9</version>
 	<packaging>jar</packaging>
 	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<bouncycastle.version>1.61</bouncycastle.version>
-		<dagger.version>1.2.2</dagger.version>
-		<hsqldb.version>2.5.0</hsqldb.version>
-		<sqltool.version>2.4.1</sqltool.version>
-		<jetty.version>9.4.17.v20190418</jetty.version>
-		<jersey.version>2.27</jersey.version>
-		<log4j.version>2.11.0</log4j.version>
-		<slf4j.version>1.7.12</slf4j.version>
-		<swagger-api.version>2.0.6</swagger-api.version>
-		<swagger-ui.version>3.19.0</swagger-ui.version>
-		<felix-bundle-plugin.version>3.5.0</felix-bundle-plugin.version>
-		<package-info-maven-plugin.version>1.1.0</package-info-maven-plugin.version>
+		<bitcoin.version>0.15.4</bitcoin.version>
+		<bouncycastle.version>1.63</bouncycastle.version>
 		<build.timestamp>${maven.build.timestamp}</build.timestamp>
+		<commons-net.version>3.6</commons-net.version>
+		<commons-text.version>1.8</commons-text.version>
+		<dagger.version>1.2.2</dagger.version>
+		<guava.version>28.1-jre</guava.version>
+		<hsqldb.version>2.5.0</hsqldb.version>
+		<hsqldb-sqltool.version>2.5.0</hsqldb-sqltool.version>
+		<jersey.version>2.29.1</jersey.version>
+		<jetty.version>9.4.20.v20190813</jetty.version>
+		<log4j.version>2.12.1</log4j.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<slf4j.version>1.7.12</slf4j.version>
+		<swagger-api.version>2.0.9</swagger-api.version>
+		<swagger-ui.version>3.23.8</swagger-ui.version>
+		<package-info-maven-plugin.version>1.1.0</package-info-maven-plugin.version>
 	</properties>
 	<build>
 		<sourceDirectory>src/main/java</sourceDirectory>
@@ -32,11 +35,18 @@
 		</resources>
 		<plugins>
 			<plugin>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.5.1</version>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>versions-maven-plugin</artifactId>
+				<version>2.5</version>
 				<configuration>
-					<source>1.8</source>
-					<target>1.8</target>
+					<generateBackupPoms>false</generateBackupPoms>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.0</version>
+				<configuration>
+					<release>11</release>
 				</configuration>
 			</plugin>
 			<!-- unpack swagger-ui to target folder -->
@@ -309,7 +319,7 @@
 		<dependency>
 			<groupId>org.hsqldb</groupId>
 			<artifactId>sqltool</artifactId>
-			<version>${sqltool.version}</version>
+			<version>${hsqldb-sqltool.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<!-- CIYAM AT (automated transactions) -->
@@ -322,7 +332,7 @@
 		<dependency>
 			<groupId>org.bitcoinj</groupId>
 			<artifactId>bitcoinj-core</artifactId>
-			<version>0.14.7</version>
+			<version>${bitcoin.version}</version>
 		</dependency>
 		<!-- Utilities -->
 		<dependency>
@@ -333,7 +343,7 @@
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-text</artifactId>
-			<version>1.4</version>
+			<version>${commons-text.version}</version>
 		</dependency>
 		<!--  For bitset/bitmap compression -->
 		<dependency>
@@ -356,12 +366,12 @@
 		<dependency>
 			<groupId>commons-net</groupId>
 			<artifactId>commons-net</artifactId>
-			<version>3.3</version>
+			<version>${commons-net.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
-			<version>25.0-jre</version>
+			<version>${guava.version}</version>
 		</dependency>
 		<!-- Logging: log4j2 -->
 		<dependency>

@@ -13,6 +13,7 @@ import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.InsufficientMoneyException;
+import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.Sha256Hash;
 import org.bitcoinj.core.Transaction;
@@ -24,6 +25,7 @@ import org.bitcoinj.crypto.TransactionSignature;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.script.Script;
+import org.bitcoinj.script.Script.ScriptType;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
@@ -120,11 +122,11 @@ public class BTCACCTTests {
 		kit.wallet().importKey(recipientKey);
 
 		byte[] senderPubKey = senderKey.getPubKey();
-		System.out.println("Sender address: " + senderKey.toAddress(params).toBase58());
+		System.out.println("Sender address: " + Address.fromKey(params, senderKey, ScriptType.P2PKH).toString());
 		System.out.println("Sender pubkey: " + HashCode.fromBytes(senderPubKey).toString());
 
 		byte[] recipientPubKey = recipientKey.getPubKey();
-		System.out.println("Recipient address: " + recipientKey.toAddress(params).toBase58());
+		System.out.println("Recipient address: " + Address.fromKey(params, recipientKey, ScriptType.P2PKH).toString());
 		System.out.println("Recipient pubkey: " + HashCode.fromBytes(recipientPubKey).toString());
 
 		byte[] redeemScriptBytes = buildRedeemScript(secret, senderPubKey, recipientPubKey, lockTime);
@@ -132,20 +134,20 @@ public class BTCACCTTests {
 
 		byte[] redeemScriptHash = hash160(redeemScriptBytes);
 
-		Address p2shAddress = Address.fromP2SHHash(params, redeemScriptHash);
-		System.out.println("P2SH address: " + p2shAddress.toBase58());
+		Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
+		System.out.println("P2SH address: " + p2shAddress.toString());
 
 		// Send amount to P2SH address
 		Transaction fundingTransaction = buildFundingTransaction(params, Sha256Hash.wrap(prevTxHash), prevTxOutputIndex, prevTxBalance, senderKey,
 				sendValue.add(fee), redeemScriptHash);
 
-		System.out.println("Sending " + sendValue.add(fee).toPlainString() + " to " + p2shAddress.toBase58());
+		System.out.println("Sending " + sendValue.add(fee).toPlainString() + " to " + p2shAddress.toString());
 		if (!usePreviousFundingTx)
 			broadcastWithConfirmation(kit, fundingTransaction);
 
 		if (doRefundNotRedeem) {
 			// Refund
-			System.out.println("Refunding " + sendValue.toPlainString() + " back to " + senderKey.toAddress(params));
+			System.out.println("Refunding " + sendValue.toPlainString() + " back to " + Address.fromKey(params, senderKey, ScriptType.P2PKH).toString());
 
 			now = System.currentTimeMillis() / 1000L;
 			long refundLockTime = now - 60 * 30; // 30 minutes in the past, needs to before 'now' and before "median block time" (median of previous 11 block
@@ -158,7 +160,7 @@ public class BTCACCTTests {
 			broadcastWithConfirmation(kit, refundTransaction);
 		} else {
 			// Redeem
-			System.out.println("Redeeming " + sendValue.toPlainString() + " to " + recipientKey.toAddress(params));
+			System.out.println("Redeeming " + sendValue.toPlainString() + " to " + Address.fromKey(params, recipientKey, ScriptType.P2PKH).toString());
 
 			TransactionOutPoint fundingOutPoint = new TransactionOutPoint(params, 0, fundingTransaction);
 			Transaction redeemTransaction = buildRedeemTransaction(params, fundingOutPoint, recipientKey, sendValue, secret, redeemScriptBytes);
@@ -168,7 +170,7 @@ public class BTCACCTTests {
 		kit.wallet().cleanup();
 
 		for (Transaction transaction : kit.wallet().getTransactionPool(Pool.PENDING).values())
-			System.out.println("Pending tx: " + transaction.getHashAsString());
+			System.out.println("Pending tx: " + transaction.getTxId().toString());
 	}
 
 	private static final byte[] redeemScript1 = HashCode.fromString("76a820").asBytes();
@@ -211,11 +213,11 @@ public class BTCACCTTests {
 		// Fixed amount to P2SH
 		fundingTransaction.addOutput(value, ScriptBuilder.createP2SHOutputScript(redeemScriptHash));
 		// Change to sender
-		fundingTransaction.addOutput(balance.minus(value).minus(fee), ScriptBuilder.createOutputScript(sigKey.toAddress(params)));
+		fundingTransaction.addOutput(balance.minus(value).minus(fee), ScriptBuilder.createOutputScript(Address.fromKey(params, sigKey, ScriptType.P2PKH)));
 
 		// Input
 		// We create fake "to address" scriptPubKey for prev tx so our spending input is P2PKH type
-		Script fakeScriptPubKey = ScriptBuilder.createOutputScript(sigKey.toAddress(params));
+		Script fakeScriptPubKey = ScriptBuilder.createOutputScript(Address.fromKey(params, sigKey, ScriptType.P2PKH));
 		TransactionOutPoint prevOut = new TransactionOutPoint(params, outputIndex, prevTxHash);
 		fundingTransaction.addSignedInput(prevOut, fakeScriptPubKey, sigKey);
 
@@ -228,7 +230,7 @@ public class BTCACCTTests {
 		redeemTransaction.setVersion(2);
 
 		// Outputs
-		redeemTransaction.addOutput(value, ScriptBuilder.createOutputScript(recipientKey.toAddress(params)));
+		redeemTransaction.addOutput(value, ScriptBuilder.createOutputScript(Address.fromKey(params, recipientKey, ScriptType.P2PKH)));
 
 		// Input
 		byte[] recipientPubKey = recipientKey.getPubKey();
@@ -265,7 +267,7 @@ public class BTCACCTTests {
 		refundTransaction.setVersion(2);
 
 		// Outputs
-		refundTransaction.addOutput(value, ScriptBuilder.createOutputScript(senderKey.toAddress(params)));
+		refundTransaction.addOutput(value, ScriptBuilder.createOutputScript(Address.fromKey(params, senderKey, ScriptType.P2PKH)));
 
 		// Input
 		byte[] recipientPubKey = senderKey.getPubKey();
@@ -299,7 +301,7 @@ public class BTCACCTTests {
 	}
 
 	private void broadcastWithConfirmation(WalletAppKit kit, Transaction transaction) {
-		System.out.println("Broadcasting tx: " + transaction.getHashAsString());
+		System.out.println("Broadcasting tx: " + transaction.getTxId().toString());
 		System.out.println("TX hex: " + HashCode.fromBytes(transaction.bitcoinSerialize()).toString());
 
 		System.out.println("Number of connected peers: " + kit.peerGroup().numConnectedPeers());
@@ -312,7 +314,7 @@ public class BTCACCTTests {
 		}
 
 		// wait for confirmation
-		System.out.println("Waiting for confirmation of tx: " + transaction.getHashAsString());
+		System.out.println("Waiting for confirmation of tx: " + transaction.getTxId().toString());
 
 		try {
 			transaction.getConfidence().getDepthFuture(1).get();
@@ -320,7 +322,7 @@ public class BTCACCTTests {
 			throw new RuntimeException("Transaction confirmation failed", e);
 		}
 
-		System.out.println("Confirmed tx: " + transaction.getHashAsString());
+		System.out.println("Confirmed tx: " + transaction.getTxId().toString());
 	}
 
 	/** Convert int to little-endian byte array */

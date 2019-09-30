@@ -385,7 +385,6 @@ public class HSQLDBRepository implements Repository {
 	 * @return ResultSet, or null if there are no found rows
 	 * @throws SQLException
 	 */
-	@SuppressWarnings("resource")
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.prepareStatement(sql);
 

@@ -78,6 +78,7 @@ public class ByteArrayTests {
 	}
 
 	@Test
+	@SuppressWarnings("unlikely-arg-type")
 	public void testCompareBoxedWithPrimitive() {
 		byte[] testValue = testValues.get(0);
 		ByteArray ba1 = new ByteArray(testValue);
@@ -90,6 +91,7 @@ public class ByteArrayTests {
 	}
 
 	@Test
+	@SuppressWarnings("unlikely-arg-type")
 	public void testMapContainsKey() {
 		Map<ByteArray, String> testMap = new HashMap<>();
 		fillMap(testMap);
