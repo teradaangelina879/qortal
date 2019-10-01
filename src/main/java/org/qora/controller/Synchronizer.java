@@ -103,10 +103,12 @@ public class Synchronizer {
 					}
 
 					// First summary is common block
-					BlockData commonBlockData = repository.getBlockRepository().fromSignature(peerBlockSummaries.get(0).getSignature());
+					final BlockData commonBlockData = repository.getBlockRepository().fromSignature(peerBlockSummaries.get(0).getSignature());
 					final int commonBlockHeight = commonBlockData.getHeight();
+					final byte[] commonBlockSig = commonBlockData.getSignature();
+					final String commonBlockSig58 = Base58.encode(commonBlockSig);
 					LOGGER.debug(String.format("Common block with peer %s is at height %d, sig %.8s, ts %d", peer,
-							commonBlockHeight, Base58.encode(commonBlockData.getSignature()), commonBlockData.getTimestamp()));
+							commonBlockHeight, commonBlockSig58, commonBlockData.getTimestamp()));
 					peerBlockSummaries.remove(0);
 
 					// If common block height is higher than peer's last reported height
@@ -133,75 +135,76 @@ public class Synchronizer {
 						return SynchronizationResult.TOO_DIVERGENT;
 					}
 
-					// At this point, we both have blocks after common block
+					// Unless we're doing a forced sync, we might need to compare blocks after common block
+					if (!force && ourInitialHeight > commonBlockHeight) {
+						// If our latest block is very old, we're very behind and should ditch our fork.
+						final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+						if (minLatestBlockTimestamp == null)
+							return SynchronizationResult.REPOSITORY_ISSUE;
 
-					// If our latest block is very old, we're very behind and should ditch our fork.
-					final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
-					if (minLatestBlockTimestamp == null)
-						return SynchronizationResult.REPOSITORY_ISSUE;
+						if (ourLatestBlockData.getTimestamp() < minLatestBlockTimestamp) {
+							LOGGER.info(String.format("Ditching our chain after height %d as our latest block is very old", commonBlockHeight));
+						} else {
+							// Compare chain weights
 
-					if (ourInitialHeight > commonBlockHeight && ourLatestBlockData.getTimestamp() < minLatestBlockTimestamp) {
-						LOGGER.info(String.format("Ditching our chain after height %d as our latest block is very old", commonBlockHeight));
-					} else if (!force) {
-						// Compare chain weights
+							LOGGER.debug(String.format("Comparing chains from block %d with peer %s", commonBlockHeight + 1, peer));
 
-						LOGGER.debug(String.format("Comparing chains from block %d with peer %s", commonBlockHeight + 1, peer));
+							// Fetch remaining peer's block summaries (which we also use to fill signatures list)
+							int peerBlockCount = peerHeight - commonBlockHeight;
 
-						// Fetch remaining peer's block summaries (which we also use to fill signatures list)
-						int peerBlockCount = peerHeight - commonBlockHeight;
-						byte[] previousSignature;
-						if (peerBlockSummaries.isEmpty())
-							previousSignature = commonBlockData.getSignature();
-						else
-							previousSignature = peerBlockSummaries.get(peerBlockSummaries.size() - 1).getSignature();
+							while (peerBlockSummaries.size() < peerBlockCount) {
+								int lastSummaryHeight = commonBlockHeight + peerBlockSummaries.size();
+								byte[] previousSignature;
+								if (peerBlockSummaries.isEmpty())
+									previousSignature = commonBlockSig;
+								else
+									previousSignature = peerBlockSummaries.get(peerBlockSummaries.size() - 1).getSignature();
 
-						while (peerBlockSummaries.size() < peerBlockCount) {
-							int lastSummaryHeight = commonBlockHeight + peerBlockSummaries.size();
+								List<BlockSummaryData> moreBlockSummaries = this.getBlockSummaries(peer, previousSignature, peerBlockCount - peerBlockSummaries.size());
 
-							List<BlockSummaryData> moreBlockSummaries = this.getBlockSummaries(peer, previousSignature, peerBlockCount - peerBlockSummaries.size());
-
-							if (moreBlockSummaries == null || moreBlockSummaries.isEmpty()) {
-								LOGGER.info(String.format("Peer %s failed to respond with block summaries after height %d, sig %.8s", peer,
-										lastSummaryHeight, Base58.encode(previousSignature)));
-								return SynchronizationResult.NO_REPLY;
-							}
-
-							// Check peer sent valid heights
-							for (int i = 0; i < moreBlockSummaries.size(); ++i) {
-								++lastSummaryHeight;
-
-								BlockSummaryData blockSummary = moreBlockSummaries.get(i);
-
-								if (blockSummary.getHeight() != lastSummaryHeight) {
-									LOGGER.info(String.format("Peer %s responded with invalid block summary for height %d, sig %.8s", peer,
-											lastSummaryHeight, Base58.encode(blockSummary.getSignature())));
+								if (moreBlockSummaries == null || moreBlockSummaries.isEmpty()) {
+									LOGGER.info(String.format("Peer %s failed to respond with block summaries after height %d, sig %.8s", peer,
+											lastSummaryHeight, Base58.encode(previousSignature)));
 									return SynchronizationResult.NO_REPLY;
 								}
+
+								// Check peer sent valid heights
+								for (int i = 0; i < moreBlockSummaries.size(); ++i) {
+									++lastSummaryHeight;
+
+									BlockSummaryData blockSummary = moreBlockSummaries.get(i);
+
+									if (blockSummary.getHeight() != lastSummaryHeight) {
+										LOGGER.info(String.format("Peer %s responded with invalid block summary for height %d, sig %.8s", peer,
+												lastSummaryHeight, Base58.encode(blockSummary.getSignature())));
+										return SynchronizationResult.NO_REPLY;
+									}
+								}
+
+								peerBlockSummaries.addAll(moreBlockSummaries);
 							}
 
-							peerBlockSummaries.addAll(moreBlockSummaries);
-						}
+							// Fetch our corresponding block summaries
+							List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository().getBlockSummaries(commonBlockHeight + 1, ourInitialHeight);
 
-						// Fetch our corresponding block summaries
-						List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository().getBlockSummaries(commonBlockHeight + 1, ourInitialHeight);
+							// Calculate cumulative chain weights of both blockchain subsets, from common block to highest mutual block.
+							BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries);
+							BigInteger peerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, peerBlockSummaries);
 
-						// Calculate cumulative chain weights of both blockchain subsets, from common block to highest mutual block.
-						BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockData.getSignature(), ourBlockSummaries);
-						BigInteger peerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockData.getSignature(), peerBlockSummaries);
-
-						// If our blockchain has greater weight then don't synchronize with peer
-						if (ourChainWeight.compareTo(peerChainWeight) >= 0) {
-							LOGGER.debug(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
-							NumberFormat formatter = new DecimalFormat("0.###E0");
-							LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", formatter.format(ourChainWeight), formatter.format(peerChainWeight)));
-							return SynchronizationResult.INFERIOR_CHAIN;
+							// If our blockchain has greater weight then don't synchronize with peer
+							if (ourChainWeight.compareTo(peerChainWeight) >= 0) {
+								LOGGER.debug(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
+								NumberFormat formatter = new DecimalFormat("0.###E0");
+								LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", formatter.format(ourChainWeight), formatter.format(peerChainWeight)));
+								return SynchronizationResult.INFERIOR_CHAIN;
+							}
 						}
 					}
 
 					int ourHeight = ourInitialHeight;
 					if (ourHeight > commonBlockHeight) {
 						// Unwind to common block (unless common block is our latest block)
-						LOGGER.debug(String.format("Orphaning blocks back to height %d", commonBlockHeight));
+						LOGGER.debug(String.format("Orphaning blocks back to common block height %d, sig %.8s", commonBlockHeight, commonBlockSig58));
 
 						while (ourHeight > commonBlockHeight) {
 							BlockData blockData = repository.getBlockRepository().fromHeight(ourHeight);
@@ -211,13 +214,13 @@ public class Synchronizer {
 							--ourHeight;
 						}
 
-						LOGGER.debug(String.format("Orphaned blocks back to height %d - fetching blocks from peer", commonBlockHeight, peer));
+						LOGGER.debug(String.format("Orphaned blocks back to height %d, sig %.8s - fetching blocks from peer", commonBlockHeight, commonBlockSig58, peer));
 					} else {
 						LOGGER.debug(String.format("Fetching new blocks from peer %s", peer));
 					}
 
 					// Fetch, and apply, blocks from peer
-					byte[] latestPeerSignature = commonBlockData.getSignature();
+					byte[] latestPeerSignature = commonBlockSig;
 					int maxBatchHeight = commonBlockHeight + SYNC_BATCH_SIZE;
 
 					// Convert any block summaries from above into signatures to request from peer
@@ -225,19 +228,20 @@ public class Synchronizer {
 
 					while (ourHeight < peerHeight && ourHeight < maxBatchHeight) {
 						// Do we need more signatures?
-						if (peerBlockSummaries.isEmpty()) {
+						if (peerBlockSignatures.isEmpty()) {
 							int numberRequested = maxBatchHeight - ourHeight;
-							LOGGER.trace(String.format("Requesting %d signature%s after height %d", numberRequested, (numberRequested != 1 ? "s": ""), ourHeight));
+							LOGGER.trace(String.format("Requesting %d signature%s after height %d, sig %.8s",
+									numberRequested, (numberRequested != 1 ? "s": ""), ourHeight, Base58.encode(latestPeerSignature)));
 
 							peerBlockSignatures = this.getBlockSignatures(peer, latestPeerSignature, numberRequested);
 
-							if (peerBlockSummaries == null || peerBlockSummaries.isEmpty()) {
+							if (peerBlockSignatures == null || peerBlockSignatures.isEmpty()) {
 								LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d, sig %.8s", peer,
 										ourHeight, Base58.encode(latestPeerSignature)));
 								return SynchronizationResult.NO_REPLY;
 							}
 
-							LOGGER.trace(String.format("Received %s signature%s", peerBlockSummaries.size(), (peerBlockSummaries.size() != 1 ? "s" : "")));
+							LOGGER.trace(String.format("Received %s signature%s", peerBlockSignatures.size(), (peerBlockSignatures.size() != 1 ? "s" : "")));
 						}
 
 						latestPeerSignature = peerBlockSignatures.get(0);
