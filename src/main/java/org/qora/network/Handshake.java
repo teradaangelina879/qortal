@@ -45,14 +45,19 @@ public enum Handshake {
 			if (Arrays.equals(peerId, Network.getInstance().getOurPeerId())) {
 				// Connected to self!
 				// If outgoing connection then record destination as self so we don't try again
-				if (peer.isOutbound())
+				if (peer.isOutbound()) {
 					Network.getInstance().noteToSelf(peer);
-				else
+					// Handshake failure - caller will deal with disconnect
+					return null;
+				} else {
 					// We still need to send our ID so our outbound connection can mark their address as 'self'
 					sendMyId(peer);
-
-				// Handshake failure - caller will deal with disconnect
-				return null;
+					// We return SELF_CHECK here to prevent us from closing connection, which currently preempts
+					// remote end from reading any pending messages, specifically the PEER_ID message we just sent above.
+					// When our 'remote' outbound counterpart reads our message, they will close both connections.
+					// Failing that, our connection will timeout or a future handshake error will occur.
+					return SELF_CHECK;
+				}
 			}
 
 			// Is this ID already connected inbound or outbound?
