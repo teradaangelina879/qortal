@@ -317,7 +317,7 @@ public class Peer {
 					}
 
 					if (message == null && bytesRead == 0 && !wasByteBufferFull)
-						// No complete message in buffer, no more bytes to read from socket and there was room to read bytes
+						// No complete message in buffer, no more bytes to read from socket even though there was room to read bytes
 						return;
 
 					if (message == null)
