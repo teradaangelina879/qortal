@@ -51,8 +51,6 @@ public class BlockChain {
 	// Properties
 
 	private boolean isTestChain = false;
-	/** Maximum coin supply. */
-	private BigDecimal maxBalance;
 	/** Transaction expiry period, starting from transaction's timestamp, in milliseconds. */
 	private long transactionExpiryPeriod;
 
@@ -240,10 +238,6 @@ public class BlockChain {
 
 	public BigDecimal getMinFeePerByte() {
 		return this.minFeePerByte;
-	}
-
-	public BigDecimal getMaxBalance() {
-		return this.maxBalance;
 	}
 
 	public long getTransactionExpiryPeriod() {

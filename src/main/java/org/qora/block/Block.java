@@ -1397,17 +1397,4 @@ public class Block {
 		atRepository.deleteATStates(this.blockData.getHeight());
 	}
 
-	/**
-	 * Return Qora balance adjusted to within min/max limits.
-	 */
-	public static BigDecimal minMaxBalance(BigDecimal balance) {
-		if (balance.compareTo(Block.MIN_BALANCE) < 0)
-			return Block.MIN_BALANCE;
-
-		if (balance.compareTo(BlockChain.getInstance().getMaxBalance()) > 0)
-			return BlockChain.getInstance().getMaxBalance();
-
-		return balance;
-	}
-
 }

@@ -7,7 +7,6 @@ import java.util.List;
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
-import org.qora.block.BlockChain;
 import org.qora.data.naming.NameData;
 import org.qora.data.transaction.SellNameTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -18,6 +17,9 @@ import org.qora.repository.Repository;
 import com.google.common.base.Utf8;
 
 public class SellNameTransaction extends Transaction {
+
+	/** Maximum amount/price for selling a name. Chosen so value, including 8 decimal places, encodes into 8 bytes or fewer. */
+	private static final BigDecimal MAX_AMOUNT = BigDecimal.valueOf(10_000_000_000L);
 
 	// Properties
 	private SellNameTransactionData sellNameTransactionData;
@@ -97,7 +99,7 @@ public class SellNameTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check amount within bounds
-		if (sellNameTransactionData.getAmount().compareTo(BlockChain.getInstance().getMaxBalance()) > 0)
+		if (sellNameTransactionData.getAmount().compareTo(MAX_AMOUNT) >= 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		// Check fee is positive
