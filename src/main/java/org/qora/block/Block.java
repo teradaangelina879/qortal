@@ -23,6 +23,7 @@ import org.qora.asset.Asset;
 import org.qora.at.AT;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockChain.BlockTimingByHeight;
+import org.qora.block.BlockChain.ShareByLevel;
 import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.ProxyForgerData;
@@ -1057,6 +1058,9 @@ public class Block {
 		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
 		this.blockData.setHeight(blockchainHeight + 1);
 
+		// Increase account levels
+		increaseAccountLevels();
+
 		// Block rewards go before transactions processed
 		processBlockRewards();
 
@@ -1085,6 +1089,10 @@ public class Block {
 		linkTransactionsToBlock();
 	}
 
+	protected void increaseAccountLevels() throws DataException {
+		// TODO!
+	}
+
 	protected void processBlockRewards() throws DataException {
 		BigDecimal reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
 
@@ -1092,22 +1100,7 @@ public class Block {
 		if (reward == null)
 			return;
 
-		// Is generator public key actually a proxy forge key?
-		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
-		if (proxyForgerData != null) {
-			// Split reward between forger and recipient
-			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
-			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
-			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).add(recipientShare));
-
-			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
-			BigDecimal forgerShare = reward.subtract(recipientShare);
-			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).add(forgerShare));
-			return;
-		}
-
-		// Give block reward to generator
-		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(reward));
+		distributeByAccountLevel(reward);
 	}
 
 	protected void processTransactions() throws DataException {
@@ -1190,22 +1183,7 @@ public class Block {
 		if (blockFees.compareTo(BigDecimal.ZERO) <= 0)
 			return;
 
-		// Is generator public key actually a proxy forge key?
-		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
-		if (proxyForgerData != null) {
-			// Split fees between forger and recipient
-			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
-			BigDecimal recipientShare = blockFees.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
-			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).add(recipientShare));
-
-			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
-			BigDecimal forgerShare = blockFees.subtract(recipientShare);
-			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).add(forgerShare));
-			return;
-		}
-
-		// Give transaction fees to generator
-		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFees));
+		distributeByAccountLevel(blockFees);
 	}
 
 	protected void processAtFeesAndStates() throws DataException {
@@ -1254,6 +1232,9 @@ public class Block {
 	 * @throws DataException
 	 */
 	public void orphan() throws DataException {
+		// Deduct any transaction fees from generator/proxy
+		deductTransactionFees();
+
 		// Orphan, and unlink, transactions from this block
 		orphanTransactionsFromBlock();
 
@@ -1263,8 +1244,8 @@ public class Block {
 		// Block rewards removed after transactions undone
 		orphanBlockRewards();
 
-		// Deduct any transaction fees from generator/proxy
-		deductTransactionFees();
+		// Decrease account levels
+		decreaseAccountLevels();
 
 		// Return AT fees and delete AT states from repository
 		orphanAtFeesAndStates();
@@ -1341,22 +1322,7 @@ public class Block {
 		if (reward == null)
 			return;
 
-		// Is generator public key actually a proxy forge key?
-		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
-		if (proxyForgerData != null) {
-			// Split reward between forger and recipient
-			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
-			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
-			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).subtract(recipientShare));
-
-			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
-			BigDecimal forgerShare = reward.subtract(recipientShare);
-			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).subtract(forgerShare));
-			return;
-		}
-
-		// Take block reward from generator
-		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(reward));
+		distributeByAccountLevel(reward.negate());
 	}
 
 	protected void deductTransactionFees() throws DataException {
@@ -1366,22 +1332,7 @@ public class Block {
 		if (blockFees.compareTo(BigDecimal.ZERO) <= 0)
 			return;
 
-		// Is generator public key actually a proxy forge key?
-		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
-		if (proxyForgerData != null) {
-			// Split fees between forger and recipient
-			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
-			BigDecimal recipientShare = blockFees.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
-			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).subtract(recipientShare));
-
-			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
-			BigDecimal forgerShare = blockFees.subtract(recipientShare);
-			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).subtract(forgerShare));
-			return;
-		}
-
-		// Deduct transaction fees to generator
-		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(blockFees));
+		distributeByAccountLevel(blockFees.negate());
 	}
 
 	protected void orphanAtFeesAndStates() throws DataException {
@@ -1395,6 +1346,118 @@ public class Block {
 
 		// Delete ATStateData for this height
 		atRepository.deleteATStates(this.blockData.getHeight());
+	}
+
+	protected void decreaseAccountLevels() throws DataException {
+		// TODO !
+	}
+
+	protected void distributeByAccountLevel(BigDecimal totalAmount) throws DataException {
+		class AccountInfo {
+			final ProxyForgerData proxyForgerData;
+			final Account forgerAccount;
+			final boolean isFounder;
+			final int level;
+			final int shareBin;
+			final Account recipientAccount;
+
+			AccountInfo(Repository repository, int accountIndex, List<ShareByLevel> sharesByLevel) throws DataException {
+				this.proxyForgerData = repository.getAccountRepository().getProxyAccountByIndex(accountIndex);
+
+				this.forgerAccount = new PublicKeyAccount(repository, this.proxyForgerData.getForgerPublicKey());
+				this.recipientAccount = new Account(repository, this.proxyForgerData.getRecipient());
+
+				if (this.forgerAccount.isFounder()) {
+					this.isFounder = true;
+					this.level = 0;
+					this.shareBin = -1;
+					return;
+				}
+
+				this.isFounder = false;
+				this.level = this.forgerAccount.getLevel();
+
+				for (int s = 0; s < sharesByLevel.size(); ++s)
+					if (sharesByLevel.get(s).levels.contains(this.level)) {
+						this.shareBin = s;
+						return;
+					}
+
+				this.shareBin = -1;
+			}
+
+			void distribute(BigDecimal accountAmount) throws DataException {
+				final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100L);
+
+				Account forgerAccount = this.forgerAccount;
+				Account recipientAccount = this.recipientAccount;
+
+				if (forgerAccount.getAddress().equals(recipientAccount.getAddress())) {
+					// forger & recipient the same - simpler case
+					LOGGER.trace(() -> String.format("Forger/recipient account %s share: %s", forgerAccount.getAddress(), accountAmount.toPlainString()));
+					forgerAccount.setConfirmedBalance(Asset.QORA, forgerAccount.getConfirmedBalance(Asset.QORA).add(accountAmount));
+				} else {
+					// forger & recipient different - extra work needed
+					BigDecimal recipientAmount = accountAmount.multiply(this.proxyForgerData.getShare()).divide(ONE_HUNDRED, RoundingMode.DOWN);
+					BigDecimal forgerAmount = accountAmount.subtract(recipientAmount);
+
+					LOGGER.trace(() -> String.format("Forger account %s share: %s", forgerAccount.getAddress(),  forgerAmount.toPlainString()));
+					forgerAccount.setConfirmedBalance(Asset.QORA, forgerAccount.getConfirmedBalance(Asset.QORA).add(forgerAmount));
+
+					LOGGER.trace(() -> String.format("Recipient account %s share: %s", recipientAccount.getAddress(), recipientAmount.toPlainString()));
+					recipientAccount.setConfirmedBalance(Asset.QORA, recipientAccount.getConfirmedBalance(Asset.QORA).add(recipientAmount));
+				}
+			}
+		}
+
+		List<ShareByLevel> sharesByLevel = BlockChain.getInstance().getBlockSharesByLevel();
+
+		ConciseSet accountIndexes = BlockTransformer.decodeOnlineAccounts(this.blockData.getEncodedOnlineAccounts());
+		List<AccountInfo> expandedAccounts = new ArrayList<AccountInfo>();
+
+		IntIterator iterator = accountIndexes.iterator();
+		while (iterator.hasNext()) {
+			int accountIndex = iterator.next();
+			AccountInfo accountInfo = new AccountInfo(repository, accountIndex, sharesByLevel);
+			expandedAccounts.add(accountInfo);
+		}
+
+		// Distribute amount across bins
+		BigDecimal sharedAmount = BigDecimal.ZERO;
+		for (int s = 0; s < sharesByLevel.size(); ++s) {
+			final int binIndex = s;
+
+			BigDecimal binAmount = sharesByLevel.get(binIndex).share.multiply(totalAmount).setScale(8, RoundingMode.DOWN);
+			LOGGER.trace(() -> String.format("Bin %d share of %s: %s", binIndex, totalAmount.toPlainString(), binAmount.toPlainString()));
+
+			// Spread across all accounts in bin
+			List<AccountInfo> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> !accountInfo.isFounder && accountInfo.shareBin == binIndex).collect(Collectors.toList());
+			if (binnedAccounts.isEmpty())
+				continue;
+
+			BigDecimal binSize = BigDecimal.valueOf(binnedAccounts.size());
+			BigDecimal accountAmount = binAmount.divide(binSize, RoundingMode.DOWN);
+
+			for (int a = 0; a < binnedAccounts.size(); ++a) {
+				AccountInfo accountInfo = binnedAccounts.get(a);
+				accountInfo.distribute(accountAmount);
+				sharedAmount = sharedAmount.add(accountAmount);
+			}
+		}
+
+		// Spread remainder across founder accounts
+		BigDecimal foundersAmount = totalAmount.subtract(sharedAmount);
+		LOGGER.debug(String.format("Shared %s of %s, remaining %s to founders", sharedAmount.toPlainString(), totalAmount.toPlainString(), foundersAmount.toPlainString()));
+
+		List<AccountInfo> founderAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isFounder).collect(Collectors.toList());
+		BigDecimal foundersCount = BigDecimal.valueOf(founderAccounts.size());
+		BigDecimal accountAmount = foundersAmount.divide(foundersCount, RoundingMode.DOWN);
+
+		for (int a = 0; a < founderAccounts.size(); ++a) {
+			AccountInfo accountInfo = founderAccounts.get(a);
+			accountInfo.distribute(accountAmount);
+			sharedAmount = sharedAmount.add(accountAmount);
+		}
 	}
 
 }

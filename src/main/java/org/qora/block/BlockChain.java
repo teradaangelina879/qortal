@@ -99,6 +99,13 @@ public class BlockChain {
 	}
 	List<RewardByHeight> rewardsByHeight;
 
+	/** Share of block reward/fees by account level */
+	public static class ShareByLevel {
+		public List<Integer> levels;
+		public BigDecimal share;
+	}
+	List<ShareByLevel> sharesByLevel;
+
 	/** Block times by block height */
 	public static class BlockTimingByHeight {
 		public int height;
@@ -273,6 +280,10 @@ public class BlockChain {
 		return this.rewardsByHeight;
 	}
 
+	public List<ShareByLevel> getBlockSharesByLevel() {
+		return this.sharesByLevel;
+	}
+
 	public List<ForgingTier> getForgingTiers() {
 		return this.forgingTiers;
 	}
@@ -351,8 +362,14 @@ public class BlockChain {
 		if (this.genesisInfo == null)
 			Settings.throwValidationError("No \"genesisInfo\" entry found in blockchain config");
 
-		if (this.featureTriggers == null)
-			Settings.throwValidationError("No \"featureTriggers\" entry found in blockchain config");
+		if (this.rewardsByHeight == null)
+			Settings.throwValidationError("No \"rewardsByHeight\" entry found in blockchain config");
+
+		if (this.sharesByLevel == null)
+			Settings.throwValidationError("No \"sharesByLevel\" entry found in blockchain config");
+
+		if (this.blockTimingsByHeight == null)
+			Settings.throwValidationError("No \"blockTimingsByHeight\" entry found in blockchain config");
 
 		if (this.blockTimestampMargin <= 0)
 			Settings.throwValidationError("Invalid \"blockTimestampMargin\" in blockchain config");
@@ -362,6 +379,9 @@ public class BlockChain {
 
 		if (this.maxBlockSize <= 0)
 			Settings.throwValidationError("Invalid \"maxBlockSize\" in blockchain config");
+
+		if (this.featureTriggers == null)
+			Settings.throwValidationError("No \"featureTriggers\" entry found in blockchain config");
 
 		// Check all featureTriggers are present
 		for (FeatureTrigger featureTrigger : FeatureTrigger.values())

@@ -21,6 +21,7 @@ public class Account {
 	private static final Logger LOGGER = LogManager.getLogger(Account.class);
 
 	public static final int ADDRESS_LENGTH = 25;
+	public static final int FOUNDER_FLAG = 0x1;
 
 	protected Repository repository;
 	protected String address;
@@ -202,7 +203,17 @@ public class Account {
 		this.repository.getAccountRepository().setFlags(accountData);
 	}
 
+	public boolean isFounder() throws DataException  {
+		Integer flags = this.getFlags();
+		return flags != null && (flags & FOUNDER_FLAG) != 0;
+	}
+
 	// Forging Enabler
+
+	public boolean canForge() throws DataException {
+		Integer level = this.getLevel();
+		return level != null && level > 0;
+	}
 
 	public void setForgingEnabler(String address) throws DataException {
 		AccountData accountData = this.buildAccountData();
