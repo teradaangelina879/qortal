@@ -233,4 +233,11 @@ public class Account {
 		this.repository.getAccountRepository().setLevel(accountData);
 	}
 
+	public void setInitialLevel(int level) throws DataException {
+		AccountData accountData = this.buildAccountData();
+		accountData.setLevel(level);
+		accountData.setInitialLevel(level);
+		this.repository.getAccountRepository().setInitialLevel(accountData);
+	}
+
 }

@@ -778,10 +778,11 @@ public class HSQLDBDatabaseUpdates {
 
 				case 54:
 					// Account 'level'
+					stmt.execute("ALTER TABLE Accounts ADD COLUMN initial_level TINYINT NOT NULL DEFAULT 0");
 					stmt.execute("ALTER TABLE Accounts ADD COLUMN level TINYINT NOT NULL DEFAULT 0");
 					// Corresponding transaction to set level
 					stmt.execute("CREATE TABLE AccountLevelTransactions (signature Signature, creator QoraPublicKey NOT NULL, target QoraAddress NOT NULL, level INT NOT NULL, "
-							+ "previous_level INT, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				case 55:
@@ -790,6 +791,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts_count INT NOT NULL DEFAULT 0");
 					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts_timestamp TIMESTAMP WITH TIME ZONE");
 					stmt.execute("ALTER TABLE Blocks ADD COLUMN online_accounts_signatures BLOB");
+					break;
+
+				case 56:
+					// Modify assets to support "unspendable" flag so we can implement the representative legacy QORA asset.
+					stmt.execute("ALTER TABLE Assets ADD COLUMN is_unspendable BOOLEAN NOT NULL DEFAULT FALSE BEFORE creation_group_id");
+					stmt.execute("ALTER TABLE IssueAssetTransactions ADD COLUMN is_unspendable BOOLEAN NOT NULL DEFAULT FALSE BEFORE asset_id");
 					break;
 
 				default:

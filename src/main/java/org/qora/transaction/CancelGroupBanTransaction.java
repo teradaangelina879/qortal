@@ -100,7 +100,7 @@ public class CancelGroupBanTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check creator has enough funds
-		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupUnbanTransactionData.getFee()) < 0)
+		if (admin.getConfirmedBalance(Asset.QORT).compareTo(groupUnbanTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

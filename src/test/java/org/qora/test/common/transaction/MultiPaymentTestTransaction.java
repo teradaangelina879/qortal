@@ -16,7 +16,7 @@ public class MultiPaymentTestTransaction extends TestTransaction {
 
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, boolean wantValid) throws DataException {
 		String recipient = account.getAddress();
-		final long assetId = Asset.QORA;
+		final long assetId = Asset.QORT;
 		BigDecimal amount = BigDecimal.valueOf(123L);
 
 		List<PaymentData> payments = new ArrayList<>();

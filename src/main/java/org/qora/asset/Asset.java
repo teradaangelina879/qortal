@@ -10,9 +10,12 @@ import org.qora.repository.Repository;
 public class Asset {
 
 	/**
-	 * QORA coins are just another asset but with fixed assetId of zero.
+	 * QORT coins are just another asset but with fixed assetId of zero.
 	 */
-	public static final long QORA = 0L;
+	public static final long QORT = 0L;
+
+	/** Hard-coded asset representing legacy QORA held in old QORA1 blockchain. */
+	public static final long LEGACY_QORA = 1L;
 
 	// Other useful constants
 
@@ -41,6 +44,7 @@ public class Asset {
 		this.assetData = new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(),
 				issueAssetTransactionData.getDescription(), issueAssetTransactionData.getQuantity(),
 				issueAssetTransactionData.getIsDivisible(), issueAssetTransactionData.getData(),
+				issueAssetTransactionData.getIsUnspendable(),
 				issueAssetTransactionData.getTxGroupId(), issueAssetTransactionData.getSignature());
 	}
 

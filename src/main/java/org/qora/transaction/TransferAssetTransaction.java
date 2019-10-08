@@ -58,7 +58,7 @@ public class TransferAssetTransaction extends Transaction {
 			amount = amount.subtract(this.transactionData.getFee());
 
 		// We're only interested in QORA amounts
-		if (transferAssetTransactionData.getAssetId() == Asset.QORA) {
+		if (transferAssetTransactionData.getAssetId() == Asset.QORT) {
 			if (address.equals(transferAssetTransactionData.getRecipient()))
 				amount = amount.add(transferAssetTransactionData.getAmount());
 			else if (address.equals(senderAddress))

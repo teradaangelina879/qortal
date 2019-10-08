@@ -18,6 +18,7 @@ public class AssetData {
 	private long quantity;
 	private boolean isDivisible;
 	private String data;
+	private boolean isUnspendable;
 	private int creationGroupId;
 	// No need to expose this via API
 	@XmlTransient
@@ -31,7 +32,7 @@ public class AssetData {
 	}
 
 	// NOTE: key is Long, not long, because it can be null if asset ID/key not yet assigned.
-	public AssetData(Long assetId, String owner, String name, String description, long quantity, boolean isDivisible, String data, int creationGroupId, byte[] reference) {
+	public AssetData(Long assetId, String owner, String name, String description, long quantity, boolean isDivisible, String data, boolean isUnspendable, int creationGroupId, byte[] reference) {
 		this.assetId = assetId;
 		this.owner = owner;
 		this.name = name;
@@ -39,13 +40,14 @@ public class AssetData {
 		this.quantity = quantity;
 		this.isDivisible = isDivisible;
 		this.data = data;
+		this.isUnspendable = isUnspendable;
 		this.creationGroupId = creationGroupId;
 		this.reference = reference;
 	}
 
 	// New asset with unassigned assetId
-	public AssetData(String owner, String name, String description, long quantity, boolean isDivisible, String data, int creationGroupId, byte[] reference) {
-		this(null, owner, name, description, quantity, isDivisible, data, creationGroupId, reference);
+	public AssetData(String owner, String name, String description, long quantity, boolean isDivisible, String data, boolean isUnspendable, int creationGroupId, byte[] reference) {
+		this(null, owner, name, description, quantity, isDivisible, data, isUnspendable, creationGroupId, reference);
 	}
 
 	// Getters/Setters
@@ -92,6 +94,10 @@ public class AssetData {
 
 	public void setData(String data) {
 		this.data = data;
+	}
+
+	public boolean getIsUnspendable() {
+		return this.isUnspendable;
 	}
 
 	public int getCreationGroupId() {

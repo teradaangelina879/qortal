@@ -48,7 +48,7 @@ public class MessageTransactionData extends TransactionData {
 		if (assetId != null)
 			this.assetId = assetId;
 		else
-			this.assetId = Asset.QORA;
+			this.assetId = Asset.QORT;
 
 		this.amount = amount;
 		this.data = data;

@@ -35,7 +35,7 @@ public class RewardTests extends Common {
 	@Test
 	public void testSimpleReward() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORA);
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 
 			PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, "alice");
 
@@ -43,15 +43,15 @@ public class RewardTests extends Common {
 
 			BlockGenerator.generateTestingBlock(repository, forgingAccount);
 
-			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORA).add(blockReward);
-			AccountUtils.assertBalance(repository, "alice", Asset.QORA, expectedBalance);
+			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORT).add(blockReward);
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, expectedBalance);
 		}
 	}
 
 	@Test
 	public void testRewards() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORA);
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 
 			PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, "alice");
 
@@ -60,7 +60,7 @@ public class RewardTests extends Common {
 			int rewardIndex = rewards.size() - 1;
 
 			RewardByHeight rewardInfo = rewards.get(rewardIndex);
-			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORA);
+			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORT);
 
 			for (int height = rewardInfo.height; height > 1; --height) {
 				if (height < rewardInfo.height) {
@@ -72,7 +72,7 @@ public class RewardTests extends Common {
 				expectedBalance = expectedBalance.add(rewardInfo.reward);
 			}
 
-			AccountUtils.assertBalance(repository, "alice", Asset.QORA, expectedBalance);
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, expectedBalance);
 		}
 	}
 
@@ -84,17 +84,17 @@ public class RewardTests extends Common {
 			byte[] proxyPrivateKey = AccountUtils.proxyForging(repository, "alice", "bob", share);
 			PrivateKeyAccount proxyAccount = new PrivateKeyAccount(repository, proxyPrivateKey);
 
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORA);
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 			BlockGenerator.generateTestingBlock(repository, proxyAccount);
 
 			// We're expecting reward * 12.8% to Bob, the rest to Alice
 
 			BigDecimal bobShare = blockReward.multiply(share.movePointLeft(2)).setScale(8, RoundingMode.DOWN);
-			AccountUtils.assertBalance(repository, "bob", Asset.QORA, initialBalances.get("bob").get(Asset.QORA).add(bobShare));
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, initialBalances.get("bob").get(Asset.QORT).add(bobShare));
 
 			BigDecimal aliceShare = blockReward.subtract(bobShare);
-			AccountUtils.assertBalance(repository, "alice", Asset.QORA, initialBalances.get("alice").get(Asset.QORA).add(aliceShare));
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, initialBalances.get("alice").get(Asset.QORT).add(aliceShare));
 		}
 	}
 

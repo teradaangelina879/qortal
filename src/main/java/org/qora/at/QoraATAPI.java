@@ -254,7 +254,7 @@ public class QoraATAPI extends API {
 		try {
 			Account atAccount = this.getATAccount();
 
-			return atAccount.getConfirmedBalance(Asset.QORA).unscaledValue().longValue();
+			return atAccount.getConfirmedBalance(Asset.QORT).unscaledValue().longValue();
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch AT's current balance?", e);
 		}

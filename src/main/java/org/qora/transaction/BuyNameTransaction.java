@@ -110,7 +110,7 @@ public class BuyNameTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check issuer has enough funds
-		if (buyer.getConfirmedBalance(Asset.QORA).compareTo(buyNameTransactionData.getFee()) < 0)
+		if (buyer.getConfirmedBalance(Asset.QORT).compareTo(buyNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

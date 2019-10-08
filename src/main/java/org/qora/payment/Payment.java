@@ -47,7 +47,10 @@ public class Payment {
 		// Total up payment amounts by assetId
 		Map<Long, BigDecimal> amountsByAssetId = new HashMap<Long, BigDecimal>();
 		// Add transaction fee to start with
-		amountsByAssetId.put(Asset.QORA, fee);
+		amountsByAssetId.put(Asset.QORT, fee);
+
+		// Grab sender info
+		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Check payments, and calculate amount total by assetId
 		for (PaymentData paymentData : payments) {
@@ -82,6 +85,10 @@ public class Payment {
 			if (assetData == null)
 				return ValidationResult.ASSET_DOES_NOT_EXIST;
 
+			// Do not allow non-owner asset holders to use asset
+			if (assetData.getIsUnspendable() && !assetData.getOwner().equals(sender.getAddress()))
+				return ValidationResult.ASSET_NOT_SPENDABLE;
+
 			// If we're sending to an AT then assetId must match AT's assetId
 			if (atData != null && atData.getAssetId() != paymentData.getAssetId())
 				return ValidationResult.ASSET_DOES_NOT_MATCH_AT;
@@ -95,7 +102,6 @@ public class Payment {
 		}
 
 		// Check sender has enough of each asset
-		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 		for (Entry<Long, BigDecimal> pair : amountsByAssetId.entrySet())
 			if (sender.getConfirmedBalance(pair.getKey()).compareTo(pair.getValue()) < 0)
 				return ValidationResult.NO_BALANCE;
@@ -177,7 +183,7 @@ public class Payment {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
-		sender.setConfirmedBalance(Asset.QORA, sender.getConfirmedBalance(Asset.QORA).subtract(fee));
+		sender.setConfirmedBalance(Asset.QORT, sender.getConfirmedBalance(Asset.QORT).subtract(fee));
 
 		// Update sender's reference
 		sender.setLastReference(signature);
@@ -189,7 +195,7 @@ public class Payment {
 			long assetId = paymentData.getAssetId();
 
 			// For QORA amounts only: if recipient has no reference yet, then this is their starting reference
-			if ((alwaysInitializeRecipientReference || assetId == Asset.QORA) && recipient.getLastReference() == null)
+			if ((alwaysInitializeRecipientReference || assetId == Asset.QORT) && recipient.getLastReference() == null)
 				recipient.setLastReference(signature);
 		}
 	}
@@ -230,7 +236,7 @@ public class Payment {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
-		sender.setConfirmedBalance(Asset.QORA, sender.getConfirmedBalance(Asset.QORA).add(fee));
+		sender.setConfirmedBalance(Asset.QORT, sender.getConfirmedBalance(Asset.QORT).add(fee));
 
 		// Update sender's reference
 		sender.setLastReference(reference);
@@ -244,7 +250,7 @@ public class Payment {
 			 * For QORA amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own
 			 * (which would have changed their last reference) thus this is their first reference so remove it.
 			 */
-			if ((alwaysUninitializeRecipientReference || assetId == Asset.QORA) && Arrays.equals(recipient.getLastReference(), signature))
+			if ((alwaysUninitializeRecipientReference || assetId == Asset.QORT) && Arrays.equals(recipient.getLastReference(), signature))
 				recipient.setLastReference(null);
 		}
 	}

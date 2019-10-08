@@ -26,7 +26,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		String sql = "SELECT reference, public_key, default_group_id, flags, forging_enabler, level FROM Accounts WHERE account = ?";
+		String sql = "SELECT reference, public_key, default_group_id, flags, forging_enabler, initial_level, level FROM Accounts WHERE account = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
@@ -37,9 +37,10 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			int defaultGroupId = resultSet.getInt(3);
 			int flags = resultSet.getInt(4);
 			String forgingEnabler = resultSet.getString(5);
-			int level = resultSet.getInt(6);
+			int initialLevel = resultSet.getInt(6);
+			int level = resultSet.getInt(7);
 
-			return new AccountData(address, reference, publicKey, defaultGroupId, flags, forgingEnabler, level);
+			return new AccountData(address, reference, publicKey, defaultGroupId, flags, forgingEnabler, initialLevel, level);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -213,6 +214,24 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's level into repository", e);
+		}
+	}
+
+	@Override
+	public void setInitialLevel(AccountData accountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+		saveHelper.bind("account", accountData.getAddress()).bind("level", accountData.getLevel())
+		.bind("initial_level", accountData.getInitialLevel());
+
+		byte[] publicKey = accountData.getPublicKey();
+		if (publicKey != null)
+			saveHelper.bind("public_key", publicKey);
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save account's initial level into repository", e);
 		}
 	}
 

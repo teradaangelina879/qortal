@@ -77,7 +77,7 @@ public class AccountLevelTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(accountLevelTransactionData.getFee()) < 0)
+		if (creator.getConfirmedBalance(Asset.QORT).compareTo(accountLevelTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -86,15 +86,12 @@ public class AccountLevelTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		Account target = getTarget();
-		Integer previousLevel = target.getLevel();
 
-		accountLevelTransactionData.setPreviousLevel(previousLevel);
-
-		// Save this transaction with target account's previous level value
+		// Save this transaction
 		this.repository.getTransactionRepository().save(accountLevelTransactionData);
 
-		// Set account's new level
-		target.setLevel(this.accountLevelTransactionData.getLevel());
+		// Set account's initial level
+		target.setInitialLevel(this.accountLevelTransactionData.getLevel());
 	}
 
 	@Override
@@ -102,17 +99,8 @@ public class AccountLevelTransaction extends Transaction {
 		// Revert
 		Account target = getTarget();
 
-		Integer previousLevel = accountLevelTransactionData.getPreviousLevel();
-
-		// If previousLevel are null then account didn't exist before this transaction
-		if (previousLevel == null)
-			this.repository.getAccountRepository().delete(target.getAddress());
-		else
-			target.setLevel(previousLevel);
-
-		// Remove previous level from transaction itself
-		accountLevelTransactionData.setPreviousLevel(null);
-		this.repository.getTransactionRepository().save(accountLevelTransactionData);
+		// This is only ever a genesis block transaction so simply delete account
+		this.repository.getAccountRepository().delete(target.getAddress());
 	}
 
 }

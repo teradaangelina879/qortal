@@ -98,7 +98,7 @@ public class CreateGroupTransaction extends Transaction {
 		Account creator = getCreator();
 
 		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(createGroupTransactionData.getFee()) < 0)
+		if (creator.getConfirmedBalance(Asset.QORT).compareTo(createGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

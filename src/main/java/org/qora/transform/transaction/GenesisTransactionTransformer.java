@@ -47,7 +47,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
-		long assetId = Asset.QORA;
+		long assetId = Asset.QORT;
 		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
 			assetId = byteBuffer.getLong();
 

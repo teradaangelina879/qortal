@@ -105,18 +105,18 @@ public class TransactionTests extends Common {
 
 		// Create test generator account
 		generator = new PrivateKeyAccount(repository, generatorSeed);
-		accountRepository.setLastReference(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey(), Group.NO_GROUP, 0, null, 0));
-		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORA, initialGeneratorBalance));
+		accountRepository.setLastReference(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey(), Group.NO_GROUP, 0, null, 0, 0));
+		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORT, initialGeneratorBalance));
 
 		// Create test sender account
 		sender = new PrivateKeyAccount(repository, senderSeed);
 
 		// Mock account
 		reference = senderSeed;
-		accountRepository.setLastReference(new AccountData(sender.getAddress(), reference, sender.getPublicKey(), Group.NO_GROUP, 0, null, 0));
+		accountRepository.setLastReference(new AccountData(sender.getAddress(), reference, sender.getPublicKey(), Group.NO_GROUP, 0, null, 0, 0));
 
 		// Mock balance
-		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORA, initialSenderBalance));
+		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORT, initialSenderBalance));
 
 		repository.saveChanges();
 	}
@@ -170,17 +170,17 @@ public class TransactionTests extends Common {
 
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(amount).subtract(fee);
-		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Amount should be in recipient's balance
 		expectedBalance = amount;
-		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check recipient's reference
@@ -192,11 +192,11 @@ public class TransactionTests extends Common {
 		repository.saveChanges();
 
 		// Check sender's balance
-		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
 
 		// Check generator's balance
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
 	}
 
@@ -230,12 +230,12 @@ public class TransactionTests extends Common {
 
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
-		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check name was registered
@@ -494,12 +494,12 @@ public class TransactionTests extends Common {
 
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
-		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check poll was created
@@ -598,9 +598,10 @@ public class TransactionTests extends Common {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		String data = (timestamp >= BlockChain.getInstance().getQoraV2Timestamp()) ? "{}" : null;
+		boolean isUnspendable = false;
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
-		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(baseTransactionData, sender.getAddress(), assetName, description, quantity, isDivisible, data);
+		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(baseTransactionData, sender.getAddress(), assetName, description, quantity, isDivisible, data, isUnspendable);
 
 		Transaction issueAssetTransaction = new IssueAssetTransaction(repository, issueAssetTransactionData);
 		issueAssetTransaction.sign(sender);
@@ -618,19 +619,19 @@ public class TransactionTests extends Common {
 
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
-		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check we now have an assetId
 		Long assetId = issueAssetTransactionData.getAssetId();
 		assertNotNull(assetId);
 		// Should NOT collide with Asset.QORA
-		assertFalse(assetId == Asset.QORA);
+		assertFalse(assetId == Asset.QORT);
 
 		// Check asset now exists
 		AssetRepository assetRepo = this.repository.getAssetRepository();
@@ -647,11 +648,11 @@ public class TransactionTests extends Common {
 		repository.saveChanges();
 
 		// Check sender's balance
-		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
 
 		// Check generator's balance
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's reverted balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
 
 		// Check asset no longer exists
@@ -678,8 +679,8 @@ public class TransactionTests extends Common {
 		AssetRepository assetRepo = this.repository.getAssetRepository();
 		AssetData originalAssetData = assetRepo.fromAssetName(assetName);
 		long assetId = originalAssetData.getAssetId();
-		BigDecimal originalSenderBalance = sender.getConfirmedBalance(Asset.QORA);
-		BigDecimal originalGeneratorBalance = generator.getConfirmedBalance(Asset.QORA);
+		BigDecimal originalSenderBalance = sender.getConfirmedBalance(Asset.QORT);
+		BigDecimal originalGeneratorBalance = generator.getConfirmedBalance(Asset.QORT);
 
 		// Transfer asset to new recipient
 		Account recipient = new PublicKeyAccount(repository, recipientSeed);
@@ -706,12 +707,12 @@ public class TransactionTests extends Common {
 
 		// Check sender's balance
 		BigDecimal expectedBalance = originalSenderBalance.subtract(fee);
-		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = originalGeneratorBalance.add(fee);
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check asset balances
@@ -729,11 +730,11 @@ public class TransactionTests extends Common {
 		repository.saveChanges();
 
 		// Check sender's balance
-		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's reverted balance incorrect", originalSenderBalance.compareTo(actualBalance) == 0);
 
 		// Check generator's balance
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's reverted balance incorrect", originalGeneratorBalance.compareTo(actualBalance) == 0);
 
 		// Check asset balances
@@ -781,7 +782,7 @@ public class TransactionTests extends Common {
 		parentBlockData = block.getBlockData();
 
 		// Order: buyer has 10 QORA and wants to buy "test asset" at a price of 50 "test asset" per QORA.
-		long haveAssetId = Asset.QORA;
+		long haveAssetId = Asset.QORT;
 		BigDecimal amount = BigDecimal.valueOf(10).setScale(8);
 		long wantAssetId = assetId;
 		BigDecimal price = BigDecimal.valueOf(50).setScale(8);
@@ -852,7 +853,7 @@ public class TransactionTests extends Common {
 		PrivateKeyAccount buyer = new PrivateKeyAccount(repository, recipientSeed);
 
 		// Fetch orders
-		long haveAssetId = Asset.QORA;
+		long haveAssetId = Asset.QORT;
 		long wantAssetId = assetId;
 		List<OrderData> orders = assetRepo.getOpenOrders(haveAssetId, wantAssetId);
 
@@ -917,7 +918,7 @@ public class TransactionTests extends Common {
 		PrivateKeyAccount buyer = new PrivateKeyAccount(repository, recipientSeed);
 
 		// Fetch orders
-		long originalHaveAssetId = Asset.QORA;
+		long originalHaveAssetId = Asset.QORT;
 		long originalWantAssetId = assetId;
 		List<OrderData> orders = assetRepo.getOpenOrders(originalHaveAssetId, originalWantAssetId);
 
@@ -937,7 +938,7 @@ public class TransactionTests extends Common {
 		// This order should be a partial match for original order, and at a better price than asked
 		long haveAssetId = assetId;
 		BigDecimal amount = BigDecimal.valueOf(40).setScale(8);
-		long wantAssetId = Asset.QORA;
+		long wantAssetId = Asset.QORT;
 		BigDecimal price = BigDecimal.ONE.setScale(8).divide(BigDecimal.valueOf(60).setScale(8), RoundingMode.DOWN);
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
@@ -1041,7 +1042,7 @@ public class TransactionTests extends Common {
 			byte[] seed = recipientSeed.clone();
 			seed[0] += i;
 			Account recipient = new PublicKeyAccount(repository, seed);
-			long assetId = Asset.QORA;
+			long assetId = Asset.QORT;
 
 			BigDecimal amount = BigDecimal.valueOf(1_000L + i).setScale(8);
 			expectedSenderBalance = expectedSenderBalance.subtract(amount);
@@ -1069,12 +1070,12 @@ public class TransactionTests extends Common {
 		repository.saveChanges();
 
 		// Check sender's balance
-		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedSenderBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		BigDecimal expectedBalance = initialGeneratorBalance.add(fee);
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check recipients
@@ -1087,7 +1088,7 @@ public class TransactionTests extends Common {
 
 			// Amount should be in recipient's balance
 			expectedBalance = paymentData.getAmount();
-			actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
+			actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORT).getBalance();
 			assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		}
@@ -1097,11 +1098,11 @@ public class TransactionTests extends Common {
 		repository.saveChanges();
 
 		// Check sender's balance
-		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
 
 		// Check generator's balance
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
 	}
 
@@ -1121,7 +1122,7 @@ public class TransactionTests extends Common {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
 		MessageTransactionData messageTransactionData = new MessageTransactionData(baseTransactionData, version,
-				recipient.getAddress(), Asset.QORA, amount, data, isText, isEncrypted);
+				recipient.getAddress(), Asset.QORT, amount, data, isText, isEncrypted);
 
 		Transaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
 		messageTransaction.sign(sender);
@@ -1139,17 +1140,17 @@ public class TransactionTests extends Common {
 
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(amount).subtract(fee);
-		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
-		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Amount should be in recipient's balance
 		expectedBalance = amount;
-		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
+		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORT).getBalance();
 		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 	}
 

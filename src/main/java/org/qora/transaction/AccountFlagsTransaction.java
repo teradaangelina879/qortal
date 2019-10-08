@@ -77,7 +77,7 @@ public class AccountFlagsTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(accountFlagsTransactionData.getFee()) < 0)
+		if (creator.getConfirmedBalance(Asset.QORT).compareTo(accountFlagsTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

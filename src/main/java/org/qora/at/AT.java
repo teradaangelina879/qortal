@@ -97,7 +97,7 @@ public class AT {
 			boolean isFrozen = false;
 			Long frozenBalance = null;
 
-			this.atData = new ATData(atAddress, creatorPublicKey, creation, version, Asset.QORA, codeBytes, isSleeping, sleepUntilHeight, isFinished,
+			this.atData = new ATData(atAddress, creatorPublicKey, creation, version, Asset.QORT, codeBytes, isSleeping, sleepUntilHeight, isFinished,
 					hadFatalError, isFrozen, frozenBalance);
 
 			this.atStateData = new ATStateData(atAddress, height, creation, null, null, BigDecimal.ZERO.setScale(8));

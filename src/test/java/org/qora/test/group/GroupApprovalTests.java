@@ -90,8 +90,8 @@ public class GroupApprovalTests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 			byte[] bobOriginalReference = bobAccount.getLastReference();
 
-			BigDecimal aliceOriginalBalance = aliceAccount.getConfirmedBalance(Asset.QORA);
-			BigDecimal bobOriginalBalance = bobAccount.getConfirmedBalance(Asset.QORA);
+			BigDecimal aliceOriginalBalance = aliceAccount.getConfirmedBalance(Asset.QORT);
+			BigDecimal bobOriginalBalance = bobAccount.getConfirmedBalance(Asset.QORT);
 
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
@@ -106,11 +106,11 @@ public class GroupApprovalTests extends Common {
 			assertFalse("reference should have changed", Arrays.equals(bobOriginalReference, bobPostAssetReference));
 
 			// Bob's balance should have the fee removed, even though the transaction itself hasn't been approved yet
-			BigDecimal bobPostAssetBalance = bobAccount.getConfirmedBalance(Asset.QORA);
+			BigDecimal bobPostAssetBalance = bobAccount.getConfirmedBalance(Asset.QORT);
 			Common.assertEqualBigDecimals("approval-pending transaction creator's balance incorrect", bobOriginalBalance.subtract(fee), bobPostAssetBalance);
 
 			// Transaction fee should have ended up in forging account
-			BigDecimal alicePostAssetBalance = aliceAccount.getConfirmedBalance(Asset.QORA);
+			BigDecimal alicePostAssetBalance = aliceAccount.getConfirmedBalance(Asset.QORT);
 			Common.assertEqualBigDecimals("block forger's balance incorrect", aliceOriginalBalance.add(blockReward).add(fee), alicePostAssetBalance);
 
 			// Have Bob do a non-approval transaction to change his last-reference
@@ -167,7 +167,7 @@ public class GroupApprovalTests extends Common {
 			assertTrue("reference should be pre-payment", Arrays.equals(bobOriginalReference, bobReference));
 
 			// Also check Bob's balance is back to original value
-			BigDecimal bobBalance = bobAccount.getConfirmedBalance(Asset.QORA);
+			BigDecimal bobBalance = bobAccount.getConfirmedBalance(Asset.QORT);
 			Common.assertEqualBigDecimals("reverted balance doesn't match original", bobOriginalBalance, bobBalance);
 		}
 	}
@@ -438,7 +438,7 @@ public class GroupApprovalTests extends Common {
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, account.getPublicKey(), fee, null);
-		TransactionData transactionData = new IssueAssetTransactionData(baseTransactionData, account.getAddress(), "test asset", "test asset desc", 1000L, true, "{}");
+		TransactionData transactionData = new IssueAssetTransactionData(baseTransactionData, account.getAddress(), "test asset", "test asset desc", 1000L, true, "{}", false);
 
 		return Transaction.fromData(repository, transactionData);
 	}

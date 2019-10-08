@@ -26,6 +26,7 @@ import org.qora.block.BlockChain.BlockTimingByHeight;
 import org.qora.block.BlockChain.ShareByLevel;
 import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
+import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
@@ -1193,7 +1194,7 @@ public class Block {
 			Account atAccount = new Account(this.repository, atState.getATAddress());
 
 			// Subtract AT-generated fees from AT accounts
-			atAccount.setConfirmedBalance(Asset.QORA, atAccount.getConfirmedBalance(Asset.QORA).subtract(atState.getFees()));
+			atAccount.setConfirmedBalance(Asset.QORT, atAccount.getConfirmedBalance(Asset.QORT).subtract(atState.getFees()));
 
 			atRepository.save(atState);
 		}
@@ -1341,7 +1342,7 @@ public class Block {
 			Account atAccount = new Account(this.repository, atState.getATAddress());
 
 			// Return AT-generated fees to AT accounts
-			atAccount.setConfirmedBalance(Asset.QORA, atAccount.getConfirmedBalance(Asset.QORA).add(atState.getFees()));
+			atAccount.setConfirmedBalance(Asset.QORT, atAccount.getConfirmedBalance(Asset.QORT).add(atState.getFees()));
 		}
 
 		// Delete ATStateData for this height
@@ -1359,6 +1360,7 @@ public class Block {
 			final boolean isFounder;
 			final int level;
 			final int shareBin;
+			final BigDecimal qoraAmount;
 			final Account recipientAccount;
 
 			AccountInfo(Repository repository, int accountIndex, List<ShareByLevel> sharesByLevel) throws DataException {
@@ -1366,6 +1368,12 @@ public class Block {
 
 				this.forgerAccount = new PublicKeyAccount(repository, this.proxyForgerData.getForgerPublicKey());
 				this.recipientAccount = new Account(repository, this.proxyForgerData.getRecipient());
+
+				AccountBalanceData qoraBalanceData = repository.getAccountRepository().getBalance(this.forgerAccount.getAddress(), Asset.LEGACY_QORA);
+				if (qoraBalanceData != null && qoraBalanceData.getBalance() != null && qoraBalanceData.getBalance().compareTo(BigDecimal.ZERO) > 0)
+					this.qoraAmount = qoraBalanceData.getBalance();
+				else
+					this.qoraAmount = null;
 
 				if (this.forgerAccount.isFounder()) {
 					this.isFounder = true;
@@ -1395,17 +1403,17 @@ public class Block {
 				if (forgerAccount.getAddress().equals(recipientAccount.getAddress())) {
 					// forger & recipient the same - simpler case
 					LOGGER.trace(() -> String.format("Forger/recipient account %s share: %s", forgerAccount.getAddress(), accountAmount.toPlainString()));
-					forgerAccount.setConfirmedBalance(Asset.QORA, forgerAccount.getConfirmedBalance(Asset.QORA).add(accountAmount));
+					forgerAccount.setConfirmedBalance(Asset.QORT, forgerAccount.getConfirmedBalance(Asset.QORT).add(accountAmount));
 				} else {
 					// forger & recipient different - extra work needed
 					BigDecimal recipientAmount = accountAmount.multiply(this.proxyForgerData.getShare()).divide(ONE_HUNDRED, RoundingMode.DOWN);
 					BigDecimal forgerAmount = accountAmount.subtract(recipientAmount);
 
 					LOGGER.trace(() -> String.format("Forger account %s share: %s", forgerAccount.getAddress(),  forgerAmount.toPlainString()));
-					forgerAccount.setConfirmedBalance(Asset.QORA, forgerAccount.getConfirmedBalance(Asset.QORA).add(forgerAmount));
+					forgerAccount.setConfirmedBalance(Asset.QORT, forgerAccount.getConfirmedBalance(Asset.QORT).add(forgerAmount));
 
 					LOGGER.trace(() -> String.format("Recipient account %s share: %s", recipientAccount.getAddress(), recipientAmount.toPlainString()));
-					recipientAccount.setConfirmedBalance(Asset.QORA, recipientAccount.getConfirmedBalance(Asset.QORA).add(recipientAmount));
+					recipientAccount.setConfirmedBalance(Asset.QORT, recipientAccount.getConfirmedBalance(Asset.QORT).add(recipientAmount));
 				}
 			}
 		}
@@ -1443,6 +1451,34 @@ public class Block {
 				accountInfo.distribute(accountAmount);
 				sharedAmount = sharedAmount.add(accountAmount);
 			}
+		}
+
+		// Distribute share across legacy QORA holders
+		BigDecimal qoraHoldersAmount = BlockChain.getInstance().getQoraHoldersShare().multiply(totalAmount).setScale(8, RoundingMode.DOWN);
+		LOGGER.trace(() -> String.format("Legacy QORA holders share of %s: %s", totalAmount.toPlainString(), qoraHoldersAmount.toPlainString()));
+
+		List<AccountInfo> qoraHolderAccounts = new ArrayList<>();
+		BigDecimal totalQoraHeld = BigDecimal.ZERO;
+		for (int i = 0; i < expandedAccounts.size(); ++i) {
+			AccountInfo accountInfo = expandedAccounts.get(i);
+			if (accountInfo.qoraAmount == null)
+				continue;
+
+			qoraHolderAccounts.add(accountInfo);
+			totalQoraHeld = totalQoraHeld.add(accountInfo.qoraAmount);
+		}
+
+		final BigDecimal finalTotalQoraHeld = totalQoraHeld;
+		LOGGER.trace(() -> String.format("Total legacy QORA held: %s", finalTotalQoraHeld.toPlainString()));
+
+		for (int h = 0; h < qoraHolderAccounts.size(); ++h) {
+			AccountInfo accountInfo = qoraHolderAccounts.get(h);
+			final BigDecimal holderAmount = qoraHoldersAmount.multiply(totalQoraHeld).divide(accountInfo.qoraAmount, RoundingMode.DOWN);
+			LOGGER.trace(() -> String.format("Forger account %s has %s / %s QORA so share: %s",
+					accountInfo.forgerAccount.getAddress(), accountInfo.qoraAmount, finalTotalQoraHeld, holderAmount.toPlainString()));
+
+			accountInfo.distribute(holderAmount);
+			sharedAmount = sharedAmount.add(holderAmount);
 		}
 
 		// Spread remainder across founder accounts

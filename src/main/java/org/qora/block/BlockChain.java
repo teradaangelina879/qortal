@@ -106,6 +106,9 @@ public class BlockChain {
 	}
 	List<ShareByLevel> sharesByLevel;
 
+	/** Share of block reward/fees to legacy QORA coin holders */
+	BigDecimal qoraHoldersShare;
+
 	/** Block times by block height */
 	public static class BlockTimingByHeight {
 		public int height;
@@ -284,6 +287,10 @@ public class BlockChain {
 		return this.sharesByLevel;
 	}
 
+	public BigDecimal getQoraHoldersShare() {
+		return this.qoraHoldersShare;
+	}
+
 	public List<ForgingTier> getForgingTiers() {
 		return this.forgingTiers;
 	}
@@ -367,6 +374,9 @@ public class BlockChain {
 
 		if (this.sharesByLevel == null)
 			Settings.throwValidationError("No \"sharesByLevel\" entry found in blockchain config");
+
+		if (this.qoraHoldersShare == null)
+			Settings.throwValidationError("No \"qoraHoldersShare\" entry found in blockchain config");
 
 		if (this.blockTimingsByHeight == null)
 			Settings.throwValidationError("No \"blockTimingsByHeight\" entry found in blockchain config");

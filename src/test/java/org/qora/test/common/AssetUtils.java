@@ -39,7 +39,7 @@ public class AssetUtils {
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), AssetUtils.fee, null);
-		TransactionData transactionData = new IssueAssetTransactionData(baseTransactionData, account.getAddress(), assetName, "desc", quantity, isDivisible, "{}");
+		TransactionData transactionData = new IssueAssetTransactionData(baseTransactionData, account.getAddress(), assetName, "desc", quantity, isDivisible, "{}", false);
 
 		TransactionUtils.signAndForge(repository, transactionData, account);
 

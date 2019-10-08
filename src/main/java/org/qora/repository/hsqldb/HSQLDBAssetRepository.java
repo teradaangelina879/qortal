@@ -28,7 +28,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public AssetData fromAssetId(long assetId) throws DataException {
-		String sql = "SELECT owner, asset_name, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets WHERE asset_id = ?";
+		String sql = "SELECT owner, asset_name, description, quantity, is_divisible, data, is_unspendable, creation_group_id, reference FROM Assets WHERE asset_id = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetId)) {
 			if (resultSet == null)
@@ -40,11 +40,12 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			long quantity = resultSet.getLong(4);
 			boolean isDivisible = resultSet.getBoolean(5);
 			String data = resultSet.getString(6);
-			int creationGroupId = resultSet.getInt(7);
-			byte[] reference = resultSet.getBytes(8);
+			boolean isUnspendable = resultSet.getBoolean(7);
+			int creationGroupId = resultSet.getInt(8);
+			byte[] reference = resultSet.getBytes(9);
 
-			return new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data, creationGroupId,
-					reference);
+			return new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data, isUnspendable,
+					creationGroupId, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset from repository", e);
 		}
@@ -52,7 +53,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public AssetData fromAssetName(String assetName) throws DataException {
-		String sql = "SELECT owner, asset_id, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets WHERE asset_name = ?";
+		String sql = "SELECT owner, asset_id, description, quantity, is_divisible, data, is_unspendable, creation_group_id, reference FROM Assets WHERE asset_name = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetName)) {
 			if (resultSet == null)
@@ -64,11 +65,12 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			long quantity = resultSet.getLong(4);
 			boolean isDivisible = resultSet.getBoolean(5);
 			String data = resultSet.getString(6);
-			int creationGroupId = resultSet.getInt(7);
-			byte[] reference = resultSet.getBytes(8);
+			boolean isUnspendable = resultSet.getBoolean(7);
+			int creationGroupId = resultSet.getInt(8);
+			byte[] reference = resultSet.getBytes(9);
 
-			return new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data, creationGroupId,
-					reference);
+			return new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data, isUnspendable,
+					creationGroupId, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset from repository", e);
 		}
@@ -95,7 +97,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<AssetData> getAllAssets(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
-		sql.append("SELECT asset_id, owner, asset_name, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets ORDER BY asset_id");
+		sql.append("SELECT asset_id, owner, asset_name, description, quantity, is_divisible, data, is_unspendable, creation_group_id, reference "
+				+ "FROM Assets ORDER BY asset_id");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -115,11 +118,12 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				long quantity = resultSet.getLong(5);
 				boolean isDivisible = resultSet.getBoolean(6);
 				String data = resultSet.getString(7);
+				boolean isUnspendable = resultSet.getBoolean(7);
 				int creationGroupId = resultSet.getInt(8);
 				byte[] reference = resultSet.getBytes(9);
 
 				assets.add(new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data,
-						creationGroupId, reference));
+						isUnspendable,creationGroupId, reference));
 			} while (resultSet.next());
 
 			return assets;
@@ -159,8 +163,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		saveHelper.bind("asset_id", assetData.getAssetId()).bind("owner", assetData.getOwner())
 				.bind("asset_name", assetData.getName()).bind("description", assetData.getDescription())
 				.bind("quantity", assetData.getQuantity()).bind("is_divisible", assetData.getIsDivisible())
-				.bind("data", assetData.getData()).bind("creation_group_id", assetData.getCreationGroupId())
-				.bind("reference", assetData.getReference());
+				.bind("data", assetData.getData()).bind("is_unspendable", assetData.getIsUnspendable())
+				.bind("creation_group_id", assetData.getCreationGroupId()).bind("reference", assetData.getReference());
 
 		try {
 			saveHelper.execute(this.repository);

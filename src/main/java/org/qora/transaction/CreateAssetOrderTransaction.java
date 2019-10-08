@@ -101,6 +101,10 @@ public class CreateAssetOrderTransaction extends Transaction {
 		if (wantAssetData == null)
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
+		// Unspendable assets are not tradable
+		if (haveAssetData.getIsUnspendable() || wantAssetData.getIsUnspendable())
+			return ValidationResult.ASSET_NOT_SPENDABLE;
+
 		Account creator = getCreator();
 
 		boolean isNewPricing = createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
@@ -153,9 +157,9 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 		// Check order creator has enough asset balance AFTER removing fee, in case asset is QORA
 		// If asset is QORA then we need to check amount + fee in one go
-		if (haveAssetId == Asset.QORA) {
+		if (haveAssetId == Asset.QORT) {
 			// Check creator has enough funds for amount + fee in QORA
-			if (creator.getConfirmedBalance(Asset.QORA).compareTo(committedCost.add(createOrderTransactionData.getFee())) < 0)
+			if (creator.getConfirmedBalance(Asset.QORT).compareTo(committedCost.add(createOrderTransactionData.getFee())) < 0)
 				return ValidationResult.NO_BALANCE;
 		} else {
 			// Check creator has enough funds for amount in whatever asset
@@ -165,7 +169,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 			// Check creator has enough funds for fee in QORA
 			// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
 			if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getPowFixReleaseTimestamp()
-					&& creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getFee()) < 0)
+					&& creator.getConfirmedBalance(Asset.QORT).compareTo(createOrderTransactionData.getFee()) < 0)
 				return ValidationResult.NO_BALANCE;
 		}
 

@@ -71,7 +71,7 @@ public class ArbitraryTransaction extends Transaction {
 		if (arbitraryTransactionData.getVersion() != 1)
 			for (PaymentData paymentData : arbitraryTransactionData.getPayments())
 				// We're only interested in QORA
-				if (paymentData.getAssetId() == Asset.QORA) {
+				if (paymentData.getAssetId() == Asset.QORT) {
 					if (address.equals(paymentData.getRecipient()))
 						amount = amount.add(paymentData.getAmount());
 					else if (address.equals(senderAddress))

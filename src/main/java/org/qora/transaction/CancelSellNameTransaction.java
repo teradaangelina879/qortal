@@ -96,7 +96,7 @@ public class CancelSellNameTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check issuer has enough funds
-		if (owner.getConfirmedBalance(Asset.QORA).compareTo(cancelSellNameTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORT).compareTo(cancelSellNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

@@ -61,7 +61,7 @@ public class MessageTransaction extends Transaction {
 			amount = amount.subtract(this.transactionData.getFee());
 
 		// We're only interested in QORA
-		if (messageTransactionData.getAssetId() == Asset.QORA) {
+		if (messageTransactionData.getAssetId() == Asset.QORT) {
 			if (address.equals(messageTransactionData.getRecipient()))
 				amount = amount.add(messageTransactionData.getAmount());
 			else if (address.equals(senderAddress))

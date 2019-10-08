@@ -12,7 +12,7 @@ import org.qora.repository.Repository;
 public class CreateAssetOrderTestTransaction extends TestTransaction {
 
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, boolean wantValid) throws DataException {
-		final long haveAssetId = Asset.QORA;
+		final long haveAssetId = Asset.QORT;
 		final long wantAssetId = 1;
 		BigDecimal amount = BigDecimal.valueOf(123);
 		BigDecimal price = BigDecimal.valueOf(123);

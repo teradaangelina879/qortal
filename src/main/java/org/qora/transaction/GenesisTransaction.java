@@ -139,7 +139,7 @@ public class GenesisTransaction extends Transaction {
 		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
 
 		// Update recipient's balance
-		recipient.setConfirmedBalance(Asset.QORA, genesisTransactionData.getAmount());
+		recipient.setConfirmedBalance(Asset.QORT, genesisTransactionData.getAmount());
 	}
 
 	@Override

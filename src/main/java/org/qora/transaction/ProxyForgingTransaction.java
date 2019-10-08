@@ -120,7 +120,7 @@ public class ProxyForgingTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(proxyForgingTransactionData.getFee()) < 0)
+		if (creator.getConfirmedBalance(Asset.QORT).compareTo(proxyForgingTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

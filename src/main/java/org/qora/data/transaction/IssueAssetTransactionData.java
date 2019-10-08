@@ -37,6 +37,8 @@ public class IssueAssetTransactionData extends TransactionData {
 	private boolean isDivisible;
 	@Schema(description = "non-human-readable asset-related data, typically JSON", example = "{\"logo\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgA==\"}")
 	private String data;
+	@Schema(description = "whether non-owner holders of asset are barred from using asset", example = "false")
+	private boolean isUnspendable;
 
 	// Constructors
 
@@ -59,7 +61,7 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	/** From repository */
 	public IssueAssetTransactionData(BaseTransactionData baseTransactionData,
-			Long assetId, String owner, String assetName, String description, long quantity, boolean isDivisible, String data) {
+			Long assetId, String owner, String assetName, String description, long quantity, boolean isDivisible, String data, boolean isUnspendable) {
 		super(TransactionType.ISSUE_ASSET, baseTransactionData);
 
 		this.assetId = assetId;
@@ -70,11 +72,13 @@ public class IssueAssetTransactionData extends TransactionData {
 		this.quantity = quantity;
 		this.isDivisible = isDivisible;
 		this.data = data;
+		this.isUnspendable = isUnspendable;
 	}
 
 	/** From network/API */
-	public IssueAssetTransactionData(BaseTransactionData baseTransactionData, String owner, String assetName, String description, long quantity, boolean isDivisible, String data) {
-		this(baseTransactionData, null, owner, assetName, description, quantity, isDivisible, data);
+	public IssueAssetTransactionData(BaseTransactionData baseTransactionData, String owner, String assetName, String description,
+			long quantity, boolean isDivisible, String data, boolean isUnspendable) {
+		this(baseTransactionData, null, owner, assetName, description, quantity, isDivisible, data, isUnspendable);
 	}
 
 	// Getters/Setters
@@ -117,6 +121,10 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	public String getData() {
 		return this.data;
+	}
+
+	public boolean getIsUnspendable() {
+		return this.isUnspendable;
 	}
 
 }

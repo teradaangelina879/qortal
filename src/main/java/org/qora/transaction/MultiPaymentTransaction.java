@@ -68,7 +68,7 @@ public class MultiPaymentTransaction extends Transaction {
 
 		// We're only interested in QORA
 		for (PaymentData paymentData : multiPaymentTransactionData.getPayments())
-			if (paymentData.getAssetId() == Asset.QORA) {
+			if (paymentData.getAssetId() == Asset.QORT) {
 				if (address.equals(paymentData.getRecipient()))
 					amount = amount.add(paymentData.getAmount());
 				else if (address.equals(senderAddress))
@@ -104,7 +104,7 @@ public class MultiPaymentTransaction extends Transaction {
 		// Check sender has enough funds for fee
 		// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
 		if (multiPaymentTransactionData.getTimestamp() >= BlockChain.getInstance().getPowFixReleaseTimestamp()
-				&& sender.getConfirmedBalance(Asset.QORA).compareTo(multiPaymentTransactionData.getFee()) < 0)
+				&& sender.getConfirmedBalance(Asset.QORT).compareTo(multiPaymentTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return new Payment(this.repository).isValid(multiPaymentTransactionData.getSenderPublicKey(), payments, multiPaymentTransactionData.getFee());

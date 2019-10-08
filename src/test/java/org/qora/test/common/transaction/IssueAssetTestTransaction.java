@@ -20,8 +20,9 @@ public class IssueAssetTestTransaction extends TestTransaction {
 		final long quantity = 1_000_000L;
 		final boolean isDivisible = true;
 		String data = AssetUtils.randomData();
+		final boolean isUnspendable = false;
 
-		return new IssueAssetTransactionData(generateBase(account), owner, assetName, description, quantity, isDivisible, data);
+		return new IssueAssetTransactionData(generateBase(account), owner, assetName, description, quantity, isDivisible, data, isUnspendable);
 	}
 
 }

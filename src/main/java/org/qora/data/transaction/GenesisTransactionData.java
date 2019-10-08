@@ -47,7 +47,7 @@ public class GenesisTransactionData extends TransactionData {
 
 	/** From repository (V1, where asset locked to QORA) */
 	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount) {
-		this(baseTransactionData, recipient, amount, Asset.QORA);
+		this(baseTransactionData, recipient, amount, Asset.QORT);
 	}
 
 	// Getters/Setters

@@ -87,7 +87,7 @@ public class JoinGroupTransaction extends Transaction {
 		if (joinGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 		// Check creator has enough funds
-		if (joiner.getConfirmedBalance(Asset.QORA).compareTo(joinGroupTransactionData.getFee()) < 0)
+		if (joiner.getConfirmedBalance(Asset.QORT).compareTo(joinGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

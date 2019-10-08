@@ -107,7 +107,7 @@ public class SellNameTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check issuer has enough funds
-		if (owner.getConfirmedBalance(Asset.QORA).compareTo(sellNameTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORT).compareTo(sellNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

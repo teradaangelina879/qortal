@@ -105,7 +105,7 @@ public class UpdateGroupTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check creator has enough funds
-		if (owner.getConfirmedBalance(Asset.QORA).compareTo(updateGroupTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORT).compareTo(updateGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

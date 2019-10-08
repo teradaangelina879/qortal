@@ -101,7 +101,7 @@ public class GroupBanTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check admin has enough funds
-		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupBanTransactionData.getFee()) < 0)
+		if (admin.getConfirmedBalance(Asset.QORT).compareTo(groupBanTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

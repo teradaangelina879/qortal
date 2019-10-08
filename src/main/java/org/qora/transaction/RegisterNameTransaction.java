@@ -100,7 +100,7 @@ public class RegisterNameTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check issuer has enough funds
-		if (registrant.getConfirmedBalance(Asset.QORA).compareTo(registerNameTransactionData.getFee()) < 0)
+		if (registrant.getConfirmedBalance(Asset.QORT).compareTo(registerNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

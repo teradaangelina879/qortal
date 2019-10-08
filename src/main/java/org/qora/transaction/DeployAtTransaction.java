@@ -162,6 +162,10 @@ public class DeployAtTransaction extends Transaction {
 		if (assetData == null)
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
+		// Unspendable assets are not valid
+		if (assetData.getIsUnspendable())
+			return ValidationResult.ASSET_NOT_SPENDABLE;
+
 		// Check asset amount is integer if asset is not divisible
 		if (!assetData.getIsDivisible() && deployATTransactionData.getAmount().stripTrailingZeros().scale() > 0)
 			return ValidationResult.INVALID_AMOUNT;
@@ -173,14 +177,14 @@ public class DeployAtTransaction extends Transaction {
 		Account creator = getCreator();
 
 		// Check creator has enough funds
-		if (assetId == Asset.QORA) {
+		if (assetId == Asset.QORT) {
 			// Simple case: amount and fee both in Qora
 			BigDecimal minimumBalance = deployATTransactionData.getFee().add(deployATTransactionData.getAmount());
 
-			if (creator.getConfirmedBalance(Asset.QORA).compareTo(minimumBalance) < 0)
+			if (creator.getConfirmedBalance(Asset.QORT).compareTo(minimumBalance) < 0)
 				return ValidationResult.NO_BALANCE;
 		} else {
-			if (creator.getConfirmedBalance(Asset.QORA).compareTo(deployATTransactionData.getFee()) < 0)
+			if (creator.getConfirmedBalance(Asset.QORT).compareTo(deployATTransactionData.getFee()) < 0)
 				return ValidationResult.NO_BALANCE;
 
 			if (creator.getConfirmedBalance(assetId).compareTo(deployATTransactionData.getAmount()) < 0)
@@ -209,14 +213,14 @@ public class DeployAtTransaction extends Transaction {
 		long assetId = deployATTransactionData.getAssetId();
 
 		// Check creator has enough funds
-		if (assetId == Asset.QORA) {
+		if (assetId == Asset.QORT) {
 			// Simple case: amount and fee both in Qora
 			BigDecimal minimumBalance = deployATTransactionData.getFee().add(deployATTransactionData.getAmount());
 
-			if (creator.getConfirmedBalance(Asset.QORA).compareTo(minimumBalance) < 0)
+			if (creator.getConfirmedBalance(Asset.QORT).compareTo(minimumBalance) < 0)
 				return ValidationResult.NO_BALANCE;
 		} else {
-			if (creator.getConfirmedBalance(Asset.QORA).compareTo(deployATTransactionData.getFee()) < 0)
+			if (creator.getConfirmedBalance(Asset.QORT).compareTo(deployATTransactionData.getFee()) < 0)
 				return ValidationResult.NO_BALANCE;
 
 			if (creator.getConfirmedBalance(assetId).compareTo(deployATTransactionData.getAmount()) < 0)

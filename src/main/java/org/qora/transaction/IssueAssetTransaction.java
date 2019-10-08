@@ -120,7 +120,7 @@ public class IssueAssetTransaction extends Transaction {
 		Account issuer = getIssuer();
 
 		// Check issuer has enough funds
-		if (issuer.getConfirmedBalance(Asset.QORA).compareTo(issueAssetTransactionData.getFee()) < 0)
+		if (issuer.getConfirmedBalance(Asset.QORT).compareTo(issueAssetTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

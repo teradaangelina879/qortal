@@ -110,7 +110,7 @@ public class UpdateAssetTransaction extends Transaction {
 		Account currentOwner = getOwner();
 
 		// Check current owner has enough funds
-		if (currentOwner.getConfirmedBalance(Asset.QORA).compareTo(updateAssetTransactionData.getFee()) < 0)
+		if (currentOwner.getConfirmedBalance(Asset.QORT).compareTo(updateAssetTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

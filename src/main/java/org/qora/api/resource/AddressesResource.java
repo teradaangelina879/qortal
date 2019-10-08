@@ -207,7 +207,7 @@ public class AddressesResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
-			return account.getConfirmedBalance(Asset.QORA);
+			return account.getConfirmedBalance(Asset.QORT);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

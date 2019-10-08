@@ -100,7 +100,7 @@ public class CancelGroupInviteTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check creator has enough funds
-		if (admin.getConfirmedBalance(Asset.QORA).compareTo(cancelGroupInviteTransactionData.getFee()) < 0)
+		if (admin.getConfirmedBalance(Asset.QORT).compareTo(cancelGroupInviteTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

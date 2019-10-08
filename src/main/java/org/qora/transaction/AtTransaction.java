@@ -84,12 +84,12 @@ public class AtTransaction extends Transaction {
 		if (address.equals(atAddress)) {
 			amount = amount.subtract(this.atTransactionData.getFee());
 
-			if (this.atTransactionData.getAmount() != null && this.atTransactionData.getAssetId() == Asset.QORA)
+			if (this.atTransactionData.getAmount() != null && this.atTransactionData.getAssetId() == Asset.QORT)
 				amount = amount.subtract(this.atTransactionData.getAmount());
 		}
 
 		if (address.equals(this.atTransactionData.getRecipient()) && this.atTransactionData.getAmount() != null
-				&& this.atTransactionData.getAssetId() == Asset.QORA)
+				&& this.atTransactionData.getAssetId() == Asset.QORT)
 			amount = amount.add(this.atTransactionData.getAmount());
 
 		return amount;
@@ -183,7 +183,7 @@ public class AtTransaction extends Transaction {
 			long assetId = this.atTransactionData.getAssetId();
 
 			// For QORA amounts only: if recipient has no reference yet, then this is their starting reference
-			if (assetId == Asset.QORA && recipient.getLastReference() == null)
+			if (assetId == Asset.QORT && recipient.getLastReference() == null)
 				// In Qora1 last reference was set to 64-bytes of zero
 				// In Qora2 we use AT-Transction's signature, which makes more sense
 				recipient.setLastReference(this.atTransactionData.getSignature());
@@ -220,7 +220,7 @@ public class AtTransaction extends Transaction {
 			 * For QORA amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own
 			 * (which would have changed their last reference) thus this is their first reference so remove it.
 			 */
-			if (assetId == Asset.QORA && Arrays.equals(recipient.getLastReference(), this.atTransactionData.getSignature()))
+			if (assetId == Asset.QORT && Arrays.equals(recipient.getLastReference(), this.atTransactionData.getSignature()))
 				recipient.setLastReference(null);
 		}
 	}

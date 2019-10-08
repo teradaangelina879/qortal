@@ -133,7 +133,7 @@ public class CreatePollTransaction extends Transaction {
 		Account creator = getCreator();
 
 		// Check issuer has enough funds
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(createPollTransactionData.getFee()) < 0)
+		if (creator.getConfirmedBalance(Asset.QORT).compareTo(createPollTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

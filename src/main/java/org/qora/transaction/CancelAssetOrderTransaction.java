@@ -89,7 +89,7 @@ public class CancelAssetOrderTransaction extends Transaction {
 			return ValidationResult.INVALID_ORDER_CREATOR;
 
 		// Check creator has enough QORA for fee
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(cancelOrderTransactionData.getFee()) < 0)
+		if (creator.getConfirmedBalance(Asset.QORT).compareTo(cancelOrderTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

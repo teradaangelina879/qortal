@@ -25,7 +25,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		DataType dataType = DataType.RAW_DATA;
 
 		String recipient = account.getAddress();
-		final long assetId = Asset.QORA;
+		final long assetId = Asset.QORT;
 		BigDecimal amount = BigDecimal.valueOf(123L);
 
 		List<PaymentData> payments = new ArrayList<>();

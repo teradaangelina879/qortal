@@ -68,7 +68,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		long assetId;
 		if (version == 1)
-			assetId = Asset.QORA;
+			assetId = Asset.QORT;
 		else
 			assetId = byteBuffer.getLong();
 

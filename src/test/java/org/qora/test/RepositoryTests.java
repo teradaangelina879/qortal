@@ -78,14 +78,14 @@ public class RepositoryTests extends Common {
 			try (final Repository repository2 = RepositoryManager.getRepository()) {
 				// Update account in 2
 				Account account2 = Common.getTestAccount(repository2, "alice");
-				account2.setConfirmedBalance(Asset.QORA, BigDecimal.valueOf(1234L));
+				account2.setConfirmedBalance(Asset.QORT, BigDecimal.valueOf(1234L));
 				repository2.saveChanges();
 			}
 
 			repository1.discardChanges();
 
 			// Update account in 1
-			account1.setConfirmedBalance(Asset.QORA, BigDecimal.valueOf(5678L));
+			account1.setConfirmedBalance(Asset.QORT, BigDecimal.valueOf(5678L));
 			repository1.saveChanges();
 		}
 	}

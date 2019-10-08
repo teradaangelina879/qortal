@@ -87,7 +87,7 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
-		long assetId = Asset.QORA;
+		long assetId = Asset.QORT;
 		if (version >= 4)
 			assetId = byteBuffer.getLong();
 

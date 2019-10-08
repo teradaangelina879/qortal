@@ -239,6 +239,7 @@ public abstract class Transaction {
 		NO_BLOCKCHAIN_LOCK(86),
 		ORDER_ALREADY_CLOSED(87),
 		CLOCK_NOT_SYNCED(88),
+		ASSET_NOT_SPENDABLE(89),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -946,7 +947,7 @@ public abstract class Transaction {
 		Account creator = getCreator();
 
 		// Update transaction creator's balance
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(transactionData.getFee()));
+		creator.setConfirmedBalance(Asset.QORT, creator.getConfirmedBalance(Asset.QORT).subtract(transactionData.getFee()));
 
 		// Update transaction creator's reference
 		creator.setLastReference(transactionData.getSignature());
@@ -970,7 +971,7 @@ public abstract class Transaction {
 		Account creator = getCreator();
 
 		// Update transaction creator's balance
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(transactionData.getFee()));
+		creator.setConfirmedBalance(Asset.QORT, creator.getConfirmedBalance(Asset.QORT).add(transactionData.getFee()));
 
 		// Update transaction creator's reference
 		creator.setLastReference(transactionData.getReference());

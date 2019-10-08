@@ -18,7 +18,7 @@ public class AtTestTransaction extends TestTransaction {
 		String atAddress = Crypto.toATAddress(signature);
 		String recipient = account.getAddress();
 		BigDecimal amount = BigDecimal.valueOf(123);
-		final long assetId = Asset.QORA;
+		final long assetId = Asset.QORT;
 		byte[] message = new byte[32];
 		random.nextBytes(message);
 

@@ -118,7 +118,7 @@ public class GenesisBlock extends Block {
 				IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
 
 				return new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(), issueAssetTransactionData.getDescription(),
-						issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(), "", Group.NO_GROUP, issueAssetTransactionData.getReference());
+						issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(), "", false, Group.NO_GROUP, issueAssetTransactionData.getReference());
 			}).collect(Collectors.toList());
 		}
 

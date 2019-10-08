@@ -86,7 +86,7 @@ public class LeaveGroupTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check creator has enough funds
-		if (leaver.getConfirmedBalance(Asset.QORA).compareTo(leaveGroupTransactionData.getFee()) < 0)
+		if (leaver.getConfirmedBalance(Asset.QORT).compareTo(leaveGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

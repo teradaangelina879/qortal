@@ -28,6 +28,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	private static final int IS_DIVISIBLE_LENGTH = BOOLEAN_LENGTH;
 	private static final int ASSET_REFERENCE_LENGTH = REFERENCE_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
+	private static final int IS_UNSPENDABLE_LENGTH = BOOLEAN_LENGTH;
 
 	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + QUANTITY_LENGTH
 			+ IS_DIVISIBLE_LENGTH;
@@ -50,6 +51,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		layout.add("can asset quantities be fractional?", TransformationType.BOOLEAN);
 		layout.add("asset data length", TransformationType.INT);
 		layout.add("asset data", TransformationType.STRING);
+		layout.add("are non-owner holders barred from using asset?", TransformationType.BOOLEAN);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
@@ -76,16 +78,18 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 		boolean isDivisible = byteBuffer.get() != 0;
 
-		// in v2, assets have "data" field
-		String data = "";
-		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
-			data = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_DATA_SIZE);
-
 		byte[] assetReference = new byte[ASSET_REFERENCE_LENGTH];
-		// In v1, IssueAssetTransaction uses Asset.parse which also deserializes
-		// reference.
-		if (timestamp < BlockChain.getInstance().getQoraV2Timestamp())
+		String data = "";
+		boolean isUnspendable = false;
+
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp()) {
+			// in v2, assets have additional fields
+			data = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_DATA_SIZE);
+			isUnspendable = byteBuffer.get() != 0;
+		} else {
+			// In v1, IssueAssetTransaction uses Asset.parse which also deserializes reference.
 			byteBuffer.get(assetReference);
+		}
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
@@ -94,7 +98,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, issuerPublicKey, fee, signature);
 
-		return new IssueAssetTransactionData(baseTransactionData, owner, assetName, description, quantity, isDivisible, data);
+		return new IssueAssetTransactionData(baseTransactionData, owner, assetName, description, quantity, isDivisible, data, isUnspendable);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -104,14 +108,13 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 				+ Utf8.encodedLength(issueAssetTransactionData.getAssetName())
 				+ Utf8.encodedLength(issueAssetTransactionData.getDescription());
 
-		// In v2, assets have "data" field
-		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
-			dataLength += DATA_SIZE_LENGTH + Utf8.encodedLength(issueAssetTransactionData.getData());
-
-		// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes
-		// reference.
-		if (transactionData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp())
+		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp()) {
+			// In v2, assets have additional fields.
+			dataLength += DATA_SIZE_LENGTH + Utf8.encodedLength(issueAssetTransactionData.getData()) + IS_UNSPENDABLE_LENGTH;
+		} else {
+			// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes reference.
 			dataLength += ASSET_REFERENCE_LENGTH;
+		}
 
 		return dataLength;
 	}
@@ -133,14 +136,14 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getQuantity()));
 			bytes.write((byte) (issueAssetTransactionData.getIsDivisible() ? 1 : 0));
 
-			// In v2, assets have "data"
-			if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
+			// In v2, assets have additional fields.
+			if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp()) {
 				Serialization.serializeSizedString(bytes, issueAssetTransactionData.getData());
-
-			// In v1, IssueAssetTransaction uses Asset.toBytes which also
-			// serializes Asset's reference which is the IssueAssetTransaction's
-			// signature
-			if (transactionData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp()) {
+				bytes.write((byte) (issueAssetTransactionData.getIsUnspendable() ? 1 : 0));
+			} else {
+				// In v1, IssueAssetTransaction uses Asset.toBytes which also
+				// serializes Asset's reference which is the IssueAssetTransaction's
+				// signature
 				byte[] assetReference = issueAssetTransactionData.getSignature();
 				if (assetReference != null)
 					bytes.write(assetReference);
