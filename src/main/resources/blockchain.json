@@ -1,13 +1,9 @@
 {
-	"maxBalance": "10000000",
-	"blockDifficultyInterval": 10,
-	"minBlockTime": 60,
-	"maxBlockTime": 300,
 	"blockTimestampMargin": 2000,
 	"transactionExpiryPeriod": 86400000,
-	"maxBlockSize": 1048576,
+	"maxBlockSize": 2097152,
 	"maxBytesPerUnitFee": 1024,
-	"unitFee": "1.0",
+	"unitFee": "0.001",
 	"useBrokenMD160ForAddresses": false,
 	"requireGroupForApproval": false,
 	"defaultGroupId": 0,
@@ -18,9 +14,9 @@
 	"genesisInfo": {
 		"version": 4,
 		"timestamp": "1569510000000",
-		"generatingBalance": "100000",
 		"transactions": [
-			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT", "description": "QORTAL coin", "quantity": 10000000, "isDivisible": true, "fee": 0, "reference": "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC", "data": "{}" },
+			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT", "description": "QORTAL coin", "quantity": 10000000, "isDivisible": true, "reference": "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC", "data": "{}" },
+			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORA", "description": "Representative legacy QORA", "quantity": 10000000000, "isDivisible": true, "data": "{}", "isUnspendable": true },
 			{ "type": "GENESIS", "recipient": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "amount": "1000000" },
 			{ "type": "GENESIS", "recipient": "QcatoCyyp7dVfMtJ92sgUUPDoBJevaemRX", "amount": "1000000" },
 			{ "type": "GENESIS", "recipient": "QTiga19sttbf6CLQLT83mhCSWEaCvjk8th", "amount": "1000000" },
@@ -39,17 +35,26 @@
 		]
 	},
 	"rewardsByHeight": [
-		{ "height": 1, "reward": 0 },
-		{ "height": 100, "reward": 100 },
-		{ "height": 200, "reward": 20 },
-		{ "height": 1000, "reward": 1 },
-		{ "height": 2000, "reward": 0 }
+		{ "height": 2, "reward": 5.0000 },
+		{ "height": 259204, "reward": 4.7500 },
+		{ "height": 518406, "reward": 4.5125 },
+		{ "height": 777608, "reward": 4.2869 },
+		{ "height": 1036810, "reward": 4.0725 },
+		{ "height": 1296012, "reward": 3.8689 },
+		{ "height": 1555214, "reward": 3.6755 },
+		{ "height": 1814416, "reward": 3.4917 },
+		{ "height": 2073618, "reward": 3.3171 },
+		{ "height": 2332820, "reward": 3.1512 }
 	],
-	"forgingTiers": [
-		{ "minBlocks": 50, "maxSubAccounts": 5 },
-		{ "minBlocks": 50, "maxSubAccounts": 1 },
-		{ "minBlocks": 0, "maxSubAccounts": 0 }
+	"sharesByLevel": [
+		{ "levels": [ 1, 2 ], "share": 0.05 },
+		{ "levels": [ 3, 4 ], "share": 0.10 },
+		{ "levels": [ 5, 6 ], "share": 0.15 },
+		{ "levels": [ 7, 8 ], "share": 0.20 },
+		{ "levels": [ 9, 10 ], "share": 0.25 }
 	],
+	"qoraHoldersShare": 0.20,
+	"blocksNeededByLevel": [ 7200, 64800, 129600, 172800, 244000, 345600, 518400, 691200, 864000, 1036800 ],
 	"blockTimingsByHeight": [
 		{ "height": 1, "target": 60000, "deviation": 30000, "power": 0.2 }
 	],

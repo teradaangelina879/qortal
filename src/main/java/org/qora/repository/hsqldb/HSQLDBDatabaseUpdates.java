@@ -799,6 +799,15 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE IssueAssetTransactions ADD COLUMN is_unspendable BOOLEAN NOT NULL DEFAULT FALSE BEFORE asset_id");
 					break;
 
+				case 57:
+					// Modify accounts to keep track of how many blocks generated
+					stmt.execute("ALTER TABLE Accounts ADD COLUMN blocks_generated INT NOT NULL DEFAULT 0");
+					// Remove forging_enabler
+					stmt.execute("ALTER TABLE Accounts DROP COLUMN forging_enabler");
+					// Remove corresponding ENABLE_FORGING transaction
+					stmt.execute("DROP TABLE EnableForgingTransactions");
+					break;
+
 				default:
 					// nothing to do
 					return false;

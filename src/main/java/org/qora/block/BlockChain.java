@@ -51,6 +51,7 @@ public class BlockChain {
 	// Properties
 
 	private boolean isTestChain = false;
+
 	/** Transaction expiry period, starting from transaction's timestamp, in milliseconds. */
 	private long transactionExpiryPeriod;
 
@@ -109,6 +110,14 @@ public class BlockChain {
 	/** Share of block reward/fees to legacy QORA coin holders */
 	BigDecimal qoraHoldersShare;
 
+	/**
+	 * Number of generated blocks required to reach next level.
+	 * <p>
+	 * Use account's current level as index.<br>
+	 * If account's level isn't valid as an index, then account's level is at maximum.
+	 */
+	List<Integer> blocksNeededByLevel;
+
 	/** Block times by block height */
 	public static class BlockTimingByHeight {
 		public int height;
@@ -117,15 +126,6 @@ public class BlockChain {
 		public double power;
 	}
 	List<BlockTimingByHeight> blockTimingsByHeight;
-
-	/** Forging right tiers */
-	public static class ForgingTier {
-		/** Minimum number of blocks forged before account can enable minting on other accounts. */
-		public int minBlocks;
-		/** Maximum number of other accounts that can be enabled. */
-		public int maxSubAccounts;
-	}
-	List<ForgingTier> forgingTiers;
 
 	private int maxProxyRelationships;
 
@@ -287,12 +287,12 @@ public class BlockChain {
 		return this.sharesByLevel;
 	}
 
-	public BigDecimal getQoraHoldersShare() {
-		return this.qoraHoldersShare;
+	public List<Integer> getBlocksNeededByLevel() {
+		return this.blocksNeededByLevel;
 	}
 
-	public List<ForgingTier> getForgingTiers() {
-		return this.forgingTiers;
+	public BigDecimal getQoraHoldersShare() {
+		return this.qoraHoldersShare;
 	}
 
 	public int getMaxProxyRelationships() {
@@ -377,6 +377,9 @@ public class BlockChain {
 
 		if (this.qoraHoldersShare == null)
 			Settings.throwValidationError("No \"qoraHoldersShare\" entry found in blockchain config");
+
+		if (this.blocksNeededByLevel == null)
+			Settings.throwValidationError("No \"blocksNeededByLevel\" entry found in blockchain config");
 
 		if (this.blockTimingsByHeight == null)
 			Settings.throwValidationError("No \"blockTimingsByHeight\" entry found in blockchain config");

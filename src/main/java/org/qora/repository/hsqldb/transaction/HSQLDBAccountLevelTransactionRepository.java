@@ -43,8 +43,7 @@ public class HSQLDBAccountLevelTransactionRepository extends HSQLDBTransactionRe
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountLevelTransactions");
 
 		saveHelper.bind("signature", accountLevelTransactionData.getSignature()).bind("creator", accountLevelTransactionData.getCreatorPublicKey())
-				.bind("target", accountLevelTransactionData.getTarget()).bind("level", accountLevelTransactionData.getLevel())
-				.bind("previous_level", accountLevelTransactionData.getPreviousLevel());
+				.bind("target", accountLevelTransactionData.getTarget()).bind("level", accountLevelTransactionData.getLevel());
 
 		try {
 			saveHelper.execute(this.repository);

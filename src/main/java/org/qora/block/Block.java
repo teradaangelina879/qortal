@@ -11,22 +11,23 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.account.Account;
-import org.qora.account.Forging;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.at.AT;
-import org.qora.block.BlockChain;
 import org.qora.block.BlockChain.BlockTimingByHeight;
 import org.qora.block.BlockChain.ShareByLevel;
 import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountBalanceData;
+import org.qora.data.account.AccountData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
@@ -122,8 +123,77 @@ public class Block {
 	/** Locally-generated AT fees */
 	protected BigDecimal ourAtFees; // Generated locally
 
-	/** Minimum Qora balance for use in calculations. */
-	public static final BigDecimal MIN_BALANCE = BigDecimal.valueOf(1L).setScale(8);
+	/** Lazy-instantiated expanded info on block's online accounts. */
+	class ExpandedAccount {
+		final ProxyForgerData proxyForgerData;
+		final boolean isRecipientAlsoForger;
+
+		final Account forgerAccount;
+		final AccountData forgerAccountData;
+		final boolean isForgerFounder;
+		final BigDecimal forgerQoraAmount;
+		final int shareBin;
+
+		final Account recipientAccount;
+		final AccountData recipientAccountData;
+		final boolean isRecipientFounder;
+
+		ExpandedAccount(Repository repository, int accountIndex) throws DataException {
+			final List<ShareByLevel> sharesByLevel = BlockChain.getInstance().getBlockSharesByLevel();
+
+			this.proxyForgerData = repository.getAccountRepository().getProxyAccountByIndex(accountIndex);
+
+			this.forgerAccount = new PublicKeyAccount(repository, this.proxyForgerData.getForgerPublicKey());
+			this.recipientAccount = new Account(repository, this.proxyForgerData.getRecipient());
+
+			AccountBalanceData qoraBalanceData = repository.getAccountRepository().getBalance(this.forgerAccount.getAddress(), Asset.LEGACY_QORA);
+			if (qoraBalanceData != null && qoraBalanceData.getBalance() != null && qoraBalanceData.getBalance().compareTo(BigDecimal.ZERO) > 0)
+				this.forgerQoraAmount = qoraBalanceData.getBalance();
+			else
+				this.forgerQoraAmount = null;
+
+			this.forgerAccountData = repository.getAccountRepository().getAccount(this.forgerAccount.getAddress());
+			this.isForgerFounder = Account.isFounder(forgerAccountData.getFlags());
+
+			int currentShareBin = -1;
+
+			if (!this.isForgerFounder)
+				for (int s = 0; s < sharesByLevel.size(); ++s)
+					if (sharesByLevel.get(s).levels.contains(this.forgerAccountData.getLevel())) {
+						currentShareBin = s;
+						break;
+					}
+
+			this.shareBin = currentShareBin;
+
+			this.recipientAccountData = repository.getAccountRepository().getAccount(this.recipientAccount.getAddress());
+			this.isRecipientFounder = Account.isFounder(recipientAccountData.getFlags());
+
+			this.isRecipientAlsoForger = this.forgerAccountData.getAddress().equals(this.recipientAccountData.getAddress());
+		}
+
+		void distribute(BigDecimal accountAmount) throws DataException {
+			final BigDecimal oneHundred = BigDecimal.valueOf(100L);
+
+			if (this.forgerAccount.getAddress().equals(this.recipientAccount.getAddress())) {
+				// forger & recipient the same - simpler case
+				LOGGER.trace(() -> String.format("Forger/recipient account %s share: %s", this.forgerAccount.getAddress(), accountAmount.toPlainString()));
+				this.forgerAccount.setConfirmedBalance(Asset.QORT, this.forgerAccount.getConfirmedBalance(Asset.QORT).add(accountAmount));
+			} else {
+				// forger & recipient different - extra work needed
+				BigDecimal recipientAmount = accountAmount.multiply(this.proxyForgerData.getShare()).divide(oneHundred, RoundingMode.DOWN);
+				BigDecimal forgerAmount = accountAmount.subtract(recipientAmount);
+
+				LOGGER.trace(() -> String.format("Forger account %s share: %s", this.forgerAccount.getAddress(),  forgerAmount.toPlainString()));
+				this.forgerAccount.setConfirmedBalance(Asset.QORT, this.forgerAccount.getConfirmedBalance(Asset.QORT).add(forgerAmount));
+
+				LOGGER.trace(() -> String.format("Recipient account %s share: %s", this.recipientAccount.getAddress(), recipientAmount.toPlainString()));
+				this.recipientAccount.setConfirmedBalance(Asset.QORT, this.recipientAccount.getConfirmedBalance(Asset.QORT).add(recipientAmount));
+			}
+		}
+	}
+	/** Always use getExpandedAccounts() to access this, as it's lazy-instantiated. */
+	private List<ExpandedAccount> cachedExpandedAccounts = null;
 
 	// Other useful constants
 
@@ -438,6 +508,31 @@ public class Block {
 		this.atStates = atStateData;
 
 		return this.atStates;
+	}
+
+	/**
+	 * Return expanded info on block's online accounts.
+	 * <p>
+	 * @throws DataException
+	 */
+	public List<ExpandedAccount> getExpandedAccounts() throws DataException {
+		if (this.cachedExpandedAccounts != null)
+			return this.cachedExpandedAccounts;
+
+		ConciseSet accountIndexes = BlockTransformer.decodeOnlineAccounts(this.blockData.getEncodedOnlineAccounts());
+		List<ExpandedAccount> expandedAccounts = new ArrayList<ExpandedAccount>();
+
+		IntIterator iterator = accountIndexes.iterator();
+		while (iterator.hasNext()) {
+			int accountIndex = iterator.next();
+
+			ExpandedAccount accountInfo = new ExpandedAccount(repository, accountIndex);
+			expandedAccounts.add(accountInfo);
+		}
+
+		this.cachedExpandedAccounts = expandedAccounts;
+
+		return this.cachedExpandedAccounts;
 	}
 
 	// Navigation
@@ -1032,21 +1127,13 @@ public class Block {
 
 	/** Returns whether block's generator is actually allowed to forge this block. */
 	protected boolean isGeneratorValidToForge(Block parentBlock) throws DataException {
-		// Generator must have forging flag enabled
-		Account generator = new PublicKeyAccount(repository, this.blockData.getGeneratorPublicKey());
-		if (Forging.canForge(generator))
-			return true;
-
-		// Check whether generator public key could be a proxy forge account
+		// Block's generator public key must be known proxy forging public key
 		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
-		if (proxyForgerData != null) {
-			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
+		if (proxyForgerData == null)
+			return false;
 
-			if (Forging.canForge(forger))
-				return true;
-		}
-
-		return false;
+		Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
+		return forger.canForge();
 	}
 
 	/**
@@ -1059,11 +1146,13 @@ public class Block {
 		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
 		this.blockData.setHeight(blockchainHeight + 1);
 
-		// Increase account levels
-		increaseAccountLevels();
+		if (this.blockData.getHeight() > 1) {
+			// Increase account levels
+			increaseAccountLevels();
 
-		// Block rewards go before transactions processed
-		processBlockRewards();
+			// Block rewards go before transactions processed
+			processBlockRewards();
+		}
 
 		// Process transactions (we'll link them to this block after saving the block itself)
 		processTransactions();
@@ -1071,8 +1160,9 @@ public class Block {
 		// Group-approval transactions
 		processGroupApprovalTransactions();
 
-		// Give transaction fees to generator/proxy
-		rewardTransactionFees();
+		if (this.blockData.getHeight() > 1)
+			// Give transaction fees to generator/proxy
+			rewardTransactionFees();
 
 		// Process AT fees and save AT states into repository
 		processAtFeesAndStates();
@@ -1091,7 +1181,71 @@ public class Block {
 	}
 
 	protected void increaseAccountLevels() throws DataException {
-		// TODO!
+		List<Integer> blocksNeededByLevel = BlockChain.getInstance().getBlocksNeededByLevel();
+
+		// Pre-calculate cumulative blocks required for each level
+		int cumulativeBlocks = 0;
+		int[] cumulativeBlocksByLevel = new int[blocksNeededByLevel.size() + 1];
+		for (int level = 0; level < cumulativeBlocksByLevel.length; ++level) {
+			cumulativeBlocksByLevel[level] = cumulativeBlocks;
+
+			if (level < blocksNeededByLevel.size())
+				cumulativeBlocks += blocksNeededByLevel.get(level);
+		}
+
+		List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
+
+		// We need to do this for both forgers and recipients
+		this.increaseAccountLevels(expandedAccounts, cumulativeBlocksByLevel,
+				expandedAccount -> expandedAccount.isForgerFounder,
+				expandedAccount -> expandedAccount.forgerAccountData);
+
+		this.increaseAccountLevels(expandedAccounts, cumulativeBlocksByLevel,
+				expandedAccount -> expandedAccount.isRecipientFounder,
+				expandedAccount -> expandedAccount.recipientAccountData);
+	}
+
+	private void increaseAccountLevels(List<ExpandedAccount> expandedAccounts, int[] cumulativeBlocksByLevel,
+			Predicate<ExpandedAccount> isFounder, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
+		final boolean isProcessingRecipients = getAccountData.apply(expandedAccounts.get(0)) == expandedAccounts.get(0).recipientAccountData;
+
+		// Increase blocks generated count for all accounts
+		for (int a = 0; a < expandedAccounts.size(); ++a) {
+			ExpandedAccount expandedAccount = expandedAccounts.get(a);
+
+			// Don't increase twice if recipient is also forger.
+			if (isProcessingRecipients && expandedAccount.isRecipientAlsoForger)
+				continue;
+
+			AccountData accountData = getAccountData.apply(expandedAccount);
+
+			accountData.setBlocksGenerated(accountData.getBlocksGenerated() + 1);
+			repository.getAccountRepository().setBlocksGenerated(accountData);
+			LOGGER.trace(() -> String.format("Block generator %s has generated %d block%s", accountData.getAddress(), accountData.getBlocksGenerated(), (accountData.getBlocksGenerated() != 1 ? "s" : "")));
+		}
+
+		// We are only interested in accounts that are NOT founders and NOT already highest level
+		final int maximumLevel = cumulativeBlocksByLevel.length - 1;
+		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> !isFounder.test(expandedAccount) && getAccountData.apply(expandedAccount).getLevel() < maximumLevel).collect(Collectors.toList());
+
+		for (int c = 0; c < candidateAccounts.size(); ++c) {
+			ExpandedAccount expandedAccount = candidateAccounts.get(c);
+			final AccountData accountData = getAccountData.apply(expandedAccount);
+
+			final int effectiveBlocksGenerated = cumulativeBlocksByLevel[accountData.getInitialLevel()] + accountData.getBlocksGenerated();
+
+			for (int newLevel = cumulativeBlocksByLevel.length - 1; newLevel > 0; --newLevel)
+				if (effectiveBlocksGenerated >= cumulativeBlocksByLevel[newLevel]) {
+					if (newLevel > accountData.getLevel()) {
+						// Account has increased in level!
+						accountData.setLevel(newLevel);
+						repository.getAccountRepository().setLevel(accountData);
+						LOGGER.trace(() -> String.format("Block generator %s bumped to level %d", accountData.getAddress(), accountData.getLevel()));
+					}
+
+					break;
+				}
+		}
 	}
 
 	protected void processBlockRewards() throws DataException {
@@ -1233,8 +1387,9 @@ public class Block {
 	 * @throws DataException
 	 */
 	public void orphan() throws DataException {
-		// Deduct any transaction fees from generator/proxy
-		deductTransactionFees();
+		if (this.blockData.getHeight() > 1)
+			// Deduct any transaction fees from generator/proxy
+			deductTransactionFees();
 
 		// Orphan, and unlink, transactions from this block
 		orphanTransactionsFromBlock();
@@ -1242,11 +1397,13 @@ public class Block {
 		// Undo any group-approval decisions that happen at this block
 		orphanGroupApprovalTransactions();
 
-		// Block rewards removed after transactions undone
-		orphanBlockRewards();
+		if (this.blockData.getHeight() > 1) {
+			// Block rewards removed after transactions undone
+			orphanBlockRewards();
 
-		// Decrease account levels
-		decreaseAccountLevels();
+			// Decrease account levels
+			decreaseAccountLevels();
+		}
 
 		// Return AT fees and delete AT states from repository
 		orphanAtFeesAndStates();
@@ -1354,81 +1511,8 @@ public class Block {
 	}
 
 	protected void distributeByAccountLevel(BigDecimal totalAmount) throws DataException {
-		class AccountInfo {
-			final ProxyForgerData proxyForgerData;
-			final Account forgerAccount;
-			final boolean isFounder;
-			final int level;
-			final int shareBin;
-			final BigDecimal qoraAmount;
-			final Account recipientAccount;
-
-			AccountInfo(Repository repository, int accountIndex, List<ShareByLevel> sharesByLevel) throws DataException {
-				this.proxyForgerData = repository.getAccountRepository().getProxyAccountByIndex(accountIndex);
-
-				this.forgerAccount = new PublicKeyAccount(repository, this.proxyForgerData.getForgerPublicKey());
-				this.recipientAccount = new Account(repository, this.proxyForgerData.getRecipient());
-
-				AccountBalanceData qoraBalanceData = repository.getAccountRepository().getBalance(this.forgerAccount.getAddress(), Asset.LEGACY_QORA);
-				if (qoraBalanceData != null && qoraBalanceData.getBalance() != null && qoraBalanceData.getBalance().compareTo(BigDecimal.ZERO) > 0)
-					this.qoraAmount = qoraBalanceData.getBalance();
-				else
-					this.qoraAmount = null;
-
-				if (this.forgerAccount.isFounder()) {
-					this.isFounder = true;
-					this.level = 0;
-					this.shareBin = -1;
-					return;
-				}
-
-				this.isFounder = false;
-				this.level = this.forgerAccount.getLevel();
-
-				for (int s = 0; s < sharesByLevel.size(); ++s)
-					if (sharesByLevel.get(s).levels.contains(this.level)) {
-						this.shareBin = s;
-						return;
-					}
-
-				this.shareBin = -1;
-			}
-
-			void distribute(BigDecimal accountAmount) throws DataException {
-				final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100L);
-
-				Account forgerAccount = this.forgerAccount;
-				Account recipientAccount = this.recipientAccount;
-
-				if (forgerAccount.getAddress().equals(recipientAccount.getAddress())) {
-					// forger & recipient the same - simpler case
-					LOGGER.trace(() -> String.format("Forger/recipient account %s share: %s", forgerAccount.getAddress(), accountAmount.toPlainString()));
-					forgerAccount.setConfirmedBalance(Asset.QORT, forgerAccount.getConfirmedBalance(Asset.QORT).add(accountAmount));
-				} else {
-					// forger & recipient different - extra work needed
-					BigDecimal recipientAmount = accountAmount.multiply(this.proxyForgerData.getShare()).divide(ONE_HUNDRED, RoundingMode.DOWN);
-					BigDecimal forgerAmount = accountAmount.subtract(recipientAmount);
-
-					LOGGER.trace(() -> String.format("Forger account %s share: %s", forgerAccount.getAddress(),  forgerAmount.toPlainString()));
-					forgerAccount.setConfirmedBalance(Asset.QORT, forgerAccount.getConfirmedBalance(Asset.QORT).add(forgerAmount));
-
-					LOGGER.trace(() -> String.format("Recipient account %s share: %s", recipientAccount.getAddress(), recipientAmount.toPlainString()));
-					recipientAccount.setConfirmedBalance(Asset.QORT, recipientAccount.getConfirmedBalance(Asset.QORT).add(recipientAmount));
-				}
-			}
-		}
-
 		List<ShareByLevel> sharesByLevel = BlockChain.getInstance().getBlockSharesByLevel();
-
-		ConciseSet accountIndexes = BlockTransformer.decodeOnlineAccounts(this.blockData.getEncodedOnlineAccounts());
-		List<AccountInfo> expandedAccounts = new ArrayList<AccountInfo>();
-
-		IntIterator iterator = accountIndexes.iterator();
-		while (iterator.hasNext()) {
-			int accountIndex = iterator.next();
-			AccountInfo accountInfo = new AccountInfo(repository, accountIndex, sharesByLevel);
-			expandedAccounts.add(accountInfo);
-		}
+		List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
 
 		// Distribute amount across bins
 		BigDecimal sharedAmount = BigDecimal.ZERO;
@@ -1439,7 +1523,7 @@ public class Block {
 			LOGGER.trace(() -> String.format("Bin %d share of %s: %s", binIndex, totalAmount.toPlainString(), binAmount.toPlainString()));
 
 			// Spread across all accounts in bin
-			List<AccountInfo> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> !accountInfo.isFounder && accountInfo.shareBin == binIndex).collect(Collectors.toList());
+			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> !accountInfo.isForgerFounder && accountInfo.shareBin == binIndex).collect(Collectors.toList());
 			if (binnedAccounts.isEmpty())
 				continue;
 
@@ -1447,8 +1531,8 @@ public class Block {
 			BigDecimal accountAmount = binAmount.divide(binSize, RoundingMode.DOWN);
 
 			for (int a = 0; a < binnedAccounts.size(); ++a) {
-				AccountInfo accountInfo = binnedAccounts.get(a);
-				accountInfo.distribute(accountAmount);
+				ExpandedAccount expandedAccount = binnedAccounts.get(a);
+				expandedAccount.distribute(accountAmount);
 				sharedAmount = sharedAmount.add(accountAmount);
 			}
 		}
@@ -1457,27 +1541,27 @@ public class Block {
 		BigDecimal qoraHoldersAmount = BlockChain.getInstance().getQoraHoldersShare().multiply(totalAmount).setScale(8, RoundingMode.DOWN);
 		LOGGER.trace(() -> String.format("Legacy QORA holders share of %s: %s", totalAmount.toPlainString(), qoraHoldersAmount.toPlainString()));
 
-		List<AccountInfo> qoraHolderAccounts = new ArrayList<>();
+		List<ExpandedAccount> qoraHolderAccounts = new ArrayList<>();
 		BigDecimal totalQoraHeld = BigDecimal.ZERO;
 		for (int i = 0; i < expandedAccounts.size(); ++i) {
-			AccountInfo accountInfo = expandedAccounts.get(i);
-			if (accountInfo.qoraAmount == null)
+			ExpandedAccount expandedAccount = expandedAccounts.get(i);
+			if (expandedAccount.forgerQoraAmount == null)
 				continue;
 
-			qoraHolderAccounts.add(accountInfo);
-			totalQoraHeld = totalQoraHeld.add(accountInfo.qoraAmount);
+			qoraHolderAccounts.add(expandedAccount);
+			totalQoraHeld = totalQoraHeld.add(expandedAccount.forgerQoraAmount);
 		}
 
 		final BigDecimal finalTotalQoraHeld = totalQoraHeld;
 		LOGGER.trace(() -> String.format("Total legacy QORA held: %s", finalTotalQoraHeld.toPlainString()));
 
 		for (int h = 0; h < qoraHolderAccounts.size(); ++h) {
-			AccountInfo accountInfo = qoraHolderAccounts.get(h);
-			final BigDecimal holderAmount = qoraHoldersAmount.multiply(totalQoraHeld).divide(accountInfo.qoraAmount, RoundingMode.DOWN);
+			ExpandedAccount expandedAccount = qoraHolderAccounts.get(h);
+			final BigDecimal holderAmount = qoraHoldersAmount.multiply(totalQoraHeld).divide(expandedAccount.forgerQoraAmount, RoundingMode.DOWN);
 			LOGGER.trace(() -> String.format("Forger account %s has %s / %s QORA so share: %s",
-					accountInfo.forgerAccount.getAddress(), accountInfo.qoraAmount, finalTotalQoraHeld, holderAmount.toPlainString()));
+					expandedAccount.forgerAccount.getAddress(), expandedAccount.forgerQoraAmount, finalTotalQoraHeld, holderAmount.toPlainString()));
 
-			accountInfo.distribute(holderAmount);
+			expandedAccount.distribute(holderAmount);
 			sharedAmount = sharedAmount.add(holderAmount);
 		}
 
@@ -1485,13 +1569,16 @@ public class Block {
 		BigDecimal foundersAmount = totalAmount.subtract(sharedAmount);
 		LOGGER.debug(String.format("Shared %s of %s, remaining %s to founders", sharedAmount.toPlainString(), totalAmount.toPlainString(), foundersAmount.toPlainString()));
 
-		List<AccountInfo> founderAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isFounder).collect(Collectors.toList());
+		List<ExpandedAccount> founderAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isForgerFounder).collect(Collectors.toList());
+		if (founderAccounts.isEmpty())
+			return;
+
 		BigDecimal foundersCount = BigDecimal.valueOf(founderAccounts.size());
 		BigDecimal accountAmount = foundersAmount.divide(foundersCount, RoundingMode.DOWN);
 
 		for (int a = 0; a < founderAccounts.size(); ++a) {
-			AccountInfo accountInfo = founderAccounts.get(a);
-			accountInfo.distribute(accountAmount);
+			ExpandedAccount expandedAccount = founderAccounts.get(a);
+			expandedAccount.distribute(accountAmount);
 			sharedAmount = sharedAmount.add(accountAmount);
 		}
 	}

@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -15,7 +14,6 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
@@ -30,16 +28,10 @@ import org.qora.api.model.BlockForgerSummary;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
 import org.qora.data.block.BlockData;
-import org.qora.data.transaction.EnableForgingTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
-import org.qora.settings.Settings;
-import org.qora.transaction.Transaction;
-import org.qora.transaction.Transaction.ValidationResult;
-import org.qora.transform.TransformationException;
-import org.qora.transform.transaction.EnableForgingTransactionTransformer;
 import org.qora.utils.Base58;
 
 @Path("/blocks")
@@ -501,52 +493,6 @@ public class BlocksResource {
 					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 			return repository.getBlockRepository().getBlockForgers(addresses, limit, offset, reverse);
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@POST
-	@Path("/enableforging")
-	@Operation(
-		summary = "Build raw, unsigned, ENABLE_FORGING transaction",
-		requestBody = @RequestBody(
-			required = true,
-			content = @Content(
-				mediaType = MediaType.APPLICATION_JSON,
-				schema = @Schema(
-					implementation = EnableForgingTransactionData.class
-				)
-			)
-		),
-		responses = {
-			@ApiResponse(
-				description = "raw, unsigned, ENABLE_FORGING transaction encoded in Base58",
-				content = @Content(
-					mediaType = MediaType.TEXT_PLAIN,
-					schema = @Schema(
-						type = "string"
-					)
-				)
-			)
-		}
-	)
-	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
-	public String enableForging(EnableForgingTransactionData transactionData) {
-		if (Settings.getInstance().isApiRestricted())
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			Transaction transaction = Transaction.fromData(repository, transactionData);
-
-			ValidationResult result = transaction.isValidUnconfirmed();
-			if (result != ValidationResult.OK)
-				throw TransactionsResource.createTransactionInvalidException(request, result);
-
-			byte[] bytes = EnableForgingTransactionTransformer.toBytes(transactionData);
-			return Base58.encode(bytes);
-		} catch (TransformationException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

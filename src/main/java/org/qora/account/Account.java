@@ -203,22 +203,20 @@ public class Account {
 		this.repository.getAccountRepository().setFlags(accountData);
 	}
 
-	public boolean isFounder() throws DataException  {
-		Integer flags = this.getFlags();
+	public static boolean isFounder(Integer flags) {
 		return flags != null && (flags & FOUNDER_FLAG) != 0;
 	}
 
-	// Forging Enabler
+	public boolean isFounder() throws DataException  {
+		Integer flags = this.getFlags();
+		return Account.isFounder(flags);
+	}
+
+	// Forging
 
 	public boolean canForge() throws DataException {
 		Integer level = this.getLevel();
 		return level != null && level > 0;
-	}
-
-	public void setForgingEnabler(String address) throws DataException {
-		AccountData accountData = this.buildAccountData();
-		accountData.setForgingEnabler(address);
-		this.repository.getAccountRepository().setForgingEnabler(accountData);
 	}
 
 	// Account level

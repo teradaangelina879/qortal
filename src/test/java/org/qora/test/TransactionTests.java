@@ -105,7 +105,7 @@ public class TransactionTests extends Common {
 
 		// Create test generator account
 		generator = new PrivateKeyAccount(repository, generatorSeed);
-		accountRepository.setLastReference(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey(), Group.NO_GROUP, 0, null, 0, 0));
+		accountRepository.setLastReference(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey(), Group.NO_GROUP, 0, 0, 0, 0));
 		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORT, initialGeneratorBalance));
 
 		// Create test sender account
@@ -113,7 +113,7 @@ public class TransactionTests extends Common {
 
 		// Mock account
 		reference = senderSeed;
-		accountRepository.setLastReference(new AccountData(sender.getAddress(), reference, sender.getPublicKey(), Group.NO_GROUP, 0, null, 0, 0));
+		accountRepository.setLastReference(new AccountData(sender.getAddress(), reference, sender.getPublicKey(), Group.NO_GROUP, 0, 0, 0, 0));
 
 		// Mock balance
 		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORT, initialSenderBalance));

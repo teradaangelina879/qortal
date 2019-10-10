@@ -26,7 +26,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		String sql = "SELECT reference, public_key, default_group_id, flags, forging_enabler, initial_level, level FROM Accounts WHERE account = ?";
+		String sql = "SELECT reference, public_key, default_group_id, flags, initial_level, level, blocks_generated FROM Accounts WHERE account = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
@@ -36,11 +36,11 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			byte[] publicKey = resultSet.getBytes(2);
 			int defaultGroupId = resultSet.getInt(3);
 			int flags = resultSet.getInt(4);
-			String forgingEnabler = resultSet.getString(5);
-			int initialLevel = resultSet.getInt(6);
-			int level = resultSet.getInt(7);
+			int initialLevel = resultSet.getInt(5);
+			int level = resultSet.getInt(6);
+			int blocksGenerated = resultSet.getInt(7);
 
-			return new AccountData(address, reference, publicKey, defaultGroupId, flags, forgingEnabler, initialLevel, level);
+			return new AccountData(address, reference, publicKey, defaultGroupId, flags, initialLevel, level, blocksGenerated);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -236,10 +236,10 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public void setForgingEnabler(AccountData accountData) throws DataException {
+	public void setBlocksGenerated(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 
-		saveHelper.bind("account", accountData.getAddress()).bind("forging_enabler", accountData.getForgingEnabler());
+		saveHelper.bind("account", accountData.getAddress()).bind("blocks_generated", accountData.getBlocksGenerated());
 
 		byte[] publicKey = accountData.getPublicKey();
 		if (publicKey != null)
@@ -248,7 +248,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		try {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
-			throw new DataException("Unable to save account's forging enabler into repository", e);
+			throw new DataException("Unable to save account's generated block count into repository", e);
 		}
 	}
 

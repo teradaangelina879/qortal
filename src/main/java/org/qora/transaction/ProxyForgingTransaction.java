@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.qora.account.Account;
-import org.qora.account.Forging;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
@@ -86,7 +85,7 @@ public class ProxyForgingTransaction extends Transaction {
 		PublicKeyAccount creator = getCreator();
 
 		// Creator themselves needs to be allowed to forge
-		if (!Forging.canForge(creator))
+		if (!creator.canForge())
 			return ValidationResult.NO_FORGING_PERMISSION;
 
 		// Check proxy public key is correct length

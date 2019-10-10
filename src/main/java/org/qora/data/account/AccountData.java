@@ -15,9 +15,9 @@ public class AccountData {
 	protected byte[] publicKey;
 	protected int defaultGroupId;
 	protected int flags;
-	protected String forgingEnabler;
 	protected int initialLevel;
 	protected int level;
+	protected int blocksGenerated;
 
 	// Constructors
 
@@ -25,19 +25,19 @@ public class AccountData {
 	protected AccountData() {
 	}
 
-	public AccountData(String address, byte[] reference, byte[] publicKey, int defaultGroupId, int flags, String forgingEnabler, int initialLevel, int level) {
+	public AccountData(String address, byte[] reference, byte[] publicKey, int defaultGroupId, int flags, int initialLevel, int level, int blocksGenerated) {
 		this.address = address;
 		this.reference = reference;
 		this.publicKey = publicKey;
 		this.defaultGroupId = defaultGroupId;
 		this.flags = flags;
-		this.forgingEnabler = forgingEnabler;
 		this.initialLevel = initialLevel;
 		this.level = level;
+		this.blocksGenerated = blocksGenerated;
 	}
 
 	public AccountData(String address) {
-		this(address, null, null, Group.NO_GROUP, 0, null, 0, 0);
+		this(address, null, null, Group.NO_GROUP, 0, 0, 0, 0);
 	}
 
 	// Getters/Setters
@@ -78,14 +78,6 @@ public class AccountData {
 		this.flags = flags;
 	}
 
-	public String getForgingEnabler() {
-		return this.forgingEnabler;
-	}
-
-	public void setForgingEnabler(String forgingEnabler) {
-		this.forgingEnabler = forgingEnabler;
-	}
-
 	public int getInitialLevel() {
 		return this.initialLevel;
 	}
@@ -100,6 +92,14 @@ public class AccountData {
 
 	public void setLevel(int level) {
 		this.level = level;
+	}
+
+	public int getBlocksGenerated() {
+		return this.blocksGenerated;
+	}
+
+	public void setBlocksGenerated(int blocksGenerated) {
+		this.blocksGenerated = blocksGenerated;
 	}
 
 	// Comparison

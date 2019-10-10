@@ -75,11 +75,11 @@ public interface AccountRepository {
 	public void setInitialLevel(AccountData accountData) throws DataException;
 
 	/**
-	 * Saves account's forging enabler, and public key if present, in repository.
+	 * Saves account's generated block count and public key if present, in repository.
 	 * <p>
 	 * Note: ignores other fields like last reference, default groupID.
 	 */
-	public void setForgingEnabler(AccountData accountData) throws DataException;
+	public void setBlocksGenerated(AccountData accountData) throws DataException;
 
 	/** Delete account from repository. */
 	public void delete(String address) throws DataException;
