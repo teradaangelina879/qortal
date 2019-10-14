@@ -89,7 +89,7 @@ public class Block {
 
 		public final int value;
 
-		private final static Map<Integer, ValidationResult> map = stream(ValidationResult.values()).collect(toMap(result -> result.value, result -> result));
+		private static final Map<Integer, ValidationResult> map = stream(ValidationResult.values()).collect(toMap(result -> result.value, result -> result));
 
 		ValidationResult(int value) {
 			this.value = value;
@@ -237,7 +237,7 @@ public class Block {
 	public Block(Repository repository, BlockData blockData, List<TransactionData> transactions, List<ATStateData> atStates) throws DataException {
 		this(repository, blockData);
 
-		this.transactions = new ArrayList<Transaction>();
+		this.transactions = new ArrayList<>();
 
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
 
@@ -327,7 +327,7 @@ public class Block {
 		byte[] transactionsSignature = null;
 		int height = parentBlockData.getHeight() + 1;
 
-		this.transactions = new ArrayList<Transaction>();
+		this.transactions = new ArrayList<>();
 
 		int atCount = 0;
 		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
@@ -471,7 +471,7 @@ public class Block {
 		if (transactionsData.size() != this.blockData.getTransactionCount())
 			throw new IllegalStateException("Block's transactions from repository do not match block's transaction count");
 
-		this.transactions = new ArrayList<Transaction>();
+		this.transactions = new ArrayList<>();
 
 		for (TransactionData transactionData : transactionsData)
 			this.transactions.add(Transaction.fromData(this.repository, transactionData));
@@ -520,7 +520,7 @@ public class Block {
 			return this.cachedExpandedAccounts;
 
 		ConciseSet accountIndexes = BlockTransformer.decodeOnlineAccounts(this.blockData.getEncodedOnlineAccounts());
-		List<ExpandedAccount> expandedAccounts = new ArrayList<ExpandedAccount>();
+		List<ExpandedAccount> expandedAccounts = new ArrayList<>();
 
 		IntIterator iterator = accountIndexes.iterator();
 		while (iterator.hasNext()) {
@@ -721,14 +721,12 @@ public class Block {
 		byte[] idealKey = calcIdealGeneratorPublicKey(parentHeight, parentBlockSignature);
 		byte[] perturbedKey = calcHeightPerturbedPublicKey(parentHeight + 1, publicKey);
 
-		BigInteger keyDistance = MAX_DISTANCE.subtract(new BigInteger(idealKey).subtract(new BigInteger(perturbedKey)).abs());
-		return keyDistance;
+		return MAX_DISTANCE.subtract(new BigInteger(idealKey).subtract(new BigInteger(perturbedKey)).abs());
 	}
 
 	public static BigInteger calcBlockWeight(int parentHeight, byte[] parentBlockSignature, BlockSummaryData blockSummaryData) {
 		BigInteger keyDistance = calcKeyDistance(parentHeight, parentBlockSignature, blockSummaryData.getGeneratorPublicKey());
-		BigInteger weight = BigInteger.valueOf(blockSummaryData.getOnlineAccountsCount()).shiftLeft(ACCOUNTS_COUNT_SHIFT).add(keyDistance);
-		return weight;
+		return BigInteger.valueOf(blockSummaryData.getOnlineAccountsCount()).shiftLeft(ACCOUNTS_COUNT_SHIFT).add(keyDistance);
 	}
 
 	public static BigInteger calcChainWeight(int commonBlockHeight, byte[] commonBlockSignature, List<BlockSummaryData> blockSummaries) {
@@ -767,7 +765,7 @@ public class Block {
 		// Use power transform on ratio to spread out smaller values for bigger effect
 		double transformed = Math.pow(ratio, blockTiming.power);
 
-		long timeOffset = Double.valueOf(blockTiming.deviation * 2.0 * transformed).longValue();
+		long timeOffset = (long) (blockTiming.deviation * 2.0 * transformed);
 
 		return parentBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation + timeOffset;
 	}
@@ -953,44 +951,21 @@ public class Block {
 			return onlineAccountsResult;
 
 		// CIYAM ATs
-		if (this.blockData.getATCount() != 0) {
-			// Locally generated AT states should be valid so no need to re-execute them
-			if (this.ourAtStates != this.getATStates()) {
-				// For old v1 CIYAM ATs we blindly accept them
-				if (this.blockData.getVersion() < 4) {
-					this.ourAtStates = this.atStates;
-					this.ourAtFees = this.blockData.getATFees();
-				} else {
-					// Generate local AT states for comparison
-					this.executeATs();
-				}
-
-				// Check locally generated AT states against ones received from elsewhere
-
-				if (this.ourAtStates.size() != this.blockData.getATCount())
-					return ValidationResult.AT_STATES_MISMATCH;
-
-				if (this.ourAtFees.compareTo(this.blockData.getATFees()) != 0)
-					return ValidationResult.AT_STATES_MISMATCH;
-
-				// Note: this.atStates fully loaded thanks to this.getATStates() call above
-				for (int s = 0; s < this.atStates.size(); ++s) {
-					ATStateData ourAtState = this.ourAtStates.get(s);
-					ATStateData theirAtState = this.atStates.get(s);
-
-					if (!ourAtState.getATAddress().equals(theirAtState.getATAddress()))
-						return ValidationResult.AT_STATES_MISMATCH;
-
-					if (!ourAtState.getStateHash().equals(theirAtState.getStateHash()))
-						return ValidationResult.AT_STATES_MISMATCH;
-
-					if (ourAtState.getFees().compareTo(theirAtState.getFees()) != 0)
-						return ValidationResult.AT_STATES_MISMATCH;
-				}
-			}
-		}
+		ValidationResult ciyamAtResult = this.areAtsValid();
+		if (ciyamAtResult != ValidationResult.OK)
+			return ciyamAtResult;
 
 		// Check transactions
+		ValidationResult transactionsResult = this.areTransactionsValid();
+		if (transactionsResult != ValidationResult.OK)
+			return transactionsResult;
+
+		// Block is valid
+		return ValidationResult.OK;
+	}
+
+	/** Returns whether block's transactions are valid. */
+	private ValidationResult areTransactionsValid() throws DataException {
 		try {
 			// Create repository savepoint here so we can rollback to it after testing transactions
 			repository.setSavepoint();
@@ -1013,7 +988,7 @@ public class Block {
 
 				// Check transaction has correct reference, etc.
 				if (!transaction.hasValidReference()) {
-					LOGGER.debug("Error during transaction validation, tx " + Base58.encode(transactionData.getSignature()) + ": INVALID_REFERENCE");
+					LOGGER.debug(String.format("Error during transaction validation, tx %s: INVALID_REFERENCE", Base58.encode(transactionData.getSignature())));
 					return ValidationResult.TRANSACTION_INVALID;
 				}
 
@@ -1021,16 +996,14 @@ public class Block {
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
 				Transaction.ValidationResult validationResult = transaction.isValid();
 				if (validationResult != Transaction.ValidationResult.OK) {
-					LOGGER.debug("Error during transaction validation, tx " + Base58.encode(transactionData.getSignature()) + ": "
-							+ validationResult.name());
+					LOGGER.debug(String.format("Error during transaction validation, tx %s: %s", Base58.encode(transactionData.getSignature()), validationResult.name()));
 					return ValidationResult.TRANSACTION_INVALID;
 				}
 
 				// Check transaction can even be processed
 				validationResult = transaction.isProcessable();
 				if (validationResult != Transaction.ValidationResult.OK) {
-					LOGGER.debug("Error during transaction validation, tx " + Base58.encode(transactionData.getSignature()) + ": "
-							+ validationResult.name());
+					LOGGER.debug(String.format("Error during transaction validation, tx %s: %s", Base58.encode(transactionData.getSignature()), validationResult.name()));
 					return ValidationResult.TRANSACTION_INVALID;
 				}
 
@@ -1044,8 +1017,7 @@ public class Block {
 					// Regardless of group-approval, update relevant info for creator (e.g. lastReference)
 					transaction.processReferencesAndFees();
 				} catch (Exception e) {
-					LOGGER.error("Exception during transaction validation, tx " + Base58.encode(transactionData.getSignature()), e);
-					e.printStackTrace();
+					LOGGER.error(String.format("Exception during transaction validation, tx %s", Base58.encode(transactionData.getSignature())), e);
 					return ValidationResult.TRANSACTION_PROCESSING_FAILED;
 				}
 			}
@@ -1062,7 +1034,58 @@ public class Block {
 			}
 		}
 
-		// Block is valid
+		return ValidationResult.OK;
+	}
+
+	/**
+	 * Returns whether blocks' ATs are valid.
+	 * <p>
+	 * NOTE: will execute ATs locally if not already done.<br>
+	 * This is so we have locally-generated AT states for comparison.
+	 * 
+	 * @return OK, or some AT-related validation result
+	 * @throws DataException
+	 */
+	private ValidationResult areAtsValid() throws DataException {
+		if (this.blockData.getATCount() == 0)
+			return ValidationResult.OK;
+
+		// Locally generated AT states should be valid so no need to re-execute them
+		if (this.ourAtStates == this.getATStates()) // Note object reference compare
+			return ValidationResult.OK;
+
+		// For old v1 CIYAM ATs we blindly accept them
+		if (this.blockData.getVersion() < 4) {
+			this.ourAtStates = this.atStates;
+			this.ourAtFees = this.blockData.getATFees();
+		} else {
+			// Generate local AT states for comparison
+			this.executeATs();
+		}
+
+		// Check locally generated AT states against ones received from elsewhere
+
+		if (this.ourAtStates.size() != this.blockData.getATCount())
+			return ValidationResult.AT_STATES_MISMATCH;
+
+		if (this.ourAtFees.compareTo(this.blockData.getATFees()) != 0)
+			return ValidationResult.AT_STATES_MISMATCH;
+
+		// Note: this.atStates fully loaded thanks to this.getATStates() call above
+		for (int s = 0; s < this.atStates.size(); ++s) {
+			ATStateData ourAtState = this.ourAtStates.get(s);
+			ATStateData theirAtState = this.atStates.get(s);
+
+			if (!ourAtState.getATAddress().equals(theirAtState.getATAddress()))
+				return ValidationResult.AT_STATES_MISMATCH;
+
+			if (!Arrays.equals(ourAtState.getStateHash(), theirAtState.getStateHash()))
+				return ValidationResult.AT_STATES_MISMATCH;
+
+			if (ourAtState.getFees().compareTo(theirAtState.getFees()) != 0)
+				return ValidationResult.AT_STATES_MISMATCH;
+		}
+
 		return ValidationResult.OK;
 	}
 
@@ -1091,9 +1114,9 @@ public class Block {
 			throw new IllegalStateException("Attempted to execute ATs when block's local AT state data already exists");
 
 		// AT-Transactions generated by running ATs, to be prepended to block's transactions
-		List<AtTransaction> allATTransactions = new ArrayList<AtTransaction>();
+		List<AtTransaction> allATTransactions = new ArrayList<>();
 
-		this.ourAtStates = new ArrayList<ATStateData>();
+		this.ourAtStates = new ArrayList<>();
 		this.ourAtFees = BigDecimal.ZERO.setScale(8);
 
 		// Find all executable ATs, ordered by earliest creation date first
@@ -1323,7 +1346,7 @@ public class Block {
 				continue;
 			}
 
-			// APPROVED, in which case do transaction.process();
+			// APPROVED, process transaction
 			transactionData.setApprovalStatus(ApprovalStatus.APPROVED);
 			transactionRepository.save(transactionData);
 
@@ -1376,7 +1399,7 @@ public class Block {
 			transactionRepository.confirmTransaction(transactionData.getSignature());
 
 			List<Account> participants = transaction.getInvolvedAccounts();
-			List<String> participantAddresses = participants.stream().map(account -> account.getAddress()).collect(Collectors.toList());
+			List<String> participantAddresses = participants.stream().map(Account::getAddress).collect(Collectors.toList());
 			transactionRepository.saveParticipants(transactionData, participantAddresses);
 		}
 	}

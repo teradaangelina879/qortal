@@ -178,7 +178,7 @@ public class BlockChain {
 		StreamSource jsonSource;
 
 		if (filename != null) {
-			LOGGER.info("Using blockchain config file: " + path + filename);
+			LOGGER.info(String.format("Using blockchain config file: %s%s", path, filename));
 
 			File jsonFile = new File(path + filename);
 
@@ -221,8 +221,8 @@ public class BlockChain {
 		blockchain.validateConfig();
 
 		// Minor fix-up
-		blockchain.maxBytesPerUnitFee.setScale(8);
-		blockchain.unitFee.setScale(8);
+		blockchain.maxBytesPerUnitFee = blockchain.maxBytesPerUnitFee.setScale(8);
+		blockchain.unitFee = blockchain.unitFee.setScale(8);
 		blockchain.minFeePerByte = blockchain.unitFee.divide(blockchain.maxBytesPerUnitFee, MathContext.DECIMAL32);
 
 		// Successfully read config now in effect
@@ -509,8 +509,7 @@ public class BlockChain {
 
 			repository.saveChanges();
 		} catch (DataException e) {
-			LOGGER.warn("Repository issue trying to trim old online accounts signatures: " + e.getMessage());
-			return;
+			LOGGER.warn(String.format("Repository issue trying to trim old online accounts signatures: %s", e.getMessage()));
 		}
 	}
 
