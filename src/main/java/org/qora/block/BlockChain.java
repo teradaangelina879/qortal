@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
@@ -111,12 +113,21 @@ public class BlockChain {
 	BigDecimal qoraHoldersShare;
 
 	/**
-	 * Number of generated blocks required to reach next level.
+	 * Number of generated blocks required to reach next level from previous.
 	 * <p>
 	 * Use account's current level as index.<br>
 	 * If account's level isn't valid as an index, then account's level is at maximum.
 	 */
 	List<Integer> blocksNeededByLevel;
+
+	/**
+	 * Cumulative number of generated blocks required to reach level from scratch.
+	 * <p>
+	 * Generated just after blockchain config is parsed and validated.
+	 * <p>
+	 * Should NOT be present in blockchain config file!
+	 */
+	List<Integer> cumulativeBlocksByLevel;
 
 	/** Block times by block height */
 	public static class BlockTimingByHeight {
@@ -221,9 +232,7 @@ public class BlockChain {
 		blockchain.validateConfig();
 
 		// Minor fix-up
-		blockchain.maxBytesPerUnitFee = blockchain.maxBytesPerUnitFee.setScale(8);
-		blockchain.unitFee = blockchain.unitFee.setScale(8);
-		blockchain.minFeePerByte = blockchain.unitFee.divide(blockchain.maxBytesPerUnitFee, MathContext.DECIMAL32);
+		blockchain.fixUp();
 
 		// Successfully read config now in effect
 		instance = blockchain;
@@ -289,6 +298,10 @@ public class BlockChain {
 
 	public List<Integer> getBlocksNeededByLevel() {
 		return this.blocksNeededByLevel;
+	}
+
+	public List<Integer> getCumulativeBlocksByLevel() {
+		return this.cumulativeBlocksByLevel;
 	}
 
 	public BigDecimal getQoraHoldersShare() {
@@ -402,6 +415,30 @@ public class BlockChain {
 				Settings.throwValidationError(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
 	}
 
+	/** Minor normalization, cached value generation, etc. */
+	private void fixUp() {
+		this.maxBytesPerUnitFee = this.maxBytesPerUnitFee.setScale(8);
+		this.unitFee = this.unitFee.setScale(8);
+		this.minFeePerByte = this.unitFee.divide(this.maxBytesPerUnitFee, MathContext.DECIMAL32);
+
+		// Pre-calculate cumulative blocks required for each level
+		int cumulativeBlocks = 0;
+		this.cumulativeBlocksByLevel = new ArrayList<>(this.blocksNeededByLevel.size() + 1);
+		for (int level = 0; level <= this.blocksNeededByLevel.size(); ++level) {
+			this.cumulativeBlocksByLevel.add(cumulativeBlocks);
+
+			if (level < this.blocksNeededByLevel.size())
+				cumulativeBlocks += this.blocksNeededByLevel.get(level);
+		}
+
+		// Convert collections to unmodifiable form
+		this.rewardsByHeight = Collections.unmodifiableList(this.rewardsByHeight);
+		this.sharesByLevel = Collections.unmodifiableList(this.sharesByLevel);
+		this.blocksNeededByLevel = Collections.unmodifiableList(this.blocksNeededByLevel);
+		this.cumulativeBlocksByLevel = Collections.unmodifiableList(this.cumulativeBlocksByLevel);
+		this.blockTimingsByHeight = Collections.unmodifiableList(this.blockTimingsByHeight);
+	}
+
 	/**
 	 * Some sort start-up/initialization/checking method.
 	 * 
@@ -412,7 +449,6 @@ public class BlockChain {
 		if (!isGenesisBlockValid())
 			rebuildBlockchain();
 
-		// TODO: walk through blocks
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Block parentBlock = GenesisBlock.getInstance(repository);
 			BlockData parentBlockData = parentBlock.getBlockData();

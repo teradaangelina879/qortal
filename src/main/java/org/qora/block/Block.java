@@ -1204,32 +1204,14 @@ public class Block {
 	}
 
 	protected void increaseAccountLevels() throws DataException {
-		List<Integer> blocksNeededByLevel = BlockChain.getInstance().getBlocksNeededByLevel();
-
-		// Pre-calculate cumulative blocks required for each level
-		int cumulativeBlocks = 0;
-		int[] cumulativeBlocksByLevel = new int[blocksNeededByLevel.size() + 1];
-		for (int level = 0; level < cumulativeBlocksByLevel.length; ++level) {
-			cumulativeBlocksByLevel[level] = cumulativeBlocks;
-
-			if (level < blocksNeededByLevel.size())
-				cumulativeBlocks += blocksNeededByLevel.get(level);
-		}
-
-		List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
-
 		// We need to do this for both forgers and recipients
-		this.increaseAccountLevels(expandedAccounts, cumulativeBlocksByLevel,
-				expandedAccount -> expandedAccount.isForgerFounder,
-				expandedAccount -> expandedAccount.forgerAccountData);
-
-		this.increaseAccountLevels(expandedAccounts, cumulativeBlocksByLevel,
-				expandedAccount -> expandedAccount.isRecipientFounder,
-				expandedAccount -> expandedAccount.recipientAccountData);
+		this.increaseAccountLevels(expandedAccount -> expandedAccount.isForgerFounder, expandedAccount -> expandedAccount.forgerAccountData);
+		this.increaseAccountLevels(expandedAccount -> expandedAccount.isRecipientFounder, expandedAccount -> expandedAccount.recipientAccountData);
 	}
 
-	private void increaseAccountLevels(List<ExpandedAccount> expandedAccounts, int[] cumulativeBlocksByLevel,
-			Predicate<ExpandedAccount> isFounder, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
+	private void increaseAccountLevels(Predicate<ExpandedAccount> isFounder, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
+		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
 		final boolean isProcessingRecipients = getAccountData.apply(expandedAccounts.get(0)) == expandedAccounts.get(0).recipientAccountData;
 
 		// Increase blocks generated count for all accounts
@@ -1244,21 +1226,21 @@ public class Block {
 
 			accountData.setBlocksGenerated(accountData.getBlocksGenerated() + 1);
 			repository.getAccountRepository().setBlocksGenerated(accountData);
-			LOGGER.trace(() -> String.format("Block generator %s has generated %d block%s", accountData.getAddress(), accountData.getBlocksGenerated(), (accountData.getBlocksGenerated() != 1 ? "s" : "")));
+			LOGGER.trace(() -> String.format("Block generator %s up to %d generated block%s", accountData.getAddress(), accountData.getBlocksGenerated(), (accountData.getBlocksGenerated() != 1 ? "s" : "")));
 		}
 
 		// We are only interested in accounts that are NOT founders and NOT already highest level
-		final int maximumLevel = cumulativeBlocksByLevel.length - 1;
+		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
 		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> !isFounder.test(expandedAccount) && getAccountData.apply(expandedAccount).getLevel() < maximumLevel).collect(Collectors.toList());
 
 		for (int c = 0; c < candidateAccounts.size(); ++c) {
 			ExpandedAccount expandedAccount = candidateAccounts.get(c);
 			final AccountData accountData = getAccountData.apply(expandedAccount);
 
-			final int effectiveBlocksGenerated = cumulativeBlocksByLevel[accountData.getInitialLevel()] + accountData.getBlocksGenerated();
+			final int effectiveBlocksGenerated = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksGenerated();
 
-			for (int newLevel = cumulativeBlocksByLevel.length - 1; newLevel > 0; --newLevel)
-				if (effectiveBlocksGenerated >= cumulativeBlocksByLevel[newLevel]) {
+			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
+				if (effectiveBlocksGenerated >= cumulativeBlocksByLevel.get(newLevel)) {
 					if (newLevel > accountData.getLevel()) {
 						// Account has increased in level!
 						accountData.setLevel(newLevel);
@@ -1530,7 +1512,53 @@ public class Block {
 	}
 
 	protected void decreaseAccountLevels() throws DataException {
-		// TODO !
+		// We need to do this for both forgers and recipients
+		this.decreaseAccountLevels(expandedAccount -> expandedAccount.isForgerFounder, expandedAccount -> expandedAccount.forgerAccountData);
+		this.decreaseAccountLevels(expandedAccount -> expandedAccount.isRecipientFounder, expandedAccount -> expandedAccount.recipientAccountData);
+	}
+
+	private void decreaseAccountLevels(Predicate<ExpandedAccount> isFounder, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
+		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
+		final boolean isProcessingRecipients = getAccountData.apply(expandedAccounts.get(0)) == expandedAccounts.get(0).recipientAccountData;
+
+		// Decrease blocks generated count for all accounts
+		for (int a = 0; a < expandedAccounts.size(); ++a) {
+			ExpandedAccount expandedAccount = expandedAccounts.get(a);
+
+			// Don't decrease twice if recipient is also forger.
+			if (isProcessingRecipients && expandedAccount.isRecipientAlsoForger)
+				continue;
+
+			AccountData accountData = getAccountData.apply(expandedAccount);
+
+			accountData.setBlocksGenerated(accountData.getBlocksGenerated() - 1);
+			repository.getAccountRepository().setBlocksGenerated(accountData);
+			LOGGER.trace(() -> String.format("Block generator %s down to %d generated block%s", accountData.getAddress(), accountData.getBlocksGenerated(), (accountData.getBlocksGenerated() != 1 ? "s" : "")));
+		}
+
+		// We are only interested in accounts that are NOT founders and NOT already lowest level
+		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
+		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> !isFounder.test(expandedAccount) && getAccountData.apply(expandedAccount).getLevel() > 0).collect(Collectors.toList());
+
+		for (int c = 0; c < candidateAccounts.size(); ++c) {
+			ExpandedAccount expandedAccount = candidateAccounts.get(c);
+			final AccountData accountData = getAccountData.apply(expandedAccount);
+
+			final int effectiveBlocksGenerated = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksGenerated();
+
+			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
+				if (effectiveBlocksGenerated >= cumulativeBlocksByLevel.get(newLevel)) {
+					if (newLevel < accountData.getLevel()) {
+						// Account has decreased in level!
+						accountData.setLevel(newLevel);
+						repository.getAccountRepository().setLevel(accountData);
+						LOGGER.trace(() -> String.format("Block generator %s reduced to level %d", accountData.getAddress(), accountData.getLevel()));
+					}
+
+					break;
+				}
+		}
 	}
 
 	protected void distributeByAccountLevel(BigDecimal totalAmount) throws DataException {
