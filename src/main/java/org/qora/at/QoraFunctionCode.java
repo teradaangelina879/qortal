@@ -1,6 +1,6 @@
 package org.qora.at;
 
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,14 +37,10 @@ public enum QoraFunctionCode {
 		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
 			Timestamp timestamp = new Timestamp(functionData.value2);
 
-			try {
-				String recipient = new String(state.getB(), "UTF-8");
+			String recipient = new String(state.getB(), StandardCharsets.UTF_8);
 
-				BlockchainAPI blockchainAPI = BlockchainAPI.valueOf(timestamp.blockchainId);
-				blockchainAPI.putTransactionFromRecipientAfterTimestampInA(recipient, timestamp, state);
-			} catch (UnsupportedEncodingException e) {
-				throw new ExecutionException("Couldn't parse recipient from B", e);
-			}
+			BlockchainAPI blockchainAPI = BlockchainAPI.valueOf(timestamp.blockchainId);
+			blockchainAPI.putTransactionFromRecipientAfterTimestampInA(recipient, timestamp, state);
 		}
 	};
 
@@ -102,6 +98,6 @@ public enum QoraFunctionCode {
 	}
 
 	/** Actually execute function */
-	abstract protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException;
+	protected abstract void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException;
 
 }

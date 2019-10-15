@@ -214,7 +214,7 @@ public class Synchronizer {
 							--ourHeight;
 						}
 
-						LOGGER.debug(String.format("Orphaned blocks back to height %d, sig %.8s - fetching blocks from peer", commonBlockHeight, commonBlockSig58, peer));
+						LOGGER.debug(String.format("Orphaned blocks back to height %d, sig %.8s - fetching blocks from peer %s", commonBlockHeight, commonBlockSig58, peer));
 					} else {
 						LOGGER.debug(String.format("Fetching new blocks from peer %s", peer));
 					}
@@ -224,7 +224,7 @@ public class Synchronizer {
 					int maxBatchHeight = commonBlockHeight + SYNC_BATCH_SIZE;
 
 					// Convert any block summaries from above into signatures to request from peer
-					List<byte[]> peerBlockSignatures = peerBlockSummaries.stream().map(blockSummaryData -> blockSummaryData.getSignature()).collect(Collectors.toList());
+					List<byte[]> peerBlockSignatures = peerBlockSummaries.stream().map(BlockSummaryData::getSignature).collect(Collectors.toList());
 
 					while (ourHeight < peerHeight && ourHeight < maxBatchHeight) {
 						// Do we need more signatures?

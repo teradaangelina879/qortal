@@ -9,7 +9,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -105,16 +105,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		for (TransactionType txType : TransactionType.values()) {
 			RepositorySubclassInfo subclassInfo = subclassInfos[txType.value];
 
-			if (subclassInfo == null)
-				continue;
-
-			if (subclassInfo.constructor == null)
+			if (subclassInfo == null || subclassInfo.constructor == null)
 				continue;
 
 			try {
 				this.repositoryByTxType[txType.value] = (HSQLDBTransactionRepository) subclassInfo.constructor.newInstance(repository);
 			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
-				continue;
+				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass constructor failed for transaction type \"%s\"", txType.name()));
 			}
 		}
 	}
@@ -152,9 +149,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				approvalHeight = null;
 
 			BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, blockHeight, approvalHeight, signature);
-			TransactionData transactionData = this.fromBase(type, baseTransactionData);
-
-			return transactionData;
+			return this.fromBase(type, baseTransactionData);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
 		}
@@ -187,9 +182,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				approvalHeight = null;
 
 			BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, blockHeight, approvalHeight, signature);
-			TransactionData transactionData = this.fromBase(type, baseTransactionData);
-
-			return transactionData;
+			return this.fromBase(type, baseTransactionData);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
 		}
@@ -242,7 +235,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	protected List<PaymentData> getPaymentsFromSignature(byte[] signature) throws DataException {
 		String sql = "SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?";
 
-		List<PaymentData> payments = new ArrayList<PaymentData>();
+		List<PaymentData> payments = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
@@ -314,7 +307,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException {
 		String sql = "SELECT signature FROM TransactionRecipients WHERE participant = ?";
 
-		List<byte[]> signatures = new ArrayList<byte[]>();
+		List<byte[]> signatures = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
@@ -366,7 +359,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			+ "WHERE block_height BETWEEN ? AND ? "
 			+ "GROUP BY type";
 
-		Map<TransactionType, Integer> transactionCounts = new HashMap<>();
+		Map<TransactionType, Integer> transactionCounts = new EnumMap<>(TransactionType.class);
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, startHeight, endHeight)) {
 			if (resultSet == null)
@@ -389,7 +382,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, Integer txGroupId,
 			List<TransactionType> txTypes, Integer service, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		List<byte[]> signatures = new ArrayList<byte[]>();
+		List<byte[]> signatures = new ArrayList<>();
 
 		boolean hasAddress = address != null && !address.isEmpty();
 		boolean hasTxTypes = txTypes != null && !txTypes.isEmpty();
@@ -399,9 +392,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			startBlock = (reverse == null || !reverse) ? 1 : this.repository.getBlockRepository().getBlockchainHeight() - blockLimit;
 
 		String signatureColumn = "Transactions.signature";
-		List<String> whereClauses = new ArrayList<String>();
+		List<String> whereClauses = new ArrayList<>();
 		String groupBy = null;
-		List<Object> bindParams = new ArrayList<Object>();
+		List<Object> bindParams = new ArrayList<>();
 
 		// Tables, starting with Transactions
 		StringBuilder tables = new StringBuilder(256);
@@ -579,7 +572,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<TransactionData> transactions = new ArrayList<TransactionData>();
+		List<TransactionData> transactions = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
@@ -693,7 +686,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<TransactionData> transactions = new ArrayList<TransactionData>();
+		List<TransactionData> transactions = new ArrayList<>();
 
 		// Find transactions with no corresponding row in BlockTransactions
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams)) {
@@ -729,7 +722,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		sql.append(" AND Transactions.block_height < ? - Groups.min_block_delay");
 
-		List<TransactionData> transactions = new ArrayList<TransactionData>();
+		List<TransactionData> transactions = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), blockHeight)) {
 			if (resultSet == null)
@@ -764,7 +757,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		sql.append(" AND Transactions.block_height < ? - Groups.max_block_delay");
 
-		List<TransactionData> transactions = new ArrayList<TransactionData>();
+		List<TransactionData> transactions = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), blockHeight)) {
 			if (resultSet == null)
@@ -925,7 +918,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<TransactionData> transactions = new ArrayList<TransactionData>();
+		List<TransactionData> transactions = new ArrayList<>();
 
 		// Find transactions with no corresponding row in BlockTransactions
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {

@@ -41,7 +41,7 @@ public class SplashFrame {
 	private SplashFrame() {
 		this.splashDialog = new JDialog();
 
-		List<Image> icons = new ArrayList<Image>();
+		List<Image> icons = new ArrayList<>();
 		icons.add(Gui.loadImage("icons/icon16.png"));
 		icons.add(Gui.loadImage("icons/icon32.png"));
 		icons.add(Gui.loadImage("icons/icon64.png"));

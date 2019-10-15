@@ -72,7 +72,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		if (optionsCount < 1 || optionsCount > Poll.MAX_OPTIONS)
 			throw new TransformationException("Invalid number of options for CreatePollTransaction");
 
-		List<PollOptionData> pollOptions = new ArrayList<PollOptionData>();
+		List<PollOptionData> pollOptions = new ArrayList<>();
 		for (int optionIndex = 0; optionIndex < optionsCount; ++optionIndex) {
 			String optionName = Serialization.deserializeSizedString(byteBuffer, Poll.MAX_NAME_SIZE);
 

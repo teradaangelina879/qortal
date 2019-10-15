@@ -90,7 +90,7 @@ public class MessageTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Are message transactions even allowed at this point?
-		if (messageTransactionData.getVersion() != MessageTransaction.getVersionByTimestamp(messageTransactionData.getTimestamp()))
+		if (messageTransactionData.getVersion() != Transaction.getVersionByTimestamp(messageTransactionData.getTimestamp()))
 			return ValidationResult.NOT_YET_RELEASED;
 
 		if (this.repository.getBlockRepository().getBlockchainHeight() < BlockChain.getInstance().getMessageReleaseHeight())

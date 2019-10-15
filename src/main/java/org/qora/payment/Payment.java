@@ -45,7 +45,7 @@ public class Payment {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Total up payment amounts by assetId
-		Map<Long, BigDecimal> amountsByAssetId = new HashMap<Long, BigDecimal>();
+		Map<Long, BigDecimal> amountsByAssetId = new HashMap<>();
 		// Add transaction fee to start with
 		amountsByAssetId.put(Asset.QORT, fee);
 

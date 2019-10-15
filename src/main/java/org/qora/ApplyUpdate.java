@@ -34,10 +34,10 @@ public class ApplyUpdate {
 	private static final String NEW_JAR_FILENAME = AutoUpdate.NEW_JAR_FILENAME;
 	private static final String WINDOWS_EXE_LAUNCHER = "qora-core.exe";
 
-	private static final long CHECK_INTERVAL = 5 * 1000; // ms
+	private static final long CHECK_INTERVAL = 5 * 1000L; // ms
 	private static final int MAX_ATTEMPTS = 5;
 
-	public static void main(String args[]) {
+	public static void main(String[] args) {
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
 
@@ -114,6 +114,7 @@ public class ApplyUpdate {
 			try {
 				Thread.sleep(CHECK_INTERVAL);
 			} catch (InterruptedException e) {
+				// Doggedly retry
 			}
 		}
 

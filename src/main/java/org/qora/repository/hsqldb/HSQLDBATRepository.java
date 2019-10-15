@@ -188,7 +188,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException {
-		List<ATStateData> atStates = new ArrayList<ATStateData>();
+		List<ATStateData> atStates = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT AT_address, state_hash, fees FROM ATStates WHERE height = ? ORDER BY creation ASC",
 				height)) {

@@ -104,7 +104,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<AssetData> assets = new ArrayList<AssetData>();
+		List<AssetData> assets = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
@@ -228,7 +228,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset,
 			Boolean reverse) throws DataException {
-		List<OrderData> orders = new ArrayList<OrderData>();
+		List<OrderData> orders = new ArrayList<>();
 
 		// Cache have & want asset names for later use, which also saves a table join
 		AssetData haveAssetData = this.fromAssetId(haveAssetId);
@@ -305,7 +305,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		sql.append(", ordered");
 
-		List<OrderData> orders = new ArrayList<OrderData>();
+		List<OrderData> orders = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
@@ -336,7 +336,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset,
 			Boolean reverse) throws DataException {
-		List<OrderData> orders = new ArrayList<OrderData>();
+		List<OrderData> orders = new ArrayList<>();
 
 		// Cache have & want asset names for later use, which also saves a table join
 		AssetData haveAssetData = this.fromAssetId(haveAssetId);
@@ -404,7 +404,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<OrderData> orders = new ArrayList<OrderData>();
+		List<OrderData> orders = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), publicKey)) {
 			if (resultSet == null)
@@ -437,7 +437,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, Boolean optIsClosed,
 			Boolean optIsFulfilled, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		List<OrderData> orders = new ArrayList<OrderData>();
+		List<OrderData> orders = new ArrayList<>();
 
 		// Cache have & want asset names for later use, which also saves a table join
 		AssetData haveAssetData = this.fromAssetId(haveAssetId);
@@ -524,7 +524,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<TradeData> getTrades(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
-		List<TradeData> trades = new ArrayList<TradeData>();
+		List<TradeData> trades = new ArrayList<>();
 
 		// Cache have & want asset names for later use, which also saves a table join
 		AssetData haveAssetData = this.fromAssetId(haveAssetId);
@@ -677,7 +677,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<TradeData> trades = new ArrayList<TradeData>();
+		List<TradeData> trades = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), orderId)) {
 			if (resultSet == null)

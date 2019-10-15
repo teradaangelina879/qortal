@@ -57,7 +57,7 @@ public class AtTransaction extends Transaction {
 	/** For AT-Transactions, the use the AT address instead of transaction creator (which is genesis account) */
 	@Override
 	public List<Account> getInvolvedAccounts() throws DataException {
-		List<Account> participants = new ArrayList<Account>(getRecipientAccounts());
+		List<Account> participants = new ArrayList<>(getRecipientAccounts());
 		participants.add(getATAccount());
 		return participants;
 	}

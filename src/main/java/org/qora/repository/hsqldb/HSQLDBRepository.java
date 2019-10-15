@@ -63,7 +63,7 @@ public class HSQLDBRepository implements Repository {
 
 		this.slowQueryThreshold = Settings.getInstance().getSlowQueryThreshold();
 		if (this.slowQueryThreshold != null)
-			this.sqlStatements = new ArrayList<String>();
+			this.sqlStatements = new ArrayList<>();
 
 		// Find out our session ID
 		try (Statement stmt = this.connection.createStatement()) {
@@ -237,13 +237,13 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void backup(boolean quick) throws DataException {
-		// First perform a CHECKPOINT
-		try {
-			if (!quick)
-				this.connection.createStatement().execute("CHECKPOINT DEFRAG");
-		} catch (SQLException e) {
-			throw new DataException("Unable to prepare repository for backup");
-		}
+		if (!quick)
+			// First perform a CHECKPOINT
+			try (Statement stmt = this.connection.createStatement()) {
+				stmt.execute("CHECKPOINT DEFRAG");
+			} catch (SQLException e) {
+				throw new DataException("Unable to prepare repository for backup");
+			}
 
 		// Clean out any previous backup
 		try {
@@ -272,8 +272,8 @@ public class HSQLDBRepository implements Repository {
 		}
 
 		// Actually create backup
-		try {
-			this.connection.createStatement().execute("BACKUP DATABASE TO 'backup/' NOT BLOCKING AS FILES");
+		try (Statement stmt = this.connection.createStatement()) {
+			stmt.execute("BACKUP DATABASE TO 'backup/' NOT BLOCKING AS FILES");
 		} catch (SQLException e) {
 			throw new DataException("Unable to backup repository");
 		}
@@ -287,8 +287,7 @@ public class HSQLDBRepository implements Repository {
 		if (!matcher.find())
 			return null;
 
-		String pathname = matcher.group(1);
-		return pathname;
+		return matcher.group(1);
 	}
 
 	private static String buildBackupUrl(String dbPathname) {
@@ -298,8 +297,7 @@ public class HSQLDBRepository implements Repository {
 
 		// Try to open backup. We need to remove "create=true" and insert "backup" dir before final filename.
 		String backupUrlTemplate = "jdbc:hsqldb:file:%s/backup/%s;create=false;hsqldb.full_log_replay=true";
-		String backupUrl = String.format(backupUrlTemplate, oldRepoDirPath.toString(), oldRepoFilePath.toString());
-		return backupUrl;
+		return String.format(backupUrlTemplate, oldRepoDirPath.toString(), oldRepoFilePath.toString());
 	}
 
 	/* package */ static void attemptRecovery(String connectionUrl) throws DataException {
@@ -321,11 +319,11 @@ public class HSQLDBRepository implements Repository {
 					.filter(file -> file.getPath().startsWith(dbPathname))
 					.forEach(File::delete);
 
-			try {
+			try (Statement stmt = connection.createStatement()) {
 				// Now "backup" the backup back to original repository location (the parent)
 				// NOTE: trailing / is OK because HSQLDB checks for both / and O/S-specific separator
 				// textdb.allow_full_path connection property is required to be able to use '..'
-				connection.createStatement().execute("BACKUP DATABASE TO '../' BLOCKING AS FILES");
+				stmt.execute("BACKUP DATABASE TO '../' BLOCKING AS FILES");
 			} catch (SQLException e) {
 				// We really failed
 				throw new DataException("Failed to recover repository to original location");
@@ -357,9 +355,7 @@ public class HSQLDBRepository implements Repository {
 		if (this.sqlStatements != null)
 			this.sqlStatements.add(sql);
 
-		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
-
-		return preparedStatement;
+		return this.connection.prepareStatement(sql);
 	}
 
 	/**
@@ -594,7 +590,7 @@ public class HSQLDBRepository implements Repository {
 				return e;
 
 			do {
-				long sessionId = resultSet.getLong(1);
+				long systemSessionId = resultSet.getLong(1);
 				boolean inTransaction = resultSet.getBoolean(2);
 				long transactionSize = resultSet.getLong(3);
 				String waitingForThis = resultSet.getString(4);
@@ -602,7 +598,7 @@ public class HSQLDBRepository implements Repository {
 				String currentStatement = resultSet.getString(6);
 
 				LOGGER.error(String.format("Session %d, %s transaction (size %d), waiting for this '%s', this waiting for '%s', current statement: %s",
-						sessionId, (inTransaction ? "in" : "not in"), transactionSize, waitingForThis, thisWaitingFor, currentStatement));
+						systemSessionId, (inTransaction ? "in" : "not in"), transactionSize, waitingForThis, thisWaitingFor, currentStatement));
 			} while (resultSet.next());
 		} catch (SQLException de) {
 			// Throw original exception instead
@@ -619,8 +615,10 @@ public class HSQLDBRepository implements Repository {
 				throw new DataException("Unable to check repository status after " + context);
 
 			try (ResultSet resultSet = stmt.getResultSet()) {
-				if (resultSet == null || !resultSet.next())
-					LOGGER.warn("Unable to check repository status after " + context);
+				if (resultSet == null || !resultSet.next()) {
+					LOGGER.warn(String.format("Unable to check repository status after %s", context));
+					return;
+				}
 
 				boolean inTransaction = resultSet.getBoolean(1);
 				int transactionCount = resultSet.getInt(2);

@@ -115,7 +115,7 @@ public enum BlockchainAPI {
 
 	public final int value;
 
-	private final static Map<Integer, BlockchainAPI> map = stream(BlockchainAPI.values()).collect(toMap(type -> type.value, type -> type));
+	private static final Map<Integer, BlockchainAPI> map = stream(BlockchainAPI.values()).collect(toMap(type -> type.value, type -> type));
 
 	BlockchainAPI(int value) {
 		this.value = value;

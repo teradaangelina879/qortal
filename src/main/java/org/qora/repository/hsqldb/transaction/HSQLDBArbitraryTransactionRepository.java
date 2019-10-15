@@ -65,6 +65,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 			this.savePayments(transactionData.getSignature(), arbitraryTransactionData.getPayments());
 	}
 
+	@Override
 	public void delete(TransactionData transactionData) throws DataException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 

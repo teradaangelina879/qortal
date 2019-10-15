@@ -46,7 +46,7 @@ public class Group {
 		public final int value;
 		public final boolean isPercentage;
 
-		private final static Map<Integer, ApprovalThreshold> map = stream(ApprovalThreshold.values())
+		private static final Map<Integer, ApprovalThreshold> map = stream(ApprovalThreshold.values())
 				.collect(toMap(threshold -> threshold.value, threshold -> threshold));
 
 		ApprovalThreshold(int value, boolean isPercentage) {

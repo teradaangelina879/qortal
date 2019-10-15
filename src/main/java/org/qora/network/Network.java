@@ -59,22 +59,22 @@ import org.qora.utils.ExecuteProduceConsume;
 import org.qora.utils.NTP;
 
 // For managing peers
-public class Network extends Thread {
+public class Network {
 
 	private static final Logger LOGGER = LogManager.getLogger(Network.class);
 	private static Network instance;
 
 	private static final int LISTEN_BACKLOG = 10;
 	/** How long before retrying after a connection failure, in milliseconds. */
-	private static final int CONNECT_FAILURE_BACKOFF = 5 * 60 * 1000; // ms
+	private static final long CONNECT_FAILURE_BACKOFF = 5 * 60 * 1000L; // ms
 	/** How long between informational broadcasts to all connected peers, in milliseconds. */
-	private static final int BROADCAST_INTERVAL = 60 * 1000; // ms
+	private static final long BROADCAST_INTERVAL = 60 * 1000L; // ms
 	/** Maximum time since last successful connection for peer info to be propagated, in milliseconds. */
-	private static final long RECENT_CONNECTION_THRESHOLD = 24 * 60 * 60 * 1000; // ms
+	private static final long RECENT_CONNECTION_THRESHOLD = 24 * 60 * 60 * 1000L; // ms
 	/** Maximum time since last connection attempt before a peer is potentially considered "old", in milliseconds. */
-	private static final long OLD_PEER_ATTEMPTED_PERIOD = 24 * 60 * 60 * 1000; // ms
+	private static final long OLD_PEER_ATTEMPTED_PERIOD = 24 * 60 * 60 * 1000L; // ms
 	/** Maximum time since last successful connection before a peer is potentially considered "old", in milliseconds. */
-	private static final long OLD_PEER_CONNECTION_PERIOD = 7 * 24 * 60 * 60 * 1000; // ms
+	private static final long OLD_PEER_CONNECTION_PERIOD = 7 * 24 * 60 * 60 * 1000L; // ms
 	/** Maximum time allowed for handshake to complete, in milliseconds. */
 	private static final long HANDSHAKE_TIMEOUT = 60 * 1000; // ms
 
@@ -135,7 +135,7 @@ public class Network extends Thread {
 			serverChannel.bind(endpoint, LISTEN_BACKLOG);
 			serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
 		} catch (UnknownHostException e) {
-			LOGGER.error("Can't bind listen socket to address " + Settings.getInstance().getBindAddress());
+			LOGGER.error(String.format("Can't bind listen socket to address %s", Settings.getInstance().getBindAddress()));
 			throw new RuntimeException("Can't bind listen socket to address");
 		} catch (IOException e) {
 			LOGGER.error("Can't create listen socket");
@@ -167,7 +167,9 @@ public class Network extends Thread {
 				10L, TimeUnit.SECONDS,
 				new SynchronousQueue<Runnable>());
 		networkEPC = new NetworkProcessor(networkExecutor);
+	}
 
+	public void start() {
 		// Start up first networking thread
 		networkEPC.start();
 	}
@@ -244,14 +246,9 @@ public class Network extends Thread {
 
 	/** Returns list of peers we connected to that have completed handshaking. */
 	public List<Peer> getOutboundHandshakedPeers() {
-		List<Peer> peers = new ArrayList<>();
-
 		synchronized (this.connectedPeers) {
-			peers = this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED)
-					.collect(Collectors.toList());
+			return this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED).collect(Collectors.toList());
 		}
-
-		return peers;
 	}
 
 	/** Returns Peer with inbound connection and matching ID, or null if none found. */
@@ -359,9 +356,7 @@ public class Network extends Thread {
 
 					LOGGER.trace(() -> String.format("Network thread %s encountered I/O error: %s", Thread.currentThread().getId(), e.getMessage()), e);
 					peer.disconnect("I/O error");
-					return;
 				}
-
 			}
 		}
 
@@ -664,7 +659,7 @@ public class Network extends Thread {
 		if (socketChannel == null)
 			return;
 
-		if (this.isInterrupted())
+		if (Thread.currentThread().isInterrupted())
 			return;
 
 		synchronized (this.connectedPeers) {
@@ -839,7 +834,7 @@ public class Network extends Thread {
 				// If inbound peer, use listen port and socket address to recreate first entry
 				if (!peer.isOutbound()) {
 					PeerAddress sendingPeerAddress = PeerAddress.fromString(peer.getPeerData().getAddress().getHost() + ":" + peerPort);
-					LOGGER.trace("PEERS_V2 sending peer's listen address: " + sendingPeerAddress.toString());
+					LOGGER.trace(() -> String.format("PEERS_V2 sending peer's listen address: %s", sendingPeerAddress.toString()));
 					peerV2Addresses.add(0, sendingPeerAddress);
 				}
 
@@ -1100,10 +1095,7 @@ public class Network extends Thread {
 				List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
 				// Filter out duplicates
-				Predicate<PeerAddress> isKnownAddress = peerAddress -> {
-					return knownPeers.stream().anyMatch(knownPeerData -> knownPeerData.getAddress().equals(peerAddress));
-				};
-
+				Predicate<PeerAddress> isKnownAddress = peerAddress -> knownPeers.stream().anyMatch(knownPeerData -> knownPeerData.getAddress().equals(peerAddress));
 				peerAddresses.removeIf(isKnownAddress);
 
 				repository.discardChanges();
@@ -1126,6 +1118,8 @@ public class Network extends Thread {
 
 	public void broadcast(Function<Peer, Message> peerMessageBuilder) {
 		class Broadcaster implements Runnable {
+			private final Random random = new Random();
+
 			private List<Peer> targetPeers;
 			private Function<Peer, Message> peerMessageBuilder;
 
@@ -1138,12 +1132,10 @@ public class Network extends Thread {
 			public void run() {
 				Thread.currentThread().setName("Network Broadcast");
 
-				Random random = new Random();
-
 				for (Peer peer : targetPeers) {
 					// Very short sleep to reduce strain, improve multi-threading and catch interrupts
 					try {
-						Thread.sleep(random.nextInt(20) + 20);
+						Thread.sleep(random.nextInt(20) + 20L);
 					} catch (InterruptedException e) {
 						break;
 					}

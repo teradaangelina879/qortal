@@ -47,7 +47,6 @@ public class ApiService {
 	}
 
 	public Iterable<Class<?>> getResources() {
-		// return resources;
 		return this.config.getClasses();
 	}
 

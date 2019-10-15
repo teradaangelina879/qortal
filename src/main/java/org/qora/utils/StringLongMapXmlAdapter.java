@@ -16,7 +16,7 @@ public class StringLongMapXmlAdapter extends XmlAdapter<StringLongMapXmlAdapter.
 
 	public static class StringLongMap {
 		@XmlVariableNode("key")
-		List<MapEntry> entries = new ArrayList<MapEntry>();
+		List<MapEntry> entries = new ArrayList<>();
 	}
 
 	public static class MapEntry {

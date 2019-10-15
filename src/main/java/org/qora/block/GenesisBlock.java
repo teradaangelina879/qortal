@@ -54,7 +54,7 @@ public class GenesisBlock extends Block {
 	}
 
 	// Properties
-	private static BlockData blockData;
+	private static BlockData genesisBlockData;
 	private static List<TransactionData> transactionsData;
 	private static List<AssetData> initialAssets;
 
@@ -65,7 +65,7 @@ public class GenesisBlock extends Block {
 	}
 
 	public static GenesisBlock getInstance(Repository repository) throws DataException {
-		return new GenesisBlock(repository, blockData, transactionsData);
+		return new GenesisBlock(repository, genesisBlockData, transactionsData);
 	}
 
 	// Construction from JSON
@@ -73,7 +73,7 @@ public class GenesisBlock extends Block {
 	/** Construct block data from blockchain config */
 	public static void newInstance(GenesisInfo info) {
 		// Should be safe to make this call as BlockChain's instance is set
-		// so we won't be blocked trying to re-enter synchronzied Settings.getInstance()
+		// so we won't be blocked trying to re-enter synchronized Settings.getInstance()
 		BlockChain blockchain = BlockChain.getInstance();
 
 		// Timestamp of zero means "now" but only valid for test nets!
@@ -87,7 +87,7 @@ public class GenesisBlock extends Block {
 			info.timestamp = System.currentTimeMillis();
 		}
 
-		transactionsData = new ArrayList<TransactionData>(Arrays.asList(info.transactions));
+		transactionsData = new ArrayList<>(Arrays.asList(info.transactions));
 
 		// Add default values to transactions
 		transactionsData.stream().forEach(transactionData -> {
@@ -133,7 +133,7 @@ public class GenesisBlock extends Block {
 		int atCount = 0;
 		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
 
-		blockData = new BlockData(info.version, reference, transactionCount, totalFees, transactionsSignature, height, info.timestamp,
+		genesisBlockData = new BlockData(info.version, reference, transactionCount, totalFees, transactionsSignature, height, info.timestamp,
 				generatorPublicKey, generatorSignature, atCount, atFees);
 	}
 
@@ -246,14 +246,14 @@ public class GenesisBlock extends Block {
 
 	@Override
 	public boolean isSignatureValid() {
-		byte[] signature = calcSignature(this.getBlockData());
+		byte[] signature = calcSignature(this.blockData);
 
 		// Validate block signature
-		if (!Arrays.equals(signature, this.getBlockData().getGeneratorSignature()))
+		if (!Arrays.equals(signature, this.blockData.getGeneratorSignature()))
 			return false;
 
 		// Validate transactions signature
-		if (!Arrays.equals(signature, this.getBlockData().getTransactionsSignature()))
+		if (!Arrays.equals(signature, this.blockData.getTransactionsSignature()))
 			return false;
 
 		return true;
@@ -275,10 +275,10 @@ public class GenesisBlock extends Block {
 
 	@Override
 	public void process() throws DataException {
-		LOGGER.info(String.format("Using genesis block timestamp of %d", blockData.getTimestamp()));
+		LOGGER.info(String.format("Using genesis block timestamp of %d", this.blockData.getTimestamp()));
 
 		// If we're a version 1 genesis block, create assets now
-		if (blockData.getVersion() == 1)
+		if (this.blockData.getVersion() == 1)
 			for (AssetData assetData : initialAssets)
 				repository.getAssetRepository().save(assetData);
 

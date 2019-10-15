@@ -6,8 +6,8 @@ package org.qora.crypto;
  * <b>DO NOT USE in future code</b> as this implementation is BROKEN and returns incorrect digests for some inputs.
  * <p>
  * It is only "grand-fathered" here to produce correct QORA addresses.
+ * @deprecated
  */
-
 @Deprecated
 public class BrokenMD160 {
 

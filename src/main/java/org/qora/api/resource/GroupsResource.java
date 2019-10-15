@@ -98,9 +98,7 @@ public class GroupsResource {
 		ref = "reverse"
 	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<GroupData> groups = repository.getGroupRepository().getAllGroups(limit, offset, reverse);
-
-			return groups;
+			return repository.getGroupRepository().getAllGroups(limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -126,9 +124,7 @@ public class GroupsResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<GroupData> groups = repository.getGroupRepository().getGroupsByOwner(owner);
-
-			return groups;
+			return repository.getGroupRepository().getGroupsByOwner(owner);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -154,9 +150,7 @@ public class GroupsResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<GroupData> groups = repository.getGroupRepository().getGroupsWithMember(member);
-
-			return groups;
+			return repository.getGroupRepository().getGroupsWithMember(member);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

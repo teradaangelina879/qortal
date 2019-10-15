@@ -27,7 +27,7 @@ public class ByteArray implements Comparable<ByteArray> {
 	public int hashCode() {
 		int h = hash;
 		if (h == 0 && value.length > 0) {
-			byte val[] = value;
+			byte[] val = value;
 
 			for (int i = 0; i < val.length; ++i)
 				h = 31 * h + val[i];
@@ -56,7 +56,7 @@ public class ByteArray implements Comparable<ByteArray> {
 			int b = otherValue[i] & 0xFF;
 			if (a < b)
 				return -1;
-			if (b > a)
+			if (a > b)
 				return 1;
 		}
 

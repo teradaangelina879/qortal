@@ -7,6 +7,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
@@ -91,7 +92,7 @@ public abstract class Transaction {
 		public final Class<?> clazz;
 		public final Constructor<?> constructor;
 
-		private final static Map<Integer, TransactionType> map = stream(TransactionType.values()).collect(toMap(type -> type.value, type -> type));
+		private static final Map<Integer, TransactionType> map = stream(TransactionType.values()).collect(toMap(type -> type.value, type -> type));
 
 		TransactionType(int value, boolean needsApproval) {
 			this.value = value;
@@ -105,14 +106,14 @@ public abstract class Transaction {
 
 			this.className = String.join("", classNameParts);
 
-			Class<?> clazz = null;
-			Constructor<?> constructor = null;
+			Class<?> subClazz = null;
+			Constructor<?> subConstructor = null;
 
 			try {
-				clazz = Class.forName(String.join("", Transaction.class.getPackage().getName(), ".", this.className, "Transaction"));
+				subClazz = Class.forName(String.join("", Transaction.class.getPackage().getName(), ".", this.className, "Transaction"));
 
 				try {
-					constructor = clazz.getConstructor(Repository.class, TransactionData.class);
+					subConstructor = subClazz.getConstructor(Repository.class, TransactionData.class);
 				} catch (NoSuchMethodException | SecurityException e) {
 					LOGGER.debug(String.format("Transaction subclass constructor not found for transaction type \"%s\"", this.name()));
 				}
@@ -120,8 +121,8 @@ public abstract class Transaction {
 				LOGGER.debug(String.format("Transaction subclass not found for transaction type \"%s\"", this.name()));
 			}
 
-			this.clazz = clazz;
-			this.constructor = constructor;
+			this.clazz = subClazz;
+			this.constructor = subConstructor;
 		}
 
 		public static TransactionType valueOf(int value) {
@@ -140,7 +141,7 @@ public abstract class Transaction {
 
 		public final int value;
 
-		private final static Map<Integer, ApprovalStatus> map = stream(ApprovalStatus.values()).collect(toMap(result -> result.value, result -> result));
+		private static final Map<Integer, ApprovalStatus> map = stream(ApprovalStatus.values()).collect(toMap(result -> result.value, result -> result));
 
 		ApprovalStatus(int value) {
 			this.value = value;
@@ -244,7 +245,7 @@ public abstract class Transaction {
 
 		public final int value;
 
-		private final static Map<Integer, ValidationResult> map = stream(ValidationResult.values()).collect(toMap(result -> result.value, result -> result));
+		private static final Map<Integer, ValidationResult> map = stream(ValidationResult.values()).collect(toMap(result -> result.value, result -> result));
 
 		ValidationResult(int value) {
 			this.value = value;
@@ -417,7 +418,7 @@ public abstract class Transaction {
 	 */
 	public List<Account> getInvolvedAccounts() throws DataException {
 		// Typically this is all the recipients plus the transaction creator/sender
-		List<Account> participants = new ArrayList<Account>(getRecipientAccounts());
+		List<Account> participants = new ArrayList<>(getRecipientAccounts());
 		participants.add(getCreator());
 		return participants;
 	}
@@ -622,8 +623,8 @@ public abstract class Transaction {
 		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
 		int count = 0;
-		for (TransactionData transactionData : unconfirmedTransactions) {
-			Transaction transaction = Transaction.fromData(repository, transactionData);
+		for (TransactionData unconfirmedTransactionData : unconfirmedTransactions) {
+			Transaction transaction = Transaction.fromData(repository, unconfirmedTransactionData);
 			PublicKeyAccount otherCreator = transaction.getCreator();
 
 			if (Arrays.equals(creator.getPublicKey(), otherCreator.getPublicKey()))
@@ -662,14 +663,14 @@ public abstract class Transaction {
 			repository.discardChanges();
 
 			try {
-				for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
-					TransactionData transactionData = unconfirmedTransactions.get(i);
+				Iterator<TransactionData> unconfirmedTransactionsIterator = unconfirmedTransactions.iterator();
+				while (unconfirmedTransactionsIterator.hasNext()) {
+					TransactionData transactionData = unconfirmedTransactionsIterator.next();
 
-					if (!isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp())) {
-						unconfirmedTransactions.remove(i);
-						--i;
+					if (isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp()))
 						continue;
-					}
+
+					unconfirmedTransactionsIterator.remove();
 				}
 			} finally {
 				// Throw away temporary updates to account lastReference
@@ -713,16 +714,15 @@ public abstract class Transaction {
 			repository.discardChanges();
 
 			try {
-				for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
-					TransactionData transactionData = unconfirmedTransactions.get(i);
+				Iterator<TransactionData> unconfirmedTransactionsIterator = unconfirmedTransactions.iterator();
+				while (unconfirmedTransactionsIterator.hasNext()) {
+					TransactionData transactionData = unconfirmedTransactionsIterator.next();
 
-					if (!isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp())) {
-						invalidTransactions.add(transactionData);
-
-						unconfirmedTransactions.remove(i);
-						--i;
+					if (isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp()))
 						continue;
-					}
+
+					invalidTransactions.add(transactionData);
+					unconfirmedTransactionsIterator.remove();
 				}
 			} finally {
 				// Throw away temporary updates to account lastReference
@@ -927,7 +927,7 @@ public abstract class Transaction {
 	 */
 	public ValidationResult isProcessable() throws DataException {
 		return ValidationResult.OK;
-	};
+	}
 
 	/**
 	 * Actually process a transaction, updating the blockchain.

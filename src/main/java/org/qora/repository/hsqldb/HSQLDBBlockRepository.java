@@ -153,7 +153,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<TransactionData> transactions = new ArrayList<TransactionData>();
+		List<TransactionData> transactions = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), signature)) {
 			if (resultSet == null)

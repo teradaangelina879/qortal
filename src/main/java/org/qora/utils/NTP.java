@@ -53,7 +53,7 @@ public class NTP implements Runnable {
 			this.remote = remote;
 		}
 
-		public boolean poll(NTPUDPClient client) {
+		public boolean doPoll(NTPUDPClient client) {
 			Thread.currentThread().setName(String.format("NTP: %s", this.remote));
 
 			try {
@@ -161,9 +161,9 @@ public class NTP implements Runnable {
 			while (!isStopping) {
 				Thread.sleep(1000);
 
-				CompletionService<Boolean> ecs = new ExecutorCompletionService<Boolean>(serverExecutor);
+				CompletionService<Boolean> ecs = new ExecutorCompletionService<>(serverExecutor);
 				for (NTPServer server : ntpServers)
-					ecs.submit(() -> server.poll(client));
+					ecs.submit(() -> server.doPoll(client));
 
 				boolean hasUpdate = false;
 				for (int i = 0; i < ntpServers.size(); ++i) {

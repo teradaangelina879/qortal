@@ -7,7 +7,6 @@ import java.nio.ByteBuffer;
 
 import org.json.simple.JSONObject;
 import org.qora.data.PaymentData;
-import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
 import com.google.common.primitives.Longs;

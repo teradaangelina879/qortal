@@ -308,9 +308,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			if (resultSet == null)
 				return null;
 
-			String owner = resultSet.getString(1);
-
-			return owner;
+			return resultSet.getString(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group owner from repository", e);
 		}

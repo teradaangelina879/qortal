@@ -120,4 +120,14 @@ public class ByteArrayTests {
 		System.out.println(String.format("Primitive hashCode: 0x%08x", copiedValue.hashCode()));
 	}
 
+	@Test
+	public void testCompareTo() {
+		ByteArray testValue0 = new ByteArray(new byte[] { 0x00 });
+		ByteArray testValue1 = new ByteArray(new byte[] { 0x01 });
+
+		assertEquals("0 should be the same as 0", 0, testValue0.compareTo(testValue0));
+		assertEquals("0 should be before 1", -1, testValue0.compareTo(testValue1));
+		assertEquals("1 should be after 0", 1, testValue1.compareTo(testValue0));
+	}
+
 }

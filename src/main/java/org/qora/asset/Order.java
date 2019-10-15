@@ -229,14 +229,15 @@ public class Order {
 
 		final boolean isOrderNewAssetPricing = orderData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
 
-		final long haveAssetId = orderData.getHaveAssetId();
-		final long wantAssetId = orderData.getWantAssetId();
+		// Cached for readability
+		final long _haveAssetId = orderData.getHaveAssetId();
+		final long _wantAssetId = orderData.getWantAssetId();
 
-		final AssetData haveAssetData = this.repository.getAssetRepository().fromAssetId(haveAssetId);
-		final AssetData wantAssetData = this.repository.getAssetRepository().fromAssetId(wantAssetId);
+		final AssetData haveAssetData = this.repository.getAssetRepository().fromAssetId(_haveAssetId);
+		final AssetData wantAssetData = this.repository.getAssetRepository().fromAssetId(_wantAssetId);
 
-		final long amountAssetId = (isOurOrderNewPricing && wantAssetId > haveAssetId) ? wantAssetId : haveAssetId;
-		final long returnAssetId = (isOurOrderNewPricing && haveAssetId < wantAssetId) ? haveAssetId : wantAssetId;
+		final long amountAssetId = (isOurOrderNewPricing && _wantAssetId > _haveAssetId) ? _wantAssetId : _haveAssetId;
+		final long returnAssetId = (isOurOrderNewPricing && _haveAssetId < _wantAssetId) ? _haveAssetId : _wantAssetId;
 
 		final AssetData amountAssetData = this.repository.getAssetRepository().fromAssetId(amountAssetId);
 		final AssetData returnAssetData = this.repository.getAssetRepository().fromAssetId(returnAssetId);

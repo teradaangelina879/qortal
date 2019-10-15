@@ -58,7 +58,7 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 
 		int paymentsCount = byteBuffer.getInt();
 
-		List<PaymentData> payments = new ArrayList<PaymentData>();
+		List<PaymentData> payments = new ArrayList<>();
 		for (int i = 0; i < paymentsCount; ++i)
 			payments.add(PaymentTransformer.fromByteBuffer(byteBuffer));
 

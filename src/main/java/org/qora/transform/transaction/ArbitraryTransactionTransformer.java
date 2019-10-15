@@ -16,6 +16,7 @@ import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;
 import org.qora.transaction.ArbitraryTransaction;
+import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.PaymentTransformer;
 import org.qora.transform.TransformationException;
@@ -59,7 +60,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
-		int version = ArbitraryTransaction.getVersionByTimestamp(timestamp);
+		int version = Transaction.getVersionByTimestamp(timestamp);
 
 		int txGroupId = 0;
 		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
@@ -71,7 +72,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
 		// V3+ allows payments but always return a list of payments, even if empty
-		List<PaymentData> payments = new ArrayList<PaymentData>();
+		List<PaymentData> payments = new ArrayList<>();
 		if (version != 1) {
 			int paymentsCount = byteBuffer.getInt();
 
@@ -182,7 +183,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		// In v1, a coding error means that all bytes prior to final payment entry are lost!
 		// If there are no payments then we can skip mangling
-		if (arbitraryTransactionData.getPayments().size() == 0)
+		if (arbitraryTransactionData.getPayments().isEmpty())
 			return bytes;
 
 		// So we're left with: final payment entry, service, data size, data, fee

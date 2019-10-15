@@ -11,6 +11,7 @@ import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.DeployAtTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.DeployAtTransaction;
+import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
@@ -59,7 +60,7 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
-		int version = DeployAtTransaction.getVersionByTimestamp(timestamp);
+		int version = Transaction.getVersionByTimestamp(timestamp);
 
 		int txGroupId = 0;
 		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
@@ -106,7 +107,7 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 
 		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH;
 
-		int version = DeployAtTransaction.getVersionByTimestamp(transactionData.getTimestamp());
+		int version = Transaction.getVersionByTimestamp(transactionData.getTimestamp());
 
 		// V4+ have assetId too
 		if (version >= 4)
@@ -123,7 +124,7 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 		try {
 			DeployAtTransactionData deployATTransactionData = (DeployAtTransactionData) transactionData;
 
-			int version = DeployAtTransaction.getVersionByTimestamp(transactionData.getTimestamp());
+			int version = Transaction.getVersionByTimestamp(transactionData.getTimestamp());
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 

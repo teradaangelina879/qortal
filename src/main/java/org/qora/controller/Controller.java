@@ -97,21 +97,21 @@ public class Controller extends Thread {
 	public static final String VERSION_PREFIX = "qora-core-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
-	private static final long MISBEHAVIOUR_COOLOFF = 10 * 60 * 1000; // ms
+	private static final long MISBEHAVIOUR_COOLOFF = 10 * 60 * 1000L; // ms
 	private static final int MAX_BLOCKCHAIN_TIP_AGE = 5; // blocks
 	private static final Object shutdownLock = new Object();
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true;hsqldb.full_log_replay=true";
-	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
-	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000; // ms
-	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000; // ms
-	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000; // ms
-	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000; // ms
+	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000L; // ms
+	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000L; // ms
+	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms
+	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000L; // ms
+	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
 
 	// To do with online accounts list
-	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000; // ms
-	private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 1 * 60 * 1000; // ms
-	private static final long ONLINE_TIMESTAMP_MODULUS = 5 * 60 * 1000;
-	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000);
+	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
+	private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 1 * 60 * 1000L; // ms
+	private static final long ONLINE_TIMESTAMP_MODULUS = 5 * 60 * 1000L;
+	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000L);
 
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
@@ -170,18 +170,18 @@ public class Controller extends Thread {
 			throw new RuntimeException("Can't read build.properties resource", e);
 		}
 
-		String buildTimestamp = properties.getProperty("build.timestamp");
-		if (buildTimestamp == null)
+		String buildTimestampProperty = properties.getProperty("build.timestamp");
+		if (buildTimestampProperty == null)
 			throw new RuntimeException("Can't read build.timestamp from build.properties resource");
 
-		this.buildTimestamp = LocalDateTime.parse(buildTimestamp, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX")).toEpochSecond(ZoneOffset.UTC);
-		LOGGER.info(String.format("Build timestamp: %s", buildTimestamp));
+		this.buildTimestamp = LocalDateTime.parse(buildTimestampProperty, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX")).toEpochSecond(ZoneOffset.UTC);
+		LOGGER.info(String.format("Build timestamp: %s", buildTimestampProperty));
 
-		String buildVersion = properties.getProperty("build.version");
-		if (buildVersion == null)
+		String buildVersionProperty = properties.getProperty("build.version");
+		if (buildVersionProperty == null)
 			throw new RuntimeException("Can't read build.version from build.properties resource");
 
-		this.buildVersion = VERSION_PREFIX + buildVersion;
+		this.buildVersion = VERSION_PREFIX + buildVersionProperty;
 		LOGGER.info(String.format("Build version: %s", this.buildVersion));
 	}
 
@@ -231,7 +231,7 @@ public class Controller extends Thread {
 
 	// Entry point
 
-	public static void main(String args[]) {
+	public static void main(String[] args) {
 		LOGGER.info("Starting up...");
 
 		// Potential GUI startup with splash screen, etc.
@@ -282,7 +282,7 @@ public class Controller extends Thread {
 		LOGGER.info("Starting controller");
 		Controller.getInstance().start();
 
-		LOGGER.info("Starting networking on port " + Settings.getInstance().getListenPort());
+		LOGGER.info(String.format("Starting networking on port %d", Settings.getInstance().getListenPort()));
 		try {
 			Network network = Network.getInstance();
 			network.start();
@@ -312,7 +312,7 @@ public class Controller extends Thread {
 		LOGGER.info("Starting auto-update");
 		AutoUpdate.getInstance().start();
 
-		LOGGER.info("Starting API on port " + Settings.getInstance().getApiPort());
+		LOGGER.info(String.format("Starting API on port %d", Settings.getInstance().getApiPort()));
 		try {
 			ApiService apiService = ApiService.getInstance();
 			apiService.start();
@@ -321,7 +321,7 @@ public class Controller extends Thread {
 			System.exit(1);
 		}
 
-		LOGGER.info("Starting node management UI on port " + Settings.getInstance().getUiPort());
+		LOGGER.info(String.format("Starting node management UI on port %d", Settings.getInstance().getUiPort()));
 		try {
 			UiService uiService = UiService.getInstance();
 			uiService.start();
@@ -335,7 +335,7 @@ public class Controller extends Thread {
 	}
 
 	/** Called by AdvancedInstaller's launch EXE in single-instance mode, when an instance is already running. */
-	public static void secondaryMain(String args[]) {
+	public static void secondaryMain(String[] args) {
 		// Return as we don't want to run more than one instance
 	}
 
@@ -670,7 +670,7 @@ public class Controller extends Thread {
 		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
 
 		// Send (if outbound) / Request unconfirmed transaction signatures
-		network.broadcast(peer -> network.buildGetUnconfirmedTransactionsMessage(peer));
+		network.broadcast(network::buildGetUnconfirmedTransactionsMessage);
 	}
 
 	public void onGenerationPossibleChange(boolean isGenerationPossible) {
@@ -1002,7 +1002,7 @@ public class Controller extends Thread {
 						// Fetch actual transaction data from peer
 						Message getTransactionMessage = new GetTransactionMessage(signature);
 						Message responseMessage = peer.getResponse(getTransactionMessage);
-						if (responseMessage == null || !(responseMessage instanceof TransactionMessage)) {
+						if (!(responseMessage instanceof TransactionMessage)) {
 							// Maybe peer no longer has this transaction
 							LOGGER.trace(() -> String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
 							continue;
@@ -1158,7 +1158,7 @@ public class Controller extends Thread {
 				// Check transaction exists and payload hash is correct
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-					if (transactionData == null || !(transactionData instanceof ArbitraryTransactionData))
+					if (!(transactionData instanceof ArbitraryTransactionData))
 						break;
 
 					ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
@@ -1231,10 +1231,10 @@ public class Controller extends Thread {
 			case ONLINE_ACCOUNTS: {
 				OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
 
-				List<OnlineAccountData> onlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-				LOGGER.trace(() -> String.format("Received %d online accounts from %s", onlineAccounts.size(), peer));
+				List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
+				LOGGER.trace(() -> String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
 
-				for (OnlineAccountData onlineAccountData : onlineAccounts)
+				for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
 					this.verifyAndAddAccount(onlineAccountData);
 
 				break;
@@ -1309,7 +1309,7 @@ public class Controller extends Thread {
 			synchronized (this.onlineAccounts) {
 				message = new GetOnlineAccountsMessage(this.onlineAccounts);
 			}
-			Network.getInstance().broadcast((peer) -> message);
+			Network.getInstance().broadcast(peer -> message);
 		}
 
 		// Refresh our online accounts signatures?
@@ -1341,7 +1341,7 @@ public class Controller extends Thread {
 					iterator.remove();
 			}
 		} catch (DataException e) {
-			LOGGER.warn("Repository issue trying to fetch forging accounts: " + e.getMessage());
+			LOGGER.warn(String.format("Repository issue trying to fetch forging accounts: %s", e.getMessage()));
 			return;
 		}
 
@@ -1389,7 +1389,7 @@ public class Controller extends Thread {
 			return;
 
 		Message message = new OnlineAccountsMessage(ourOnlineAccounts);
-		Network.getInstance().broadcast((peer) -> message);
+		Network.getInstance().broadcast(peer -> message);
 
 		LOGGER.trace(()-> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
 	}

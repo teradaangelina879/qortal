@@ -2,8 +2,6 @@ package org.qora.data.voting;
 
 import java.util.List;
 
-import org.qora.data.voting.PollOptionData;
-
 public class PollData {
 
 	// Properties

@@ -10,12 +10,12 @@ public class ApiException extends WebApplicationException {
 	private static final long serialVersionUID = 4619299036312089050L;
 
 	// HTTP status code
-	public int status;
+	public final int status;
 
 	// API error code
-	public int error;
+	public final int error;
 
-	public String message;
+	public final String message;
 
 	public ApiException(int status, int error, String message) {
 		this(status, error, message, null);

@@ -3,7 +3,6 @@ package org.hsqldb.jdbc;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.hsqldb.jdbc.JDBCPool;
 import org.hsqldb.jdbc.pool.JDBCPooledConnection;
 
 public class HSQLDBPool extends JDBCPool {

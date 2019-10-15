@@ -35,7 +35,7 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	public List<Account> getRecipientAccounts() throws DataException {
-		List<Account> recipients = new ArrayList<Account>();
+		List<Account> recipients = new ArrayList<>();
 
 		if (arbitraryTransactionData.getVersion() != 1)
 			for (PaymentData paymentData : arbitraryTransactionData.getPayments())
@@ -92,7 +92,7 @@ public class ArbitraryTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Are arbitrary transactions even allowed at this point?
-		if (arbitraryTransactionData.getVersion() != ArbitraryTransaction.getVersionByTimestamp(arbitraryTransactionData.getTimestamp()))
+		if (arbitraryTransactionData.getVersion() != Transaction.getVersionByTimestamp(arbitraryTransactionData.getTimestamp()))
 			return ValidationResult.NOT_YET_RELEASED;
 
 		if (this.arbitraryTransactionData.getTimestamp() < BlockChain.getInstance().getArbitraryReleaseTimestamp())

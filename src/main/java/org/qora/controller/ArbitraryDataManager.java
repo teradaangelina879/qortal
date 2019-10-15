@@ -64,7 +64,7 @@ public class ArbitraryDataManager extends Thread {
 				}
 			}
 		} catch (InterruptedException e) {
-			return;
+			// Fall-through to exit thread...
 		}
 	}
 
@@ -76,7 +76,7 @@ public class ArbitraryDataManager extends Thread {
 	private boolean hasLocalData(final Repository repository, final byte[] signature) {
 		try {
 			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-			if (transactionData == null || !(transactionData instanceof ArbitraryTransactionData))
+			if (!(transactionData instanceof ArbitraryTransactionData))
 				return true;
 
 			ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, transactionData);

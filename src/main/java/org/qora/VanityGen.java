@@ -1,6 +1,5 @@
 package org.qora;
 
-import java.io.IOException;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.Random;
@@ -59,22 +58,22 @@ public class VanityGen {
 		}
 	}
 
-	public static void main(String argv[]) throws IOException {
-		if (argv.length == 0)
+	public static void main(String[] args) {
+		if (args.length == 0)
 			usage();
 
 		int threadCount = 1;
 
 		int argIndex = 0;
-		while (argIndex < argv.length) {
-			String arg = argv[argIndex++];
+		while (argIndex < args.length) {
+			String arg = args[argIndex++];
 
 			if (arg.equals("-t")) {
-				if (argIndex >= argv.length)
+				if (argIndex >= args.length)
 					usage();
 
 				try {
-					threadCount = Integer.parseInt(argv[argIndex++]);
+					threadCount = Integer.parseInt(args[argIndex++]);
 				} catch (NumberFormatException e) {
 					usage();
 				}

@@ -118,7 +118,7 @@ public enum ApiError {
 	// Groups
 	GROUP_UNKNOWN(1101, 404);
 
-	private final static Map<Integer, ApiError> map = stream(ApiError.values()).collect(toMap(apiError -> apiError.code, apiError -> apiError));
+	private static final Map<Integer, ApiError> map = stream(ApiError.values()).collect(toMap(apiError -> apiError.code, apiError -> apiError));
 
 	private final int code; // API error code
 	private final int status; // HTTP status code

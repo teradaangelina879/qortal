@@ -3,6 +3,7 @@ package org.qora.repository.hsqldb;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Properties;
 
 import org.apache.logging.log4j.LogManager;
@@ -31,9 +32,10 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 
 		// Check no-one else is accessing database
 		try (Connection connection = DriverManager.getConnection(this.connectionUrl)) {
+			// We only need to check we can obtain connection. It will be auto-closed.
 		} catch (SQLException e) {
 			Throwable cause = e.getCause();
-			if (cause == null || !(cause instanceof HsqlException))
+			if (!(cause instanceof HsqlException))
 				throw new DataException("Unable to open repository: " + e.getMessage());
 
 			HsqlException he = (HsqlException) cause;
@@ -84,7 +86,7 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 
 		if (delay > SLOW_CONNECTION_THRESHOLD)
 			// This could be an indication of excessive repository use, or insufficient pool size
-			LOGGER.warn(String.format("Fetching repository connection from pool took %dms (threshold: %dms)"), delay, SLOW_CONNECTION_THRESHOLD);
+			LOGGER.warn(() -> String.format("Fetching repository connection from pool took %dms (threshold: %dms)", delay, SLOW_CONNECTION_THRESHOLD));
 
 		setupConnection(connection);
 		return connection;
@@ -112,8 +114,9 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 			this.connectionPool.close(0);
 
 			// Now that all connections are closed, create a dedicated connection to shut down repository
-			try (Connection connection = DriverManager.getConnection(this.connectionUrl)) {
-				connection.createStatement().execute("SHUTDOWN");
+			try (Connection connection = DriverManager.getConnection(this.connectionUrl);
+					Statement stmt = connection.createStatement()) {
+				stmt.execute("SHUTDOWN");
 			}
 		} catch (SQLException e) {
 			throw new DataException("Error during repository shutdown", e);

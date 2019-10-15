@@ -109,7 +109,7 @@ public class BlockTransformer extends Transformer {
 
 		int atCount = 0;
 		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
-		List<ATStateData> atStates = new ArrayList<ATStateData>();
+		List<ATStateData> atStates = new ArrayList<>();
 
 		if (version >= 2) {
 			int atBytesLength = byteBuffer.getInt();
@@ -172,7 +172,7 @@ public class BlockTransformer extends Transformer {
 		int transactionCount = byteBuffer.getInt();
 
 		// Parse transactions now, compared to deferred parsing in Gen1, so we can throw ParseException if need be.
-		List<TransactionData> transactions = new ArrayList<TransactionData>();
+		List<TransactionData> transactions = new ArrayList<>();
 
 		for (int t = 0; t < transactionCount; ++t) {
 			if (byteBuffer.remaining() < TRANSACTION_SIZE_LENGTH)
@@ -244,7 +244,7 @@ public class BlockTransformer extends Transformer {
 		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
 				generatorPublicKey, generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
-		return new Triple<BlockData, List<TransactionData>, List<ATStateData>>(blockData, transactions, atStates);
+		return new Triple<>(blockData, transactions, atStates);
 	}
 
 	public static int getDataLength(Block block) throws TransformationException {

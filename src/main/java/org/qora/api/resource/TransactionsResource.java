@@ -311,7 +311,7 @@ public class TransactionsResource {
 					txTypes, null, address, confirmationStatus, limit, offset, reverse);
 
 			// Expand signatures to transactions
-			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());
+			List<TransactionData> transactions = new ArrayList<>(signatures.size());
 			for (byte[] signature : signatures)
 				transactions.add(repository.getTransactionRepository().fromSignature(signature));
 

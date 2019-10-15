@@ -44,7 +44,7 @@ public class mintsim {
 		}
 	}
 
-	public static void main(String args[]) {
+	public static void main(String[] args) {
 		if (args.length < 2 || (args.length % 2) != 0) {
 			System.err.println("usage: mintsim <tier1-min-blocks> <number-tier1-accounts> [<tier2-min-blocks> <max-tier2-per-tier1> [...]]");
 			System.exit(1);
@@ -53,8 +53,8 @@ public class mintsim {
 		try {
 			int argIndex = 0;
 			do {
-				int minBlocks = Integer.valueOf(args[argIndex++]);
-				int maxAccounts = Integer.valueOf(args[argIndex++]);
+				int minBlocks = Integer.parseInt(args[argIndex++]);
+				int maxAccounts = Integer.parseInt(args[argIndex++]);
 
 				tiers.add(new TierInfo(maxAccounts, minBlocks));
 			} while (argIndex < args.length);

@@ -1,7 +1,7 @@
 package org.qora.api;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -17,7 +17,7 @@ public class TransactionCountMapXmlAdapter extends XmlAdapter<TransactionCountMa
 
 	public static class StringIntegerMap {
 		@XmlVariableNode("key")
-		List<MapEntry> entries = new ArrayList<MapEntry>();
+		List<MapEntry> entries = new ArrayList<>();
 	}
 
 	public static class MapEntry {
@@ -30,7 +30,7 @@ public class TransactionCountMapXmlAdapter extends XmlAdapter<TransactionCountMa
 
 	@Override
 	public Map<TransactionType, Integer> unmarshal(StringIntegerMap stringIntegerMap) throws Exception {
-		Map<TransactionType, Integer> map = new HashMap<>(stringIntegerMap.entries.size());
+		Map<TransactionType, Integer> map = new EnumMap<>(TransactionType.class);
 
 		for (MapEntry entry : stringIntegerMap.entries)
 			map.put(TransactionType.valueOf(entry.key), entry.value);

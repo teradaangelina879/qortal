@@ -41,7 +41,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 				if (optionsResultSet == null)
 					return null;
 
-				List<PollOptionData> pollOptions = new ArrayList<PollOptionData>();
+				List<PollOptionData> pollOptions = new ArrayList<>();
 
 				// NOTE: do-while because checkedExecute() above has already called rs.next() for us
 				do {
@@ -112,7 +112,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 	@Override
 	public List<VoteOnPollData> getVotes(String pollName) throws DataException {
 		String sql = "SELECT voter, option_index FROM PollVotes WHERE poll_name = ?";
-		List<VoteOnPollData> votes = new ArrayList<VoteOnPollData>();
+		List<VoteOnPollData> votes = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, pollName)) {
 			if (resultSet == null)

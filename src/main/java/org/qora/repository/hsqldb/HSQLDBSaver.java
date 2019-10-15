@@ -22,8 +22,8 @@ public class HSQLDBSaver {
 
 	private String table;
 
-	private List<String> columns = new ArrayList<String>();
-	private List<Object> objects = new ArrayList<Object>();
+	private List<String> columns = new ArrayList<>();
+	private List<Object> objects = new ArrayList<>();
 
 	/**
 	 * Construct a SaveHelper, using SQL Connection and table name.

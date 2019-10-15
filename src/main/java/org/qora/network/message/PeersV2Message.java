@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,7 +43,7 @@ public class PeersV2Message extends Message {
 
 			byte[] addressBytes = new byte[addressSize & 0xff];
 			byteBuffer.get(addressBytes);
-			String addressString = new String(addressBytes, "UTF-8");
+			String addressString = new String(addressBytes, StandardCharsets.UTF_8);
 
 			try {
 				PeerAddress peerAddress = PeerAddress.fromString(addressString);
@@ -63,10 +64,10 @@ public class PeersV2Message extends Message {
 			List<byte[]> addresses = new ArrayList<>();
 
 			// First entry represents sending node but contains only port number with empty address.
-			addresses.add(new String("0.0.0.0:" + Settings.getInstance().getListenPort()).getBytes("UTF-8"));
+			addresses.add(("0.0.0.0:" + Settings.getInstance().getListenPort()).getBytes(StandardCharsets.UTF_8));
 
 			for (PeerAddress peerAddress : this.peerAddresses)
-				addresses.add(peerAddress.toString().getBytes("UTF-8"));
+				addresses.add(peerAddress.toString().getBytes(StandardCharsets.UTF_8));
 
 			// We can't send addresses that are longer than 255 bytes as length itself is encoded in one byte.
 			addresses.removeIf(addressString -> addressString.length > 255);

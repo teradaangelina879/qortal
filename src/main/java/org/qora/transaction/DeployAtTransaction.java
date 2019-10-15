@@ -1,9 +1,9 @@
 package org.qora.transaction;
 
-import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,7 +46,7 @@ public class DeployAtTransaction extends Transaction {
 
 	@Override
 	public List<Account> getRecipientAccounts() throws DataException {
-		return new ArrayList<Account>();
+		return new ArrayList<>();
 	}
 
 	@Override
@@ -79,8 +79,7 @@ public class DeployAtTransaction extends Transaction {
 	/** Returns AT version from the header bytes */
 	private short getVersion() {
 		byte[] creationBytes = deployATTransactionData.getCreationBytes();
-		short version = (short) (creationBytes[0] | (creationBytes[1] << 8)); // Little-endian
-		return version;
+		return (short) ((creationBytes[0] & 0xff) | (creationBytes[1] << 8)); // Little-endian
 	}
 
 	/** Make sure deployATTransactionData has an ATAddress */
@@ -92,29 +91,25 @@ public class DeployAtTransaction extends Transaction {
 		if (blockHeight == 0)
 			blockHeight = this.repository.getBlockRepository().getBlockchainHeight() + 1;
 
-		try {
-			byte[] name = this.deployATTransactionData.getName().getBytes("UTF-8");
-			byte[] description = this.deployATTransactionData.getDescription().replaceAll("\\s", "").getBytes("UTF-8");
-			byte[] creatorPublicKey = this.deployATTransactionData.getCreatorPublicKey();
-			byte[] creationBytes = this.deployATTransactionData.getCreationBytes();
+		byte[] name = this.deployATTransactionData.getName().getBytes(StandardCharsets.UTF_8);
+		byte[] description = this.deployATTransactionData.getDescription().replaceAll("\\s", "").getBytes(StandardCharsets.UTF_8);
+		byte[] creatorPublicKey = this.deployATTransactionData.getCreatorPublicKey();
+		byte[] creationBytes = this.deployATTransactionData.getCreationBytes();
 
-			ByteBuffer byteBuffer = ByteBuffer
-					.allocate(name.length + description.length + creatorPublicKey.length + creationBytes.length + Transformer.INT_LENGTH);
+		ByteBuffer byteBuffer = ByteBuffer
+				.allocate(name.length + description.length + creatorPublicKey.length + creationBytes.length + Transformer.INT_LENGTH);
 
-			byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
+		byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
 
-			byteBuffer.put(name);
-			byteBuffer.put(description);
-			byteBuffer.put(creatorPublicKey);
-			byteBuffer.put(creationBytes);
-			byteBuffer.putInt(blockHeight);
+		byteBuffer.put(name);
+		byteBuffer.put(description);
+		byteBuffer.put(creatorPublicKey);
+		byteBuffer.put(creationBytes);
+		byteBuffer.putInt(blockHeight);
 
-			String atAddress = Crypto.toATAddress(byteBuffer.array());
+		String atAddress = Crypto.toATAddress(byteBuffer.array());
 
-			this.deployATTransactionData.setAtAddress(atAddress);
-		} catch (UnsupportedEncodingException e) {
-			throw new DataException("Unable to generate AT account from Deploy AT transaction data", e);
-		}
+		this.deployATTransactionData.setAtAddress(atAddress);
 	}
 
 	// Navigation

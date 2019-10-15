@@ -1,6 +1,6 @@
 package org.qora.api.model;
 
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
 
 import javax.xml.bind.annotation.XmlAccessType;
@@ -20,9 +20,10 @@ public class ActivitySummary {
 
 	// Assuming TransactionType values are contiguous so 'length' equals count
 	@XmlJavaTypeAdapter(TransactionCountMapXmlAdapter.class)
-	public Map<TransactionType, Integer> transactionCountByType = new HashMap<>();
+	public Map<TransactionType, Integer> transactionCountByType = new EnumMap<>(TransactionType.class);
 
 	public ActivitySummary() {
+		// Needed for JAXB
 	}
 
 }

@@ -11,6 +11,7 @@ import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.MessageTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.MessageTransaction;
+import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
@@ -53,7 +54,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
-		int version = MessageTransaction.getVersionByTimestamp(timestamp);
+		int version = Transaction.getVersionByTimestamp(timestamp);
 
 		int txGroupId = 0;
 		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())

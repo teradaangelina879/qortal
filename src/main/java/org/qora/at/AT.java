@@ -45,7 +45,7 @@ public class AT {
 
 		byte[] creationBytes = deployATTransactionData.getCreationBytes();
 		long assetId = deployATTransactionData.getAssetId();
-		short version = (short) (creationBytes[0] | (creationBytes[1] << 8)); // Little-endian
+		short version = (short) ((creationBytes[0] & 0xff) | (creationBytes[1] << 8)); // Little-endian
 
 		if (version >= 2) {
 			MachineState machineState = new MachineState(deployATTransactionData.getCreationBytes());
@@ -78,7 +78,7 @@ public class AT {
 
 			// Extract actual code length, stored in minimal-size form (byte, short or int)
 			if (numCodePages * 256 < 257) {
-				codeLen = (int) (byteBuffer.get() & 0xff);
+				codeLen = byteBuffer.get() & 0xff;
 			} else if (numCodePages * 256 < Short.MAX_VALUE + 1) {
 				codeLen = byteBuffer.getShort() & 0xffff;
 			} else if (numCodePages * 256 <= Integer.MAX_VALUE) {
@@ -135,14 +135,14 @@ public class AT {
 		byte[] codeBytes = this.atData.getCodeBytes();
 
 		// Fetch latest ATStateData for this AT (if any)
-		ATStateData atStateData = this.repository.getATRepository().getLatestATState(atAddress);
+		ATStateData latestAtStateData = this.repository.getATRepository().getLatestATState(atAddress);
 
 		// There should be at least initial AT state data
-		if (atStateData == null)
+		if (latestAtStateData == null)
 			throw new IllegalStateException("No initial AT state data found");
 
 		// [Re]create AT machine state using AT state data or from scratch as applicable
-		MachineState state = MachineState.fromBytes(api, logger, atStateData.getStateData(), codeBytes);
+		MachineState state = MachineState.fromBytes(api, logger, latestAtStateData.getStateData(), codeBytes);
 		state.execute();
 
 		int height = this.repository.getBlockRepository().getBlockchainHeight() + 1;

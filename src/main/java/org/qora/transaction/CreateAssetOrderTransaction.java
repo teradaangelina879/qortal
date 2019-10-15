@@ -35,7 +35,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 	@Override
 	public List<Account> getRecipientAccounts() {
-		return new ArrayList<Account>();
+		return new ArrayList<>();
 	}
 
 	@Override

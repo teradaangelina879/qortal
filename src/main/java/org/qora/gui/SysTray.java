@@ -4,8 +4,6 @@ import java.awt.AWTError;
 import java.awt.AWTException;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
@@ -37,7 +35,7 @@ import org.qora.utils.URLViewer;
 
 public class SysTray {
 
-	protected static final Logger LOGGER = LogManager.getLogger(SplashFrame.class);
+	protected static final Logger LOGGER = LogManager.getLogger(SysTray.class);
 	private static final String NTP_SCRIPT = "ntpcfg.bat";
 
 	private static SysTray instance;
@@ -147,31 +145,25 @@ public class SysTray {
 		});
 
 		JMenuItem openUi = new JMenuItem(Translator.INSTANCE.translate("SysTray", "OPEN_NODE_UI"));
-		openUi.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				destroyHiddenDialog();
+		openUi.addActionListener(actionEvent -> {
+			destroyHiddenDialog();
 
-				try {
-					URLViewer.openWebpage(new URL("http://localhost:" + Settings.getInstance().getUiPort()));
-				} catch (Exception e1) {
-					LOGGER.error("Unable to open node UI in browser");
-				}
+			try {
+				URLViewer.openWebpage(new URL("http://localhost:" + Settings.getInstance().getUiPort()));
+			} catch (Exception e) {
+				LOGGER.error("Unable to open node UI in browser");
 			}
 		});
 		menu.add(openUi);
 
 		JMenuItem openTimeCheck = new JMenuItem(Translator.INSTANCE.translate("SysTray", "CHECK_TIME_ACCURACY"));
-		openTimeCheck.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				destroyHiddenDialog();
+		openTimeCheck.addActionListener(actionEvent -> {
+			destroyHiddenDialog();
 
-				try {
-					URLViewer.openWebpage(new URL("https://time.is"));
-				} catch (Exception e1) {
-					LOGGER.error("Unable to open time-check website in browser");
-				}
+			try {
+				URLViewer.openWebpage(new URL("https://time.is"));
+			} catch (Exception e) {
+				LOGGER.error("Unable to open time-check website in browser");
 			}
 		});
 		menu.add(openTimeCheck);
@@ -179,25 +171,19 @@ public class SysTray {
 		// Only for Windows users
 		if (System.getProperty("os.name").toLowerCase().contains("win")) {
 			JMenuItem syncTime = new JMenuItem(Translator.INSTANCE.translate("SysTray", "SYNCHRONIZE_CLOCK"));
-			syncTime.addActionListener(new ActionListener() {
-				@Override
-				public void actionPerformed(ActionEvent e) {
-					destroyHiddenDialog();
+			syncTime.addActionListener(actionEvent -> {
+				destroyHiddenDialog();
 
-					new SynchronizeWorker().execute();
-				}
+				new SynchronizeWorker().execute();
 			});
 			menu.add(syncTime);
 		}
 
 		JMenuItem exit = new JMenuItem(Translator.INSTANCE.translate("SysTray", "EXIT"));
-		exit.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent e) {
-				destroyHiddenDialog();
+		exit.addActionListener(actionEvent -> {
+			destroyHiddenDialog();
 
-				new ClosingWorker().execute();
-			}
+			new ClosingWorker().execute();
 		});
 		menu.add(exit);
 

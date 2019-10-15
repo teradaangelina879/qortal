@@ -2,6 +2,7 @@ package org.qora.block;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
@@ -204,7 +205,7 @@ public class BlockGenerator extends Thread {
 					ValidationResult validationResult = newBlock.isValid();
 					if (validationResult != ValidationResult.OK) {
 						// No longer valid? Report and discard
-						LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
+						LOGGER.error(String.format("Valid, generated block now invalid '%s' after adding unconfirmed transactions?", validationResult.name()));
 
 						// Rebuild block candidates, just to be sure
 						newBlocks.clear();
@@ -215,7 +216,7 @@ public class BlockGenerator extends Thread {
 					try {
 						newBlock.process();
 
-						LOGGER.info("Generated new block: " + newBlock.getBlockData().getHeight());
+						LOGGER.info(String.format("Generated new block: %d", newBlock.getBlockData().getHeight()));
 						repository.saveChanges();
 
 						ProxyForgerData proxyForgerData = repository.getAccountRepository().getProxyForgeData(newBlock.getBlockData().getGeneratorPublicKey());
@@ -292,24 +293,15 @@ public class BlockGenerator extends Thread {
 		// Grab all valid unconfirmed transactions (already sorted)
 		List<TransactionData> unconfirmedTransactions = Transaction.getUnconfirmedTransactions(repository);
 
-		for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
-			TransactionData transactionData = unconfirmedTransactions.get(i);
+		Iterator<TransactionData> unconfirmedTransactionsIterator = unconfirmedTransactions.iterator();
+		final long newBlockTimestamp = newBlock.getBlockData().getTimestamp();
+		while (unconfirmedTransactionsIterator.hasNext()) {
+			TransactionData transactionData = unconfirmedTransactionsIterator.next();
 
 			// Ignore transactions that have timestamp later than block's timestamp (not yet valid)
-			if (transactionData.getTimestamp() > newBlock.getBlockData().getTimestamp()) {
-				unconfirmedTransactions.remove(i);
-				--i;
-				continue;
-			}
-
-			Transaction transaction = Transaction.fromData(repository, transactionData);
-
 			// Ignore transactions that have expired before this block - they will be cleaned up later
-			if (transaction.getDeadline() <= newBlock.getBlockData().getTimestamp()) {
-				unconfirmedTransactions.remove(i);
-				--i;
-				continue;
-			}
+			if (transactionData.getTimestamp() > newBlockTimestamp || Transaction.getDeadline(transactionData) <= newBlockTimestamp)
+				unconfirmedTransactionsIterator.remove();
 		}
 
 		// Sign to create block's signature, needed by Block.isValid()
@@ -324,7 +316,7 @@ public class BlockGenerator extends Thread {
 			// If newBlock is no longer valid then we can't use transaction
 			ValidationResult validationResult = newBlock.isValid();
 			if (validationResult != ValidationResult.OK) {
-				LOGGER.debug("Skipping invalid transaction " + Base58.encode(transactionData.getSignature()) + " during block generation");
+				LOGGER.debug(() -> String.format("Skipping invalid transaction %s during block generation", Base58.encode(transactionData.getSignature())));
 				newBlock.deleteTransaction(transactionData);
 			}
 		}

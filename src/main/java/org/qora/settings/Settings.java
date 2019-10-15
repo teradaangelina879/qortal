@@ -94,8 +94,8 @@ public class Settings {
 
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
-		"https://github.com/catbref/qora-core/raw/%s/qora-core.jar",
-		"https://raw.githubusercontent.com@151.101.16.133/catbref/qora-core/%s/qora-core.jar"
+		"https://github.com/QORT/qortal/raw/%s/qora-core.jar",
+		"https://raw.githubusercontent.com@151.101.16.133/QORT/qortal/%s/qora-core.jar"
 	};
 
 	/** Array of NTP server hostnames. */
@@ -171,7 +171,7 @@ public class Settings {
 		String path = "";
 
 		do {
-			LOGGER.info("Using settings file: " + path + filename);
+			LOGGER.info(String.format("Using settings file: %s%s", path, filename));
 
 			// Create the StreamSource by creating Reader to the JSON input
 			try (Reader settingsReader = new FileReader(path + filename)) {

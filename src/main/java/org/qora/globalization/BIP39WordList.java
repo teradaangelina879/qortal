@@ -33,13 +33,13 @@ public enum BIP39WordList {
 
 			try (InputStream inputStream = loader.getResourceAsStream("BIP39/wordlist_" + lang + ".txt")) {
 				if (inputStream == null) {
-					LOGGER.warn("Can't locate '" + lang + "' BIP39 wordlist");
+					LOGGER.warn(String.format("Can't locate '%s' BIP39 wordlist", lang));
 					return null;
 				}
 
 				wordList = new BufferedReader(new InputStreamReader(inputStream)).lines().collect(Collectors.toList());
 			} catch (IOException e) {
-				LOGGER.warn("Error reading '" + lang + "' BIP39 wordlist", e);
+				LOGGER.warn(String.format("Error reading '%s' BIP39 wordlist", lang), e);
 				return null;
 			}
 

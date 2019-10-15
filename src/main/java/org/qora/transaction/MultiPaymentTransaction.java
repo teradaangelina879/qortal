@@ -35,7 +35,7 @@ public class MultiPaymentTransaction extends Transaction {
 
 	@Override
 	public List<Account> getRecipientAccounts() throws DataException {
-		List<Account> recipients = new ArrayList<Account>();
+		List<Account> recipients = new ArrayList<>();
 
 		for (PaymentData paymentData : multiPaymentTransactionData.getPayments())
 			recipients.add(new Account(this.repository, paymentData.getRecipient()));
@@ -95,7 +95,7 @@ public class MultiPaymentTransaction extends Transaction {
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check number of payments
-		if (payments.size() < 1 || payments.size() > MAX_PAYMENTS_COUNT)
+		if (payments.isEmpty() || payments.size() > MAX_PAYMENTS_COUNT)
 			return ValidationResult.INVALID_PAYMENTS_COUNT;
 
 		// Check reference is correct

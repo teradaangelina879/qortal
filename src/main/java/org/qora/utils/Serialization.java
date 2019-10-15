@@ -6,6 +6,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import org.qora.transform.TransformationException;
 import org.qora.transform.Transformer;
@@ -92,7 +93,7 @@ public class Serialization {
 	}
 
 	public static void serializeSizedString(ByteArrayOutputStream bytes, String string) throws UnsupportedEncodingException, IOException {
-		byte[] stringBytes = string.getBytes("UTF-8");
+		byte[] stringBytes = string.getBytes(StandardCharsets.UTF_8);
 		bytes.write(Ints.toByteArray(stringBytes.length));
 		bytes.write(stringBytes);
 	}
@@ -108,11 +109,7 @@ public class Serialization {
 		byte[] bytes = new byte[size];
 		byteBuffer.get(bytes);
 
-		try {
-			return new String(bytes, "UTF-8");
-		} catch (UnsupportedEncodingException e) {
-			throw new TransformationException("UTF-8 charset unsupported during string deserialization");
-		}
+		return new String(bytes, StandardCharsets.UTF_8);
 	}
 
 }

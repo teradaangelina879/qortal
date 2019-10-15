@@ -1,6 +1,5 @@
 package org.qora;
 
-import java.io.IOException;
 import java.security.Security;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -17,15 +16,15 @@ public class ProxyKeys {
 		System.exit(1);
 	}
 
-	public static void main(String argv[]) throws IOException {
-		if (argv.length != 2)
+	public static void main(String[] args) {
+		if (args.length != 2)
 			usage();
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
 
-		PrivateKeyAccount privateAccount = new PrivateKeyAccount(null, Base58.decode(argv[0]));
-		PublicKeyAccount publicAccount = new PublicKeyAccount(null, Base58.decode(argv[1]));
+		PrivateKeyAccount privateAccount = new PrivateKeyAccount(null, Base58.decode(args[0]));
+		PublicKeyAccount publicAccount = new PublicKeyAccount(null, Base58.decode(args[1]));
 
 		byte[] proxyPrivateKey = privateAccount.getProxyPrivateKey(publicAccount.getPublicKey());
 

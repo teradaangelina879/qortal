@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import org.qora.utils.Serialization;
 
@@ -44,7 +45,7 @@ public class VersionMessage extends Message {
 		byte[] versionBytes = new byte[versionStringLength];
 		bytes.get(versionBytes);
 
-		String versionString = new String(versionBytes, "UTF-8");
+		String versionString = new String(versionBytes, StandardCharsets.UTF_8);
 
 		return new VersionMessage(id, buildTimestamp, versionString);
 	}

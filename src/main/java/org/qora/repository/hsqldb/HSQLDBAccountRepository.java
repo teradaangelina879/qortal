@@ -321,7 +321,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 
 		// For no-address queries, or unless specifically requested, only return accounts with non-zero balance
-		if (addresses.isEmpty() || (excludeZero != null && excludeZero == true)) {
+		if (addresses.isEmpty() || (excludeZero != null && excludeZero)) {
 			sql.append(assetIds.isEmpty() ? " WHERE " : " AND ");
 			sql.append("balance != 0 ");
 		}

@@ -80,11 +80,9 @@ public class UpdateAssetTransactionTransformer extends TransactionTransformer {
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		UpdateAssetTransactionData updateAssetTransactionData = (UpdateAssetTransactionData) transactionData;
 
-		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH
+		return getBaseLength(transactionData) + EXTRAS_LENGTH
 				+ Utf8.encodedLength(updateAssetTransactionData.getNewDescription())
 				+ Utf8.encodedLength(updateAssetTransactionData.getNewData());
-
-		return dataLength;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {

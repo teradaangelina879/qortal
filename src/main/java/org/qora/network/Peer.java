@@ -256,7 +256,7 @@ public class Peer {
 		this.socketChannel.configureBlocking(false);
 		this.byteBuffer = ByteBuffer.allocate(Network.getInstance().getMaxMessageSize());
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
-		this.pendingMessages = new LinkedBlockingQueue<Message>();
+		this.pendingMessages = new LinkedBlockingQueue<>();
 	}
 
 	public SocketChannel connect() {
@@ -394,7 +394,7 @@ public class Peer {
 					if (bytesWritten == 0)
 						// Underlying socket's internal buffer probably full,
 						// so wait a short while for bytes to actually be transmitted over the wire
-						Thread.sleep(1L);
+						this.socketChannel.wait(1L);
 				}
 			}
 		} catch (MessageException e) {
@@ -424,7 +424,7 @@ public class Peer {
 	 * @throws InterruptedException
 	 */
 	public Message getResponse(Message message) throws InterruptedException {
-		BlockingQueue<Message> blockingQueue = new ArrayBlockingQueue<Message>(1);
+		BlockingQueue<Message> blockingQueue = new ArrayBlockingQueue<>(1);
 
 		// Assign random ID to this message
 		int id;
@@ -443,8 +443,7 @@ public class Peer {
 		}
 
 		try {
-			Message response = blockingQueue.poll(RESPONSE_TIMEOUT, TimeUnit.MILLISECONDS);
-			return response;
+			return blockingQueue.poll(RESPONSE_TIMEOUT, TimeUnit.MILLISECONDS);
 		} finally {
 			this.replyQueues.remove(id);
 		}

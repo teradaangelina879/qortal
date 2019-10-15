@@ -36,7 +36,7 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 				if (optionsResultSet == null)
 					return null;
 
-				List<PollOptionData> pollOptions = new ArrayList<PollOptionData>();
+				List<PollOptionData> pollOptions = new ArrayList<>();
 
 				// NOTE: do-while because checkedExecute() above has already called rs.next() for us
 				do {

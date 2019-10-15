@@ -142,9 +142,9 @@ public class Account {
 		byte[] reference = null;
 
 		for (TransactionData transactionData : unconfirmedTransactions) {
-			String address = PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey());
+			String unconfirmedTransactionAddress = PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey());
 
-			if (address.equals(this.address))
+			if (unconfirmedTransactionAddress.equals(this.address))
 				reference = transactionData.getSignature();
 		}
 

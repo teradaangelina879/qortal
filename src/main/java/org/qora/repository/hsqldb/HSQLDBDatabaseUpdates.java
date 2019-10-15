@@ -29,8 +29,10 @@ public class HSQLDBDatabaseUpdates {
 	 * @throws SQLException
 	 */
 	private static void incrementDatabaseVersion(Connection connection) throws SQLException {
-		connection.createStatement().execute("UPDATE DatabaseInfo SET version = version + 1");
-		connection.commit();
+		try (Statement stmt = connection.createStatement()) {
+			stmt.execute("UPDATE DatabaseInfo SET version = version + 1");
+			connection.commit();
+		}
 	}
 
 	/**

@@ -40,7 +40,7 @@ public class BIP39 {
 				bitShift = 0 - bitShift;
 				entropy[byteIndex++] |= (byte) (wordListIndex >> bitShift);
 
-				entropy[byteIndex] |= (byte) ((wordListIndex << (8 - bitShift)));
+				entropy[byteIndex] |= (byte) (wordListIndex << (8 - bitShift));
 				bitShift = bitShift + BITS_PER_WORD - 8;
 			}
 		}

@@ -196,12 +196,9 @@ public class BTC {
 		peerGroup.start();
 	}
 
-	public static BTC getInstance() {
+	public static synchronized BTC getInstance() {
 		if (instance == null)
-			synchronized (instanceLock) {
-				if (instance == null)
-					instance = new BTC();
-			}
+			instance = new BTC();
 
 		return instance;
 	}

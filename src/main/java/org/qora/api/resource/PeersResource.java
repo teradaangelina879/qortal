@@ -56,7 +56,7 @@ public class PeersResource {
 		}
 	)
 	public List<ConnectedPeer> getPeers() {
-		return Network.getInstance().getConnectedPeers().stream().map(peer -> new ConnectedPeer(peer)).collect(Collectors.toList());
+		return Network.getInstance().getConnectedPeers().stream().map(ConnectedPeer::new).collect(Collectors.toList());
 	}
 
 	@GET

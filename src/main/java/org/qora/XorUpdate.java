@@ -13,7 +13,7 @@ public class XorUpdate {
 
 	private static final byte XOR_VALUE = AutoUpdate.XOR_VALUE;
 
-	public static void main(String args[]) {
+	public static void main(String[] args) {
 		if (args.length != 2) {
 			System.err.println("usage: XorUpdate <input-file> <output-file>");
 			System.exit(1);

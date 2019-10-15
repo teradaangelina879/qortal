@@ -282,7 +282,7 @@ public class AssetsResource {
 			List<OrderData> orders = repository.getAssetRepository().getAggregatedOpenOrders(assetId, otherAssetId, limit, offset, reverse);
 
 			// Map to aggregated form
-			return orders.stream().map(orderData -> new AggregatedOrder(orderData)).collect(Collectors.toList());
+			return orders.stream().map(AggregatedOrder::new).collect(Collectors.toList());
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

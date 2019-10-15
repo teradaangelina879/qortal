@@ -52,7 +52,7 @@ public class QoraATAPI extends API {
 	public QoraATAPI(Repository repository, ATData atData, long blockTimestamp) {
 		this.repository = repository;
 		this.atData = atData;
-		this.transactions = new ArrayList<AtTransaction>();
+		this.transactions = new ArrayList<>();
 		this.blockTimestamp = blockTimestamp;
 	}
 

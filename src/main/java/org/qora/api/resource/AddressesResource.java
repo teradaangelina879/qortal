@@ -30,7 +30,6 @@ import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.ApiOnlineAccount;
 import org.qora.api.model.ProxyKeyRequest;
-import org.qora.api.resource.TransactionsResource;
 import org.qora.asset.Asset;
 import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;

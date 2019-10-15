@@ -73,7 +73,7 @@ public class NamesResource {
 			List<NameData> names = repository.getNameRepository().getAllNames(limit, offset, reverse);
 
 			// Convert to summary
-			return names.stream().map(nameData -> new NameSummary(nameData)).collect(Collectors.toList());
+			return names.stream().map(NameSummary::new).collect(Collectors.toList());
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -102,7 +102,7 @@ public class NamesResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<NameData> names = repository.getNameRepository().getNamesByOwner(address, limit, offset, reverse);
 
-			return names.stream().map(nameData -> new NameSummary(nameData)).collect(Collectors.toList());
+			return names.stream().map(NameSummary::new).collect(Collectors.toList());
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

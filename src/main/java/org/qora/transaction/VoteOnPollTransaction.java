@@ -41,7 +41,7 @@ public class VoteOnPollTransaction extends Transaction {
 
 	@Override
 	public List<Account> getRecipientAccounts() {
-		return new ArrayList<Account>();
+		return new ArrayList<>();
 	}
 
 	@Override
@@ -151,15 +151,13 @@ public class VoteOnPollTransaction extends Transaction {
 		Integer previousOptionIndex = voteOnPollTransactionData.getPreviousOptionIndex();
 		if (previousOptionIndex != null) {
 			// Reinstate previous vote
-			LOGGER.trace("Reinstating previous vote by " + voter.getAddress() + " on poll \"" + voteOnPollTransactionData.getPollName()
-					+ "\" with option index " + previousOptionIndex);
+			LOGGER.trace(() -> String.format("Reinstating previous vote by %s on poll \"%s\" with option index %d", voter.getAddress(), voteOnPollTransactionData.getPollName(), previousOptionIndex));
 			VoteOnPollData previousVoteOnPollData = new VoteOnPollData(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey(),
 					previousOptionIndex);
 			votingRepository.save(previousVoteOnPollData);
 		} else {
 			// Delete vote
-			LOGGER.trace("Deleting vote by " + voter.getAddress() + " on poll \"" + voteOnPollTransactionData.getPollName() + "\" with option index "
-					+ voteOnPollTransactionData.getOptionIndex());
+			LOGGER.trace(() -> String.format("Deleting vote by %s on poll \"%s\" with option index %d", voter.getAddress(), voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getOptionIndex()));
 			votingRepository.delete(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey());
 		}
 

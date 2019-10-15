@@ -73,7 +73,7 @@ public abstract class Message {
 		ONLINE_ACCOUNTS(26);
 
 		public final int value;
-		public final Method fromByteBuffer;
+		public final Method fromByteBufferMethod;
 
 		private static final Map<Integer, MessageType> map = stream(MessageType.values())
 				.collect(toMap(messageType -> messageType.value, messageType -> messageType));
@@ -88,16 +88,16 @@ public abstract class Message {
 
 			String className = String.join("", classNameParts);
 
-			Method fromByteBuffer;
+			Method method;
 			try {
 				Class<?> subclass = Class.forName(String.join("", Message.class.getPackage().getName(), ".", className, "Message"));
 
-				fromByteBuffer = subclass.getDeclaredMethod("fromByteBuffer", int.class, ByteBuffer.class);
+				method = subclass.getDeclaredMethod("fromByteBuffer", int.class, ByteBuffer.class);
 			} catch (ClassNotFoundException | NoSuchMethodException | SecurityException e) {
-				fromByteBuffer = null;
+				method = null;
 			}
 
-			this.fromByteBuffer = fromByteBuffer;
+			this.fromByteBufferMethod = method;
 		}
 
 		public static MessageType valueOf(int value) {
@@ -105,11 +105,11 @@ public abstract class Message {
 		}
 
 		public Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
-			if (this.fromByteBuffer == null)
+			if (this.fromByteBufferMethod == null)
 				throw new MessageException("Unsupported message type [" + value + "] during conversion from bytes");
 
 			try {
-				return (Message) this.fromByteBuffer.invoke(null, id, byteBuffer);
+				return (Message) this.fromByteBufferMethod.invoke(null, id, byteBuffer);
 			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 				if (e.getCause() instanceof BufferUnderflowException)
 					throw new MessageException("Byte data too short for " + name() + " message");
