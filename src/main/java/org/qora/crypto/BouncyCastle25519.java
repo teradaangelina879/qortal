@@ -14,25 +14,25 @@ import org.bouncycastle.math.ec.rfc8032.Ed25519;
 /** Additions to BouncyCastle providing Ed25519 to X25519 key conversion. */
 public class BouncyCastle25519 {
 
-	private static final Class<?> pointExtClass;
-	private static final Constructor<?> pointExtCtor;
+	private static final Class<?> pointAffineClass;
+	private static final Constructor<?> pointAffineCtor;
 	private static final Method decodePointVarMethod;
 	private static final Field yField;
 
 	static {
 		try {
 			Class<?> ed25519Class = Ed25519.class;
-			pointExtClass = Arrays.stream(ed25519Class.getDeclaredClasses()).filter(clazz -> clazz.getSimpleName().equals("PointExt")).findFirst().get();
-			if (pointExtClass == null)
+			pointAffineClass = Arrays.stream(ed25519Class.getDeclaredClasses()).filter(clazz -> clazz.getSimpleName().equals("PointAffine")).findFirst().get();
+			if (pointAffineClass == null)
 				throw new ClassNotFoundException("Can't locate PointExt inner class inside Ed25519");
 
-			decodePointVarMethod = ed25519Class.getDeclaredMethod("decodePointVar", byte[].class, int.class, boolean.class, pointExtClass);
+			decodePointVarMethod = ed25519Class.getDeclaredMethod("decodePointVar", byte[].class, int.class, boolean.class, pointAffineClass);
 			decodePointVarMethod.setAccessible(true);
 
-			pointExtCtor = pointExtClass.getDeclaredConstructors()[0];
-			pointExtCtor.setAccessible(true);
+			pointAffineCtor = pointAffineClass.getDeclaredConstructors()[0];
+			pointAffineCtor.setAccessible(true);
 
-			yField = pointExtClass.getDeclaredField("y");
+			yField = pointAffineClass.getDeclaredField("y");
 			yField.setAccessible(true);
 		} catch (NoSuchMethodException | SecurityException | IllegalArgumentException | NoSuchFieldException | ClassNotFoundException e) {
 			throw new RuntimeException("Can't initialize BouncyCastle25519 shim", e);
@@ -41,7 +41,7 @@ public class BouncyCastle25519 {
 
 	private static int[] obtainYFromPublicKey(byte[] ed25519PublicKey) {
 		try {
-			Object pA = pointExtCtor.newInstance();
+			Object pA = pointAffineCtor.newInstance();
 
 			Boolean result = (Boolean) decodePointVarMethod.invoke(null, ed25519PublicKey, 0, true, pA);
 			if (result == null || !result)
