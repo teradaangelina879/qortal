@@ -5,7 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.asset.Asset;
-import org.qora.block.BlockGenerator;
+import org.qora.block.BlockMinter;
 import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
@@ -69,7 +69,7 @@ public class GroupApprovalTests extends Common {
 			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
 
 			Transaction transaction = buildIssueAssetTransaction(repository, "alice", groupId);
-			TransactionUtils.signAndForge(repository, transaction.getTransactionData(), aliceAccount);
+			TransactionUtils.signAndMint(repository, transaction.getTransactionData(), aliceAccount);
 
 			// Confirm transaction doesn't need approval
 			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, transaction.getTransactionData().getSignature());
@@ -95,7 +95,7 @@ public class GroupApprovalTests extends Common {
 
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
-			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+			TransactionUtils.signAndMint(repository, bobAssetTransaction.getTransactionData(), bobAccount);
 
 			// Confirm transaction needs approval, and hasn't been approved
 			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -115,7 +115,7 @@ public class GroupApprovalTests extends Common {
 
 			// Have Bob do a non-approval transaction to change his last-reference
 			Transaction bobPaymentTransaction = buildPaymentTransaction(repository, "bob", "chloe", amount, Group.NO_GROUP);
-			TransactionUtils.signAndForge(repository, bobPaymentTransaction.getTransactionData(), bobAccount);
+			TransactionUtils.signAndMint(repository, bobPaymentTransaction.getTransactionData(), bobAccount);
 
 			byte[] bobPostPaymentReference = bobAccount.getLastReference();
 			assertFalse("reference should have changed", Arrays.equals(bobPostAssetReference, bobPostPaymentReference));
@@ -125,7 +125,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
-				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+				BlockMinter.mintTestingBlock(repository, aliceAccount);
 
 			// Confirm transaction now approved
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -184,7 +184,7 @@ public class GroupApprovalTests extends Common {
 
 			// Bob's issue-asset transaction needs group-approval
 			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
-			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+			TransactionUtils.signAndMint(repository, bobAssetTransaction.getTransactionData(), bobAccount);
 
 			// Confirm transaction needs approval, and hasn't been approved
 			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -199,7 +199,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
-				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+				BlockMinter.mintTestingBlock(repository, aliceAccount);
 
 			// Confirm transaction now approved
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -246,7 +246,7 @@ public class GroupApprovalTests extends Common {
 
 			// Bob's issue-asset transaction needs group-approval
 			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
-			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+			TransactionUtils.signAndMint(repository, bobAssetTransaction.getTransactionData(), bobAccount);
 
 			// Confirm transaction needs approval, and hasn't been approved
 			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -261,7 +261,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
-				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+				BlockMinter.mintTestingBlock(repository, aliceAccount);
 
 			// Confirm transaction now rejected
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -308,7 +308,7 @@ public class GroupApprovalTests extends Common {
 
 			// Bob's issue-asset transaction needs group-approval
 			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
-			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+			TransactionUtils.signAndMint(repository, bobAssetTransaction.getTransactionData(), bobAccount);
 
 			// Confirm transaction needs approval, and hasn't been approved
 			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -320,7 +320,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so group-approval for transaction expires
 			for (int blockCount = 0; blockCount <= maxBlockDelay; ++blockCount)
-				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+				BlockMinter.mintTestingBlock(repository, aliceAccount);
 
 			// Confirm transaction now expired
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -356,7 +356,7 @@ public class GroupApprovalTests extends Common {
 
 			// Bob's issue-asset transaction needs group-approval
 			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
-			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+			TransactionUtils.signAndMint(repository, bobAssetTransaction.getTransactionData(), bobAccount);
 
 			// Confirm transaction needs approval, and hasn't been approved
 			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -372,7 +372,7 @@ public class GroupApprovalTests extends Common {
 			// But wait! Alice issues an asset with the same name before Bob's asset is issued!
 			// This transaction will be auto-approved as Alice is the group owner (and admin)
 			Transaction aliceAssetTransaction = buildIssueAssetTransaction(repository, "alice", groupId);
-			TransactionUtils.signAndForge(repository, aliceAssetTransaction.getTransactionData(), aliceAccount);
+			TransactionUtils.signAndMint(repository, aliceAssetTransaction.getTransactionData(), aliceAccount);
 
 			// Confirm Alice's transaction auto-approved
 			approvalStatus = GroupUtils.getApprovalStatus(repository, aliceAssetTransaction.getTransactionData().getSignature());
@@ -380,7 +380,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
-				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+				BlockMinter.mintTestingBlock(repository, aliceAccount);
 
 			// Confirm Bob's transaction now invalid
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());

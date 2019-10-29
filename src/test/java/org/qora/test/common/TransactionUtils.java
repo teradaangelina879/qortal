@@ -7,7 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import org.qora.account.PrivateKeyAccount;
-import org.qora.block.BlockGenerator;
+import org.qora.block.BlockMinter;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -37,12 +37,12 @@ public class TransactionUtils {
 	}
 
 	/** Signs transaction using given account and forges a new block, using "alice" account. */
-	public static void signAndForge(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
+	public static void signAndMint(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
 		signAsUnconfirmed(repository, transactionData, signingAccount);
 
 		// Generate block
-		PrivateKeyAccount generatorAccount = Common.getTestAccount(repository, "alice");
-		BlockGenerator.generateTestingBlock(repository, generatorAccount);
+		PrivateKeyAccount minterAccount = Common.getTestAccount(repository, "alice-reward-share");
+		BlockMinter.mintTestingBlock(repository, minterAccount);
 	}
 
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, TransactionType txType, boolean wantValid) throws DataException {

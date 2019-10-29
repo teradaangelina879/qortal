@@ -95,6 +95,12 @@ public class AccountLevelTransaction extends Transaction {
 	}
 
 	@Override
+	public void processReferencesAndFees() throws DataException {
+		// Set account's reference
+		getTarget().setLastReference(this.accountLevelTransactionData.getSignature());
+	}
+
+	@Override
 	public void orphan() throws DataException {
 		// Revert
 		Account target = getTarget();

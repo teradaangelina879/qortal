@@ -1,5 +1,7 @@
 package org.qora.test;
 
+import java.awt.TrayIcon.MessageType;
+
 import org.junit.Test;
 import org.qora.gui.SplashFrame;
 import org.qora.gui.SysTray;
@@ -19,7 +21,11 @@ public class GuiTests {
 	public void testSysTray() throws InterruptedException {
 		SysTray.getInstance();
 
+		SysTray.getInstance().showMessage("Testing...", "Tray icon should disappear in 10 seconds", MessageType.INFO);
+
 		Thread.sleep(10_000L);
+
+		SysTray.getInstance().dispose();
 	}
 
 }

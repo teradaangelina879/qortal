@@ -31,8 +31,6 @@ import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
 import org.bitcoinj.wallet.WalletTransaction.Pool;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.junit.BeforeClass;
-import org.junit.Test;
 
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
@@ -76,13 +74,9 @@ public class BTCACCTTests {
 
 	private static final boolean doRefundNotRedeem = false;
 
-	@BeforeClass
-	public static void beforeClass() {
+	public void main(String[] args) throws NoSuchAlgorithmException, InsufficientMoneyException, InterruptedException, ExecutionException, UnknownHostException {
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
-	}
 
-	@Test
-	public void buildBTCACCTTest() throws NoSuchAlgorithmException, InsufficientMoneyException, InterruptedException, ExecutionException, UnknownHostException {
 		byte[] secret = new byte[32];
 		new SecureRandom().nextBytes(secret);
 

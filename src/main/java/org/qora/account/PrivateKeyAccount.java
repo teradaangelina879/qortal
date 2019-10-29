@@ -44,6 +44,10 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 		return this.privateKey;
 	}
 
+	public static byte[] toPublicKey(byte[] seed) {
+		return new Ed25519PrivateKeyParameters(seed, 0).generatePublicKey().getEncoded();
+	}
+
 	public byte[] sign(byte[] message) {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 
@@ -65,7 +69,7 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 		return sharedSecret;
 	}
 
-	public byte[] getProxyPrivateKey(byte[] publicKey) {
+	public byte[] getRewardSharePrivateKey(byte[] publicKey) {
 		byte[] sharedSecret = this.getSharedSecret(publicKey);
 
 		return Crypto.digest(sharedSecret);

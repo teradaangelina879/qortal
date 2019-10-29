@@ -7,7 +7,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.Block;
-import org.qora.block.BlockGenerator;
+import org.qora.block.BlockMinter;
 import org.qora.block.GenesisBlock;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
@@ -69,7 +69,7 @@ public class BlockTests extends Common {
 
 			assertEquals(Transaction.TransactionType.GENESIS, transactionData.getType());
 			assertTrue(transactionData.getFee().compareTo(BigDecimal.ZERO) == 0);
-			assertNull(transactionData.getReference());
+			// assertNull(transactionData.getReference());
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			assertNotNull(transaction);
@@ -106,7 +106,7 @@ public class BlockTests extends Common {
 			} catch (InterruptedException e) {
 			}
 
-			BlockGenerator.generateTestingBlock(repository, signingAccount);
+			BlockMinter.mintTestingBlock(repository, signingAccount);
 
 			BlockData blockData = repository.getBlockRepository().getLastBlock();
 			Block block = new Block(repository, blockData);

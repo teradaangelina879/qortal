@@ -12,7 +12,7 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockChain.RewardByHeight;
-import org.qora.block.BlockGenerator;
+import org.qora.block.BlockMinter;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -41,7 +41,7 @@ public class RewardTests extends Common {
 
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 
-			BlockGenerator.generateTestingBlock(repository, forgingAccount);
+			BlockMinter.mintTestingBlock(repository, forgingAccount);
 
 			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORT).add(blockReward);
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, expectedBalance);
@@ -68,7 +68,7 @@ public class RewardTests extends Common {
 					rewardInfo = rewards.get(rewardIndex);
 				}
 
-				BlockGenerator.generateTestingBlock(repository, forgingAccount);
+				BlockMinter.mintTestingBlock(repository, forgingAccount);
 				expectedBalance = expectedBalance.add(rewardInfo.reward);
 			}
 
@@ -81,12 +81,12 @@ public class RewardTests extends Common {
 		final BigDecimal share = new BigDecimal("12.8");
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			byte[] proxyPrivateKey = AccountUtils.proxyForging(repository, "alice", "bob", share);
+			byte[] proxyPrivateKey = AccountUtils.rewardShare(repository, "alice", "bob", share);
 			PrivateKeyAccount proxyAccount = new PrivateKeyAccount(repository, proxyPrivateKey);
 
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
-			BlockGenerator.generateTestingBlock(repository, proxyAccount);
+			BlockMinter.mintTestingBlock(repository, proxyAccount);
 
 			// We're expecting reward * 12.8% to Bob, the rest to Alice
 

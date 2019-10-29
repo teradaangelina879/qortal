@@ -75,7 +75,7 @@ public class Settings {
 	private boolean isTestNet = false;
 	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
-	/** Minimum number of peers to allow block generation / synchronization. */
+	/** Minimum number of peers to allow block minting / synchronization. */
 	private int minBlockchainPeers = 5;
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 20;

@@ -16,19 +16,19 @@ public class HeightV2Message extends Message {
 	private int height;
 	private byte[] signature;
 	private long timestamp;
-	private byte[] generator;
+	private byte[] minterPublicKey;
 
-	public HeightV2Message(int height, byte[] signature, long timestamp, byte[] generator) {
-		this(-1, height, signature, timestamp, generator);
+	public HeightV2Message(int height, byte[] signature, long timestamp, byte[] minterPublicKey) {
+		this(-1, height, signature, timestamp, minterPublicKey);
 	}
 
-	private HeightV2Message(int id, int height, byte[] signature, long timestamp, byte[] generator) {
+	private HeightV2Message(int id, int height, byte[] signature, long timestamp, byte[] minterPublicKey) {
 		super(id, MessageType.HEIGHT_V2);
 
 		this.height = height;
 		this.signature = signature;
 		this.timestamp = timestamp;
-		this.generator = generator;
+		this.minterPublicKey = minterPublicKey;
 	}
 
 	public int getHeight() {
@@ -43,8 +43,8 @@ public class HeightV2Message extends Message {
 		return this.timestamp;
 	}
 
-	public byte[] getGenerator() {
-		return this.generator;
+	public byte[] getMinterPublicKey() {
+		return this.minterPublicKey;
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
@@ -55,10 +55,10 @@ public class HeightV2Message extends Message {
 
 		long timestamp = bytes.getLong();
 
-		byte[] generator = new byte[Transformer.PUBLIC_KEY_LENGTH];
-		bytes.get(generator);
+		byte[] minterPublicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+		bytes.get(minterPublicKey);
 
-		return new HeightV2Message(id, height, signature, timestamp, generator);
+		return new HeightV2Message(id, height, signature, timestamp, minterPublicKey);
 	}
 
 	@Override
@@ -72,7 +72,7 @@ public class HeightV2Message extends Message {
 
 			bytes.write(Longs.toByteArray(this.timestamp));
 
-			bytes.write(this.generator);
+			bytes.write(this.minterPublicKey);
 
 			return bytes.toByteArray();
 		} catch (IOException e) {

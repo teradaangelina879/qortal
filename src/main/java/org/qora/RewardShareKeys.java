@@ -8,11 +8,11 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.utils.Base58;
 
-public class ProxyKeys {
+public class RewardShareKeys {
 
 	private static void usage() {
-		System.err.println("Usage: ProxyKeys <private-key> <public-key>");
-		System.err.println("Example: ProxyKeys pYQ6DpQBJ2n72TCLJLScEvwhf3boxWy2kQEPynakwpj 6rNn9b3pYRrG9UKqzMWYZ9qa8F3Zgv2mVWrULGHUusb");
+		System.err.println("Usage: RewardShareKeys <private-key> <public-key>");
+		System.err.println("Example: RewardShareKeys pYQ6DpQBJ2n72TCLJLScEvwhf3boxWy2kQEPynakwpj 6rNn9b3pYRrG9UKqzMWYZ9qa8F3Zgv2mVWrULGHUusb");
 		System.exit(1);
 	}
 
@@ -26,15 +26,14 @@ public class ProxyKeys {
 		PrivateKeyAccount privateAccount = new PrivateKeyAccount(null, Base58.decode(args[0]));
 		PublicKeyAccount publicAccount = new PublicKeyAccount(null, Base58.decode(args[1]));
 
-		byte[] proxyPrivateKey = privateAccount.getProxyPrivateKey(publicAccount.getPublicKey());
-
-		PrivateKeyAccount proxyAccount = new PrivateKeyAccount(null, proxyPrivateKey);
+		byte[] rewardSharePrivateKey = privateAccount.getRewardSharePrivateKey(publicAccount.getPublicKey());
+		byte[] rewardSharePublicKey = PrivateKeyAccount.toPublicKey(rewardSharePrivateKey);
 
 		System.out.println(String.format("Private key account: %s", privateAccount.getAddress()));
 		System.out.println(String.format("Public key account: %s", publicAccount.getAddress()));
 
-		System.out.println(String.format("Proxy private key: %s", Base58.encode(proxyAccount.getPrivateKey())));
-		System.out.println(String.format("Proxy public key: %s", Base58.encode(proxyAccount.getPublicKey())));
+		System.out.println(String.format("Reward-share private key: %s", Base58.encode(rewardSharePrivateKey)));
+		System.out.println(String.format("Reward-share public key: %s", Base58.encode(rewardSharePublicKey)));
 	}
 
 }

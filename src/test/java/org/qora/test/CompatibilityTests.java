@@ -2,17 +2,28 @@ package org.qora.test;
 
 import org.junit.Test;
 import org.qora.data.transaction.TransactionData;
+import org.qora.repository.DataException;
+import org.qora.test.common.Common;
 import org.qora.transaction.CreateAssetOrderTransaction;
 import org.qora.transaction.CreatePollTransaction;
 import org.qora.transaction.IssueAssetTransaction;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
+import org.qora.utils.NTP;
 
 import static org.junit.Assert.*;
 
+import org.junit.Before;
+
 import com.google.common.hash.HashCode;
 
-public class CompatibilityTests {
+public class CompatibilityTests extends Common {
+
+	@Before
+	public void beforeTest() throws DataException {
+		Common.useSettings("test-settings-v1.json");
+		NTP.testMode();
+	}
 
 	@Test
 	public void testCreateOrderTransactionSignature() throws TransformationException {

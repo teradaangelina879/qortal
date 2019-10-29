@@ -10,6 +10,7 @@ import org.qora.repository.RepositoryManager;
 import org.qora.test.common.AccountUtils;
 import org.qora.test.common.AssetUtils;
 import org.qora.test.common.Common;
+import org.qora.utils.NTP;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -19,6 +20,7 @@ public class OldTradingTests extends Common {
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useSettings("test-settings-old-asset.json");
+		NTP.testMode();
 	}
 
 	@After

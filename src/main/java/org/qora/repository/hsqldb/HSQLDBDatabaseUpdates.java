@@ -810,6 +810,37 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("DROP TABLE EnableForgingTransactions");
 					break;
 
+				case 58:
+					// Refactoring to unify/clarify block forging/generation/proxy-forging to simply "minting"
+					// Account-related
+					stmt.execute("ALTER TABLE Accounts ALTER COLUMN blocks_generated RENAME TO blocks_minted");
+					// "proxy-forging" is now "reward-share"
+					stmt.execute("ALTER TABLE ProxyForgers ALTER COLUMN proxy_public_key RENAME TO reward_share_public_key");
+					stmt.execute("ALTER TABLE ProxyForgers ALTER COLUMN forger RENAME TO minter_public_key");
+					stmt.execute("ALTER TABLE ProxyForgers ALTER COLUMN share RENAME TO share_percent");
+					stmt.execute("ALTER TABLE ProxyForgers RENAME TO RewardShares");
+					stmt.execute("CREATE INDEX RewardSharePublicKeyIndex ON RewardShares (reward_share_public_key)");
+					stmt.execute("DROP INDEX ProxyForgersProxyPublicKeyIndex");
+					// Reward-share transactions
+					stmt.execute("ALTER TABLE ProxyForgingTransactions ALTER COLUMN forger RENAME TO minter_public_key");
+					stmt.execute("ALTER TABLE ProxyForgingTransactions ALTER COLUMN proxy_public_key RENAME TO reward_share_public_key");
+					stmt.execute("ALTER TABLE ProxyForgingTransactions ALTER COLUMN share RENAME TO share_percent");
+					stmt.execute("ALTER TABLE ProxyForgingTransactions ALTER COLUMN previous_share RENAME TO previous_share_percent");
+					stmt.execute("ALTER TABLE ProxyForgingTransactions RENAME TO RewardShareTransactions");
+					// Accounts used by BlockMinter
+					stmt.execute("ALTER TABLE ForgingAccounts ALTER COLUMN forger_seed RENAME TO minter_private_key");
+					stmt.execute("ALTER TABLE ForgingAccounts RENAME TO MintingAccounts");
+					// Blocks
+					stmt.execute("ALTER TABLE Blocks ALTER COLUMN generation RENAME TO minted");
+					stmt.execute("ALTER TABLE Blocks ALTER COLUMN generator RENAME TO minter");
+					stmt.execute("ALTER TABLE Blocks ALTER COLUMN generator_signature RENAME TO minter_signature");
+					// Block-indexes
+					stmt.execute("CREATE INDEX BlockMinterIndex ON Blocks (minter)");
+					stmt.execute("DROP INDEX BlockGeneratorIndex");
+					stmt.execute("CREATE INDEX BlockMintedHeightIndex ON Blocks (minted, height)");
+					stmt.execute("DROP INDEX BlockGenerationHeightIndex");
+					break;
+
 				default:
 					// nothing to do
 					return false;

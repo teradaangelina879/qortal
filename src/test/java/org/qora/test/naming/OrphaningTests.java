@@ -9,7 +9,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
-import org.qora.block.BlockGenerator;
+import org.qora.block.BlockMinter;
 import org.qora.data.naming.NameData;
 import org.qora.data.transaction.BuyNameTransactionData;
 import org.qora.data.transaction.RegisterNameTransactionData;
@@ -60,7 +60,7 @@ public class OrphaningTests extends Common {
 	public void testRegisterName() throws DataException {
 		// Register-name
 		RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), alice.getAddress(), name, "{}");
-		TransactionUtils.signAndForge(repository, transactionData, alice);
+		TransactionUtils.signAndMint(repository, transactionData, alice);
 
 		String name = transactionData.getName();
 
@@ -74,7 +74,7 @@ public class OrphaningTests extends Common {
 		assertFalse(repository.getNameRepository().nameExists(name));
 
 		// Re-process register-name
-		BlockGenerator.generateTestingBlock(repository, alice);
+		BlockMinter.mintTestingBlock(repository, alice);
 
 		// Check name does exist
 		assertTrue(repository.getNameRepository().nameExists(name));
@@ -87,7 +87,7 @@ public class OrphaningTests extends Common {
 
 		// Sell-name
 		SellNameTransactionData transactionData = new SellNameTransactionData(TestTransaction.generateBase(alice), name, price);
-		TransactionUtils.signAndForge(repository, transactionData, alice);
+		TransactionUtils.signAndMint(repository, transactionData, alice);
 
 		NameData nameData;
 
@@ -105,7 +105,7 @@ public class OrphaningTests extends Common {
 		// Not concerned about price
 
 		// Re-process sell-name
-		BlockGenerator.generateTestingBlock(repository, alice);
+		BlockMinter.mintTestingBlock(repository, alice);
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
@@ -121,10 +121,10 @@ public class OrphaningTests extends Common {
 		assertNull(nameData);
 
 		// Re-process register-name and sell-name
-		BlockGenerator.generateTestingBlock(repository, alice);
+		BlockMinter.mintTestingBlock(repository, alice);
 		// Unconfirmed sell-name transaction not included in previous block
 		// as it isn't valid until name exists thanks to register-name transaction.
-		BlockGenerator.generateTestingBlock(repository, alice);
+		BlockMinter.mintTestingBlock(repository, alice);
 
 		// Check name does exist
 		assertTrue(repository.getNameRepository().nameExists(name));
@@ -144,7 +144,7 @@ public class OrphaningTests extends Common {
 
 		// Buy-name
 		BuyNameTransactionData transactionData = new BuyNameTransactionData(TestTransaction.generateBase(bob), name, price, seller);
-		TransactionUtils.signAndForge(repository, transactionData, bob);
+		TransactionUtils.signAndMint(repository, transactionData, bob);
 
 		NameData nameData;
 
@@ -162,7 +162,7 @@ public class OrphaningTests extends Common {
 		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
 
 		// Re-process buy-name
-		BlockGenerator.generateTestingBlock(repository, alice);
+		BlockMinter.mintTestingBlock(repository, alice);
 
 		// Check name is sold
 		nameData = repository.getNameRepository().fromName(name);
@@ -180,10 +180,10 @@ public class OrphaningTests extends Common {
 		assertEquals(alice.getAddress(), nameData.getOwner());
 
 		// Re-process sell-name and buy-name
-		BlockGenerator.generateTestingBlock(repository, alice);
+		BlockMinter.mintTestingBlock(repository, alice);
 		// Unconfirmed buy-name transaction not included in previous block
 		// as it isn't valid until name is for sale thanks to sell-name transaction.
-		BlockGenerator.generateTestingBlock(repository, alice);
+		BlockMinter.mintTestingBlock(repository, alice);
 
 		// Check name is sold
 		nameData = repository.getNameRepository().fromName(name);
@@ -200,7 +200,7 @@ public class OrphaningTests extends Common {
 		// Sell-name
 		BigDecimal newPrice = new BigDecimal(random.nextInt(1000)).setScale(8);
 		SellNameTransactionData transactionData = new SellNameTransactionData(TestTransaction.generateBase(bob), name, newPrice);
-		TransactionUtils.signAndForge(repository, transactionData, bob);
+		TransactionUtils.signAndMint(repository, transactionData, bob);
 
 		NameData nameData;
 
@@ -218,7 +218,7 @@ public class OrphaningTests extends Common {
 		// Not concerned about price
 
 		// Re-process sell-name
-		BlockGenerator.generateTestingBlock(repository, alice);
+		BlockMinter.mintTestingBlock(repository, alice);
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
@@ -236,10 +236,10 @@ public class OrphaningTests extends Common {
 		assertEquals(alice.getAddress(), nameData.getOwner());
 
 		// Re-process buy-name and sell-name
-		BlockGenerator.generateTestingBlock(repository, bob);
+		BlockMinter.mintTestingBlock(repository, bob);
 		// Unconfirmed sell-name transaction not included in previous block
 		// as it isn't valid until name owned by bob thanks to buy-name transaction.
-		BlockGenerator.generateTestingBlock(repository, bob);
+		BlockMinter.mintTestingBlock(repository, bob);
 
 		// Check name does exist
 		assertTrue(repository.getNameRepository().nameExists(name));

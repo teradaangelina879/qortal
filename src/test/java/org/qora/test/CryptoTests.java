@@ -250,7 +250,7 @@ public class CryptoTests extends Common {
 		final String expectedProxyPrivateKey = "6KszntmNuXmpUkzLfuttgMPeownctxrnyZUG9rErKJJx";
 
 		PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, ourPrivateKey);
-		byte[] proxyPrivateKey = mintingAccount.getProxyPrivateKey(theirPublicKey);
+		byte[] proxyPrivateKey = mintingAccount.getRewardSharePrivateKey(theirPublicKey);
 
 		assertEquals(expectedProxyPrivateKey, Base58.encode(proxyPrivateKey));
 	}

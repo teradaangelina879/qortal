@@ -13,38 +13,38 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
-public class ForgingAccountData {
+public class MintingAccountData {
 
 	// Properties
 	@Schema(hidden = true)
 	@XmlTransient
-	protected byte[] seed;
+	protected byte[] privateKey;
 
 	// Not always present - used by API if not null
 	@XmlTransient
 	@Schema(hidden = true)
 	protected byte[] publicKey;
-	protected String proxiedBy;
-	protected String proxiedFor;
+	protected String mintingAccount;
+	protected String recipientAccount;
 	protected String address;
 
 	// Constructors
 
 	// For JAXB
-	protected ForgingAccountData() {
+	protected MintingAccountData() {
 	}
 
-	public ForgingAccountData(byte[] seed) {
-		this.seed = seed;
-		this.publicKey = new PrivateKeyAccount(null, seed).getPublicKey();
+	public MintingAccountData(byte[] privateKey) {
+		this.privateKey = privateKey;
+		this.publicKey = PrivateKeyAccount.toPublicKey(privateKey);
 	}
 
-	public ForgingAccountData(byte[] seed, ProxyForgerData proxyForgerData) {
-		this(seed);
+	public MintingAccountData(byte[] privateKey, RewardShareData rewardShareData) {
+		this(privateKey);
 
-		if (proxyForgerData != null) {
-			this.proxiedFor = proxyForgerData.getRecipient();
-			this.proxiedBy = Crypto.toAddress(proxyForgerData.getForgerPublicKey());
+		if (rewardShareData != null) {
+			this.recipientAccount = rewardShareData.getRecipient();
+			this.mintingAccount = Crypto.toAddress(rewardShareData.getMinterPublicKey());
 		} else {
 			this.address = Crypto.toAddress(this.publicKey);
 		}
@@ -52,8 +52,8 @@ public class ForgingAccountData {
 
 	// Getters/Setters
 
-	public byte[] getSeed() {
-		return this.seed;
+	public byte[] getPrivateKey() {
+		return this.privateKey;
 	}
 
 	@XmlElement(name = "publicKey")

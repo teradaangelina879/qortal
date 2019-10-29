@@ -24,13 +24,13 @@ public class AddressesApiTests extends ApiCommon {
 	}
 
 	@Test
-	public void testGetProxying() {
-		assertNotNull(this.addressesResource.getProxying(Collections.singletonList(aliceAddress), null, null, null, null, null));
-		assertNotNull(this.addressesResource.getProxying(null, Collections.singletonList(aliceAddress), null, null, null, null));
-		assertNotNull(this.addressesResource.getProxying(Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), null, null, null, null));
-		assertNotNull(this.addressesResource.getProxying(null, null, Collections.singletonList(aliceAddress), null, null, null));
-		assertNotNull(this.addressesResource.getProxying(Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), null, null, null));
-		assertNotNull(this.addressesResource.getProxying(Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), 1, 1, true));
+	public void testGetRewardShares() {
+		assertNotNull(this.addressesResource.getRewardShares(Collections.singletonList(aliceAddress), null, null, null, null, null));
+		assertNotNull(this.addressesResource.getRewardShares(null, Collections.singletonList(aliceAddress), null, null, null, null));
+		assertNotNull(this.addressesResource.getRewardShares(Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), null, null, null, null));
+		assertNotNull(this.addressesResource.getRewardShares(null, null, Collections.singletonList(aliceAddress), null, null, null));
+		assertNotNull(this.addressesResource.getRewardShares(Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), null, null, null));
+		assertNotNull(this.addressesResource.getRewardShares(Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), Collections.singletonList(aliceAddress), 1, 1, true));
 	}
 
 }

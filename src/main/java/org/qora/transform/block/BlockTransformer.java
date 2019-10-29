@@ -34,16 +34,16 @@ public class BlockTransformer extends Transformer {
 
 	private static final int VERSION_LENGTH = INT_LENGTH;
 	private static final int TRANSACTIONS_SIGNATURE_LENGTH = SIGNATURE_LENGTH;
-	private static final int GENERATOR_SIGNATURE_LENGTH = SIGNATURE_LENGTH;
-	private static final int BLOCK_REFERENCE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
+	private static final int MINTER_SIGNATURE_LENGTH = SIGNATURE_LENGTH;
+	private static final int BLOCK_REFERENCE_LENGTH = MINTER_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	private static final int TIMESTAMP_LENGTH = LONG_LENGTH;
-	private static final int GENERATOR_LENGTH = PUBLIC_KEY_LENGTH;
+	private static final int MINTER_PUBLIC_KEY_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int TRANSACTION_COUNT_LENGTH = INT_LENGTH;
 
-	private static final int BASE_LENGTH = VERSION_LENGTH + TIMESTAMP_LENGTH + BLOCK_REFERENCE_LENGTH + GENERATOR_LENGTH
-			+ TRANSACTIONS_SIGNATURE_LENGTH + GENERATOR_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
+	private static final int BASE_LENGTH = VERSION_LENGTH + TIMESTAMP_LENGTH + BLOCK_REFERENCE_LENGTH + MINTER_PUBLIC_KEY_LENGTH
+			+ TRANSACTIONS_SIGNATURE_LENGTH + MINTER_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
 
-	public static final int BLOCK_SIGNATURE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
+	public static final int BLOCK_SIGNATURE_LENGTH = MINTER_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	protected static final int TRANSACTION_SIZE_LENGTH = INT_LENGTH; // per transaction
 	protected static final int AT_BYTES_LENGTH = INT_LENGTH;
 	protected static final int AT_FEES_LENGTH = LONG_LENGTH;
@@ -97,13 +97,13 @@ public class BlockTransformer extends Transformer {
 		byte[] reference = new byte[BLOCK_REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
-		byte[] generatorPublicKey = Serialization.deserializePublicKey(byteBuffer);
+		byte[] minterPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
 		byte[] transactionsSignature = new byte[TRANSACTIONS_SIGNATURE_LENGTH];
 		byteBuffer.get(transactionsSignature);
 
-		byte[] generatorSignature = new byte[GENERATOR_SIGNATURE_LENGTH];
-		byteBuffer.get(generatorSignature);
+		byte[] minterSignature = new byte[MINTER_SIGNATURE_LENGTH];
+		byteBuffer.get(minterSignature);
 
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
 
@@ -242,7 +242,7 @@ public class BlockTransformer extends Transformer {
 		// We don't have a height!
 		Integer height = null;
 		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
-				generatorPublicKey, generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
+				minterPublicKey, minterSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
 		return new Triple<>(blockData, transactions, atStates);
 	}
@@ -286,9 +286,9 @@ public class BlockTransformer extends Transformer {
 			bytes.write(Ints.toByteArray(blockData.getVersion()));
 			bytes.write(Longs.toByteArray(blockData.getTimestamp()));
 			bytes.write(blockData.getReference());
-			bytes.write(blockData.getGeneratorPublicKey());
+			bytes.write(blockData.getMinterPublicKey());
 			bytes.write(blockData.getTransactionsSignature());
-			bytes.write(blockData.getGeneratorSignature());
+			bytes.write(blockData.getMinterSignature());
 
 			if (blockData.getVersion() >= 4) {
 				int atBytesLength = blockData.getATCount() * V4_AT_ENTRY_LENGTH;
@@ -360,26 +360,26 @@ public class BlockTransformer extends Transformer {
 		}
 	}
 
-	public static byte[] getGeneratorSignatureFromReference(byte[] blockReference) {
-		return Arrays.copyOf(blockReference, GENERATOR_SIGNATURE_LENGTH);
+	public static byte[] getMinterSignatureFromReference(byte[] blockReference) {
+		return Arrays.copyOf(blockReference, MINTER_SIGNATURE_LENGTH);
 	}
 
-	public static byte[] getBytesForGeneratorSignature(BlockData blockData) throws TransformationException {
-		byte[] generatorSignature = getGeneratorSignatureFromReference(blockData.getReference());
-		PublicKeyAccount generator = new PublicKeyAccount(null, blockData.getGeneratorPublicKey());
+	public static byte[] getBytesForMinterSignature(BlockData blockData) throws TransformationException {
+		byte[] minterSignature = getMinterSignatureFromReference(blockData.getReference());
+		PublicKeyAccount minter = new PublicKeyAccount(null, blockData.getMinterPublicKey());
 
-		return getBytesForGeneratorSignature(generatorSignature, generator, blockData.getEncodedOnlineAccounts());
+		return getBytesForMinterSignature(minterSignature, minter, blockData.getEncodedOnlineAccounts());
 	}
 
-	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, PublicKeyAccount generator, byte[] encodedOnlineAccounts)
+	public static byte[] getBytesForMinterSignature(byte[] minterSignature, PublicKeyAccount minter, byte[] encodedOnlineAccounts)
 			throws TransformationException {
 		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATOR_LENGTH + encodedOnlineAccounts.length);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(MINTER_SIGNATURE_LENGTH + MINTER_PUBLIC_KEY_LENGTH + encodedOnlineAccounts.length);
 
-			bytes.write(generatorSignature);
+			bytes.write(minterSignature);
 
-			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
-			bytes.write(Bytes.ensureCapacity(generator.getPublicKey(), GENERATOR_LENGTH, 0));
+			// We're padding here just in case the minter is the genesis account whose public key is only 8 bytes long.
+			bytes.write(Bytes.ensureCapacity(minter.getPublicKey(), MINTER_PUBLIC_KEY_LENGTH, 0));
 
 			bytes.write(encodedOnlineAccounts);
 
@@ -393,9 +393,9 @@ public class BlockTransformer extends Transformer {
 		try {
 			List<Transaction> transactions = block.getTransactions();
 
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + transactions.size() * TransactionTransformer.SIGNATURE_LENGTH);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(MINTER_SIGNATURE_LENGTH + transactions.size() * TransactionTransformer.SIGNATURE_LENGTH);
 
-			bytes.write(block.getBlockData().getGeneratorSignature());
+			bytes.write(block.getBlockData().getMinterSignature());
 
 			for (Transaction transaction : transactions) {
 				// We don't include AT-Transactions as AT-state/output is dealt with elsewhere in the block code

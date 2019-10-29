@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.qora.api.model.BlockForgerSummary;
+import org.qora.api.model.BlockMinterSummary;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockSummaryData;
 import org.qora.data.block.BlockTransactionData;
@@ -22,7 +22,7 @@ import static org.qora.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli
 public class HSQLDBBlockRepository implements BlockRepository {
 
 	private static final String BLOCK_DB_COLUMNS = "version, reference, transaction_count, total_fees, "
-			+ "transactions_signature, height, generation, generator, generator_signature, "
+			+ "transactions_signature, height, minted, minter, minter_signature, "
 			+ "AT_count, AT_fees, online_accounts, online_accounts_count, online_accounts_timestamp, online_accounts_signatures";
 
 	protected HSQLDBRepository repository;
@@ -43,8 +43,8 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			byte[] transactionsSignature = resultSet.getBytes(5);
 			int height = resultSet.getInt(6);
 			long timestamp = getZonedTimestampMilli(resultSet, 7);
-			byte[] generatorPublicKey = resultSet.getBytes(8);
-			byte[] generatorSignature = resultSet.getBytes(9);
+			byte[] minterPublicKey = resultSet.getBytes(8);
+			byte[] minterSignature = resultSet.getBytes(9);
 			int atCount = resultSet.getInt(10);
 			BigDecimal atFees = resultSet.getBigDecimal(11);
 			byte[] encodedOnlineAccounts = resultSet.getBytes(12);
@@ -53,7 +53,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			byte[] onlineAccountsSignatures = resultSet.getBytes(15);
 
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
-					generatorPublicKey, generatorSignature, atCount, atFees,
+					minterPublicKey, minterSignature, atCount, atFees,
 					encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 		} catch (SQLException e) {
 			throw new DataException("Error extracting data from result set", e);
@@ -110,8 +110,8 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int getHeightFromTimestamp(long timestamp) throws DataException {
-		// Uses (generation, height) index
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE generation <= ? ORDER BY generation DESC LIMIT 1",
+		// Uses (minted, height) index
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE minted <= ? ORDER BY minted DESC LIMIT 1",
 				toOffsetDateTime(timestamp))) {
 			if (resultSet == null)
 				return 0;
@@ -174,40 +174,40 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public int countForgedBlocks(byte[] publicKey) throws DataException {
-		String directSql = "SELECT COUNT(*) FROM Blocks WHERE generator = ?";
+	public int countMintedBlocks(byte[] minterPublicKey) throws DataException {
+		String directSql = "SELECT COUNT(*) FROM Blocks WHERE minter = ?";
 
-		String proxySql = "SELECT COUNT(*) FROM ProxyForgers JOIN Blocks ON generator = proxy_public_key WHERE forger = ?";
+		String rewardShareSql = "SELECT COUNT(*) FROM RewardShares JOIN Blocks ON minter = reward_share_public_key WHERE minter_public_key = ?";
 
 		int totalCount = 0;
 
-		try (ResultSet resultSet = this.repository.checkedExecute(directSql, publicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(directSql, minterPublicKey)) {
 			totalCount += resultSet.getInt(1);
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch forged blocks count from repository", e);
+			throw new DataException("Unable to count minted blocks in repository", e);
 		}
 
-		try (ResultSet resultSet = this.repository.checkedExecute(proxySql, publicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(rewardShareSql, minterPublicKey)) {
 			totalCount += resultSet.getInt(1);
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch forged blocks count from repository", e);
+			throw new DataException("Unable to count reward-share minted blocks in repository", e);
 		}
 
 		return totalCount;
 	}
 
 	@Override
-	public List<BlockForgerSummary> getBlockForgers(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String subquerySql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator";
+	public List<BlockMinterSummary> getBlockMinters(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String subquerySql = "SELECT minter, COUNT(signature) FROM Blocks GROUP BY minter";
 
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append("SELECT DISTINCT generator, n_blocks, forger, recipient FROM (");
+		sql.append("SELECT DISTINCT block_minter, n_blocks, minter_public_key, recipient FROM (");
 		sql.append(subquerySql);
-		sql.append(") AS Forgers (generator, n_blocks) LEFT OUTER JOIN ProxyForgers ON proxy_public_key = generator ");
+		sql.append(") AS Minters (block_minter, n_blocks) LEFT OUTER JOIN RewardShares ON reward_share_public_key = block_minter ");
 
 		if (addresses != null && !addresses.isEmpty()) {
-			sql.append(" LEFT OUTER JOIN Accounts AS GeneratorAccounts ON GeneratorAccounts.public_key = generator ");
-			sql.append(" LEFT OUTER JOIN Accounts AS ForgerAccounts ON ForgerAccounts.public_key = forger ");
+			sql.append(" LEFT OUTER JOIN Accounts AS BlockMinterAccounts ON BlockMinterAccounts.public_key = block_minter ");
+			sql.append(" LEFT OUTER JOIN Accounts AS RewardShareMinterAccounts ON RewardShareMinterAccounts.public_key = minter_public_key ");
 			sql.append(" JOIN (VALUES ");
 
 			final int addressesSize = addresses.size();
@@ -219,7 +219,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			}
 
 			sql.append(") AS FilterAccounts (account) ");
-			sql.append(" ON FilterAccounts.account IN (recipient, GeneratorAccounts.account, ForgerAccounts.account) ");
+			sql.append(" ON FilterAccounts.account IN (recipient, BlockMinterAccounts.account, RewardShareMinterAccounts.account) ");
 		} else {
 			addresses = Collections.emptyList();
 		}
@@ -230,31 +230,37 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<BlockForgerSummary> summaries = new ArrayList<>();
+		List<BlockMinterSummary> summaries = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), addresses.toArray())) {
 			if (resultSet == null)
 				return summaries;
 
 			do {
-				byte[] generator = resultSet.getBytes(1);
+				byte[] blockMinterPublicKey = resultSet.getBytes(1);
 				int nBlocks = resultSet.getInt(2);
-				byte[] forger = resultSet.getBytes(3);
-				String recipient = resultSet.getString(4);
+				byte[] mintingAccountPublicKey = resultSet.getBytes(3);
+				String recipientAccount = resultSet.getString(4);
 
-				summaries.add(new BlockForgerSummary(generator, nBlocks, forger, recipient));
+				BlockMinterSummary blockMinterSummary;
+				if (recipientAccount == null)
+					blockMinterSummary = new BlockMinterSummary(blockMinterPublicKey, nBlocks);
+				else
+					blockMinterSummary = new BlockMinterSummary(blockMinterPublicKey, nBlocks, mintingAccountPublicKey, recipientAccount);
+
+				summaries.add(blockMinterSummary);
 			} while (resultSet.next());
 
 			return summaries;
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch generator's blocks from repository", e);
+			throw new DataException("Unable to fetch block minters from repository", e);
 		}
 	}
 
 	@Override
-	public List<BlockData> getBlocksWithGenerator(byte[] generatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<BlockData> getBlocksByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE generator = ? ORDER BY height ");
+		sql.append("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE minter = ? ORDER BY height ");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -262,7 +268,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 		List<BlockData> blockData = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), generatorPublicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), minterPublicKey)) {
 			if (resultSet == null)
 				return blockData;
 
@@ -272,7 +278,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 			return blockData;
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch generator's blocks from repository", e);
+			throw new DataException("Unable to fetch minter's blocks from repository", e);
 		}
 	}
 
@@ -298,7 +304,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException {
-		String sql = "SELECT signature, height, generator, online_accounts_count FROM Blocks WHERE height BETWEEN ? AND ?";
+		String sql = "SELECT signature, height, minter, online_accounts_count FROM Blocks WHERE height BETWEEN ? AND ?";
 
 		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 
@@ -309,10 +315,10 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			do {
 				byte[] signature = resultSet.getBytes(1);
 				int height = resultSet.getInt(2);
-				byte[] generatorPublicKey = resultSet.getBytes(3);
+				byte[] minterPublicKey = resultSet.getBytes(3);
 				int onlineAccountsCount = resultSet.getInt(4);
 
-				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, generatorPublicKey, onlineAccountsCount);
+				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, minterPublicKey, onlineAccountsCount);
 				blockSummaries.add(blockSummary);
 			} while (resultSet.next());
 
@@ -324,7 +330,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int trimOldOnlineAccountsSignatures(long timestamp) throws DataException {
-		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE generation < ? AND online_accounts_signatures IS NOT NULL";
+		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE minted < ? AND online_accounts_signatures IS NOT NULL";
 
 		try {
 			return this.repository.checkedExecuteUpdateCount(sql, toOffsetDateTime(timestamp));
@@ -340,8 +346,8 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		saveHelper.bind("signature", blockData.getSignature()).bind("version", blockData.getVersion()).bind("reference", blockData.getReference())
 				.bind("transaction_count", blockData.getTransactionCount()).bind("total_fees", blockData.getTotalFees())
 				.bind("transactions_signature", blockData.getTransactionsSignature()).bind("height", blockData.getHeight())
-				.bind("generation", toOffsetDateTime(blockData.getTimestamp()))
-				.bind("generator", blockData.getGeneratorPublicKey()).bind("generator_signature", blockData.getGeneratorSignature())
+				.bind("minted", toOffsetDateTime(blockData.getTimestamp()))
+				.bind("minter", blockData.getMinterPublicKey()).bind("minter_signature", blockData.getMinterSignature())
 				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees())
 				.bind("online_accounts", blockData.getEncodedOnlineAccounts()).bind("online_accounts_count", blockData.getOnlineAccountsCount())
 				.bind("online_accounts_timestamp", toOffsetDateTime(blockData.getOnlineAccountsTimestamp()))

@@ -6,15 +6,15 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @XmlAccessorType(XmlAccessType.FIELD)
-public class ProxyKeyRequest {
+public class RewardShareKeyRequest {
 
 	@Schema(example = "private_key")
-	public byte[] generatorPrivateKey;
+	public byte[] mintingAccountPrivateKey;
 
 	@Schema(example = "public_key")
-	public byte[] recipientPublicKey;
+	public byte[] recipientAccountPublicKey;
 
-	public ProxyKeyRequest() {
+	public RewardShareKeyRequest() {
 	}
 
 }

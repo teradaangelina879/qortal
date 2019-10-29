@@ -46,12 +46,12 @@ public class BlockSummariesMessage extends Message {
 			byte[] signature = new byte[BlockTransformer.BLOCK_SIGNATURE_LENGTH];
 			bytes.get(signature);
 
-			byte[] generatorPublicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
-			bytes.get(generatorPublicKey);
+			byte[] minterPublicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+			bytes.get(minterPublicKey);
 
 			int onlineAccountsCount = bytes.getInt();
 
-			BlockSummaryData blockSummary = new BlockSummaryData(height, signature, generatorPublicKey, onlineAccountsCount);
+			BlockSummaryData blockSummary = new BlockSummaryData(height, signature, minterPublicKey, onlineAccountsCount);
 			blockSummaries.add(blockSummary);
 		}
 
@@ -68,7 +68,7 @@ public class BlockSummariesMessage extends Message {
 			for (BlockSummaryData blockSummary : this.blockSummaries) {
 				bytes.write(Ints.toByteArray(blockSummary.getHeight()));
 				bytes.write(blockSummary.getSignature());
-				bytes.write(blockSummary.getGeneratorPublicKey());
+				bytes.write(blockSummary.getMinterPublicKey());
 				bytes.write(Ints.toByteArray(blockSummary.getOnlineAccountsCount()));
 			}
 

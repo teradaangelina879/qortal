@@ -28,7 +28,7 @@ import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
-import org.qora.data.account.ProxyForgerData;
+import org.qora.data.account.RewardShareData;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
@@ -73,7 +73,7 @@ public class Block {
 		TIMESTAMP_INCORRECT(24),
 		VERSION_INCORRECT(30),
 		FEATURE_NOT_YET_RELEASED(31),
-		GENERATOR_NOT_ACCEPTED(41),
+		MINTER_NOT_ACCEPTED(41),
 		GENESIS_TRANSACTIONS_INVALID(50),
 		TRANSACTION_TIMESTAMP_INVALID(51),
 		TRANSACTION_INVALID(52),
@@ -103,7 +103,7 @@ public class Block {
 	// Properties
 	protected Repository repository;
 	protected BlockData blockData;
-	protected PublicKeyAccount generator;
+	protected PublicKeyAccount minter;
 
 	// Other properties
 	private static final Logger LOGGER = LogManager.getLogger(Block.class);
@@ -125,13 +125,13 @@ public class Block {
 
 	/** Lazy-instantiated expanded info on block's online accounts. */
 	class ExpandedAccount {
-		final ProxyForgerData proxyForgerData;
-		final boolean isRecipientAlsoForger;
+		final RewardShareData rewardShareData;
+		final boolean isRecipientAlsoMinter;
 
-		final Account forgerAccount;
-		final AccountData forgerAccountData;
-		final boolean isForgerFounder;
-		final BigDecimal forgerQoraAmount;
+		final Account mintingAccount;
+		final AccountData mintingAccountData;
+		final boolean isMinterFounder;
+		final BigDecimal minterQoraAmount;
 		final int shareBin;
 
 		final Account recipientAccount;
@@ -141,25 +141,25 @@ public class Block {
 		ExpandedAccount(Repository repository, int accountIndex) throws DataException {
 			final List<ShareByLevel> sharesByLevel = BlockChain.getInstance().getBlockSharesByLevel();
 
-			this.proxyForgerData = repository.getAccountRepository().getProxyAccountByIndex(accountIndex);
+			this.rewardShareData = repository.getAccountRepository().getRewardShareByIndex(accountIndex);
 
-			this.forgerAccount = new PublicKeyAccount(repository, this.proxyForgerData.getForgerPublicKey());
-			this.recipientAccount = new Account(repository, this.proxyForgerData.getRecipient());
+			this.mintingAccount = new PublicKeyAccount(repository, this.rewardShareData.getMinterPublicKey());
+			this.recipientAccount = new Account(repository, this.rewardShareData.getRecipient());
 
-			AccountBalanceData qoraBalanceData = repository.getAccountRepository().getBalance(this.forgerAccount.getAddress(), Asset.LEGACY_QORA);
+			AccountBalanceData qoraBalanceData = repository.getAccountRepository().getBalance(this.mintingAccount.getAddress(), Asset.LEGACY_QORA);
 			if (qoraBalanceData != null && qoraBalanceData.getBalance() != null && qoraBalanceData.getBalance().compareTo(BigDecimal.ZERO) > 0)
-				this.forgerQoraAmount = qoraBalanceData.getBalance();
+				this.minterQoraAmount = qoraBalanceData.getBalance();
 			else
-				this.forgerQoraAmount = null;
+				this.minterQoraAmount = null;
 
-			this.forgerAccountData = repository.getAccountRepository().getAccount(this.forgerAccount.getAddress());
-			this.isForgerFounder = Account.isFounder(forgerAccountData.getFlags());
+			this.mintingAccountData = repository.getAccountRepository().getAccount(this.mintingAccount.getAddress());
+			this.isMinterFounder = Account.isFounder(mintingAccountData.getFlags());
 
 			int currentShareBin = -1;
 
-			if (!this.isForgerFounder)
+			if (!this.isMinterFounder)
 				for (int s = 0; s < sharesByLevel.size(); ++s)
-					if (sharesByLevel.get(s).levels.contains(this.forgerAccountData.getLevel())) {
+					if (sharesByLevel.get(s).levels.contains(this.mintingAccountData.getLevel())) {
 						currentShareBin = s;
 						break;
 					}
@@ -169,23 +169,23 @@ public class Block {
 			this.recipientAccountData = repository.getAccountRepository().getAccount(this.recipientAccount.getAddress());
 			this.isRecipientFounder = Account.isFounder(recipientAccountData.getFlags());
 
-			this.isRecipientAlsoForger = this.forgerAccountData.getAddress().equals(this.recipientAccountData.getAddress());
+			this.isRecipientAlsoMinter = this.mintingAccountData.getAddress().equals(this.recipientAccountData.getAddress());
 		}
 
 		void distribute(BigDecimal accountAmount) throws DataException {
 			final BigDecimal oneHundred = BigDecimal.valueOf(100L);
 
-			if (this.forgerAccount.getAddress().equals(this.recipientAccount.getAddress())) {
-				// forger & recipient the same - simpler case
-				LOGGER.trace(() -> String.format("Forger/recipient account %s share: %s", this.forgerAccount.getAddress(), accountAmount.toPlainString()));
-				this.forgerAccount.setConfirmedBalance(Asset.QORT, this.forgerAccount.getConfirmedBalance(Asset.QORT).add(accountAmount));
+			if (this.mintingAccount.getAddress().equals(this.recipientAccount.getAddress())) {
+				// minter & recipient the same - simpler case
+				LOGGER.trace(() -> String.format("Minter/recipient account %s share: %s", this.mintingAccount.getAddress(), accountAmount.toPlainString()));
+				this.mintingAccount.setConfirmedBalance(Asset.QORT, this.mintingAccount.getConfirmedBalance(Asset.QORT).add(accountAmount));
 			} else {
-				// forger & recipient different - extra work needed
-				BigDecimal recipientAmount = accountAmount.multiply(this.proxyForgerData.getShare()).divide(oneHundred, RoundingMode.DOWN);
-				BigDecimal forgerAmount = accountAmount.subtract(recipientAmount);
+				// minter & recipient different - extra work needed
+				BigDecimal recipientAmount = accountAmount.multiply(this.rewardShareData.getSharePercent()).divide(oneHundred, RoundingMode.DOWN);
+				BigDecimal minterAmount = accountAmount.subtract(recipientAmount);
 
-				LOGGER.trace(() -> String.format("Forger account %s share: %s", this.forgerAccount.getAddress(),  forgerAmount.toPlainString()));
-				this.forgerAccount.setConfirmedBalance(Asset.QORT, this.forgerAccount.getConfirmedBalance(Asset.QORT).add(forgerAmount));
+				LOGGER.trace(() -> String.format("Minter account %s share: %s", this.mintingAccount.getAddress(),  minterAmount.toPlainString()));
+				this.mintingAccount.setConfirmedBalance(Asset.QORT, this.mintingAccount.getConfirmedBalance(Asset.QORT).add(minterAmount));
 
 				LOGGER.trace(() -> String.format("Recipient account %s share: %s", this.recipientAccount.getAddress(), recipientAmount.toPlainString()));
 				this.recipientAccount.setConfirmedBalance(Asset.QORT, this.recipientAccount.getConfirmedBalance(Asset.QORT).add(recipientAmount));
@@ -220,7 +220,7 @@ public class Block {
 	public Block(Repository repository, BlockData blockData) throws DataException {
 		this.repository = repository;
 		this.blockData = blockData;
-		this.generator = new PublicKeyAccount(repository, blockData.getGeneratorPublicKey());
+		this.minter = new PublicKeyAccount(repository, blockData.getMinterPublicKey());
 	}
 
 	/**
@@ -257,18 +257,18 @@ public class Block {
 	/**
 	 * Constructs Block-handling object with basic, initial values.
 	 * <p>
-	 * This constructor typically used when generating a new block.
+	 * This constructor typically used when minting a new block.
 	 * <p>
 	 * Note that CIYAM ATs will be executed and AT-Transactions prepended to this block, along with AT state data and fees.
 	 * 
 	 * @param repository
 	 * @param parentBlockData
-	 * @param generator
+	 * @param minter
 	 * @throws DataException
 	 */
-	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount generator) throws DataException {
+	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount minter) throws DataException {
 		this.repository = repository;
-		this.generator = generator;
+		this.minter = minter;
 
 		Block parentBlock = new Block(repository, parentBlockData);
 
@@ -287,14 +287,14 @@ public class Block {
 				onlineAccountsTimestamp = onlineAccountData.getTimestamp();
 		}
 
-		// Map using account index (in list of proxy forger accounts)
+		// Map using index into sorted list of reward-shares as key
 		Map<Integer, OnlineAccountData> indexedOnlineAccounts = new HashMap<>();
 		for (OnlineAccountData onlineAccountData : onlineAccounts) {
 			// Disregard online accounts with different timestamps
 			if (onlineAccountData.getTimestamp() != onlineAccountsTimestamp)
 				continue;
 
-			int accountIndex = repository.getAccountRepository().getProxyAccountIndex(onlineAccountData.getPublicKey());
+			int accountIndex = repository.getAccountRepository().getRewardShareIndex(onlineAccountData.getPublicKey());
 			indexedOnlineAccounts.put(accountIndex, onlineAccountData);
 		}
 		List<Integer> accountIndexes = new ArrayList<>(indexedOnlineAccounts.keySet());
@@ -314,14 +314,14 @@ public class Block {
 			System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
 		}
 
-		byte[] generatorSignature;
+		byte[] minterSignature;
 		try {
-			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generator, encodedOnlineAccounts));
+			minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(), minter, encodedOnlineAccounts));
 		} catch (TransformationException e) {
-			throw new DataException("Unable to calculate next block generator signature", e);
+			throw new DataException("Unable to calculate next block minter signature", e);
 		}
 
-		long timestamp = calcTimestamp(parentBlockData, generator.getPublicKey());
+		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey());
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
@@ -335,7 +335,7 @@ public class Block {
 
 		// This instance used for AT processing
 		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, 
-				generator.getPublicKey(), generatorSignature, atCount, atFees,
+				minter.getPublicKey(), minterSignature, atCount, atFees,
 				encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
 		// Requires this.blockData and this.transactions, sets this.ourAtStates and this.ourAtFees
@@ -348,22 +348,22 @@ public class Block {
 
 		// Rebuild blockData using post-AT-execute data
 		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, 
-				generator.getPublicKey(), generatorSignature, atCount, atFees,
+				minter.getPublicKey(), minterSignature, atCount, atFees,
 				encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 	}
 
 	/**
-	 * Construct another block using this block as template, but with different generator account.
+	 * Construct another block using this block as template, but with different minting account.
 	 * <p>
 	 * NOTE: uses the same transactions list, AT states, etc.
 	 * 
-	 * @param generator
+	 * @param minter
 	 * @return
 	 * @throws DataException
 	 */
-	public Block regenerate(PrivateKeyAccount generator) throws DataException {
+	public Block newMinter(PrivateKeyAccount minter) throws DataException {
 		Block newBlock = new Block(this.repository, this.blockData);
-		newBlock.generator = generator;
+		newBlock.minter = minter;
 
 		BlockData parentBlockData = this.getParent();
 
@@ -376,14 +376,14 @@ public class Block {
 		int version = this.blockData.getVersion();
 		byte[] reference = this.blockData.getReference();
 
-		byte[] generatorSignature;
+		byte[] minterSignature;
 		try {
-			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generator, this.blockData.getEncodedOnlineAccounts()));
+			minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(), minter, this.blockData.getEncodedOnlineAccounts()));
 		} catch (TransformationException e) {
-			throw new DataException("Unable to calculate next block generator signature", e);
+			throw new DataException("Unable to calculate next block's minter signature", e);
 		}
 
-		long timestamp = calcTimestamp(parentBlockData, generator.getPublicKey());
+		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey());
 
 		newBlock.transactions = this.transactions;
 		int transactionCount = this.blockData.getTransactionCount();
@@ -400,7 +400,7 @@ public class Block {
 		byte[] onlineAccountsSignatures = this.blockData.getOnlineAccountsSignatures();
 
 		newBlock.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
-				generator.getPublicKey(), generatorSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
+				minter.getPublicKey(), minterSignature, atCount, atFees, encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
 		// Resign to update transactions signature
 		newBlock.sign();
@@ -414,22 +414,22 @@ public class Block {
 		return this.blockData;
 	}
 
-	public PublicKeyAccount getGenerator() {
-		return this.generator;
+	public PublicKeyAccount getMinter() {
+		return this.minter;
 	}
 
 	// More information
 
 	/**
-	 * Return composite block signature (generatorSignature + transactionsSignature).
+	 * Return composite block signature (minterSignature + transactionsSignature).
 	 * 
 	 * @return byte[], or null if either component signature is null.
 	 */
 	public byte[] getSignature() {
-		if (this.blockData.getGeneratorSignature() == null || this.blockData.getTransactionsSignature() == null)
+		if (this.blockData.getMinterSignature() == null || this.blockData.getTransactionsSignature() == null)
 			return null;
 
-		return Bytes.concat(this.blockData.getGeneratorSignature(), this.blockData.getTransactionsSignature());
+		return Bytes.concat(this.blockData.getMinterSignature(), this.blockData.getTransactionsSignature());
 	}
 
 	/**
@@ -570,25 +570,25 @@ public class Block {
 	/**
 	 * Add a transaction to the block.
 	 * <p>
-	 * Used when constructing a new block during forging.
+	 * Used when constructing a new block during minting.
 	 * <p>
-	 * Requires block's {@code generator} being a {@code PrivateKeyAccount} so block's transactions signature can be recalculated.
+	 * Requires block's {@code minter} being a {@code PrivateKeyAccount} so block's transactions signature can be recalculated.
 	 * 
 	 * @param transactionData
 	 * @return true if transaction successfully added to block, false otherwise
 	 * @throws IllegalStateException
-	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 *             if block's {@code minter} is not a {@code PrivateKeyAccount}.
 	 */
 	public boolean addTransaction(TransactionData transactionData) {
 		// Can't add to transactions if we haven't loaded existing ones yet
 		if (this.transactions == null)
 			throw new IllegalStateException("Attempted to add transaction to partially loaded database Block");
 
-		if (!(this.generator instanceof PrivateKeyAccount))
-			throw new IllegalStateException("Block's generator has no private key");
+		if (!(this.minter instanceof PrivateKeyAccount))
+			throw new IllegalStateException("Block's minter is not PrivateKeyAccount - can't sign!");
 
-		if (this.blockData.getGeneratorSignature() == null)
-			throw new IllegalStateException("Cannot calculate transactions signature as block has no generator signature");
+		if (this.blockData.getMinterSignature() == null)
+			throw new IllegalStateException("Cannot calculate transactions signature as block has no minter signature");
 
 		// Already added? (Check using signature)
 		if (this.transactions.stream().anyMatch(transaction -> Arrays.equals(transaction.getTransactionData().getSignature(), transactionData.getSignature())))
@@ -623,24 +623,24 @@ public class Block {
 	/**
 	 * Remove a transaction from the block.
 	 * <p>
-	 * Used when constructing a new block during forging.
+	 * Used when constructing a new block during minting.
 	 * <p>
-	 * Requires block's {@code generator} being a {@code PrivateKeyAccount} so block's transactions signature can be recalculated.
+	 * Requires block's {@code minter} being a {@code PrivateKeyAccount} so block's transactions signature can be recalculated.
 	 * 
 	 * @param transactionData
 	 * @throws IllegalStateException
-	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 *             if block's {@code minter} is not a {@code PrivateKeyAccount}.
 	 */
 	public void deleteTransaction(TransactionData transactionData) {
 		// Can't add to transactions if we haven't loaded existing ones yet
 		if (this.transactions == null)
 			throw new IllegalStateException("Attempted to add transaction to partially loaded database Block");
 
-		if (!(this.generator instanceof PrivateKeyAccount))
-			throw new IllegalStateException("Block's generator has no private key");
+		if (!(this.minter instanceof PrivateKeyAccount))
+			throw new IllegalStateException("Block's minter is not a PrivateKeyAccount - can't sign!");
 
-		if (this.blockData.getGeneratorSignature() == null)
-			throw new IllegalStateException("Cannot calculate transactions signature as block has no generator signature");
+		if (this.blockData.getMinterSignature() == null)
+			throw new IllegalStateException("Cannot calculate transactions signature as block has no minter signature");
 
 		// Attempt to remove from block (Check using signature)
 		boolean wasElementRemoved = this.transactions.removeIf(transaction -> Arrays.equals(transaction.getTransactionData().getSignature(), transactionData.getSignature()));
@@ -662,54 +662,54 @@ public class Block {
 	}
 
 	/**
-	 * Recalculate block's generator signature.
+	 * Recalculate block's minter signature.
 	 * <p>
-	 * Requires block's {@code generator} being a {@code PrivateKeyAccount}.
+	 * Requires block's {@code minter} being a {@code PrivateKeyAccount}.
 	 * <p>
-	 * Generator signature is made by the generator signing the following data:
+	 * Minter signature is made by the minter signing the following data:
 	 * <p>
-	 * previous block's generator signature + this block's generating balance + generator's public key
+	 * previous block's minter signature + minter's public key + (encoded) online-accounts data
 	 * <p>
-	 * (Previous block's generator signature is extracted from this block's reference).
+	 * (Previous block's minter signature is extracted from this block's reference).
 	 * 
 	 * @throws IllegalStateException
-	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 *             if block's {@code minter} is not a {@code PrivateKeyAccount}.
 	 * @throws RuntimeException
-	 *             if somehow the generator signature cannot be calculated
+	 *             if somehow the minter signature cannot be calculated
 	 */
-	protected void calcGeneratorSignature() {
-		if (!(this.generator instanceof PrivateKeyAccount))
-			throw new IllegalStateException("Block's generator has no private key");
+	protected void calcMinterSignature() {
+		if (!(this.minter instanceof PrivateKeyAccount))
+			throw new IllegalStateException("Block's minter is not a PrivateKeyAccount - can't sign!");
 
 		try {
-			this.blockData.setGeneratorSignature(((PrivateKeyAccount) this.generator).sign(BlockTransformer.getBytesForGeneratorSignature(this.blockData)));
+			this.blockData.setMinterSignature(((PrivateKeyAccount) this.minter).sign(BlockTransformer.getBytesForMinterSignature(this.blockData)));
 		} catch (TransformationException e) {
-			throw new RuntimeException("Unable to calculate block's generator signature", e);
+			throw new RuntimeException("Unable to calculate block's minter signature", e);
 		}
 	}
 
 	/**
 	 * Recalculate block's transactions signature.
 	 * <p>
-	 * Requires block's {@code generator} being a {@code PrivateKeyAccount}.
+	 * Requires block's {@code minter} being a {@code PrivateKeyAccount}.
 	 * 
 	 * @throws IllegalStateException
-	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 *             if block's {@code minter} is not a {@code PrivateKeyAccount}.
 	 * @throws RuntimeException
 	 *             if somehow the transactions signature cannot be calculated
 	 */
 	protected void calcTransactionsSignature() {
-		if (!(this.generator instanceof PrivateKeyAccount))
-			throw new IllegalStateException("Block's generator has no private key");
+		if (!(this.minter instanceof PrivateKeyAccount))
+			throw new IllegalStateException("Block's minter is not a PrivateKeyAccount - can't sign!");
 
 		try {
-			this.blockData.setTransactionsSignature(((PrivateKeyAccount) this.generator).sign(BlockTransformer.getBytesForTransactionsSignature(this)));
+			this.blockData.setTransactionsSignature(((PrivateKeyAccount) this.minter).sign(BlockTransformer.getBytesForTransactionsSignature(this)));
 		} catch (TransformationException e) {
 			throw new RuntimeException("Unable to calculate block's transactions signature", e);
 		}
 	}
 
-	public static byte[] calcIdealGeneratorPublicKey(int parentBlockHeight, byte[] parentBlockSignature) {
+	public static byte[] calcIdealMinterPublicKey(int parentBlockHeight, byte[] parentBlockSignature) {
 		return Crypto.digest(Bytes.concat(Longs.toByteArray(parentBlockHeight), parentBlockSignature));
 	}
 
@@ -718,14 +718,14 @@ public class Block {
 	}
 
 	public static BigInteger calcKeyDistance(int parentHeight, byte[] parentBlockSignature, byte[] publicKey) {
-		byte[] idealKey = calcIdealGeneratorPublicKey(parentHeight, parentBlockSignature);
+		byte[] idealKey = calcIdealMinterPublicKey(parentHeight, parentBlockSignature);
 		byte[] perturbedKey = calcHeightPerturbedPublicKey(parentHeight + 1, publicKey);
 
 		return MAX_DISTANCE.subtract(new BigInteger(idealKey).subtract(new BigInteger(perturbedKey)).abs());
 	}
 
 	public static BigInteger calcBlockWeight(int parentHeight, byte[] parentBlockSignature, BlockSummaryData blockSummaryData) {
-		BigInteger keyDistance = calcKeyDistance(parentHeight, parentBlockSignature, blockSummaryData.getGeneratorPublicKey());
+		BigInteger keyDistance = calcKeyDistance(parentHeight, parentBlockSignature, blockSummaryData.getMinterPublicKey());
 		return BigInteger.valueOf(blockSummaryData.getOnlineAccountsCount()).shiftLeft(ACCOUNTS_COUNT_SHIFT).add(keyDistance);
 	}
 
@@ -744,19 +744,20 @@ public class Block {
 	}
 
 	/**
-	 * Returns timestamp based on previous block and this block's generator.
+	 * Returns timestamp based on previous block and this block's minter.
 	 * <p>
-	 * Uses same proportion of this block's generator from 'ideal' generator
-	 * with min to max target block periods, added to previous block's timestamp.
+	 * Uses distance of this block's minter from 'ideal' minter,
+	 * along with min to max target block periods,
+	 * added to previous block's timestamp.
 	 * <p>
 	 * Example:<br>
-	 * This block's generator is 20% of max distance from 'ideal' generator.<br>
+	 * This block's minter is 20% of max distance from 'ideal' minter.<br>
 	 * Min/Max block periods are 30s and 90s respectively.<br>
 	 * 20% of (90s - 30s) is 12s<br>
 	 * So this block's timestamp is previous block's timestamp + 30s + 12s.
 	 */
-	public static long calcTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
-		BigInteger distance = calcKeyDistance(parentBlockData.getHeight(), parentBlockData.getSignature(), generatorPublicKey);
+	public static long calcTimestamp(BlockData parentBlockData, byte[] minterPublicKey) {
+		BigInteger distance = calcKeyDistance(parentBlockData.getHeight(), parentBlockData.getSignature(), minterPublicKey);
 		final int thisHeight = parentBlockData.getHeight() + 1;
 		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(thisHeight);
 
@@ -777,15 +778,15 @@ public class Block {
 	}
 
 	/**
-	 * Recalculate block's generator and transactions signatures, thus giving block full signature.
+	 * Recalculate block's minter and transactions signatures, thus giving block full signature.
 	 * <p>
-	 * Note: Block instance must have been constructed with a <tt>PrivateKeyAccount generator</tt> or this call will throw an <tt>IllegalStateException</tt>.
+	 * Note: Block instance must have been constructed with a <tt>PrivateKeyAccount</tt> minter or this call will throw an <tt>IllegalStateException</tt>.
 	 * 
 	 * @throws IllegalStateException
-	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 *             if block's {@code minter} is not a {@code PrivateKeyAccount}.
 	 */
 	public void sign() {
-		this.calcGeneratorSignature();
+		this.calcMinterSignature();
 		this.calcTransactionsSignature();
 
 		this.blockData.setSignature(this.getSignature());
@@ -794,16 +795,16 @@ public class Block {
 	/**
 	 * Returns whether this block's signatures are valid.
 	 * 
-	 * @return true if both generator and transaction signatures are valid, false otherwise
+	 * @return true if both minter and transaction signatures are valid, false otherwise
 	 */
 	public boolean isSignatureValid() {
 		try {
-			// Check generator's signature first
-			if (!this.generator.verify(this.blockData.getGeneratorSignature(), BlockTransformer.getBytesForGeneratorSignature(this.blockData)))
+			// Check minter's signature first
+			if (!this.minter.verify(this.blockData.getMinterSignature(), BlockTransformer.getBytesForMinterSignature(this.blockData)))
 				return false;
 
 			// Check transactions signature
-			if (!this.generator.verify(this.blockData.getTransactionsSignature(), BlockTransformer.getBytesForTransactionsSignature(this)))
+			if (!this.minter.verify(this.blockData.getTransactionsSignature(), BlockTransformer.getBytesForTransactionsSignature(this)))
 				return false;
 		} catch (TransformationException e) {
 			return false;
@@ -815,7 +816,7 @@ public class Block {
 	/**
 	 * Returns whether Block's timestamp is valid.
 	 * <p>
-	 * Used by BlockGenerator to check whether it's time to forge new block,
+	 * Used by BlockMinter to check whether it's time to mint a new block,
 	 * and also used by Block.isValid for checks (if not a testchain).
 	 * 
 	 * @return ValidationResult.OK if timestamp valid, or some other ValidationResult otherwise.
@@ -839,7 +840,7 @@ public class Block {
 		if (this.blockData.getTimestamp() < Block.calcMinimumTimestamp(parentBlockData))
 			return ValidationResult.TIMESTAMP_TOO_SOON;
 
-		long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getGeneratorPublicKey());
+		long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getMinterPublicKey());
 		if (this.blockData.getTimestamp() != expectedTimestamp)
 			return ValidationResult.TIMESTAMP_INCORRECT;
 
@@ -857,18 +858,18 @@ public class Block {
 		if (accountIndexes.size() != this.blockData.getOnlineAccountsCount())
 			return ValidationResult.ONLINE_ACCOUNTS_INVALID;
 
-		List<ProxyForgerData> expandedAccounts = new ArrayList<>();
+		List<RewardShareData> expandedAccounts = new ArrayList<>();
 
 		IntIterator iterator = accountIndexes.iterator();
 		while (iterator.hasNext()) {
 			int accountIndex = iterator.next();
-			ProxyForgerData proxyAccountData = repository.getAccountRepository().getProxyAccountByIndex(accountIndex);
+			RewardShareData rewardShareData = repository.getAccountRepository().getRewardShareByIndex(accountIndex);
 
 			// Check that claimed online account actually exists
-			if (proxyAccountData == null)
+			if (rewardShareData == null)
 				return ValidationResult.ONLINE_ACCOUNT_UNKNOWN;
 
-			expandedAccounts.add(proxyAccountData);
+			expandedAccounts.add(rewardShareData);
 		}
 
 		// Possibly check signatures if block is recent
@@ -885,7 +886,7 @@ public class Block {
 			byte[] message = Longs.toByteArray(this.blockData.getOnlineAccountsTimestamp());
 
 			for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
-				PublicKeyAccount account = new PublicKeyAccount(null, expandedAccounts.get(i).getProxyPublicKey());
+				PublicKeyAccount account = new PublicKeyAccount(null, expandedAccounts.get(i).getRewardSharePublicKey());
 				byte[] signature = onlineAccountsSignatures.get(i);
 
 				if (!account.verify(signature, message))
@@ -900,7 +901,7 @@ public class Block {
 	/**
 	 * Returns whether Block is valid.
 	 * <p>
-	 * Performs various tests like checking for parent block, correct block timestamp, version, generating balance, etc.
+	 * Performs various tests like checking for parent block, correct block timestamp, version, etc.
 	 * <p>
 	 * Checks block's transactions by testing their validity then processing them.<br>
 	 * Hence uses a repository savepoint during execution.
@@ -941,9 +942,9 @@ public class Block {
 		if (this.blockData.getVersion() < 2 && this.blockData.getATCount() != 0)
 			return ValidationResult.FEATURE_NOT_YET_RELEASED;
 
-		// Check generator is allowed to forge this block
-		if (!isGeneratorValidToForge(parentBlock))
-			return ValidationResult.GENERATOR_NOT_ACCEPTED;
+		// Check minter is allowed to mint this block
+		if (!isMinterValid(parentBlock))
+			return ValidationResult.MINTER_NOT_ACCEPTED;
 
 		// Online Accounts
 		ValidationResult onlineAccountsResult = this.areOnlineAccountsValid();
@@ -1148,15 +1149,15 @@ public class Block {
 		calcTransactionsSignature();
 	}
 
-	/** Returns whether block's generator is actually allowed to forge this block. */
-	protected boolean isGeneratorValidToForge(Block parentBlock) throws DataException {
-		// Block's generator public key must be known proxy forging public key
-		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
-		if (proxyForgerData == null)
+	/** Returns whether block's minter is actually allowed to mint this block. */
+	protected boolean isMinterValid(Block parentBlock) throws DataException {
+		// Qortal: block's minter public key must be known reward-share public key
+		RewardShareData rewardShareData = this.repository.getAccountRepository().getRewardShare(this.blockData.getMinterPublicKey());
+		if (rewardShareData == null)
 			return false;
 
-		Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
-		return forger.canForge();
+		Account mintingAccount = new PublicKeyAccount(this.repository, rewardShareData.getMinterPublicKey());
+		return mintingAccount.canMint();
 	}
 
 	/**
@@ -1184,7 +1185,7 @@ public class Block {
 		processGroupApprovalTransactions();
 
 		if (this.blockData.getHeight() > 1)
-			// Give transaction fees to generator/proxy
+			// Give transaction fees to minter/reward-share account(s)
 			rewardTransactionFees();
 
 		// Process AT fees and save AT states into repository
@@ -1204,8 +1205,8 @@ public class Block {
 	}
 
 	protected void increaseAccountLevels() throws DataException {
-		// We need to do this for both forgers and recipients
-		this.increaseAccountLevels(expandedAccount -> expandedAccount.isForgerFounder, expandedAccount -> expandedAccount.forgerAccountData);
+		// We need to do this for both minters and recipients
+		this.increaseAccountLevels(expandedAccount -> expandedAccount.isMinterFounder, expandedAccount -> expandedAccount.mintingAccountData);
 		this.increaseAccountLevels(expandedAccount -> expandedAccount.isRecipientFounder, expandedAccount -> expandedAccount.recipientAccountData);
 	}
 
@@ -1214,19 +1215,19 @@ public class Block {
 		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
 		final boolean isProcessingRecipients = getAccountData.apply(expandedAccounts.get(0)) == expandedAccounts.get(0).recipientAccountData;
 
-		// Increase blocks generated count for all accounts
+		// Increase blocks-minted count for all accounts
 		for (int a = 0; a < expandedAccounts.size(); ++a) {
 			ExpandedAccount expandedAccount = expandedAccounts.get(a);
 
-			// Don't increase twice if recipient is also forger.
-			if (isProcessingRecipients && expandedAccount.isRecipientAlsoForger)
+			// Don't increase twice if recipient is also minter.
+			if (isProcessingRecipients && expandedAccount.isRecipientAlsoMinter)
 				continue;
 
 			AccountData accountData = getAccountData.apply(expandedAccount);
 
-			accountData.setBlocksGenerated(accountData.getBlocksGenerated() + 1);
-			repository.getAccountRepository().setBlocksGenerated(accountData);
-			LOGGER.trace(() -> String.format("Block generator %s up to %d generated block%s", accountData.getAddress(), accountData.getBlocksGenerated(), (accountData.getBlocksGenerated() != 1 ? "s" : "")));
+			accountData.setBlocksMinted(accountData.getBlocksMinted() + 1);
+			repository.getAccountRepository().setMintedBlockCount(accountData);
+			LOGGER.trace(() -> String.format("Block minted %s up to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 		}
 
 		// We are only interested in accounts that are NOT founders and NOT already highest level
@@ -1237,15 +1238,15 @@ public class Block {
 			ExpandedAccount expandedAccount = candidateAccounts.get(c);
 			final AccountData accountData = getAccountData.apply(expandedAccount);
 
-			final int effectiveBlocksGenerated = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksGenerated();
+			final int effectiveBlocksMinted = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksMinted();
 
 			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
-				if (effectiveBlocksGenerated >= cumulativeBlocksByLevel.get(newLevel)) {
+				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
 					if (newLevel > accountData.getLevel()) {
 						// Account has increased in level!
 						accountData.setLevel(newLevel);
 						repository.getAccountRepository().setLevel(accountData);
-						LOGGER.trace(() -> String.format("Block generator %s bumped to level %d", accountData.getAddress(), accountData.getLevel()));
+						LOGGER.trace(() -> String.format("Block minter %s bumped to level %d", accountData.getAddress(), accountData.getLevel()));
 					}
 
 					break;
@@ -1393,7 +1394,7 @@ public class Block {
 	 */
 	public void orphan() throws DataException {
 		if (this.blockData.getHeight() > 1)
-			// Deduct any transaction fees from generator/proxy
+			// Deduct any transaction fees from minter/reward-share account(s)
 			deductTransactionFees();
 
 		// Orphan, and unlink, transactions from this block
@@ -1512,8 +1513,8 @@ public class Block {
 	}
 
 	protected void decreaseAccountLevels() throws DataException {
-		// We need to do this for both forgers and recipients
-		this.decreaseAccountLevels(expandedAccount -> expandedAccount.isForgerFounder, expandedAccount -> expandedAccount.forgerAccountData);
+		// We need to do this for both minters and recipients
+		this.decreaseAccountLevels(expandedAccount -> expandedAccount.isMinterFounder, expandedAccount -> expandedAccount.mintingAccountData);
 		this.decreaseAccountLevels(expandedAccount -> expandedAccount.isRecipientFounder, expandedAccount -> expandedAccount.recipientAccountData);
 	}
 
@@ -1522,19 +1523,19 @@ public class Block {
 		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
 		final boolean isProcessingRecipients = getAccountData.apply(expandedAccounts.get(0)) == expandedAccounts.get(0).recipientAccountData;
 
-		// Decrease blocks generated count for all accounts
+		// Decrease blocks minted count for all accounts
 		for (int a = 0; a < expandedAccounts.size(); ++a) {
 			ExpandedAccount expandedAccount = expandedAccounts.get(a);
 
-			// Don't decrease twice if recipient is also forger.
-			if (isProcessingRecipients && expandedAccount.isRecipientAlsoForger)
+			// Don't decrease twice if recipient is also minter.
+			if (isProcessingRecipients && expandedAccount.isRecipientAlsoMinter)
 				continue;
 
 			AccountData accountData = getAccountData.apply(expandedAccount);
 
-			accountData.setBlocksGenerated(accountData.getBlocksGenerated() - 1);
-			repository.getAccountRepository().setBlocksGenerated(accountData);
-			LOGGER.trace(() -> String.format("Block generator %s down to %d generated block%s", accountData.getAddress(), accountData.getBlocksGenerated(), (accountData.getBlocksGenerated() != 1 ? "s" : "")));
+			accountData.setBlocksMinted(accountData.getBlocksMinted() - 1);
+			repository.getAccountRepository().setMintedBlockCount(accountData);
+			LOGGER.trace(() -> String.format("Block minter %s down to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 		}
 
 		// We are only interested in accounts that are NOT founders and NOT already lowest level
@@ -1545,15 +1546,15 @@ public class Block {
 			ExpandedAccount expandedAccount = candidateAccounts.get(c);
 			final AccountData accountData = getAccountData.apply(expandedAccount);
 
-			final int effectiveBlocksGenerated = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksGenerated();
+			final int effectiveBlocksMinted = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksMinted();
 
 			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
-				if (effectiveBlocksGenerated >= cumulativeBlocksByLevel.get(newLevel)) {
+				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
 					if (newLevel < accountData.getLevel()) {
 						// Account has decreased in level!
 						accountData.setLevel(newLevel);
 						repository.getAccountRepository().setLevel(accountData);
-						LOGGER.trace(() -> String.format("Block generator %s reduced to level %d", accountData.getAddress(), accountData.getLevel()));
+						LOGGER.trace(() -> String.format("Block minter %s reduced to level %d", accountData.getAddress(), accountData.getLevel()));
 					}
 
 					break;
@@ -1574,7 +1575,7 @@ public class Block {
 			LOGGER.trace(() -> String.format("Bin %d share of %s: %s", binIndex, totalAmount.toPlainString(), binAmount.toPlainString()));
 
 			// Spread across all accounts in bin
-			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> !accountInfo.isForgerFounder && accountInfo.shareBin == binIndex).collect(Collectors.toList());
+			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> !accountInfo.isMinterFounder && accountInfo.shareBin == binIndex).collect(Collectors.toList());
 			if (binnedAccounts.isEmpty())
 				continue;
 
@@ -1596,11 +1597,11 @@ public class Block {
 		BigDecimal totalQoraHeld = BigDecimal.ZERO;
 		for (int i = 0; i < expandedAccounts.size(); ++i) {
 			ExpandedAccount expandedAccount = expandedAccounts.get(i);
-			if (expandedAccount.forgerQoraAmount == null)
+			if (expandedAccount.minterQoraAmount == null)
 				continue;
 
 			qoraHolderAccounts.add(expandedAccount);
-			totalQoraHeld = totalQoraHeld.add(expandedAccount.forgerQoraAmount);
+			totalQoraHeld = totalQoraHeld.add(expandedAccount.minterQoraAmount);
 		}
 
 		final BigDecimal finalTotalQoraHeld = totalQoraHeld;
@@ -1608,9 +1609,9 @@ public class Block {
 
 		for (int h = 0; h < qoraHolderAccounts.size(); ++h) {
 			ExpandedAccount expandedAccount = qoraHolderAccounts.get(h);
-			final BigDecimal holderAmount = qoraHoldersAmount.multiply(totalQoraHeld).divide(expandedAccount.forgerQoraAmount, RoundingMode.DOWN);
-			LOGGER.trace(() -> String.format("Forger account %s has %s / %s QORA so share: %s",
-					expandedAccount.forgerAccount.getAddress(), expandedAccount.forgerQoraAmount, finalTotalQoraHeld, holderAmount.toPlainString()));
+			final BigDecimal holderAmount = qoraHoldersAmount.multiply(totalQoraHeld).divide(expandedAccount.minterQoraAmount, RoundingMode.DOWN);
+			LOGGER.trace(() -> String.format("Minter account %s has %s / %s QORA so share: %s",
+					expandedAccount.mintingAccount.getAddress(), expandedAccount.minterQoraAmount, finalTotalQoraHeld, holderAmount.toPlainString()));
 
 			expandedAccount.distribute(holderAmount);
 			sharedAmount = sharedAmount.add(holderAmount);
@@ -1620,7 +1621,7 @@ public class Block {
 		BigDecimal foundersAmount = totalAmount.subtract(sharedAmount);
 		LOGGER.debug(String.format("Shared %s of %s, remaining %s to founders", sharedAmount.toPlainString(), totalAmount.toPlainString(), foundersAmount.toPlainString()));
 
-		List<ExpandedAccount> founderAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isForgerFounder).collect(Collectors.toList());
+		List<ExpandedAccount> founderAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isMinterFounder).collect(Collectors.toList());
 		if (founderAccounts.isEmpty())
 			return;
 

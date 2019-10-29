@@ -4,8 +4,8 @@ import java.util.List;
 
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
-import org.qora.data.account.ForgingAccountData;
-import org.qora.data.account.ProxyForgerData;
+import org.qora.data.account.MintingAccountData;
+import org.qora.data.account.RewardShareData;
 
 public interface AccountRepository {
 
@@ -28,9 +28,6 @@ public interface AccountRepository {
 
 	/** Returns whether account exists. */
 	public boolean accountExists(String address) throws DataException;
-
-	/** Returns number of accounts enabled to forge by given address. */
-	public int countForgingAccountsEnabledByAddress(String address) throws DataException;
 
 	/**
 	 * Ensures at least minimal account info in repository.
@@ -75,11 +72,11 @@ public interface AccountRepository {
 	public void setInitialLevel(AccountData accountData) throws DataException;
 
 	/**
-	 * Saves account's generated block count and public key if present, in repository.
+	 * Saves account's minted block count and public key if present, in repository.
 	 * <p>
 	 * Note: ignores other fields like last reference, default groupID.
 	 */
-	public void setBlocksGenerated(AccountData accountData) throws DataException;
+	public void setMintedBlockCount(AccountData accountData) throws DataException;
 
 	/** Delete account from repository. */
 	public void delete(String address) throws DataException;
@@ -100,44 +97,45 @@ public interface AccountRepository {
 
 	public void delete(String address, long assetId) throws DataException;
 
-	// Proxy forging
+	// Reward-shares
 
-	public ProxyForgerData getProxyForgeData(byte[] forgerPublicKey, String recipient) throws DataException;
+	public RewardShareData getRewardShare(byte[] mintingAccountPublicKey, String recipientAccount) throws DataException;
 
-	public ProxyForgerData getProxyForgeData(byte[] proxyPublicKey) throws DataException;
+	public RewardShareData getRewardShare(byte[] rewardSharePublicKey) throws DataException;
 
-	public boolean isProxyPublicKey(byte[] publicKey) throws DataException;
+	public boolean isRewardSharePublicKey(byte[] publicKey) throws DataException;
 
-	public int countProxyAccounts(byte[] forgerPublicKey) throws DataException;
+	/** Returns number of active reward-shares involving passed public key as the minting account only. */
+	public int countRewardShares(byte[] mintingAccountPublicKey) throws DataException;
 
-	public List<ProxyForgerData> getProxyAccounts() throws DataException;
+	public List<RewardShareData> getRewardShares() throws DataException;
 
-	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, List<String> involvedAddresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<RewardShareData> findRewardShares(List<String> mintingAccounts, List<String> recipientAccounts, List<String> involvedAddresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
-	 * Returns index in list of proxy accounts (sorted by public key).
+	 * Returns index in list of reward-shares (sorted by reward-share public key).
 	 * <p>
 	 * @return index (from 0) or null if publicKey not found in repository.
 	 */
-	public Integer getProxyAccountIndex(byte[] publicKey) throws DataException;
+	public Integer getRewardShareIndex(byte[] rewardSharePublicKey) throws DataException;
 
 	/**
-	 * Returns proxy forger data using index into list of proxy accounts.
+	 * Returns reward-share data using index into list of reward-shares (sorted by reward-share public key).
 	 */
-	public ProxyForgerData getProxyAccountByIndex(int index) throws DataException;
+	public RewardShareData getRewardShareByIndex(int index) throws DataException;
 
-	public void save(ProxyForgerData proxyForgerData) throws DataException;
+	public void save(RewardShareData rewardShareData) throws DataException;
 
-	/** Delete proxy forging relationship from repository using passed forger's public key and recipient's address. */
-	public void delete(byte[] forgerPublickey, String recipient) throws DataException;
+	/** Delete reward-share from repository using passed minting account's public key and recipient's address. */
+	public void delete(byte[] mintingAccountPublickey, String recipient) throws DataException;
 
-	// Forging accounts used by BlockGenerator
+	// Minting accounts used by BlockMinter, potentially includes reward-shares
 
-	public List<ForgingAccountData> getForgingAccounts() throws DataException;
+	public List<MintingAccountData> getMintingAccounts() throws DataException;
 
-	public void save(ForgingAccountData forgingAccountData) throws DataException;
+	public void save(MintingAccountData mintingAccountData) throws DataException;
 
-	/** Delete forging account info, used by BlockGenerator, from repository using passed private key. */
-	public int delete(byte[] forgingAccountSeed) throws DataException;
+	/** Delete minting account info, used by BlockMinter, from repository using passed private key. */
+	public int delete(byte[] mintingAccountPrivateKey) throws DataException;
 
 }

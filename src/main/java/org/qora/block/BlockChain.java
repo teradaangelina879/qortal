@@ -61,8 +61,6 @@ public class BlockChain {
 	private BigDecimal maxBytesPerUnitFee;
 	private BigDecimal minFeePerByte;
 
-	/** Number of blocks between recalculating block's generating balance. */
-	private int blockDifficultyInterval;
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	private long blockTimestampMargin;
 	/** Maximum block size, in bytes. */
@@ -113,15 +111,23 @@ public class BlockChain {
 	BigDecimal qoraHoldersShare;
 
 	/**
-	 * Number of generated blocks required to reach next level from previous.
+	 * Number of minted blocks required to reach next level from previous.
 	 * <p>
 	 * Use account's current level as index.<br>
 	 * If account's level isn't valid as an index, then account's level is at maximum.
+	 * <p>
+	 * Example: if <tt>blocksNeededByLevel[3]</tt> is 200,<br>
+	 * then level 3 accounts need to mint 200 blocks to reach level 4.
 	 */
 	List<Integer> blocksNeededByLevel;
 
 	/**
-	 * Cumulative number of generated blocks required to reach level from scratch.
+	 * Cumulative number of minted blocks required to reach next level from scratch.
+	 * <p>
+	 * Use target level as index. <tt>cumulativeBlocksByLevel[0]</tt> should be 0.
+	 * <p>
+	 * Example; if <tt>cumulativeBlocksByLevel[2</tt>] is 1800,<br>
+	 * the a <b>new</b> account will need to mint 1800 blocks to reach level 2.
 	 * <p>
 	 * Generated just after blockchain config is parsed and validated.
 	 * <p>
@@ -138,7 +144,9 @@ public class BlockChain {
 	}
 	List<BlockTimingByHeight> blockTimingsByHeight;
 
-	private int maxProxyRelationships;
+	private int minAccountLevelToMint = 1;
+	private int minAccountLevelToRewardShare;
+	private int maxRewardSharesPerMintingAccount;
 
 	/** Minimum time to retain online account signatures (ms) for block validity checks. */
 	private long onlineAccountSignaturesMinLifetime;
@@ -263,10 +271,6 @@ public class BlockChain {
 		return this.transactionExpiryPeriod;
 	}
 
-	public int getBlockDifficultyInterval() {
-		return this.blockDifficultyInterval;
-	}
-
 	public long getBlockTimestampMargin() {
 		return this.blockTimestampMargin;
 	}
@@ -308,8 +312,16 @@ public class BlockChain {
 		return this.qoraHoldersShare;
 	}
 
-	public int getMaxProxyRelationships() {
-		return this.maxProxyRelationships;
+	public int getMinAccountLevelToMint() {
+		return this.minAccountLevelToMint;
+	}
+
+	public int getMinAccountLevelToRewardShare() {
+		return this.minAccountLevelToRewardShare;
+	}
+
+	public int getMaxRewardSharesPerMintingAccount() {
+		return this.maxRewardSharesPerMintingAccount;
 	}
 
 	public long getOnlineAccountSignaturesMinLifetime() {
@@ -405,6 +417,10 @@ public class BlockChain {
 
 		if (this.maxBlockSize <= 0)
 			Settings.throwValidationError("Invalid \"maxBlockSize\" in blockchain config");
+
+		if (this.minAccountLevelToRewardShare <= 0)
+			Settings.throwValidationError("Invalid/missing \"minAccountLevelToRewardShare\" in blockchain config");
+
 
 		if (this.featureTriggers == null)
 			Settings.throwValidationError("No \"featureTriggers\" entry found in blockchain config");

@@ -9,8 +9,8 @@ import java.util.List;
 
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
-import org.qora.data.account.ForgingAccountData;
-import org.qora.data.account.ProxyForgerData;
+import org.qora.data.account.MintingAccountData;
+import org.qora.data.account.RewardShareData;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.DataException;
 
@@ -26,7 +26,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		String sql = "SELECT reference, public_key, default_group_id, flags, initial_level, level, blocks_generated FROM Accounts WHERE account = ?";
+		String sql = "SELECT reference, public_key, default_group_id, flags, initial_level, level, blocks_minted FROM Accounts WHERE account = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
@@ -38,9 +38,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			int flags = resultSet.getInt(4);
 			int initialLevel = resultSet.getInt(5);
 			int level = resultSet.getInt(6);
-			int blocksGenerated = resultSet.getInt(7);
+			int blocksMinted = resultSet.getInt(7);
 
-			return new AccountData(address, reference, publicKey, defaultGroupId, flags, initialLevel, level, blocksGenerated);
+			return new AccountData(address, reference, publicKey, defaultGroupId, flags, initialLevel, level, blocksMinted);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -109,15 +109,6 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return this.repository.exists("Accounts", "account = ?", address);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for account in repository", e);
-		}
-	}
-
-	@Override
-	public int countForgingAccountsEnabledByAddress(String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT COUNT(*) FROM Accounts WHERE forging_enabler = ? LIMIT 1", address)) {
-			return resultSet.getInt(1);
-		} catch (SQLException e) {
-			throw new DataException("Unable to count forging accounts enabled in repository", e);
 		}
 	}
 
@@ -236,10 +227,10 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public void setBlocksGenerated(AccountData accountData) throws DataException {
+	public void setMintedBlockCount(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 
-		saveHelper.bind("account", accountData.getAddress()).bind("blocks_generated", accountData.getBlocksGenerated());
+		saveHelper.bind("account", accountData.getAddress()).bind("blocks_minted", accountData.getBlocksMinted());
 
 		byte[] publicKey = accountData.getPublicKey();
 		if (publicKey != null)
@@ -248,7 +239,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		try {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
-			throw new DataException("Unable to save account's generated block count into repository", e);
+			throw new DataException("Unable to save account's minted block count into repository", e);
 		}
 	}
 
@@ -401,102 +392,102 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
-	// Proxy forging
+	// Reward-Share
 
 	@Override
-	public ProxyForgerData getProxyForgeData(byte[] forgerPublicKey, String recipient) throws DataException {
-		String sql = "SELECT proxy_public_key, share FROM ProxyForgers WHERE forger = ? AND recipient = ?";
+	public RewardShareData getRewardShare(byte[] minterPublicKey, String recipient) throws DataException {
+		String sql = "SELECT reward_share_public_key, share_percent FROM RewardShares WHERE minter_public_key = ? AND recipient = ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, forgerPublicKey, recipient)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, minterPublicKey, recipient)) {
 			if (resultSet == null)
 				return null;
 
-			byte[] proxyPublicKey = resultSet.getBytes(1);
-			BigDecimal share = resultSet.getBigDecimal(2);
+			byte[] rewardSharePublicKey = resultSet.getBytes(1);
+			BigDecimal sharePercent = resultSet.getBigDecimal(2);
 
-			return new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share);
+			return new RewardShareData(minterPublicKey, recipient, rewardSharePublicKey, sharePercent);
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch proxy forge info from repository", e);
+			throw new DataException("Unable to fetch reward-share info from repository", e);
 		}
 	}
 
 	@Override
-	public ProxyForgerData getProxyForgeData(byte[] proxyPublicKey) throws DataException {
-		String sql = "SELECT forger, recipient, share FROM ProxyForgers WHERE proxy_public_key = ?";
+	public RewardShareData getRewardShare(byte[] rewardSharePublicKey) throws DataException {
+		String sql = "SELECT minter_public_key, recipient, share_percent FROM RewardShares WHERE reward_share_public_key = ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, proxyPublicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, rewardSharePublicKey)) {
 			if (resultSet == null)
 				return null;
 
-			byte[] forgerPublicKey = resultSet.getBytes(1);
+			byte[] minterPublicKey = resultSet.getBytes(1);
 			String recipient = resultSet.getString(2);
-			BigDecimal share = resultSet.getBigDecimal(3);
+			BigDecimal sharePercent = resultSet.getBigDecimal(3);
 
-			return new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share);
+			return new RewardShareData(minterPublicKey, recipient, rewardSharePublicKey, sharePercent);
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch proxy forge info from repository", e);
+			throw new DataException("Unable to fetch reward-share info from repository", e);
 		}
 	}
 
 	@Override
-	public boolean isProxyPublicKey(byte[] publicKey) throws DataException {
+	public boolean isRewardSharePublicKey(byte[] publicKey) throws DataException {
 		try {
-			return this.repository.exists("ProxyForgers", "proxy_public_key = ?", publicKey);
+			return this.repository.exists("RewardShares", "reward_share_public_key = ?", publicKey);
 		} catch (SQLException e) {
-			throw new DataException("Unable to check for proxy public key in repository", e);
+			throw new DataException("Unable to check for reward-share public key in repository", e);
 		}
 	}
 
 	@Override
-	public int countProxyAccounts(byte[] forgerPublicKey) throws DataException {
-		String sql = "SELECT COUNT(*) FROM ProxyForgers WHERE forger = ?";
+	public int countRewardShares(byte[] minterPublicKey) throws DataException {
+		String sql = "SELECT COUNT(*) FROM RewardShares WHERE minter_public_key = ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, forgerPublicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, minterPublicKey)) {
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
-			throw new DataException("Unable to count proxy forging relationships in repository", e);
+			throw new DataException("Unable to count reward-shares in repository", e);
 		}
 	}
 
 	@Override
-	public List<ProxyForgerData> getProxyAccounts() throws DataException {
-		String sql = "SELECT forger, recipient, share, proxy_public_key FROM ProxyForgers";
+	public List<RewardShareData> getRewardShares() throws DataException {
+		String sql = "SELECT minter_public_key, recipient, share_percent, reward_share_public_key FROM RewardShares";
 
-		List<ProxyForgerData> proxyAccounts = new ArrayList<>();
+		List<RewardShareData> rewardShares = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
-				return proxyAccounts;
+				return rewardShares;
 
 			do {
-				byte[] forgerPublicKey = resultSet.getBytes(1);
+				byte[] minterPublicKey = resultSet.getBytes(1);
 				String recipient = resultSet.getString(2);
-				BigDecimal share = resultSet.getBigDecimal(3);
-				byte[] proxyPublicKey = resultSet.getBytes(4);
+				BigDecimal sharePercent = resultSet.getBigDecimal(3);
+				byte[] rewardSharePublicKey = resultSet.getBytes(4);
 
-				proxyAccounts.add(new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share));
+				rewardShares.add(new RewardShareData(minterPublicKey, recipient, rewardSharePublicKey, sharePercent));
 			} while (resultSet.next());
 
-			return proxyAccounts;
+			return rewardShares;
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch proxy forge accounts from repository", e);
+			throw new DataException("Unable to fetch reward-shares from repository", e);
 		}
 	}
 
 	@Override
-	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, List<String> involvedAddresses,
+	public List<RewardShareData> findRewardShares(List<String> minters, List<String> recipients, List<String> involvedAddresses,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append("SELECT DISTINCT forger, recipient, share, proxy_public_key FROM ProxyForgers ");
+		sql.append("SELECT DISTINCT minter_public_key, recipient, share_percent, reward_share_public_key FROM RewardShares ");
 
 		List<Object> args = new ArrayList<>();
 
 		final boolean hasRecipients = recipients != null && !recipients.isEmpty();
-		final boolean hasForgers = forgers != null && !forgers.isEmpty();
+		final boolean hasMinters = minters != null && !minters.isEmpty();
 		final boolean hasInvolved = involvedAddresses != null && !involvedAddresses.isEmpty();
 
-		if (hasForgers || hasInvolved)
-			sql.append("JOIN Accounts ON Accounts.public_key = ProxyForgers.forger ");
+		if (hasMinters || hasInvolved)
+			sql.append("JOIN Accounts ON Accounts.public_key = RewardShares.minter_public_key ");
 
 		if (hasRecipients) {
 			sql.append("JOIN (VALUES ");
@@ -509,28 +500,27 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				sql.append("(?)");
 			}
 
-			sql.append(") AS Recipients (address) ON ProxyForgers.recipient = Recipients.address ");
+			sql.append(") AS Recipients (address) ON RewardShares.recipient = Recipients.address ");
 			args.addAll(recipients);
 		}
 
-		if (hasForgers) {
+		if (hasMinters) {
 			sql.append("JOIN (VALUES ");
 
-			final int forgersSize = forgers.size();
-			for (int fi = 0; fi < forgersSize; ++fi) {
+			final int mintersSize = minters.size();
+			for (int fi = 0; fi < mintersSize; ++fi) {
 				if (fi != 0)
 					sql.append(", ");
 
 				sql.append("(?)");
 			}
 
-			sql.append(") AS Forgers (address) ON Accounts.account = Forgers.address ");
-			args.addAll(forgers);
+			sql.append(") AS Minters (address) ON Accounts.account = Minters.address ");
+			args.addAll(minters);
 		}
 
 		if (hasInvolved) {
 			sql.append("JOIN (VALUES ");
-
 
 			final int involvedAddressesSize = involvedAddresses.size();
 			for (int iai = 0; iai < involvedAddressesSize; ++iai) {
@@ -540,40 +530,40 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				sql.append("(?)");
 			}
 
-			sql.append(") AS Involved (address) ON Involved.address IN (ProxyForgers.recipient, Accounts.account) ");
+			sql.append(") AS Involved (address) ON Involved.address IN (RewardShares.recipient, Accounts.account) ");
 			args.addAll(involvedAddresses);
 		}
 
-		sql.append("ORDER BY recipient, share");
+		sql.append("ORDER BY recipient, share_percent");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<ProxyForgerData> proxyAccounts = new ArrayList<>();
+		List<RewardShareData> rewardShares = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), args.toArray())) {
 			if (resultSet == null)
-				return proxyAccounts;
+				return rewardShares;
 
 			do {
-				byte[] forgerPublicKey = resultSet.getBytes(1);
+				byte[] minterPublicKey = resultSet.getBytes(1);
 				String recipient = resultSet.getString(2);
-				BigDecimal share = resultSet.getBigDecimal(3);
-				byte[] proxyPublicKey = resultSet.getBytes(4);
+				BigDecimal sharePercent = resultSet.getBigDecimal(3);
+				byte[] rewardSharePublicKey = resultSet.getBytes(4);
 
-				proxyAccounts.add(new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share));
+				rewardShares.add(new RewardShareData(minterPublicKey, recipient, rewardSharePublicKey, sharePercent));
 			} while (resultSet.next());
 
-			return proxyAccounts;
+			return rewardShares;
 		} catch (SQLException e) {
-			throw new DataException("Unable to find proxy forge accounts in repository", e);
+			throw new DataException("Unable to find reward-shares in repository", e);
 		}
 	}
 
 	@Override
-	public Integer getProxyAccountIndex(byte[] publicKey) throws DataException {
-		String sql = "SELECT COUNT(*) FROM ProxyForgers WHERE proxy_public_key < ?";
+	public Integer getRewardShareIndex(byte[] publicKey) throws DataException {
+		String sql = "SELECT COUNT(*) FROM RewardShares WHERE reward_share_public_key < ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey)) {
 			if (resultSet == null)
@@ -581,92 +571,92 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
-			throw new DataException("Unable to determine account index in repository", e);
+			throw new DataException("Unable to determine reward-share index in repository", e);
 		}
 	}
 
 	@Override
-	public ProxyForgerData getProxyAccountByIndex(int index) throws DataException {
-		String sql = "SELECT forger, recipient, share, proxy_public_key FROM ProxyForgers "
-				+ "ORDER BY proxy_public_key ASC "
+	public RewardShareData getRewardShareByIndex(int index) throws DataException {
+		String sql = "SELECT minter_public_key, recipient, share_percent, reward_share_public_key FROM RewardShares "
+				+ "ORDER BY reward_share_public_key ASC "
 				+ "OFFSET ? LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, index)) {
 			if (resultSet == null)
 				return null;
 
-			byte[] forgerPublicKey = resultSet.getBytes(1);
+			byte[] minterPublicKey = resultSet.getBytes(1);
 			String recipient = resultSet.getString(2);
-			BigDecimal share = resultSet.getBigDecimal(3);
-			byte[] proxyPublicKey = resultSet.getBytes(4);
+			BigDecimal sharePercent = resultSet.getBigDecimal(3);
+			byte[] rewardSharePublicKey = resultSet.getBytes(4);
 
-			return new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share);
+			return new RewardShareData(minterPublicKey, recipient, rewardSharePublicKey, sharePercent);
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch account info from repository", e);
+			throw new DataException("Unable to fetch reward-share info from repository", e);
 		}
 	}
 
 	@Override
-	public void save(ProxyForgerData proxyForgerData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("ProxyForgers");
+	public void save(RewardShareData rewardShareData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("RewardShares");
 
-		saveHelper.bind("forger", proxyForgerData.getForgerPublicKey()).bind("recipient", proxyForgerData.getRecipient())
-				.bind("proxy_public_key", proxyForgerData.getProxyPublicKey()).bind("share", proxyForgerData.getShare());
+		saveHelper.bind("minter_public_key", rewardShareData.getMinterPublicKey()).bind("recipient", rewardShareData.getRecipient())
+				.bind("reward_share_public_key", rewardShareData.getRewardSharePublicKey()).bind("share_percent", rewardShareData.getSharePercent());
 
 		try {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
-			throw new DataException("Unable to save proxy forge info into repository", e);
+			throw new DataException("Unable to save reward-share info into repository", e);
 		}
 	}
 
 	@Override
-	public void delete(byte[] forgerPublickey, String recipient) throws DataException {
+	public void delete(byte[] minterPublickey, String recipient) throws DataException {
 		try {
-			this.repository.delete("ProxyForgers", "forger = ? and recipient = ?", forgerPublickey, recipient);
+			this.repository.delete("RewardShares", "minter_public_key = ? and recipient = ?", minterPublickey, recipient);
 		} catch (SQLException e) {
-			throw new DataException("Unable to delete proxy forge info from repository", e);
+			throw new DataException("Unable to delete reward-share info from repository", e);
 		}
 	}
 
-	// Forging accounts used by BlockGenerator
+	// Minting accounts used by BlockMinter
 
-	public List<ForgingAccountData> getForgingAccounts() throws DataException {
-		List<ForgingAccountData> forgingAccounts = new ArrayList<>();
+	public List<MintingAccountData> getMintingAccounts() throws DataException {
+		List<MintingAccountData> mintingAccounts = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT forger_seed FROM ForgingAccounts")) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT minter_private_key FROM MintingAccounts")) {
 			if (resultSet == null)
-				return forgingAccounts;
+				return mintingAccounts;
 
 			do {
-				byte[] forgerSeed = resultSet.getBytes(1);
+				byte[] minterPrivateKey = resultSet.getBytes(1);
 
-				forgingAccounts.add(new ForgingAccountData(forgerSeed));
+				mintingAccounts.add(new MintingAccountData(minterPrivateKey));
 			} while (resultSet.next());
 
-			return forgingAccounts;
+			return mintingAccounts;
 		} catch (SQLException e) {
-			throw new DataException("Unable to find forging accounts in repository", e);
+			throw new DataException("Unable to fetch minting accounts from repository", e);
 		}
 	}
 
-	public void save(ForgingAccountData forgingAccountData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("ForgingAccounts");
+	public void save(MintingAccountData mintingAccountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("MintingAccounts");
 
-		saveHelper.bind("forger_seed", forgingAccountData.getSeed());
+		saveHelper.bind("minter_private_key", mintingAccountData.getPrivateKey());
 
 		try {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
-			throw new DataException("Unable to save forging account into repository", e);
+			throw new DataException("Unable to save minting account into repository", e);
 		}
 	}
 
-	public int delete(byte[] forgingAccountSeed) throws DataException {
+	public int delete(byte[] minterPrivateKey) throws DataException {
 		try {
-			return this.repository.delete("ForgingAccounts", "forger_seed = ?", forgingAccountSeed);
+			return this.repository.delete("MintingAccounts", "minter_private_key = ?", minterPrivateKey);
 		} catch (SQLException e) {
-			throw new DataException("Unable to delete forging account from repository", e);
+			throw new DataException("Unable to delete minting account from repository", e);
 		}
 	}
 

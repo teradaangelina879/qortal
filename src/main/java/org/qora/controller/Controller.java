@@ -31,10 +31,10 @@ import org.qora.api.ApiService;
 import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockChain.BlockTimingByHeight;
-import org.qora.block.BlockGenerator;
+import org.qora.block.BlockMinter;
 import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.crypto.Crypto;
-import org.qora.data.account.ForgingAccountData;
+import org.qora.data.account.MintingAccountData;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockSummaryData;
 import org.qora.data.network.OnlineAccountData;
@@ -114,7 +114,7 @@ public class Controller extends Thread {
 	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000L);
 
 	private static volatile boolean isStopping = false;
-	private static BlockGenerator blockGenerator = null;
+	private static BlockMinter blockMinter = null;
 	private static volatile boolean requestSync = false;
 	private static volatile boolean requestSysTrayUpdate = false;
 	private static Controller instance;
@@ -129,8 +129,8 @@ public class Controller extends Thread {
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
 	private long onlineAccountsTasksTimestamp = startTime + ONLINE_ACCOUNTS_TASKS_INTERVAL; // ms
 
-	/** Whether we can generate new blocks, as reported by BlockGenerator. */
-	private volatile boolean isGenerationPossible = false;
+	/** Whether we can mint new blocks, as reported by BlockMinter. */
+	private volatile boolean isMintingPossible = false;
 
 	/** Latest block signatures from other peers that we know are on inferior chains. */
 	List<ByteArray> inferiorChainSignatures = new ArrayList<>();
@@ -154,7 +154,7 @@ public class Controller extends Thread {
 	 */
 	private Map<Integer, Triple<String, Peer, Long>> arbitraryDataRequests = Collections.synchronizedMap(new HashMap<>());
 
-	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly generated block. */
+	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly minted block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
 
 	/** Cache of 'online accounts' */
@@ -300,9 +300,9 @@ public class Controller extends Thread {
 			}
 		});
 
-		LOGGER.info("Starting block generator");
-		blockGenerator = new BlockGenerator();
-		blockGenerator.start();
+		LOGGER.info("Starting block minter");
+		blockMinter = new BlockMinter();
+		blockMinter.start();
 
 		// Arbitrary transaction data manager
 		// LOGGER.info("Starting arbitrary-transaction data manager");
@@ -566,9 +566,9 @@ public class Controller extends Thread {
 
 		String connectionsText = Translator.INSTANCE.translate("SysTray", numberOfPeers != 1 ? "CONNECTIONS" : "CONNECTION");
 		String heightText = Translator.INSTANCE.translate("SysTray", "BLOCK_HEIGHT");
-		String generatingText = Translator.INSTANCE.translate("SysTray", isGenerationPossible ? "GENERATING_ENABLED" : "GENERATING_DISABLED");
+		String mintingText = Translator.INSTANCE.translate("SysTray", isMintingPossible ? "MINTING_ENABLED" : "MINTING_DISABLED");
 
-		String tooltip = String.format("%s - %d %s - %s %d", generatingText, numberOfPeers, connectionsText, heightText, height);
+		String tooltip = String.format("%s - %d %s - %s %d", mintingText, numberOfPeers, connectionsText, heightText, height);
 		SysTray.getInstance().setToolTipText(tooltip);
 	}
 
@@ -616,11 +616,11 @@ public class Controller extends Thread {
 				// LOGGER.info("Shutting down arbitrary-transaction data manager");
 				// ArbitraryDataManager.getInstance().shutdown();
 
-				if (blockGenerator != null) {
-					LOGGER.info("Shutting down block generator");
-					blockGenerator.shutdown();
+				if (blockMinter != null) {
+					LOGGER.info("Shutting down block minter");
+					blockMinter.shutdown();
 					try {
-						blockGenerator.join();
+						blockMinter.join();
 					} catch (InterruptedException e) {
 						// We were interrupted while waiting for thread to join
 					}
@@ -673,12 +673,12 @@ public class Controller extends Thread {
 		network.broadcast(network::buildGetUnconfirmedTransactionsMessage);
 	}
 
-	public void onGenerationPossibleChange(boolean isGenerationPossible) {
-		this.isGenerationPossible = isGenerationPossible;
+	public void onMintingPossibleChange(boolean isMintingPossible) {
+		this.isMintingPossible = isMintingPossible;
 		requestSysTrayUpdate = true;
 	}
 
-	public void onGeneratedBlock() {
+	public void onBlockMinted() {
 		// Broadcast our new height info
 		BlockData latestBlockData;
 
@@ -686,7 +686,7 @@ public class Controller extends Thread {
 			latestBlockData = repository.getBlockRepository().getLastBlock();
 			this.setChainTip(latestBlockData);
 		} catch (DataException e) {
-			LOGGER.warn(String.format("Repository issue when trying to fetch post-generation chain tip: %s", e.getMessage()));
+			LOGGER.warn(String.format("Repository issue when trying to fetch post-mint chain tip: %s", e.getMessage()));
 			return;
 		}
 
@@ -768,7 +768,7 @@ public class Controller extends Thread {
 						continue;
 
 					// Update peer chain tip data
-					PeerChainTipData newChainTipData = new PeerChainTipData(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getGeneratorPublicKey());
+					PeerChainTipData newChainTipData = new PeerChainTipData(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getMinterPublicKey());
 					connectedPeer.setChainTipData(newChainTipData);
 				}
 
@@ -817,7 +817,7 @@ public class Controller extends Thread {
 						continue;
 
 					// Update peer chain tip data
-					PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getGenerator());
+					PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getMinterPublicKey());
 					connectedPeer.setChainTipData(newChainTipData);
 				}
 
@@ -1280,6 +1280,31 @@ public class Controller extends Thread {
 		}
 	}
 
+	public void ensureTestingAccountOnline(PrivateKeyAccount mintingAccount) {
+		if (!BlockChain.getInstance().isTestChain()) {
+			LOGGER.warn("Ignoring attempt to ensure test account is online for non-test chain!");
+			return;
+		}
+
+		final Long now = NTP.getTime();
+		if (now == null)
+			return;
+
+		// Check mintingAccount is actually reward-share?
+
+		// Add reward-share & timestamp to online accounts
+		final long onlineAccountsTimestamp = Controller.toOnlineAccountTimestamp(now);
+		byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
+
+		byte[] signature = mintingAccount.sign(timestampBytes);
+		byte[] publicKey = mintingAccount.getPublicKey();
+
+		OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
+		synchronized (this.onlineAccounts) {
+			this.onlineAccounts.add(ourOnlineAccountData);
+		}
+	}
+
 	private void performOnlineAccountsTasks() {
 		final Long now = NTP.getTime();
 		if (now == null)
@@ -1324,24 +1349,24 @@ public class Controller extends Thread {
 		if (now == null)
 			return;
 
-		List<ForgingAccountData> forgingAccounts;
+		List<MintingAccountData> mintingAccounts;
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			forgingAccounts = repository.getAccountRepository().getForgingAccounts();
+			mintingAccounts = repository.getAccountRepository().getMintingAccounts();
 
 			// We have no accounts, but don't reset timestamp
-			if (forgingAccounts.isEmpty())
+			if (mintingAccounts.isEmpty())
 				return;
 
-			// Only proxy forging accounts allowed
-			Iterator<ForgingAccountData> iterator = forgingAccounts.iterator();
+			// Only reward-share accounts allowed
+			Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
 			while (iterator.hasNext()) {
-				ForgingAccountData forgingAccountData = iterator.next();
+				MintingAccountData mintingAccountData = iterator.next();
 
-				if (!repository.getAccountRepository().isProxyPublicKey(forgingAccountData.getPublicKey()))
+				if (!repository.getAccountRepository().isRewardSharePublicKey(mintingAccountData.getPublicKey()))
 					iterator.remove();
 			}
 		} catch (DataException e) {
-			LOGGER.warn(String.format("Repository issue trying to fetch forging accounts: %s", e.getMessage()));
+			LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
 			return;
 		}
 
@@ -1352,12 +1377,12 @@ public class Controller extends Thread {
 		byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
 		List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
 
-		FORGING_ACCOUNTS:
-		for (ForgingAccountData forgingAccountData : forgingAccounts) {
-			PrivateKeyAccount forgingAccount = new PrivateKeyAccount(null, forgingAccountData.getSeed());
+		MINTING_ACCOUNTS:
+		for (MintingAccountData mintingAccountData : mintingAccounts) {
+			PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, mintingAccountData.getPrivateKey());
 
-			byte[] signature = forgingAccount.sign(timestampBytes);
-			byte[] publicKey = forgingAccount.getPublicKey();
+			byte[] signature = mintingAccount.sign(timestampBytes);
+			byte[] publicKey = mintingAccount.getPublicKey();
 
 			// Our account is online
 			OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
@@ -1367,9 +1392,9 @@ public class Controller extends Thread {
 					OnlineAccountData existingOnlineAccountData = iterator.next();
 
 					if (Arrays.equals(existingOnlineAccountData.getPublicKey(), ourOnlineAccountData.getPublicKey())) {
-						// If our online account is already present, with same timestamp, then move on to next forgingAccount
+						// If our online account is already present, with same timestamp, then move on to next mintingAccount
 						if (existingOnlineAccountData.getTimestamp() == onlineAccountsTimestamp)
-							continue FORGING_ACCOUNTS;
+							continue MINTING_ACCOUNTS;
 
 						// If our online account is already present, but with older timestamp, then remove it
 						iterator.remove();
@@ -1380,7 +1405,7 @@ public class Controller extends Thread {
 				this.onlineAccounts.add(ourOnlineAccountData);
 			}
 
-			LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", forgingAccount.getAddress(), onlineAccountsTimestamp));
+			LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", mintingAccount.getAddress(), onlineAccountsTimestamp));
 			ourOnlineAccounts.add(ourOnlineAccountData);
 			hasInfoChanged = true;
 		}
@@ -1398,6 +1423,7 @@ public class Controller extends Thread {
 		return (timestamp / ONLINE_TIMESTAMP_MODULUS) * ONLINE_TIMESTAMP_MODULUS;
 	}
 
+	/** Returns list of online accounts with timestamp recent enough to be considered currently online. */
 	public List<OnlineAccountData> getOnlineAccounts() {
 		final long onlineTimestamp = Controller.toOnlineAccountTimestamp(NTP.getTime());
 
@@ -1513,7 +1539,7 @@ public class Controller extends Thread {
 		// Disregard peers that don't have a recent block
 		peers.removeIf(hasNoRecentBlock);
 
-		// Check we have enough peers to potentially synchronize/generate
+		// Check we have enough peers to potentially synchronize/mint
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 			return false;
 

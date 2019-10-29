@@ -27,8 +27,8 @@ public class BlockData implements Serializable {
 	private byte[] transactionsSignature;
 	private Integer height;
 	private long timestamp;
-	private byte[] generatorPublicKey;
-	private byte[] generatorSignature;
+	private byte[] minterPublicKey;
+	private byte[] minterSignature;
 	private int atCount;
 	private BigDecimal atFees;
 	private byte[] encodedOnlineAccounts;
@@ -43,7 +43,7 @@ public class BlockData implements Serializable {
 	}
 
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
-			byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees,
+			byte[] minterPublicKey, byte[] minterSignature, int atCount, BigDecimal atFees,
 			byte[] encodedOnlineAccounts, int onlineAccountsCount, Long onlineAccountsTimestamp, byte[] onlineAccountsSignatures) {
 		this.version = version;
 		this.reference = reference;
@@ -52,8 +52,8 @@ public class BlockData implements Serializable {
 		this.transactionsSignature = transactionsSignature;
 		this.height = height;
 		this.timestamp = timestamp;
-		this.generatorPublicKey = generatorPublicKey;
-		this.generatorSignature = generatorSignature;
+		this.minterPublicKey = minterPublicKey;
+		this.minterSignature = minterSignature;
 		this.atCount = atCount;
 		this.atFees = atFees;
 		this.encodedOnlineAccounts = encodedOnlineAccounts;
@@ -61,15 +61,15 @@ public class BlockData implements Serializable {
 		this.onlineAccountsTimestamp = onlineAccountsTimestamp;
 		this.onlineAccountsSignatures = onlineAccountsSignatures;
 
-		if (this.generatorSignature != null && this.transactionsSignature != null)
-			this.signature = Bytes.concat(this.generatorSignature, this.transactionsSignature);
+		if (this.minterSignature != null && this.transactionsSignature != null)
+			this.signature = Bytes.concat(this.minterSignature, this.transactionsSignature);
 		else
 			this.signature = null;
 	}
 
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
-			byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
-		this(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatorPublicKey, generatorSignature, atCount, atFees,
+			byte[] minterPublicKey, byte[] minterSignature, int atCount, BigDecimal atFees) {
+		this(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, minterPublicKey, minterSignature, atCount, atFees,
 				null, 0, null, null);
 	}
 
@@ -131,16 +131,16 @@ public class BlockData implements Serializable {
 		return this.timestamp;
 	}
 
-	public byte[] getGeneratorPublicKey() {
-		return this.generatorPublicKey;
+	public byte[] getMinterPublicKey() {
+		return this.minterPublicKey;
 	}
 
-	public byte[] getGeneratorSignature() {
-		return this.generatorSignature;
+	public byte[] getMinterSignature() {
+		return this.minterSignature;
 	}
 
-	public void setGeneratorSignature(byte[] generatorSignature) {
-		this.generatorSignature = generatorSignature;
+	public void setMinterSignature(byte[] minterSignature) {
+		this.minterSignature = minterSignature;
 	}
 
 	public int getATCount() {
@@ -181,9 +181,9 @@ public class BlockData implements Serializable {
 
 	// JAXB special
 
-	@XmlElement(name = "generatorAddress")
-	protected String getGeneratorAddress() {
-		return Crypto.toAddress(this.generatorPublicKey);
+	@XmlElement(name = "minterAddress")
+	protected String getMinterAddress() {
+		return Crypto.toAddress(this.minterPublicKey);
 	}
 
 }

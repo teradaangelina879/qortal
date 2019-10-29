@@ -44,7 +44,7 @@ public class ChainWeightTests {
 	}
 
 	private static BigInteger calcBlockWeight(int parentHeight, byte[] parentGeneratorKey, BlockSummaryData blockSummaryData) {
-		BigInteger keyDistance = calcKeyDistance(parentHeight, parentGeneratorKey, blockSummaryData.getGeneratorPublicKey());
+		BigInteger keyDistance = calcKeyDistance(parentHeight, parentGeneratorKey, blockSummaryData.getMinterPublicKey());
 		BigInteger weight = BigInteger.valueOf(blockSummaryData.getOnlineAccountsCount()).shiftLeft(ACCOUNTS_COUNT_SHIFT).add(keyDistance);
 		return weight;
 	}
@@ -57,7 +57,7 @@ public class ChainWeightTests {
 		for (BlockSummaryData blockSummaryData : blockSummaries) {
 			cumulativeWeight = cumulativeWeight.shiftLeft(CHAIN_WEIGHT_SHIFT).add(calcBlockWeight(parentHeight, parentGeneratorKey, blockSummaryData));
 			parentHeight = blockSummaryData.getHeight();
-			parentGeneratorKey = blockSummaryData.getGeneratorPublicKey();
+			parentGeneratorKey = blockSummaryData.getMinterPublicKey();
 		}
 
 		return cumulativeWeight;
@@ -120,7 +120,7 @@ public class ChainWeightTests {
 	public void testLongerChain() {
 		final int commonBlockHeight = 1;
 		BlockSummaryData commonBlockSummary = genBlockSummary(commonBlockHeight);
-		byte[] commonBlockGeneratorKey = commonBlockSummary.getGeneratorPublicKey();
+		byte[] commonBlockGeneratorKey = commonBlockSummary.getMinterPublicKey();
 
 		List<BlockSummaryData> shorterChain = genBlockSummaries(3, commonBlockSummary);
 		List<BlockSummaryData> longerChain = genBlockSummaries(shorterChain.size() + 1, commonBlockSummary);

@@ -41,7 +41,7 @@ public class AssetUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), AssetUtils.fee, null);
 		TransactionData transactionData = new IssueAssetTransactionData(baseTransactionData, account.getAddress(), assetName, "desc", quantity, isDivisible, "{}", false);
 
-		TransactionUtils.signAndForge(repository, transactionData, account);
+		TransactionUtils.signAndMint(repository, transactionData, account);
 
 		return repository.getAssetRepository().fromAssetName(assetName).getAssetId();
 	}
@@ -56,7 +56,7 @@ public class AssetUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, fromAccount.getPublicKey(), AssetUtils.fee, null);
 		TransactionData transactionData = new TransferAssetTransactionData(baseTransactionData, toAccount.getAddress(), amount, assetId);
 
-		TransactionUtils.signAndForge(repository, transactionData, fromAccount);
+		TransactionUtils.signAndMint(repository, transactionData, fromAccount);
 	}
 
 	public static byte[] createOrder(Repository repository, String accountName, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price) throws DataException {
@@ -68,7 +68,7 @@ public class AssetUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), AssetUtils.fee, null);
 		TransactionData transactionData = new CreateAssetOrderTransactionData(baseTransactionData, haveAssetId, wantAssetId, amount, price);
 
-		TransactionUtils.signAndForge(repository, transactionData, account);
+		TransactionUtils.signAndMint(repository, transactionData, account);
 
 		return repository.getAssetRepository().getAccountsOrders(account.getPublicKey(), null, null, null, null, true).get(0).getOrderId();
 	}
@@ -89,7 +89,7 @@ public class AssetUtils {
 		PrivateKeyAccount account = Common.getTestAccount(repository, accountName);
 		Transaction transaction = buildCancelOrder(repository, accountName, orderId);
 
-		TransactionUtils.signAndForge(repository, transaction.getTransactionData(), account);
+		TransactionUtils.signAndMint(repository, transaction.getTransactionData(), account);
 	}
 
 	public static void genericTradeTest(long haveAssetId, long wantAssetId,

@@ -29,14 +29,14 @@ import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.ApiOnlineAccount;
-import org.qora.api.model.ProxyKeyRequest;
+import org.qora.api.model.RewardShareKeyRequest;
 import org.qora.asset.Asset;
 import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
-import org.qora.data.account.ProxyForgerData;
+import org.qora.data.account.RewardShareData;
 import org.qora.data.network.OnlineAccountData;
-import org.qora.data.transaction.ProxyForgingTransactionData;
+import org.qora.data.transaction.RewardShareTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -45,7 +45,7 @@ import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.transform.TransformationException;
 import org.qora.transform.Transformer;
-import org.qora.transform.transaction.ProxyForgingTransactionTransformer;
+import org.qora.transform.transaction.RewardShareTransactionTransformer;
 import org.qora.utils.Base58;
 
 @Path("/addresses")
@@ -168,18 +168,18 @@ public class AddressesResource {
 	public List<ApiOnlineAccount> getOnlineAccounts() {
 		List<OnlineAccountData> onlineAccounts = Controller.getInstance().getOnlineAccounts();
 
-		// Map OnlineAccountData entries to OnlineAccount via proxy-relationship data
+		// Map OnlineAccountData entries to OnlineAccount via reward-share data
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<ApiOnlineAccount> apiOnlineAccounts = new ArrayList<>();
 
 			for (OnlineAccountData onlineAccountData : onlineAccounts) {
-				ProxyForgerData proxyForgerData = repository.getAccountRepository().getProxyForgeData(onlineAccountData.getPublicKey());
-				if (proxyForgerData == null)
+				RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(onlineAccountData.getPublicKey());
+				if (rewardShareData == null)
 					// This shouldn't happen?
 					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.PUBLIC_KEY_NOT_FOUND);
 
 				apiOnlineAccounts.add(new ApiOnlineAccount(onlineAccountData.getTimestamp(), onlineAccountData.getSignature(), onlineAccountData.getPublicKey(),
-						proxyForgerData.getForger(), proxyForgerData.getRecipient()));
+						rewardShareData.getMintingAccount(), rewardShareData.getRecipient()));
 			}
 
 			return apiOnlineAccounts;
@@ -303,19 +303,19 @@ public class AddressesResource {
 	}
 
 	@GET
-	@Path("/proxying")
+	@Path("/rewardshares")
 	@Operation(
-		summary = "List proxy forging relationships",
-		description = "Returns list of accounts, with reward share percentage and proxy public key.",
+		summary = "List reward-share relationships",
+		description = "Returns list of accounts, with reward-share percentage and reward-share public key.",
 		responses = {
 			@ApiResponse(
-				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = ProxyForgerData.class)))
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = RewardShareData.class)))
 			)
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
-	public List<ProxyForgerData> getProxying(@QueryParam("proxiedFor") List<String> recipients,
-			@QueryParam("proxiedBy") List<String> forgers,
+	public List<RewardShareData> getRewardShares(@QueryParam("minters") List<String> mintingAccounts,
+			@QueryParam("recipients") List<String> recipientAccounts,
 			@QueryParam("involving") List<String> addresses,
 			@Parameter(
 			ref = "limit"
@@ -325,23 +325,23 @@ public class AddressesResource {
 				ref = "reverse"
 			) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getAccountRepository().findProxyAccounts(recipients, forgers, addresses, limit, offset, reverse);
+			return repository.getAccountRepository().findRewardShares(mintingAccounts, recipientAccounts, addresses, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@POST
-	@Path("/proxykey")
+	@Path("/rewardsharekey")
 	@Operation(
-		summary = "Calculate proxy private key",
-		description = "Calculates proxy private key using passed generator's private key and recipient's public key",
+		summary = "Calculate reward-share private key",
+		description = "Calculates reward-share private key using passed minting account's private key and recipient account's public key",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
 				schema = @Schema(
-					implementation = ProxyKeyRequest.class
+					implementation = RewardShareKeyRequest.class
 				)
 			)
 		),
@@ -352,39 +352,39 @@ public class AddressesResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_PUBLIC_KEY, ApiError.REPOSITORY_ISSUE})
-	public String calculateProxyKey(ProxyKeyRequest proxyKeyRequest) {
-		byte[] generatorKey = proxyKeyRequest.generatorPrivateKey;
-		byte[] recipientKey = proxyKeyRequest.recipientPublicKey;
+	public String calculateRewardShareKey(RewardShareKeyRequest rewardShareKeyRequest) {
+		byte[] mintingPrivateKey = rewardShareKeyRequest.mintingAccountPrivateKey;
+		byte[] recipientPublicKey = rewardShareKeyRequest.recipientAccountPublicKey;
 
-		if (generatorKey == null || generatorKey.length != Transformer.PRIVATE_KEY_LENGTH)
+		if (mintingPrivateKey == null || mintingPrivateKey.length != Transformer.PRIVATE_KEY_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
-		if (recipientKey == null || recipientKey.length != Transformer.PUBLIC_KEY_LENGTH)
+		if (recipientPublicKey == null || recipientPublicKey.length != Transformer.PUBLIC_KEY_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
-		PrivateKeyAccount generator = new PrivateKeyAccount(null, generatorKey);
+		PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, mintingPrivateKey);
 
-		byte[] proxyPrivateKey = generator.getProxyPrivateKey(recipientKey);
+		byte[] rewardSharePrivateKey = mintingAccount.getRewardSharePrivateKey(recipientPublicKey);
 
-		return Base58.encode(proxyPrivateKey);
+		return Base58.encode(rewardSharePrivateKey);
 	}
 
 	@POST
-	@Path("/proxyforging")
+	@Path("/rewardshare")
 	@Operation(
-		summary = "Build raw, unsigned, PROXY_FORGING transaction",
+		summary = "Build raw, unsigned, REWARD_SHARE transaction",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
 				schema = @Schema(
-					implementation = ProxyForgingTransactionData.class
+					implementation = RewardShareTransactionData.class
 				)
 			)
 		),
 		responses = {
 			@ApiResponse(
-				description = "raw, unsigned, PROXY_FORGING transaction encoded in Base58",
+				description = "raw, unsigned, REWARD_SHARE transaction encoded in Base58",
 				content = @Content(
 					mediaType = MediaType.TEXT_PLAIN,
 					schema = @Schema(
@@ -395,7 +395,7 @@ public class AddressesResource {
 		}
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
-	public String proxyForging(ProxyForgingTransactionData transactionData) {
+	public String rewardShare(RewardShareTransactionData transactionData) {
 		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
@@ -406,7 +406,7 @@ public class AddressesResource {
 			if (result != ValidationResult.OK)
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
-			byte[] bytes = ProxyForgingTransactionTransformer.toBytes(transactionData);
+			byte[] bytes = RewardShareTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);

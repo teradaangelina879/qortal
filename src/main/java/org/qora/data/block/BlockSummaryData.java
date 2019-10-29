@@ -7,21 +7,21 @@ public class BlockSummaryData {
 	// Properties
 	private int height;
 	private byte[] signature;
-	private byte[] generatorPublicKey;
+	private byte[] minterPublicKey;
 	private int onlineAccountsCount;
 
 	// Constructors
-	public BlockSummaryData(int height, byte[] signature, byte[] generatorPublicKey, int onlineAccountsCount) {
+	public BlockSummaryData(int height, byte[] signature, byte[] minterPublicKey, int onlineAccountsCount) {
 		this.height = height;
 		this.signature = signature;
-		this.generatorPublicKey = generatorPublicKey;
+		this.minterPublicKey = minterPublicKey;
 		this.onlineAccountsCount = onlineAccountsCount;
 	}
 
 	public BlockSummaryData(BlockData blockData) {
 		this.height = blockData.getHeight();
 		this.signature = blockData.getSignature();
-		this.generatorPublicKey = blockData.getGeneratorPublicKey();
+		this.minterPublicKey = blockData.getMinterPublicKey();
 
 		byte[] encodedOnlineAccounts = blockData.getEncodedOnlineAccounts();
 		if (encodedOnlineAccounts != null) {
@@ -41,8 +41,8 @@ public class BlockSummaryData {
 		return this.signature;
 	}
 
-	public byte[] getGeneratorPublicKey() {
-		return this.generatorPublicKey;
+	public byte[] getMinterPublicKey() {
+		return this.minterPublicKey;
 	}
 
 	public int getOnlineAccountsCount() {

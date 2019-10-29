@@ -118,9 +118,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				long quantity = resultSet.getLong(5);
 				boolean isDivisible = resultSet.getBoolean(6);
 				String data = resultSet.getString(7);
-				boolean isUnspendable = resultSet.getBoolean(7);
-				int creationGroupId = resultSet.getInt(8);
-				byte[] reference = resultSet.getBytes(9);
+				boolean isUnspendable = resultSet.getBoolean(8);
+				int creationGroupId = resultSet.getInt(9);
+				byte[] reference = resultSet.getBytes(10);
 
 				assets.add(new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data,
 						isUnspendable,creationGroupId, reference));

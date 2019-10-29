@@ -1006,7 +1006,7 @@ public class Network {
 		}
 
 		// HEIGHT_V2 contains way more useful info
-		return new HeightV2Message(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getGeneratorPublicKey());
+		return new HeightV2Message(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getMinterPublicKey());
 	}
 
 	public Message buildNewTransactionMessage(Peer peer, TransactionData transactionData) {

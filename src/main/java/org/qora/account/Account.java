@@ -6,6 +6,7 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.block.Block;
+import org.qora.block.BlockChain;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
 import org.qora.data.block.BlockData;
@@ -212,11 +213,28 @@ public class Account {
 		return Account.isFounder(flags);
 	}
 
-	// Forging
+	// Minting blocks
 
-	public boolean canForge() throws DataException {
+	public boolean canMint() throws DataException {
 		Integer level = this.getLevel();
-		return level != null && level > 0;
+		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToMint())
+			return true;
+
+		if (this.isFounder())
+			return true;
+
+		return false;
+	}
+
+	public boolean canRewardShare() throws DataException {
+		Integer level = this.getLevel();
+		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToRewardShare())
+			return true;
+
+		if (this.isFounder())
+			return true;
+
+		return false;
 	}
 
 	// Account level

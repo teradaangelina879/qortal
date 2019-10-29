@@ -158,7 +158,7 @@ public class BTC {
 			checkpointsFileName = "checkpoints.txt";
 		}
 
-		directory = new File("Qora-BTC");
+		directory = new File("Qortal-BTC");
 		if (!directory.exists())
 			directory.mkdirs();
 
@@ -191,7 +191,7 @@ public class BTC {
 		}
 
 		peerGroup = new PeerGroup(params, chain);
-		peerGroup.setUserAgent("qqq", "1.0");
+		peerGroup.setUserAgent("qortal", "1.0");
 		peerGroup.addPeerDiscovery(new DnsDiscovery(params));
 		peerGroup.start();
 	}

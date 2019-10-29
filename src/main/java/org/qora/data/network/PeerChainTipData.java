@@ -8,14 +8,14 @@ public class PeerChainTipData {
 	private byte[] lastBlockSignature;
 	/** Latest block timestamp as reported by peer. */
 	private Long lastBlockTimestamp;
-	/** Latest block generator public key as reported by peer. */
-	private byte[] lastBlockGenerator;
+	/** Latest block minter public key as reported by peer. */
+	private byte[] lastBlockMinter;
 
-	public PeerChainTipData(Integer lastHeight, byte[] lastBlockSignature, Long lastBlockTimestamp, byte[] lastBlockGenerator) {
+	public PeerChainTipData(Integer lastHeight, byte[] lastBlockSignature, Long lastBlockTimestamp, byte[] lastBlockMinter) {
 		this.lastHeight = lastHeight;
 		this.lastBlockSignature = lastBlockSignature;
 		this.lastBlockTimestamp = lastBlockTimestamp;
-		this.lastBlockGenerator = lastBlockGenerator;
+		this.lastBlockMinter = lastBlockMinter;
 	}
 
 	public Integer getLastHeight() {
@@ -30,8 +30,8 @@ public class PeerChainTipData {
 		return this.lastBlockTimestamp;
 	}
 
-	public byte[] getLastBlockGenerator() {
-		return this.lastBlockGenerator;
+	public byte[] getLastBlockMinter() {
+		return this.lastBlockMinter;
 	}
 
 }

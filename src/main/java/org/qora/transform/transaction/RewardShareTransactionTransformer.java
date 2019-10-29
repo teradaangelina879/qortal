@@ -7,13 +7,13 @@ import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.BaseTransactionData;
-import org.qora.data.transaction.ProxyForgingTransactionData;
+import org.qora.data.transaction.RewardShareTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
-public class ProxyForgingTransactionTransformer extends TransactionTransformer {
+public class RewardShareTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int TARGET_LENGTH = ADDRESS_LENGTH;
@@ -25,14 +25,14 @@ public class ProxyForgingTransactionTransformer extends TransactionTransformer {
 
 	static {
 		layout = new TransactionLayout();
-		layout.add("txType: " + TransactionType.PROXY_FORGING.valueString, TransformationType.INT);
+		layout.add("txType: " + TransactionType.REWARD_SHARE.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
-		layout.add("forger's public key", TransformationType.PUBLIC_KEY);
+		layout.add("minter's public key", TransformationType.PUBLIC_KEY);
 		layout.add("recipient account's address", TransformationType.ADDRESS);
-		layout.add("proxy's public key", TransformationType.PUBLIC_KEY);
-		layout.add("recipient's share of block rewards", TransformationType.AMOUNT);
+		layout.add("reward-share public key", TransformationType.PUBLIC_KEY);
+		layout.add("recipient's percentage share of block rewards", TransformationType.AMOUNT);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
@@ -47,22 +47,22 @@ public class ProxyForgingTransactionTransformer extends TransactionTransformer {
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
-		byte[] forgerPublicKey = Serialization.deserializePublicKey(byteBuffer);
+		byte[] minterPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
 		String recipient = Serialization.deserializeAddress(byteBuffer);
 
-		byte[] proxyPublicKey = Serialization.deserializePublicKey(byteBuffer);
+		byte[] rewardSharePublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		BigDecimal share = Serialization.deserializeBigDecimal(byteBuffer);
+		BigDecimal sharePercent = Serialization.deserializeBigDecimal(byteBuffer);
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgerPublicKey, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, minterPublicKey, fee, signature);
 
-		return new ProxyForgingTransactionData(baseTransactionData, recipient, proxyPublicKey, share);
+		return new RewardShareTransactionData(baseTransactionData, recipient, rewardSharePublicKey, sharePercent);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -71,22 +71,22 @@ public class ProxyForgingTransactionTransformer extends TransactionTransformer {
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
-			ProxyForgingTransactionData proxyForgingTransactionData = (ProxyForgingTransactionData) transactionData;
+			RewardShareTransactionData rewardShareTransactionData = (RewardShareTransactionData) transactionData;
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
 			transformCommonBytes(transactionData, bytes);
 
-			Serialization.serializeAddress(bytes, proxyForgingTransactionData.getRecipient());
+			Serialization.serializeAddress(bytes, rewardShareTransactionData.getRecipient());
 
-			bytes.write(proxyForgingTransactionData.getProxyPublicKey());
+			bytes.write(rewardShareTransactionData.getRewardSharePublicKey());
 
-			Serialization.serializeBigDecimal(bytes, proxyForgingTransactionData.getShare());
+			Serialization.serializeBigDecimal(bytes, rewardShareTransactionData.getSharePercent());
 
-			Serialization.serializeBigDecimal(bytes, proxyForgingTransactionData.getFee());
+			Serialization.serializeBigDecimal(bytes, rewardShareTransactionData.getFee());
 
-			if (proxyForgingTransactionData.getSignature() != null)
-				bytes.write(proxyForgingTransactionData.getSignature());
+			if (rewardShareTransactionData.getSignature() != null)
+				bytes.write(rewardShareTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

@@ -9,8 +9,8 @@ public class ApiOnlineAccount {
 
 	protected long timestamp;
 	protected byte[] signature;
-	protected byte[] publicKey;
-	protected String generatorAddress;
+	protected byte[] rewardSharePublicKey;
+	protected String minterAddress;
 	protected String recipientAddress;
 
 	// Constructors
@@ -19,11 +19,11 @@ public class ApiOnlineAccount {
 	protected ApiOnlineAccount() {
 	}
 
-	public ApiOnlineAccount(long timestamp, byte[] signature, byte[] publicKey, String generatorAddress, String recipientAddress) {
+	public ApiOnlineAccount(long timestamp, byte[] signature, byte[] rewardSharePublicKey, String minterAddress, String recipientAddress) {
 		this.timestamp = timestamp;
 		this.signature = signature;
-		this.publicKey = publicKey;
-		this.generatorAddress = generatorAddress;
+		this.rewardSharePublicKey = rewardSharePublicKey;
+		this.minterAddress = minterAddress;
 		this.recipientAddress = recipientAddress;
 	}
 
@@ -36,11 +36,11 @@ public class ApiOnlineAccount {
 	}
 
 	public byte[] getPublicKey() {
-		return this.publicKey;
+		return this.rewardSharePublicKey;
 	}
 
-	public String getGeneratorAddress() {
-		return this.generatorAddress;
+	public String getMinterAddress() {
+		return this.minterAddress;
 	}
 
 	public String getRecipientAddress() {

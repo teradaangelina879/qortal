@@ -14,8 +14,8 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.block.Block.ValidationResult;
 import org.qora.controller.Controller;
-import org.qora.data.account.ForgingAccountData;
-import org.qora.data.account.ProxyForgerData;
+import org.qora.data.account.MintingAccountData;
+import org.qora.data.account.RewardShareData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.Network;
@@ -29,28 +29,26 @@ import org.qora.transaction.Transaction;
 import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
-// Forging new blocks
+// Minting new blocks
 
-// How is the private key going to be supplied?
-
-public class BlockGenerator extends Thread {
+public class BlockMinter extends Thread {
 
 	// Properties
 	private boolean running;
 
 	// Other properties
-	private static final Logger LOGGER = LogManager.getLogger(BlockGenerator.class);
+	private static final Logger LOGGER = LogManager.getLogger(BlockMinter.class);
 
 	// Constructors
 
-	public BlockGenerator() {
+	public BlockMinter() {
 		this.running = true;
 	}
 
 	// Main thread loop
 	@Override
 	public void run() {
-		Thread.currentThread().setName("BlockGenerator");
+		Thread.currentThread().setName("BlockMinter");
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			if (Settings.getInstance().getWipeUnconfirmedOnStart()) {
@@ -71,19 +69,19 @@ public class BlockGenerator extends Thread {
 
 			List<Block> newBlocks = new ArrayList<>();
 
-			// Flags that allow us to track whether generating is possible changes,
+			// Flags for tracking change in whether minting is possible,
 			// so we can notify Controller, and further update SysTray, etc.
-			boolean isGenerationPossible = false;
-			boolean wasGenerationPossible = isGenerationPossible;
+			boolean isMintingPossible = false;
+			boolean wasMintingPossible = isMintingPossible;
 			while (running) {
 				// Sleep for a while
 				try {
 					repository.discardChanges(); // Free repository locks, if any
 
-					if (isGenerationPossible != wasGenerationPossible)
-						Controller.getInstance().onGenerationPossibleChange(isGenerationPossible);
+					if (isMintingPossible != wasMintingPossible)
+						Controller.getInstance().onMintingPossibleChange(isMintingPossible);
 
-					wasGenerationPossible = isGenerationPossible;
+					wasMintingPossible = isMintingPossible;
 
 					Thread.sleep(1000);
 				} catch (InterruptedException e) {
@@ -91,7 +89,7 @@ public class BlockGenerator extends Thread {
 					return;
 				}
 
-				isGenerationPossible = false;
+				isMintingPossible = false;
 
 				final Long now = NTP.getTime();
 				if (now == null)
@@ -105,9 +103,9 @@ public class BlockGenerator extends Thread {
 				if (Controller.getInstance().getOnlineAccounts().isEmpty())
 					continue;
 
-				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
-				// No forging accounts?
-				if (forgingAccountsData.isEmpty())
+				List<MintingAccountData> mintingAccountsData = repository.getAccountRepository().getMintingAccounts();
+				// No minting accounts?
+				if (mintingAccountsData.isEmpty())
 					continue;
 
 				List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
@@ -116,7 +114,7 @@ public class BlockGenerator extends Thread {
 				// Disregard peers that have "misbehaved" recently
 				peers.removeIf(Controller.hasMisbehaved);
 
-				// Don't generate if we don't have enough connected peers as where would the transactions/consensus come from?
+				// Don't mint if we don't have enough connected peers as where would the transactions/consensus come from?
 				if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 					continue;
 
@@ -124,13 +122,13 @@ public class BlockGenerator extends Thread {
 				peers.removeIf(Controller.hasNoRecentBlock);
 
 				// If we have any peers with a recent block, but our latest block isn't recent
-				// then we need to synchronize instead of generating.
+				// then we need to synchronize instead of minting.
 				if (!peers.isEmpty() && lastBlockData.getTimestamp() < minLatestBlockTimestamp)
 					continue;
 
 				// There are no peers with a recent block and/or our latest block is recent
-				// so go ahead and generate a block if possible.
-				isGenerationPossible = true;
+				// so go ahead and mint a block if possible.
+				isMintingPossible = true;
 
 				// Check blockchain hasn't changed
 				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {
@@ -139,20 +137,20 @@ public class BlockGenerator extends Thread {
 				}
 
 				// Do we need to build any potential new blocks?
-				List<PrivateKeyAccount> forgingAccounts = forgingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getSeed())).collect(Collectors.toList());
+				List<PrivateKeyAccount> mintingAccounts = mintingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getPrivateKey())).collect(Collectors.toList());
 
 				// Discard accounts we have blocks for
-				forgingAccounts.removeIf(account -> newBlocks.stream().anyMatch(newBlock -> newBlock.getGenerator().getAddress().equals(account.getAddress())));
+				mintingAccounts.removeIf(account -> newBlocks.stream().anyMatch(newBlock -> newBlock.getMinter().getAddress().equals(account.getAddress())));
 
-				for (PrivateKeyAccount generator : forgingAccounts) {
+				for (PrivateKeyAccount mintingAccount : mintingAccounts) {
 					// First block does the AT heavy-lifting
 					if (newBlocks.isEmpty()) {
-						Block newBlock = new Block(repository, previousBlock.getBlockData(), generator);
+						Block newBlock = new Block(repository, previousBlock.getBlockData(), mintingAccount);
 						newBlocks.add(newBlock);
 					} else {
-						// The blocks for other generators require less effort...
+						// The blocks for other minters require less effort...
 						Block newBlock = newBlocks.get(0);
-						newBlocks.add(newBlock.regenerate(generator));
+						newBlocks.add(newBlock.newMinter(mintingAccount));
 					}
 				}
 
@@ -165,7 +163,7 @@ public class BlockGenerator extends Thread {
 				if (!blockchainLock.tryLock())
 					continue;
 
-				boolean newBlockGenerated = false;
+				boolean newBlockMinted = false;
 
 				try {
 					// Clear repository's "in transaction" state so we don't cause a repository deadlock
@@ -188,7 +186,8 @@ public class BlockGenerator extends Thread {
 					if (goodBlocks.isEmpty())
 						continue;
 
-					// Pick random generator
+					// Pick random block
+					// TODO/XXX - shouldn't this pick our BEST block instead?
 					int winningIndex = new Random().nextInt(goodBlocks.size());
 					Block newBlock = goodBlocks.get(winningIndex);
 
@@ -205,7 +204,7 @@ public class BlockGenerator extends Thread {
 					ValidationResult validationResult = newBlock.isValid();
 					if (validationResult != ValidationResult.OK) {
 						// No longer valid? Report and discard
-						LOGGER.error(String.format("Valid, generated block now invalid '%s' after adding unconfirmed transactions?", validationResult.name()));
+						LOGGER.error(String.format("To-be-minted block now invalid '%s' after adding unconfirmed transactions?", validationResult.name()));
 
 						// Rebuild block candidates, just to be sure
 						newBlocks.clear();
@@ -216,43 +215,43 @@ public class BlockGenerator extends Thread {
 					try {
 						newBlock.process();
 
-						LOGGER.info(String.format("Generated new block: %d", newBlock.getBlockData().getHeight()));
+						LOGGER.info(String.format("Minted new block: %d", newBlock.getBlockData().getHeight()));
 						repository.saveChanges();
 
-						ProxyForgerData proxyForgerData = repository.getAccountRepository().getProxyForgeData(newBlock.getBlockData().getGeneratorPublicKey());
+						RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(newBlock.getBlockData().getMinterPublicKey());
 
-						if (proxyForgerData != null) {
-							PublicKeyAccount forger = new PublicKeyAccount(repository, proxyForgerData.getForgerPublicKey());
-							LOGGER.info(String.format("Generated block %d, sig %.8s by %s on behalf of %s",
+						if (rewardShareData != null) {
+							PublicKeyAccount mintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+							LOGGER.info(String.format("Minted block %d, sig %.8s by %s on behalf of %s",
 									newBlock.getBlockData().getHeight(),
 									Base58.encode(newBlock.getBlockData().getSignature()),
-									forger.getAddress(),
-									proxyForgerData.getRecipient()));
+									mintingAccount.getAddress(),
+									rewardShareData.getRecipient()));
 						} else {
-							LOGGER.info(String.format("Generated block %d, sig %.8s by %s",
+							LOGGER.info(String.format("Minted block %d, sig %.8s by %s",
 									newBlock.getBlockData().getHeight(),
 									Base58.encode(newBlock.getBlockData().getSignature()),
-									newBlock.getGenerator().getAddress()));
+									newBlock.getMinter().getAddress()));
 						}
 
 						repository.saveChanges();
 
 						// Notify controller
-						newBlockGenerated = true;
+						newBlockMinted = true;
 					} catch (DataException e) {
 						// Unable to process block - report and discard
-						LOGGER.error("Unable to process newly generated block?", e);
+						LOGGER.error("Unable to process newly minted block?", e);
 						newBlocks.clear();
 					}
 				} finally {
 					blockchainLock.unlock();
 				}
 
-				if (newBlockGenerated)
-					Controller.getInstance().onGeneratedBlock();
+				if (newBlockMinted)
+					Controller.getInstance().onBlockMinted();
 			}
 		} catch (DataException e) {
-			LOGGER.warn("Repository issue while running block generator", e);
+			LOGGER.warn("Repository issue while running block minter", e);
 		}
 	}
 
@@ -316,7 +315,7 @@ public class BlockGenerator extends Thread {
 			// If newBlock is no longer valid then we can't use transaction
 			ValidationResult validationResult = newBlock.isValid();
 			if (validationResult != ValidationResult.OK) {
-				LOGGER.debug(() -> String.format("Skipping invalid transaction %s during block generation", Base58.encode(transactionData.getSignature())));
+				LOGGER.debug(() -> String.format("Skipping invalid transaction %s during block minting", Base58.encode(transactionData.getSignature())));
 				newBlock.deleteTransaction(transactionData);
 			}
 		}
@@ -328,15 +327,18 @@ public class BlockGenerator extends Thread {
 		this.interrupt();
 	}
 
-	public static void generateTestingBlock(Repository repository, PrivateKeyAccount generator) throws DataException {
+	public static void mintTestingBlock(Repository repository, PrivateKeyAccount mintingAccount) throws DataException {
 		if (!BlockChain.getInstance().isTestChain()) {
-			LOGGER.warn("Ignoring attempt to generate testing block for non-test chain!");
+			LOGGER.warn("Ignoring attempt to mint testing block for non-test chain!");
 			return;
 		}
 
+		// Ensure mintingAccount is 'online' so blocks can be minted
+		Controller.getInstance().ensureTestingAccountOnline(mintingAccount);
+
 		BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
 
-		Block newBlock = new Block(repository, previousBlockData, generator);
+		Block newBlock = new Block(repository, previousBlockData, mintingAccount);
 
 		// Make sure we're the only thread modifying the blockchain
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
@@ -354,8 +356,7 @@ public class BlockGenerator extends Thread {
 			// Is newBlock still valid?
 			ValidationResult validationResult = newBlock.isValid();
 			if (validationResult != ValidationResult.OK)
-				throw new IllegalStateException(
-						"Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
+				throw new IllegalStateException(String.format("To-be-minted test block now invalid '%s' after adding unconfirmed transactions?", validationResult.name()));
 
 			// Add to blockchain
 			newBlock.process();

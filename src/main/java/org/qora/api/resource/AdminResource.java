@@ -50,8 +50,8 @@ import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
-import org.qora.data.account.ForgingAccountData;
-import org.qora.data.account.ProxyForgerData;
+import org.qora.data.account.MintingAccountData;
+import org.qora.data.account.RewardShareData;
 import org.qora.network.Network;
 import org.qora.network.Peer;
 import org.qora.network.PeerAddress;
@@ -189,45 +189,45 @@ public class AdminResource {
 	}
 
 	@GET
-	@Path("/forgingaccounts")
+	@Path("/mintingaccounts")
 	@Operation(
-		summary = "List public keys of accounts used to forge by BlockGenerator",
+		summary = "List public keys of accounts used to mint blocks by BlockMinter",
 		description = "Returns PUBLIC keys of accounts for safety.",
 		responses = {
 			@ApiResponse(
-				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = ForgingAccountData.class)))
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = MintingAccountData.class)))
 			)
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ForgingAccountData> getForgingAccounts() {
+	public List<MintingAccountData> getMintingAccounts() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<ForgingAccountData> forgingAccounts = repository.getAccountRepository().getForgingAccounts();
+			List<MintingAccountData> mintingAccounts = repository.getAccountRepository().getMintingAccounts();
 
-			// Expand with proxy forging data where appropriate
-			forgingAccounts = forgingAccounts.stream().map(forgingAccountData -> {
-				byte[] publicKey = forgingAccountData.getPublicKey();
+			// Expand with reward-share data where appropriate
+			mintingAccounts = mintingAccounts.stream().map(mintingAccountData -> {
+				byte[] publicKey = mintingAccountData.getPublicKey();
 
-				ProxyForgerData proxyForgerData = null;
+				RewardShareData rewardShareData = null;
 				try {
-					proxyForgerData = repository.getAccountRepository().getProxyForgeData(publicKey);
+					rewardShareData = repository.getAccountRepository().getRewardShare(publicKey);
 				} catch (DataException e) {
 					// ignore
 				}
 
-				return new ForgingAccountData(forgingAccountData.getSeed(), proxyForgerData);
+				return new MintingAccountData(mintingAccountData.getPrivateKey(), rewardShareData);
 			}).collect(Collectors.toList());
 
-			return forgingAccounts;
+			return mintingAccounts;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@POST
-	@Path("/forgingaccounts")
+	@Path("/mintingaccounts")
 	@Operation(
-		summary = "Add private key of account to use to forge by BlockGenerator",
+		summary = "Add private key of account/reward-share for use by BlockMinter to mint blocks",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -244,20 +244,20 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
-	public String addForgingAccount(String seed58) {
+	public String addMintingAccount(String seed58) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] seed = Base58.decode(seed58.trim());
 
 			// Check seed is valid
-			PrivateKeyAccount forgingAccount = new PrivateKeyAccount(repository, seed);
+			PrivateKeyAccount mintingAccount = new PrivateKeyAccount(repository, seed);
 
-			// Account must derive to known proxy forging public key
-			if (!repository.getAccountRepository().isProxyPublicKey(forgingAccount.getPublicKey()))
+			// Qortal: account must derive to known reward-share public key
+			if (!repository.getAccountRepository().isRewardSharePublicKey(mintingAccount.getPublicKey()))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
-			ForgingAccountData forgingAccountData = new ForgingAccountData(seed);
+			MintingAccountData mintingAccountData = new MintingAccountData(seed);
 
-			repository.getAccountRepository().save(forgingAccountData);
+			repository.getAccountRepository().save(mintingAccountData);
 			repository.saveChanges();
 		} catch (IllegalArgumentException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
@@ -269,9 +269,9 @@ public class AdminResource {
 	}
 
 	@DELETE
-	@Path("/forgingaccounts")
+	@Path("/mintingaccounts")
 	@Operation(
-		summary = "Remove account from use to forge by BlockGenerator, using private key",
+		summary = "Remove account/reward-share from use by BlockMinter, using private key",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -288,7 +288,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
-	public String deleteForgingAccount(String seed58) {
+	public String deleteMintingAccount(String seed58) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] seed = Base58.decode(seed58.trim());
 

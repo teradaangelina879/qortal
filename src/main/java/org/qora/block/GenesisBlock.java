@@ -125,16 +125,16 @@ public class GenesisBlock extends Block {
 		byte[] reference = GENESIS_REFERENCE;
 		int transactionCount = transactionsData.size();
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
-		byte[] generatorPublicKey = GenesisAccount.PUBLIC_KEY;
-		byte[] bytesForSignature = getBytesForSignature(info.version, reference, generatorPublicKey);
-		byte[] generatorSignature = calcSignature(bytesForSignature);
-		byte[] transactionsSignature = generatorSignature;
+		byte[] minterPublicKey = GenesisAccount.PUBLIC_KEY;
+		byte[] bytesForSignature = getBytesForSignature(info.version, reference, minterPublicKey);
+		byte[] minterSignature = calcSignature(bytesForSignature);
+		byte[] transactionsSignature = minterSignature;
 		int height = 1;
 		int atCount = 0;
 		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
 
 		genesisBlockData = new BlockData(info.version, reference, transactionCount, totalFees, transactionsSignature, height, info.timestamp,
-				generatorPublicKey, generatorSignature, atCount, atFees);
+				minterPublicKey, minterSignature, atCount, atFees);
 	}
 
 	// More information
@@ -146,7 +146,7 @@ public class GenesisBlock extends Block {
 		byte[] signature = calcSignature(blockData);
 
 		// Validate block signature
-		if (!Arrays.equals(signature, blockData.getGeneratorSignature()))
+		if (!Arrays.equals(signature, blockData.getMinterSignature()))
 			return false;
 
 		// Validate transactions signature
@@ -169,7 +169,7 @@ public class GenesisBlock extends Block {
 	}
 
 	/**
-	 * Refuse to calculate genesis block's generator signature!
+	 * Refuse to calculate genesis block's minter signature!
 	 * <p>
 	 * This is not possible as there is no private key for the genesis account and so no way to sign data.
 	 * <p>
@@ -178,7 +178,7 @@ public class GenesisBlock extends Block {
 	 * @throws IllegalStateException
 	 */
 	@Override
-	public void calcGeneratorSignature() {
+	public void calcMinterSignature() {
 		throw new IllegalStateException("There is no private key for genesis account");
 	}
 
@@ -197,7 +197,7 @@ public class GenesisBlock extends Block {
 	}
 
 	/**
-	 * Generate genesis block generator/transactions signature.
+	 * Generate genesis block minter/transactions signature.
 	 * <p>
 	 * This is handled differently as there is no private key for the genesis account and so no way to sign data.
 	 * <p>
@@ -210,7 +210,7 @@ public class GenesisBlock extends Block {
 		return Bytes.concat(digest, digest);
 	}
 
-	private static byte[] getBytesForSignature(int version, byte[] reference, byte[] generatorPublicKey) {
+	private static byte[] getBytesForSignature(int version, byte[] reference, byte[] minterPublicKey) {
 		try {
 			// Passing expected size to ByteArrayOutputStream avoids reallocation when adding more bytes than default 32.
 			// See below for explanation of some of the values used to calculated expected size.
@@ -230,7 +230,7 @@ public class GenesisBlock extends Block {
 			bytes.write(Bytes.ensureCapacity(reference, 64, 0));
 
 			// NOTE: Genesis account's public key is only 8 bytes, not the usual 32, so we have to pad.
-			bytes.write(Bytes.ensureCapacity(generatorPublicKey, 32, 0));
+			bytes.write(Bytes.ensureCapacity(minterPublicKey, 32, 0));
 
 			return bytes.toByteArray();
 		} catch (IOException e) {
@@ -240,7 +240,7 @@ public class GenesisBlock extends Block {
 
 	/** Convenience method for calculating genesis block signatures from block data */
 	private static byte[] calcSignature(BlockData blockData) {
-		byte[] bytes = getBytesForSignature(blockData.getVersion(), blockData.getReference(), blockData.getGeneratorPublicKey());
+		byte[] bytes = getBytesForSignature(blockData.getVersion(), blockData.getReference(), blockData.getMinterPublicKey());
 		return calcSignature(bytes);
 	}
 
@@ -249,7 +249,7 @@ public class GenesisBlock extends Block {
 		byte[] signature = calcSignature(this.blockData);
 
 		// Validate block signature
-		if (!Arrays.equals(signature, this.blockData.getGeneratorSignature()))
+		if (!Arrays.equals(signature, this.blockData.getMinterSignature()))
 			return false;
 
 		// Validate transactions signature

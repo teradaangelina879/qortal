@@ -24,7 +24,7 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
-import org.qora.api.model.BlockForgerSummary;
+import org.qora.api.model.BlockMinterSummary;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
 import org.qora.data.block.BlockData;
@@ -421,9 +421,9 @@ public class BlocksResource {
 	}
 
 	@GET
-	@Path("/forger/{address}")
+	@Path("/minter/{address}")
 	@Operation(
-		summary = "Fetch blocks forged by address",
+		summary = "Fetch blocks minted by address",
 		responses = {
 			@ApiResponse(
 				description = "blocks",
@@ -438,7 +438,7 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.PUBLIC_KEY_NOT_FOUND, ApiError.REPOSITORY_ISSUE})
-	public List<BlockData> getBlocksByForger(@PathParam("address") String address, @Parameter(
+	public List<BlockData> getBlocksByMinter(@PathParam("address") String address, @Parameter(
 			ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
 				ref = "offset"
@@ -454,7 +454,7 @@ public class BlocksResource {
 			if (accountData == null || accountData.getPublicKey() == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.PUBLIC_KEY_NOT_FOUND);
 
-			return repository.getBlockRepository().getBlocksWithGenerator(accountData.getPublicKey(), limit, offset, reverse);
+			return repository.getBlockRepository().getBlocksByMinter(accountData.getPublicKey(), limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -463,23 +463,23 @@ public class BlocksResource {
 	}
 
 	@GET
-	@Path("/forgers")
+	@Path("/minters")
 	@Operation(
-		summary = "Show summary of block forgers",
-		description = "Returns count of blocks forged, optionally limited to generators/recipients in passed address(es).",
+		summary = "Show summary of block minters",
+		description = "Returns count of blocks minted, optionally limited to minters/recipients in passed address(es).",
 		responses = {
 			@ApiResponse(
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
-							implementation = BlockForgerSummary.class
+							implementation = BlockMinterSummary.class
 						)
 					)
 				)
 			)
 		}
 	)
-	public List<BlockForgerSummary> getBlockForgers(@QueryParam("address") List<String> addresses,
+	public List<BlockMinterSummary> getBlockMinters(@QueryParam("address") List<String> addresses,
 			@Parameter(
 				ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
@@ -492,7 +492,7 @@ public class BlocksResource {
 				if (!Crypto.isValidAddress(address))
 					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-			return repository.getBlockRepository().getBlockForgers(addresses, limit, offset, reverse);
+			return repository.getBlockRepository().getBlockMinters(addresses, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

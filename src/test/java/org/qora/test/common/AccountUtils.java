@@ -5,11 +5,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.qora.account.PrivateKeyAccount;
-import org.qora.crypto.Crypto;
 import org.qora.data.transaction.BaseTransactionData;
-import org.qora.data.transaction.EnableForgingTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
-import org.qora.data.transaction.ProxyForgingTransactionData;
+import org.qora.data.transaction.RewardShareTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
@@ -30,60 +28,35 @@ public class AccountUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, sendingAccount.getPublicKey(), fee, null);
 		TransactionData transactionData = new PaymentTransactionData(baseTransactionData, recipientAccount.getAddress(), amount);
 
-		TransactionUtils.signAndForge(repository, transactionData, sendingAccount);
+		TransactionUtils.signAndMint(repository, transactionData, sendingAccount);
 	}
 
-	public static TransactionData createProxyForging(Repository repository, String forger, String recipient, BigDecimal share) throws DataException {
-		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
+	public static TransactionData createRewardShare(Repository repository, String minter, String recipient, BigDecimal sharePercent) throws DataException {
+		PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, minter);
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
 
-		byte[] reference = forgingAccount.getLastReference();
+		byte[] reference = mintingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		byte[] proxyPrivateKey = forgingAccount.getSharedSecret(recipientAccount.getPublicKey());
-		PrivateKeyAccount proxyAccount = new PrivateKeyAccount(null, proxyPrivateKey);
+		byte[] rewardSharePrivateKey = mintingAccount.getSharedSecret(recipientAccount.getPublicKey());
+		PrivateKeyAccount rewardShareAccount = new PrivateKeyAccount(null, rewardSharePrivateKey);
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), fee, null);
-		TransactionData transactionData = new ProxyForgingTransactionData(baseTransactionData, recipientAccount.getAddress(), proxyAccount.getPublicKey(), share);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, mintingAccount.getPublicKey(), fee, null);
+		TransactionData transactionData = new RewardShareTransactionData(baseTransactionData, recipientAccount.getAddress(), rewardShareAccount.getPublicKey(), sharePercent);
 
 		return transactionData;
 	}
 
-	public static byte[] proxyForging(Repository repository, String forger, String recipient, BigDecimal share) throws DataException {
-		TransactionData transactionData = createProxyForging(repository, forger, recipient, share);
+	public static byte[] rewardShare(Repository repository, String minter, String recipient, BigDecimal sharePercent) throws DataException {
+		TransactionData transactionData = createRewardShare(repository, minter, recipient, sharePercent);
 
-		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
-		TransactionUtils.signAndForge(repository, transactionData, forgingAccount);
+		PrivateKeyAccount rewardShareAccount = Common.getTestAccount(repository, minter);
+		TransactionUtils.signAndMint(repository, transactionData, rewardShareAccount);
 
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
-		byte[] proxyPrivateKey = forgingAccount.getSharedSecret(recipientAccount.getPublicKey());
+		byte[] rewardSharePrivateKey = rewardShareAccount.getSharedSecret(recipientAccount.getPublicKey());
 
-		return proxyPrivateKey;
-	}
-
-	public static TransactionData createEnableForging(Repository repository, String forger, byte[] recipientPublicKey) throws DataException {
-		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
-
-		byte[] reference = forgingAccount.getLastReference();
-		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
-
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), fee, null);
-		return new EnableForgingTransactionData(baseTransactionData, Crypto.toAddress(recipientPublicKey));
-	}
-
-	public static TransactionData createEnableForging(Repository repository, String forger, String recipient) throws DataException {
-		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
-
-		return createEnableForging(repository, forger, recipientAccount.getPublicKey());
-	}
-
-	public static TransactionData enableForging(Repository repository, String forger, String recipient) throws DataException {
-		TransactionData transactionData = createEnableForging(repository, forger, recipient);
-
-		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
-		TransactionUtils.signAndForge(repository, transactionData, forgingAccount);
-
-		return transactionData;
+		return rewardSharePrivateKey;
 	}
 
 	public static Map<String, Map<Long, BigDecimal>> getBalances(Repository repository, long... assetIds) throws DataException {

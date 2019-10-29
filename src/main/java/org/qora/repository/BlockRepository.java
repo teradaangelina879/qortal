@@ -2,7 +2,7 @@ package org.qora.repository;
 
 import java.util.List;
 
-import org.qora.api.model.BlockForgerSummary;
+import org.qora.api.model.BlockMinterSummary;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockSummaryData;
 import org.qora.data.block.BlockTransactionData;
@@ -100,23 +100,23 @@ public interface BlockRepository {
 	}
 
 	/**
-	 * Returns number of blocks forged by account with given public key, including proxy-forged blocks.
+	 * Returns number of blocks minted by account/reward-share with given public key.
 	 * 
 	 * @param publicKey
 	 * @return number of blocks
 	 * @throws DataException
 	 */
-	public int countForgedBlocks(byte[] publicKey) throws DataException;
+	public int countMintedBlocks(byte[] publicKey) throws DataException;
 
 	/**
-	 * Returns summaries of block forgers, optionally limited to passed addresses.
+	 * Returns summaries of block minters, optionally limited to passed addresses.
 	 */
-	public List<BlockForgerSummary> getBlockForgers(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<BlockMinterSummary> getBlockMinters(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
-	 * Returns blocks with passed generator public key.
+	 * Returns blocks with passed minter public key.
 	 */
-	public List<BlockData> getBlocksWithGenerator(byte[] generatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<BlockData> getBlocksByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns blocks within height range.

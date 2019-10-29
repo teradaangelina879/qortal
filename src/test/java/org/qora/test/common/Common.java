@@ -72,18 +72,21 @@ public class Common {
 
 	private static Map<String, TestAccount> testAccountsByName = new HashMap<>();
 	static {
-		testAccountsByName.put("alice", new TestAccount(null, "alice", "A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6"));
-		testAccountsByName.put("bob", new TestAccount(null, "bob", "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot"));
-		testAccountsByName.put("chloe", new TestAccount(null, "chloe", "HqVngdE1AmEyDpfwTZqUdFHB13o4bCmpoTNAKEqki66K"));
-		testAccountsByName.put("dilbert", new TestAccount(null, "dilbert", "Gakhh6Ln4vtBFM88nE9JmDaLBDtUBg51aVFpWfSkyVw5"));
+		testAccountsByName.put("alice", new TestAccount(null, "alice", "A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6", false));
+		testAccountsByName.put("bob", new TestAccount(null, "bob", "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot", false));
+		testAccountsByName.put("chloe", new TestAccount(null, "chloe", "HqVngdE1AmEyDpfwTZqUdFHB13o4bCmpoTNAKEqki66K", false));
+		testAccountsByName.put("dilbert", new TestAccount(null, "dilbert", "Gakhh6Ln4vtBFM88nE9JmDaLBDtUBg51aVFpWfSkyVw5", false));
+
+		// Alice reward-share with herself. Private key is reward-share private key, derived from Alice's private and public keys.
+		testAccountsByName.put("alice-reward-share", new TestAccount(null, "alice-reward-share", "1CeDCg9TSdBwJNGVTGG7pCKsvsyyoEcaVXYvDT1Xb9f", true));
 	}
 
 	public static TestAccount getTestAccount(Repository repository, String name) {
-		return new TestAccount(repository, name, testAccountsByName.get(name).getPrivateKey());
+		return new TestAccount(repository, testAccountsByName.get(name));
 	}
 
 	public static List<TestAccount> getTestAccounts(Repository repository) {
-		return testAccountsByName.values().stream().map(account -> new TestAccount(repository, account.accountName, account.getPrivateKey())).collect(Collectors.toList());
+		return testAccountsByName.values().stream().map(account -> new TestAccount(repository, account)).collect(Collectors.toList());
 	}
 
 	public static void useSettings(String settingsFilename) throws DataException {
@@ -116,7 +119,8 @@ public class Common {
 
 			// Check that each test account can fetch their last reference
 			for (TestAccount testAccount : getTestAccounts(repository))
-				assertNotNull(String.format("Test account %s / %s should have last reference", testAccount.accountName, testAccount.getAddress()), testAccount.getLastReference());
+				if (!testAccount.isRewardShare)
+					assertNotNull(String.format("Test account %s / %s should have last reference", testAccount.accountName, testAccount.getAddress()), testAccount.getLastReference());
 		}
 	}
 

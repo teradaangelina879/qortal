@@ -30,7 +30,7 @@ public class GroupUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, account.getPublicKey(), GroupUtils.fee, null);
 		TransactionData transactionData = new CreateGroupTransactionData(baseTransactionData, account.getAddress(), groupName, groupDescription, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay);
 
-		TransactionUtils.signAndForge(repository, transactionData, account);
+		TransactionUtils.signAndMint(repository, transactionData, account);
 
 		return repository.getGroupRepository().fromGroupName(groupName).getGroupId();
 	}
@@ -44,7 +44,7 @@ public class GroupUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, account.getPublicKey(), GroupUtils.fee, null);
 		TransactionData transactionData = new JoinGroupTransactionData(baseTransactionData, groupId);
 
-		TransactionUtils.signAndForge(repository, transactionData, account);
+		TransactionUtils.signAndMint(repository, transactionData, account);
 	}
 
 	public static void approveTransaction(Repository repository, String accountName, byte[] pendingSignature, boolean decision) throws DataException {
@@ -56,7 +56,7 @@ public class GroupUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, account.getPublicKey(), GroupUtils.fee, null);
 		TransactionData transactionData = new GroupApprovalTransactionData(baseTransactionData, pendingSignature, decision);
 
-		TransactionUtils.signAndForge(repository, transactionData, account);
+		TransactionUtils.signAndMint(repository, transactionData, account);
 	}
 
 	public static ApprovalStatus getApprovalStatus(Repository repository, byte[] signature) throws DataException {
