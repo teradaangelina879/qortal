@@ -1301,6 +1301,7 @@ public class Controller extends Thread {
 
 		OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
 		synchronized (this.onlineAccounts) {
+			this.onlineAccounts.clear();
 			this.onlineAccounts.add(ourOnlineAccountData);
 		}
 	}

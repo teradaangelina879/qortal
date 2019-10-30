@@ -256,6 +256,11 @@ public class BTC {
 		peerGroup.addWallet(wallet);
 		peerGroup.setFastCatchupTimeSecs(startTime);
 
+		peerGroup.addBlocksDownloadedEventListener((peer, block, filteredBlock, blocksLeft) -> {
+			if (blocksLeft % 1000 == 0)
+				System.out.println("Blocks left: " + blocksLeft);
+		});
+
 		System.out.println("Starting download...");
 		peerGroup.downloadBlockChain();
 
@@ -273,7 +278,7 @@ public class BTC {
 	}
 
 	public void updateCheckpoints() {
-		final long now = new Date().getTime() / 1000;
+		final long now = new Date().getTime() / 1000 - 86400;
 
 		try {
 			StoredBlock checkpoint = manager.getCheckpointBefore(now);
@@ -288,6 +293,12 @@ public class BTC {
 
 		chain.addNewBestBlockListener(Threading.SAME_THREAD, manager);
 
+		peerGroup.addBlocksDownloadedEventListener((peer, block, filteredBlock, blocksLeft) -> {
+			if (blocksLeft % 1000 == 0)
+				System.out.println("Blocks left: " + blocksLeft);
+		});
+
+		System.out.println("Starting download...");
 		peerGroup.downloadBlockChain();
 
 		try {

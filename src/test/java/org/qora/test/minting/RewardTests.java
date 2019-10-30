@@ -37,11 +37,9 @@ public class RewardTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 
-			PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice");
-
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 
-			BlockMinter.mintTestingBlock(repository, mintingAccount);
+			BlockUtils.mintBlock(repository);
 
 			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORT).add(blockReward);
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, expectedBalance);
@@ -52,8 +50,6 @@ public class RewardTests extends Common {
 	public void testRewards() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
-
-			PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice");
 
 			List<RewardByHeight> rewards = BlockChain.getInstance().getBlockRewardsByHeight();
 
@@ -68,7 +64,7 @@ public class RewardTests extends Common {
 					rewardInfo = rewards.get(rewardIndex);
 				}
 
-				BlockMinter.mintTestingBlock(repository, mintingAccount);
+				BlockUtils.mintBlock(repository);
 				expectedBalance = expectedBalance.add(rewardInfo.reward);
 			}
 

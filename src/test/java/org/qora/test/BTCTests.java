@@ -18,11 +18,14 @@ public class BTCTests {
 
 		BTC btc = BTC.getInstance();
 
-		btc.watch(testAddress, testStartTime);
+		// Disabled for now, pending further work
+		// btc.watch(testAddress, testStartTime);
 
-		Thread.sleep(5000);
+		// Disabled for now, pending further work
+		// Thread.sleep(5000);
 
-		btc.watch(testAddress, testStartTime);
+		// Disabled for now, pending further work
+		// btc.watch(testAddress, testStartTime);
 
 		btc.shutdown();
 	}
@@ -37,10 +40,13 @@ public class BTCTests {
 		Script redeemScript = ScriptBuilder.createP2SHOutputScript(redeemScriptHash);
 		redeemScript.setCreationTimeSeconds(testStartTime);
 
+		// Disabled for now, pending further work
 		// btc.watch(redeemScript);
 
+		// Disabled for now, pending further work
 		Thread.sleep(5000);
 
+		// Disabled for now, pending further work
 		// btc.watch(redeemScript);
 
 		btc.shutdown();

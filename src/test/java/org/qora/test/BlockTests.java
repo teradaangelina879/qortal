@@ -7,7 +7,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.Block;
-import org.qora.block.BlockMinter;
 import org.qora.block.GenesisBlock;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
@@ -15,6 +14,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.test.common.BlockUtils;
 import org.qora.test.common.Common;
 import org.qora.test.common.TransactionUtils;
 import org.qora.transaction.Transaction;
@@ -106,7 +106,7 @@ public class BlockTests extends Common {
 			} catch (InterruptedException e) {
 			}
 
-			BlockMinter.mintTestingBlock(repository, signingAccount);
+			BlockUtils.mintBlock(repository);
 
 			BlockData blockData = repository.getBlockRepository().getLastBlock();
 			Block block = new Block(repository, blockData);

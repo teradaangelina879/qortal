@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.qora.utils.ExecuteProduceConsume;
@@ -48,16 +50,25 @@ public class EPCTests {
 	}
 
 	private void testEPC(ExecuteProduceConsume testEPC) throws InterruptedException {
+		final long start = System.currentTimeMillis();
 		testEPC.start();
 
+		// Status reports every second (bar waiting for synchronization)
+		ScheduledExecutorService statusExecutor = Executors.newSingleThreadScheduledExecutor();
+
+		statusExecutor.scheduleAtFixedRate(() -> {
+			synchronized (testEPC) {
+				final long seconds = (System.currentTimeMillis() - start) / 1000L;
+				System.out.println(String.format("After %d second%s, active threads: %d, greatest thread count: %d, tasks produced: %d, tasks consumed: %d",
+						seconds, (seconds != 1 ? "s" : ""),
+						testEPC.getActiveThreadCount(), testEPC.getGreatestActiveThreadCount(),
+						testEPC.getTasksProduced(), testEPC.getTasksConsumed()));
+			}
+		}, 1L, 1L, TimeUnit.SECONDS);
+
 		// Let it run for a minute
-		for (int s = 1; s <= 60; ++s) {
-			Thread.sleep(1000);
-			System.out.println(String.format("After %d second%s, active threads: %d, greatest thread count: %d, tasks produced: %d, tasks consumed: %d",
-					s, (s != 1 ? "s" : ""),
-					testEPC.getActiveThreadCount(), testEPC.getGreatestActiveThreadCount(),
-					testEPC.getTasksProduced(), testEPC.getTasksConsumed()));
-		}
+		Thread.sleep(60_000L);
+		statusExecutor.shutdownNow();
 
 		final long before = System.currentTimeMillis();
 		testEPC.shutdown(30 * 1000);

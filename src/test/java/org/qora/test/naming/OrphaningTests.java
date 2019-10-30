@@ -9,7 +9,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
-import org.qora.block.BlockMinter;
 import org.qora.data.naming.NameData;
 import org.qora.data.transaction.BuyNameTransactionData;
 import org.qora.data.transaction.RegisterNameTransactionData;
@@ -29,6 +28,7 @@ public class OrphaningTests extends Common {
 	private Repository repository;
 	private PrivateKeyAccount alice;
 	private PrivateKeyAccount bob;
+
 	private String name;
 	private BigDecimal price;
 
@@ -51,6 +51,7 @@ public class OrphaningTests extends Common {
 
 		alice = null;
 		bob = null;
+
 		repository = null;
 
 		Common.orphanCheck();
@@ -74,7 +75,7 @@ public class OrphaningTests extends Common {
 		assertFalse(repository.getNameRepository().nameExists(name));
 
 		// Re-process register-name
-		BlockMinter.mintTestingBlock(repository, alice);
+		BlockUtils.mintBlock(repository);
 
 		// Check name does exist
 		assertTrue(repository.getNameRepository().nameExists(name));
@@ -105,7 +106,7 @@ public class OrphaningTests extends Common {
 		// Not concerned about price
 
 		// Re-process sell-name
-		BlockMinter.mintTestingBlock(repository, alice);
+		BlockUtils.mintBlock(repository);
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
@@ -121,10 +122,10 @@ public class OrphaningTests extends Common {
 		assertNull(nameData);
 
 		// Re-process register-name and sell-name
-		BlockMinter.mintTestingBlock(repository, alice);
+		BlockUtils.mintBlock(repository);
 		// Unconfirmed sell-name transaction not included in previous block
 		// as it isn't valid until name exists thanks to register-name transaction.
-		BlockMinter.mintTestingBlock(repository, alice);
+		BlockUtils.mintBlock(repository);
 
 		// Check name does exist
 		assertTrue(repository.getNameRepository().nameExists(name));
@@ -162,7 +163,7 @@ public class OrphaningTests extends Common {
 		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
 
 		// Re-process buy-name
-		BlockMinter.mintTestingBlock(repository, alice);
+		BlockUtils.mintBlock(repository);
 
 		// Check name is sold
 		nameData = repository.getNameRepository().fromName(name);
@@ -180,10 +181,10 @@ public class OrphaningTests extends Common {
 		assertEquals(alice.getAddress(), nameData.getOwner());
 
 		// Re-process sell-name and buy-name
-		BlockMinter.mintTestingBlock(repository, alice);
+		BlockUtils.mintBlock(repository);
 		// Unconfirmed buy-name transaction not included in previous block
 		// as it isn't valid until name is for sale thanks to sell-name transaction.
-		BlockMinter.mintTestingBlock(repository, alice);
+		BlockUtils.mintBlock(repository);
 
 		// Check name is sold
 		nameData = repository.getNameRepository().fromName(name);
@@ -218,7 +219,7 @@ public class OrphaningTests extends Common {
 		// Not concerned about price
 
 		// Re-process sell-name
-		BlockMinter.mintTestingBlock(repository, alice);
+		BlockUtils.mintBlock(repository);
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
@@ -236,10 +237,10 @@ public class OrphaningTests extends Common {
 		assertEquals(alice.getAddress(), nameData.getOwner());
 
 		// Re-process buy-name and sell-name
-		BlockMinter.mintTestingBlock(repository, bob);
+		BlockUtils.mintBlock(repository);
 		// Unconfirmed sell-name transaction not included in previous block
 		// as it isn't valid until name owned by bob thanks to buy-name transaction.
-		BlockMinter.mintTestingBlock(repository, bob);
+		BlockUtils.mintBlock(repository);
 
 		// Check name does exist
 		assertTrue(repository.getNameRepository().nameExists(name));

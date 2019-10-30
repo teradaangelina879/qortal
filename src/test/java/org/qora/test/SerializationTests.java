@@ -46,6 +46,7 @@ public class SerializationTests extends Common {
 					case DELEGATION:
 					case SUPERNODE:
 					case AIRDROP:
+					case ENABLE_FORGING:
 						continue;
 
 					default:

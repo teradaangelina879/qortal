@@ -5,7 +5,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.asset.Asset;
-import org.qora.block.BlockMinter;
 import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
@@ -125,7 +124,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
-				BlockMinter.mintTestingBlock(repository, aliceAccount);
+				BlockUtils.mintBlock(repository);
 
 			// Confirm transaction now approved
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -176,7 +175,6 @@ public class GroupApprovalTests extends Common {
 	/** Test generic approval. */
 	public void testApproval() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
 			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
 
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
@@ -199,7 +197,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
-				BlockMinter.mintTestingBlock(repository, aliceAccount);
+				BlockUtils.mintBlock(repository);
 
 			// Confirm transaction now approved
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -238,7 +236,6 @@ public class GroupApprovalTests extends Common {
 	/** Test generic rejection. */
 	public void testRejection() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
 			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
 
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
@@ -261,7 +258,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
-				BlockMinter.mintTestingBlock(repository, aliceAccount);
+				BlockUtils.mintBlock(repository);
 
 			// Confirm transaction now rejected
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -300,7 +297,6 @@ public class GroupApprovalTests extends Common {
 	/** Test generic expiry. */
 	public void testExpiry() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
 			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
 
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
@@ -320,7 +316,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so group-approval for transaction expires
 			for (int blockCount = 0; blockCount <= maxBlockDelay; ++blockCount)
-				BlockMinter.mintTestingBlock(repository, aliceAccount);
+				BlockUtils.mintBlock(repository);
 
 			// Confirm transaction now expired
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
@@ -380,7 +376,7 @@ public class GroupApprovalTests extends Common {
 
 			// Now forge a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
-				BlockMinter.mintTestingBlock(repository, aliceAccount);
+				BlockUtils.mintBlock(repository);
 
 			// Confirm Bob's transaction now invalid
 			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
