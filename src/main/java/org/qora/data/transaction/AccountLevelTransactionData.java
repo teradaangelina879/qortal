@@ -21,7 +21,6 @@ public class AccountLevelTransactionData extends TransactionData {
 
 	private String target;
 	private int level;
-	private Integer previousLevel;
 
 	// Constructors
 
@@ -40,20 +39,13 @@ public class AccountLevelTransactionData extends TransactionData {
 			this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
 	}
 
-	/** From repository */
+	/** From repository, network/API */
 	public AccountLevelTransactionData(BaseTransactionData baseTransactionData,
-			String target, int level, Integer previousLevel) {
+			String target, int level) {
 		super(TransactionType.ACCOUNT_LEVEL, baseTransactionData);
 
 		this.target = target;
 		this.level = level;
-		this.previousLevel = previousLevel;
-	}
-
-	/** From network/API */
-	public AccountLevelTransactionData(BaseTransactionData baseTransactionData,
-			String target, int level) {
-		this(baseTransactionData, target, level, null);
 	}
 
 	// Getters / setters
@@ -64,14 +56,6 @@ public class AccountLevelTransactionData extends TransactionData {
 
 	public int getLevel() {
 		return this.level;
-	}
-
-	public Integer getPreviousLevel() {
-		return this.previousLevel;
-	}
-
-	public void setPreviousLevel(Integer previousLevel) {
-		this.previousLevel = previousLevel;
 	}
 
 	// Re-expose to JAXB

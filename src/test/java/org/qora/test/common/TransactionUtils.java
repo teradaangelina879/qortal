@@ -36,7 +36,7 @@ public class TransactionUtils {
 		assertEquals("Transaction invalid", ValidationResult.OK, result);
 	}
 
-	/** Signs transaction using given account and forges a new block, using "alice" account. */
+	/** Signs transaction using given account and forges a new block, using "alice" self-reward-share key. */
 	public static void signAndMint(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
 		signAsUnconfirmed(repository, transactionData, signingAccount);
 

@@ -314,6 +314,7 @@ public abstract class Transaction {
 		return Transaction.getDeadline(transactionData);
 	}
 
+	/** Returns whether transaction's fee is at least minimum unit fee as specified in blockchain config. */
 	public boolean hasMinimumFee() {
 		return this.transactionData.getFee().compareTo(BlockChain.getInstance().getUnitFee()) >= 0;
 	}
@@ -326,6 +327,7 @@ public abstract class Transaction {
 		}
 	}
 
+	/** Returns whether transaction's fee is at least amount needed to cover byte-length of transaction. */
 	public boolean hasMinimumFeePerByte() {
 		return this.feePerByte().compareTo(BlockChain.getInstance().getMinFeePerByte()) >= 0;
 	}
@@ -538,8 +540,9 @@ public abstract class Transaction {
 			return ValidationResult.TIMESTAMP_TOO_NEW;
 
 		// Check fee is sufficient
-		if (!hasMinimumFee() || !hasMinimumFeePerByte())
-			return ValidationResult.INSUFFICIENT_FEE;
+		ValidationResult feeValidationResult = isFeeValid();
+		if (feeValidationResult != ValidationResult.OK)
+			return feeValidationResult;
 
 		/*
 		 * We have to grab the blockchain lock because we're updating
@@ -589,6 +592,14 @@ public abstract class Transaction {
 			// In separate finally block just in case rollback throws
 			blockchainLock.unlock();
 		}
+	}
+
+	/** Returns whether transaction's fee is valid. Might be overriden in transaction subclasses. */
+	protected ValidationResult isFeeValid() throws DataException {
+		if (!hasMinimumFee() || !hasMinimumFeePerByte())
+			return ValidationResult.INSUFFICIENT_FEE;
+
+		return ValidationResult.OK;
 	}
 
 	private boolean isValidTxGroupId() throws DataException {

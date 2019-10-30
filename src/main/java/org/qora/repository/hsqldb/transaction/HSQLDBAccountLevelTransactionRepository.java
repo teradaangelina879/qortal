@@ -17,7 +17,7 @@ public class HSQLDBAccountLevelTransactionRepository extends HSQLDBTransactionRe
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		String sql = "SELECT target, level, previous_level FROM AccountLevelTransactions WHERE signature = ?";
+		String sql = "SELECT target, level FROM AccountLevelTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
@@ -26,11 +26,7 @@ public class HSQLDBAccountLevelTransactionRepository extends HSQLDBTransactionRe
 			String target = resultSet.getString(1);
 			int level = resultSet.getInt(2);
 
-			Integer previousLevel = resultSet.getInt(3);
-			if (previousLevel == 0 && resultSet.wasNull())
-				previousLevel = null;
-
-			return new AccountLevelTransactionData(baseTransactionData, target, level, previousLevel);
+			return new AccountLevelTransactionData(baseTransactionData, target, level);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account level transaction from repository", e);
 		}

@@ -38,11 +38,11 @@ public class AccountUtils {
 		byte[] reference = mintingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		byte[] rewardSharePrivateKey = mintingAccount.getSharedSecret(recipientAccount.getPublicKey());
-		PrivateKeyAccount rewardShareAccount = new PrivateKeyAccount(null, rewardSharePrivateKey);
+		byte[] rewardSharePrivateKey = mintingAccount.getRewardSharePrivateKey(recipientAccount.getPublicKey());
+		byte[] rewardSharePublicKey = PrivateKeyAccount.toPublicKey(rewardSharePrivateKey);
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, mintingAccount.getPublicKey(), fee, null);
-		TransactionData transactionData = new RewardShareTransactionData(baseTransactionData, recipientAccount.getAddress(), rewardShareAccount.getPublicKey(), sharePercent);
+		TransactionData transactionData = new RewardShareTransactionData(baseTransactionData, recipientAccount.getAddress(), rewardSharePublicKey, sharePercent);
 
 		return transactionData;
 	}
@@ -54,7 +54,7 @@ public class AccountUtils {
 		TransactionUtils.signAndMint(repository, transactionData, rewardShareAccount);
 
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
-		byte[] rewardSharePrivateKey = rewardShareAccount.getSharedSecret(recipientAccount.getPublicKey());
+		byte[] rewardSharePrivateKey = rewardShareAccount.getRewardSharePrivateKey(recipientAccount.getPublicKey());
 
 		return rewardSharePrivateKey;
 	}

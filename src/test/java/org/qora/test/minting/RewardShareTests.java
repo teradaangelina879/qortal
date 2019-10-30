@@ -1,4 +1,4 @@
-package org.qora.test.forging;
+package org.qora.test.minting;
 
 import static org.junit.Assert.*;
 
@@ -16,6 +16,7 @@ import org.qora.repository.RepositoryManager;
 import org.qora.test.common.AccountUtils;
 import org.qora.test.common.BlockUtils;
 import org.qora.test.common.Common;
+import org.qora.test.common.TransactionUtils;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.utils.Base58;
@@ -121,6 +122,53 @@ public class RewardShareTests extends Common {
 
 			ValidationResult validationResult = transaction.isValidUnconfirmed();
 			assertEquals("Initial 0% share should be invalid", ValidationResult.INVALID_REWARD_SHARE_PERCENT, validationResult);
+		}
+	}
+
+	@Test
+	public void testSelfShare() throws DataException {
+		final String testAccountName = "dilbert";
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount signingAccount = Common.getTestAccount(repository, testAccountName);
+			// byte[] rewardSharePrivateKey = aliceAccount.getRewardSharePrivateKey(aliceAccount.getPublicKey());
+			// PrivateKeyAccount rewardShareAccount = new PrivateKeyAccount(repository, rewardSharePrivateKey);
+
+			// Create self-reward-share
+			TransactionData transactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, BigDecimal.valueOf(100L));
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			// Confirm self-share is valid
+			ValidationResult validationResult = transaction.isValidUnconfirmed();
+			assertEquals("Initial self-share should be valid", ValidationResult.OK, validationResult);
+
+			// Check zero fee is valid
+			transactionData.setFee(BigDecimal.ZERO);
+			validationResult = transaction.isValidUnconfirmed();
+			assertEquals("Zero-fee self-share should be valid", ValidationResult.OK, validationResult);
+
+			TransactionUtils.signAndMint(repository, transactionData, signingAccount);
+
+			// Subsequent non-terminating (0% share) self-reward-share should be invalid
+			TransactionData newTransactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, BigDecimal.valueOf(99L));
+			Transaction newTransaction = Transaction.fromData(repository, newTransactionData);
+
+			// Confirm subsequent self-reward-share is actually invalid
+			validationResult = newTransaction.isValidUnconfirmed();
+			assertNotSame("Subsequent self-share should be invalid", ValidationResult.OK, validationResult);
+
+			// Recheck with zero fee
+			newTransactionData.setFee(BigDecimal.ZERO);
+			validationResult = newTransaction.isValidUnconfirmed();
+			assertNotSame("Subsequent zero-fee self-share should be invalid", ValidationResult.OK, validationResult);
+
+			// Subsequent terminating (0% share) self-reward-share should be OK
+			newTransactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, BigDecimal.ZERO);
+			newTransaction = Transaction.fromData(repository, newTransactionData);
+
+			// Confirm terminating reward-share is valid
+			validationResult = newTransaction.isValidUnconfirmed();
+			assertEquals("Subsequent zero-fee self-share should be invalid", ValidationResult.OK, validationResult);
 		}
 	}
 

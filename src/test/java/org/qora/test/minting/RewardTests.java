@@ -1,4 +1,4 @@
-package org.qora.test.forging;
+package org.qora.test.minting;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -37,11 +37,11 @@ public class RewardTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 
-			PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, "alice");
+			PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice");
 
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 
-			BlockMinter.mintTestingBlock(repository, forgingAccount);
+			BlockMinter.mintTestingBlock(repository, mintingAccount);
 
 			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORT).add(blockReward);
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, expectedBalance);
@@ -53,7 +53,7 @@ public class RewardTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 
-			PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, "alice");
+			PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice");
 
 			List<RewardByHeight> rewards = BlockChain.getInstance().getBlockRewardsByHeight();
 
@@ -68,7 +68,7 @@ public class RewardTests extends Common {
 					rewardInfo = rewards.get(rewardIndex);
 				}
 
-				BlockMinter.mintTestingBlock(repository, forgingAccount);
+				BlockMinter.mintTestingBlock(repository, mintingAccount);
 				expectedBalance = expectedBalance.add(rewardInfo.reward);
 			}
 
@@ -77,16 +77,16 @@ public class RewardTests extends Common {
 	}
 
 	@Test
-	public void testProxyReward() throws DataException {
+	public void testRewardSharing() throws DataException {
 		final BigDecimal share = new BigDecimal("12.8");
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			byte[] proxyPrivateKey = AccountUtils.rewardShare(repository, "alice", "bob", share);
-			PrivateKeyAccount proxyAccount = new PrivateKeyAccount(repository, proxyPrivateKey);
+			byte[] rewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "bob", share);
+			PrivateKeyAccount rewardShareAccount = new PrivateKeyAccount(repository, rewardSharePrivateKey);
 
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
-			BlockMinter.mintTestingBlock(repository, proxyAccount);
+			BlockMinter.mintTestingBlock(repository, rewardShareAccount);
 
 			// We're expecting reward * 12.8% to Bob, the rest to Alice
 

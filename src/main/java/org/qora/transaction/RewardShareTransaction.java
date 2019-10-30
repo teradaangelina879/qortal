@@ -61,6 +61,22 @@ public class RewardShareTransaction extends Transaction {
 		return amount;
 	}
 
+	private RewardShareData getExistingRewardShare() throws DataException {
+		// Look up any existing reward-share (using transaction's reward-share public key)
+		RewardShareData existingRewardShareData = this.repository.getAccountRepository().getRewardShare(this.rewardShareTransactionData.getRewardSharePublicKey());
+		if (existingRewardShareData == null)
+			// No luck, try looking up existing reward-share using minting & recipient account info
+			existingRewardShareData = this.repository.getAccountRepository().getRewardShare(this.rewardShareTransactionData.getMinterPublicKey(), this.rewardShareTransactionData.getRecipient());
+
+		return existingRewardShareData;
+	}
+
+	private boolean doesRewardShareMatch(RewardShareData rewardShareData) {
+		return rewardShareData.getRecipient().equals(this.rewardShareTransactionData.getRecipient())
+				&& Arrays.equals(rewardShareData.getMinterPublicKey(), this.rewardShareTransactionData.getMinterPublicKey())
+				&& Arrays.equals(rewardShareData.getRewardSharePublicKey(), this.rewardShareTransactionData.getRewardSharePublicKey());
+	}
+
 	// Navigation
 
 	public PublicKeyAccount getMintingAccount() {
@@ -74,6 +90,25 @@ public class RewardShareTransaction extends Transaction {
 	// Processing
 
 	private static final BigDecimal MAX_SHARE = BigDecimal.valueOf(100).setScale(2);
+
+	@Override
+	public ValidationResult isFeeValid() throws DataException {
+		// Look up any existing reward-share (using transaction's reward-share public key)
+		RewardShareData existingRewardShareData = this.getExistingRewardShare();
+		// If we have an existing reward-share then minter/recipient/reward-share-public-key should all match.
+		// This is to prevent malicious actors using multiple (fake) reward-share public keys for the same minter/recipient combo,
+		// or reusing the same reward-share public key for a different minter/recipient pair.
+		if (existingRewardShareData != null && !this.doesRewardShareMatch(existingRewardShareData))
+			return ValidationResult.INVALID_PUBLIC_KEY;
+
+		final boolean isRecipientAlsoMinter = getCreator().getAddress().equals(this.rewardShareTransactionData.getRecipient());
+
+		// Fee can be zero if setting up new self-share
+		if (isRecipientAlsoMinter && existingRewardShareData == null && this.transactionData.getFee().compareTo(BigDecimal.ZERO) >= 0)
+			return ValidationResult.OK;
+
+		return super.isFeeValid();
+	}
 
 	@Override
 	public ValidationResult isValid() throws DataException {
@@ -102,34 +137,25 @@ public class RewardShareTransaction extends Transaction {
 			return ValidationResult.ACCOUNT_CANNOT_REWARD_SHARE;
 
 		// Look up any existing reward-share (using transaction's reward-share public key)
-		RewardShareData rewardShareData = this.repository.getAccountRepository().getRewardShare(this.rewardShareTransactionData.getRewardSharePublicKey());
-		if (rewardShareData != null) {
-			// If reward-share public key already exists in repository, then it must be for the same minter-recipient combo
-			if (!rewardShareData.getRecipient().equals(recipient.getAddress()) || !Arrays.equals(rewardShareData.getMinterPublicKey(), creator.getPublicKey()))
-				return ValidationResult.INVALID_PUBLIC_KEY;
-
-		} else {
-			// No luck, try looking up existing reward-share using minting & recipient account info
-			rewardShareData = this.repository.getAccountRepository().getRewardShare(creator.getPublicKey(), recipient.getAddress());
-
-			if (rewardShareData != null)
-				// If reward-share between minter & recipient already exists in repository, then it must be have the same public key
-				if (!Arrays.equals(rewardShareData.getRewardSharePublicKey(), this.rewardShareTransactionData.getRewardSharePublicKey()))
-					return ValidationResult.INVALID_PUBLIC_KEY;
-		}
+		RewardShareData existingRewardShareData = this.getExistingRewardShare();
+		// If we have an existing reward-share then minter/recipient/reward-share-public-key should all match.
+		// This is to prevent malicious actors using multiple (fake) reward-share public keys for the same minter/recipient combo,
+		// or reusing the same reward-share public key for a different minter/recipient pair.
+		if (existingRewardShareData != null && !this.doesRewardShareMatch(existingRewardShareData))
+			return ValidationResult.INVALID_PUBLIC_KEY;
 
 		final boolean isSharePercentZero = this.rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) == 0;
 
-		if (rewardShareData == null) {
+		if (existingRewardShareData == null) {
 			// This is a new reward-share
 
-			// No point starting a new reward-share with 0% share (i.e. delete relationship)
+			// No point starting a new reward-share with 0% share (i.e. delete reward-share)
 			if (isSharePercentZero)
 				return ValidationResult.INVALID_REWARD_SHARE_PERCENT;
 
 			// Check the minting account hasn't reach maximum number of reward-shares
-			int relationshipCount = this.repository.getAccountRepository().countRewardShares(creator.getPublicKey());
-			if (relationshipCount >= BlockChain.getInstance().getMaxRewardSharesPerMintingAccount())
+			int rewardShareCount = this.repository.getAccountRepository().countRewardShares(creator.getPublicKey());
+			if (rewardShareCount >= BlockChain.getInstance().getMaxRewardSharesPerMintingAccount())
 				return ValidationResult.MAXIMUM_REWARD_SHARES;
 		} else {
 			// This transaction intends to modify/terminate an existing reward-share
@@ -140,15 +166,10 @@ public class RewardShareTransaction extends Transaction {
 		}
 
 		// Fee checking needed if not setting up new self-share
-		if (!(isRecipientAlsoMinter && rewardShareData == null)) {
-			// Check fee is positive
-			if (rewardShareTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-				return ValidationResult.NEGATIVE_FEE;
-
+		if (!(isRecipientAlsoMinter && existingRewardShareData == null))
 			// Check creator has enough funds
 			if (creator.getConfirmedBalance(Asset.QORT).compareTo(rewardShareTransactionData.getFee()) < 0)
 				return ValidationResult.NO_BALANCE;
-		}
 
 		return ValidationResult.OK;
 	}
