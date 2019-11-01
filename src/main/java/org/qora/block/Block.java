@@ -8,7 +8,9 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -28,6 +30,7 @@ import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
+import org.qora.data.account.QortFromQoraData;
 import org.qora.data.account.RewardShareData;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
@@ -37,6 +40,7 @@ import org.qora.data.block.BlockTransactionData;
 import org.qora.data.network.OnlineAccountData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.ATRepository;
+import org.qora.repository.AccountRepository.BalanceOrdering;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.TransactionRepository;
@@ -131,7 +135,6 @@ public class Block {
 		final Account mintingAccount;
 		final AccountData mintingAccountData;
 		final boolean isMinterFounder;
-		final BigDecimal minterQoraAmount;
 		final int shareBin;
 
 		final Account recipientAccount;
@@ -145,12 +148,6 @@ public class Block {
 
 			this.mintingAccount = new PublicKeyAccount(repository, this.rewardShareData.getMinterPublicKey());
 			this.recipientAccount = new Account(repository, this.rewardShareData.getRecipient());
-
-			AccountBalanceData qoraBalanceData = repository.getAccountRepository().getBalance(this.mintingAccount.getAddress(), Asset.LEGACY_QORA);
-			if (qoraBalanceData != null && qoraBalanceData.getBalance() != null && qoraBalanceData.getBalance().compareTo(BigDecimal.ZERO) > 0)
-				this.minterQoraAmount = qoraBalanceData.getBalance();
-			else
-				this.minterQoraAmount = null;
 
 			this.mintingAccountData = repository.getAccountRepository().getAccount(this.mintingAccount.getAddress());
 			this.isMinterFounder = Account.isFounder(mintingAccountData.getFlags());
@@ -1261,7 +1258,7 @@ public class Block {
 		if (reward == null)
 			return;
 
-		distributeByAccountLevel(reward);
+		distributeBlockReward(reward);
 	}
 
 	protected void processTransactions() throws DataException {
@@ -1344,7 +1341,7 @@ public class Block {
 		if (blockFees.compareTo(BigDecimal.ZERO) <= 0)
 			return;
 
-		distributeByAccountLevel(blockFees);
+		distributeBlockReward(blockFees);
 	}
 
 	protected void processAtFeesAndStates() throws DataException {
@@ -1486,7 +1483,7 @@ public class Block {
 		if (reward == null)
 			return;
 
-		distributeByAccountLevel(reward.negate());
+		distributeBlockReward(reward.negate());
 	}
 
 	protected void deductTransactionFees() throws DataException {
@@ -1496,7 +1493,7 @@ public class Block {
 		if (blockFees.compareTo(BigDecimal.ZERO) <= 0)
 			return;
 
-		distributeByAccountLevel(blockFees.negate());
+		distributeBlockReward(blockFees.negate());
 	}
 
 	protected void orphanAtFeesAndStates() throws DataException {
@@ -1562,7 +1559,9 @@ public class Block {
 		}
 	}
 
-	protected void distributeByAccountLevel(BigDecimal totalAmount) throws DataException {
+	protected void distributeBlockReward(BigDecimal totalAmount) throws DataException {
+		LOGGER.trace(() -> String.format("Distributing: %s", totalAmount.toPlainString()));
+
 		List<ShareByLevel> sharesByLevel = BlockChain.getInstance().getBlockSharesByLevel();
 		List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
 
@@ -1593,33 +1592,111 @@ public class Block {
 		BigDecimal qoraHoldersAmount = BlockChain.getInstance().getQoraHoldersShare().multiply(totalAmount).setScale(8, RoundingMode.DOWN);
 		LOGGER.trace(() -> String.format("Legacy QORA holders share of %s: %s", totalAmount.toPlainString(), qoraHoldersAmount.toPlainString()));
 
-		List<ExpandedAccount> qoraHolderAccounts = new ArrayList<>();
-		BigDecimal totalQoraHeld = BigDecimal.ZERO;
-		for (int i = 0; i < expandedAccounts.size(); ++i) {
-			ExpandedAccount expandedAccount = expandedAccounts.get(i);
-			if (expandedAccount.minterQoraAmount == null)
-				continue;
+		List<String> assetAddresses = Collections.emptyList();
+		List<Long> assetIds = Collections.singletonList(Asset.LEGACY_QORA);
+		List<AccountBalanceData> qoraHolders = this.repository.getAccountRepository().getAssetBalances(assetAddresses, assetIds, BalanceOrdering.ASSET_ACCOUNT, true, null, null, null);
 
-			qoraHolderAccounts.add(expandedAccount);
-			totalQoraHeld = totalQoraHeld.add(expandedAccount.minterQoraAmount);
+		// Filter out qoraHolders who have received max QORT due to holding legacy QORA, (ratio from blockchain config)
+		BigDecimal qoraPerQortReward = BlockChain.getInstance().getQoraPerQortReward();
+		Iterator<AccountBalanceData> qoraHoldersIterator = qoraHolders.iterator();
+		while (qoraHoldersIterator.hasNext()) {
+			AccountBalanceData qoraHolder = qoraHoldersIterator.next();
+
+			Account qoraHolderAccount = new Account(repository, qoraHolder.getAddress());
+			BigDecimal qortFromQora = qoraHolderAccount.getConfirmedBalance(Asset.QORT_FROM_QORA);
+
+			// If we're processing a block, then totalAmount will be positive
+			if (totalAmount.signum() >= 0) {
+				BigDecimal maxQortFromQora = qoraHolder.getBalance().divide(qoraPerQortReward, RoundingMode.DOWN);
+
+				// Disregard qora holders who have already received maximum qort from holding legacy qora
+				if (qortFromQora.compareTo(maxQortFromQora) >= 0)
+					qoraHoldersIterator.remove();
+			} else {
+				// We're orphaning a block
+				// so disregard qora holders whose final block is earlier than this one
+				QortFromQoraData qortFromQoraData = this.repository.getAccountRepository().getQortFromQoraInfo(qoraHolder.getAddress());
+				if (qortFromQoraData == null)
+					throw new IllegalStateException(String.format("Missing QORT-from-QORA data for %s", qoraHolder.getAddress()));
+
+				if (qortFromQoraData.getFinalBlockHeight() != null && qortFromQoraData.getFinalBlockHeight() < this.blockData.getHeight())
+					qoraHoldersIterator.remove();
+			}
 		}
 
-		final BigDecimal finalTotalQoraHeld = totalQoraHeld;
+		BigDecimal totalQoraHeld = BigDecimal.ZERO;
+		for (int i = 0; i < qoraHolders.size(); ++i)
+			totalQoraHeld = totalQoraHeld.add(qoraHolders.get(i).getBalance());
+
+		BigDecimal finalTotalQoraHeld = totalQoraHeld;
 		LOGGER.trace(() -> String.format("Total legacy QORA held: %s", finalTotalQoraHeld.toPlainString()));
 
-		for (int h = 0; h < qoraHolderAccounts.size(); ++h) {
-			ExpandedAccount expandedAccount = qoraHolderAccounts.get(h);
-			final BigDecimal holderAmount = qoraHoldersAmount.multiply(totalQoraHeld).divide(expandedAccount.minterQoraAmount, RoundingMode.DOWN);
-			LOGGER.trace(() -> String.format("Minter account %s has %s / %s QORA so share: %s",
-					expandedAccount.mintingAccount.getAddress(), expandedAccount.minterQoraAmount, finalTotalQoraHeld, holderAmount.toPlainString()));
+		for (int h = 0; h < qoraHolders.size(); ++h) {
+			AccountBalanceData qoraHolder = qoraHolders.get(h);
 
-			expandedAccount.distribute(holderAmount);
-			sharedAmount = sharedAmount.add(holderAmount);
+			final BigDecimal holderReward = qoraHoldersAmount.multiply(totalQoraHeld).divide(qoraHolder.getBalance(), RoundingMode.DOWN).setScale(8, RoundingMode.DOWN);
+			LOGGER.trace(() -> String.format("QORA holder %s has %s / %s QORA so share: %s",
+					qoraHolder.getAddress(), qoraHolder.getBalance().toPlainString(), finalTotalQoraHeld, holderReward.toPlainString()));
+
+			Account qoraHolderAccount = new Account(repository, qoraHolder.getAddress());
+			QortFromQoraData qortFromQoraData = this.repository.getAccountRepository().getQortFromQoraInfo(qoraHolder.getAddress());
+			if (qortFromQoraData == null)
+				qortFromQoraData = new QortFromQoraData(qoraHolder.getAddress(), BigDecimal.ZERO.setScale(8), null);
+
+			BigDecimal qortFromQora = holderReward.divide(qoraPerQortReward, RoundingMode.DOWN);
+
+			BigDecimal newQortFromQoraBalance = qoraHolderAccount.getConfirmedBalance(Asset.QORT_FROM_QORA).add(qortFromQora);
+
+			// If processing, make sure we don't overpay
+			if (totalAmount.signum() >= 0) {
+				BigDecimal maxQortFromQora = qoraHolder.getBalance().divide(qoraPerQortReward, RoundingMode.DOWN);
+
+				if (newQortFromQoraBalance.compareTo(maxQortFromQora) >= 0) {
+					// Reduce final QORT-from-QORA payment to match max
+					BigDecimal adjustment = newQortFromQoraBalance.subtract(maxQortFromQora);
+
+					qortFromQora = qortFromQora.subtract(adjustment);
+					newQortFromQoraBalance = newQortFromQoraBalance.subtract(adjustment);
+
+					// This is also qora holders final qort-from-qora block
+					qortFromQoraData.setFinalQortFromQora(qortFromQora);
+					qortFromQoraData.setFinalBlockHeight(this.blockData.getHeight());
+
+					BigDecimal finalQortFromQora = qortFromQora;
+					LOGGER.trace(() -> String.format("QORA holder %s final share %s at height %d",
+							qoraHolder.getAddress(), finalQortFromQora.toPlainString(), this.blockData.getHeight()));
+				}
+			} else {
+				// Orphaning
+				if (qortFromQoraData.getFinalBlockHeight() != null) {
+					// Note use of negate() here as qortFromQora will be negative during orphaning,
+					// but final qort-from-qora is stored in repository during processing (and hence positive).
+					BigDecimal adjustment = qortFromQora.subtract(qortFromQoraData.getFinalQortFromQora().negate());
+
+					qortFromQora = qortFromQora.subtract(adjustment);
+					newQortFromQoraBalance = newQortFromQoraBalance.subtract(adjustment);
+
+					qortFromQoraData.setFinalQortFromQora(null);
+					qortFromQoraData.setFinalBlockHeight(null);
+
+					BigDecimal finalQortFromQora = qortFromQora;
+					LOGGER.trace(() -> String.format("QORA holder %s final share %s was at height %d",
+							qoraHolder.getAddress(), finalQortFromQora.toPlainString(), this.blockData.getHeight()));
+				}
+			}
+
+			qoraHolderAccount.setConfirmedBalance(Asset.QORT, qoraHolderAccount.getConfirmedBalance(Asset.QORT).add(qortFromQora));
+			qoraHolderAccount.setConfirmedBalance(Asset.QORT_FROM_QORA, newQortFromQoraBalance);
+
+			this.repository.getAccountRepository().save(qortFromQoraData);
+
+			sharedAmount = sharedAmount.add(holderReward);
 		}
 
 		// Spread remainder across founder accounts
 		BigDecimal foundersAmount = totalAmount.subtract(sharedAmount);
-		LOGGER.debug(String.format("Shared %s of %s, remaining %s to founders", sharedAmount.toPlainString(), totalAmount.toPlainString(), foundersAmount.toPlainString()));
+		BigDecimal finalSharedAmount = sharedAmount;
+		LOGGER.debug(() -> String.format("Shared %s of %s, remaining %s to founders", finalSharedAmount.toPlainString(), totalAmount.toPlainString(), foundersAmount.toPlainString()));
 
 		List<ExpandedAccount> founderAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isMinterFounder).collect(Collectors.toList());
 		if (founderAccounts.isEmpty())

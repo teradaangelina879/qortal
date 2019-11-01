@@ -10,6 +10,7 @@ import java.util.List;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
 import org.qora.data.account.MintingAccountData;
+import org.qora.data.account.QortFromQoraData;
 import org.qora.data.account.RewardShareData;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.DataException;
@@ -657,6 +658,40 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return this.repository.delete("MintingAccounts", "minter_private_key = ?", minterPrivateKey);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete minting account from repository", e);
+		}
+	}
+
+	// Managing QORT from legacy QORA
+
+	public QortFromQoraData getQortFromQoraInfo(String address) throws DataException {
+		String sql = "SELECT final_qort_from_qora, final_block_height FROM AccountQortFromQoraInfo WHERE account = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
+			if (resultSet == null)
+				return null;
+
+			BigDecimal finalQortFromQora = resultSet.getBigDecimal(1);
+			Integer finalBlockHeight = resultSet.getInt(2);
+			if (finalBlockHeight == 0 && resultSet.wasNull())
+				finalBlockHeight = null;
+
+			return new QortFromQoraData(address, finalQortFromQora, finalBlockHeight);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account qort-from-qora info from repository", e);
+		}
+	}
+
+	public void save(QortFromQoraData qortFromQoraData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountQortFromQoraInfo");
+
+		saveHelper.bind("account", qortFromQoraData.getAddress())
+		.bind("final_qort_from_qora", qortFromQoraData.getFinalQortFromQora())
+		.bind("final_block_height", qortFromQoraData.getFinalBlockHeight());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save account qort-from-qora info into repository", e);
 		}
 	}
 

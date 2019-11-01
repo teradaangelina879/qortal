@@ -841,6 +841,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("DROP INDEX BlockGenerationHeightIndex");
 					break;
 
+				case 59:
+					// Keeping track of QORT gained from holding legacy QORA
+					stmt.execute("CREATE TABLE AccountQortFromQoraInfo (account QoraAddress, final_qort_from_qora QoraAmount, final_block_height INT, "
+									+ "PRIMARY KEY (account), FOREIGN KEY (account) REFERENCES Accounts (account) ON DELETE CASCADE)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

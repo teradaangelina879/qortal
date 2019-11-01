@@ -360,6 +360,8 @@ public class BlockMinter extends Thread {
 
 			// Add to blockchain
 			newBlock.process();
+			LOGGER.info(String.format("Minted new test block: %d", newBlock.getBlockData().getHeight()));
+
 			repository.saveChanges();
 		} finally {
 			blockchainLock.unlock();

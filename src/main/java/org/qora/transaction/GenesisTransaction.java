@@ -7,7 +7,6 @@ import java.util.List;
 
 import org.qora.account.Account;
 import org.qora.account.PrivateKeyAccount;
-import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
 import org.qora.data.transaction.GenesisTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -139,7 +138,7 @@ public class GenesisTransaction extends Transaction {
 		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
 
 		// Update recipient's balance
-		recipient.setConfirmedBalance(Asset.QORT, genesisTransactionData.getAmount());
+		recipient.setConfirmedBalance(genesisTransactionData.getAssetId(), genesisTransactionData.getAmount());
 	}
 
 	@Override

@@ -48,23 +48,24 @@ public class RewardTests extends Common {
 
 	@Test
 	public void testRewards() throws DataException {
+		List<RewardByHeight> rewardsByHeight = BlockChain.getInstance().getBlockRewardsByHeight();
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 
-			List<RewardByHeight> rewards = BlockChain.getInstance().getBlockRewardsByHeight();
+			int rewardIndex = rewardsByHeight.size() - 1;
 
-			int rewardIndex = rewards.size() - 1;
-
-			RewardByHeight rewardInfo = rewards.get(rewardIndex);
+			RewardByHeight rewardInfo = rewardsByHeight.get(rewardIndex);
 			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORT);
 
 			for (int height = rewardInfo.height; height > 1; --height) {
 				if (height < rewardInfo.height) {
 					--rewardIndex;
-					rewardInfo = rewards.get(rewardIndex);
+					rewardInfo = rewardsByHeight.get(rewardIndex);
 				}
 
 				BlockUtils.mintBlock(repository);
+
 				expectedBalance = expectedBalance.add(rewardInfo.reward);
 			}
 
@@ -82,6 +83,7 @@ public class RewardTests extends Common {
 
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT);
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
+
 			BlockMinter.mintTestingBlock(repository, rewardShareAccount);
 
 			// We're expecting reward * 12.8% to Bob, the rest to Alice
@@ -91,6 +93,49 @@ public class RewardTests extends Common {
 
 			BigDecimal aliceShare = blockReward.subtract(bobShare);
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, initialBalances.get("alice").get(Asset.QORT).add(aliceShare));
+		}
+	}
+
+
+	@Test
+	public void testLegacyQoraReward() throws DataException {
+		Common.useSettings("test-settings-v2-qora-holder.json");
+
+		BigDecimal qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+		BigDecimal qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.QORT_FROM_QORA);
+
+			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
+
+			BlockUtils.mintBlock(repository);
+
+			// Expected reward
+			BigDecimal expectedReward = blockReward.multiply(qoraHoldersShare).divide(qoraPerQort, RoundingMode.DOWN);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, initialBalances.get("chloe").get(Asset.QORT).add(expectedReward));
+
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT_FROM_QORA, initialBalances.get("chloe").get(Asset.QORT_FROM_QORA).add(expectedReward));
+		}
+	}
+
+	@Test
+	public void testMaxLegacyQoraReward() throws DataException {
+		Common.useSettings("test-settings-v2-qora-holder.json");
+
+		BigDecimal qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+
+			// Mint lots of blocks
+			for (int i = 0; i < 100; ++i)
+				BlockUtils.mintBlock(repository);
+
+			// Expected balances to be limited by Chloe's legacy QORA amount
+			BigDecimal expectedBalance = initialBalances.get("chloe").get(Asset.LEGACY_QORA).divide(qoraPerQort);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, initialBalances.get("chloe").get(Asset.QORT).add(expectedBalance));
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT_FROM_QORA, initialBalances.get("chloe").get(Asset.QORT_FROM_QORA).add(expectedBalance));
 		}
 	}
 

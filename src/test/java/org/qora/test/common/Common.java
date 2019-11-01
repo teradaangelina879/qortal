@@ -16,16 +16,13 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bitcoinj.core.Base58;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.asset.AssetData;
-import org.qora.data.block.BlockData;
 import org.qora.data.group.GroupData;
 import org.qora.repository.AccountRepository.BalanceOrdering;
 import org.qora.repository.DataException;
@@ -64,11 +61,6 @@ public class Common {
 	private static List<AssetData> initialAssets;
 	private static List<GroupData> initialGroups;
 	private static List<AccountBalanceData> initialBalances;
-
-	// TODO: converts users of these constants to TestAccount schema
-	public static final byte[] v2testPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
-	public static final byte[] v2testPublicKey = Base58.decode("2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP");
-	public static final String v2testAddress = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v";
 
 	private static Map<String, TestAccount> testAccountsByName = new HashMap<>();
 	static {
@@ -131,10 +123,7 @@ public class Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Orphan back to genesis block
 			while (repository.getBlockRepository().getBlockchainHeight() > 1) {
-				BlockData blockData = repository.getBlockRepository().getLastBlock();
-				Block block = new Block(repository, blockData);
-				block.orphan();
-				repository.saveChanges();
+				BlockUtils.orphanLastBlock(repository);
 			}
 
 			List<AssetData> remainingAssets = repository.getAssetRepository().getAllAssets();
@@ -171,6 +160,9 @@ public class Common {
 		// Remove initial entries from remaining to see there are any leftover
 		List<T> remainingClone = new ArrayList<T>(remaining);
 		remainingClone.removeIf(isInitial);
+
+		for (T remainingEntry : remainingClone)
+			LOGGER.info(String.format("Non-genesis remaining entry: %s", keyExtractor.apply(remainingEntry)));
 
 		assertTrue(String.format("Non-genesis %s remains", typeName), remainingClone.isEmpty());
 	}

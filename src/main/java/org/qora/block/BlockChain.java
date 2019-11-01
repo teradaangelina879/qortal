@@ -109,6 +109,8 @@ public class BlockChain {
 
 	/** Share of block reward/fees to legacy QORA coin holders */
 	BigDecimal qoraHoldersShare;
+	/** How many legacy QORA per 1 QORT of block reward. */
+	BigDecimal qoraPerQortReward;
 
 	/**
 	 * Number of minted blocks required to reach next level from previous.
@@ -312,6 +314,10 @@ public class BlockChain {
 		return this.qoraHoldersShare;
 	}
 
+	public BigDecimal getQoraPerQortReward() {
+		return this.qoraPerQortReward;
+	}
+
 	public int getMinAccountLevelToMint() {
 		return this.minAccountLevelToMint;
 	}
@@ -402,6 +408,9 @@ public class BlockChain {
 
 		if (this.qoraHoldersShare == null)
 			Settings.throwValidationError("No \"qoraHoldersShare\" entry found in blockchain config");
+
+		if (this.qoraPerQortReward == null)
+			Settings.throwValidationError("No \"qoraPerQortReward\" entry found in blockchain config");
 
 		if (this.blocksNeededByLevel == null)
 			Settings.throwValidationError("No \"blocksNeededByLevel\" entry found in blockchain config");

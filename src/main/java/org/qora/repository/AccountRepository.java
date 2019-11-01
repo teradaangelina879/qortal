@@ -5,6 +5,7 @@ import java.util.List;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
 import org.qora.data.account.MintingAccountData;
+import org.qora.data.account.QortFromQoraData;
 import org.qora.data.account.RewardShareData;
 
 public interface AccountRepository {
@@ -137,5 +138,11 @@ public interface AccountRepository {
 
 	/** Delete minting account info, used by BlockMinter, from repository using passed private key. */
 	public int delete(byte[] mintingAccountPrivateKey) throws DataException;
+
+	// Managing QORT from legacy QORA
+
+	public QortFromQoraData getQortFromQoraInfo(String address) throws DataException;
+
+	public void save(QortFromQoraData qortFromQoraData) throws DataException;
 
 }
