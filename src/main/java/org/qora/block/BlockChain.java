@@ -149,6 +149,7 @@ public class BlockChain {
 	private int minAccountLevelToMint = 1;
 	private int minAccountLevelToRewardShare;
 	private int maxRewardSharesPerMintingAccount;
+	private int founderEffectiveMintingLevel;
 
 	/** Minimum time to retain online account signatures (ms) for block validity checks. */
 	private long onlineAccountSignaturesMinLifetime;
@@ -330,6 +331,10 @@ public class BlockChain {
 		return this.maxRewardSharesPerMintingAccount;
 	}
 
+	public int getFounderEffectiveMintingLevel() {
+		return this.founderEffectiveMintingLevel;
+	}
+
 	public long getOnlineAccountSignaturesMinLifetime() {
 		return this.onlineAccountSignaturesMinLifetime;
 	}
@@ -430,6 +435,8 @@ public class BlockChain {
 		if (this.minAccountLevelToRewardShare <= 0)
 			Settings.throwValidationError("Invalid/missing \"minAccountLevelToRewardShare\" in blockchain config");
 
+		if (this.founderEffectiveMintingLevel <= 0)
+			Settings.throwValidationError("Invalid/missing \"founderEffectiveMintingLevel\" in blockchain config");
 
 		if (this.featureTriggers == null)
 			Settings.throwValidationError("No \"featureTriggers\" entry found in blockchain config");

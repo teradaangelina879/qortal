@@ -10,6 +10,9 @@ public class BlockSummaryData {
 	private byte[] minterPublicKey;
 	private int onlineAccountsCount;
 
+	// Optional, set after construction
+	private Integer minterLevel;
+
 	// Constructors
 	public BlockSummaryData(int height, byte[] signature, byte[] minterPublicKey, int onlineAccountsCount) {
 		this.height = height;
@@ -47,6 +50,14 @@ public class BlockSummaryData {
 
 	public int getOnlineAccountsCount() {
 		return this.onlineAccountsCount;
+	}
+
+	public Integer getMinterLevel() {
+		return this.minterLevel;
+	}
+
+	public void setMinterLevel(Integer minterLevel) {
+		this.minterLevel = minterLevel;
 	}
 
 }

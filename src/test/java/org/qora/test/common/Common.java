@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -71,10 +72,28 @@ public class Common {
 
 		// Alice reward-share with herself. Private key is reward-share private key, derived from Alice's private and public keys.
 		testAccountsByName.put("alice-reward-share", new TestAccount(null, "alice-reward-share", "1CeDCg9TSdBwJNGVTGG7pCKsvsyyoEcaVXYvDT1Xb9f", true));
+		// Bob self-share
+		testAccountsByName.put("bob-reward-share", new TestAccount(null, "bob-reward-share", "975G6DJX2bhkq2dawxxDbNe5DcT33LbGto5tRueKVRDx", true));
+		// Chloe self-share
+		testAccountsByName.put("chloe-reward-share", new TestAccount(null, "chloe-reward-share", "2paayAXTbGmdLtJ7tNxY93bhPnWZwNYwk15KA37Sw5yS", true));
+		// Dilbert self-share
+		testAccountsByName.put("dilbert-reward-share", new TestAccount(null, "dilbert-reward-share", "C3DqD3K9bZDqxwLBroXc2NgL2SRJrif1mcAW7zNMUg9", true));
 	}
 
 	public static TestAccount getTestAccount(Repository repository, String name) {
 		return new TestAccount(repository, testAccountsByName.get(name));
+	}
+
+	public static TestAccount getRandomTestAccount(Repository repository, Boolean includeRewardShare) {
+		List<TestAccount> testAccounts = new ArrayList<>(testAccountsByName.values());
+
+		if (includeRewardShare != null)
+			testAccounts.removeIf(account -> account.isRewardShare != includeRewardShare);
+
+		Random random = new Random();
+		int index = random.nextInt(testAccounts.size());
+
+		return testAccounts.get(index);
 	}
 
 	public static List<TestAccount> getTestAccounts(Repository repository) {

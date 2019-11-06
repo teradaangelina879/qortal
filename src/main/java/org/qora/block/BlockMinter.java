@@ -145,12 +145,12 @@ public class BlockMinter extends Thread {
 				for (PrivateKeyAccount mintingAccount : mintingAccounts) {
 					// First block does the AT heavy-lifting
 					if (newBlocks.isEmpty()) {
-						Block newBlock = new Block(repository, previousBlock.getBlockData(), mintingAccount);
+						Block newBlock = Block.mint(repository, previousBlock.getBlockData(), mintingAccount);
 						newBlocks.add(newBlock);
 					} else {
 						// The blocks for other minters require less effort...
 						Block newBlock = newBlocks.get(0);
-						newBlocks.add(newBlock.newMinter(mintingAccount));
+						newBlocks.add(newBlock.remint(mintingAccount));
 					}
 				}
 
@@ -338,7 +338,7 @@ public class BlockMinter extends Thread {
 
 		BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
 
-		Block newBlock = new Block(repository, previousBlockData, mintingAccount);
+		Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
 
 		// Make sure we're the only thread modifying the blockchain
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();

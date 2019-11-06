@@ -10,6 +10,7 @@
 	"oneNamePerAccount": true,
 	"minAccountLevelToRewardShare": 5,
 	"maxRewardSharesPerMintingAccount": 20,
+	"founderEffectiveMintingLevel": 10,
 	"onlineAccountSignaturesMinLifetime": 2592000000,
 	"onlineAccountSignaturesMaxLifetime": 3196800000,
 	"rewardsByHeight": [
@@ -32,6 +33,7 @@
 		{ "levels": [ 9, 10 ], "share": 0.25 }
 	],
 	"qoraHoldersShare": 0.20,
+	"qoraPerQortReward": 250,
 	"blocksNeededByLevel": [ 7200, 64800, 129600, 172800, 244000, 345600, 518400, 691200, 864000, 1036800 ],
 	"blockTimingsByHeight": [
 		{ "height": 1, "target": 60000, "deviation": 30000, "power": 0.2 }
@@ -56,25 +58,28 @@
 		"transactions": [
 			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT", "description": "QORTAL coin", "quantity": 0, "isDivisible": true, "reference": "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC", "data": "{}" },
 			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORA", "description": "Representative legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
+			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT-from-QORA", "description": "QORT gained from holding legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
 
-			{ "type": "GENESIS", "recipient": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "amount": "1000" },
 			{ "type": "ACCOUNT_FLAGS", "target": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "andMask": -1, "orMask": 1, "xorMask": 0 },
-			{ "type": "ACCOUNT_LEVEL", "target": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "level": 8 },
 			{ "type": "REWARD_SHARE", "minterPublicKey": "6rNn9b3pYRrG9UKqzMWYZ9qa8F3Zgv2mVWrULGHUusb", "recipient": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "rewardSharePublicKey": "8X3w1521UNnnonieugAxhfbfvqoRpwPXJrwGQZb5JjQ3", "sharePercent": 100 },
 
-			{ "type": "GENESIS", "recipient": "QcatoCyyp7dVfMtJ92sgUUPDoBJevaemRX", "amount": "1000" },
-			{ "type": "ACCOUNT_FLAGS", "target": "QcatoCyyp7dVfMtJ92sgUUPDoBJevaemRX", "andMask": -1, "orMask": 1, "xorMask": 0 },
-			{ "type": "ACCOUNT_LEVEL", "target": "QcatoCyyp7dVfMtJ92sgUUPDoBJevaemRX", "level": 3 },
-
-			{ "type": "GENESIS", "recipient": "QTiga19sttbf6CLQLT83mhCSWEaCvjk8th", "amount": "1000" },
 			{ "type": "ACCOUNT_FLAGS", "target": "QTiga19sttbf6CLQLT83mhCSWEaCvjk8th", "andMask": -1, "orMask": 1, "xorMask": 0 },
-			{ "type": "ACCOUNT_LEVEL", "target": "QTiga19sttbf6CLQLT83mhCSWEaCvjk8th", "level": 10 },
-
-			{ "type": "GENESIS", "recipient": "QcrowX39FuycKvMFFBsakyd5HSxe7bxFsn", "amount": "1000" },
 			{ "type": "ACCOUNT_FLAGS", "target": "QcrowX39FuycKvMFFBsakyd5HSxe7bxFsn", "andMask": -1, "orMask": 1, "xorMask": 0 },
-			{ "type": "ACCOUNT_LEVEL", "target": "QcrowX39FuycKvMFFBsakyd5HSxe7bxFsn", "level": 10 },
 
 			{ "type": "CREATE_GROUP", "creatorPublicKey": "6rNn9b3pYRrG9UKqzMWYZ9qa8F3Zgv2mVWrULGHUusb", "owner": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT60", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 },
+
+			{ "type": "GENESIS", "recipient": "QMtx2UmUuRZckCmRJRyxdzSAazHP8hU5rA", "amount": "160672815.43629771", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QMkgf9Y6Ac2TUrynDvyhX69ekpC3P3GQmN", "amount": "99008835.47860426", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QWZm17rRXeUehcM4TprVNNRSTHWQmG2bME", "amount": "62663714.00000000", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "Qa95hURaNK4kPhDhbdmDFm2wMkkoWFZ4Zz", "amount": "40976709.97984710", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QPEoMF2dA7NHrHhsSG9zczCFwx9wFdWvzT", "amount": "10033147.61257500", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QjJjjBUJSZAMuYiwTyfJTFthH6SrofjG6d", "amount": "8871800.22712502", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QRj4VNEthakckhYpCJMEBhEFk12pa7GPJT", "amount": "7810001.00000000", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QMNdPz11XubtvxXLGeiG3PHKaQW67LkZMp", "amount": "4056950.00000000", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QhUWSWWFt6vDy2qNFn68JPTPLjyDrzrh4D", "amount": "3220564.00000000", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QMrECKgkohx6ZXEMdLzikqBmAkdyHeQDqL", "amount": "997498.00000000", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QMQAG28pyv2aZVjWbKoRn39Ytir6rLPnTK", "amount": "100745.00000000", "assetId": 1 },
+			{ "type": "GENESIS", "recipient": "QPZTxWtCmH6Y6zwwntjnPDfKG6zNKRivqJ", "amount": "1282.61375000", "assetId": 1 },
 
 			{ "type": "ACCOUNT_LEVEL", "target": "QQKeokRiFCgAhBSdu1DUf5e1LCkgApvrxZ", "level": 5 },
 			{ "type": "ACCOUNT_LEVEL", "target": "QiaaoNZ54wKoaUMXxW72UsPt1MiPpeUTWm", "level": 5 },

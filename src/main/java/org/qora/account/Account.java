@@ -9,6 +9,7 @@ import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
+import org.qora.data.account.RewardShareData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.BlockRepository;
@@ -239,6 +240,7 @@ public class Account {
 
 	// Account level
 
+	/** Returns account's level (0+) or null if account not found in repository. */
 	public Integer getLevel() throws DataException {
 		return this.repository.getAccountRepository().getLevel(this.address);
 	}
@@ -254,6 +256,45 @@ public class Account {
 		accountData.setLevel(level);
 		accountData.setInitialLevel(level);
 		this.repository.getAccountRepository().setInitialLevel(accountData);
+	}
+
+	/**
+	 * Returns 'effective' minting level, or zero if account does not exist/cannot mint.
+	 * <p>
+	 * For founder accounts, this returns "founderEffectiveMintingLevel" from blockchain config.
+	 * 
+	 * @return 0+
+	 * @throws DataException
+	 */
+	public int getEffectiveMintingLevel() throws DataException {
+		if (this.isFounder())
+			return BlockChain.getInstance().getFounderEffectiveMintingLevel();
+
+		Integer level = this.getLevel();
+		if (level == null)
+			return 0;
+
+		return level;
+	}
+
+	/**
+	 * Returns 'effective' minting level, or zero if reward-share does not exist.
+	 * <p>
+	 * For founder accounts, this returns "founderEffectiveMintingLevel" from blockchain config.
+	 * 
+	 * @param repository
+	 * @param rewardSharePublicKey
+	 * @return 0+
+	 * @throws DataException
+	 */
+	public static int getRewardShareEffectiveMintingLevel(Repository repository, byte[] rewardSharePublicKey) throws DataException {
+		// Find actual minter and get their effective minting level
+		RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(rewardSharePublicKey);
+		if (rewardShareData == null)
+			return 0;
+
+		PublicKeyAccount rewardShareMinter = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+		return rewardShareMinter.getEffectiveMintingLevel();
 	}
 
 }

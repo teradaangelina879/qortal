@@ -1155,7 +1155,7 @@ public class TransactionTests extends Common {
 	}
 
 	private Block forgeBlock(TransactionData transactionData) throws DataException {
-		Block block = new Block(repository, parentBlockData, generator);
+		Block block = Block.mint(repository, parentBlockData, generator);
 		block.addTransaction(transactionData);
 		block.sign();
 		return block;

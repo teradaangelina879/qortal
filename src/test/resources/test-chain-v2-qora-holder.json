@@ -8,6 +8,7 @@
 	"requireGroupForApproval": false,
 	"minAccountLevelToRewardShare": 5,
 	"maxRewardSharesPerMintingAccount": 20,
+	"founderEffectiveMintingLevel": 10,
 	"onlineAccountSignaturesMinLifetime": 3600000,
 	"onlineAccountSignaturesMaxLifetime": 86400000,
 	"rewardsByHeight": [

@@ -206,22 +206,21 @@ public class Block {
 	// Constructors
 
 	/**
-	 * Constructs Block-handling object without loading transactions and AT states.
+	 * Constructs new Block without loading transactions and AT states.
 	 * <p>
 	 * Transactions and AT states are loaded on first call to getTransactions() or getATStates() respectively.
 	 * 
 	 * @param repository
 	 * @param blockData
-	 * @throws DataException
 	 */
-	public Block(Repository repository, BlockData blockData) throws DataException {
+	public Block(Repository repository, BlockData blockData) {
 		this.repository = repository;
 		this.blockData = blockData;
 		this.minter = new PublicKeyAccount(repository, blockData.getMinterPublicKey());
 	}
 
 	/**
-	 * Constructs Block-handling object using passed transaction and AT states.
+	 * Constructs new Block using passed transaction and AT states.
 	 * <p>
 	 * This constructor typically used when receiving a serialized block over the network.
 	 * 
@@ -229,9 +228,8 @@ public class Block {
 	 * @param blockData
 	 * @param transactions
 	 * @param atStates
-	 * @throws DataException
 	 */
-	public Block(Repository repository, BlockData blockData, List<TransactionData> transactions, List<ATStateData> atStates) throws DataException {
+	public Block(Repository repository, BlockData blockData, List<TransactionData> transactions, List<ATStateData> atStates) {
 		this(repository, blockData);
 
 		this.transactions = new ArrayList<>();
@@ -252,7 +250,21 @@ public class Block {
 	}
 
 	/**
-	 * Constructs Block-handling object with basic, initial values.
+	 * Constructs new Block with empty transaction list, using passed minter account.
+	 * 
+	 * @param repository
+	 * @param blockData
+	 * @param minter
+	 */
+	private Block(Repository repository, BlockData blockData, PrivateKeyAccount minter) {
+		this(repository, blockData);
+
+		this.minter = minter;
+		this.transactions = new ArrayList<>();
+	}
+
+	/**
+	 * Mints new Block with basic, initial values.
 	 * <p>
 	 * This constructor typically used when minting a new block.
 	 * <p>
@@ -263,10 +275,7 @@ public class Block {
 	 * @param minter
 	 * @throws DataException
 	 */
-	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount minter) throws DataException {
-		this.repository = repository;
-		this.minter = minter;
-
+	public static Block mint(Repository repository, BlockData parentBlockData, PrivateKeyAccount minter) throws DataException {
 		Block parentBlock = new Block(repository, parentBlockData);
 
 		int version = parentBlock.getNextBlockVersion();
@@ -318,39 +327,46 @@ public class Block {
 			throw new DataException("Unable to calculate next block minter signature", e);
 		}
 
-		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey());
+		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
+		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
+		if (minterLevel == 0)
+			throw new IllegalStateException("Minter effective level returned zero?");
+
+		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
 		int height = parentBlockData.getHeight() + 1;
-
-		this.transactions = new ArrayList<>();
 
 		int atCount = 0;
 		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
 		BigDecimal totalFees = atFees;
 
 		// This instance used for AT processing
-		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, 
+		BlockData preAtBlockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
 				minter.getPublicKey(), minterSignature, atCount, atFees,
 				encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
 
-		// Requires this.blockData and this.transactions, sets this.ourAtStates and this.ourAtFees
-		this.executeATs();
+		Block newBlock = new Block(repository, preAtBlockData, minter);
 
-		atCount = this.ourAtStates.size();
-		this.atStates = this.ourAtStates;
-		atFees = this.ourAtFees;
+		// Requires blockData and transactions, sets ourAtStates and ourAtFees
+		newBlock.executeATs();
+
+		atCount = newBlock.ourAtStates.size();
+		newBlock.atStates = newBlock.ourAtStates;
+		atFees = newBlock.ourAtFees;
 		totalFees = atFees;
 
 		// Rebuild blockData using post-AT-execute data
-		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, 
+		newBlock.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
 				minter.getPublicKey(), minterSignature, atCount, atFees,
 				encodedOnlineAccounts, onlineAccountsCount, onlineAccountsTimestamp, onlineAccountsSignatures);
+
+		return newBlock;
 	}
 
 	/**
-	 * Construct another block using this block as template, but with different minting account.
+	 * Mints new block using this block as template, but with different minting account.
 	 * <p>
 	 * NOTE: uses the same transactions list, AT states, etc.
 	 * 
@@ -358,7 +374,7 @@ public class Block {
 	 * @return
 	 * @throws DataException
 	 */
-	public Block newMinter(PrivateKeyAccount minter) throws DataException {
+	public Block remint(PrivateKeyAccount minter) throws DataException {
 		Block newBlock = new Block(this.repository, this.blockData);
 		newBlock.minter = minter;
 
@@ -380,7 +396,12 @@ public class Block {
 			throw new DataException("Unable to calculate next block's minter signature", e);
 		}
 
-		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey());
+		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
+		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
+		if (minterLevel == 0)
+			throw new IllegalStateException("Minter effective level returned zero?");
+
+		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 
 		newBlock.transactions = this.transactions;
 		int transactionCount = this.blockData.getTransactionCount();
@@ -714,15 +735,15 @@ public class Block {
 		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), publicKey));
 	}
 
-	public static BigInteger calcKeyDistance(int parentHeight, byte[] parentBlockSignature, byte[] publicKey) {
+	public static BigInteger calcKeyDistance(int parentHeight, byte[] parentBlockSignature, byte[] publicKey, int accountLevel) {
 		byte[] idealKey = calcIdealMinterPublicKey(parentHeight, parentBlockSignature);
 		byte[] perturbedKey = calcHeightPerturbedPublicKey(parentHeight + 1, publicKey);
 
-		return MAX_DISTANCE.subtract(new BigInteger(idealKey).subtract(new BigInteger(perturbedKey)).abs());
+		return MAX_DISTANCE.subtract(new BigInteger(idealKey).subtract(new BigInteger(perturbedKey)).abs()).divide(BigInteger.valueOf(accountLevel));
 	}
 
 	public static BigInteger calcBlockWeight(int parentHeight, byte[] parentBlockSignature, BlockSummaryData blockSummaryData) {
-		BigInteger keyDistance = calcKeyDistance(parentHeight, parentBlockSignature, blockSummaryData.getMinterPublicKey());
+		BigInteger keyDistance = calcKeyDistance(parentHeight, parentBlockSignature, blockSummaryData.getMinterPublicKey(), blockSummaryData.getMinterLevel());
 		return BigInteger.valueOf(blockSummaryData.getOnlineAccountsCount()).shiftLeft(ACCOUNTS_COUNT_SHIFT).add(keyDistance);
 	}
 
@@ -753,8 +774,8 @@ public class Block {
 	 * 20% of (90s - 30s) is 12s<br>
 	 * So this block's timestamp is previous block's timestamp + 30s + 12s.
 	 */
-	public static long calcTimestamp(BlockData parentBlockData, byte[] minterPublicKey) {
-		BigInteger distance = calcKeyDistance(parentBlockData.getHeight(), parentBlockData.getSignature(), minterPublicKey);
+	public static long calcTimestamp(BlockData parentBlockData, byte[] minterPublicKey, int minterAccountLevel) {
+		BigInteger distance = calcKeyDistance(parentBlockData.getHeight(), parentBlockData.getSignature(), minterPublicKey, minterAccountLevel);
 		final int thisHeight = parentBlockData.getHeight() + 1;
 		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(thisHeight);
 
@@ -837,7 +858,12 @@ public class Block {
 		if (this.blockData.getTimestamp() < Block.calcMinimumTimestamp(parentBlockData))
 			return ValidationResult.TIMESTAMP_TOO_SOON;
 
-		long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getMinterPublicKey());
+		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
+		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, this.blockData.getMinterPublicKey());
+		if (minterLevel == 0)
+			return ValidationResult.MINTER_NOT_ACCEPTED;
+
+		long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getMinterPublicKey(), minterLevel);
 		if (this.blockData.getTimestamp() != expectedTimestamp)
 			return ValidationResult.TIMESTAMP_INCORRECT;
 
@@ -1112,7 +1138,7 @@ public class Block {
 			throw new IllegalStateException("Attempted to execute ATs when block's local AT state data already exists");
 
 		// AT-Transactions generated by running ATs, to be prepended to block's transactions
-		List<AtTransaction> allATTransactions = new ArrayList<>();
+		List<AtTransaction> allAtTransactions = new ArrayList<>();
 
 		this.ourAtStates = new ArrayList<>();
 		this.ourAtFees = BigDecimal.ZERO.setScale(8);
@@ -1125,7 +1151,7 @@ public class Block {
 			AT at = new AT(this.repository, atData);
 			List<AtTransaction> atTransactions = at.run(this.blockData.getTimestamp());
 
-			allATTransactions.addAll(atTransactions);
+			allAtTransactions.addAll(atTransactions);
 
 			ATStateData atStateData = at.getATStateData();
 			this.ourAtStates.add(atStateData);
@@ -1134,7 +1160,7 @@ public class Block {
 		}
 
 		// Prepend our entire AT-Transactions/states to block's transactions
-		this.transactions.addAll(0, allATTransactions);
+		this.transactions.addAll(0, allAtTransactions);
 
 		// Re-sort
 		this.transactions.sort(Transaction.getComparator());

@@ -10,8 +10,11 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qora.account.Account;
+import org.qora.account.PublicKeyAccount;
 import org.qora.block.Block;
 import org.qora.block.Block.ValidationResult;
+import org.qora.data.account.RewardShareData;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockSummaryData;
 import org.qora.data.network.PeerChainTipData;
@@ -186,6 +189,10 @@ public class Synchronizer {
 
 							// Fetch our corresponding block summaries
 							List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository().getBlockSummaries(commonBlockHeight + 1, ourInitialHeight);
+
+							// Populate minter account levels for both lists of block summaries
+							populateBlockSummariesMinterLevels(repository, peerBlockSummaries);
+							populateBlockSummariesMinterLevels(repository, ourBlockSummaries);
 
 							// Calculate cumulative chain weights of both blockchain subsets, from common block to highest mutual block.
 							BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries);
@@ -418,11 +425,23 @@ public class Synchronizer {
 
 		BlockMessage blockMessage = (BlockMessage) message;
 
-		try {
-			return new Block(repository, blockMessage.getBlockData(), blockMessage.getTransactions(), blockMessage.getAtStates());
-		} catch (DataException e) {
-			LOGGER.debug("Failed to create block", e);
-			return null;
+		return new Block(repository, blockMessage.getBlockData(), blockMessage.getTransactions(), blockMessage.getAtStates());
+	}
+
+	private void populateBlockSummariesMinterLevels(Repository repository, List<BlockSummaryData> blockSummaries) throws DataException {
+		for (int i = 0; i < blockSummaries.size(); ++i) {
+			BlockSummaryData blockSummary = blockSummaries.get(i);
+
+			// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
+			int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, blockSummary.getMinterPublicKey());
+			if (minterLevel == 0) {
+				// We don't want to throw, or use zero, as this will kill Controller thread and make client unstable.
+				// So we log this but use 1 instead
+				LOGGER.warn(String.format("Unexpected zero effective minter level for reward-share %s - using 1 instead!", Base58.encode(blockSummary.getMinterPublicKey())));
+				minterLevel = 1;
+			}
+
+			blockSummary.setMinterLevel(minterLevel);
 		}
 	}
 
