@@ -1249,11 +1249,20 @@ public class Controller extends Thread {
 	// Utilities
 
 	private void verifyAndAddAccount(OnlineAccountData onlineAccountData) {
-		// We would check timestamp is 'recent' here
+		PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccountData.getPublicKey());
+
+		final Long now = NTP.getTime();
+		if (now == null)
+			return;
+
+		// Check timestamp is 'recent' here
+		if (Math.abs(onlineAccountData.getTimestamp() - now) > ONLINE_TIMESTAMP_MODULUS * 2) {
+			LOGGER.trace(() -> String.format("Rejecting online account %s with out of range timestamp %d", otherAccount.getAddress(), onlineAccountData.getTimestamp()));
+			return;
+		}
 
 		// Verify
 		byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
-		PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccountData.getPublicKey());
 		if (!otherAccount.verify(onlineAccountData.getSignature(), data)) {
 			LOGGER.trace(() -> String.format("Rejecting invalid online account %s", otherAccount.getAddress()));
 			return;
