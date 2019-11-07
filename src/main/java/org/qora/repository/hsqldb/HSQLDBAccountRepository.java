@@ -259,7 +259,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException {
-		String sql = "SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ?";
+		String sql = "SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ? ORDER BY height DESC LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId)) {
 			if (resultSet == null)
@@ -270,6 +270,48 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return new AccountBalanceData(address, assetId, balance);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account balance from repository", e);
+		}
+	}
+
+	@Override
+	public AccountBalanceData getBalance(String address, long assetId, int height) throws DataException {
+		String sql = "SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ? AND height <= ? ORDER BY height DESC LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId, height)) {
+			if (resultSet == null)
+				return null;
+
+			BigDecimal balance = resultSet.getBigDecimal(1).setScale(8);
+
+			return new AccountBalanceData(address, assetId, balance);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account balance from repository", e);
+		}
+	}
+
+	@Override
+	public List<AccountBalanceData> getAssetBalances(long assetId, Boolean excludeZero) throws DataException {
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT account, IFNULL(balance, 0) FROM NewestAccountBalances WHERE asset_id = ?");
+
+		if (excludeZero != null && excludeZero)
+			sql.append(" AND balance != 0");
+
+		List<AccountBalanceData> accountBalances = new ArrayList<>();
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), assetId)) {
+			if (resultSet == null)
+				return accountBalances;
+
+			do {
+				String address = resultSet.getString(1);
+				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
+
+				accountBalances.add(new AccountBalanceData(address, assetId, balance));
+			} while (resultSet.next());
+
+			return accountBalances;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch asset balances from repository", e);
 		}
 	}
 
@@ -291,10 +333,10 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			}
 
 			sql.append(") AS Accounts (account) ");
-			sql.append("CROSS JOIN Assets LEFT OUTER JOIN AccountBalances USING (asset_id, account) ");
+			sql.append("CROSS JOIN Assets LEFT OUTER JOIN NewestAccountBalances USING (asset_id, account) ");
 		} else {
 			// Simplier, no-address query
-			sql.append("AccountBalances NATURAL JOIN Assets ");
+			sql.append("NewestAccountBalances NATURAL JOIN Assets ");
 		}
 
 		if (!assetIds.isEmpty()) {
@@ -378,6 +420,10 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				accountBalanceData.getBalance());
 
 		try {
+			// Fill in 'height'
+			int height = this.repository.checkedExecute("SELECT COUNT(*) + 1 FROM Blocks").getInt(1);
+			saveHelper.bind("height", height);
+
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account balance into repository", e);
@@ -387,9 +433,18 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public void delete(String address, long assetId) throws DataException {
 		try {
-			this.repository.delete("AccountBalances", "account = ? and asset_id = ?", address, assetId);
+			this.repository.delete("AccountBalances", "account = ? AND asset_id = ?", address, assetId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete account balance from repository", e);
+		}
+	}
+
+	@Override
+	public int deleteBalancesFromHeight(int height) throws DataException {
+		try {
+			return this.repository.delete("AccountBalances", "height >= ?", height);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete old account balances from repository", e);
 		}
 	}
 
@@ -692,6 +747,14 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account qort-from-qora info into repository", e);
+		}
+	}
+
+	public int deleteQortFromQoraInfo(String address) throws DataException {
+		try {
+			return this.repository.delete("AccountQortFromQoraInfo", "account = ?", address);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete qort-from-qora info from repository", e);
 		}
 	}
 

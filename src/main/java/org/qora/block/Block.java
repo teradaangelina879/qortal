@@ -1250,7 +1250,7 @@ public class Block {
 
 			accountData.setBlocksMinted(accountData.getBlocksMinted() + 1);
 			repository.getAccountRepository().setMintedBlockCount(accountData);
-			LOGGER.trace(() -> String.format("Block minted %s up to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
+			LOGGER.trace(() -> String.format("Block minter %s up to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 		}
 
 		// We are only interested in accounts that are NOT founders and NOT already highest level
@@ -1436,6 +1436,9 @@ public class Block {
 
 		// Return AT fees and delete AT states from repository
 		orphanAtFeesAndStates();
+
+		// Delete orphaned balances
+		this.repository.getAccountRepository().deleteBalancesFromHeight(this.blockData.getHeight());
 
 		// Delete block from blockchain
 		this.repository.getBlockRepository().delete(this.blockData);
@@ -1640,12 +1643,9 @@ public class Block {
 					qoraHoldersIterator.remove();
 			} else {
 				// We're orphaning a block
-				// so disregard qora holders whose final block is earlier than this one
+				// so disregard qora holders who have already had their final qort-from-qora reward (i.e. reward reward block is earlier than this one)
 				QortFromQoraData qortFromQoraData = this.repository.getAccountRepository().getQortFromQoraInfo(qoraHolder.getAddress());
-				if (qortFromQoraData == null)
-					throw new IllegalStateException(String.format("Missing QORT-from-QORA data for %s", qoraHolder.getAddress()));
-
-				if (qortFromQoraData.getFinalBlockHeight() != null && qortFromQoraData.getFinalBlockHeight() < this.blockData.getHeight())
+				if (qortFromQoraData != null && qortFromQoraData.getFinalBlockHeight() < this.blockData.getHeight())
 					qoraHoldersIterator.remove();
 			}
 		}
@@ -1660,18 +1660,14 @@ public class Block {
 		for (int h = 0; h < qoraHolders.size(); ++h) {
 			AccountBalanceData qoraHolder = qoraHolders.get(h);
 
-			final BigDecimal holderReward = qoraHoldersAmount.multiply(totalQoraHeld).divide(qoraHolder.getBalance(), RoundingMode.DOWN).setScale(8, RoundingMode.DOWN);
+			BigDecimal holderReward = qoraHoldersAmount.multiply(qoraHolder.getBalance()).divide(totalQoraHeld, RoundingMode.DOWN).setScale(8, RoundingMode.DOWN);
+			BigDecimal finalHolderReward = holderReward;
 			LOGGER.trace(() -> String.format("QORA holder %s has %s / %s QORA so share: %s",
-					qoraHolder.getAddress(), qoraHolder.getBalance().toPlainString(), finalTotalQoraHeld, holderReward.toPlainString()));
+					qoraHolder.getAddress(), qoraHolder.getBalance().toPlainString(), finalTotalQoraHeld, finalHolderReward.toPlainString()));
 
 			Account qoraHolderAccount = new Account(repository, qoraHolder.getAddress());
-			QortFromQoraData qortFromQoraData = this.repository.getAccountRepository().getQortFromQoraInfo(qoraHolder.getAddress());
-			if (qortFromQoraData == null)
-				qortFromQoraData = new QortFromQoraData(qoraHolder.getAddress(), BigDecimal.ZERO.setScale(8), null);
 
-			BigDecimal qortFromQora = holderReward.divide(qoraPerQortReward, RoundingMode.DOWN);
-
-			BigDecimal newQortFromQoraBalance = qoraHolderAccount.getConfirmedBalance(Asset.QORT_FROM_QORA).add(qortFromQora);
+			BigDecimal newQortFromQoraBalance = qoraHolderAccount.getConfirmedBalance(Asset.QORT_FROM_QORA).add(holderReward);
 
 			// If processing, make sure we don't overpay
 			if (totalAmount.signum() >= 0) {
@@ -1681,40 +1677,38 @@ public class Block {
 					// Reduce final QORT-from-QORA payment to match max
 					BigDecimal adjustment = newQortFromQoraBalance.subtract(maxQortFromQora);
 
-					qortFromQora = qortFromQora.subtract(adjustment);
+					holderReward = holderReward.subtract(adjustment);
 					newQortFromQoraBalance = newQortFromQoraBalance.subtract(adjustment);
 
 					// This is also qora holders final qort-from-qora block
-					qortFromQoraData.setFinalQortFromQora(qortFromQora);
-					qortFromQoraData.setFinalBlockHeight(this.blockData.getHeight());
+					QortFromQoraData qortFromQoraData = new QortFromQoraData(qoraHolder.getAddress(), holderReward, this.blockData.getHeight());
+					this.repository.getAccountRepository().save(qortFromQoraData);
 
-					BigDecimal finalQortFromQora = qortFromQora;
+					BigDecimal finalAdjustedHolderReward = holderReward;
 					LOGGER.trace(() -> String.format("QORA holder %s final share %s at height %d",
-							qoraHolder.getAddress(), finalQortFromQora.toPlainString(), this.blockData.getHeight()));
+							qoraHolder.getAddress(), finalAdjustedHolderReward.toPlainString(), this.blockData.getHeight()));
 				}
 			} else {
 				// Orphaning
-				if (qortFromQoraData.getFinalBlockHeight() != null) {
+				QortFromQoraData qortFromQoraData = this.repository.getAccountRepository().getQortFromQoraInfo(qoraHolder.getAddress());
+				if (qortFromQoraData != null) {
 					// Note use of negate() here as qortFromQora will be negative during orphaning,
 					// but final qort-from-qora is stored in repository during processing (and hence positive).
-					BigDecimal adjustment = qortFromQora.subtract(qortFromQoraData.getFinalQortFromQora().negate());
+					BigDecimal adjustment = holderReward.subtract(qortFromQoraData.getFinalQortFromQora().negate());
 
-					qortFromQora = qortFromQora.subtract(adjustment);
+					holderReward = holderReward.subtract(adjustment);
 					newQortFromQoraBalance = newQortFromQoraBalance.subtract(adjustment);
 
-					qortFromQoraData.setFinalQortFromQora(null);
-					qortFromQoraData.setFinalBlockHeight(null);
+					this.repository.getAccountRepository().deleteQortFromQoraInfo(qoraHolder.getAddress());
 
-					BigDecimal finalQortFromQora = qortFromQora;
+					BigDecimal finalAdjustedHolderReward = holderReward;
 					LOGGER.trace(() -> String.format("QORA holder %s final share %s was at height %d",
-							qoraHolder.getAddress(), finalQortFromQora.toPlainString(), this.blockData.getHeight()));
+							qoraHolder.getAddress(), finalAdjustedHolderReward.toPlainString(), this.blockData.getHeight()));
 				}
 			}
 
-			qoraHolderAccount.setConfirmedBalance(Asset.QORT, qoraHolderAccount.getConfirmedBalance(Asset.QORT).add(qortFromQora));
+			qoraHolderAccount.setConfirmedBalance(Asset.QORT, qoraHolderAccount.getConfirmedBalance(Asset.QORT).add(holderReward));
 			qoraHolderAccount.setConfirmedBalance(Asset.QORT_FROM_QORA, newQortFromQoraBalance);
-
-			this.repository.getAccountRepository().save(qortFromQoraData);
 
 			sharedAmount = sharedAmount.add(holderReward);
 		}

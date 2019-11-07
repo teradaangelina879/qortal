@@ -1,5 +1,7 @@
 package org.qora.test.minting;
 
+import static org.junit.Assert.*;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -12,6 +14,7 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockChain.RewardByHeight;
+import org.qora.data.account.AccountBalanceData;
 import org.qora.block.BlockMinter;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -105,14 +108,47 @@ public class RewardTests extends Common {
 		BigDecimal qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.QORT_FROM_QORA);
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
 
 			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 
+			// Fetch all legacy QORA holder balances
+			List<AccountBalanceData> qoraHolders = repository.getAccountRepository().getAssetBalances(Asset.LEGACY_QORA, true);
+			BigDecimal totalQoraHeld = BigDecimal.ZERO.setScale(8);
+			for (AccountBalanceData accountBalanceData : qoraHolders)
+				totalQoraHeld = totalQoraHeld.add(accountBalanceData.getBalance());
+
 			BlockUtils.mintBlock(repository);
 
+			/*
+			 * Example:
+			 * 
+			 * Block reward is 100 QORT, QORA-holders' share is 0.20 (20%) = 20 QORT
+			 * 
+			 * We hold 100 QORA
+			 * Someone else holds 28 QORA
+			 * Total QORA held: 128 QORA
+			 * 
+			 * Our portion of that is 100 QORA / 128 QORA * 20 QORT = 15.625 QORT
+			 * 
+			 * QORA holders earn at most 1 QORT per 250 QORA held.
+			 * 
+			 * So we can earn at most 100 QORA / 250 QORAperQORT = 0.4 QORT
+			 * 
+			 * Thus our block earning should be capped to 0.4 QORT.
+			 */
+
 			// Expected reward
-			BigDecimal expectedReward = blockReward.multiply(qoraHoldersShare).divide(qoraPerQort, RoundingMode.DOWN);
+			BigDecimal qoraHoldersReward = blockReward.multiply(qoraHoldersShare);
+			assertTrue("QORA-holders share of block reward should be less than total block reward", qoraHoldersReward.compareTo(blockReward) < 0);
+
+			BigDecimal ourQoraHeld = initialBalances.get("chloe").get(Asset.LEGACY_QORA);
+			BigDecimal ourQoraReward = qoraHoldersReward.multiply(ourQoraHeld).divide(totalQoraHeld, RoundingMode.DOWN).setScale(8, RoundingMode.DOWN);
+			assertTrue("Our QORA-related reward should be less than total QORA-holders share of block reward", ourQoraReward.compareTo(qoraHoldersReward) < 0);
+
+			BigDecimal ourQortFromQoraCap = ourQoraHeld.divide(qoraPerQort, RoundingMode.DOWN);
+
+			BigDecimal expectedReward = ourQoraReward.min(ourQortFromQoraCap);
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, initialBalances.get("chloe").get(Asset.QORT).add(expectedReward));
 
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT_FROM_QORA, initialBalances.get("chloe").get(Asset.QORT_FROM_QORA).add(expectedReward));

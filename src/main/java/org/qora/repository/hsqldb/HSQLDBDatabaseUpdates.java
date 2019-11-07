@@ -847,6 +847,23 @@ public class HSQLDBDatabaseUpdates {
 									+ "PRIMARY KEY (account), FOREIGN KEY (account) REFERENCES Accounts (account) ON DELETE CASCADE)");
 					break;
 
+				case 60: // Adding height to account balances
+					// We need to drop primary key first
+					stmt.execute("ALTER TABLE AccountBalances DROP PRIMARY KEY");
+					// Add height to account balances
+					stmt.execute("ALTER TABLE AccountBalances ADD COLUMN height INT NOT NULL DEFAULT 0 BEFORE BALANCE");
+					// Add new primary key
+					stmt.execute("ALTER TABLE AccountBalances ADD PRIMARY KEY (asset_id, account, height)");
+					/// Create a view for account balances at greatest height
+					stmt.execute("CREATE VIEW NewestAccountBalances (account, asset_id, balance) AS "
+							+ "SELECT AccountBalances.account, AccountBalances.asset_id, AccountBalances.balance FROM AccountBalances "
+							+ "LEFT OUTER JOIN AccountBalances AS NewerAccountBalances "
+							+ "ON NewerAccountBalances.account = AccountBalances.account "
+							+ "AND NewerAccountBalances.asset_id = AccountBalances.asset_id "
+							+ "AND NewerAccountBalances.height > AccountBalances.height "
+							+ "WHERE NewerAccountBalances.height IS NULL");
+					break;
+
 				default:
 					// nothing to do
 					return false;

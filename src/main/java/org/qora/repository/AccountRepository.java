@@ -86,17 +86,25 @@ public interface AccountRepository {
 
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException;
 
+	/** Returns account balance data for address & assetId at (or before) passed block height. */
+	public AccountBalanceData getBalance(String address, long assetId, int height) throws DataException;
+
 	public enum BalanceOrdering {
 		ASSET_BALANCE_ACCOUNT,
 		ACCOUNT_ASSET,
 		ASSET_ACCOUNT
 	}
 
+	public List<AccountBalanceData> getAssetBalances(long assetId, Boolean excludeZero) throws DataException;
+
 	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Boolean excludeZero, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 
 	public void delete(String address, long assetId) throws DataException;
+
+	/** Deletes orphaned balances at block height >= <tt>height</tt>. */
+	public int deleteBalancesFromHeight(int height) throws DataException;
 
 	// Reward-shares
 
@@ -144,5 +152,7 @@ public interface AccountRepository {
 	public QortFromQoraData getQortFromQoraInfo(String address) throws DataException;
 
 	public void save(QortFromQoraData qortFromQoraData) throws DataException;
+
+	public int deleteQortFromQoraInfo(String address) throws DataException;
 
 }

@@ -163,7 +163,7 @@ public class Account {
 	 * @throws DataException
 	 */
 	public void setLastReference(byte[] reference) throws DataException {
-		LOGGER.trace(() -> String.format("Setting last reference for %s to %s", this.address, Base58.encode(reference)));
+		LOGGER.trace(() -> String.format("Setting last reference for %s to %s", this.address, (reference == null ? "null" : Base58.encode(reference))));
 
 		AccountData accountData = this.buildAccountData();
 		accountData.setReference(reference);
