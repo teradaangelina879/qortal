@@ -191,7 +191,8 @@ public class AddressesResource {
 	@GET
 	@Path("/balance/{address}")
 	@Operation(
-		summary = "Returns the confirmed balance of the given address",
+		summary = "Returns account balance",
+		description = "Returns account's balance, optionally of given asset and at given height",
 		responses = {
 			@ApiResponse(
 				description = "the balance",
@@ -199,34 +200,32 @@ public class AddressesResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public BigDecimal getConfirmedBalance(@PathParam("address") String address) {
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.INVALID_ASSET_ID, ApiError.INVALID_HEIGHT,  ApiError.REPOSITORY_ISSUE})
+	public BigDecimal getBalance(@PathParam("address") String address,
+			@QueryParam("assetId") Long assetId,
+			@QueryParam("height") Integer height) {
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
-			return account.getConfirmedBalance(Asset.QORT);
+
+			if (assetId == null)
+				assetId = Asset.QORT;
+			else if (!repository.getAssetRepository().assetExists(assetId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			if (height == null)
+				height = repository.getBlockRepository().getBlockchainHeight();
+			else if (height <= 0)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
+
+			return account.getBalance(assetId, height);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
-	}
-
-	@GET
-	@Path("/balance/{address}/{confirmations}")
-	@Operation(
-		summary = "Calculates the balance of the given address for the given confirmations",
-		responses = {
-			@ApiResponse(
-				description = "the balance",
-				content = @Content(schema = @Schema(type = "string", format = "number"))
-			)
-		}
-	)
-	public String getConfirmedBalance(@PathParam("address") String address, @PathParam("confirmations") int confirmations) {
-		throw new UnsupportedOperationException();
 	}
 
 	@GET

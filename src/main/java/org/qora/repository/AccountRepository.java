@@ -89,6 +89,9 @@ public interface AccountRepository {
 	/** Returns account balance data for address & assetId at (or before) passed block height. */
 	public AccountBalanceData getBalance(String address, long assetId, int height) throws DataException;
 
+	/** Returns per-height historic balance for address & assetId. */
+	public List<AccountBalanceData> getHistoricBalances(String address, long assetId) throws DataException;
+
 	public enum BalanceOrdering {
 		ASSET_BALANCE_ACCOUNT,
 		ACCOUNT_ASSET,

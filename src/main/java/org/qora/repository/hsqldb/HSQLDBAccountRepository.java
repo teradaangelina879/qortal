@@ -259,7 +259,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException {
-		String sql = "SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ? ORDER BY height DESC LIMIT 1";
+		String sql = "SELECT IFNULL(balance, 0) FROM AccountBalances WHERE account = ? AND asset_id = ? LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId)) {
 			if (resultSet == null)
@@ -275,7 +275,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountBalanceData getBalance(String address, long assetId, int height) throws DataException {
-		String sql = "SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ? AND height <= ? ORDER BY height DESC LIMIT 1";
+		String sql = "SELECT IFNULL(balance, 0) FROM HistoricAccountBalances WHERE account = ? AND asset_id = ? AND height <= ? ORDER BY height DESC LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId, height)) {
 			if (resultSet == null)
@@ -290,9 +290,31 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public List<AccountBalanceData> getHistoricBalances(String address, long assetId) throws DataException {
+		String sql = "SELECT height, balance FROM HistoricAccountBalances WHERE account = ? AND asset_id = ? ORDER BY height DESC";
+
+		List<AccountBalanceData> historicBalances = new ArrayList<>();
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId)) {
+			if (resultSet == null)
+				return historicBalances;
+
+			do {
+				int height = resultSet.getInt(1);
+				BigDecimal balance = resultSet.getBigDecimal(2);
+
+				historicBalances.add(new AccountBalanceData(address, assetId, balance, height));
+			} while (resultSet.next());
+
+			return historicBalances;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch historic account balances from repository", e);
+		}
+	}
+
+	@Override
 	public List<AccountBalanceData> getAssetBalances(long assetId, Boolean excludeZero) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append("SELECT account, IFNULL(balance, 0) FROM NewestAccountBalances WHERE asset_id = ?");
+		sql.append("SELECT account, IFNULL(balance, 0) FROM AccountBalances WHERE asset_id = ?");
 
 		if (excludeZero != null && excludeZero)
 			sql.append(" AND balance != 0");
@@ -321,76 +343,83 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		StringBuilder sql = new StringBuilder(1024);
 		sql.append("SELECT account, asset_id, IFNULL(balance, 0), asset_name FROM ");
 
-		if (!addresses.isEmpty()) {
-			sql.append("(VALUES ");
+		final boolean haveAddresses = addresses != null && !addresses.isEmpty();
+		final boolean haveAssetIds = assetIds != null && !assetIds.isEmpty();
 
-			final int addressesSize = addresses.size();
-			for (int ai = 0; ai < addressesSize; ++ai) {
-				if (ai != 0)
-					sql.append(", ");
+		// Fill temporary table with filtering addresses/assetIDs
+		if (haveAddresses)
+			HSQLDBRepository.temporaryValuesTableSql(sql, addresses.size(), "TmpAccounts", "account");
 
-				sql.append("(?)");
+		if (haveAssetIds) {
+			if (haveAddresses)
+				sql.append("CROSS JOIN ");
+
+			HSQLDBRepository.temporaryValuesTableSql(sql, assetIds, "TmpAssetIds", "asset_id");
+		}
+
+		if (haveAddresses || haveAssetIds) {
+			// Now use temporary table to filter AccountBalances (using index) and optional zero balance exclusion
+			sql.append("JOIN AccountBalances ON ");
+
+			if (haveAddresses)
+				sql.append("AccountBalances.account = TmpAccounts.account ");
+
+			if (haveAssetIds) {
+				if (haveAddresses)
+					sql.append("AND ");
+
+				sql.append("AccountBalances.asset_id = TmpAssetIds.asset_id ");
 			}
 
-			sql.append(") AS Accounts (account) ");
-			sql.append("CROSS JOIN Assets LEFT OUTER JOIN NewestAccountBalances USING (asset_id, account) ");
+			if (!haveAddresses || (excludeZero != null && excludeZero))
+				sql.append("AND AccountBalances.balance != 0 ");
 		} else {
-			// Simplier, no-address query
-			sql.append("NewestAccountBalances NATURAL JOIN Assets ");
+			// Simpler form if no filtering
+			sql.append("AccountBalances ");
+
+			// Zero balance exclusion comes later
 		}
 
-		if (!assetIds.isEmpty()) {
-			// longs are safe enough to use literally
-			sql.append("WHERE asset_id IN (");
+		// Join for asset name
+		sql.append("JOIN Assets ON Assets.asset_id = AccountBalances.asset_id ");
 
-			final int assetIdsSize = assetIds.size();
-			for (int ai = 0; ai < assetIdsSize; ++ai) {
-				if (ai != 0)
-					sql.append(", ");
+		// Zero balance exclusion if no filtering
+		if (!haveAddresses && !haveAssetIds && excludeZero != null && excludeZero)
+			sql.append("WHERE AccountBalances.balance != 0 ");
 
-				sql.append(assetIds.get(ai));
+		if (balanceOrdering != null) {
+			String[] orderingColumns;
+			switch (balanceOrdering) {
+				case ACCOUNT_ASSET:
+					orderingColumns = new String[] { "account", "asset_id" };
+					break;
+
+				case ASSET_ACCOUNT:
+					orderingColumns = new String[] { "asset_id", "account" };
+					break;
+
+				case ASSET_BALANCE_ACCOUNT:
+					orderingColumns = new String[] { "asset_id", "balance", "account" };
+					break;
+
+				default:
+					throw new DataException(String.format("Unsupported asset balance result ordering: %s", balanceOrdering.name()));
 			}
 
-			sql.append(") ");
-		}
+			sql.append("ORDER BY ");
+			for (int oi = 0; oi < orderingColumns.length; ++oi) {
+				if (oi != 0)
+					sql.append(", ");
 
-		// For no-address queries, or unless specifically requested, only return accounts with non-zero balance
-		if (addresses.isEmpty() || (excludeZero != null && excludeZero)) {
-			sql.append(assetIds.isEmpty() ? " WHERE " : " AND ");
-			sql.append("balance != 0 ");
-		}
-
-		String[] orderingColumns;
-		switch (balanceOrdering) {
-			case ACCOUNT_ASSET:
-				orderingColumns = new String[] { "account", "asset_id" };
-				break;
-
-			case ASSET_ACCOUNT:
-				orderingColumns = new String[] { "asset_id", "account" };
-				break;
-
-			case ASSET_BALANCE_ACCOUNT:
-				orderingColumns = new String[] { "asset_id", "balance", "account" };
-				break;
-
-			default:
-				throw new DataException(String.format("Unsupported asset balance result ordering: %s", balanceOrdering.name()));
-		}
-
-		sql.append("ORDER BY ");
-		for (int oi = 0; oi < orderingColumns.length; ++oi) {
-			if (oi != 0)
-				sql.append(", ");
-
-			sql.append(orderingColumns[oi]);
-			if (reverse != null && reverse)
-				sql.append(" DESC");
+				sql.append(orderingColumns[oi]);
+				if (reverse != null && reverse)
+					sql.append(" DESC");
+			}
 		}
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		String[] addressesArray = addresses.toArray(new String[addresses.size()]);
+		String[] addressesArray = addresses == null ? new String[0] : addresses.toArray(new String[addresses.size()]);
 		List<AccountBalanceData> accountBalances = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), (Object[]) addressesArray)) {
@@ -414,15 +443,41 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
+		// If balance is zero and there are no prior historic balance, then simply delete balances for this assetId (typically during orphaning)
+		if (accountBalanceData.getBalance().signum() == 0) {
+			boolean hasPriorBalances;
+			try {
+				hasPriorBalances = this.repository.exists("HistoricAccountBalances", "account = ? AND asset_id = ? AND height < (SELECT IFNULL(MAX(height), 1) FROM Blocks)",
+					accountBalanceData.getAddress(), accountBalanceData.getAssetId());
+			} catch (SQLException e) {
+				throw new DataException("Unable to check for historic account balances in repository", e);
+			}
+
+			if (!hasPriorBalances) {
+				try {
+					this.repository.delete("AccountBalances", "account = ? AND asset_id = ?", accountBalanceData.getAddress(), accountBalanceData.getAssetId());
+				} catch (SQLException e) {
+					throw new DataException("Unable to delete account balance from repository", e);
+				}
+
+				// I don't think we need to do this as Block.orphan() would do this for us?
+				try {
+					this.repository.delete("HistoricAccountBalances", "account = ? AND asset_id = ?", accountBalanceData.getAddress(), accountBalanceData.getAssetId());
+				} catch (SQLException e) {
+					throw new DataException("Unable to delete historic account balances from repository", e);
+				}
+
+				return;
+			}
+		}
+
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
 
 		saveHelper.bind("account", accountBalanceData.getAddress()).bind("asset_id", accountBalanceData.getAssetId()).bind("balance",
 				accountBalanceData.getBalance());
 
 		try {
-			// Fill in 'height'
-			int height = this.repository.checkedExecute("SELECT COUNT(*) + 1 FROM Blocks").getInt(1);
-			saveHelper.bind("height", height);
+			// HistoricAccountBalances auto-updated via trigger
 
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
@@ -437,14 +492,20 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete account balance from repository", e);
 		}
+
+		try {
+			this.repository.delete("HistoricAccountBalances", "account = ? AND asset_id = ?", address, assetId);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete historic account balances from repository", e);
+		}
 	}
 
 	@Override
 	public int deleteBalancesFromHeight(int height) throws DataException {
 		try {
-			return this.repository.delete("AccountBalances", "height >= ?", height);
+			return this.repository.delete("HistoricAccountBalances", "height >= ?", height);
 		} catch (SQLException e) {
-			throw new DataException("Unable to delete old account balances from repository", e);
+			throw new DataException("Unable to delete historic account balances from repository", e);
 		}
 	}
 

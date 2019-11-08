@@ -5,14 +5,11 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
 import org.qora.data.account.RewardShareData;
-import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
-import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.transaction.Transaction;
@@ -54,35 +51,14 @@ public class Account {
 		return new AccountData(this.address);
 	}
 
-	// Balance manipulations - assetId is 0 for QORA
+	// Balance manipulations - assetId is 0 for QORT
 
-	public BigDecimal getBalance(long assetId, int confirmations) throws DataException {
-		// Simple case: we only need balance with 1 confirmation
-		if (confirmations == 1)
-			return this.getConfirmedBalance(assetId);
+	public BigDecimal getBalance(long assetId, int height) throws DataException {
+		AccountBalanceData accountBalanceData = this.repository.getAccountRepository().getBalance(this.address, assetId, height);
+		if (accountBalanceData == null)
+			return BigDecimal.ZERO.setScale(8);
 
-		/*
-		 * For a balance with more confirmations work back from last block, undoing transactions involving this account, until we have processed required number
-		 * of blocks.
-		 */
-		BlockRepository blockRepository = this.repository.getBlockRepository();
-		BigDecimal balance = this.getConfirmedBalance(assetId);
-		BlockData blockData = blockRepository.getLastBlock();
-
-		// Note: "blockData.getHeight() > 1" to make sure we don't examine genesis block
-		for (int i = 1; i < confirmations && blockData != null && blockData.getHeight() > 1; ++i) {
-			Block block = new Block(this.repository, blockData);
-
-			// CIYAM AT transactions should be fetched from repository so no special handling needed here
-			for (Transaction transaction : block.getTransactions())
-				if (transaction.isInvolved(this))
-					balance = balance.subtract(transaction.getAmount(this));
-
-			blockData = block.getParent();
-		}
-
-		// Return balance
-		return balance;
+		return accountBalanceData.getBalance();
 	}
 
 	public BigDecimal getConfirmedBalance(long assetId) throws DataException {

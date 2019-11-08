@@ -146,13 +146,13 @@ public class Common {
 			}
 
 			List<AssetData> remainingAssets = repository.getAssetRepository().getAllAssets();
-			checkOrphanedLists("asset", initialAssets, remainingAssets, AssetData::getAssetId);
+			checkOrphanedLists("asset", initialAssets, remainingAssets, AssetData::getAssetId, AssetData::getAssetId);
 
 			List<GroupData> remainingGroups = repository.getGroupRepository().getAllGroups();
-			checkOrphanedLists("group", initialGroups, remainingGroups, GroupData::getGroupId);
+			checkOrphanedLists("group", initialGroups, remainingGroups, GroupData::getGroupId, GroupData::getGroupId);
 
 			List<AccountBalanceData> remainingBalances = repository.getAccountRepository().getAssetBalances(Collections.emptyList(), Collections.emptyList(), BalanceOrdering.ASSET_ACCOUNT, false, null, null, null);
-			checkOrphanedLists("account balance", initialBalances, remainingBalances, entry -> entry.getAssetName() + "-" + entry.getAddress());
+			checkOrphanedLists("account balance", initialBalances, remainingBalances, entry -> entry.getAddress() + " [" + entry.getAssetName() + "]", entry -> entry.getBalance().toPlainString());
 
 			assertEquals("remainingBalances is different size", initialBalances.size(), remainingBalances.size());
 			// Actually compare balances
@@ -168,7 +168,7 @@ public class Common {
 		}
 	}
 
-	private static <T> void checkOrphanedLists(String typeName, List<T> initial, List<T> remaining, Function<T, ? extends Object> keyExtractor) {
+	private static <T> void checkOrphanedLists(String typeName, List<T> initial, List<T> remaining, Function<T, ? extends Object> keyExtractor, Function<T, ? extends Object> valueExtractor) {
 		Predicate<T> isInitial = entry -> initial.stream().anyMatch(initialEntry -> keyExtractor.apply(initialEntry).equals(keyExtractor.apply(entry)));
 		Predicate<T> isRemaining = entry -> remaining.stream().anyMatch(remainingEntry -> keyExtractor.apply(remainingEntry).equals(keyExtractor.apply(entry)));
 
@@ -181,7 +181,7 @@ public class Common {
 		remainingClone.removeIf(isInitial);
 
 		for (T remainingEntry : remainingClone)
-			LOGGER.info(String.format("Non-genesis remaining entry: %s", keyExtractor.apply(remainingEntry)));
+			LOGGER.info(String.format("Non-genesis remaining entry: %s = %s", keyExtractor.apply(remainingEntry), valueExtractor.apply(remainingEntry)));
 
 		assertTrue(String.format("Non-genesis %s remains", typeName), remainingClone.isEmpty());
 	}

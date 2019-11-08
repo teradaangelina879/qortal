@@ -1,10 +1,14 @@
 package org.qora.test;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import org.junit.After;
 import org.junit.Before;
@@ -15,9 +19,11 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
 import org.qora.data.account.AccountBalanceData;
+import org.qora.data.account.AccountData;
 import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.repository.AccountRepository.BalanceOrdering;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -78,7 +84,7 @@ public class AccountBalanceTests extends Common {
 			BigDecimal orphanedBalance = alice.getConfirmedBalance(Asset.QORT);
 
 			// Confirm post-orphan balance is same as initial
-			assertTrue("Post-orphan balance should match initial", orphanedBalance.equals(initialBalance));
+			assertEqualBigDecimals("Post-orphan balance should match initial", initialBalance, orphanedBalance);
 		}
 	}
 
@@ -95,7 +101,7 @@ public class AccountBalanceTests extends Common {
 			BigDecimal genesisBalance = accountBalanceData.getBalance();
 
 			// Confirm genesis balance is same as initial
-			assertTrue("Genesis balance should match initial", genesisBalance.equals(initialBalance));
+			assertEqualBigDecimals("Genesis balance should match initial", initialBalance, genesisBalance);
 		}
 	}
 
@@ -116,7 +122,7 @@ public class AccountBalanceTests extends Common {
 
 			// Confirm recipient balance is zero
 			BigDecimal balance = recipientAccount.getConfirmedBalance(Asset.QORT);
-			assertTrue("recipient's balance should be zero", balance.signum() == 0);
+			assertEqualBigDecimals("recipient's balance should be zero", BigDecimal.ZERO, balance);
 
 			// Send 1 QORT to recipient
 			TestAccount sendingAccount = Common.getTestAccount(repository, "alice");
@@ -129,24 +135,28 @@ public class AccountBalanceTests extends Common {
 			// Send more QORT to recipient
 			BigDecimal amount = BigDecimal.valueOf(random.nextInt(123456));
 			pay(repository, sendingAccount, recipientAccount, amount);
+			BigDecimal totalAmount = BigDecimal.ONE.add(amount);
 
 			// Mint some more blocks
 			for (int i = 0; i < 10; ++i)
 				BlockUtils.mintBlock(repository);
 
 			// Confirm recipient balance is as expected
-			BigDecimal totalAmount = amount.add(BigDecimal.ONE);
 			balance = recipientAccount.getConfirmedBalance(Asset.QORT);
-			assertTrue("recipient's balance incorrect", balance.compareTo(totalAmount) == 0);
+			assertEqualBigDecimals("recipient's balance incorrect", totalAmount, balance);
+
+			List<AccountBalanceData> historicBalances = repository.getAccountRepository().getHistoricBalances(recipientAccount.getAddress(), Asset.QORT);
+			for (AccountBalanceData historicBalance : historicBalances)
+				System.out.println(String.format("Block %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
 
 			// Confirm balance as of 2 blocks ago
 			int height = repository.getBlockRepository().getBlockchainHeight();
 			balance = repository.getAccountRepository().getBalance(recipientAccount.getAddress(), Asset.QORT, height - 2).getBalance();
-			assertTrue("recipient's historic balance incorrect", balance.compareTo(totalAmount) == 0);
+			assertEqualBigDecimals("recipient's historic balance incorrect", totalAmount, balance);
 
 			// Confirm balance prior to last payment
 			balance = repository.getAccountRepository().getBalance(recipientAccount.getAddress(), Asset.QORT, height - 15).getBalance();
-			assertTrue("recipient's historic balance incorrect", balance.compareTo(BigDecimal.ONE) == 0);
+			assertEqualBigDecimals("recipient's historic balance incorrect", BigDecimal.ONE, balance);
 
 			// Orphan blocks to before last payment
 			BlockUtils.orphanBlocks(repository, 10 + 5);
@@ -154,7 +164,7 @@ public class AccountBalanceTests extends Common {
 			// Re-check balance from (now) invalid height
 			AccountBalanceData accountBalanceData = repository.getAccountRepository().getBalance(recipientAccount.getAddress(), Asset.QORT, height - 2);
 			balance = accountBalanceData.getBalance();
-			assertTrue("recipient's invalid-height balance should be one", balance.compareTo(BigDecimal.ONE) == 0);
+			assertEqualBigDecimals("recipient's invalid-height balance should be one", BigDecimal.ONE, balance);
 
 			// Orphan blocks to before initial 1 QORT payment
 			BlockUtils.orphanBlocks(repository, 10 + 5);
@@ -175,6 +185,96 @@ public class AccountBalanceTests extends Common {
 		TransactionData transactionData = new PaymentTransactionData(baseTransactionData, recipientAccount.getAddress(), amount);
 
 		TransactionUtils.signAndMint(repository, transactionData, sendingAccount);
+	}
+
+	/** Tests SQL query speed for account balance fetches. */
+	@Test
+	public void testRepositorySpeed() throws DataException, SQLException {
+		Random random = new Random();
+		final long MAX_QUERY_TIME = 100L; // ms
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			System.out.println("Creating random accounts...");
+
+			// Generate some random accounts
+			List<Account> accounts = new ArrayList<>();
+			for (int ai = 0; ai < 20; ++ai) {
+				byte[] publicKey = new byte[32];
+				random.nextBytes(publicKey);
+
+				PublicKeyAccount account = new PublicKeyAccount(repository, publicKey);
+				accounts.add(account);
+
+				AccountData accountData = new AccountData(account.getAddress());
+				repository.getAccountRepository().ensureAccount(accountData);
+			}
+			repository.saveChanges();
+
+			System.out.println("Creating random balances...");
+
+			// Fill with lots of random balances
+			for (int i = 0; i < 100000; ++i) {
+				Account account = accounts.get(random.nextInt(accounts.size()));
+				int assetId = random.nextInt(2);
+				BigDecimal balance = BigDecimal.valueOf(random.nextInt(100000));
+
+				AccountBalanceData accountBalanceData = new AccountBalanceData(account.getAddress(), assetId, balance);
+				repository.getAccountRepository().save(accountBalanceData);
+
+				// Maybe mint a block to change height
+				if (i > 0 && (i % 1000) == 0)
+					BlockUtils.mintBlock(repository);
+			}
+			repository.saveChanges();
+
+			// Address filtering test cases
+			List<String> testAddresses = accounts.stream().limit(3).map(account -> account.getAddress()).collect(Collectors.toList());
+			List<List<String>> addressFilteringCases = Arrays.asList(null, testAddresses);
+
+			// AssetID filtering test cases
+			List<List<Long>> assetIdFilteringCases = Arrays.asList(null, Arrays.asList(0L, 1L, 2L));
+
+			// Results ordering test cases
+			List<BalanceOrdering> orderingCases = new ArrayList<>();
+			orderingCases.add(null);
+			orderingCases.addAll(Arrays.asList(BalanceOrdering.values()));
+
+			// Zero exclusion test cases
+			List<Boolean> zeroExclusionCases = Arrays.asList(null, true, false);
+
+			// Limit test cases
+			List<Integer> limitCases = Arrays.asList(null, 10);
+
+			// Offset test cases
+			List<Integer> offsetCases = Arrays.asList(null, 10);
+
+			// Reverse results cases
+			List<Boolean> reverseCases = Arrays.asList(null, true, false);
+
+			repository.setDebug(true);
+
+			// Test all cases
+			for (List<String> addresses : addressFilteringCases)
+				for (List<Long> assetIds : assetIdFilteringCases)
+					for (BalanceOrdering balanceOrdering : orderingCases)
+						for (Boolean excludeZero : zeroExclusionCases)
+							for (Integer limit : limitCases)
+								for (Integer offset : offsetCases)
+									for (Boolean reverse : reverseCases) {
+										repository.discardChanges();
+
+										System.out.println(String.format("Testing query: %s addresses, %s assetIDs, %s ordering, %b zero-exclusion, %d limit, %d offset, %b reverse",
+												(addresses == null ? "no" : "with"), (assetIds == null ? "no" : "with"), balanceOrdering, excludeZero, limit, offset, reverse));
+
+										long before = System.currentTimeMillis();
+										repository.getAccountRepository().getAssetBalances(addresses, assetIds, balanceOrdering, excludeZero, limit, offset, reverse);
+										final long period = System.currentTimeMillis() - before;
+										assertTrue(String.format("Query too slow: %dms", period), period < MAX_QUERY_TIME);
+									}
+		}
+
+		// Rebuild repository to avoid orphan check
+		Common.useDefaultSettings();
 	}
 
 }

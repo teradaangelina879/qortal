@@ -577,6 +577,52 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
+	/**
+	 * Appends SQL for filling a temporary VALUES table, values NOT supplied.
+	 * <p>
+	 * (Convenience method for HSQLDB repository subclasses).
+	 */
+	/* package */ static void temporaryValuesTableSql(StringBuilder stringBuilder, int valuesCount, String tableName, String columnName) {
+		stringBuilder.append("(VALUES ");
+
+		for (int i = 0; i < valuesCount; ++i) {
+			if (i != 0)
+				stringBuilder.append(", ");
+
+			stringBuilder.append("(?)");
+		}
+
+		stringBuilder.append(") AS ");
+		stringBuilder.append(tableName);
+		stringBuilder.append(" (");
+		stringBuilder.append(columnName);
+		stringBuilder.append(") ");
+	}
+
+	/**
+	 * Appends SQL for filling a temporary VALUES table, literal values ARE supplied.
+	 * <p>
+	 * (Convenience method for HSQLDB repository subclasses).
+	 */
+	/* package */ static void temporaryValuesTableSql(StringBuilder stringBuilder, List<? extends Object> values, String tableName, String columnName) {
+		stringBuilder.append("(VALUES ");
+
+		for (int i = 0; i < values.size(); ++i) {
+			if (i != 0)
+				stringBuilder.append(", ");
+
+			stringBuilder.append("(");
+			stringBuilder.append(values.get(i));
+			stringBuilder.append(")");
+		}
+
+		stringBuilder.append(") AS ");
+		stringBuilder.append(tableName);
+		stringBuilder.append(" (");
+		stringBuilder.append(columnName);
+		stringBuilder.append(") ");
+	}
+
 	/** Logs other HSQLDB sessions then re-throws passed exception */
 	public SQLException examineException(SQLException e) throws SQLException {
 		LOGGER.error(String.format("HSQLDB error (session %d): %s", this.sessionId, e.getMessage()), e);

@@ -25,7 +25,7 @@ public class TransactionUtils {
 		// Add to unconfirmed
 		assertTrue("Transaction's signature should be valid", transaction.isSignatureValid());
 
-		// We might need to wait until transaction's timestamp is valid for the block we're about to generate
+		// We might need to wait until transaction's timestamp is valid for the block we're about to mint
 		try {
 			Thread.sleep(1L);
 		} catch (InterruptedException e) {

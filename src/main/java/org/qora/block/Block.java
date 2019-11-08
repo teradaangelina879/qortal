@@ -8,7 +8,6 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -40,7 +39,6 @@ import org.qora.data.block.BlockTransactionData;
 import org.qora.data.network.OnlineAccountData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.ATRepository;
-import org.qora.repository.AccountRepository.BalanceOrdering;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.TransactionRepository;
@@ -1621,9 +1619,7 @@ public class Block {
 		BigDecimal qoraHoldersAmount = BlockChain.getInstance().getQoraHoldersShare().multiply(totalAmount).setScale(8, RoundingMode.DOWN);
 		LOGGER.trace(() -> String.format("Legacy QORA holders share of %s: %s", totalAmount.toPlainString(), qoraHoldersAmount.toPlainString()));
 
-		List<String> assetAddresses = Collections.emptyList();
-		List<Long> assetIds = Collections.singletonList(Asset.LEGACY_QORA);
-		List<AccountBalanceData> qoraHolders = this.repository.getAccountRepository().getAssetBalances(assetAddresses, assetIds, BalanceOrdering.ASSET_ACCOUNT, true, null, null, null);
+		List<AccountBalanceData> qoraHolders = this.repository.getAccountRepository().getAssetBalances(Asset.LEGACY_QORA, true);
 
 		// Filter out qoraHolders who have received max QORT due to holding legacy QORA, (ratio from blockchain config)
 		BigDecimal qoraPerQortReward = BlockChain.getInstance().getQoraPerQortReward();
@@ -1708,7 +1704,12 @@ public class Block {
 			}
 
 			qoraHolderAccount.setConfirmedBalance(Asset.QORT, qoraHolderAccount.getConfirmedBalance(Asset.QORT).add(holderReward));
-			qoraHolderAccount.setConfirmedBalance(Asset.QORT_FROM_QORA, newQortFromQoraBalance);
+
+			if (newQortFromQoraBalance.signum() > 0)
+				qoraHolderAccount.setConfirmedBalance(Asset.QORT_FROM_QORA, newQortFromQoraBalance);
+			else
+				// Remove QORT_FROM_QORA balance as it's zero
+				qoraHolderAccount.deleteBalance(Asset.QORT_FROM_QORA);
 
 			sharedAmount = sharedAmount.add(holderReward);
 		}

@@ -86,7 +86,7 @@ public class AssetsApiTests extends ApiCommon {
 	@Test
 	public void testGetAssetInfo() {
 		assertNotNull(this.assetsResource.getAssetInfo((int) 0L, null));
-		assertNotNull(this.assetsResource.getAssetInfo(null, "QORA"));
+		assertNotNull(this.assetsResource.getAssetInfo(null, "QORT"));
 	}
 
 	@Test

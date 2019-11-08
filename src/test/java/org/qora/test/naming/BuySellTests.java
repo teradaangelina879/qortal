@@ -11,6 +11,7 @@ import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.data.naming.NameData;
 import org.qora.data.transaction.BuyNameTransactionData;
+import org.qora.data.transaction.CancelSellNameTransactionData;
 import org.qora.data.transaction.RegisterNameTransactionData;
 import org.qora.data.transaction.SellNameTransactionData;
 import org.qora.repository.DataException;
@@ -21,7 +22,7 @@ import org.qora.test.common.Common;
 import org.qora.test.common.TransactionUtils;
 import org.qora.test.common.transaction.TestTransaction;
 
-public class OrphaningTests extends Common {
+public class BuySellTests extends Common {
 
 	protected static final Random random = new Random();
 
@@ -129,6 +130,31 @@ public class OrphaningTests extends Common {
 
 		// Check name does exist
 		assertTrue(repository.getNameRepository().nameExists(name));
+
+		// Check name is for sale
+		nameData = repository.getNameRepository().fromName(name);
+		assertTrue(nameData.getIsForSale());
+		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
+	}
+
+	@Test
+	public void testCancelSellName() throws DataException {
+		// Register-name and sell-name
+		testSellName();
+
+		// Cancel Sell-name
+		CancelSellNameTransactionData transactionData = new CancelSellNameTransactionData(TestTransaction.generateBase(alice), name);
+		TransactionUtils.signAndMint(repository, transactionData, alice);
+
+		NameData nameData;
+
+		// Check name is no longer for sale
+		nameData = repository.getNameRepository().fromName(name);
+		assertFalse(nameData.getIsForSale());
+		// Not concerned about price
+
+		// Orphan cancel sell-name
+		BlockUtils.orphanLastBlock(repository);
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
