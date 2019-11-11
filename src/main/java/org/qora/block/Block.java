@@ -133,15 +133,12 @@ public class Block {
 		final Account mintingAccount;
 		final AccountData mintingAccountData;
 		final boolean isMinterFounder;
-		final int shareBin;
 
 		final Account recipientAccount;
 		final AccountData recipientAccountData;
 		final boolean isRecipientFounder;
 
 		ExpandedAccount(Repository repository, int accountIndex) throws DataException {
-			final List<ShareByLevel> sharesByLevel = BlockChain.getInstance().getBlockSharesByLevel();
-
 			this.rewardShareData = repository.getAccountRepository().getRewardShareByIndex(accountIndex);
 
 			this.mintingAccount = new PublicKeyAccount(repository, this.rewardShareData.getMinterPublicKey());
@@ -150,21 +147,23 @@ public class Block {
 			this.mintingAccountData = repository.getAccountRepository().getAccount(this.mintingAccount.getAddress());
 			this.isMinterFounder = Account.isFounder(mintingAccountData.getFlags());
 
-			int currentShareBin = -1;
-
-			if (!this.isMinterFounder)
-				for (int s = 0; s < sharesByLevel.size(); ++s)
-					if (sharesByLevel.get(s).levels.contains(this.mintingAccountData.getLevel())) {
-						currentShareBin = s;
-						break;
-					}
-
-			this.shareBin = currentShareBin;
-
 			this.recipientAccountData = repository.getAccountRepository().getAccount(this.recipientAccount.getAddress());
 			this.isRecipientFounder = Account.isFounder(recipientAccountData.getFlags());
 
 			this.isRecipientAlsoMinter = this.mintingAccountData.getAddress().equals(this.recipientAccountData.getAddress());
+		}
+
+		int getShareBin() {
+			if (this.isMinterFounder)
+				return -1;
+
+			final List<ShareByLevel> sharesByLevel = BlockChain.getInstance().getBlockSharesByLevel();
+
+			for (int s = 0; s < sharesByLevel.size(); ++s)
+				if (sharesByLevel.get(s).levels.contains(this.mintingAccountData.getLevel()))
+					return s;
+
+			return -1;
 		}
 
 		void distribute(BigDecimal accountAmount) throws DataException {
@@ -1601,7 +1600,7 @@ public class Block {
 			LOGGER.trace(() -> String.format("Bin %d share of %s: %s", binIndex, totalAmount.toPlainString(), binAmount.toPlainString()));
 
 			// Spread across all accounts in bin
-			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> !accountInfo.isMinterFounder && accountInfo.shareBin == binIndex).collect(Collectors.toList());
+			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> !accountInfo.isMinterFounder && accountInfo.getShareBin() == binIndex).collect(Collectors.toList());
 			if (binnedAccounts.isEmpty())
 				continue;
 
@@ -1717,9 +1716,11 @@ public class Block {
 		// Spread remainder across founder accounts
 		BigDecimal foundersAmount = totalAmount.subtract(sharedAmount);
 		BigDecimal finalSharedAmount = sharedAmount;
-		LOGGER.debug(() -> String.format("Shared %s of %s, remaining %s to founders", finalSharedAmount.toPlainString(), totalAmount.toPlainString(), foundersAmount.toPlainString()));
 
 		List<ExpandedAccount> founderAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isMinterFounder).collect(Collectors.toList());
+		LOGGER.debug(() -> String.format("Shared %s of %s, remaining %s to %d founder%s",
+				finalSharedAmount.toPlainString(), totalAmount.toPlainString(),
+				foundersAmount.toPlainString(), founderAccounts.size(), (founderAccounts.size() != 1 ? "s" : "")));
 		if (founderAccounts.isEmpty())
 			return;
 
