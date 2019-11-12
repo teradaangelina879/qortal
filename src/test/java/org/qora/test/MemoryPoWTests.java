@@ -1,13 +1,13 @@
 package org.qora.test;
 
 import org.junit.Test;
-import org.qora.crypto.CiyamMemoryPoW;
+import org.qora.crypto.MemoryPoW;
 
 import static org.junit.Assert.*;
 
 import java.util.Random;
 
-public class CiyamMemoryPoWTests {
+public class MemoryPoWTests {
 
 	@Test
 	public void testCompute() {
@@ -21,7 +21,7 @@ public class CiyamMemoryPoWTests {
 		int difficulty = 1;
 
 		long startTime = System.currentTimeMillis();
-		Integer nonce = CiyamMemoryPoW.compute(data, start, range, difficulty);
+		Integer nonce = MemoryPoW.compute(data, start, range, difficulty);
 		long finishTime = System.currentTimeMillis();
 
 		System.out.println(String.format("Memory-hard PoW took %dms", finishTime - startTime));

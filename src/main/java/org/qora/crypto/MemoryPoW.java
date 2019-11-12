@@ -2,7 +2,7 @@ package org.qora.crypto;
 
 import com.google.common.primitives.Bytes;
 
-public class CiyamMemoryPoW {
+public class MemoryPoW {
 
 	private static final int WORK_BUFFER_LENGTH = 4 * 1024 * 1024;
 	private static final int WORK_BUFFER_LENGTH_MASK = WORK_BUFFER_LENGTH - 1;

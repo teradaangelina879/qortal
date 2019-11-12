@@ -1,4 +1,4 @@
-package org.qora;
+package org.qora.test.apps;
 
 import java.io.IOException;
 import java.io.InputStream;

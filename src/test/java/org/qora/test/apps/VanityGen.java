@@ -1,4 +1,4 @@
-package org.qora;
+package org.qora.test.apps;
 
 import java.security.SecureRandom;
 import java.security.Security;

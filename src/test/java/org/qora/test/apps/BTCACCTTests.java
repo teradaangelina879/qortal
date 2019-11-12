@@ -1,4 +1,4 @@
-package org.qora.test;
+package org.qora.test.apps;
 
 import java.io.File;
 import java.net.UnknownHostException;

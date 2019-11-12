@@ -1,4 +1,4 @@
-package org.qora;
+package org.qora.test.apps;
 import org.qora.crypto.BrokenMD160;
 
 import com.google.common.hash.HashCode;
