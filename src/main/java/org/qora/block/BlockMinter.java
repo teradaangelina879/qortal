@@ -1,15 +1,16 @@
 package org.qora.block;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qora.account.Account;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.block.Block.ValidationResult;
@@ -17,6 +18,7 @@ import org.qora.controller.Controller;
 import org.qora.data.account.MintingAccountData;
 import org.qora.data.account.RewardShareData;
 import org.qora.data.block.BlockData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.Network;
 import org.qora.network.Peer;
@@ -186,13 +188,27 @@ public class BlockMinter extends Thread {
 					if (goodBlocks.isEmpty())
 						continue;
 
-					// Pick random block
-					// TODO/XXX - shouldn't this pick our BEST block instead?
-					int winningIndex = new Random().nextInt(goodBlocks.size());
-					Block newBlock = goodBlocks.get(winningIndex);
+					// Pick best block
+					final int parentHeight = previousBlock.getBlockData().getHeight();
+					final byte[] parentBlockSignature = previousBlock.getSignature();
 
-					// Delete invalid transactions. NOTE: discards repository changes on entry, saves changes on exit.
-					// deleteInvalidTransactions(repository);
+					Block newBlock = null;
+					BigInteger bestWeight = null;
+
+					for (int bi = 0; bi < goodBlocks.size(); ++bi) {
+						BlockData blockData = goodBlocks.get(bi).getBlockData();
+
+						BlockSummaryData blockSummaryData = new BlockSummaryData(blockData);
+						int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, blockData.getMinterPublicKey());
+						blockSummaryData.setMinterLevel(minterLevel);
+
+						BigInteger blockWeight = Block.calcBlockWeight(parentHeight, parentBlockSignature, blockSummaryData);
+
+						if (bestWeight == null || blockWeight.compareTo(bestWeight) < 0) {
+							newBlock = goodBlocks.get(bi);
+							bestWeight = blockWeight;
+						}
+					}
 
 					// Add unconfirmed transactions
 					addUnconfirmedTransactions(repository, newBlock);
@@ -253,29 +269,6 @@ public class BlockMinter extends Thread {
 		} catch (DataException e) {
 			LOGGER.warn("Repository issue while running block minter", e);
 		}
-	}
-
-	/**
-	 * Deletes invalid, unconfirmed transactions from repository.
-	 * <p>
-	 * NOTE: calls Transaction.getInvalidTransactions which discards uncommitted
-	 * repository changes.
-	 * <p>
-	 * Also commits the deletion of invalid transactions to the repository.
-	 *  
-	 * @param repository
-	 * @throws DataException
-	 */
-	private static void deleteInvalidTransactions(Repository repository) throws DataException {
-		List<TransactionData> invalidTransactions = Transaction.getInvalidTransactions(repository);
-
-		// Actually delete invalid transactions from database
-		for (TransactionData invalidTransactionData : invalidTransactions) {
-			LOGGER.trace(String.format("Deleting invalid, unconfirmed transaction %s", Base58.encode(invalidTransactionData.getSignature())));
-			repository.getTransactionRepository().delete(invalidTransactionData);
-		}
-
-		repository.saveChanges();
 	}
 
 	/**
@@ -344,9 +337,6 @@ public class BlockMinter extends Thread {
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 		blockchainLock.lock();
 		try {
-			// Delete invalid transactions
-			// deleteInvalidTransactions(repository);
-
 			// Add unconfirmed transactions
 			addUnconfirmedTransactions(repository, newBlock);
 
