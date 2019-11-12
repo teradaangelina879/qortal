@@ -1725,7 +1725,7 @@ public class Block {
 		BigDecimal foundersCount = BigDecimal.valueOf(founderAccounts.size());
 		BigDecimal perFounderAmount = foundersAmount.divide(foundersCount, RoundingMode.DOWN);
 
-		LOGGER.debug(() -> String.format("Shared %s of %s, remaining %s to %d founder%s, %s each",
+		LOGGER.trace(() -> String.format("Shared %s of %s, remaining %s to %d founder%s, %s each",
 				finalSharedAmount.toPlainString(), totalAmount.toPlainString(),
 				foundersAmount.toPlainString(), founderAccounts.size(), (founderAccounts.size() != 1 ? "s" : ""),
 				perFounderAmount.toPlainString()));
