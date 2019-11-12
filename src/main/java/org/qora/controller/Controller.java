@@ -452,14 +452,17 @@ public class Controller extends Thread {
 		// Disregard peers that don't have a recent block
 		peers.removeIf(hasNoRecentBlock);
 
+		// Check we have enough peers to potentially synchronize
+		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
+			return;
+
 		// Disregard peers that have no block signature or the same block signature as us
 		peers.removeIf(hasNoOrSameBlock);
 
 		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
 		peers.removeIf(hasInferiorChainTip);
 
-		// Check we have enough peers to potentially synchronize
-		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
+		if (peers.isEmpty())
 			return;
 
 		// Pick random peer to sync with
