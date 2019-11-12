@@ -6,6 +6,9 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
 import org.qora.settings.Settings;
 
 import com.google.common.net.HostAndPort;
@@ -15,6 +18,8 @@ import com.google.common.net.InetAddresses;
  * Convenience class for encapsulating/parsing/rendering/converting peer addresses
  * including late-stage resolving before actual use by a socket.
  */
+// All properties to be converted to JSON via JAXB
+@XmlAccessorType(XmlAccessType.FIELD)
 public class PeerAddress {
 
 	// Properties
