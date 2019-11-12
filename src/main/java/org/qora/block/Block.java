@@ -1190,6 +1190,8 @@ public class Block {
 		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
 		this.blockData.setHeight(blockchainHeight + 1);
 
+		LOGGER.trace(() -> String.format("Processing block %d", this.blockData.getHeight()));
+
 		if (this.blockData.getHeight() > 1) {
 			// Increase account levels
 			increaseAccountLevels();
@@ -1287,9 +1289,9 @@ public class Block {
 	protected void processTransactions() throws DataException {
 		// Process transactions (we'll link them to this block after saving the block itself)
 		// AT-generated transactions are already prepended to our transactions at this point.
-		List<Transaction> transactions = this.getTransactions();
+		List<Transaction> blocksTransactions = this.getTransactions();
 
-		for (Transaction transaction : transactions) {
+		for (Transaction transaction : blocksTransactions) {
 			TransactionData transactionData = transaction.getTransactionData();
 
 			// AT_TRANSACTIONs are created locally and need saving into repository before processing
@@ -1413,6 +1415,8 @@ public class Block {
 	 * @throws DataException
 	 */
 	public void orphan() throws DataException {
+		LOGGER.trace(() -> String.format("Orphaning block %d", this.blockData.getHeight()));
+
 		if (this.blockData.getHeight() > 1)
 			// Deduct any transaction fees from minter/reward-share account(s)
 			deductTransactionFees();
@@ -1446,10 +1450,10 @@ public class Block {
 		TransactionRepository transactionRepository = this.repository.getTransactionRepository();
 
 		// AT-generated transactions are already added to our transactions so no special handling is needed here.
-		List<Transaction> transactions = this.getTransactions();
+		List<Transaction> blocksTransactions = this.getTransactions();
 
-		for (int sequence = transactions.size() - 1; sequence >= 0; --sequence) {
-			Transaction transaction = transactions.get(sequence);
+		for (int sequence = blocksTransactions.size() - 1; sequence >= 0; --sequence) {
+			Transaction transaction = blocksTransactions.get(sequence);
 			TransactionData transactionData = transaction.getTransactionData();
 
 			// Orphan transaction
@@ -1485,9 +1489,9 @@ public class Block {
 		TransactionRepository transactionRepository = this.repository.getTransactionRepository();
 
 		// Find all transactions where decision happened at this block height
-		List<TransactionData> transactions = transactionRepository.getApprovalTransactionDecidedAtHeight(this.blockData.getHeight());
+		List<TransactionData> approvedTransactions = transactionRepository.getApprovalTransactionDecidedAtHeight(this.blockData.getHeight());
 
-		for (TransactionData transactionData : transactions) {
+		for (TransactionData transactionData : approvedTransactions) {
 			// Orphan/un-process transaction (if approved)
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			if (transactionData.getApprovalStatus() == ApprovalStatus.APPROVED)
@@ -1717,20 +1721,18 @@ public class Block {
 		BigDecimal foundersAmount = totalAmount.subtract(sharedAmount);
 		BigDecimal finalSharedAmount = sharedAmount;
 
-		List<ExpandedAccount> founderAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isMinterFounder).collect(Collectors.toList());
-		LOGGER.debug(() -> String.format("Shared %s of %s, remaining %s to %d founder%s",
-				finalSharedAmount.toPlainString(), totalAmount.toPlainString(),
-				foundersAmount.toPlainString(), founderAccounts.size(), (founderAccounts.size() != 1 ? "s" : "")));
-		if (founderAccounts.isEmpty())
-			return;
-
+		List<AccountData> founderAccounts = this.repository.getAccountRepository().getFlaggedAccounts(Account.FOUNDER_FLAG);
 		BigDecimal foundersCount = BigDecimal.valueOf(founderAccounts.size());
-		BigDecimal accountAmount = foundersAmount.divide(foundersCount, RoundingMode.DOWN);
+		BigDecimal perFounderAmount = foundersAmount.divide(foundersCount, RoundingMode.DOWN);
+
+		LOGGER.debug(() -> String.format("Shared %s of %s, remaining %s to %d founder%s, %s each",
+				finalSharedAmount.toPlainString(), totalAmount.toPlainString(),
+				foundersAmount.toPlainString(), founderAccounts.size(), (founderAccounts.size() != 1 ? "s" : ""),
+				perFounderAmount.toPlainString()));
 
 		for (int a = 0; a < founderAccounts.size(); ++a) {
-			ExpandedAccount expandedAccount = founderAccounts.get(a);
-			expandedAccount.distribute(accountAmount);
-			sharedAmount = sharedAmount.add(accountAmount);
+			Account founderAccount = new Account(this.repository, founderAccounts.get(a).getAddress());
+			founderAccount.setConfirmedBalance(Asset.QORT, founderAccount.getConfirmedBalance(Asset.QORT).add(perFounderAmount));
 		}
 	}
 

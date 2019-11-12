@@ -15,6 +15,9 @@ public interface AccountRepository {
 	/** Returns all general information about account, e.g. public key, last reference, default group ID. */
 	public AccountData getAccount(String address) throws DataException;
 
+	/** Returns accounts with <b>any</b> bit set in given mask. */
+	public List<AccountData> getFlaggedAccounts(int mask) throws DataException;
+
 	/** Returns account's last reference or null if not set or account not found. */
 	public byte[] getLastReference(String address) throws DataException;
 

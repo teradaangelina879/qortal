@@ -48,6 +48,35 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public List<AccountData> getFlaggedAccounts(int mask) throws DataException {
+		String sql = "SELECT reference, public_key, default_group_id, flags, initial_level, level, blocks_minted, account FROM Accounts WHERE BITAND(flags, ?) != 0";
+
+		List<AccountData> accounts = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, mask)) {
+			if (resultSet == null)
+				return accounts;
+
+			do {
+				byte[] reference = resultSet.getBytes(1);
+				byte[] publicKey = resultSet.getBytes(2);
+				int defaultGroupId = resultSet.getInt(3);
+				int flags = resultSet.getInt(4);
+				int initialLevel = resultSet.getInt(5);
+				int level = resultSet.getInt(6);
+				int blocksMinted = resultSet.getInt(7);
+				String address = resultSet.getString(8);
+
+				accounts.add(new AccountData(address, reference, publicKey, defaultGroupId, flags, initialLevel, level, blocksMinted));
+			} while (resultSet.next());
+
+			return accounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch flagged accounts from repository", e);
+		}
+	}
+
+	@Override
 	public byte[] getLastReference(String address) throws DataException {
 		String sql = "SELECT reference FROM Accounts WHERE account = ?";
 
