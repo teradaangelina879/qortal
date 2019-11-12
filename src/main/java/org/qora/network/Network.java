@@ -138,7 +138,7 @@ public class Network {
 			LOGGER.error(String.format("Can't bind listen socket to address %s", Settings.getInstance().getBindAddress()));
 			throw new RuntimeException("Can't bind listen socket to address");
 		} catch (IOException e) {
-			LOGGER.error("Can't create listen socket");
+			LOGGER.error(String.format("Can't create listen socket: %s", e.getMessage()));
 			throw new RuntimeException("Can't create listen socket");
 		}
 
