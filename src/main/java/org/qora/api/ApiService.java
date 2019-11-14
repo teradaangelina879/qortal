@@ -99,16 +99,18 @@ public class ApiService {
 			apiServlet.setInitOrder(1);
 			context.addServlet(apiServlet, "/*");
 
-			// Swagger-UI static content
-			ClassLoader loader = this.getClass().getClassLoader();
-			ServletHolder swaggerUIServlet = new ServletHolder("static-swagger-ui", DefaultServlet.class);
-			swaggerUIServlet.setInitParameter("resourceBase", loader.getResource("resources/swagger-ui/").toString());
-			swaggerUIServlet.setInitParameter("dirAllowed", "true");
-			swaggerUIServlet.setInitParameter("pathInfoOnly", "true");
-			context.addServlet(swaggerUIServlet, "/api-documentation/*");
+			if (Settings.getInstance().isApiDocumentationEnabled()) {
+				// Swagger-UI static content
+				ClassLoader loader = this.getClass().getClassLoader();
+				ServletHolder swaggerUIServlet = new ServletHolder("static-swagger-ui", DefaultServlet.class);
+				swaggerUIServlet.setInitParameter("resourceBase", loader.getResource("resources/swagger-ui/").toString());
+				swaggerUIServlet.setInitParameter("dirAllowed", "true");
+				swaggerUIServlet.setInitParameter("pathInfoOnly", "true");
+				context.addServlet(swaggerUIServlet, "/api-documentation/*");
 
-			rewriteHandler.addRule(new RedirectPatternRule("", "/api-documentation/")); // redirect to Swagger UI start page
-			rewriteHandler.addRule(new RedirectPatternRule("/api-documentation", "/api-documentation/")); // redirect to Swagger UI start page
+				rewriteHandler.addRule(new RedirectPatternRule("", "/api-documentation/")); // redirect to Swagger UI start page
+				rewriteHandler.addRule(new RedirectPatternRule("/api-documentation", "/api-documentation/")); // redirect to Swagger UI start page
+			}
 
 			// Start server
 			this.server.start();

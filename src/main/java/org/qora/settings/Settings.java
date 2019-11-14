@@ -61,6 +61,7 @@ public class Settings {
 	};
 	private Boolean apiRestricted;
 	private boolean apiLoggingEnabled = false;
+	private boolean apiDocumentationEnabled = false;
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -284,6 +285,10 @@ public class Settings {
 
 	public boolean isApiLoggingEnabled() {
 		return this.apiLoggingEnabled;
+	}
+
+	public boolean isApiDocumentationEnabled() {
+		return this.apiDocumentationEnabled;
 	}
 
 	public boolean getWipeUnconfirmedOnStart() {
