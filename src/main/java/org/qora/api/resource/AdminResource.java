@@ -416,7 +416,7 @@ public class AdminResource {
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
-					type = "string", example = "node2.qora.org"
+					type = "string", example = "node2.qortal.org"
 				)
 			)
 		),

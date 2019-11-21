@@ -35,7 +35,7 @@ import com.google.common.hash.HashCode;
 
 public class AutoUpdate extends Thread {
 
-	public static final String JAR_FILENAME = "qora-core.jar";
+	public static final String JAR_FILENAME = "qortal.jar";
 	public static final String NEW_JAR_FILENAME = "new-" + JAR_FILENAME;
 
 	private static final Logger LOGGER = LogManager.getLogger(AutoUpdate.class);

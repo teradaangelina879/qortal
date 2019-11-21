@@ -58,7 +58,7 @@ public class SysTray {
 		this.popupMenu = createJPopupMenu();
 
 		// Build TrayIcon without AWT PopupMenu (which doesn't support Unicode)...
-		this.trayIcon = new TrayIcon(Gui.loadImage("icons/icon32.png"), "qora-core", null);
+		this.trayIcon = new TrayIcon(Gui.loadImage("icons/icon32.png"), "qortal", null);
 		// ...and attach mouse listener instead so we can use JPopupMenu (which does support Unicode)
 		this.trayIcon.addMouseListener(new MouseAdapter() {
 			@Override
