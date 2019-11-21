@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -47,8 +48,28 @@ import org.qortal.settings.Settings;
 
 public class BTC {
 
-	private static class RollbackBlockChain extends BlockChain {
+	private static final MessageDigest RIPE_MD160_DIGESTER;
+	private static final MessageDigest SHA256_DIGESTER;
+	static {
+		try {
+			RIPE_MD160_DIGESTER = MessageDigest.getInstance("RIPEMD160");
+			SHA256_DIGESTER = MessageDigest.getInstance("SHA-256");
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException(e);
+		}
+	}
 
+	private static BTC instance;
+
+	private static File directory;
+	private static String chainFileName;
+	private static String checkpointsFileName;
+
+	private static NetworkParameters params;
+	private static PeerGroup peerGroup;
+	private static BlockStore blockStore;
+
+	private static class RollbackBlockChain extends BlockChain {
 		public RollbackBlockChain(NetworkParameters params, BlockStore blockStore) throws BlockStoreException {
 			super(params, blockStore);
 		}
@@ -57,11 +78,10 @@ public class BTC {
 		public void setChainHead(StoredBlock chainHead) throws BlockStoreException {
 			super.setChainHead(chainHead);
 		}
-
 	}
+	private static RollbackBlockChain chain;
 
 	private static class UpdateableCheckpointManager extends CheckpointManager implements NewBestBlockListener {
-
 		private static final int checkpointInterval = 500;
 
 		private static final String minimalTestNet3TextFile = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAAApmwX6UCEnJcYIKTa7HO3pFkqqNhAzJVBMdEuGAAAAAPSAvVCBUypCbBW/OqU0oIF7ISF84h2spOqHrFCWN9Zw6r6/T///AB0E5oOO\n";
@@ -130,23 +150,24 @@ public class BTC {
 				}
 			}
 		}
-
 	}
-
-	private static BTC instance;
-	private static final Object instanceLock = new Object();
-
-	private static File directory;
-	private static String chainFileName;
-	private static String checkpointsFileName;
-
-	private static NetworkParameters params;
-	private static PeerGroup peerGroup;
-	private static BlockStore blockStore;
-	private static RollbackBlockChain chain;
 	private static UpdateableCheckpointManager manager;
 
 	private BTC() {
+	}
+
+	public static synchronized BTC getInstance() {
+		if (instance == null)
+			instance = new BTC();
+
+		return instance;
+	}
+
+	public static byte[] hash160(byte[] message) {
+		return RIPE_MD160_DIGESTER.digest(SHA256_DIGESTER.digest(message));
+	}
+
+	public void start() {
 		// Start wallet
 		if (Settings.getInstance().useBitcoinTestNet()) {
 			params = TestNet3Params.get();
@@ -196,20 +217,11 @@ public class BTC {
 		peerGroup.start();
 	}
 
-	public static synchronized BTC getInstance() {
+	public synchronized void shutdown() {
 		if (instance == null)
-			instance = new BTC();
+			return;
 
-		return instance;
-	}
-
-	public void shutdown() {
-		synchronized (instanceLock) {
-			if (instance == null)
-				return;
-
-			instance = null;
-		}
+		instance = null;
 
 		peerGroup.stop();
 
