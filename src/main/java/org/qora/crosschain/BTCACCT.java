@@ -3,6 +3,18 @@ package org.qora.crosschain;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+import org.bitcoinj.core.Address;
+import org.bitcoinj.core.Coin;
+import org.bitcoinj.core.ECKey;
+import org.bitcoinj.core.InsufficientMoneyException;
+import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.Sha256Hash;
+import org.bitcoinj.core.Transaction;
+import org.bitcoinj.core.TransactionOutPoint;
+import org.bitcoinj.script.Script;
+import org.bitcoinj.script.ScriptBuilder;
+import org.bitcoinj.wallet.Wallet;
+import org.bitcoinj.script.Script.ScriptType;
 import org.ciyam.at.FunctionCode;
 import org.ciyam.at.MachineState;
 import org.ciyam.at.OpCode;
@@ -40,7 +52,7 @@ public class BTCACCT {
 	 * @param lockTime
 	 * @return
 	 */
-	public static byte[] buildRedeemScript(byte[] secretHash, byte[] senderPubKey, byte[] recipientPubKey, long lockTime) {
+	public static byte[] buildRedeemScript(byte[] secretHash, byte[] senderPubKey, byte[] recipientPubKey, int lockTime) {
 		byte[] senderPubKeyHash160 = BTC.hash160(senderPubKey);
 		byte[] recipientPubKeyHash160 = BTC.hash160(recipientPubKey);
 

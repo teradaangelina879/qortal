@@ -1,39 +1,37 @@
 package org.qora.test.btcacct;
 
-import java.io.File;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 
 import org.bitcoinj.core.Address;
-import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.InsufficientMoneyException;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.TransactionBroadcast;
-import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.script.Script.ScriptType;
-import org.bitcoinj.wallet.SendRequest;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
+import org.qora.asset.Asset;
 import org.qora.controller.Controller;
 import org.qora.crosschain.BTC;
 import org.qora.crosschain.BTCACCT;
 import org.qora.crypto.Crypto;
+import org.qora.data.transaction.BaseTransactionData;
+import org.qora.data.transaction.DeployAtTransactionData;
+import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryFactory;
 import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
+import org.qora.transaction.DeployAtTransaction;
+import org.qora.transaction.Transaction;
 import org.qora.utils.Base58;
 
 import com.google.common.hash.HashCode;
@@ -56,22 +54,23 @@ import com.google.common.hash.HashCode;
  *
  */
 
-public class Initiate1 {
+public class Respond2 {
 
 	private static final long REFUND_TIMEOUT = 600L; // seconds
 
 	private static void usage() {
-		System.err.println(String.format("usage: Initiate1 <your-QORT-PRIVkey> <your-BTC-pubkey> <QORT-amount> <BTC-amount> <their-QORT-pubkey> <their-BTC-pubkey>"));
-		System.err.println(String.format("example: Initiate1 pYQ6DpQBJ2n72TCLJLScEvwhf3boxWy2kQEPynakwpj \\\n"
+		System.err.println(String.format("usage: Respond2 <your-QORT-PRIVkey> <your-BTC-pubkey> <QORT-amount> <BTC-amount> <their-QORT-pubkey> <their-BTC-pubkey> <hash-of-secret> <locktime> <P2SH-address>"));
+		System.err.println(String.format("example: Respond2 pYQ6DpQBJ2n72TCLJLScEvwhf3boxWy2kQEPynakwpj \\\n"
 				+ "\t03aa20871c2195361f2826c7a649eab6b42639630c4d8c33c55311d5c1e476b5d6 \\\n"
 				+ "\t123 0.00008642 \\\n"
 				+ "\tJBNBQQDzZsm5do1BrwWAp53Ps4KYJVt749EGpCf7ofte \\\n"
-				+ "\t032783606be32a3e639a33afe2b15f058708ab124f3b290d595ee954390a0c8559"));
+				+ "\t032783606be32a3e639a33afe2b15f058708ab124f3b290d595ee954390a0c8559 \\\n"
+				+ "\te43f5ab106b70df2e85656de30e1862891752f81e82f5dfd03abb8465a7346f9 1574441679 2N4R2pSEzLcJgtgAbFuLvviwwEkBrmq6sx4"));
 		System.exit(1);
 	}
 
 	public static void main(String[] args) {
-		if (args.length != 6)
+		if (args.length != 9)
 			usage();
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
@@ -86,6 +85,10 @@ public class Initiate1 {
 
 		String theirQortPubKey58 = args[argIndex++];
 		String theirBitcoinPubKeyHex = args[argIndex++];
+
+		String secretHashHex = args[argIndex++];
+		String rawLockTime = args[argIndex++];
+		String rawP2shAddress = args[argIndex++];
 
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.getRepositoryUrl());
@@ -116,22 +119,19 @@ public class Initiate1 {
 			Address theirBitcoinAddress = Address.fromKey(params, theirBitcoinKey, ScriptType.P2PKH);
 			System.out.println(String.format("Their Bitcoin address: %s", theirBitcoinAddress.toString()));
 
+			System.out.println("Hash of secret: " + secretHashHex);
+
 			// New/derived info
 
-			byte[] secret = new byte[32];
-			new SecureRandom().nextBytes(secret);
-			System.out.println("\nSecret info (DO NOT share with other party):");
-			System.out.println("Secret: " + HashCode.fromBytes(secret).toString());
+			System.out.println("\nCHECKING info from other party:");
 
-			System.out.println("\nGive this info to other party:");
-
-			byte[] secretHash = Crypto.digest(secret);
-			System.out.println("Hash of secret: " + HashCode.fromBytes(secretHash).toString());
-
-			int lockTime = (int) ((System.currentTimeMillis() / 1000L) + REFUND_TIMEOUT);
+			int lockTime = Integer.valueOf(rawLockTime);
 			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneId.systemDefault()).toString(), lockTime));
 
-			byte[] redeemScriptBytes = BTCACCT.buildRedeemScript(secretHash, yourBitcoinPubKey, theirBitcoinPubKey, lockTime);
+			byte[] secretHash = HashCode.fromString(secretHashHex).asBytes();
+			System.out.println("Hash of secret: " + HashCode.fromBytes(secretHash).toString());
+
+			byte[] redeemScriptBytes = BTCACCT.buildRedeemScript(secretHash, theirBitcoinPubKey, yourBitcoinPubKey, lockTime);
 			System.out.println("Redeem script: " + HashCode.fromBytes(redeemScriptBytes).toString());
 
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
@@ -139,12 +139,40 @@ public class Initiate1 {
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 			System.out.println("P2SH address: " + p2shAddress.toString());
 
-			Coin bitcoinAmount = Coin.parseCoin(rawBitcoinAmount);
+			if (!p2shAddress.toString().equals(rawP2shAddress)) {
+				System.err.println(String.format("Derived P2SH address %s does not match given address %s", p2shAddress.toString(), rawP2shAddress));
+				System.exit(2);
+			}
 
-			// Fund P2SH
-			System.out.println(String.format("\nYou need to fund %s with %s BTC", p2shAddress.toString(), bitcoinAmount.toPlainString()));
+			// TODO: Check for funded P2SH
 
-			System.out.println("Once this is done, responder should run Respond2 to check P2SH funding and create AT");
+
+			System.out.println("\nYour response:");
+
+			// If good, deploy AT
+			byte[] creationBytes = BTCACCT.buildCiyamAT(secretHash, theirQortPubKey, REFUND_TIMEOUT / 60);
+			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
+
+			BigDecimal qortAmount = new BigDecimal(rawQortAmount).setScale(8);
+
+			long txTimestamp = System.currentTimeMillis();
+			byte[] lastReference = yourQortalAccount.getLastReference();
+
+			if (lastReference == null) {
+				System.err.println(String.format("Qortal account %s has no last reference", yourQortalAccount.getAddress()));
+				System.exit(2);
+			}
+
+			BigDecimal fee = BigDecimal.ZERO;
+			BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, yourQortPubKey, fee, null);
+			TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, "QORT-BTC", "QORT-BTC ACCT", "", "", creationBytes, qortAmount, Asset.QORT);
+
+			Transaction deployAtTransaction = new DeployAtTransaction(repository, deployAtTransactionData);
+
+			fee = deployAtTransaction.calcRecommendedFee();
+			deployAtTransactionData.setFee(fee);
+
+			deployAtTransaction.sign(yourQortalAccount);
 		} catch (NumberFormatException e) {
 			usage();
 		} catch (DataException e) {

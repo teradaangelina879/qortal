@@ -6,7 +6,7 @@
 	<version>1.0.6</version>
 	<packaging>jar</packaging>
 	<properties>
-		<bitcoin.version>0.15.4</bitcoin.version>
+		<bitcoinj.version>0.15.5</bitcoinj.version>
 		<bouncycastle.version>1.64</bouncycastle.version>
 		<build.timestamp>${maven.build.timestamp}</build.timestamp>
 		<commons-net.version>3.6</commons-net.version>
@@ -406,13 +406,13 @@
 		<dependency>
 			<groupId>org.ciyam</groupId>
 			<artifactId>at</artifactId>
-			<version>1.0</version>
+			<version>1.2</version>
 		</dependency>
 		<!-- Bitcoin support -->
 		<dependency>
 			<groupId>org.bitcoinj</groupId>
 			<artifactId>bitcoinj-core</artifactId>
-			<version>${bitcoin.version}</version>
+			<version>${bitcoinj.version}</version>
 		</dependency>
 		<!-- Utilities -->
 		<dependency>
