@@ -28,6 +28,7 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.controller.Controller;
+import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.data.block.BlockData;
 import org.qora.network.Network;
 import org.qora.repository.BlockRepository;
@@ -570,12 +571,21 @@ public class BlockChain {
 			if (repository == null)
 				return;
 
-			int numBlocksTrimmed = repository.getBlockRepository().trimOldOnlineAccountsSignatures(now - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime());
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+			if (!blockchainLock.tryLock())
+				// Too busy to trim right now, try again later
+				return;
 
-			if (numBlocksTrimmed > 0)
-				LOGGER.debug(String.format("Trimmed old online accounts signatures from %d block%s", numBlocksTrimmed, (numBlocksTrimmed != 1 ? "s" : "")));
+			try {
+				int numBlocksTrimmed = repository.getBlockRepository().trimOldOnlineAccountsSignatures(now - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime());
 
-			repository.saveChanges();
+				if (numBlocksTrimmed > 0)
+					LOGGER.debug(String.format("Trimmed old online accounts signatures from %d block%s", numBlocksTrimmed, (numBlocksTrimmed != 1 ? "s" : "")));
+
+				repository.saveChanges();
+			} finally {
+				blockchainLock.unlock();
+			}
 		} catch (DataException e) {
 			LOGGER.warn(String.format("Repository issue trying to trim old online accounts signatures: %s", e.getMessage()));
 		}
