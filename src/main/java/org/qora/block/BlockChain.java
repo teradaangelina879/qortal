@@ -28,7 +28,6 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.controller.Controller;
-import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.data.block.BlockData;
 import org.qora.network.Network;
 import org.qora.repository.BlockRepository;
@@ -487,6 +486,9 @@ public class BlockChain {
 			BlockData parentBlockData = parentBlock.getBlockData();
 
 			while (true) {
+				// No need to maintain transaction state while ploughing through the entire chain
+				repository.discardChanges();
+
 				BlockData childBlockData = parentBlock.getChild();
 				if (childBlockData == null)
 					break;

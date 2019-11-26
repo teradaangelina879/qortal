@@ -394,7 +394,7 @@ public class HSQLDBRepository implements Repository {
 
 		long queryTime = System.currentTimeMillis() - beforeQuery;
 		if (this.slowQueryThreshold != null && queryTime > this.slowQueryThreshold) {
-			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql));
+			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
 
 			logStatements();
 		}
