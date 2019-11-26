@@ -862,6 +862,20 @@ public class HSQLDBDatabaseUpdates {
 							+ "ON DUPLICATE KEY UPDATE balance = new_row.balance");
 					break;
 
+				case 61:
+					// Rework triggers on AccountBalances as their block-height sub-queries are too slow
+					stmt.execute("DROP TRIGGER Historic_account_balance_insert_trigger");
+					stmt.execute("DROP TRIGGER Historic_account_balance_update_trigger");
+					stmt.execute("CREATE TRIGGER Historic_account_balance_insert_trigger AFTER INSERT ON AccountBalances REFERENCING NEW ROW AS new_row FOR EACH ROW "
+							+ "INSERT INTO HistoricAccountBalances VALUES "
+							+ "(new_row.account, new_row.asset_id, (SELECT IFNULL(height, 0) + 1 FROM (SELECT height FROM Blocks ORDER BY height DESC LIMIT 1) AS BlockHeights), new_row.balance) "
+							+ "ON DUPLICATE KEY UPDATE balance = new_row.balance");
+					stmt.execute("CREATE TRIGGER Historic_account_balance_update_trigger AFTER UPDATE ON AccountBalances REFERENCING NEW ROW AS new_row FOR EACH ROW "
+							+ "INSERT INTO HistoricAccountBalances VALUES "
+							+ "(new_row.account, new_row.asset_id, (SELECT IFNULL(height, 0) + 1 FROM (SELECT height FROM Blocks ORDER BY height DESC LIMIT 1) AS BlockHeights), new_row.balance) "
+							+ "ON DUPLICATE KEY UPDATE balance = new_row.balance");
+					break;
+
 				default:
 					// nothing to do
 					return false;
