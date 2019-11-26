@@ -567,27 +567,27 @@ public class BlockChain {
 		if (now == null)
 			return;
 
-		try (final Repository repository = RepositoryManager.tryRepository()) {
-			if (repository == null)
-				return;
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		if (!blockchainLock.tryLock())
+			// Too busy to trim right now, try again later
+			return;
 
-			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-			if (!blockchainLock.tryLock())
-				// Too busy to trim right now, try again later
-				return;
+		try {
+			try (final Repository repository = RepositoryManager.tryRepository()) {
+				if (repository == null)
+					return;
 
-			try {
 				int numBlocksTrimmed = repository.getBlockRepository().trimOldOnlineAccountsSignatures(now - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime());
 
 				if (numBlocksTrimmed > 0)
 					LOGGER.debug(String.format("Trimmed old online accounts signatures from %d block%s", numBlocksTrimmed, (numBlocksTrimmed != 1 ? "s" : "")));
 
 				repository.saveChanges();
-			} finally {
-				blockchainLock.unlock();
+			} catch (DataException e) {
+				LOGGER.warn(String.format("Repository issue trying to trim old online accounts signatures: %s", e.getMessage()));
 			}
-		} catch (DataException e) {
-			LOGGER.warn(String.format("Repository issue trying to trim old online accounts signatures: %s", e.getMessage()));
+		} finally {
+			blockchainLock.unlock();
 		}
 	}
 
