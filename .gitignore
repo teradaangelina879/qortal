@@ -3,7 +3,7 @@
 /target/
 /log.txt.*
 /arbitrary*
-/Qora-BTC*
+/Qortal-BTC*
 /.factorypath
 /.settings*
 /.classpath
@@ -12,3 +12,7 @@
 /.mvn.classpath
 /notes*
 /settings.json
+/testnet*
+/settings*.json
+/testchain.json
+/run-testnet.sh
