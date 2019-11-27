@@ -4,7 +4,7 @@ use POSIX;
 use Getopt::Std;
 
 sub usage() {
-	die("usage: $0 [-p port] dev-private-key\n");
+	die("usage: $0 [-p api-port] dev-private-key\n");
 }
 
 my %opt;
@@ -90,6 +90,18 @@ printf "\nRaw transaction (base58):\n%s\n", $raw_tx;
 my $sign_data = qq|' { "privateKey": "${privkey}", "transactionBytes": "${raw_tx}" } '|;
 my $signed_tx = `curl --silent -H "accept: text/plain" -H "Content-Type: application/json" --url http://localhost:${port}/transactions/sign --data ${sign_data}`;
 printf "\nSigned transaction:\n%s\n", $signed_tx;
+
+# Check we can actually fetch update
+my $origin = `git remote get-url origin`;
+die("Unable to get github url for 'origin'?\n") unless $origin && $origin =~ m/:(.*)\.git$/;
+my $repo = $1;
+my $update_url = "https://github.com/${repo}/raw/${commit_hash}/${project}.update";
+
+my $fetch_result = `curl --silent -o /dev/null --location --range 0-1 --head --write-out '%{http_code}' --url ${update_url}`;
+if ($fetch_result ne '200') {
+	die("\nUnable to fetch update from ${update_url}\n");
+}
+printf "\nUpdate fetchable from ${update_url}\n";
 
 # Flush STDOUT after every output
 $| = 1;
