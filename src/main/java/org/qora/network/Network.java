@@ -136,10 +136,10 @@ public class Network {
 			serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
 		} catch (UnknownHostException e) {
 			LOGGER.error(String.format("Can't bind listen socket to address %s", Settings.getInstance().getBindAddress()));
-			throw new RuntimeException("Can't bind listen socket to address");
+			throw new RuntimeException("Can't bind listen socket to address", e);
 		} catch (IOException e) {
 			LOGGER.error(String.format("Can't create listen socket: %s", e.getMessage()));
-			throw new RuntimeException("Can't create listen socket");
+			throw new RuntimeException("Can't create listen socket", e);
 		}
 
 		connectedPeers = new ArrayList<>();

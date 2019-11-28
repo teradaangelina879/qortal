@@ -1,11 +1,13 @@
 package org.qora;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.Security;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -42,7 +44,10 @@ public class ApplyUpdate {
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
 
 		// Load/check settings, which potentially sets up blockchain config, etc.
-		Settings.getInstance();
+		if (args.length > 0)
+			Settings.fileInstance(args[0]);
+		else
+			Settings.getInstance();
 
 		LOGGER.info("Applying update...");
 
@@ -54,7 +59,7 @@ public class ApplyUpdate {
 		replaceJar();
 
 		// Restart node
-		restartNode();
+		restartNode(args);
 
 		LOGGER.info("Exiting...");
 	}
@@ -122,7 +127,7 @@ public class ApplyUpdate {
 			LOGGER.error("Failed to replace JAR - giving up");
 	}
 
-	private static void restartNode() {
+	private static void restartNode(String[] args) {
 		String javaHome = System.getProperty("java.home");
 		LOGGER.info(String.format("Java home: %s", javaHome));
 
@@ -133,10 +138,23 @@ public class ApplyUpdate {
 		LOGGER.info(String.format("Windows EXE launcher: %s", exeLauncher));
 
 		List<String> javaCmd;
-		if (Files.exists(exeLauncher))
+		if (Files.exists(exeLauncher)) {
 			javaCmd = Arrays.asList(exeLauncher.toString());
-		else
-			javaCmd = Arrays.asList(javaBinary.toString(), "-jar", JAR_FILENAME);
+		} else {
+			javaCmd = new ArrayList<>();
+			// Java runtime binary itself
+			javaCmd.add(javaBinary.toString());
+
+			// JVM arguments
+			javaCmd.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
+
+			// Call mainClass in JAR
+			javaCmd.addAll(Arrays.asList("-jar", JAR_FILENAME));
+
+			if (args.length > 0)
+				// Add settings filename
+				javaCmd.add(args[0]);
+		}
 
 		try {
 			LOGGER.info(String.format("Restarting node with: %s", String.join(" ", javaCmd)));

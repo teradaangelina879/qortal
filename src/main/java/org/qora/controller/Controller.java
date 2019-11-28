@@ -121,6 +121,7 @@ public class Controller extends Thread {
 
 	private final String buildVersion;
 	private final long buildTimestamp; // seconds
+	private String settingsFilename;
 
 	private AtomicReference<BlockData> chainTip = new AtomicReference<>();
 
@@ -229,6 +230,10 @@ public class Controller extends Thread {
 		return this.blockchainLock;
 	}
 
+	/* package */ String getSettingsFilename() {
+		return this.settingsFilename;
+	}
+
 	// Entry point
 
 	public static void main(String[] args) {
@@ -259,8 +264,16 @@ public class Controller extends Thread {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
-			LOGGER.error("Unable to start repository", e);
-			System.exit(1);
+			// If exception has no cause then repository is in use by some other process.
+			if (e.getCause() == null) {
+				LOGGER.info("Repository in use by another process?");
+				Gui.getInstance().fatalError("Repository issue", "Repository in use by another process?");
+			} else {
+				LOGGER.error("Unable to start repository", e);
+				Gui.getInstance().fatalError("Repository issue", e);
+			}
+
+			return; // Not System.exit() so that GUI can display error
 		}
 
 		LOGGER.info("Validating blockchain");
@@ -276,7 +289,8 @@ public class Controller extends Thread {
 			}
 		} catch (DataException e) {
 			LOGGER.error("Couldn't validate blockchain", e);
-			System.exit(2);
+			Gui.getInstance().fatalError("Blockchain validation issue", e);
+			return; // Not System.exit() so that GUI can display error
 		}
 
 		LOGGER.info("Starting controller");
@@ -288,7 +302,8 @@ public class Controller extends Thread {
 			network.start();
 		} catch (Exception e) {
 			LOGGER.error("Unable to start networking", e);
-			System.exit(1);
+			Gui.getInstance().fatalError("Networking failure", e);
+			return; // Not System.exit() so that GUI can display error
 		}
 
 		Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -318,7 +333,8 @@ public class Controller extends Thread {
 			apiService.start();
 		} catch (Exception e) {
 			LOGGER.error("Unable to start API", e);
-			System.exit(1);
+			Gui.getInstance().fatalError("API failure", e);
+			return; // Not System.exit() so that GUI can display error
 		}
 
 		LOGGER.info(String.format("Starting node management UI on port %d", Settings.getInstance().getUiPort()));
@@ -327,7 +343,8 @@ public class Controller extends Thread {
 			uiService.start();
 		} catch (Exception e) {
 			LOGGER.error("Unable to start node management UI", e);
-			System.exit(1);
+			Gui.getInstance().fatalError("Node management UI failure", e);
+			return; // Not System.exit() so that GUI can display error
 		}
 
 		// If GUI is enabled, we're no longer starting up but actually running now

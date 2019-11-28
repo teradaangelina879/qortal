@@ -90,4 +90,12 @@ public class Gui {
 		System.exit(0);
 	}
 
+	public void fatalError(String title, Exception e) {
+		String message = e.getLocalizedMessage();
+		if (e.getCause() != null && e.getCause().getLocalizedMessage() != null)
+			message += ": " + e.getCause().getLocalizedMessage();
+
+		this.fatalError(title, message);
+	}
+
 }

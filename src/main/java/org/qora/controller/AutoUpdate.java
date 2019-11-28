@@ -4,12 +4,14 @@ import java.awt.TrayIcon.MessageType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -224,7 +226,21 @@ public class AutoUpdate extends Thread {
 		LOGGER.debug(String.format("Java binary: %s", javaBinary));
 
 		try {
-			List<String> javaCmd = Arrays.asList(javaBinary.toString(), "-cp", NEW_JAR_FILENAME, ApplyUpdate.class.getCanonicalName());
+			List<String> javaCmd = new ArrayList<>();
+			// Java runtime binary itself
+			javaCmd.add(javaBinary.toString());
+
+			// JVM arguments
+			javaCmd.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
+
+			// Call ApplyUpdate using new JAR
+			javaCmd.addAll(Arrays.asList("-cp", NEW_JAR_FILENAME, ApplyUpdate.class.getCanonicalName()));
+
+			// Are we running with different settings?
+			String settingsFilename = Controller.getInstance().getSettingsFilename();
+			if (settingsFilename != null)
+				javaCmd.add(settingsFilename);
+
 			LOGGER.info(String.format("Applying update with: %s", String.join(" ", javaCmd)));
 
 			SysTray.getInstance().showMessage("Auto Update", "Applying automatic update and restarting...", MessageType.INFO);
