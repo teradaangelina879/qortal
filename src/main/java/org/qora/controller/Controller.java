@@ -121,7 +121,7 @@ public class Controller extends Thread {
 
 	private final String buildVersion;
 	private final long buildTimestamp; // seconds
-	private String settingsFilename;
+	private final String[] savedArgs;
 
 	private AtomicReference<BlockData> chainTip = new AtomicReference<>();
 
@@ -163,7 +163,7 @@ public class Controller extends Thread {
 
 	// Constructors
 
-	private Controller() {
+	private Controller(String[] args) {
 		Properties properties = new Properties();
 		try (InputStream in = this.getClass().getResourceAsStream("/build.properties")) {
 			properties.load(in);
@@ -184,11 +184,18 @@ public class Controller extends Thread {
 
 		this.buildVersion = VERSION_PREFIX + buildVersionProperty;
 		LOGGER.info(String.format("Build version: %s", this.buildVersion));
+
+		this.savedArgs = args;
 	}
 
-	public static Controller getInstance() {
+	private static Controller newInstance(String[] args) {
+		instance = new Controller(args);
+		return instance;
+	}
+
+	public static synchronized Controller getInstance() {
 		if (instance == null)
-			instance = new Controller();
+			instance = new Controller(null);
 
 		return instance;
 	}
@@ -230,8 +237,8 @@ public class Controller extends Thread {
 		return this.blockchainLock;
 	}
 
-	/* package */ String getSettingsFilename() {
-		return this.settingsFilename;
+	/* package */ String[] getSavedArgs() {
+		return this.savedArgs;
 	}
 
 	// Entry point
@@ -294,7 +301,7 @@ public class Controller extends Thread {
 		}
 
 		LOGGER.info("Starting controller");
-		Controller.getInstance().start();
+		Controller.newInstance(args).start();
 
 		LOGGER.info(String.format("Starting networking on port %d", Settings.getInstance().getListenPort()));
 		try {

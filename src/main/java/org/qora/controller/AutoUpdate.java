@@ -236,10 +236,10 @@ public class AutoUpdate extends Thread {
 			// Call ApplyUpdate using new JAR
 			javaCmd.addAll(Arrays.asList("-cp", NEW_JAR_FILENAME, ApplyUpdate.class.getCanonicalName()));
 
-			// Are we running with different settings?
-			String settingsFilename = Controller.getInstance().getSettingsFilename();
-			if (settingsFilename != null)
-				javaCmd.add(settingsFilename);
+			// Add command-line args saved from start-up
+			String[] savedArgs = Controller.getInstance().getSavedArgs();
+			if (savedArgs != null)
+				javaCmd.addAll(Arrays.asList(savedArgs));
 
 			LOGGER.info(String.format("Applying update with: %s", String.join(" ", javaCmd)));
 

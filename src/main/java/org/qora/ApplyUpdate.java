@@ -151,9 +151,8 @@ public class ApplyUpdate {
 			// Call mainClass in JAR
 			javaCmd.addAll(Arrays.asList("-jar", JAR_FILENAME));
 
-			if (args.length > 0)
-				// Add settings filename
-				javaCmd.add(args[0]);
+			// Add saved command-line args
+			javaCmd.addAll(Arrays.asList(args));
 		}
 
 		try {
