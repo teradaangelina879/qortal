@@ -118,30 +118,6 @@ public class Network {
 	// Constructors
 
 	private Network() {
-		// Grab P2P port from settings
-		int listenPort = Settings.getInstance().getListenPort();
-
-		// Grab P2P bind address from settings
-		try {
-			InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
-			InetSocketAddress endpoint = new InetSocketAddress(bindAddr, listenPort);
-
-			channelSelector = Selector.open();
-
-			// Set up listen socket
-			serverChannel = ServerSocketChannel.open();
-			serverChannel.configureBlocking(false);
-			serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-			serverChannel.bind(endpoint, LISTEN_BACKLOG);
-			serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
-		} catch (UnknownHostException e) {
-			LOGGER.error(String.format("Can't bind listen socket to address %s", Settings.getInstance().getBindAddress()));
-			throw new RuntimeException("Can't bind listen socket to address", e);
-		} catch (IOException e) {
-			LOGGER.error(String.format("Can't create listen socket: %s", e.getMessage()));
-			throw new RuntimeException("Can't create listen socket", e);
-		}
-
 		connectedPeers = new ArrayList<>();
 		selfPeers = new ArrayList<>();
 
@@ -169,14 +145,38 @@ public class Network {
 		networkEPC = new NetworkProcessor(networkExecutor);
 	}
 
-	public void start() {
+	public void start() throws IOException {
+		// Grab P2P port from settings
+		int listenPort = Settings.getInstance().getListenPort();
+
+		// Grab P2P bind address from settings
+		try {
+			InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
+			InetSocketAddress endpoint = new InetSocketAddress(bindAddr, listenPort);
+
+			channelSelector = Selector.open();
+
+			// Set up listen socket
+			serverChannel = ServerSocketChannel.open();
+			serverChannel.configureBlocking(false);
+			serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+			serverChannel.bind(endpoint, LISTEN_BACKLOG);
+			serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
+		} catch (UnknownHostException e) {
+			LOGGER.error(String.format("Can't bind listen socket to address %s", Settings.getInstance().getBindAddress()));
+			throw new IOException("Can't bind listen socket to address", e);
+		} catch (IOException e) {
+			LOGGER.error(String.format("Can't create listen socket: %s", e.getMessage()));
+			throw new IOException("Can't create listen socket", e);
+		}
+
 		// Start up first networking thread
 		networkEPC.start();
 	}
 
 	// Getters / setters
 
-	public static Network getInstance() {
+	public static synchronized Network getInstance() {
 		if (instance == null)
 			instance = new Network();
 

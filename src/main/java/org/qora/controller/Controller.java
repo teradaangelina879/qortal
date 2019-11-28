@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -116,14 +115,14 @@ public class Controller extends Thread {
 	private static volatile boolean isStopping = false;
 	private static BlockMinter blockMinter = null;
 	private static volatile boolean requestSync = false;
-	private static volatile boolean requestSysTrayUpdate = false;
+	private static volatile boolean requestSysTrayUpdate = true;
 	private static Controller instance;
 
 	private final String buildVersion;
 	private final long buildTimestamp; // seconds
 	private final String[] savedArgs;
 
-	private AtomicReference<BlockData> chainTip = new AtomicReference<>();
+	private volatile BlockData chainTip = null;
 
 	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD; // ms
 	private long ntpCheckTimestamp = startTime; // ms
@@ -188,7 +187,7 @@ public class Controller extends Thread {
 		this.savedArgs = args;
 	}
 
-	private static Controller newInstance(String[] args) {
+	private static synchronized Controller newInstance(String[] args) {
 		instance = new Controller(args);
 		return instance;
 	}
@@ -216,7 +215,7 @@ public class Controller extends Thread {
 
 	/** Returns current blockchain height, or 0 if it's not available. */
 	public int getChainHeight() {
-		BlockData blockData = this.chainTip.get();
+		BlockData blockData = this.chainTip;
 		if (blockData == null)
 			return 0;
 
@@ -225,12 +224,12 @@ public class Controller extends Thread {
 
 	/** Returns highest block, or null if it's not available. */
 	public BlockData getChainTip() {
-		return this.chainTip.get();
+		return this.chainTip;
 	}
 
 	/** Cache new blockchain tip, and also wipe cache of online accounts. */
 	public void setChainTip(BlockData blockData) {
-		this.chainTip.set(blockData);
+		this.chainTip = blockData;
 	}
 
 	public ReentrantLock getBlockchainLock() {
@@ -262,6 +261,8 @@ public class Controller extends Thread {
 			Gui.getInstance().fatalError("Settings file", t.getMessage());
 			return; // Not System.exit() so that GUI can display error
 		}
+
+		Controller.newInstance(args);
 
 		LOGGER.info("Starting NTP");
 		NTP.start();
@@ -301,13 +302,13 @@ public class Controller extends Thread {
 		}
 
 		LOGGER.info("Starting controller");
-		Controller.newInstance(args).start();
+		Controller.getInstance().start();
 
 		LOGGER.info(String.format("Starting networking on port %d", Settings.getInstance().getListenPort()));
 		try {
 			Network network = Network.getInstance();
 			network.start();
-		} catch (Exception e) {
+		} catch (IOException e) {
 			LOGGER.error("Unable to start networking", e);
 			Gui.getInstance().fatalError("Networking failure", e);
 			return; // Not System.exit() so that GUI can display error
@@ -372,14 +373,36 @@ public class Controller extends Thread {
 
 		try {
 			while (!isStopping) {
+				// Maybe update SysTray
+				if (requestSysTrayUpdate) {
+					requestSysTrayUpdate = false;
+					updateSysTray();
+				}
+
 				Thread.sleep(1000);
+
+				final long now = System.currentTimeMillis();
+
+				// Check NTP status
+				if (now >= ntpCheckTimestamp) {
+					Long ntpTime = NTP.getTime();
+
+					if (ntpTime != null) {
+						LOGGER.info(String.format("Adjusting system time by NTP offset: %dms", ntpTime - now));
+						ntpCheckTimestamp = now + NTP_POST_SYNC_CHECK_PERIOD;
+						requestSysTrayUpdate = true;
+					} else {
+						LOGGER.info(String.format("No NTP offset yet"));
+						ntpCheckTimestamp = now + NTP_PRE_SYNC_CHECK_PERIOD;
+						// We can't do much without a valid NTP time
+						continue;
+					}
+				}
 
 				if (requestSync) {
 					requestSync = false;
 					potentiallySynchronize();
 				}
-
-				final long now = System.currentTimeMillis();
 
 				// Clean up arbitrary data request cache
 				final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
@@ -389,21 +412,6 @@ public class Controller extends Thread {
 				if (now >= repositoryBackupTimestamp) {
 					repositoryBackupTimestamp = now + REPOSITORY_BACKUP_PERIOD;
 					RepositoryManager.backup(true);
-				}
-
-				// Check NTP status
-				if (now >= ntpCheckTimestamp) {
-					Long ntpTime = NTP.getTime();
-
-					if (ntpTime != null) {
-						LOGGER.info(String.format("Adjusting system time by NTP offset: %dms", ntpTime - now));
-						ntpCheckTimestamp = now + NTP_POST_SYNC_CHECK_PERIOD;
-					} else {
-						LOGGER.info(String.format("No NTP offset yet"));
-						ntpCheckTimestamp = now + NTP_PRE_SYNC_CHECK_PERIOD;
-					}
-
-					requestSysTrayUpdate = true;
 				}
 
 				// Prune stuck/slow/old peers
@@ -417,12 +425,6 @@ public class Controller extends Thread {
 				if (now >= deleteExpiredTimestamp) {
 					deleteExpiredTimestamp = now + DELETE_EXPIRED_INTERVAL;
 					deleteExpiredTransactions();
-				}
-
-				// Maybe update SysTray
-				if (requestSysTrayUpdate) {
-					requestSysTrayUpdate = false;
-					updateSysTray();
 				}
 
 				// Perform tasks to do with managing online accounts list
