@@ -155,6 +155,18 @@ public class BlockChain {
 	/** Maximum time to retain online account signatures (ms) for block validity checks, to allow for clock variance. */
 	private long onlineAccountSignaturesMaxLifetime;
 
+	/** Settings relating to CIYAM AT feature. */
+	public static class CiyamAtSettings {
+		/** Fee per step/op-code executed. */
+		public BigDecimal feePerStep;
+		/** Maximum number of steps per execution round, before AT is forced to sleep until next block. */
+		public int maxStepsPerRound;
+		/** How many steps for calling a function. */
+		public int stepsPerFunctionCall;
+		/** Roughly how many minutes per block. */
+		public int minutesPerBlock;
+	}
+	private CiyamAtSettings ciyamAtSettings;
 
 	// Constructors, etc.
 
@@ -342,6 +354,10 @@ public class BlockChain {
 		return this.onlineAccountSignaturesMaxLifetime;
 	}
 
+	public CiyamAtSettings getCiyamAtSettings() {
+		return this.ciyamAtSettings;
+	}
+
 	// Convenience methods for specific blockchain feature triggers
 
 	public long getMessageReleaseHeight() {
@@ -437,6 +453,9 @@ public class BlockChain {
 		if (this.founderEffectiveMintingLevel <= 0)
 			Settings.throwValidationError("Invalid/missing \"founderEffectiveMintingLevel\" in blockchain config");
 
+		if (this.ciyamAtSettings == null)
+			Settings.throwValidationError("No \"ciyamAtSettings\" entry found in blockchain config");
+
 		if (this.featureTriggers == null)
 			Settings.throwValidationError("No \"featureTriggers\" entry found in blockchain config");
 
@@ -451,6 +470,8 @@ public class BlockChain {
 		this.maxBytesPerUnitFee = this.maxBytesPerUnitFee.setScale(8);
 		this.unitFee = this.unitFee.setScale(8);
 		this.minFeePerByte = this.unitFee.divide(this.maxBytesPerUnitFee, MathContext.DECIMAL32);
+
+		this.ciyamAtSettings.feePerStep.setScale(8);
 
 		// Pre-calculate cumulative blocks required for each level
 		int cumulativeBlocks = 0;

@@ -6,14 +6,15 @@ import java.nio.ByteOrder;
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.InsufficientMoneyException;
 import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Sha256Hash;
 import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.TransactionOutPoint;
-import org.bitcoinj.script.Script;
+import org.bitcoinj.core.Transaction.SigHash;
+import org.bitcoinj.core.TransactionInput;
+import org.bitcoinj.core.TransactionOutput;
+import org.bitcoinj.crypto.TransactionSignature;
 import org.bitcoinj.script.ScriptBuilder;
-import org.bitcoinj.wallet.Wallet;
+import org.bitcoinj.script.ScriptChunk;
+import org.bitcoinj.script.ScriptOpCodes;
 import org.bitcoinj.script.Script.ScriptType;
 import org.ciyam.at.FunctionCode;
 import org.ciyam.at.MachineState;
@@ -24,6 +25,8 @@ import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
 public class BTCACCT {
+
+	public static final Coin DEFAULT_BTC_FEE = Coin.valueOf(1000L); // 0.00001000 BTC
 
 	private static final byte[] redeemScript1 = HashCode.fromString("76a820").asBytes(); // OP_DUP OP_SHA256 push(0x20 bytes)
 	private static final byte[] redeemScript2 = HashCode.fromString("87637576a914").asBytes(); // OP_EQUAL OP_IF OP_DROP OP_DUP OP_HASH160 push(0x14 bytes)
@@ -58,6 +61,48 @@ public class BTCACCT {
 
 		return Bytes.concat(redeemScript1, secretHash, redeemScript2, recipientPubKeyHash160, redeemScript3, BitTwiddling.toLEByteArray((int) (lockTime & 0xffffffffL)),
 				redeemScript4, senderPubKeyHash160, redeemScript5);
+	}
+
+	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey senderKey, TransactionOutput fundingOutput, byte[] redeemScriptBytes, long lockTime) {
+		NetworkParameters params = BTC.getInstance().getNetworkParameters();
+
+		Transaction refundTransaction = new Transaction(params);
+		refundTransaction.setVersion(2);
+
+		refundAmount = refundAmount.subtract(DEFAULT_BTC_FEE);
+
+		// Output is back to P2SH funder
+		refundTransaction.addOutput(refundAmount, ScriptBuilder.createOutputScript(Address.fromKey(params, senderKey, ScriptType.P2PKH)));
+
+		// Input (without scriptSig prior to signing)
+		TransactionInput input = new TransactionInput(params, null, new byte[0], fundingOutput.getOutPointFor());
+		input.setSequenceNumber(0); // Use 0, not max-value, so lockTime can be used
+		refundTransaction.addInput(input);
+
+		// Set locktime after inputs added but before input signatures are generated
+		refundTransaction.setLockTime(lockTime);
+
+		// Generate transaction signature for input
+		final boolean anyoneCanPay = false;
+		TransactionSignature txSig = refundTransaction.calculateSignature(0, senderKey, redeemScriptBytes, SigHash.ALL, anyoneCanPay);
+
+		// Build scriptSig with...
+		ScriptBuilder scriptBuilder = new ScriptBuilder();
+
+		// transaction signature
+		byte[] txSigBytes = txSig.encodeToBitcoin();
+		scriptBuilder.addChunk(new ScriptChunk(txSigBytes.length, txSigBytes));
+
+		// sender's public key
+		byte[] senderPubKey = senderKey.getPubKey();
+		scriptBuilder.addChunk(new ScriptChunk(senderPubKey.length, senderPubKey));
+
+		/// redeem script
+		scriptBuilder.addChunk(new ScriptChunk(ScriptOpCodes.OP_PUSHDATA1, redeemScriptBytes));
+
+		refundTransaction.getInput(0).setScriptSig(scriptBuilder.build());
+
+		return refundTransaction;
 	}
 
 	public static byte[] buildCiyamAT(byte[] secretHash, byte[] destinationQortalPubKey, long refundMinutes) {

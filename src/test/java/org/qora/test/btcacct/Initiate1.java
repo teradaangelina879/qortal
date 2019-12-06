@@ -1,30 +1,23 @@
 package org.qora.test.btcacct;
 
-import java.io.File;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.InsufficientMoneyException;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.TransactionBroadcast;
-import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.script.Script.ScriptType;
-import org.bitcoinj.wallet.SendRequest;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
+import org.qora.asset.Asset;
 import org.qora.controller.Controller;
 import org.qora.crosschain.BTC;
 import org.qora.crosschain.BTCACCT;
@@ -99,13 +92,12 @@ public class Initiate1 {
 
 			byte[] yourQortPrivKey = Base58.decode(yourQortPrivKey58);
 			PrivateKeyAccount yourQortalAccount = new PrivateKeyAccount(repository, yourQortPrivKey);
-			byte[] yourQortPubKey = yourQortalAccount.getPublicKey();
 			System.out.println(String.format("Your Qortal address: %s", yourQortalAccount.getAddress()));
 
 			byte[] yourBitcoinPubKey = HashCode.fromString(yourBitcoinPubKeyHex).asBytes();
 			ECKey yourBitcoinKey = ECKey.fromPublicOnly(yourBitcoinPubKey);
 			Address yourBitcoinAddress = Address.fromKey(params, yourBitcoinKey, ScriptType.P2PKH);
-			System.out.println(String.format("Your Bitcoin address: %s", yourBitcoinAddress.toString()));
+			System.out.println(String.format("Your Bitcoin address: %s", yourBitcoinAddress));
 
 			byte[] theirQortPubKey = Base58.decode(theirQortPubKey58);
 			PublicKeyAccount theirQortalAccount = new PublicKeyAccount(repository, theirQortPubKey);
@@ -114,7 +106,15 @@ public class Initiate1 {
 			byte[] theirBitcoinPubKey = HashCode.fromString(theirBitcoinPubKeyHex).asBytes();
 			ECKey theirBitcoinKey = ECKey.fromPublicOnly(theirBitcoinPubKey);
 			Address theirBitcoinAddress = Address.fromKey(params, theirBitcoinKey, ScriptType.P2PKH);
-			System.out.println(String.format("Their Bitcoin address: %s", theirBitcoinAddress.toString()));
+			System.out.println(String.format("Their Bitcoin address: %s", theirBitcoinAddress));
+
+			// Some checks
+			BigDecimal qortAmount = new BigDecimal(rawQortAmount).setScale(8);
+			BigDecimal yourQortBalance = yourQortalAccount.getConfirmedBalance(Asset.QORT);
+			if (yourQortBalance.compareTo(qortAmount) <= 0) {
+				System.err.println(String.format("Your QORT balance %s is less than required %s", yourQortBalance.toPlainString(), qortAmount.toPlainString()));
+				System.exit(2);
+			}
 
 			// New/derived info
 
@@ -129,7 +129,7 @@ public class Initiate1 {
 			System.out.println("Hash of secret: " + HashCode.fromBytes(secretHash).toString());
 
 			int lockTime = (int) ((System.currentTimeMillis() / 1000L) + REFUND_TIMEOUT);
-			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneId.systemDefault()).toString(), lockTime));
+			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneId.systemDefault()), lockTime));
 
 			byte[] redeemScriptBytes = BTCACCT.buildRedeemScript(secretHash, yourBitcoinPubKey, theirBitcoinPubKey, lockTime);
 			System.out.println("Redeem script: " + HashCode.fromBytes(redeemScriptBytes).toString());
@@ -139,10 +139,10 @@ public class Initiate1 {
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 			System.out.println("P2SH address: " + p2shAddress.toString());
 
-			Coin bitcoinAmount = Coin.parseCoin(rawBitcoinAmount);
+			Coin bitcoinAmount = Coin.parseCoin(rawBitcoinAmount).add(BTCACCT.DEFAULT_BTC_FEE);
 
 			// Fund P2SH
-			System.out.println(String.format("\nYou need to fund %s with %s BTC", p2shAddress.toString(), bitcoinAmount.toPlainString()));
+			System.out.println(String.format("\nYou need to fund %s with %s BTC (includes redeem/refund fee)", p2shAddress.toString(), bitcoinAmount.toPlainString()));
 
 			System.out.println("Once this is done, responder should run Respond2 to check P2SH funding and create AT");
 		} catch (NumberFormatException e) {

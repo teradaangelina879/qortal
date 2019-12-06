@@ -17,6 +17,8 @@ import org.qortal.account.Account;
 import org.qortal.account.GenesisAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.block.BlockChain;
+import org.qortal.block.BlockChain.CiyamAtSettings;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.block.BlockData;
@@ -33,16 +35,11 @@ import com.google.common.primitives.Bytes;
 
 public class QortalATAPI extends API {
 
-	// Useful constants
-	private static final BigDecimal FEE_PER_STEP = BigDecimal.valueOf(1.0).setScale(8); // 1 QORT per "step"
-	private static final int MAX_STEPS_PER_ROUND = 500;
-	private static final int STEPS_PER_FUNCTION_CALL = 10;
-	private static final int MINUTES_PER_BLOCK = 10;
-
 	// Properties
-	Repository repository;
-	ATData atData;
-	long blockTimestamp;
+	private Repository repository;
+	private ATData atData;
+	private long blockTimestamp;
+	private final CiyamAtSettings ciyamAtSettings;
 
 	/** List of generated AT transactions */
 	List<AtTransaction> transactions;
@@ -54,36 +51,42 @@ public class QortalATAPI extends API {
 		this.atData = atData;
 		this.transactions = new ArrayList<>();
 		this.blockTimestamp = blockTimestamp;
+
+		this.ciyamAtSettings = BlockChain.getInstance().getCiyamAtSettings();
 	}
 
 	// Methods specific to Qortal AT processing, not inherited
+
+	public Repository getRepository() {
+		return this.repository;
+	}
 
 	public List<AtTransaction> getTransactions() {
 		return this.transactions;
 	}
 
 	public BigDecimal calcFinalFees(MachineState state) {
-		return FEE_PER_STEP.multiply(BigDecimal.valueOf(state.getSteps()));
+		return this.ciyamAtSettings.feePerStep.multiply(BigDecimal.valueOf(state.getSteps()));
 	}
 
 	// Inherited methods from CIYAM AT API
 
 	@Override
 	public int getMaxStepsPerRound() {
-		return MAX_STEPS_PER_ROUND;
+		return this.ciyamAtSettings.maxStepsPerRound;
 	}
 
 	@Override
 	public int getOpCodeSteps(OpCode opcode) {
 		if (opcode.value >= OpCode.EXT_FUN.value && opcode.value <= OpCode.EXT_FUN_RET_DAT_2.value)
-			return STEPS_PER_FUNCTION_CALL;
+			return this.ciyamAtSettings.stepsPerFunctionCall;
 
 		return 1;
 	}
 
 	@Override
 	public long getFeePerStep() {
-		return FEE_PER_STEP.unscaledValue().longValue();
+		return this.ciyamAtSettings.feePerStep.unscaledValue().longValue();
 	}
 
 	@Override
@@ -303,7 +306,7 @@ public class QortalATAPI extends API {
 		int blockHeight = timestamp.blockHeight;
 
 		// At least one block in the future
-		blockHeight += (minutes / MINUTES_PER_BLOCK) + 1;
+		blockHeight += (minutes / this.ciyamAtSettings.minutesPerBlock) + 1;
 
 		return new Timestamp(blockHeight, 0).longValue();
 	}
