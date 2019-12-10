@@ -3,7 +3,6 @@ package org.qora.crosschain;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.NetworkParameters;
@@ -15,7 +14,6 @@ import org.bitcoinj.crypto.TransactionSignature;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
-import org.bitcoinj.script.Script.ScriptType;
 import org.ciyam.at.FunctionCode;
 import org.ciyam.at.MachineState;
 import org.ciyam.at.OpCode;
@@ -28,54 +26,48 @@ public class BTCACCT {
 
 	public static final Coin DEFAULT_BTC_FEE = Coin.valueOf(1000L); // 0.00001000 BTC
 
-	private static final byte[] redeemScript1 = HashCode.fromString("76a820").asBytes(); // OP_DUP OP_SHA256 push(0x20 bytes)
-	private static final byte[] redeemScript2 = HashCode.fromString("87637576a914").asBytes(); // OP_EQUAL OP_IF OP_DROP OP_DUP OP_HASH160 push(0x14 bytes)
-	private static final byte[] redeemScript3 = HashCode.fromString("88ac6704").asBytes(); // OP_EQUALVERIFY OP_CHECKSIG OP_ELSE push(0x4 bytes)
-	private static final byte[] redeemScript4 = HashCode.fromString("b17576a914").asBytes(); // OP_CHECKLOCKTIMEVERIFY OP_DROP OP_DUP OP_HASH160 push(0x14 bytes)
-	private static final byte[] redeemScript5 = HashCode.fromString("88ac68").asBytes(); // OP_EQUALVERIFY OP_CHECKSIG OP_ENDIF
+	private static final byte[] redeemScript1 = HashCode.fromString("76a914").asBytes(); // OP_DUP OP_HASH160 push(0x14 bytes)
+	private static final byte[] redeemScript2 = HashCode.fromString("88ada97614").asBytes(); // OP_EQUALVERIFY OP_CHECKSIGVERIFY OP_HASH160 OP_DUP push(0x14 bytes)
+	private static final byte[] redeemScript3 = HashCode.fromString("87637504").asBytes(); // OP_EQUAL OP_IF OP_DROP push(0x4 bytes)
+	private static final byte[] redeemScript4 = HashCode.fromString("b16714").asBytes(); // OP_CHECKLOCKTIMEVERIFY OP_ELSE push(0x14 bytes)
+	private static final byte[] redeemScript5 = HashCode.fromString("8768").asBytes(); // OP_EQUAL OP_ENDIF
 
 	/**
 	 * Returns Bitcoin redeem script.
 	 * <p>
 	 * <pre>
-	 * OP_DUP OP_SHA256 push(0x20) &lt;SHA256 of secret&gt; OP_EQUAL
+	 * OP_DUP OP_HASH160 push(0x14) &lt;trade pubkeyhash&gt; OP_EQUALVERIFY OP_CHECKSIGVERIFY
+	 * OP_HASH160 OP_DUP push(0x14) &lt;sender/refund P2PKH&gt; OP_EQUAL
 	 * OP_IF
-	 * 	OP_DROP OP_DUP OP_HASH160 push(0x14) &lt;HASH160 of recipient pubkey&gt;
-	 *	OP_EQUALVERIFY OP_CHECKSIG
+	 * 	OP_DROP push(0x04 bytes) &lt;refund locktime&gt; OP_CHECKLOCKTIMEVERIFY
 	 * OP_ELSE
-	 * 	push(0x04) &lt;refund locktime&gt; OP_CHECKLOCKTIMEVERIFY
-	 *	OP_DROP OP_DUP OP_HASH160 push(0x14) &lt;HASH160 of sender pubkey&gt;
-	 *	OP_EQUALVERIFY OP_CHECKSIG
+	 *	push(0x14) &lt;redeemer P2PKH&gt; OP_EQUAL
 	 * OP_ENDIF
 	 * </pre>
 	 * 
-	 * @param secretHash
+	 * @param tradePubKeyHash
 	 * @param senderPubKey
 	 * @param recipientPubKey
 	 * @param lockTime
 	 * @return
 	 */
-	public static byte[] buildRedeemScript(byte[] secretHash, byte[] senderPubKey, byte[] recipientPubKey, int lockTime) {
-		byte[] senderPubKeyHash160 = BTC.hash160(senderPubKey);
-		byte[] recipientPubKeyHash160 = BTC.hash160(recipientPubKey);
-
-		return Bytes.concat(redeemScript1, secretHash, redeemScript2, recipientPubKeyHash160, redeemScript3, BitTwiddling.toLEByteArray((int) (lockTime & 0xffffffffL)),
-				redeemScript4, senderPubKeyHash160, redeemScript5);
+	public static byte[] buildScript(byte[] tradePubKeyHash, byte[] senderPubKeyHash, byte[] recipientPubKeyHash, int lockTime) {
+		return Bytes.concat(redeemScript1, tradePubKeyHash, redeemScript2, senderPubKeyHash, redeemScript3, BitTwiddling.toLEByteArray((int) (lockTime & 0xffffffffL)),
+				redeemScript4, recipientPubKeyHash, redeemScript5);
 	}
 
-	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey senderKey, TransactionOutput fundingOutput, byte[] redeemScriptBytes, long lockTime) {
+	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey tradeKey, byte[] senderPubKey, TransactionOutput fundingOutput, byte[] redeemScriptBytes, long lockTime) {
 		NetworkParameters params = BTC.getInstance().getNetworkParameters();
 
 		Transaction refundTransaction = new Transaction(params);
 		refundTransaction.setVersion(2);
 
-		refundAmount = refundAmount.subtract(DEFAULT_BTC_FEE);
-
 		// Output is back to P2SH funder
-		refundTransaction.addOutput(refundAmount, ScriptBuilder.createOutputScript(Address.fromKey(params, senderKey, ScriptType.P2PKH)));
+		ECKey senderKey = ECKey.fromPublicOnly(senderPubKey);
+		refundTransaction.addOutput(refundAmount, ScriptBuilder.createP2PKHOutputScript(senderKey));
 
 		// Input (without scriptSig prior to signing)
-		TransactionInput input = new TransactionInput(params, null, new byte[0], fundingOutput.getOutPointFor());
+		TransactionInput input = new TransactionInput(params, null, redeemScriptBytes, fundingOutput.getOutPointFor());
 		input.setSequenceNumber(0); // Use 0, not max-value, so lockTime can be used
 		refundTransaction.addInput(input);
 
@@ -84,25 +76,71 @@ public class BTCACCT {
 
 		// Generate transaction signature for input
 		final boolean anyoneCanPay = false;
-		TransactionSignature txSig = refundTransaction.calculateSignature(0, senderKey, redeemScriptBytes, SigHash.ALL, anyoneCanPay);
+		TransactionSignature txSig = refundTransaction.calculateSignature(0, tradeKey, redeemScriptBytes, SigHash.ALL, anyoneCanPay);
 
 		// Build scriptSig with...
 		ScriptBuilder scriptBuilder = new ScriptBuilder();
+
+		// sender/refund pubkey
+		scriptBuilder.addChunk(new ScriptChunk(senderPubKey.length, senderPubKey));
 
 		// transaction signature
 		byte[] txSigBytes = txSig.encodeToBitcoin();
 		scriptBuilder.addChunk(new ScriptChunk(txSigBytes.length, txSigBytes));
 
-		// sender's public key
-		byte[] senderPubKey = senderKey.getPubKey();
-		scriptBuilder.addChunk(new ScriptChunk(senderPubKey.length, senderPubKey));
+		// trade public key
+		byte[] tradePubKey = tradeKey.getPubKey();
+		scriptBuilder.addChunk(new ScriptChunk(tradePubKey.length, tradePubKey));
 
 		/// redeem script
 		scriptBuilder.addChunk(new ScriptChunk(ScriptOpCodes.OP_PUSHDATA1, redeemScriptBytes));
 
+		// Set input scriptSig
 		refundTransaction.getInput(0).setScriptSig(scriptBuilder.build());
 
 		return refundTransaction;
+	}
+
+	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey tradeKey, byte[] recipientPubKey, TransactionOutput fundingOutput, byte[] redeemScriptBytes) {
+		NetworkParameters params = BTC.getInstance().getNetworkParameters();
+
+		Transaction redeemTransaction = new Transaction(params);
+		redeemTransaction.setVersion(2);
+
+		// Output to redeem recipient
+		ECKey senderKey = ECKey.fromPublicOnly(recipientPubKey);
+		redeemTransaction.addOutput(redeemAmount, ScriptBuilder.createP2PKHOutputScript(senderKey));
+
+		// Input (without scriptSig prior to signing)
+		TransactionInput input = new TransactionInput(params, null, redeemScriptBytes, fundingOutput.getOutPointFor());
+		input.setSequenceNumber(0); // Use 0, not max-value, so lockTime can be used
+		redeemTransaction.addInput(input);
+
+		// Generate transaction signature for input
+		final boolean anyoneCanPay = false;
+		TransactionSignature txSig = redeemTransaction.calculateSignature(0, tradeKey, redeemScriptBytes, SigHash.ALL, anyoneCanPay);
+
+		// Build scriptSig with...
+		ScriptBuilder scriptBuilder = new ScriptBuilder();
+
+		// recipient pubkey
+		scriptBuilder.addChunk(new ScriptChunk(recipientPubKey.length, recipientPubKey));
+
+		// transaction signature
+		byte[] txSigBytes = txSig.encodeToBitcoin();
+		scriptBuilder.addChunk(new ScriptChunk(txSigBytes.length, txSigBytes));
+
+		// trade public key
+		byte[] tradePubKey = tradeKey.getPubKey();
+		scriptBuilder.addChunk(new ScriptChunk(tradePubKey.length, tradePubKey));
+
+		/// redeem script
+		scriptBuilder.addChunk(new ScriptChunk(ScriptOpCodes.OP_PUSHDATA1, redeemScriptBytes));
+
+		// Set input scriptSig
+		redeemTransaction.getInput(0).setScriptSig(scriptBuilder.build());
+
+		return redeemTransaction;
 	}
 
 	public static byte[] buildCiyamAT(byte[] secretHash, byte[] destinationQortalPubKey, long refundMinutes) {

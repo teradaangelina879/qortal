@@ -61,7 +61,7 @@ public class Respond2 {
 	private static final long REFUND_TIMEOUT = 600L; // seconds
 
 	private static void usage() {
-		System.err.println(String.format("usage: Respond2 <your-QORT-PRIVkey> <your-BTC-pubkey> <QORT-amount> <BTC-amount> <their-QORT-pubkey> <their-BTC-pubkey> <hash-of-secret> <locktime> <P2SH-address>"));
+		System.err.println(String.format("usage: Respond2 <your-BTC-pubkey> <BTC-amount> <their-BTC-pubkey> <trade-pubkeyhash> <locktime> <P2SH-address>"));
 		System.err.println(String.format("example: Respond2 3jjoToDaDpsdUHqaouLGypFeewNVKvtkmdM38i54WVra \\\n"
 				+ "\t032783606be32a3e639a33afe2b15f058708ab124f3b290d595ee954390a0c8559 \\\n"
 				+ "\t123 0.00008642 \\\n"
@@ -136,7 +136,7 @@ public class Respond2 {
 			byte[] secretHash = HashCode.fromString(secretHashHex).asBytes();
 			System.out.println("Hash of secret: " + HashCode.fromBytes(secretHash).toString());
 
-			byte[] redeemScriptBytes = BTCACCT.buildRedeemScript(secretHash, theirBitcoinPubKey, yourBitcoinPubKey, lockTime);
+			byte[] redeemScriptBytes = BTCACCT.buildScript(secretHash, theirBitcoinPubKey, yourBitcoinPubKey, lockTime);
 			System.out.println("Redeem script: " + HashCode.fromBytes(redeemScriptBytes).toString());
 
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);

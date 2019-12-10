@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestOutputStream;
@@ -28,6 +29,7 @@ import org.bitcoinj.core.BlockChain;
 import org.bitcoinj.core.CheckpointManager;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.PeerAddress;
 import org.bitcoinj.core.PeerGroup;
 import org.bitcoinj.core.Sha256Hash;
 import org.bitcoinj.core.StoredBlock;
@@ -35,6 +37,7 @@ import org.bitcoinj.core.TransactionOutput;
 import org.bitcoinj.core.listeners.NewBestBlockListener;
 import org.bitcoinj.net.discovery.DnsDiscovery;
 import org.bitcoinj.params.MainNetParams;
+import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
@@ -107,7 +110,7 @@ public class BTC {
 				return; // Too recent
 
 			LOGGER.trace(() -> String.format("Checkpointing at block %d dated %s", height, LocalDateTime.ofInstant(Instant.ofEpochSecond(blockTimestamp), ZoneOffset.UTC)));
-			checkpoints.put(blockTimestamp, block);
+			this.checkpoints.put(blockTimestamp, block);
 
 			try {
 				this.saveAsText(new File(BTC.getInstance().getDirectory(), BTC.getInstance().getCheckpointsFileName()));
@@ -121,11 +124,11 @@ public class BTC {
 			try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(textFile), StandardCharsets.US_ASCII))) {
 				writer.println("TXT CHECKPOINTS 1");
 				writer.println("0"); // Number of signatures to read. Do this later.
-				writer.println(checkpoints.size());
+				writer.println(this.checkpoints.size());
 
 				ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
 
-				for (StoredBlock block : checkpoints.values()) {
+				for (StoredBlock block : this.checkpoints.values()) {
 					block.serializeCompact(buffer);
 					writer.println(CheckpointManager.BASE64.encode(buffer.array()));
 					buffer.position(0);
@@ -145,11 +148,11 @@ public class BTC {
 						dataOutputStream.writeBytes("CHECKPOINTS 1");
 						dataOutputStream.writeInt(0); // Number of signatures to read. Do this later.
 						digestOutputStream.on(true);
-						dataOutputStream.writeInt(checkpoints.size());
+						dataOutputStream.writeInt(this.checkpoints.size());
 
 						ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
 
-						for (StoredBlock block : checkpoints.values()) {
+						for (StoredBlock block : this.checkpoints.values()) {
 							block.serializeCompact(buffer);
 							dataOutputStream.write(buffer.array());
 							buffer.position(0);
@@ -165,8 +168,10 @@ public class BTC {
 
 	private BTC() {
 		if (Settings.getInstance().useBitcoinTestNet()) {
-			this.params = TestNet3Params.get();
-			this.checkpointsFileName = "checkpoints-testnet.txt";
+			this.params = RegTestParams.get();
+			this.checkpointsFileName = "checkpoints-regtest.txt";
+			// TestNet3Params.get();
+			// this.checkpointsFileName = "checkpoints-testnet.txt";
 		} else {
 			this.params = MainNetParams.get();
 			this.checkpointsFileName = "checkpoints.txt";
@@ -231,7 +236,13 @@ public class BTC {
 
 		this.peerGroup = new PeerGroup(this.params, this.chain);
 		this.peerGroup.setUserAgent("qortal", "1.0");
-		this.peerGroup.addPeerDiscovery(new DnsDiscovery(this.params));
+
+		if (this.params != RegTestParams.get()) {
+			this.peerGroup.addPeerDiscovery(new DnsDiscovery(this.params));
+		} else {
+			peerGroup.addAddress(PeerAddress.localhost(this.params));
+		}
+
 		this.peerGroup.start();
 	}
 
@@ -306,6 +317,7 @@ public class BTC {
 				block = block.getPrev(this.blockStore);
 			}
 
+			// Descending, but order shouldn't matter as we're picking median...
 			latestBlocks.sort((a, b) -> Long.compare(b.getHeader().getTimeSeconds(), a.getHeader().getTimeSeconds()));
 
 			return latestBlocks.get(5).getHeader().getTimeSeconds();
