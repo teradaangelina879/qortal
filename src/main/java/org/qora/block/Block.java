@@ -153,14 +153,23 @@ public class Block {
 			this.isRecipientAlsoMinter = this.mintingAccountData.getAddress().equals(this.recipientAccountData.getAddress());
 		}
 
+		/**
+		 * Returns share bin for expanded account.
+		 * <p>
+		 * This is a method, not a final variable, because account's level can change between construction and call,
+		 * e.g. during Block.process() where account levels are bumped right before Block.distributeBlockReward().
+		 * 
+		 *  @return share "bin" (index into BlockShareByLevel blockchain config, so 0+), or -1 if no bin found
+		 */
 		int getShareBin() {
 			if (this.isMinterFounder)
 				return -1;
 
 			final List<ShareByLevel> sharesByLevel = BlockChain.getInstance().getBlockSharesByLevel();
+			final int accountLevel = this.mintingAccountData.getLevel();
 
 			for (int s = 0; s < sharesByLevel.size(); ++s)
-				if (sharesByLevel.get(s).levels.contains(this.mintingAccountData.getLevel()))
+				if (sharesByLevel.get(s).levels.contains(accountLevel))
 					return s;
 
 			return -1;
@@ -1603,8 +1612,8 @@ public class Block {
 			BigDecimal binAmount = sharesByLevel.get(binIndex).share.multiply(totalAmount).setScale(8, RoundingMode.DOWN);
 			LOGGER.trace(() -> String.format("Bin %d share of %s: %s", binIndex, totalAmount.toPlainString(), binAmount.toPlainString()));
 
-			// Spread across all accounts in bin
-			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> !accountInfo.isMinterFounder && accountInfo.getShareBin() == binIndex).collect(Collectors.toList());
+			// Spread across all accounts in bin. getShareBin() returns -1 for minter accounts that are also founders, so they are effectively filtered out.
+			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.getShareBin() == binIndex).collect(Collectors.toList());
 			if (binnedAccounts.isEmpty())
 				continue;
 
@@ -1731,8 +1740,20 @@ public class Block {
 				perFounderAmount.toPlainString()));
 
 		for (int a = 0; a < founderAccounts.size(); ++a) {
-			Account founderAccount = new Account(this.repository, founderAccounts.get(a).getAddress());
-			founderAccount.setConfirmedBalance(Asset.QORT, founderAccount.getConfirmedBalance(Asset.QORT).add(perFounderAmount));
+			// If founder is minter in any online reward-shares then founder's amount is spread across these, otherwise founder gets whole amount.
+			List<ExpandedAccount> founderExpandedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.isMinterFounder).collect(Collectors.toList());
+
+			if (founderExpandedAccounts.isEmpty()) {
+				// Simple case: no founder-as-minter reward-shares online so founder gets whole amount.
+				Account founderAccount = new Account(this.repository, founderAccounts.get(a).getAddress());
+				founderAccount.setConfirmedBalance(Asset.QORT, founderAccount.getConfirmedBalance(Asset.QORT).add(perFounderAmount));
+			} else {
+				// Distribute over reward-shares
+				BigDecimal perFounderRewardShareAmount = perFounderAmount.divide(BigDecimal.valueOf(founderExpandedAccounts.size()), RoundingMode.DOWN);
+
+				for (int fea = 0; fea < founderExpandedAccounts.size(); ++fea)
+					founderExpandedAccounts.get(fea).distribute(perFounderRewardShareAmount);
+			}
 		}
 	}
 

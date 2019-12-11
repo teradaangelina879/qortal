@@ -7,11 +7,14 @@ import org.qora.asset.Asset;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.repository.hsqldb.HSQLDBRepository;
+import org.qora.test.common.BlockUtils;
 import org.qora.test.common.Common;
 
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -88,6 +91,54 @@ public class RepositoryTests extends Common {
 			account1.setConfirmedBalance(Asset.QORT, BigDecimal.valueOf(5678L));
 			repository1.saveChanges();
 		}
+	}
+
+	/** Check that the <i>sub-query</i> used to fetch highest block height is optimized by HSQLDB. */
+	@Test
+	public void testBlockHeightSpeed() throws DataException, SQLException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Mint some blocks
+			System.out.println("Minting test blocks - should take approx. 30 seconds...");
+			for (int i = 0; i < 30000; ++i)
+				BlockUtils.mintBlock(repository);
+
+			final HSQLDBRepository hsqldb = (HSQLDBRepository) repository;
+
+			// Too slow:
+			testSql(hsqldb, "SELECT IFNULL(MAX(height), 0) + 1 FROM Blocks", false);
+
+			// Fast but if there are no rows, then no result is returned, which causes some triggers to fail:
+			testSql(hsqldb, "SELECT IFNULL(height, 0) + 1 FROM (SELECT height FROM Blocks ORDER BY height DESC LIMIT 1)", true);
+
+			// Too slow:
+			testSql(hsqldb, "SELECT COUNT(*) + 1 FROM Blocks", false);
+
+			// 2-stage, using cached value:
+			hsqldb.prepareStatement("DROP TABLE IF EXISTS TestNextBlockHeight").execute();
+			hsqldb.prepareStatement("CREATE TABLE TestNextBlockHeight (height INT NOT NULL)").execute();
+			hsqldb.prepareStatement("INSERT INTO TestNextBlockHeight VALUES (SELECT IFNULL(MAX(height), 0) + 1 FROM Blocks)").execute();
+
+			// 1: Check fetching cached next block height is fast:
+			testSql(hsqldb, "SELECT height from TestNextBlockHeight", true);
+
+			// 2: Check updating NextBlockHeight (typically called via trigger) is fast:
+			testSql(hsqldb, "UPDATE TestNextBlockHeight SET height = (SELECT height FROM Blocks ORDER BY height DESC LIMIT 1)", true);
+		}
+	}
+
+	private void testSql(HSQLDBRepository hsqldb, String sql, boolean isFast) throws DataException, SQLException {
+		// Execute query to prime caches
+		hsqldb.prepareStatement(sql).execute();
+
+		// Execute again for a slightly more accurate timing
+		final long start = System.currentTimeMillis();
+		hsqldb.prepareStatement(sql).execute();
+
+		final long executionTime = System.currentTimeMillis() - start;
+		System.out.println(String.format("%s: [%d ms] SQL: %s", (isFast ? "fast": "slow"), executionTime, sql));
+
+		final long threshold = 3; // ms
+		assertTrue( isFast ? executionTime < threshold : executionTime > threshold);
 	}
 
 }

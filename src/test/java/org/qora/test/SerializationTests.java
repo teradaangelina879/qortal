@@ -117,16 +117,16 @@ public class SerializationTests extends Common {
 	public void benchmarkBitSetCompression() {
 		Random random = new Random();
 
-		System.out.println(String.format("Known Online UncompressedBitSet UncompressedIntList Compressed"));
+		System.out.println(String.format("Known  Online UncompressedBitSet UncompressedIntList Compressed"));
 
-		for (int run = 0; run < 1000; ++run) {
+		for (int run = 0; run < 100; ++run) {
 			final int numberOfKnownAccounts = random.nextInt(1 << 17) + 1;
 
-			// 5% to 25%
-			final int numberOfAccountsToEncode = random.nextInt((numberOfKnownAccounts / 20) + numberOfKnownAccounts / 5);
+			// 3% to 23%
+			final int numberOfAccountsToEncode = random.nextInt((numberOfKnownAccounts / 20) + numberOfKnownAccounts / 3);
 
 			// Enough uncompressed bytes to fit one bit per known account
-			final int uncompressedBitSetSize = ((numberOfKnownAccounts - 1) >> 3) + 1;
+			final int uncompressedBitSetSize = ((numberOfKnownAccounts - 1) >> 3) + 1; // the >> 3 is to scale size from 8 bits to 1 byte
 
 			// Size of a simple list of ints
 			final int uncompressedIntListSize = numberOfAccountsToEncode * 4;
@@ -138,7 +138,7 @@ public class SerializationTests extends Common {
 
 			int compressedSize = compressedSet.toByteBuffer().remaining();
 
-			System.out.println(String.format("%d %d %d %d %d", numberOfKnownAccounts, numberOfAccountsToEncode, uncompressedBitSetSize, uncompressedIntListSize, compressedSize));
+			System.out.println(String.format("%6d %6d %18d %19d %10d", numberOfKnownAccounts, numberOfAccountsToEncode, uncompressedBitSetSize, uncompressedIntListSize, compressedSize));
 		}
 	}
 

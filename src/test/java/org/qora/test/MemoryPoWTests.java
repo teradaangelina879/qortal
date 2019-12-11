@@ -24,7 +24,7 @@ public class MemoryPoWTests {
 		Integer nonce = MemoryPoW.compute(data, start, range, difficulty);
 		long finishTime = System.currentTimeMillis();
 
-		System.out.println(String.format("Memory-hard PoW took %dms", finishTime - startTime));
+		System.out.println(String.format("Memory-hard PoW (buffer size: %dKB, range: %d, leading zeros: %d) took %dms", MemoryPoW.WORK_BUFFER_LENGTH / 1024, range, difficulty, finishTime - startTime));
 
 		assertNotNull(nonce);
 

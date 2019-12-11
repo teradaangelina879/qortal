@@ -474,10 +474,11 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
 		// If balance is zero and there are no prior historic balance, then simply delete balances for this assetId (typically during orphaning)
 		if (accountBalanceData.getBalance().signum() == 0) {
+			String existsSql = "account = ? AND asset_id = ? AND height < (SELECT height - 1 FROM NextBlockHeight)"; // height prior to current block. no matches (obviously) prior to genesis block
+
 			boolean hasPriorBalances;
 			try {
-				hasPriorBalances = this.repository.exists("HistoricAccountBalances", "account = ? AND asset_id = ? AND height < (SELECT IFNULL(MAX(height), 1) FROM Blocks)",
-					accountBalanceData.getAddress(), accountBalanceData.getAssetId());
+				hasPriorBalances = this.repository.exists("HistoricAccountBalances", existsSql, accountBalanceData.getAddress(), accountBalanceData.getAssetId());
 			} catch (SQLException e) {
 				throw new DataException("Unable to check for historic account balances in repository", e);
 			}

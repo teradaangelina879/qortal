@@ -876,6 +876,30 @@ public class HSQLDBDatabaseUpdates {
 							+ "ON DUPLICATE KEY UPDATE balance = new_row.balance");
 					break;
 
+				case 62:
+					// Rework sub-queries that need to know next block height as currently they fail for genesis block and/or are still too slow
+					// Table to hold next block height.
+					stmt.execute("CREATE TABLE NextBlockHeight (height INT NOT NULL)");
+					// Initial value - should work for empty DB or populated DB.
+					stmt.execute("INSERT INTO NextBlockHeight VALUES (SELECT IFNULL(MAX(height), 0) + 1 FROM Blocks)");
+					// We use triggers on Blocks to update a simple "next block height" table
+					String blockUpdateSql = "UPDATE NextBlockHeight SET height = (SELECT height + 1 FROM Blocks ORDER BY height DESC LIMIT 1)";
+					stmt.execute("CREATE TRIGGER Next_block_height_insert_trigger AFTER INSERT ON Blocks " + blockUpdateSql);
+					stmt.execute("CREATE TRIGGER Next_block_height_update_trigger AFTER UPDATE ON Blocks " + blockUpdateSql);
+					stmt.execute("CREATE TRIGGER Next_block_height_delete_trigger AFTER DELETE ON Blocks " + blockUpdateSql);
+					// Now update previously slow/broken sub-queries
+					stmt.execute("DROP TRIGGER Historic_account_balance_insert_trigger");
+					stmt.execute("DROP TRIGGER Historic_account_balance_update_trigger");
+					stmt.execute("CREATE TRIGGER Historic_account_balance_insert_trigger AFTER INSERT ON AccountBalances REFERENCING NEW ROW AS new_row FOR EACH ROW "
+							+ "INSERT INTO HistoricAccountBalances VALUES "
+							+ "(new_row.account, new_row.asset_id, (SELECT height from NextBlockHeight), new_row.balance) "
+							+ "ON DUPLICATE KEY UPDATE balance = new_row.balance");
+					stmt.execute("CREATE TRIGGER Historic_account_balance_update_trigger AFTER UPDATE ON AccountBalances REFERENCING NEW ROW AS new_row FOR EACH ROW "
+							+ "INSERT INTO HistoricAccountBalances VALUES "
+							+ "(new_row.account, new_row.asset_id, (SELECT height from NextBlockHeight), new_row.balance) "
+							+ "ON DUPLICATE KEY UPDATE balance = new_row.balance");
+					break;
+
 				default:
 					// nothing to do
 					return false;

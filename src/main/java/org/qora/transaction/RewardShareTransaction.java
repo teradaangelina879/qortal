@@ -112,9 +112,8 @@ public class RewardShareTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check reward share given to recipient
-		if (this.rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) < 0
-				|| this.rewardShareTransactionData.getSharePercent().compareTo(MAX_SHARE) > 0)
+		// Check reward share given to recipient. Negative is potentially OK to end a current reward-share. Zero also fine.
+		if (this.rewardShareTransactionData.getSharePercent().compareTo(MAX_SHARE) > 0)
 			return ValidationResult.INVALID_REWARD_SHARE_PERCENT;
 
 		PublicKeyAccount creator = getCreator();
@@ -144,13 +143,13 @@ public class RewardShareTransaction extends Transaction {
 		if (existingRewardShareData != null && !this.doesRewardShareMatch(existingRewardShareData))
 			return ValidationResult.INVALID_PUBLIC_KEY;
 
-		final boolean isSharePercentZero = this.rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) == 0;
+		final boolean isSharePercentNegative = this.rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) < 0;
 
 		if (existingRewardShareData == null) {
 			// This is a new reward-share
 
-			// No point starting a new reward-share with 0% share (i.e. delete reward-share)
-			if (isSharePercentZero)
+			// No point starting a new reward-share with negative share (i.e. delete reward-share)
+			if (isSharePercentNegative)
 				return ValidationResult.INVALID_REWARD_SHARE_PERCENT;
 
 			// Check the minting account hasn't reach maximum number of reward-shares
@@ -161,7 +160,7 @@ public class RewardShareTransaction extends Transaction {
 			// This transaction intends to modify/terminate an existing reward-share
 
 			// Modifying an existing self-share is pointless and forbidden (due to 0 fee). Deleting self-share is OK though.
-			if (isRecipientAlsoMinter && !isSharePercentZero)
+			if (isRecipientAlsoMinter && !isSharePercentNegative)
 				return ValidationResult.INVALID_REWARD_SHARE_PERCENT;
 		}
 
@@ -188,8 +187,10 @@ public class RewardShareTransaction extends Transaction {
 		// Save this transaction, with previous share info
 		this.repository.getTransactionRepository().save(rewardShareTransactionData);
 
-		// 0% share is actually a request to delete existing reward-share
-		if (rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) == 0) {
+		final boolean isSharePercentNegative = this.rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) < 0;
+
+		// Negative share is actually a request to delete existing reward-share
+		if (isSharePercentNegative) {
 			this.repository.getAccountRepository().delete(mintingAccount.getPublicKey(), rewardShareTransactionData.getRecipient());
 		} else {
 			// Save reward-share info

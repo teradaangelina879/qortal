@@ -23,6 +23,8 @@ import org.qora.utils.Base58;
 
 public class RewardShareTests extends Common {
 
+	private static final BigDecimal CANCEL_SHARE_PERCENT = BigDecimal.ONE.negate();
+
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useDefaultSettings();
@@ -60,7 +62,7 @@ public class RewardShareTests extends Common {
 			assertEqualBigDecimals("Incorrect share percentage", sharePercent, rewardShareData.getSharePercent());
 
 			// Delete reward-share
-			byte[] newRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "bob", BigDecimal.ZERO);
+			byte[] newRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "bob", CANCEL_SHARE_PERCENT);
 			PrivateKeyAccount newRewardShareAccount = new PrivateKeyAccount(repository, newRewardSharePrivateKey);
 
 			// Confirm reward-share keys match
@@ -112,10 +114,10 @@ public class RewardShareTests extends Common {
 	}
 
 	@Test
-	public void testZeroInitialShareInvalid() throws DataException {
+	public void testNegativeInitialShareInvalid() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Create invalid REWARD_SHARE transaction with initial 0% reward share
-			TransactionData transactionData = AccountUtils.createRewardShare(repository, "alice", "bob", BigDecimal.ZERO);
+			// Create invalid REWARD_SHARE transaction with initial negative reward share
+			TransactionData transactionData = AccountUtils.createRewardShare(repository, "alice", "bob", CANCEL_SHARE_PERCENT);
 
 			// Confirm transaction is invalid
 			Transaction transaction = Transaction.fromData(repository, transactionData);
@@ -162,8 +164,8 @@ public class RewardShareTests extends Common {
 			validationResult = newTransaction.isValidUnconfirmed();
 			assertNotSame("Subsequent zero-fee self-share should be invalid", ValidationResult.OK, validationResult);
 
-			// Subsequent terminating (0% share) self-reward-share should be OK
-			newTransactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, BigDecimal.ZERO);
+			// Subsequent terminating (negative share) self-reward-share should be OK
+			newTransactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, CANCEL_SHARE_PERCENT);
 			newTransaction = Transaction.fromData(repository, newTransactionData);
 
 			// Confirm terminating reward-share is valid

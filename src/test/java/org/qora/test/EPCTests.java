@@ -50,6 +50,9 @@ public class EPCTests {
 	}
 
 	private void testEPC(ExecuteProduceConsume testEPC) throws InterruptedException {
+		final int runTime = 60; // seconds
+		System.out.println(String.format("Testing EPC for %s seconds:", runTime));
+
 		final long start = System.currentTimeMillis();
 		testEPC.start();
 
@@ -67,7 +70,7 @@ public class EPCTests {
 		}, 1L, 1L, TimeUnit.SECONDS);
 
 		// Let it run for a minute
-		Thread.sleep(60_000L);
+		Thread.sleep(runTime * 1000L);
 		statusExecutor.shutdownNow();
 
 		final long before = System.currentTimeMillis();

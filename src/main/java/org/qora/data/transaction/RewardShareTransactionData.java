@@ -27,6 +27,7 @@ public class RewardShareTransactionData extends TransactionData {
 	@Schema(example = "reward_share_public_key")
 	private byte[] rewardSharePublicKey;
 
+	@Schema(description = "Percentage of block rewards that minter shares to recipient, or negative value to cancel existing reward-share")
 	private BigDecimal sharePercent;
 
 	// No need to ever expose this via API

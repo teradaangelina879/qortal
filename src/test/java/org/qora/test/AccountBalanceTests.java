@@ -96,6 +96,11 @@ public class AccountBalanceTests extends Common {
 
 			BigDecimal initialBalance = testNewerBalance(repository, alice);
 
+			// Fetch all historic balances
+			List<AccountBalanceData> historicBalances = repository.getAccountRepository().getHistoricBalances(alice.getAddress(), Asset.QORT);
+			for (AccountBalanceData historicBalance : historicBalances)
+				System.out.println(String.format("Balance at height %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
+
 			// Fetch balance at height 1, even though newer balance exists
 			AccountBalanceData accountBalanceData = repository.getAccountRepository().getBalance(alice.getAddress(), Asset.QORT, 1);
 			BigDecimal genesisBalance = accountBalanceData.getBalance();
@@ -115,6 +120,7 @@ public class AccountBalanceTests extends Common {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PublicKeyAccount recipientAccount = new PublicKeyAccount(repository, publicKey);
+			System.out.println(String.format("Test recipient: %s", recipientAccount.getAddress()));
 
 			// Mint a few blocks
 			for (int i = 0; i < 10; ++i)
@@ -123,6 +129,12 @@ public class AccountBalanceTests extends Common {
 			// Confirm recipient balance is zero
 			BigDecimal balance = recipientAccount.getConfirmedBalance(Asset.QORT);
 			assertEqualBigDecimals("recipient's balance should be zero", BigDecimal.ZERO, balance);
+
+			// Confirm recipient has no historic balances
+			List<AccountBalanceData> historicBalances = repository.getAccountRepository().getHistoricBalances(recipientAccount.getAddress(), Asset.QORT);
+			for (AccountBalanceData historicBalance : historicBalances)
+				System.err.println(String.format("Block %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
+			assertTrue("recipient should not have historic balances yet", historicBalances.isEmpty());
 
 			// Send 1 QORT to recipient
 			TestAccount sendingAccount = Common.getTestAccount(repository, "alice");
@@ -145,7 +157,7 @@ public class AccountBalanceTests extends Common {
 			balance = recipientAccount.getConfirmedBalance(Asset.QORT);
 			assertEqualBigDecimals("recipient's balance incorrect", totalAmount, balance);
 
-			List<AccountBalanceData> historicBalances = repository.getAccountRepository().getHistoricBalances(recipientAccount.getAddress(), Asset.QORT);
+			historicBalances = repository.getAccountRepository().getHistoricBalances(recipientAccount.getAddress(), Asset.QORT);
 			for (AccountBalanceData historicBalance : historicBalances)
 				System.out.println(String.format("Block %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
 
@@ -172,6 +184,12 @@ public class AccountBalanceTests extends Common {
 			// Re-check balance from (now) invalid height
 			accountBalanceData = repository.getAccountRepository().getBalance(recipientAccount.getAddress(), Asset.QORT, height - 2);
 			assertNull("recipient's invalid-height balance data should be null", accountBalanceData);
+
+			// Confirm recipient has no historic balances
+			historicBalances = repository.getAccountRepository().getHistoricBalances(recipientAccount.getAddress(), Asset.QORT);
+			for (AccountBalanceData historicBalance : historicBalances)
+				System.err.println(String.format("Block %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
+			assertTrue("recipient should have no remaining historic balances", historicBalances.isEmpty());
 		}
 	}
 
@@ -191,7 +209,7 @@ public class AccountBalanceTests extends Common {
 	@Test
 	public void testRepositorySpeed() throws DataException, SQLException {
 		Random random = new Random();
-		final long MAX_QUERY_TIME = 100L; // ms
+		final long MAX_QUERY_TIME = 80L; // ms
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			System.out.println("Creating random accounts...");
