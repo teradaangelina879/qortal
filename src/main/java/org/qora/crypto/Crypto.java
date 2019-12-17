@@ -8,6 +8,8 @@ import org.qora.account.Account;
 import org.qora.block.BlockChain;
 import org.qora.utils.Base58;
 
+import com.google.common.primitives.Bytes;
+
 public class Crypto {
 
 	public static final byte ADDRESS_VERSION = 58;
@@ -42,6 +44,19 @@ public class Crypto {
 	 */
 	public static byte[] doubleDigest(byte[] input) {
 		return digest(digest(input));
+	}
+
+	/**
+	 * Returns 64-byte duplicated digest of message passed in input.
+	 * <p>
+	 * Effectively <tt>Bytes.concat(digest(input), digest(input)).
+	 * 
+	 * @param addressVersion
+	 * @param input
+	 */
+	public static byte[] dupDigest(byte[] input) {
+		final byte[] digest = digest(input);
+		return Bytes.concat(digest, digest);
 	}
 
 	@SuppressWarnings("deprecation")

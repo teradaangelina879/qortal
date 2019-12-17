@@ -32,6 +32,7 @@ import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
 
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
 public class GenesisBlock extends Block {
@@ -126,9 +127,9 @@ public class GenesisBlock extends Block {
 		int transactionCount = transactionsData.size();
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
 		byte[] minterPublicKey = GenesisAccount.PUBLIC_KEY;
-		byte[] bytesForSignature = getBytesForSignature(info.version, reference, minterPublicKey);
-		byte[] minterSignature = calcSignature(bytesForSignature);
-		byte[] transactionsSignature = minterSignature;
+		byte[] bytesForSignature = getBytesForMinterSignature(info.timestamp, reference, minterPublicKey);
+		byte[] minterSignature = calcGenesisMinterSignature(bytesForSignature);
+		byte[] transactionsSignature = calcGenesisTransactionsSignature();
 		int height = 1;
 		int atCount = 0;
 		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
@@ -197,31 +198,29 @@ public class GenesisBlock extends Block {
 	}
 
 	/**
-	 * Generate genesis block minter/transactions signature.
+	 * Generate genesis block minter signature.
 	 * <p>
 	 * This is handled differently as there is no private key for the genesis account and so no way to sign data.
-	 * <p>
-	 * Instead we return the SHA-256 digest of the block, duplicated so that the returned byte[] is the same length as normal block signatures.
 	 * 
 	 * @return byte[]
 	 */
-	private static byte[] calcSignature(byte[] bytes) {
-		byte[] digest = Crypto.digest(bytes);
-		return Bytes.concat(digest, digest);
+	private static byte[] calcGenesisMinterSignature(byte[] bytes) {
+		return Crypto.dupDigest(bytes);
 	}
 
-	private static byte[] getBytesForSignature(int version, byte[] reference, byte[] minterPublicKey) {
+	private static byte[] getBytesForMinterSignature(long timestamp, byte[] reference, byte[] minterPublicKey) {
 		try {
 			// Passing expected size to ByteArrayOutputStream avoids reallocation when adding more bytes than default 32.
 			// See below for explanation of some of the values used to calculated expected size.
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + 64 + 8 + 32);
 
 			/*
-			 * NOTE: Historic code had genesis block using Longs.toByteArray() compared to standard block's Ints.toByteArray. The subsequent
+			 * NOTE: Historic code had genesis block using Longs.toByteArray(version) compared to standard block's Ints.toByteArray. The subsequent
 			 * Bytes.ensureCapacity(versionBytes, 0, 4) did not truncate versionBytes back to 4 bytes either. This means 8 bytes were used even though
 			 * VERSION_LENGTH is set to 4. Correcting this historic bug will break genesis block signatures!
 			 */
-			bytes.write(Longs.toByteArray(version));
+			// For Qortal, we use genesis timestamp instead
+			bytes.write(Longs.toByteArray(timestamp));
 
 			/*
 			 * NOTE: Historic code had the reference expanded to only 64 bytes whereas standard block references are 128 bytes. Correcting this historic bug
@@ -238,22 +237,41 @@ public class GenesisBlock extends Block {
 		}
 	}
 
+	private static byte[] calcGenesisTransactionsSignature() {
+		// transaction index (int), transaction type (int), creator pubkey (32): so 40 bytes each
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(transactionsData.size() * (4 + 4 + 32));
+
+		try {
+			for (int ti = 0; ti < transactionsData.size(); ++ti) {
+				bytes.write(Ints.toByteArray(ti));
+
+				bytes.write(Ints.toByteArray(transactionsData.get(ti).getType().value));
+
+				bytes.write(transactionsData.get(ti).getCreatorPublicKey());
+			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+
+		return Crypto.dupDigest(bytes.toByteArray());
+	}
+
 	/** Convenience method for calculating genesis block signatures from block data */
 	private static byte[] calcSignature(BlockData blockData) {
-		byte[] bytes = getBytesForSignature(blockData.getVersion(), blockData.getReference(), blockData.getMinterPublicKey());
-		return calcSignature(bytes);
+		byte[] bytes = getBytesForMinterSignature(blockData.getTimestamp(), blockData.getReference(), blockData.getMinterPublicKey());
+		return Bytes.concat(calcGenesisMinterSignature(bytes), calcGenesisTransactionsSignature());
 	}
 
 	@Override
 	public boolean isSignatureValid() {
 		byte[] signature = calcSignature(this.blockData);
 
-		// Validate block signature
-		if (!Arrays.equals(signature, this.blockData.getMinterSignature()))
+		// Validate block minter's signature (first 64 bytes of block signature)
+		if (!Arrays.equals(signature, 0, 64, this.blockData.getMinterSignature(), 0, 64))
 			return false;
 
-		// Validate transactions signature
-		if (!Arrays.equals(signature, this.blockData.getTransactionsSignature()))
+		// Validate transactions signature (last 64 bytes of block signature)
+		if (!Arrays.equals(signature, 64, 128, this.blockData.getTransactionsSignature(), 0, 64))
 			return false;
 
 		return true;

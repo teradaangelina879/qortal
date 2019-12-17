@@ -38,6 +38,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.NameRepository;
 import org.qora.repository.NetworkRepository;
 import org.qora.repository.Repository;
+import org.qora.repository.RepositoryManager;
 import org.qora.repository.TransactionRepository;
 import org.qora.repository.VotingRepository;
 import org.qora.repository.hsqldb.transaction.HSQLDBTransactionRepository;
@@ -223,6 +224,37 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void rebuild() throws DataException {
+		LOGGER.info("Rebuilding repository from scratch");
+
+		// Clean out any previous backup
+		try {
+			String connectionUrl = this.connection.getMetaData().getURL();
+			String dbPathname = getDbPathname(connectionUrl);
+			if (dbPathname == null)
+				throw new DataException("Unable to locate repository for rebuild?");
+
+			// Close repository reference so we can close repository factory cleanly
+			this.close();
+
+			// Close repository factory to prevent access
+			RepositoryManager.closeRepositoryFactory();
+
+			// No need to wipe files for in-memory database
+			if (!dbPathname.equals("mem")) {
+				Path oldRepoDirPath = Paths.get(dbPathname).getParent();
+
+				// Delete old repository files
+				Files.walk(oldRepoDirPath)
+						.sorted(Comparator.reverseOrder())
+						.map(Path::toFile)
+						.filter(file -> file.getPath().startsWith(dbPathname))
+						.forEach(File::delete);
+			}
+		} catch (NoSuchFileException e) {
+			// Nothing to remove
+		} catch (SQLException | IOException e) {
+			throw new DataException("Unable to remove previous repository");
+		}
 	}
 
 	@Override
@@ -252,6 +284,12 @@ public class HSQLDBRepository implements Repository {
 			if (dbPathname == null)
 				throw new DataException("Unable to locate repository for backup?");
 
+			// Doesn't really make sense to backup an in-memory database...
+			if (dbPathname.equals("mem")) {
+				LOGGER.debug("Ignoring request to backup in-memory repository!");
+				return;
+			}
+
 			String backupUrl = buildBackupUrl(dbPathname);
 			String backupPathname = getDbPathname(backupUrl);
 			if (backupPathname == null)
@@ -279,15 +317,18 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
-	/** Returns DB pathname from passed connection URL. */
+	/** Returns DB pathname from passed connection URL. If memory DB, returns "mem". */
 	private static String getDbPathname(String connectionUrl) {
-		Pattern pattern = Pattern.compile("file:(.*?);");
+		Pattern pattern = Pattern.compile("hsqldb:(mem|file):(.*?)(;|$)");
 		Matcher matcher = pattern.matcher(connectionUrl);
 
 		if (!matcher.find())
 			return null;
 
-		return matcher.group(1);
+		if (matcher.group(1).equals("mem"))
+			return "mem";
+		else
+			return matcher.group(2);
 	}
 
 	private static String buildBackupUrl(String dbPathname) {

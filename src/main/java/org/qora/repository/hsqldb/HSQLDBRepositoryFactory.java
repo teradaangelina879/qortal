@@ -72,6 +72,11 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 	}
 
 	@Override
+	public RepositoryFactory reopen() throws DataException {
+		return new HSQLDBRepositoryFactory(this.connectionUrl);
+	}
+
+	@Override
 	public Repository getRepository() throws DataException {
 		try {
 			return new HSQLDBRepository(this.getConnection());

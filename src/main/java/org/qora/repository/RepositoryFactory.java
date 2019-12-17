@@ -2,6 +2,8 @@ package org.qora.repository;
 
 public interface RepositoryFactory {
 
+	public RepositoryFactory reopen() throws DataException;
+
 	public Repository getRepository() throws DataException;
 
 	public Repository tryRepository() throws DataException;

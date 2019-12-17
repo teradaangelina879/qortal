@@ -35,4 +35,16 @@ public abstract class RepositoryManager {
 		}
 	}
 
+	public static void rebuild() throws DataException {
+		RepositoryFactory oldRepositoryFactory = repositoryFactory;
+
+		// Grab handle repository reference before we close
+		Repository oldRepository = oldRepositoryFactory.getRepository();
+
+		// Use old repository reference to perform rebuild
+		oldRepository.rebuild();
+
+		repositoryFactory = oldRepositoryFactory.reopen();
+	}
+
 }

@@ -7,7 +7,6 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -482,25 +481,20 @@ public class BlockChain {
 			rebuildBlockchain();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			Block parentBlock = GenesisBlock.getInstance(repository);
-			BlockData parentBlockData = parentBlock.getBlockData();
+			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature();
 
-			while (true) {
-				// No need to maintain transaction state while ploughing through the entire chain
-				repository.discardChanges();
+			if (detachedBlockData != null) {
+				LOGGER.error(String.format("Block %d's reference does not match any block's signature", detachedBlockData.getHeight()));
 
-				BlockData childBlockData = parentBlock.getChild();
-				if (childBlockData == null)
-					break;
-
-				if (!Arrays.equals(childBlockData.getReference(), parentBlock.getSignature())) {
-					LOGGER.error(String.format("Block %d's reference does not match block %d's signature", childBlockData.getHeight(), parentBlockData.getHeight()));
-					rebuildBlockchain();
-					return;
+				// Wait for blockchain lock (whereas orphan() only tries to get lock)
+				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+				blockchainLock.lock();
+				try {
+					LOGGER.info(String.format("Orphaning back to block %d", detachedBlockData.getHeight() - 1));
+					orphan(detachedBlockData.getHeight() - 1);
+				} finally {
+					blockchainLock.unlock();
 				}
-
-				parentBlock = new Block(repository, childBlockData);
-				parentBlockData = childBlockData;
 			}
 		}
 	}
@@ -523,9 +517,9 @@ public class BlockChain {
 
 	private static void rebuildBlockchain() throws DataException {
 		// (Re)build repository
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			repository.rebuild();
+		RepositoryManager.rebuild();
 
+		try (final Repository repository = RepositoryManager.getRepository()) {
 			GenesisBlock genesisBlock = GenesisBlock.getInstance(repository);
 
 			// Add Genesis Block to blockchain
@@ -533,7 +527,7 @@ public class BlockChain {
 
 			repository.saveChanges();
 
-			// Give Network a change to install initial seed peers
+			// Give Network a chance to install initial seed peers
 			Network.installInitialPeers(repository);
 		}
 	}
