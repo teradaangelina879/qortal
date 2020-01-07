@@ -19,7 +19,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.ApplyUpdate;
 import org.qora.api.ApiRequest;
-import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.gui.SysTray;
@@ -45,7 +44,6 @@ public class AutoUpdate extends Thread {
 
 	private static final int DEV_GROUP_ID = 1;
 	private static final int UPDATE_SERVICE = 1;
-	private static final List<TransactionType> ARBITRARY_TX_TYPE = Arrays.asList(TransactionType.ARBITRARY);
 
 	private static final int GIT_COMMIT_HASH_LENGTH = 20; // SHA-1
 	private static final int EXPECTED_DATA_LENGTH = Transformer.TIMESTAMP_LENGTH + GIT_COMMIT_HASH_LENGTH + Transformer.SHA256_LENGTH;
@@ -81,7 +79,7 @@ public class AutoUpdate extends Thread {
 				return;
 			}
 
-			// Try to clean up any leftover downloads (but if we are/have attempted update then don't delete new JAR)
+			// Try to clean up any leftover downloads (but if have attempted update then don't delete new JAR)
 			if (!attemptedUpdate)
 				try {
 					Path newJar = Paths.get(NEW_JAR_FILENAME);
@@ -92,11 +90,11 @@ public class AutoUpdate extends Thread {
 
 			// Look for "update" tx which is arbitrary tx in dev-group with service 1 and timestamp later than buildTimestamp
 			try (final Repository repository = RepositoryManager.getRepository()) {
-				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, DEV_GROUP_ID, ARBITRARY_TX_TYPE, UPDATE_SERVICE, null, ConfirmationStatus.CONFIRMED, 1, null, true);
-				if (signatures == null || signatures.isEmpty())
+				byte[] signature = repository.getTransactionRepository().getLatestAutoUpdateTransaction(TransactionType.ARBITRARY, DEV_GROUP_ID, UPDATE_SERVICE);
+				if (signature == null)
 					continue;
 
-				TransactionData transactionData = repository.getTransactionRepository().fromSignature(signatures.get(0));
+				TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
 				if (!(transactionData instanceof ArbitraryTransactionData))
 					continue;
 

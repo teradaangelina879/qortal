@@ -47,9 +47,47 @@ public interface TransactionRepository {
 	 */
 	public Map<TransactionType, Integer> getTransactionSummary(int startHeight, int endHeight) throws DataException;
 
+	/**
+	 * Returns signatures for transactions that match search criteria.
+	 * <p>
+	 * If <tt>blockLimit</tt> is specified, and <tt>startBlock</tt> is <tt>null</tt>,
+	 * then <tt>startBlock</tt> is assumed to be 1 or max-block-height,
+	 * depending on <tt>reverse</tt> being <tt>false</tt> or <tt>true</tt>
+	 * respectively.
+	 * 
+	 * @param startBlock height of first block to check
+	 * @param blockLimit number of blocks (from <tt>startBlock</tt>) to check
+	 * @param txGroupId
+	 * @param txTypes
+	 * @param service arbitrary transaction service ID
+	 * @param address
+	 * @param confirmationStatus
+	 * @param limit
+	 * @param offset
+	 * @param reverse
+	 * @return
+	 * @throws DataException
+	 */
 	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, Integer txGroupId,
 			List<TransactionType> txTypes, Integer service, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
+	 * Returns signature for latest auto-update transaction.
+	 * <p>
+	 * Transaction must be <tt>CONFIRMED</tt> and <tt>APPROVED</tt>
+	 * and also <b>not</b> created by group admin/owner.
+	 * <p>
+	 * We can check the latter by testing for transaction's <tt>approvalHeight</tt>
+	 * being greater than <tt>blockHeight</tt>.
+	 * 
+	 * @param txType
+	 * @param txGroupId
+	 * @param service
+	 * @return
+	 * @throws DataException
+	 */
+	public byte[] getLatestAutoUpdateTransaction(TransactionType txType, int txGroupId, Integer service) throws DataException;
 
 	/**
 	 * Returns list of transactions relating to specific asset ID.

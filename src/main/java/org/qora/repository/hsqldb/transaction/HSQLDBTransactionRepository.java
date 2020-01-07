@@ -513,6 +513,51 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public byte[] getLatestAutoUpdateTransaction(TransactionType txType, int txGroupId, Integer service) throws DataException {
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT Transactions.signature FROM Transactions");
+
+		if (service != null) {
+			// This is for ARBITRARY transactions
+			sql.append(" LEFT OUTER JOIN ArbitraryTransactions ON ArbitraryTransactions.signature = Transactions.signature");
+		}
+
+		sql.append(" WHERE type = ");
+		// Enum int value safe to use literally
+		sql.append(txType.value);
+
+		sql.append(" AND tx_group_id = ");
+		// int value safe to use literally
+		sql.append(txGroupId);
+
+		if (service != null) {
+			// This is for ARBITRARY transactions
+			sql.append(" AND service = ");
+			// int value safe to use literally
+			sql.append(service);
+		}
+
+		// "approvalHeight > blockHeight" filters out 'auto-approved' transactions, i.e. those by group admins/owner
+		sql.append(" AND block_height IS NOT NULL AND approval_height IS NOT NULL AND approval_height > block_height");
+
+		// we want approved, not rejected!
+		sql.append(" AND approval_status = ");
+		// Enum int value safe to use literally
+		sql.append(ApprovalStatus.APPROVED.value);
+
+		sql.append(" ORDER BY creation DESC LIMIT 1");
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+			if (resultSet == null)
+				return null;
+
+			return resultSet.getBytes(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch latest auto-update transaction signature from repository", e);
+		}
+	}
+
+	@Override
 	public List<TransactionData> getAssetTransactions(long assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
 		TransactionType[] transactionTypes = new TransactionType[] {
