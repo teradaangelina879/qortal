@@ -62,7 +62,11 @@ public class Group {
 			if (!this.isPercentage)
 				return currentApprovals >= this.value;
 
-			return currentApprovals >= (totalAdmins * this.value / 100);
+			// Multiply currentApprovals by 100 instead of dividing right-hand-side by 100 to prevent rounding errors!
+			// Examples using 2 current approvals, 4 total admins, 60% threshold:
+			// WRONG: 2 >= 4 * 60 / 100, i.e. 2 >= (240 / 100) which rounds to: 2 >= 2, returns true
+			// RIGHT: 2 * 100 >= 4 * 60, i.e. 200 >= 240, returns false
+			return (currentApprovals * 100) >= (totalAdmins * this.value);
 		}
 	}
 
