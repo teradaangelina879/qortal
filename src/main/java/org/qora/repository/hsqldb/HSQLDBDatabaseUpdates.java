@@ -900,6 +900,11 @@ public class HSQLDBDatabaseUpdates {
 							+ "ON DUPLICATE KEY UPDATE balance = new_row.balance");
 					break;
 
+				case 63:
+					// Group invites should allow NULL expiry column
+					stmt.execute("ALTER TABLE GroupInvites ALTER COLUMN expiry SET NULL");
+					break;
+
 				default:
 					// nothing to do
 					return false;
