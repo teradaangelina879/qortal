@@ -146,12 +146,12 @@ public class GenesisBlock extends Block {
 
 		byte[] signature = calcSignature(blockData);
 
-		// Validate block signature
-		if (!Arrays.equals(signature, blockData.getMinterSignature()))
+		// Validate block minter's signature (first 64 bytes of block signature)
+		if (!Arrays.equals(signature, 0, 64, blockData.getMinterSignature(), 0, 64))
 			return false;
 
-		// Validate transactions signature
-		if (!Arrays.equals(signature, blockData.getTransactionsSignature()))
+		// Validate transactions signature (last 64 bytes of block signature)
+		if (!Arrays.equals(signature, 64, 128, blockData.getTransactionsSignature(), 0, 64))
 			return false;
 
 		return true;
