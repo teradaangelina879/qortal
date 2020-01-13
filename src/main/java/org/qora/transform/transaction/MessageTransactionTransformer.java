@@ -41,7 +41,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
 		layout.add("recipient", TransformationType.ADDRESS);
-		layout.add("asset ID of payment", TransformationType.LONG);
+		layout.add("asset ID of payment (v2+)", TransformationType.LONG);
 		layout.add("payment (can be zero)", TransformationType.AMOUNT);
 		layout.add("message length", TransformationType.INT);
 		layout.add("message", TransformationType.DATA);

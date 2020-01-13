@@ -43,14 +43,14 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
-		layout.add("number of payments", TransformationType.INT);
+		layout.add("number of payments (v3+)", TransformationType.INT);
 
 		layout.add("* recipient", TransformationType.ADDRESS);
 		layout.add("* asset ID of payment", TransformationType.LONG);
 		layout.add("* payment amount", TransformationType.AMOUNT);
 
 		layout.add("service ID", TransformationType.INT);
-		layout.add("is data raw?", TransformationType.BOOLEAN);
+		layout.add("is data raw? (v4+)", TransformationType.BOOLEAN);
 		layout.add("data length", TransformationType.INT);
 		layout.add("data", TransformationType.DATA);
 		layout.add("fee", TransformationType.AMOUNT);

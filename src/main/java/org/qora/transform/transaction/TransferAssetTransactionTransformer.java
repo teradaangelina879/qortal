@@ -33,6 +33,7 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("asset owner's public key", TransformationType.PUBLIC_KEY);
+		layout.add("recipient", TransformationType.ADDRESS);
 		layout.add("asset quantity", TransformationType.ASSET_QUANTITY);
 		layout.add("asset ID", TransformationType.LONG);
 		layout.add("fee", TransformationType.AMOUNT);
