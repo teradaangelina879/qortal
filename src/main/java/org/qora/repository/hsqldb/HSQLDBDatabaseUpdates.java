@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -903,6 +904,23 @@ public class HSQLDBDatabaseUpdates {
 				case 63:
 					// Group invites should allow NULL expiry column
 					stmt.execute("ALTER TABLE GroupInvites ALTER COLUMN expiry SET NULL");
+					break;
+
+				case 64:
+					// TRANSFER_PRIVS transaction
+					stmt.execute("CREATE TABLE TransferPrivsTransactions (signature Signature, sender QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, "
+							+ "previous_sender_flags INT, previous_recipient_flags INT, "
+							+ "previous_sender_blocks_minted_adjustment INT, previous_sender_blocks_minted INT, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+
+					// Convert Account's "initial_level" to "blocks_minted_adjustment"
+					stmt.execute("ALTER TABLE Accounts ADD blocks_minted_adjustment INT NOT NULL DEFAULT 0");
+
+					List<Integer> blocksByLevel = BlockChain.getInstance().getBlocksNeededByLevel();
+					for (int bbli = 0; bbli < blocksByLevel.size(); ++bbli)
+						stmt.execute("UPDATE Accounts SET blocks_minted_adjustment = " + blocksByLevel.get(bbli) + " WHERE initial_level = " + (bbli + 1));
+
+					stmt.execute("ALTER TABLE Accounts DROP initial_level");
 					break;
 
 				default:

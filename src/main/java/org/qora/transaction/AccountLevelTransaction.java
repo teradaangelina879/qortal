@@ -7,6 +7,7 @@ import java.util.List;
 import org.qora.account.Account;
 import org.qora.account.GenesisAccount;
 import org.qora.asset.Asset;
+import org.qora.block.BlockChain;
 import org.qora.data.transaction.AccountLevelTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
@@ -91,7 +92,12 @@ public class AccountLevelTransaction extends Transaction {
 		this.repository.getTransactionRepository().save(accountLevelTransactionData);
 
 		// Set account's initial level
-		target.setInitialLevel(this.accountLevelTransactionData.getLevel());
+		target.setLevel(this.accountLevelTransactionData.getLevel());
+
+		// Set account's blocks minted adjustment
+		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+		int blocksMintedAdjustment = cumulativeBlocksByLevel.get(this.accountLevelTransactionData.getLevel());
+		target.setBlocksMintedAdjustment(blocksMintedAdjustment);
 	}
 
 	@Override

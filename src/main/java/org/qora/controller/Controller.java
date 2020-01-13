@@ -34,6 +34,7 @@ import org.qora.block.BlockMinter;
 import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.MintingAccountData;
+import org.qora.data.account.RewardShareData;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockSummaryData;
 import org.qora.data.network.OnlineAccountData;
@@ -1263,8 +1264,12 @@ public class Controller extends Thread {
 				List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
 				LOGGER.trace(() -> String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
 
-				for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
-					this.verifyAndAddAccount(onlineAccountData);
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
+						this.verifyAndAddAccount(repository, onlineAccountData);
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while verifying online accounts from peer %s", peer), e);
+				}
 
 				break;
 			}
@@ -1277,12 +1282,12 @@ public class Controller extends Thread {
 
 	// Utilities
 
-	private void verifyAndAddAccount(OnlineAccountData onlineAccountData) {
-		PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccountData.getPublicKey());
-
+	private void verifyAndAddAccount(Repository repository, OnlineAccountData onlineAccountData) throws DataException {
 		final Long now = NTP.getTime();
 		if (now == null)
 			return;
+
+		PublicKeyAccount otherAccount = new PublicKeyAccount(repository, onlineAccountData.getPublicKey());
 
 		// Check timestamp is 'recent' here
 		if (Math.abs(onlineAccountData.getTimestamp() - now) > ONLINE_TIMESTAMP_MODULUS * 2) {
@@ -1294,6 +1299,21 @@ public class Controller extends Thread {
 		byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
 		if (!otherAccount.verify(onlineAccountData.getSignature(), data)) {
 			LOGGER.trace(() -> String.format("Rejecting invalid online account %s", otherAccount.getAddress()));
+			return;
+		}
+
+		// Qortal: check online account is actually reward-share
+		RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(onlineAccountData.getPublicKey());
+		if (rewardShareData == null) {
+			// Reward-share doesn't even exist - probably not a good sign
+			LOGGER.trace(() -> String.format("Rejecting unknown online reward-share public key %s", Base58.encode(onlineAccountData.getPublicKey())));
+			return;
+		}
+
+		PublicKeyAccount mintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+		if (!mintingAccount.canMint()) {
+			// Minting-account component of reward-share can no longer mint - disregard
+			LOGGER.trace(() -> String.format("Rejecting online reward-share with non-minting account %s", mintingAccount.getAddress()));
 			return;
 		}
 
@@ -1401,8 +1421,19 @@ public class Controller extends Thread {
 			while (iterator.hasNext()) {
 				MintingAccountData mintingAccountData = iterator.next();
 
-				if (!repository.getAccountRepository().isRewardSharePublicKey(mintingAccountData.getPublicKey()))
+				RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
+				if (rewardShareData == null) {
+					// Reward-share doesn't even exist - probably not a good sign
 					iterator.remove();
+					continue;
+				}
+
+				PublicKeyAccount mintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+				if (!mintingAccount.canMint()) {
+					// Minting-account component of reward-share can no longer mint - disregard
+					iterator.remove();
+					continue;
+				}
 			}
 		} catch (DataException e) {
 			LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));

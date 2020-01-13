@@ -249,11 +249,10 @@ public class Account {
 		this.repository.getAccountRepository().setLevel(accountData);
 	}
 
-	public void setInitialLevel(int level) throws DataException {
+	public void setBlocksMintedAdjustment(int blocksMintedAdjustment) throws DataException {
 		AccountData accountData = this.buildAccountData();
-		accountData.setLevel(level);
-		accountData.setInitialLevel(level);
-		this.repository.getAccountRepository().setInitialLevel(accountData);
+		accountData.setBlocksMintedAdjustment(blocksMintedAdjustment);
+		this.repository.getAccountRepository().setBlocksMintedAdjustment(accountData);
 	}
 
 	/**

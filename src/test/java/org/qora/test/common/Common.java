@@ -160,10 +160,10 @@ public class Common {
 				AccountBalanceData initialBalance = initialBalances.get(i);
 				AccountBalanceData remainingBalance = remainingBalances.get(i);
 
-				assertEquals("Remaining balance's asset differs", initialBalance.getAssetId(), remainingBalance.getAssetId());
 				assertEquals("Remaining balance's address differs", initialBalance.getAddress(), remainingBalance.getAddress());
+				assertEquals(initialBalance.getAddress() + " remaining balance's asset differs", initialBalance.getAssetId(), remainingBalance.getAssetId());
 
-				assertEqualBigDecimals("Remaining balance differs", initialBalance.getBalance(), remainingBalance.getBalance());
+				assertEqualBigDecimals(initialBalance.getAddress() + " remaining balance differs", initialBalance.getBalance(), remainingBalance.getBalance());
 			}
 		}
 	}

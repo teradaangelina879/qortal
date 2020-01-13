@@ -116,23 +116,25 @@ public class RewardShareTransaction extends Transaction {
 		if (this.rewardShareTransactionData.getSharePercent().compareTo(MAX_SHARE) > 0)
 			return ValidationResult.INVALID_REWARD_SHARE_PERCENT;
 
-		PublicKeyAccount creator = getCreator();
-
 		// Check reward-share public key is correct length
 		if (this.rewardShareTransactionData.getRewardSharePublicKey().length != Transformer.PUBLIC_KEY_LENGTH)
 			return ValidationResult.INVALID_PUBLIC_KEY;
 
-		Account recipient = getRecipient();
-		if (!Crypto.isValidAddress(recipient.getAddress()))
+		// Check recipient address is valid
+		if (!Crypto.isValidAddress(this.rewardShareTransactionData.getRecipient()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Creator themselves needs to be allowed to mint
-		if (!creator.canMint())
+		PublicKeyAccount creator = getCreator();
+		Account recipient = getRecipient();
+		final boolean isCancellingSharePercent = this.rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) < 0;
+
+		// Creator themselves needs to be allowed to mint (unless cancelling)
+		if (!isCancellingSharePercent && !creator.canMint())
 			return ValidationResult.NOT_MINTING_ACCOUNT;
 
 		// Qortal: special rules in play depending whether recipient is also minter
 		final boolean isRecipientAlsoMinter = creator.getAddress().equals(recipient.getAddress());
-		if (!isRecipientAlsoMinter && !creator.canRewardShare())
+		if (!isCancellingSharePercent && !isRecipientAlsoMinter && !creator.canRewardShare())
 			return ValidationResult.ACCOUNT_CANNOT_REWARD_SHARE;
 
 		// Look up any existing reward-share (using transaction's reward-share public key)
@@ -143,13 +145,11 @@ public class RewardShareTransaction extends Transaction {
 		if (existingRewardShareData != null && !this.doesRewardShareMatch(existingRewardShareData))
 			return ValidationResult.INVALID_PUBLIC_KEY;
 
-		final boolean isSharePercentNegative = this.rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) < 0;
-
 		if (existingRewardShareData == null) {
 			// This is a new reward-share
 
-			// No point starting a new reward-share with negative share (i.e. delete reward-share)
-			if (isSharePercentNegative)
+			// Deleting a non-existent reward-share makes no sense
+			if (isCancellingSharePercent)
 				return ValidationResult.INVALID_REWARD_SHARE_PERCENT;
 
 			// Check the minting account hasn't reach maximum number of reward-shares
@@ -160,7 +160,7 @@ public class RewardShareTransaction extends Transaction {
 			// This transaction intends to modify/terminate an existing reward-share
 
 			// Modifying an existing self-share is pointless and forbidden (due to 0 fee). Deleting self-share is OK though.
-			if (isRecipientAlsoMinter && !isSharePercentNegative)
+			if (isRecipientAlsoMinter && !isCancellingSharePercent)
 				return ValidationResult.INVALID_REWARD_SHARE_PERCENT;
 		}
 

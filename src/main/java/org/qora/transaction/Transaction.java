@@ -83,7 +83,8 @@ public abstract class Transaction {
 		ACCOUNT_FLAGS(36, false),
 		ENABLE_FORGING(37, false),
 		REWARD_SHARE(38, false),
-		ACCOUNT_LEVEL(39, false);
+		ACCOUNT_LEVEL(39, false),
+		TRANSFER_PRIVS(40, false);
 
 		public final int value;
 		public final boolean needsApproval;
@@ -926,11 +927,14 @@ public abstract class Transaction {
 	 * Returns whether transaction can be processed.
 	 * <p>
 	 * With group-approval, even if a transaction had valid values
-	 * when submitted, by the time it is approved dependency might
+	 * when submitted, by the time it is approved these values
+	 * might become invalid, e.g. because dependencies might
 	 * have changed.
 	 * <p>
 	 * For example, with UPDATE_ASSET, the asset owner might have
-	 * changed between submission and approval.
+	 * changed between submission and approval and so the transaction
+	 * is invalid because the previous owner (as specified in the
+	 * transaction) no longer has permission to update the asset.
 	 * 
 	 * @throws DataException
 	 */

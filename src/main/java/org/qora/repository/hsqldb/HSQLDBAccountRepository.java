@@ -27,7 +27,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		String sql = "SELECT reference, public_key, default_group_id, flags, initial_level, level, blocks_minted FROM Accounts WHERE account = ?";
+		String sql = "SELECT reference, public_key, default_group_id, flags, level, blocks_minted, blocks_minted_adjustment FROM Accounts WHERE account = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
@@ -37,11 +37,11 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			byte[] publicKey = resultSet.getBytes(2);
 			int defaultGroupId = resultSet.getInt(3);
 			int flags = resultSet.getInt(4);
-			int initialLevel = resultSet.getInt(5);
-			int level = resultSet.getInt(6);
-			int blocksMinted = resultSet.getInt(7);
+			int level = resultSet.getInt(5);
+			int blocksMinted = resultSet.getInt(6);
+			int blocksMintedAdjustment = resultSet.getInt(7);
 
-			return new AccountData(address, reference, publicKey, defaultGroupId, flags, initialLevel, level, blocksMinted);
+			return new AccountData(address, reference, publicKey, defaultGroupId, flags, level, blocksMinted, blocksMintedAdjustment);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -49,7 +49,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public List<AccountData> getFlaggedAccounts(int mask) throws DataException {
-		String sql = "SELECT reference, public_key, default_group_id, flags, initial_level, level, blocks_minted, account FROM Accounts WHERE BITAND(flags, ?) != 0";
+		String sql = "SELECT reference, public_key, default_group_id, flags, level, blocks_minted, blocks_minted_adjustment, account FROM Accounts WHERE BITAND(flags, ?) != 0";
 
 		List<AccountData> accounts = new ArrayList<>();
 
@@ -62,12 +62,12 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				byte[] publicKey = resultSet.getBytes(2);
 				int defaultGroupId = resultSet.getInt(3);
 				int flags = resultSet.getInt(4);
-				int initialLevel = resultSet.getInt(5);
-				int level = resultSet.getInt(6);
-				int blocksMinted = resultSet.getInt(7);
+				int level = resultSet.getInt(5);
+				int blocksMinted = resultSet.getInt(6);
+				int blocksMintedAdjustment = resultSet.getInt(7);
 				String address = resultSet.getString(8);
 
-				accounts.add(new AccountData(address, reference, publicKey, defaultGroupId, flags, initialLevel, level, blocksMinted));
+				accounts.add(new AccountData(address, reference, publicKey, defaultGroupId, flags, level, blocksMinted, blocksMintedAdjustment));
 			} while (resultSet.next());
 
 			return accounts;
@@ -239,11 +239,11 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public void setInitialLevel(AccountData accountData) throws DataException {
+	public void setBlocksMintedAdjustment(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 
-		saveHelper.bind("account", accountData.getAddress()).bind("level", accountData.getLevel())
-		.bind("initial_level", accountData.getInitialLevel());
+		saveHelper.bind("account", accountData.getAddress())
+			.bind("blocks_minted_adjustment", accountData.getBlocksMintedAdjustment());
 
 		byte[] publicKey = accountData.getPublicKey();
 		if (publicKey != null)
@@ -252,7 +252,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		try {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
-			throw new DataException("Unable to save account's initial level into repository", e);
+			throw new DataException("Unable to save account's blocks minted adjustment into repository", e);
 		}
 	}
 

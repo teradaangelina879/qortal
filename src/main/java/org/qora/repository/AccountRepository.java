@@ -69,11 +69,11 @@ public interface AccountRepository {
 	public void setLevel(AccountData accountData) throws DataException;
 
 	/**
-	 * Saves account's initial & current level, and public key if present, in repository.
+	 * Saves account's blocks-minted adjustment, and public key if present, in repository.
 	 * <p>
 	 * Note: ignores other fields like last reference, default groupID.
 	 */
-	public void setInitialLevel(AccountData accountData) throws DataException;
+	public void setBlocksMintedAdjustment(AccountData accountData) throws DataException;
 
 	/**
 	 * Saves account's minted block count and public key if present, in repository.

@@ -1207,6 +1207,9 @@ public class Block {
 
 			// Block rewards go before transactions processed
 			processBlockRewards();
+
+			// Give transaction fees to minter/reward-share account(s)
+			rewardTransactionFees();
 		}
 
 		// Process transactions (we'll link them to this block after saving the block itself)
@@ -1214,10 +1217,6 @@ public class Block {
 
 		// Group-approval transactions
 		processGroupApprovalTransactions();
-
-		if (this.blockData.getHeight() > 1)
-			// Give transaction fees to minter/reward-share account(s)
-			rewardTransactionFees();
 
 		// Process AT fees and save AT states into repository
 		processAtFeesAndStates();
@@ -1261,15 +1260,15 @@ public class Block {
 			LOGGER.trace(() -> String.format("Block minter %s up to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 		}
 
-		// We are only interested in accounts that are NOT founders and NOT already highest level
+		// We are only interested in accounts that are NOT already highest level
 		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
-		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> !isFounder.test(expandedAccount) && getAccountData.apply(expandedAccount).getLevel() < maximumLevel).collect(Collectors.toList());
+		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> getAccountData.apply(expandedAccount).getLevel() < maximumLevel).collect(Collectors.toList());
 
 		for (int c = 0; c < candidateAccounts.size(); ++c) {
 			ExpandedAccount expandedAccount = candidateAccounts.get(c);
 			final AccountData accountData = getAccountData.apply(expandedAccount);
 
-			final int effectiveBlocksMinted = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksMinted();
+			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
 
 			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
@@ -1426,9 +1425,8 @@ public class Block {
 	public void orphan() throws DataException {
 		LOGGER.trace(() -> String.format("Orphaning block %d", this.blockData.getHeight()));
 
-		if (this.blockData.getHeight() > 1)
-			// Deduct any transaction fees from minter/reward-share account(s)
-			deductTransactionFees();
+		// Return AT fees and delete AT states from repository
+		orphanAtFeesAndStates();
 
 		// Orphan, and unlink, transactions from this block
 		orphanTransactionsFromBlock();
@@ -1437,15 +1435,18 @@ public class Block {
 		orphanGroupApprovalTransactions();
 
 		if (this.blockData.getHeight() > 1) {
+			// Invalidate expandedAccounts as they may have changed due to orphaning TRANSFER_PRIVS transactions, etc.
+			this.cachedExpandedAccounts = null;
+
+			// Deduct any transaction fees from minter/reward-share account(s)
+			deductTransactionFees();
+
 			// Block rewards removed after transactions undone
 			orphanBlockRewards();
 
 			// Decrease account levels
 			decreaseAccountLevels();
 		}
-
-		// Return AT fees and delete AT states from repository
-		orphanAtFeesAndStates();
 
 		// Delete orphaned balances
 		this.repository.getAccountRepository().deleteBalancesFromHeight(this.blockData.getHeight());
@@ -1574,15 +1575,15 @@ public class Block {
 			LOGGER.trace(() -> String.format("Block minter %s down to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 		}
 
-		// We are only interested in accounts that are NOT founders and NOT already lowest level
+		// We are only interested in accounts that are NOT already lowest level
 		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
-		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> !isFounder.test(expandedAccount) && getAccountData.apply(expandedAccount).getLevel() > 0).collect(Collectors.toList());
+		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> getAccountData.apply(expandedAccount).getLevel() > 0).collect(Collectors.toList());
 
 		for (int c = 0; c < candidateAccounts.size(); ++c) {
 			ExpandedAccount expandedAccount = candidateAccounts.get(c);
 			final AccountData accountData = getAccountData.apply(expandedAccount);
 
-			final int effectiveBlocksMinted = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksMinted();
+			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
 
 			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {

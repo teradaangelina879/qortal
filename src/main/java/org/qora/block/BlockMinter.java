@@ -110,6 +110,27 @@ public class BlockMinter extends Thread {
 				if (mintingAccountsData.isEmpty())
 					continue;
 
+				// Disregard minting accounts that are no longer valid, e.g. by transfer/loss of founder flag or account level
+				// Note that minting accounts are actually reward-shares in Qortal
+				Iterator<MintingAccountData> madi = mintingAccountsData.iterator();
+				while (madi.hasNext()) {
+					MintingAccountData mintingAccountData = madi.next();
+
+					RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
+					if (rewardShareData == null) {
+						// Reward-share doesn't even exist - probably not a good sign
+						madi.remove();
+						continue;
+					}
+
+					PublicKeyAccount mintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+					if (!mintingAccount.canMint()) {
+						// Minting-account component of reward-share can no longer mint - disregard
+						madi.remove();
+						continue;
+					}
+				}
+
 				List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
 				BlockData lastBlockData = blockRepository.getLastBlock();
 

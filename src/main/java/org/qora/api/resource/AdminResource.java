@@ -37,6 +37,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
 import org.qora.account.PrivateKeyAccount;
+import org.qora.account.PublicKeyAccount;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
@@ -243,7 +244,7 @@ public class AdminResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE, ApiError.CANNOT_MINT})
 	public String addMintingAccount(String seed58) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] seed = Base58.decode(seed58.trim());
@@ -252,8 +253,14 @@ public class AdminResource {
 			PrivateKeyAccount mintingAccount = new PrivateKeyAccount(repository, seed);
 
 			// Qortal: account must derive to known reward-share public key
-			if (!repository.getAccountRepository().isRewardSharePublicKey(mintingAccount.getPublicKey()))
+			RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccount.getPublicKey());
+			if (rewardShareData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+
+			// Qortal: check reward-share's minting account is still allowed to mint
+			PublicKeyAccount rewardShareMintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+			if (!rewardShareMintingAccount.canMint())
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.CANNOT_MINT);
 
 			MintingAccountData mintingAccountData = new MintingAccountData(seed);
 
