@@ -3,7 +3,10 @@ package org.qora.test;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.qora.account.Account;
+import org.qora.account.PrivateKeyAccount;
 import org.qora.block.BlockChain;
+import org.qora.block.BlockMinter;
 import org.qora.data.account.AccountData;
 import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -11,6 +14,7 @@ import org.qora.data.transaction.TransferPrivsTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.test.common.AccountUtils;
 import org.qora.test.common.BlockUtils;
 import org.qora.test.common.Common;
 import org.qora.test.common.TestAccount;
@@ -23,9 +27,14 @@ import java.util.List;
 
 public class TransferPrivsTests extends Common {
 
+	private static List<Integer> cumulativeBlocksByLevel;
+
+
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useDefaultSettings();
+
+		cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
 	}
 
 	@After
@@ -35,159 +44,229 @@ public class TransferPrivsTests extends Common {
 
 	@Test
 	public void testAliceIntoDilbertTransferPrivs() throws DataException {
-		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
-		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount alice = Common.getTestAccount(repository, "alice");
-			AccountData initialAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
-
 			TestAccount dilbert = Common.getTestAccount(repository, "dilbert");
-			AccountData initialDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
 
-			// Blocks needed by Alice to get Dilbert to next level post-combine
-			final int expectedPostCombineLevel = initialDilbertData.getLevel() + 1;
-			final int blocksNeeded = cumulativeBlocksByLevel.get(expectedPostCombineLevel) - initialDilbertData.getBlocksMinted() - initialDilbertData.getBlocksMintedAdjustment();
+			assertTrue(alice.canMint());
+			assertTrue(dilbert.canMint());
 
-			// Level we expect Alice to reach after minting above blocks
-			int expectedLevel = 0;
-			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
-				if (blocksNeeded >= cumulativeBlocksByLevel.get(newLevel)) {
-					expectedLevel = newLevel;
-					break;
-				}
-
-			// Mint enough blocks to bump recipient level when we combine accounts
-			for (int bc = 0; bc < blocksNeeded; ++bc)
-				BlockUtils.mintBlock(repository);
-
-			// Check minting account has gained level
-			assertEquals("minter level incorrect", expectedLevel, (int) alice.getLevel());
+			// Dilbert has level, Alice does not so we need Alice to mint enough blocks to bump Dilbert's level post-combine
+			final int expectedPostCombineLevel = dilbert.getLevel() + 1;
+			PrivateKeyAccount aliceMintingAccount = Common.getTestAccount(repository, "alice-reward-share");
+			mintToSurpassLevelPostCombine(repository, aliceMintingAccount, dilbert);
 
 			// Grab pre-combine versions of Alice and Dilbert data
 			AccountData preCombineAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
 			AccountData preCombineDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
-			assertEquals(expectedLevel, preCombineAliceData.getLevel());
 
 			// Combine Alice into Dilbert
-			byte[] reference = alice.getLastReference();
-			long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
-			int txGroupId = 0;
-			BigDecimal fee = BigDecimal.ONE.setScale(8);
+			combineAccounts(repository, alice, dilbert, aliceMintingAccount);
 
-			BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, alice.getPublicKey(), fee, null);
-			TransactionData transactionData = new TransferPrivsTransactionData(baseTransactionData, dilbert.getAddress());
+			// Grab post-combine data
+			AccountData postCombineAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
+			AccountData postCombineDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
 
-			TransactionUtils.signAndMint(repository, transactionData, alice);
+			// Post-combine sender checks
+			checkSenderPostTransfer(postCombineAliceData);
+			assertFalse(alice.canMint());
 
-			AccountData newAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
-			AccountData newDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
-
-			checkSenderCleared(newAliceData);
-
-			// Confirm recipient has bumped level
-			assertEquals("recipient's level incorrect", expectedPostCombineLevel, newDilbertData.getLevel());
-
-			// Confirm recipient has gained sender's flags
-			assertEquals("recipient's flags should be changed", initialAliceData.getFlags() | initialDilbertData.getFlags(), (int) newDilbertData.getFlags());
-
-			// Confirm recipient has increased minted block count
-			assertEquals("recipient minted block count incorrect", initialDilbertData.getBlocksMinted() + initialAliceData.getBlocksMinted() + blocksNeeded + 1, newDilbertData.getBlocksMinted());
-
-			// Confirm recipient has increased minted block adjustment
-			assertEquals("recipient minted block adjustment incorrect", initialDilbertData.getBlocksMintedAdjustment() + initialAliceData.getBlocksMintedAdjustment(), newDilbertData.getBlocksMintedAdjustment());
+			// Post-combine recipient checks
+			checkRecipientPostTransfer(preCombineAliceData, preCombineDilbertData, postCombineDilbertData, expectedPostCombineLevel);
+			assertTrue(dilbert.canMint());
 
 			// Orphan previous block
 			BlockUtils.orphanLastBlock(repository);
 
-			// Sender checks...
+			// Sender checks
 			AccountData orphanedAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
 			checkAccountDataRestored("sender", preCombineAliceData, orphanedAliceData);
+			assertTrue(alice.canMint());
 
-			// Recipient checks...
+			// Recipient checks
 			AccountData orphanedDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
 			checkAccountDataRestored("recipient", preCombineDilbertData, orphanedDilbertData);
+			assertTrue(dilbert.canMint());
 		}
 	}
 
 	@Test
 	public void testDilbertIntoAliceTransferPrivs() throws DataException {
-		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
-		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount alice = Common.getTestAccount(repository, "alice");
-			AccountData initialAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
-
 			TestAccount dilbert = Common.getTestAccount(repository, "dilbert");
-			AccountData initialDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
 
-			// Blocks needed by Alice to get Alice to next level post-combine
-			final int expectedPostCombineLevel = initialDilbertData.getLevel() + 1;
-			final int blocksNeeded = cumulativeBlocksByLevel.get(expectedPostCombineLevel) - initialDilbertData.getBlocksMinted() - initialDilbertData.getBlocksMintedAdjustment();
+			assertTrue(dilbert.canMint());
+			assertTrue(alice.canMint());
 
-			// Level we expect Alice to reach after minting above blocks
-			int expectedLevel = 0;
-			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
-				if (blocksNeeded >= cumulativeBlocksByLevel.get(newLevel)) {
-					expectedLevel = newLevel;
-					break;
-				}
-
-			// Mint enough blocks to bump recipient level when we combine accounts
-			for (int bc = 0; bc < blocksNeeded; ++bc)
-				BlockUtils.mintBlock(repository);
-
-			// Check minting account has gained level
-			assertEquals("minter level incorrect", expectedLevel, (int) alice.getLevel());
+			// Dilbert has level, Alice does not so we need Alice to mint enough blocks to surpass Dilbert's level post-combine
+			final int expectedPostCombineLevel = dilbert.getLevel() + 1;
+			PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice-reward-share");
+			mintToSurpassLevelPostCombine(repository, mintingAccount, dilbert);
 
 			// Grab pre-combine versions of Alice and Dilbert data
 			AccountData preCombineAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
 			AccountData preCombineDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
-			assertEquals(expectedLevel, preCombineAliceData.getLevel());
 
 			// Combine Dilbert into Alice
-			byte[] reference = dilbert.getLastReference();
-			long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
-			int txGroupId = 0;
-			BigDecimal fee = BigDecimal.ONE.setScale(8);
+			combineAccounts(repository, dilbert, alice, mintingAccount);
 
-			BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, dilbert.getPublicKey(), fee, null);
-			TransactionData transactionData = new TransferPrivsTransactionData(baseTransactionData, alice.getAddress());
+			// Grab post-combine data
+			AccountData postCombineAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
+			AccountData postCombineDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
 
-			TransactionUtils.signAndMint(repository, transactionData, dilbert);
+			// Post-combine sender checks
+			checkSenderPostTransfer(postCombineDilbertData);
+			assertFalse(dilbert.canMint());
 
-			AccountData newAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
-			AccountData newDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
-
-			checkSenderCleared(newDilbertData);
-
-			// Confirm recipient has bumped level
-			assertEquals("recipient's level incorrect", expectedPostCombineLevel, newAliceData.getLevel());
-
-			// Confirm recipient has gained sender's flags
-			assertEquals("recipient's flags should be changed", initialAliceData.getFlags() | initialDilbertData.getFlags(), (int) newAliceData.getFlags());
-
-			// Confirm recipient has increased minted block count
-			assertEquals("recipient minted block count incorrect", initialDilbertData.getBlocksMinted() + initialAliceData.getBlocksMinted() + blocksNeeded + 1, newAliceData.getBlocksMinted());
-
-			// Confirm recipient has increased minted block adjustment
-			assertEquals("recipient minted block adjustment incorrect", initialDilbertData.getBlocksMintedAdjustment() + initialAliceData.getBlocksMintedAdjustment(), newAliceData.getBlocksMintedAdjustment());
+			// Post-combine recipient checks
+			checkRecipientPostTransfer(preCombineDilbertData, preCombineAliceData, postCombineAliceData, expectedPostCombineLevel);
+			assertTrue(alice.canMint());
 
 			// Orphan previous block
 			BlockUtils.orphanLastBlock(repository);
 
-			// Sender checks...
+			// Sender checks
 			AccountData orphanedDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
 			checkAccountDataRestored("sender", preCombineDilbertData, orphanedDilbertData);
+			assertTrue(dilbert.canMint());
 
-			// Recipient checks...
+			// Recipient checks
 			AccountData orphanedAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
 			checkAccountDataRestored("recipient", preCombineAliceData, orphanedAliceData);
+			assertTrue(alice.canMint());
 		}
 	}
 
-	private void checkSenderCleared(AccountData senderAccountData) {
+	@Test
+	public void testMultipleIntoChloeTransferPrivs() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Alice needs to mint block containing REWARD_SHARE BEFORE Alice loses minting privs
+			byte[] aliceChloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "chloe", BigDecimal.ZERO); // Block minted by Alice
+			PrivateKeyAccount aliceChloeRewardShareAccount = new PrivateKeyAccount(repository, aliceChloeRewardSharePrivateKey);
+
+			// Alice needs to mint block containing REWARD_SHARE BEFORE Alice loses minting privs
+			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", BigDecimal.ZERO); // Block minted by Alice
+			PrivateKeyAccount dilbertRewardShareAccount = new PrivateKeyAccount(repository, dilbertRewardSharePrivateKey);
+
+			TestAccount alice = Common.getTestAccount(repository, "alice");
+			TestAccount chloe = Common.getTestAccount(repository, "chloe");
+			TestAccount dilbert = Common.getTestAccount(repository, "dilbert");
+
+			assertTrue(dilbert.canMint());
+			assertFalse(chloe.canMint());
+
+			// COMBINE DILBERT INTO CHLOE
+
+			// Alice-Chloe reward share needs to mint enough blocks to surpass Dilbert's level post-combine
+			final int expectedPost1stCombineLevel = dilbert.getLevel() + 1;
+			mintToSurpassLevelPostCombine(repository, aliceChloeRewardShareAccount, dilbert);
+
+			// Grab pre-combine versions of Dilbert and Chloe data
+			AccountData pre1stCombineDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
+			AccountData pre1stCombineChloeData = repository.getAccountRepository().getAccount(chloe.getAddress());
+			final int pre1stCombineBlockHeight = repository.getBlockRepository().getBlockchainHeight();
+
+			// Combine Dilbert into Chloe
+			combineAccounts(repository, dilbert, chloe, dilbertRewardShareAccount);
+
+			// Grab post-combine data
+			AccountData post1stCombineDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
+			AccountData post1stCombineChloeData = repository.getAccountRepository().getAccount(chloe.getAddress());
+
+			// Post-combine sender checks
+			checkSenderPostTransfer(post1stCombineDilbertData);
+			assertFalse(dilbert.canMint());
+
+			// Post-combine recipient checks
+			checkRecipientPostTransfer(pre1stCombineDilbertData, pre1stCombineChloeData, post1stCombineChloeData, expectedPost1stCombineLevel);
+			assertTrue(chloe.canMint());
+
+			// COMBINE ALICE INTO CHLOE
+
+			assertTrue(alice.canMint());
+			assertTrue(chloe.canMint());
+
+			// Alice needs to mint enough blocks to surpass Chloe's level post-combine
+			final int expectedPost2ndCombineLevel = chloe.getLevel() + 1;
+			PrivateKeyAccount aliceMintingAccount = Common.getTestAccount(repository, "alice-reward-share");
+			mintToSurpassLevelPostCombine(repository, aliceMintingAccount, chloe);
+
+			// Grab pre-combine versions of Alice and Chloe data
+			AccountData pre2ndCombineAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
+			AccountData pre2ndCombineChloeData = repository.getAccountRepository().getAccount(chloe.getAddress());
+
+			// Combine Alice into Chloe
+			combineAccounts(repository, alice, chloe, aliceMintingAccount);
+
+			// Grab post-combine data
+			AccountData post2ndCombineAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
+			AccountData post2ndCombineChloeData = repository.getAccountRepository().getAccount(chloe.getAddress());
+
+			// Post-combine sender checks
+			checkSenderPostTransfer(post2ndCombineAliceData);
+			assertFalse(alice.canMint());
+
+			// Post-combine recipient checks
+			checkRecipientPostTransfer(pre2ndCombineAliceData, pre2ndCombineChloeData, post2ndCombineChloeData, expectedPost2ndCombineLevel);
+			assertTrue(chloe.canMint());
+
+			// Orphan 2nd combine
+			BlockUtils.orphanLastBlock(repository);
+
+			// Sender checks
+			AccountData orphanedAliceData = repository.getAccountRepository().getAccount(alice.getAddress());
+			checkAccountDataRestored("sender", pre2ndCombineAliceData, orphanedAliceData);
+			assertTrue(alice.canMint());
+
+			// Recipient checks
+			AccountData orphanedChloeData = repository.getAccountRepository().getAccount(chloe.getAddress());
+			checkAccountDataRestored("recipient", pre2ndCombineChloeData, orphanedChloeData);
+			assertTrue(chloe.canMint());
+
+			// Orphan 1nd combine
+			BlockUtils.orphanToBlock(repository, pre1stCombineBlockHeight);
+
+			// Sender checks
+			AccountData orphanedDilbertData = repository.getAccountRepository().getAccount(dilbert.getAddress());
+			checkAccountDataRestored("sender", pre1stCombineDilbertData, orphanedDilbertData);
+			assertTrue(dilbert.canMint());
+
+			// Recipient checks
+			orphanedChloeData = repository.getAccountRepository().getAccount(chloe.getAddress());
+			checkAccountDataRestored("recipient", pre1stCombineChloeData, orphanedChloeData);
+
+			// Chloe canMint() would return true here due to Alice-Chloe reward-share minting at top of method, so undo that minting by orphaning back to block 1
+			BlockUtils.orphanToBlock(repository, 1);
+			assertFalse(chloe.canMint());
+		}
+	}
+
+	/** Mint enough blocks, using <tt>mintingAccount</tt> so that minting account(s) will surpass <tt>targetAccount</tt>'s level post-combine. */
+	private void mintToSurpassLevelPostCombine(Repository repository, PrivateKeyAccount mintingAccount, Account targetAccount) throws DataException {
+		AccountData preMintAccountData = repository.getAccountRepository().getAccount(targetAccount.getAddress());
+		final int minterBlocksNeeded = cumulativeBlocksByLevel.get(preMintAccountData.getLevel() + 1) - preMintAccountData.getBlocksMinted() - preMintAccountData.getBlocksMintedAdjustment();
+
+		// Mint enough blocks to bump testAccount level
+		for (int bc = 0; bc < minterBlocksNeeded; ++bc)
+			BlockMinter.mintTestingBlock(repository, mintingAccount);
+	}
+
+	/** Combine sender's level, flags and block counts into recipient using TRANSFER_PRIVS transaction. */
+	private void combineAccounts(Repository repository, PrivateKeyAccount senderAccount, Account recipientAccount, PrivateKeyAccount mintingAccount) throws DataException {
+		byte[] reference = senderAccount.getLastReference();
+		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
+		int txGroupId = 0;
+		BigDecimal fee = BigDecimal.ONE.setScale(8);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderAccount.getPublicKey(), fee, null);
+		TransactionData transactionData = new TransferPrivsTransactionData(baseTransactionData, recipientAccount.getAddress());
+
+		TransactionUtils.signAsUnconfirmed(repository, transactionData, senderAccount);
+		BlockMinter.mintTestingBlock(repository, mintingAccount);
+	}
+
+	private void checkSenderPostTransfer(AccountData senderAccountData) {
 		// Confirm sender has zeroed flags
 		assertEquals("sender's flags should be zeroed", 0, (int) senderAccountData.getFlags());
 
@@ -199,6 +278,20 @@ public class TransferPrivsTests extends Common {
 
 		// Confirm sender has zeroed minted block adjustment
 		assertEquals("sender's minted block adjustment should be zeroed", 0, (int) senderAccountData.getBlocksMintedAdjustment());
+	}
+
+	private void checkRecipientPostTransfer(AccountData preCombineSenderData, AccountData preCombineRecipientData, AccountData postCombineRecipientData, int expectedPostCombineLevel) {
+		// Confirm recipient has bumped level
+		assertEquals("recipient's level incorrect", expectedPostCombineLevel, postCombineRecipientData.getLevel());
+
+		// Confirm recipient has gained sender's flags
+		assertEquals("recipient's flags should be changed", preCombineSenderData.getFlags() | preCombineRecipientData.getFlags(), (int) postCombineRecipientData.getFlags());
+
+		// Confirm recipient has increased minted block count
+		assertEquals("recipient minted block count incorrect", preCombineRecipientData.getBlocksMinted() + preCombineSenderData.getBlocksMinted() + 1, postCombineRecipientData.getBlocksMinted());
+
+		// Confirm recipient has increased minted block adjustment
+		assertEquals("recipient minted block adjustment incorrect", preCombineRecipientData.getBlocksMintedAdjustment() + preCombineSenderData.getBlocksMintedAdjustment(), postCombineRecipientData.getBlocksMintedAdjustment());
 	}
 
 	private void checkAccountDataRestored(String accountName, AccountData expectedAccountData, AccountData actualAccountData) {
