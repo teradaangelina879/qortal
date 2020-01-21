@@ -1584,7 +1584,7 @@ public class Block {
 
 			final int effectiveBlocksMinted = cumulativeBlocksByLevel.get(accountData.getInitialLevel()) + accountData.getBlocksMinted();
 
-			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
+			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
 					if (newLevel < accountData.getLevel()) {
 						// Account has decreased in level!

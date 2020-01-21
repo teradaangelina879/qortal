@@ -46,4 +46,21 @@ public class BlockUtils {
 			orphanLastBlock(repository);
 	}
 
+	public static void orphanToBlock(Repository repository, int targetHeight) throws DataException {
+		do {
+			BlockData blockData = repository.getBlockRepository().getLastBlock();
+			final int height = blockData.getHeight();
+
+			if (height <= targetHeight)
+				return;
+
+			Block block = new Block(repository, blockData);
+			block.orphan();
+
+			LOGGER.info(String.format("Orphaned block: %d", height));
+
+			repository.saveChanges();
+		} while (true);
+	}
+
 }

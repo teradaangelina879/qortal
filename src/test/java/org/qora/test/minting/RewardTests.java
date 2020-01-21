@@ -22,6 +22,7 @@ import org.qora.repository.RepositoryManager;
 import org.qora.test.common.AccountUtils;
 import org.qora.test.common.BlockUtils;
 import org.qora.test.common.Common;
+import org.qora.test.common.TestAccount;
 
 public class RewardTests extends Common {
 
@@ -172,6 +173,34 @@ public class RewardTests extends Common {
 			BigDecimal expectedBalance = initialBalances.get("chloe").get(Asset.LEGACY_QORA).divide(qoraPerQort);
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, initialBalances.get("chloe").get(Asset.QORT).add(expectedBalance));
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT_FROM_QORA, initialBalances.get("chloe").get(Asset.QORT_FROM_QORA).add(expectedBalance));
+		}
+	}
+
+	/** Use Alice-Chloe reward-share to bump Chloe from level 0 to level 1, then check orphaning works as expected. */
+	@Test
+	public void testLevel1() throws DataException {
+		List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			TestAccount chloe = Common.getTestAccount(repository, "chloe");
+
+			assertEquals(0, (int) chloe.getLevel());
+
+			// Alice needs to mint block containing REWARD_SHARE BEFORE Alice loses minting privs
+			byte[] aliceChloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "chloe", BigDecimal.ZERO); // Block minted by Alice
+			PrivateKeyAccount aliceChloeRewardShareAccount = new PrivateKeyAccount(repository, aliceChloeRewardSharePrivateKey);
+
+			final int minterBlocksNeeded = cumulativeBlocksByLevel.get(1);
+			// Mint enough blocks to bump testAccount level
+			for (int bc = 0; bc < minterBlocksNeeded; ++bc)
+				BlockMinter.mintTestingBlock(repository, aliceChloeRewardShareAccount);
+
+			assertEquals(1, (int) chloe.getLevel());
+
+			// Orphan back to genesis block
+			BlockUtils.orphanToBlock(repository, 1);
+
+			assertEquals(0, (int) chloe.getLevel());
 		}
 	}
 

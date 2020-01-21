@@ -192,6 +192,17 @@ public class Account {
 
 	// Minting blocks
 
+	/** Returns whether account can be considered a "minting account".
+	 * <p>
+	 * To be considered a "minting account", the account needs to pass at least one of these tests:<br>
+	 * <ul>
+	 * <li>account's level is at least <tt>minAccountLevelToMint</tt> from blockchain config</li>
+	 * <li>account has 'founder' flag set</li>
+	 * </ul>
+	 * 
+	 * @return true if account can be considered "minting account"
+	 * @throws DataException
+	 */
 	public boolean canMint() throws DataException {
 		Integer level = this.getLevel();
 		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToMint())
@@ -203,6 +214,17 @@ public class Account {
 		return false;
 	}
 
+	/** Returns whether account can build reward-shares.
+	 * <p>
+	 * To be able to create reward-shares, the account needs to pass at least one of these tests:<br>
+	 * <ul>
+	 * <li>account's level is at least <tt>minAccountLevelToRewardShare</tt> from blockchain config</li>
+	 * <li>account has 'founder' flag set</li>
+	 * </ul>
+	 * 
+	 * @return true if account can be considered "minting account"
+	 * @throws DataException
+	 */
 	public boolean canRewardShare() throws DataException {
 		Integer level = this.getLevel();
 		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToRewardShare())
