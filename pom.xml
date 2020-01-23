@@ -72,6 +72,37 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<groupId>pl.project13.maven</groupId>
+				<artifactId>git-commit-id-plugin</artifactId>
+				<version>4.0.0</version>
+				<executions>
+					<execution>
+						<id>get-the-git-infos</id>
+						<goals>
+							<goal>revision</goal>
+						</goals>
+						<phase>initialize</phase>
+					</execution>
+				</executions>
+				<configuration>
+					<generateGitPropertiesFile>true</generateGitPropertiesFile>
+					<generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+					<includeOnlyProperties>
+						<includeOnlyProperty>^git.commit.time$</includeOnlyProperty>
+						<includeOnlyProperty>^git.commit.id.(abbrev|full)$</includeOnlyProperty>
+					</includeOnlyProperties>
+					<dateFormat>yyyyMMddHHmmss</dateFormat>
+					<dateFormatTimeZone>UTC</dateFormatTimeZone>
+					<gitDescribe>
+						<dirty>-devel</dirty>
+					</gitDescribe>
+					<commitIdGenerationMode>full</commitIdGenerationMode>
+					<injectAllReactorProjects>true</injectAllReactorProjects>
+					<offline>true</offline>
+					<skipPoms>false</skipPoms>
+				</configuration>
+			</plugin>
 			<!-- inject correct url to swagger json file into swagger-ui -->
 			<plugin>
 				<groupId>com.google.code.maven-replacer-plugin</groupId>
@@ -79,34 +110,55 @@
 				<version>1.5.3</version>
 				<executions>
 					<execution>
+						<id>replace-swagger-ui</id>
 						<phase>generate-resources</phase>
 						<goals>
 							<goal>replace</goal>
 						</goals>
+						<inherited>false</inherited>
+						<configuration>
+							<file>${project.build.directory}/swagger-ui.unpacked/META-INF/resources/webjars/swagger-ui/${swagger-ui.version}/index.html</file>
+							<replacements>
+								<replacement>
+									<token>https://petstore.swagger.io/v2/swagger.json</token>
+									<value>/openapi.json</value>
+								</replacement>
+								<replacement>
+									<token>Swagger UI</token>
+									<value>API Documentation</value>
+								</replacement>
+								<replacement>
+									<token>deepLinking: true,</token>
+									<value>
+										deepLinking: true,
+										tagsSorter: "alpha",
+										operationsSorter:
+										"alpha",
+									</value>
+								</replacement>
+							</replacements>
+						</configuration>
+					</execution>
+					<execution>
+						<id>replace-git-resources</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>replace</goal>
+						</goals>
+						<inherited>false</inherited>
+						<configuration>
+							<file>${project.build.outputDirectory}/git.properties</file>
+							<regex>true</regex>
+							<regexFlags><regexFlag>MULTILINE</regexFlag></regexFlags>
+							<replacements>
+								<replacement>
+									<token>^(#.*$[\n\r]*)</token>
+									<value></value>
+								</replacement>
+							</replacements>
+						</configuration>
 					</execution>
 				</executions>
-				<configuration>
-					<file>${project.build.directory}/swagger-ui.unpacked/META-INF/resources/webjars/swagger-ui/${swagger-ui.version}/index.html</file>
-					<replacements>
-						<replacement>
-							<token>https://petstore.swagger.io/v2/swagger.json</token>
-							<value>/openapi.json</value>
-						</replacement>
-						<replacement>
-							<token>Swagger UI</token>
-							<value>API Documentation</value>
-						</replacement>
-						<replacement>
-							<token>deepLinking: true,</token>
-							<value>
-								deepLinking: true,
-								tagsSorter: "alpha",
-								operationsSorter:
-								"alpha",
-							</value>
-						</replacement>
-					</replacements>
-				</configuration>
 			</plugin>
 			<!-- add swagger-ui as resource to output package -->
 			<plugin>
@@ -179,12 +231,18 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
-				<version>3.0.2</version>
+				<version>3.2.0</version>
 				<configuration>
 					<archive>
 						<manifest>
+							<addDefaultEntries>false</addDefaultEntries>
 							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
 						</manifest>
+						<manifestEntries>
+							<Last-Commit-Id>${git.commit.id.full}</Last-Commit-Id>
+							<Last-Commit-Time>${git.commit.time}</Last-Commit-Time>
+							<Reproducible-Build>true</Reproducible-Build>
+						</manifestEntries>
 					</archive>
 				</configuration>
 			</plugin>
@@ -208,6 +266,7 @@
 								<exclude>META-INF/*.SF</exclude>
 								<exclude>META-INF/*.DSA</exclude>
 								<exclude>META-INF/*.RSA</exclude>
+								<exclude>**/*.js.map</exclude>
 							</excludes>
 						</filter>
 					</filters>
@@ -230,6 +289,23 @@
 									</manifestEntries>
 								</transformer>
 							</transformers>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>io.github.zlika</groupId>
+				<artifactId>reproducible-build-maven-plugin</artifactId>
+				<version>0.11</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<id>strip-jar</id>
+						<goals>
+							<goal>strip-jar</goal>
+						</goals>
+						<configuration>
+							<zipDateTime>${git.commit.time}</zipDateTime>
 						</configuration>
 					</execution>
 				</executions>
@@ -359,6 +435,16 @@
 				<exclusion>
 					<groupId>com.fasterxml.jackson.core</groupId>
 					<artifactId>jackson-annotations</artifactId>
+				</exclusion>
+				<!-- exclude Netty, as included by io.druid.java.util -->
+				<exclusion>
+					<groupId>io.netty</groupId>
+					<artifactId>netty</artifactId>
+				</exclusion>
+				<!-- exclude async-http-client, as included by io.druid.java.util -->
+				<exclusion>
+					<groupId>org.asynchttpclient</groupId>
+					<artifactId>async-http-client</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
