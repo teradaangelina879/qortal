@@ -175,7 +175,7 @@ public class Controller extends Thread {
 		if (buildTimestampProperty == null)
 			throw new RuntimeException("Can't read build.timestamp from build.properties resource");
 
-		this.buildTimestamp = LocalDateTime.parse(buildTimestampProperty, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX")).toEpochSecond(ZoneOffset.UTC);
+		this.buildTimestamp = LocalDateTime.parse(buildTimestampProperty, DateTimeFormatter.ofPattern("yyyyMMddHHmmss")).toEpochSecond(ZoneOffset.UTC);
 		LOGGER.info(String.format("Build timestamp: %s", buildTimestampProperty));
 
 		String buildVersionProperty = properties.getProperty("build.version");

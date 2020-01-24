@@ -57,19 +57,33 @@
 	},
 	"genesisInfo": {
 		"version": 4,
-		"timestamp": "1577110000000",
+		"timestamp": "1579860000000",
 		"transactions": [
 			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT", "description": "QORTAL coin", "quantity": 0, "isDivisible": true, "reference": "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC", "data": "{}" },
 			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORA", "description": "Representative legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
 			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT-from-QORA", "description": "QORT gained from holding legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
 
-			{ "type": "ACCOUNT_FLAGS", "target": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "andMask": -1, "orMask": 1, "xorMask": 0 },
-			{ "type": "REWARD_SHARE", "minterPublicKey": "6rNn9b3pYRrG9UKqzMWYZ9qa8F3Zgv2mVWrULGHUusb", "recipient": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "rewardSharePublicKey": "8X3w1521UNnnonieugAxhfbfvqoRpwPXJrwGQZb5JjQ3", "sharePercent": 100 },
+			{ "type": "ACCOUNT_FLAGS", "target": "QbmBdAbvmXqCya8bia8WaD5izumKkC9BrY", "andMask": -1, "orMask": 0, "xorMask": 0 },
+			{ "type": "ACCOUNT_FLAGS", "target": "QNuvYvBRUQgNj8u7gbLqBruDjKL1qzemND", "andMask": -1, "orMask": 0, "xorMask": 0 },
+			{ "type": "ACCOUNT_FLAGS", "target": "QhPXuFFRa9s91Q2qYKpSN5LVCUTqYkgRLz", "andMask": -1, "orMask": 0, "xorMask": 0 },
 
-			{ "type": "ACCOUNT_FLAGS", "target": "QTiga19sttbf6CLQLT83mhCSWEaCvjk8th", "andMask": -1, "orMask": 1, "xorMask": 0 },
-			{ "type": "ACCOUNT_FLAGS", "target": "QcrowX39FuycKvMFFBsakyd5HSxe7bxFsn", "andMask": -1, "orMask": 1, "xorMask": 0 },
+			{ "type": "ACCOUNT_FLAGS", "target": "QY82MasqEH6ChwXaETH4piMtE8Pk4NBWD3", "andMask": -1, "orMask": 1, "xorMask": 0 },
+			{ "type": "ACCOUNT_FLAGS", "target": "QdAESUvjxT764zNnYyo53DVbu7nusmjuee", "andMask": -1, "orMask": 1, "xorMask": 0 },
+			{ "type": "ACCOUNT_FLAGS", "target": "QcPro2T97Q8cAfcVM4Pn4fv71Za4T6oeFD", "andMask": -1, "orMask": 1, "xorMask": 0 },
 
-			{ "type": "CREATE_GROUP", "creatorPublicKey": "6rNn9b3pYRrG9UKqzMWYZ9qa8F3Zgv2mVWrULGHUusb", "owner": "QcatTpaU1UneBs3fVHo8QN6mUmuceRVzFY", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT60", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 },
+			{ "type": "REWARD_SHARE", "minterPublicKey": "HFDmuc4HAAoVs9Siea3MugjBHasbotgVz2gsRDuLAAcB", "recipient": "QY82MasqEH6ChwXaETH4piMtE8Pk4NBWD3", "rewardSharePublicKey": "F35TbQXmgzz32cALj29jxzpdYSUKQvssqThLsZSabSXx", "sharePercent": 0 },
+
+			{ "type": "CREATE_GROUP", "creatorPublicKey": "CVancqfgb2vWLXHjqZF8LtoQyB7Y5HtZUrFKvtwrTkNW", "owner": "QbmBdAbvmXqCya8bia8WaD5izumKkC9BrY", "groupName": "dev-group", "description": "developer group", "isOpen": true, "approvalThreshold": "ONE", "minimumBlockDelay": 10, "maximumBlockDelay": 1440 },
+
+			{ "type": "JOIN_GROUP", "joinerPublicKey": "CrHdj5wKFtu7961zYvCxW76K1hHPSNpo43XP1hTWryJR", "groupId": 1 },
+			{ "type": "ADD_GROUP_ADMIN", "ownerPublicKey": "CVancqfgb2vWLXHjqZF8LtoQyB7Y5HtZUrFKvtwrTkNW", "groupId": 1, "member": "QNuvYvBRUQgNj8u7gbLqBruDjKL1qzemND" },
+
+			{ "type": "JOIN_GROUP", "joinerPublicKey": "25jxnXz3xF3tK2WJHpUHwGx7DXR6yfjAHF1hFX5ice6H", "groupId": 1 },
+			{ "type": "ADD_GROUP_ADMIN", "ownerPublicKey": "CVancqfgb2vWLXHjqZF8LtoQyB7Y5HtZUrFKvtwrTkNW", "groupId": 1, "member": "QhPXuFFRa9s91Q2qYKpSN5LVCUTqYkgRLz" },
+
+			{ "type": "UPDATE_GROUP", "ownerPublicKey": "CVancqfgb2vWLXHjqZF8LtoQyB7Y5HtZUrFKvtwrTkNW", "groupId": 1, "newOwner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "newDescription": "developer group", "newIsOpen": true, "newApprovalThreshold": "ONE", "minimumBlockDelay": 10, "maximumBlockDelay": 1440 },
+
+			{ "type": "REGISTER_NAME", "registrantPublicKey": "CVancqfgb2vWLXHjqZF8LtoQyB7Y5HtZUrFKvtwrTkNW", "owner": "QbmBdAbvmXqCya8bia8WaD5izumKkC9BrY", "name": "ciyam", "data": "{}" },
 
 			{ "type": "ACCOUNT_LEVEL", "target": "Qe9VPzQp3h4Kg3DHSHBUQ3AM3AiRBfCDfX", "level": 5 },
 			{ "type": "ACCOUNT_LEVEL", "target": "QcrnYL6yNwHKuEzYLXQ8LewG3m2B5k9K5f", "level": 5 },
