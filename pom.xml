@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.qora</groupId>
+	<groupId>org.qortal</groupId>
 	<artifactId>qortal</artifactId>
 	<version>1.0</version>
 	<packaging>jar</packaging>
@@ -191,12 +191,12 @@
 				<configuration>
 					<packages>
 						<package>
-							<pattern>org.qora.data.**</pattern>
-							<template>${project.build.sourceDirectory}/org/qora/data/package-info.java</template>
+							<pattern>org.qortal.data.**</pattern>
+							<template>${project.build.sourceDirectory}/org/qortal/data/package-info.java</template>
 						</package>
 						<package>
-							<pattern>org.qora.api.model**</pattern>
-							<template>${project.build.sourceDirectory}/org/qora/data/package-info.java</template>
+							<pattern>org.qortal.api.model**</pattern>
+							<template>${project.build.sourceDirectory}/org/qortal/data/package-info.java</template>
 						</package>
 					</packages>
 					<outputDirectory>${project.build.directory}/generated-sources/package-info</outputDirectory>
@@ -283,7 +283,7 @@
 									implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
 								<transformer
 									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>org.qora.controller.Controller</mainClass>
+									<mainClass>org.qortal.controller.Controller</mainClass>
 									<manifestEntries>
 										<Class-Path>. ..</Class-Path>
 									</manifestEntries>
