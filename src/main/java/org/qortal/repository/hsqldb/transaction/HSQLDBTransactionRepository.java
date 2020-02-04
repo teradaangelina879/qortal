@@ -55,7 +55,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				subclassInfo.clazz = Class.forName(
 						String.join("", HSQLDBTransactionRepository.class.getPackage().getName(), ".", "HSQLDB", txType.className, "TransactionRepository"));
 			} catch (ClassNotFoundException e) {
-				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass not found for transaction type \"%s\"", txType.name()));
+				LOGGER.trace(String.format("HSQLDBTransactionRepository subclass not found for transaction type \"%s\"", txType.name()));
 				continue;
 			}
 

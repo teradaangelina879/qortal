@@ -389,7 +389,10 @@ public class Controller extends Thread {
 					Long ntpTime = NTP.getTime();
 
 					if (ntpTime != null) {
-						LOGGER.info(String.format("Adjusting system time by NTP offset: %dms", ntpTime - now));
+						if (ntpTime != now)
+							// Only log if non-zero offset
+							LOGGER.info(String.format("Adjusting system time by NTP offset: %dms", ntpTime - now));
+
 						ntpCheckTimestamp = now + NTP_POST_SYNC_CHECK_PERIOD;
 						requestSysTrayUpdate = true;
 					} else {
