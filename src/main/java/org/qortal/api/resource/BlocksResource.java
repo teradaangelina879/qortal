@@ -28,6 +28,7 @@ import org.qortal.api.model.BlockMinterSummary;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
+import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -423,14 +424,14 @@ public class BlocksResource {
 	@GET
 	@Path("/minter/{address}")
 	@Operation(
-		summary = "Fetch blocks minted by address",
+		summary = "Fetch block summaries for blocks minted by address",
 		responses = {
 			@ApiResponse(
-				description = "blocks",
+				description = "block summaries",
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
-							implementation = BlockData.class
+							implementation = BlockSummaryData.class
 						)
 					)
 				)
@@ -438,7 +439,7 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.PUBLIC_KEY_NOT_FOUND, ApiError.REPOSITORY_ISSUE})
-	public List<BlockData> getBlocksByMinter(@PathParam("address") String address, @Parameter(
+	public List<BlockSummaryData> getBlockSummariesByMinter(@PathParam("address") String address, @Parameter(
 			ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
 				ref = "offset"
@@ -454,7 +455,7 @@ public class BlocksResource {
 			if (accountData == null || accountData.getPublicKey() == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.PUBLIC_KEY_NOT_FOUND);
 
-			return repository.getBlockRepository().getBlocksByMinter(accountData.getPublicKey(), limit, offset, reverse);
+			return repository.getBlockRepository().getBlockSummariesByMinter(accountData.getPublicKey(), limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

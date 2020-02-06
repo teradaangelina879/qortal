@@ -258,27 +258,41 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public List<BlockData> getBlocksByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<BlockSummaryData> getBlockSummariesByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE minter = ? ORDER BY height ");
+		sql.append("SELECT signature, height, minter, online_accounts_count FROM ");
+
+		// List of minter account's public key and reward-share public keys with minter's public key
+		sql.append("(SELECT * FROM (VALUES (CAST(? AS QortalPublicKey))) UNION (SELECT reward_share_public_key FROM RewardShares WHERE minter_public_key = ?)) AS PublicKeys (public_key) ");
+
+		// Match Blocks signed with public key from above list
+		sql.append("JOIN Blocks ON minter = public_key ");
+
+		sql.append("ORDER BY Blocks.height ");
 		if (reverse != null && reverse)
-			sql.append(" DESC");
+			sql.append("DESC ");
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<BlockData> blockData = new ArrayList<>();
+		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), minterPublicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), minterPublicKey, minterPublicKey)) {
 			if (resultSet == null)
-				return blockData;
+				return blockSummaries;
 
 			do {
-				blockData.add(getBlockFromResultSet(resultSet));
+				byte[] signature = resultSet.getBytes(1);
+				int height = resultSet.getInt(2);
+				byte[] blockMinterPublicKey = resultSet.getBytes(3);
+				int onlineAccountsCount = resultSet.getInt(4);
+
+				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, blockMinterPublicKey, onlineAccountsCount);
+				blockSummaries.add(blockSummary);
 			} while (resultSet.next());
 
-			return blockData;
+			return blockSummaries;
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch minter's blocks from repository", e);
+			throw new DataException("Unable to fetch minter's block summaries from repository", e);
 		}
 	}
 

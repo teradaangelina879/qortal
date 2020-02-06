@@ -26,7 +26,7 @@ public class BlockApiTests extends ApiCommon {
 	}
 
 	@Test
-	public void testGetBlockForgers() {
+	public void testGetBlockMinters() {
 		List<String> addresses = Arrays.asList(aliceAddress, aliceAddress);
 
 		assertNotNull(this.blocksResource.getBlockMinters(Collections.emptyList(), null, null, null));
@@ -36,9 +36,9 @@ public class BlockApiTests extends ApiCommon {
 	}
 
 	@Test
-	public void testGetBlocksByForger() {
-		assertNotNull(this.blocksResource.getBlocksByMinter(aliceAddress, null, null, null));
-		assertNotNull(this.blocksResource.getBlocksByMinter(aliceAddress, 1, 1, true));
+	public void testGetBlockSummariesByMinter() {
+		assertNotNull(this.blocksResource.getBlockSummariesByMinter(aliceAddress, null, null, null));
+		assertNotNull(this.blocksResource.getBlockSummariesByMinter(aliceAddress, 1, 1, true));
 	}
 
 }

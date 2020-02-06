@@ -1,7 +1,11 @@
 package org.qortal.data.block;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
 import org.qortal.transform.block.BlockTransformer;
 
+@XmlAccessorType(XmlAccessType.FIELD)
 public class BlockSummaryData {
 
 	// Properties
@@ -14,6 +18,10 @@ public class BlockSummaryData {
 	private Integer minterLevel;
 
 	// Constructors
+
+	protected BlockSummaryData() {
+	}
+
 	public BlockSummaryData(int height, byte[] signature, byte[] minterPublicKey, int onlineAccountsCount) {
 		this.height = height;
 		this.signature = signature;

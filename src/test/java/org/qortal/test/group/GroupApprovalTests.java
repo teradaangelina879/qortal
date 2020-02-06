@@ -110,7 +110,7 @@ public class GroupApprovalTests extends Common {
 
 			// Transaction fee should have ended up in forging account
 			BigDecimal alicePostAssetBalance = aliceAccount.getConfirmedBalance(Asset.QORT);
-			Common.assertEqualBigDecimals("block forger's balance incorrect", aliceOriginalBalance.add(blockReward).add(fee), alicePostAssetBalance);
+			Common.assertEqualBigDecimals("block minter's balance incorrect", aliceOriginalBalance.add(blockReward).add(fee), alicePostAssetBalance);
 
 			// Have Bob do a non-approval transaction to change his last-reference
 			Transaction bobPaymentTransaction = buildPaymentTransaction(repository, "bob", "chloe", amount, Group.NO_GROUP);
@@ -122,7 +122,7 @@ public class GroupApprovalTests extends Common {
 			// Have Alice approve Bob's approval-needed transaction
 			GroupUtils.approveTransaction(repository, "alice", bobAssetTransaction.getTransactionData().getSignature(), true);
 
-			// Now forge a few blocks so transaction is approved
+			// Now mint a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
 				BlockUtils.mintBlock(repository);
 
@@ -195,7 +195,7 @@ public class GroupApprovalTests extends Common {
 			// Have Alice approve Bob's approval-needed transaction
 			GroupUtils.approveTransaction(repository, "alice", bobAssetTransaction.getTransactionData().getSignature(), true);
 
-			// Now forge a few blocks so transaction is approved
+			// Now mint a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
 				BlockUtils.mintBlock(repository);
 
@@ -256,7 +256,7 @@ public class GroupApprovalTests extends Common {
 			// Have Alice reject Bob's approval-needed transaction
 			GroupUtils.approveTransaction(repository, "alice", bobAssetTransaction.getTransactionData().getSignature(), false);
 
-			// Now forge a few blocks so transaction is approved
+			// Now mint a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
 				BlockUtils.mintBlock(repository);
 
@@ -314,7 +314,7 @@ public class GroupApprovalTests extends Common {
 			Integer approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
 			assertNull("group-approval decision height should be null", approvalHeight);
 
-			// Now forge a few blocks so group-approval for transaction expires
+			// Now mint a few blocks so group-approval for transaction expires
 			for (int blockCount = 0; blockCount <= maxBlockDelay; ++blockCount)
 				BlockUtils.mintBlock(repository);
 
@@ -374,7 +374,7 @@ public class GroupApprovalTests extends Common {
 			approvalStatus = GroupUtils.getApprovalStatus(repository, aliceAssetTransaction.getTransactionData().getSignature());
 			assertEquals("incorrect transaction approval status", ApprovalStatus.NOT_REQUIRED, approvalStatus);
 
-			// Now forge a few blocks so transaction is approved
+			// Now mint a few blocks so transaction is approved
 			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
 				BlockUtils.mintBlock(repository);
 

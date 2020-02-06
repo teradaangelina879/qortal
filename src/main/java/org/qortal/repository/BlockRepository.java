@@ -114,9 +114,9 @@ public interface BlockRepository {
 	public List<BlockMinterSummary> getBlockMinters(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
-	 * Returns blocks with passed minter public key.
+	 * Returns block summaries for blocks minted by passed public key, or reward-share with minter with passed public key.
 	 */
-	public List<BlockData> getBlocksByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<BlockSummaryData> getBlockSummariesByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns blocks within height range.
