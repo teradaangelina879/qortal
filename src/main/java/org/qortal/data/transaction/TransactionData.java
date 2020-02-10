@@ -70,7 +70,7 @@ public abstract class TransactionData {
 	protected Integer blockHeight;
 
 	// Not always present
-	@Schema(description = "group-approval status")
+	@Schema(accessMode = AccessMode.READ_ONLY, description = "group-approval status")
 	protected ApprovalStatus approvalStatus;
 
 	// Not always present
