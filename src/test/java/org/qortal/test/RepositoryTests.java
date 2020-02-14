@@ -15,6 +15,9 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -126,6 +129,46 @@ public class RepositoryTests extends Common {
 		}
 	}
 
+	/** Test proper action of interrupt inside an HSQLDB statement. */
+	@Test
+	public void testInterrupt() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			final Thread testThread = Thread.currentThread();
+			System.out.println(String.format("Thread ID: %s", testThread.getId()));
+
+			// Queue interrupt
+			ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+			executor.schedule(() -> testThread.interrupt(), 1000L, TimeUnit.MILLISECONDS);
+
+			// Set rollback on interrupt
+			@SuppressWarnings("resource")
+			final HSQLDBRepository hsqldb = (HSQLDBRepository) repository;
+			hsqldb.prepareStatement("SET DATABASE TRANSACTION ROLLBACK ON INTERRUPT TRUE").execute();
+
+			// Create SQL procedure that calls hsqldbSleep() to block HSQLDB so we can interrupt()
+			hsqldb.prepareStatement("CREATE PROCEDURE sleep(IN millis INT) LANGUAGE JAVA DETERMINISTIC NO SQL EXTERNAL NAME 'CLASSPATH:org.qortal.test.RepositoryTests.hsqldbSleep'").execute();
+
+			// Execute long-running statement
+			hsqldb.prepareStatement("CALL sleep(2000)").execute();
+
+			if (!testThread.isInterrupted())
+				// We should not reach here
+				fail("Interrupt was swallowed");
+		} catch (DataException | SQLException e) {
+			fail("DataException during blocked statement");
+		}
+	}
+
+	public static void hsqldbSleep(int millis) throws SQLException {
+		System.out.println(String.format("HSQLDB sleep() thread ID: %s", Thread.currentThread().getId()));
+
+		try {
+			Thread.sleep(millis);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
 	private void testSql(HSQLDBRepository hsqldb, String sql, boolean isFast) throws DataException, SQLException {
 		// Execute query to prime caches
 		hsqldb.prepareStatement(sql).execute();
@@ -138,7 +181,7 @@ public class RepositoryTests extends Common {
 		System.out.println(String.format("%s: [%d ms] SQL: %s", (isFast ? "fast": "slow"), executionTime, sql));
 
 		final long threshold = 3; // ms
-		assertTrue( isFast ? executionTime < threshold : executionTime > threshold);
+		assertTrue( !isFast || executionTime < threshold);
 	}
 
 }

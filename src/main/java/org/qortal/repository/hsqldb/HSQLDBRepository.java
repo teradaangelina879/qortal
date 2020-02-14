@@ -500,8 +500,17 @@ public class HSQLDBRepository implements Repository {
 		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
 			prepareExecute(preparedStatement, objects);
 
+			long beforeQuery = System.currentTimeMillis();
+
 			if (preparedStatement.execute())
 				throw new SQLException("Database produced results, not row count");
+
+			long queryTime = System.currentTimeMillis() - beforeQuery;
+			if (this.slowQueryThreshold != null && queryTime > this.slowQueryThreshold) {
+				LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+
+				logStatements();
+			}
 
 			int rowCount = preparedStatement.getUpdateCount();
 			if (rowCount == -1)
@@ -516,7 +525,7 @@ public class HSQLDBRepository implements Repository {
 	 * <p>
 	 * Performs "CALL IDENTITY()" SQL statement to retrieve last value used when INSERTing into a table that has an IDENTITY column.
 	 * <p>
-	 * Typically used after INSERTing NULL as the IDENTIY column's value to fetch what value was actually stored by HSQLDB.
+	 * Typically used after INSERTing NULL as the IDENTITY column's value to fetch what value was actually stored by HSQLDB.
 	 * 
 	 * @return Long
 	 * @throws SQLException
@@ -557,12 +566,9 @@ public class HSQLDBRepository implements Repository {
 		sql.append(whereClause);
 		sql.append(" LIMIT 1");
 
-		try (PreparedStatement preparedStatement = this.prepareStatement(sql.toString());
-				ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects)) {
-			if (resultSet == null)
-				return false;
-
-			return true;
+		try (ResultSet resultSet = this.checkedExecute(sql.toString(), objects)) {
+			// If matching row is found then resultSet will not be null
+			return resultSet != null;
 		}
 	}
 

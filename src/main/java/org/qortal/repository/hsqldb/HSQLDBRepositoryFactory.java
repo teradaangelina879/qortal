@@ -31,7 +31,7 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 	 * 
 	 * @param connectionUrl
 	 * @throws DataException <i>without throwable</i> if repository in use by another process.
-	 * @throws DataException <i>with throwable</i> if repository cannot be opened for someother reason.
+	 * @throws DataException <i>with throwable</i> if repository cannot be opened for some other reason.
 	 */
 	public HSQLDBRepositoryFactory(String connectionUrl) throws DataException {
 		// one-time initialization goes in here
@@ -47,10 +47,10 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 
 			HsqlException he = (HsqlException) cause;
 			if (he.getErrorCode() == -ErrorCode.LOCK_FILE_ACQUISITION_FAILURE)
-				throw new DataException("Unable to open repository: " + e.getMessage());
+				throw new DataException("Unable to lock repository: " + e.getMessage());
 
 			if (he.getErrorCode() != -ErrorCode.ERROR_IN_LOG_FILE && he.getErrorCode() != -ErrorCode.M_DatabaseScriptReader_read)
-				throw new DataException("Unable to open repository: " + e.getMessage(), e);
+				throw new DataException("Unable to read repository: " + e.getMessage(), e);
 
 			// Attempt recovery?
 			HSQLDBRepository.attemptRecovery(connectionUrl);

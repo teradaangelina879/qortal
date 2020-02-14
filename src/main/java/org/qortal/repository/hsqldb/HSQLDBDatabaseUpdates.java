@@ -923,6 +923,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE Accounts DROP initial_level");
 					break;
 
+				case 65:
+					// Add INDEX to speed up very slow "DELETE FROM HistoricAccountBalances WHERE height >= ?"
+					stmt.execute("CREATE INDEX IF NOT EXISTS HistoricAccountBalancesHeightIndex ON HistoricAccountBalances (height)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
