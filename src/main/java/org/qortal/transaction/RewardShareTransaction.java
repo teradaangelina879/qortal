@@ -102,9 +102,10 @@ public class RewardShareTransaction extends Transaction {
 			return ValidationResult.INVALID_PUBLIC_KEY;
 
 		final boolean isRecipientAlsoMinter = getCreator().getAddress().equals(this.rewardShareTransactionData.getRecipient());
+		final boolean isCancellingSharePercent = this.rewardShareTransactionData.getSharePercent().compareTo(BigDecimal.ZERO) < 0;
 
-		// Fee can be zero if setting up new self-share
-		if (isRecipientAlsoMinter && existingRewardShareData == null && this.transactionData.getFee().compareTo(BigDecimal.ZERO) >= 0)
+		// Fee can be zero if self-share, and not cancelling
+		if (isRecipientAlsoMinter && !isCancellingSharePercent && this.transactionData.getFee().compareTo(BigDecimal.ZERO) >= 0)
 			return ValidationResult.OK;
 
 		return super.isFeeValid();
@@ -161,7 +162,7 @@ public class RewardShareTransaction extends Transaction {
 
 			// Modifying an existing self-share is pointless and forbidden (due to 0 fee). Deleting self-share is OK though.
 			if (isRecipientAlsoMinter && !isCancellingSharePercent)
-				return ValidationResult.INVALID_REWARD_SHARE_PERCENT;
+				return ValidationResult.SELF_SHARE_EXISTS;
 		}
 
 		// Fee checking needed if not setting up new self-share

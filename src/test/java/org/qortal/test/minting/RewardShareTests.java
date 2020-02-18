@@ -168,9 +168,14 @@ public class RewardShareTests extends Common {
 			newTransactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, CANCEL_SHARE_PERCENT);
 			newTransaction = Transaction.fromData(repository, newTransactionData);
 
-			// Confirm terminating reward-share is valid
+			// Confirm terminating reward-share with fee is valid
 			validationResult = newTransaction.isValidUnconfirmed();
-			assertEquals("Subsequent zero-fee self-share should be invalid", ValidationResult.OK, validationResult);
+			assertEquals("Subsequent self-share cancel should be valid", ValidationResult.OK, validationResult);
+
+			// Confirm terminating reward-share with zero fee is invalid
+			newTransactionData.setFee(BigDecimal.ZERO);
+			validationResult = newTransaction.isValidUnconfirmed();
+			assertNotSame("Subsequent zero-fee self-share cancel should be invalid", ValidationResult.OK, validationResult);
 		}
 	}
 
