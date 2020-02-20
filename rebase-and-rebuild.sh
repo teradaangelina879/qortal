@@ -24,7 +24,7 @@ git push --force-with-lease
 echo 'Building new XORed auto-update JAR'
 mvn clean
 mvn package
-java -cp target/${project}*.jar org.qora.XorUpdate target/${project}*.jar ${project}.update
+java -cp target/${project}*.jar org.qortal.XorUpdate target/${project}*.jar ${project}.update
 
 echo 'Pushing new JAR commit'
 git add ${project}.update
