@@ -332,9 +332,11 @@ public class Controller extends Thread {
 		// LOGGER.info("Starting arbitrary-transaction data manager");
 		// ArbitraryDataManager.getInstance().start();
 
-		// Auto-update service
-		LOGGER.info("Starting auto-update");
-		AutoUpdate.getInstance().start();
+		// Auto-update service?
+		if (Settings.getInstance().isAutoUpdateEnabled()) {
+			LOGGER.info("Starting auto-update");
+			AutoUpdate.getInstance().start();
+		}
 
 		LOGGER.info(String.format("Starting API on port %d", Settings.getInstance().getApiPort()));
 		try {
@@ -642,8 +644,10 @@ public class Controller extends Thread {
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();
 
-				LOGGER.info("Shutting down auto-update");
-				AutoUpdate.getInstance().shutdown();
+				if (Settings.getInstance().isAutoUpdateEnabled()) {
+					LOGGER.info("Shutting down auto-update");
+					AutoUpdate.getInstance().shutdown();
+				}
 
 				// Arbitrary transaction data manager
 				// LOGGER.info("Shutting down arbitrary-transaction data manager");
