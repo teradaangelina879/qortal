@@ -12,6 +12,7 @@ import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.Serialization;
 
 import com.google.common.hash.HashCode;
 
@@ -19,6 +20,9 @@ import io.druid.extendedset.intset.ConciseSet;
 
 import static org.junit.Assert.*;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -140,6 +144,32 @@ public class SerializationTests extends Common {
 
 			System.out.println(String.format("%6d %6d %18d %19d %10d", numberOfKnownAccounts, numberOfAccountsToEncode, uncompressedBitSetSize, uncompressedIntListSize, compressedSize));
 		}
+	}
+
+	@Test
+	public void testPositiveBigDecimal() throws IOException {
+		BigDecimal amount = new BigDecimal("123.4567").setScale(8);
+
+		byte[] bytes = Serialization.serializeBigDecimal(amount);
+		assertEquals("Serialized BigDecimal should be 8 bytes long", 8, bytes.length);
+
+		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+		BigDecimal newAmount = Serialization.deserializeBigDecimal(byteBuffer);
+
+		assertEqualBigDecimals("Deserialized BigDecimal has incorrect value", amount, newAmount);
+	}
+
+	@Test
+	public void testNegativeBigDecimal() throws IOException {
+		BigDecimal amount = new BigDecimal("-1.23").setScale(8);
+
+		byte[] bytes = Serialization.serializeBigDecimal(amount);
+		assertEquals("Serialized BigDecimal should be 8 bytes long", 8, bytes.length);
+
+		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+		BigDecimal newAmount = Serialization.deserializeBigDecimal(byteBuffer);
+
+		assertEqualBigDecimals("Deserialized BigDecimal has incorrect value", amount, newAmount);
 	}
 
 }

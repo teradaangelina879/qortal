@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
@@ -28,7 +29,14 @@ public class Serialization {
 		// (At least until the BigDecimal XmlAdapter works - see data/package-info.java)
 		byte[] amountBytes = amount.setScale(8).unscaledValue().toByteArray();
 		byte[] output = new byte[length];
+
+		// To retain sign of 'amount', we might need to explicitly fill 'output' with leading 1s
+		if (amount.signum() == -1)
+			// Negative values: fill output with 1s
+			Arrays.fill(output, (byte) 0xff);
+
 		System.arraycopy(amountBytes, 0, output, length - amountBytes.length, amountBytes.length);
+
 		return output;
 	}
 
