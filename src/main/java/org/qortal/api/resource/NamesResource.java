@@ -23,6 +23,7 @@ import javax.ws.rs.core.MediaType;
 
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
+import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.model.NameSummary;
 import org.qortal.crypto.Crypto;
@@ -122,10 +123,17 @@ public class NamesResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({ApiError.NAME_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public NameData getName(@PathParam("name") String name) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getNameRepository().fromName(name);
+			NameData nameData = repository.getNameRepository().fromName(name);
+
+			if (nameData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NAME_UNKNOWN);
+
+			return nameData;
+		} catch (ApiException e) {
+			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

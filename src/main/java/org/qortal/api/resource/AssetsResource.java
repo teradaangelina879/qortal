@@ -410,7 +410,7 @@ public class AssetsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_ORDER_ID, ApiError.ORDER_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_ORDER_ID, ApiError.ORDER_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public OrderData getAssetOrder(@PathParam("orderid") String orderId58) {
 		// Decode orderID
@@ -424,7 +424,7 @@ public class AssetsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			OrderData orderData = repository.getAssetRepository().fromOrderId(orderId);
 			if (orderData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_UNKNOWN);
 
 			return orderData;
 		} catch (DataException e) {
@@ -451,7 +451,7 @@ public class AssetsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_ORDER_ID, ApiError.ORDER_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_ORDER_ID, ApiError.ORDER_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public List<TradeData> getAssetOrderTrades(@PathParam("orderid") String orderId58, @Parameter(
 		ref = "limit"
@@ -471,7 +471,7 @@ public class AssetsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			OrderData orderData = repository.getAssetRepository().fromOrderId(orderId);
 			if (orderData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_UNKNOWN);
 
 			return repository.getAssetRepository().getOrdersTrades(orderId, limit, offset, reverse);
 		} catch (DataException e) {
@@ -497,7 +497,7 @@ public class AssetsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_ADDRESS, ApiError.ADDRESS_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public List<OrderData> getAccountOrders(@PathParam("address") String address, @QueryParam("includeClosed") boolean includeClosed,
 			@QueryParam("includeFulfilled") boolean includeFulfilled, @Parameter(
@@ -514,11 +514,11 @@ public class AssetsResource {
 			AccountData accountData = repository.getAccountRepository().getAccount(address);
 
 			if (accountData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
 			byte[] publicKey = accountData.getPublicKey();
 			if (publicKey == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
 			return repository.getAssetRepository().getAccountsOrders(publicKey, includeClosed, includeFulfilled, limit, offset, reverse);
 		} catch (ApiException e) {
@@ -546,7 +546,7 @@ public class AssetsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_ADDRESS, ApiError.ADDRESS_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public List<OrderData> getAccountAssetPairOrders(@PathParam("address") String address, @PathParam("assetid") int assetId,
 			@PathParam("otherassetid") int otherAssetId, @QueryParam("isClosed") Boolean isClosed, @QueryParam("isFulfilled") Boolean isFulfilled, @Parameter(
@@ -563,11 +563,11 @@ public class AssetsResource {
 			AccountData accountData = repository.getAccountRepository().getAccount(address);
 
 			if (accountData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
 			byte[] publicKey = accountData.getPublicKey();
 			if (publicKey == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
 			if (!repository.getAssetRepository().assetExists(assetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);

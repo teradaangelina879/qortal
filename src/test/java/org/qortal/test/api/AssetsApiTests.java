@@ -94,7 +94,7 @@ public class AssetsApiTests extends ApiCommon {
 		try {
 			assertNotNull(this.assetsResource.getAssetOrder(FAKE_ORDER_ID_BASE58));
 		} catch (ApiException e) {
-			assertTrue(e.error == ApiError.ORDER_NO_EXISTS.getCode());
+			assertTrue(e.error == ApiError.ORDER_UNKNOWN.getCode());
 		}
 	}
 
@@ -103,13 +103,13 @@ public class AssetsApiTests extends ApiCommon {
 		try {
 			assertNotNull(this.assetsResource.getAssetOrderTrades(FAKE_ORDER_ID_BASE58, null, null, null));
 		} catch (ApiException e) {
-			assertTrue(e.error == ApiError.ORDER_NO_EXISTS.getCode());
+			assertTrue(e.error == ApiError.ORDER_UNKNOWN.getCode());
 		}
 
 		try {
 			assertNotNull(this.assetsResource.getAssetOrderTrades(FAKE_ORDER_ID_BASE58, 1, 1, true));
 		} catch (ApiException e) {
-			assertTrue(e.error == ApiError.ORDER_NO_EXISTS.getCode());
+			assertTrue(e.error == ApiError.ORDER_UNKNOWN.getCode());
 		}
 	}
 

@@ -59,7 +59,7 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public BlockData getBlock(@PathParam("signature") String signature58) {
 		// Decode signature
@@ -98,7 +98,7 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature58, @Parameter(
 		ref = "limit"
@@ -117,7 +117,7 @@ public class BlocksResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			if (repository.getBlockRepository().getHeightFromSignature(signature) == 0)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return repository.getBlockRepository().getTransactionsFromSignature(signature, limit, offset, reverse);
 		} catch (ApiException e) {
@@ -144,13 +144,11 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.REPOSITORY_ISSUE
 	})
 	public BlockData getFirstBlock() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getBlockRepository().fromHeight(1);
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -173,13 +171,11 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.REPOSITORY_ISSUE
 	})
 	public BlockData getLastBlock() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getBlockRepository().getLastBlock();
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -202,7 +198,7 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public BlockData getChild(@PathParam("signature") String signature58) {
 		// Decode signature
@@ -218,13 +214,13 @@ public class BlocksResource {
 
 			// Check block exists
 			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			BlockData childBlockData = repository.getBlockRepository().fromReference(signature);
 
 			// Check child block exists
 			if (childBlockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return childBlockData;
 		} catch (ApiException e) {
@@ -282,7 +278,7 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public int getHeight(@PathParam("signature") String signature58) {
 		// Decode signature
@@ -298,7 +294,7 @@ public class BlocksResource {
 
 			// Check block exists
 			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return blockData.getHeight();
 		} catch (ApiException e) {
@@ -325,13 +321,13 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public BlockData getByHeight(@PathParam("height") int height) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
 			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return blockData;
 		} catch (ApiException e) {
@@ -357,17 +353,17 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public BlockData getByTimestamp(@PathParam("timestamp") long timestamp) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int height = repository.getBlockRepository().getHeightFromTimestamp(timestamp);
 			if (height == 0)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
 			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return blockData;
 		} catch (ApiException e) {
@@ -396,7 +392,7 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.REPOSITORY_ISSUE
 	})
 	public List<BlockData> getBlockRange(@PathParam("height") int height, @Parameter(
 		ref = "count"
@@ -414,8 +410,6 @@ public class BlocksResource {
 			}
 
 			return blocks;
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

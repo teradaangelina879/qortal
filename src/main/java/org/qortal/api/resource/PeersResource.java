@@ -137,7 +137,7 @@ public class PeersResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_NETWORK_ADDRESS, ApiError.REPOSITORY_ISSUE
 	})
 	public String addPeer(String address) {
 		Security.checkApiCallAllowed(request);
@@ -151,7 +151,7 @@ public class PeersResource {
 
 			return "true";
 		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_NETWORK_ADDRESS);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -188,7 +188,7 @@ public class PeersResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_NETWORK_ADDRESS, ApiError.REPOSITORY_ISSUE
 	})
 	public String removePeer(String address) {
 		Security.checkApiCallAllowed(request);
@@ -199,7 +199,7 @@ public class PeersResource {
 			boolean wasKnown = Network.getInstance().forgetPeer(peerAddress);
 			return wasKnown ? "true" : "false";
 		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_NETWORK_ADDRESS);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -223,7 +223,7 @@ public class PeersResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE
+		ApiError.REPOSITORY_ISSUE
 	})
 	public String removeKnownPeers(String address) {
 		Security.checkApiCallAllowed(request);
@@ -232,8 +232,6 @@ public class PeersResource {
 			int numDeleted = Network.getInstance().forgetAllPeers();
 
 			return numDeleted != 0 ? "true" : "false";
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

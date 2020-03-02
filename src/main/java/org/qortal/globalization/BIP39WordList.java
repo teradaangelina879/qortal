@@ -17,36 +17,32 @@ import org.apache.logging.log4j.Logger;
 public enum BIP39WordList {
 	INSTANCE;
 
-	private Logger LOGGER = LogManager.getLogger(BIP39WordList.class);
+	private static final Logger LOGGER = LogManager.getLogger(BIP39WordList.class);
 
-	private Map<String, List<String>> wordListsByLang;
-
-	private BIP39WordList() {
-		wordListsByLang = new HashMap<>();
-	}
+	private static final Map<String, List<String>> wordListsByLang = new HashMap<>();
 
 	public synchronized List<String> getByLang(String lang) {
 		List<String> wordList = wordListsByLang.get(lang);
 
-		if (wordList == null) {
+		if (wordList == null && !wordListsByLang.containsKey(lang)) {
 			ClassLoader loader = this.getClass().getClassLoader();
 
 			try (InputStream inputStream = loader.getResourceAsStream("BIP39/wordlist_" + lang + ".txt")) {
-				if (inputStream == null) {
+				if (inputStream == null)
 					LOGGER.warn(String.format("Can't locate '%s' BIP39 wordlist", lang));
-					return null;
-				}
 
 				wordList = new BufferedReader(new InputStreamReader(inputStream)).lines().collect(Collectors.toList());
 			} catch (IOException e) {
-				LOGGER.warn(String.format("Error reading '%s' BIP39 wordlist", lang), e);
-				return null;
+				LOGGER.warn(String.format("Error reading '%s' BIP39 wordlist: %s", lang, e.getMessage()));
 			}
 
 			wordListsByLang.put(lang, wordList);
 		}
 
-		return Collections.unmodifiableList(wordList);
+		if (wordList != null)
+			return Collections.unmodifiableList(wordList);
+		else
+			return null;
 	}
 
 }

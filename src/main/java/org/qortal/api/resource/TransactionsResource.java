@@ -69,7 +69,7 @@ public class TransactionsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public TransactionData getTransactionBySignature(@PathParam("signature") String signature58) {
 		byte[] signature;
@@ -82,7 +82,7 @@ public class TransactionsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
 			if (transactionData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_UNKNOWN);
 
 			return transactionData;
 		} catch (ApiException e) {
@@ -110,7 +110,7 @@ public class TransactionsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE, ApiError.TRANSFORMATION_ERROR
+		ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_UNKNOWN, ApiError.REPOSITORY_ISSUE, ApiError.TRANSFORMATION_ERROR
 	})
 	public String getRawTransactionBySignature(@PathParam("signature") String signature58) {
 		byte[] signature;
@@ -123,7 +123,7 @@ public class TransactionsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
 			if (transactionData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_UNKNOWN);
 
 			byte[] transactionBytes = TransactionTransformer.toBytes(transactionData);
 
@@ -154,7 +154,7 @@ public class TransactionsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_REFERENCE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_REFERENCE, ApiError.TRANSACTION_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public TransactionData getTransactionByReference(@PathParam("reference") String reference58) {
 		byte[] reference;
@@ -167,7 +167,7 @@ public class TransactionsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionData transactionData = repository.getTransactionRepository().fromReference(reference);
 			if (transactionData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_UNKNOWN);
 
 			return transactionData;
 		} catch (ApiException e) {
@@ -196,7 +196,7 @@ public class TransactionsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature58, @Parameter(
 		ref = "limit"
@@ -215,7 +215,7 @@ public class TransactionsResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			if (repository.getBlockRepository().getHeightFromSignature(signature) == 0)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return repository.getBlockRepository().getTransactionsFromSignature(signature, limit, offset, reverse);
 		} catch (ApiException e) {
