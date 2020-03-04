@@ -202,6 +202,8 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<MintingAccountData> getMintingAccounts() {
+		Security.checkApiCallAllowed(request);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<MintingAccountData> mintingAccounts = repository.getAccountRepository().getMintingAccounts();
 
@@ -246,6 +248,8 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE, ApiError.CANNOT_MINT})
 	public String addMintingAccount(String seed58) {
+		Security.checkApiCallAllowed(request);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] seed = Base58.decode(seed58.trim());
 
@@ -296,6 +300,8 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
 	public String deleteMintingAccount(String seed58) {
+		Security.checkApiCallAllowed(request);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] seed = Base58.decode(seed58.trim());
 
