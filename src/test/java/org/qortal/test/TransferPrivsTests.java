@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.account.PublicKeyAccount;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockMinter;
 import org.qortal.data.account.AccountData;
@@ -19,11 +20,13 @@ import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
 import org.qortal.test.common.TransactionUtils;
+import org.qortal.transform.Transformer;
 
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Random;
 
 public class TransferPrivsTests extends Common {
 
@@ -40,6 +43,27 @@ public class TransferPrivsTests extends Common {
 	@After
 	public void afterTest() throws DataException {
 		Common.orphanCheck();
+	}
+
+	@Test
+	public void testAliceIntoNewAccountTransferPrivs() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			TestAccount alice = Common.getTestAccount(repository, "alice");
+			assertTrue(alice.canMint());
+
+			PrivateKeyAccount aliceMintingAccount = Common.getTestAccount(repository, "alice-reward-share");
+
+			byte[] randomPublicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+			Random random = new Random();
+			random.nextBytes(randomPublicKey);
+
+			Account randomAccount = new PublicKeyAccount(repository, randomPublicKey);
+
+			combineAccounts(repository, alice, randomAccount, aliceMintingAccount);
+
+			assertFalse(alice.canMint());
+			assertTrue(randomAccount.canMint());
+		}
 	}
 
 	@Test

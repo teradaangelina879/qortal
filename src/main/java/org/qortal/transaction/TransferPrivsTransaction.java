@@ -83,6 +83,10 @@ public class TransferPrivsTransaction extends Transaction {
 		if (!Crypto.isValidAddress(this.transferPrivsTransactionData.getRecipient()))
 			return ValidationResult.INVALID_ADDRESS;
 
+		// Check recipient is new account
+		if (this.repository.getAccountRepository().accountExists(this.transferPrivsTransactionData.getRecipient()))
+			return ValidationResult.ACCOUNT_ALREADY_EXISTS;
+
 		return ValidationResult.OK;
 	}
 
@@ -183,8 +187,11 @@ public class TransferPrivsTransaction extends Transaction {
 		accountRepository.setFlags(senderData);
 
 		// Restore recipient's flags
-		recipientData.setFlags(this.transferPrivsTransactionData.getPreviousRecipientFlags());
-		accountRepository.setFlags(recipientData);
+		Integer previousRecipientFlags = this.transferPrivsTransactionData.getPreviousRecipientFlags();
+		if (previousRecipientFlags != null) {
+			recipientData.setFlags(previousRecipientFlags);
+			accountRepository.setFlags(recipientData);
+		}
 
 		// Clean values in transaction data
 		this.transferPrivsTransactionData.setPreviousSenderFlags(null);

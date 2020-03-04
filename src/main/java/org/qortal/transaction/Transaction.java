@@ -241,6 +241,7 @@ public abstract class Transaction {
 		ASSET_NOT_SPENDABLE(89),
 		ACCOUNT_CANNOT_REWARD_SHARE(90),
 		SELF_SHARE_EXISTS(91),
+		ACCOUNT_ALREADY_EXISTS(92),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
