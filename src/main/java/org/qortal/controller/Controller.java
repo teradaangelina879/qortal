@@ -77,7 +77,6 @@ import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
-import org.qortal.ui.UiService;
 import org.qortal.utils.Base58;
 import org.qortal.utils.ByteArray;
 import org.qortal.utils.NTP;
@@ -345,16 +344,6 @@ public class Controller extends Thread {
 		} catch (Exception e) {
 			LOGGER.error("Unable to start API", e);
 			Gui.getInstance().fatalError("API failure", e);
-			return; // Not System.exit() so that GUI can display error
-		}
-
-		LOGGER.info(String.format("Starting node management UI on port %d", Settings.getInstance().getUiPort()));
-		try {
-			UiService uiService = UiService.getInstance();
-			uiService.start();
-		} catch (Exception e) {
-			LOGGER.error("Unable to start node management UI", e);
-			Gui.getInstance().fatalError("Node management UI failure", e);
 			return; // Not System.exit() so that GUI can display error
 		}
 
@@ -637,9 +626,6 @@ public class Controller extends Thread {
 		synchronized (shutdownLock) {
 			if (!isStopping) {
 				isStopping = true;
-
-				LOGGER.info("Shutting down node management UI");
-				UiService.getInstance().stop();
 
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();

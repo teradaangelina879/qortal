@@ -31,9 +31,6 @@ public class Settings {
 	private static final int MAINNET_API_PORT = 12391;
 	private static final int TESTNET_API_PORT = 62391;
 
-	private static final int MAINNET_UI_PORT = 12390;
-	private static final int TESTNET_UI_PORT = 62390;
-
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
 
@@ -43,14 +40,17 @@ public class Settings {
 	// Settings, and other config files
 	private String userPath;
 
-	// Common to all networking (UI/API/P2P)
+	// Common to all networking (API/P2P)
 	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
 
-	// Node management UI
-	private boolean uiEnabled = true;
-	private Integer uiPort;
-	private String[] uiWhitelist = new String[] {
-		"::1", "127.0.0.1"
+	// UI servers
+	private int uiPort = 12388;
+	private String[] uiLocalServers = new String[] {
+		"localhost", "172.24.1.1", "qor.tal"
+	};
+	private String[] uiRemoteServers = new String[] {
+		"node1.qortal.org", "node2.qortal.org", "node3.qortal.org", "node4.qortal.org", "node5.qortal.org",
+		"node6.qortal.org", "node7.qortal.org", "node8.qortal.org", "node9.qortal.org", "node10.qortal.org"
 	};
 
 	// API-related
@@ -244,19 +244,16 @@ public class Settings {
 		return this.userPath;
 	}
 
-	public boolean isUiEnabled() {
-		return this.uiEnabled;
+	public int getUiServerPort() {
+		return this.uiPort;
 	}
 
-	public int getUiPort() {
-		if (this.uiPort != null)
-			return this.uiPort;
-
-		return this.isTestNet ? TESTNET_UI_PORT : MAINNET_UI_PORT;
+	public String[] getLocalUiServers() {
+		return this.uiLocalServers;
 	}
 
-	public String[] getUiWhitelist() {
-		return this.uiWhitelist;
+	public String[] getRemoteUiServers() {
+		return this.uiRemoteServers;
 	}
 
 	public boolean isApiEnabled() {

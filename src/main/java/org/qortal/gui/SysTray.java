@@ -10,11 +10,14 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.net.URL;
+import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -30,7 +33,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
 import org.qortal.globalization.Translator;
 import org.qortal.settings.Settings;
-import org.qortal.ui.UiService;
+import org.qortal.utils.RandomizeList;
 import org.qortal.utils.URLViewer;
 
 public class SysTray {
@@ -144,15 +147,11 @@ public class SysTray {
 			}
 		});
 
-		JMenuItem openUi = new JMenuItem(Translator.INSTANCE.translate("SysTray", "OPEN_NODE_UI"));
+		JMenuItem openUi = new JMenuItem(Translator.INSTANCE.translate("SysTray", "OPEN_UI"));
 		openUi.addActionListener(actionEvent -> {
 			destroyHiddenDialog();
 
-			try {
-				URLViewer.openWebpage(new URL("http://localhost:" + Settings.getInstance().getUiPort()));
-			} catch (Exception e) {
-				LOGGER.error("Unable to open node UI in browser");
-			}
+			new OpenUiWorker().execute();
 		});
 		menu.add(openUi);
 
@@ -174,7 +173,7 @@ public class SysTray {
 			syncTime.addActionListener(actionEvent -> {
 				destroyHiddenDialog();
 
-				new SynchronizeWorker().execute();
+				new SynchronizeClockWorker().execute();
 			});
 			menu.add(syncTime);
 		}
@@ -190,11 +189,53 @@ public class SysTray {
 		return menu;
 	}
 
-	class SynchronizeWorker extends SwingWorker<Void, Void> {
+	static class OpenUiWorker extends SwingWorker<Void, Void> {
+		@Override
+		protected Void doInBackground() {
+			List<String> uiServers = new ArrayList<>();
+
+			String[] remoteUiServers = Settings.getInstance().getRemoteUiServers();
+			uiServers.addAll(Arrays.asList(remoteUiServers));
+			// Randomize remote servers
+			uiServers = RandomizeList.randomize(uiServers);
+
+			// Prepend local servers
+			String[] localUiServers = Settings.getInstance().getLocalUiServers();
+			uiServers.addAll(0, Arrays.asList(localUiServers));
+
+			// Check each server in turn before opening browser tab
+			int uiPort = Settings.getInstance().getUiServerPort();
+			for (String uiServer : uiServers) {
+				InetSocketAddress socketAddress = new InetSocketAddress(uiServer, uiPort);
+
+				// If we couldn't resolve try next
+				if (socketAddress.isUnresolved())
+					continue;
+
+				try (SocketChannel socketChannel = SocketChannel.open()) {
+					socketChannel.socket().connect(socketAddress, 100);
+
+					// If we reach here, then socket connected to UI server!
+					URLViewer.openWebpage(new URL(String.format("http://%s:%d", uiServer, uiPort)));
+
+					return null;
+				} catch (IOException e) {
+					// try next server
+				} catch (Exception e) {
+					LOGGER.error("Unable to open UI website in browser");
+					return null;
+				}
+			}
+
+			return null;
+		}
+	}
+
+	static class SynchronizeClockWorker extends SwingWorker<Void, Void> {
 		@Override
 		protected Void doInBackground() {
 			// Extract reconfiguration script from resources
-			String resourceName = "/" + UiService.DOWNLOADS_RESOURCE_PATH + "/" + NTP_SCRIPT;
+			String resourceName = "/node-management/" + NTP_SCRIPT;
 			Path scriptPath = Paths.get(NTP_SCRIPT);
 
 			try (InputStream in = SysTray.class.getResourceAsStream(resourceName)) {
@@ -218,7 +259,7 @@ public class SysTray {
 		}
 	}
 
-	class ClosingWorker extends SwingWorker<Void, Void> {
+	static class ClosingWorker extends SwingWorker<Void, Void> {
 		@Override
 		protected Void doInBackground() {
 			Controller.getInstance().shutdown();
