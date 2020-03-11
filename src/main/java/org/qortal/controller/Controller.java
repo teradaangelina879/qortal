@@ -1,5 +1,6 @@
 package org.qortal.controller;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.SecureRandom;
@@ -99,7 +100,7 @@ public class Controller extends Thread {
 	private static final long MISBEHAVIOUR_COOLOFF = 10 * 60 * 1000L; // ms
 	private static final int MAX_BLOCKCHAIN_TIP_AGE = 5; // blocks
 	private static final Object shutdownLock = new Object();
-	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true;hsqldb.full_log_replay=true";
+	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s" + File.separator + "blockchain;create=true;hsqldb.full_log_replay=true";
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000L; // ms
 	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000L; // ms
 	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms

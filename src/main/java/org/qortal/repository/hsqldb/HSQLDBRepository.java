@@ -337,8 +337,8 @@ public class HSQLDBRepository implements Repository {
 		Path oldRepoFilePath = oldRepoPath.getFileName();
 
 		// Try to open backup. We need to remove "create=true" and insert "backup" dir before final filename.
-		String backupUrlTemplate = "jdbc:hsqldb:file:%s/backup/%s;create=false;hsqldb.full_log_replay=true";
-		return String.format(backupUrlTemplate, oldRepoDirPath.toString(), oldRepoFilePath.toString());
+		String backupUrlTemplate = "jdbc:hsqldb:file:%s%sbackup%s%s;create=false;hsqldb.full_log_replay=true";
+		return String.format(backupUrlTemplate, oldRepoDirPath.toString(), File.separator, File.separator, oldRepoFilePath.toString());
 	}
 
 	/* package */ static void attemptRecovery(String connectionUrl) throws DataException {
@@ -361,8 +361,8 @@ public class HSQLDBRepository implements Repository {
 					.forEach(File::delete);
 
 			try (Statement stmt = connection.createStatement()) {
-				// Now "backup" the backup back to original repository location (the parent)
-				// NOTE: trailing / is OK because HSQLDB checks for both / and O/S-specific separator
+				// Now "backup" the backup back to original repository location (the parent).
+				// NOTE: trailing / is OK because HSQLDB checks for both / and O/S-specific separator.
 				// textdb.allow_full_path connection property is required to be able to use '..'
 				stmt.execute("BACKUP DATABASE TO '../' BLOCKING AS FILES");
 			} catch (SQLException e) {
