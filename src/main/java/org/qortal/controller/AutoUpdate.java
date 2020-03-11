@@ -231,6 +231,10 @@ public class AutoUpdate extends Thread {
 			// JVM arguments
 			javaCmd.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
 
+			// Remove JNI options as they won't be supported by command-line 'java'
+			// These are typically added by the AdvancedInstaller Java launcher EXE
+			javaCmd.removeAll(Arrays.asList("abort", "exit", "vfprintf"));
+
 			// Call ApplyUpdate using new JAR
 			javaCmd.addAll(Arrays.asList("-cp", NEW_JAR_FILENAME, ApplyUpdate.class.getCanonicalName()));
 
