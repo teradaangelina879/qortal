@@ -311,6 +311,7 @@ public class Controller extends Thread {
 			network.start();
 		} catch (IOException e) {
 			LOGGER.error("Unable to start networking", e);
+			Controller.getInstance().shutdown();
 			Gui.getInstance().fatalError("Networking failure", e);
 			return; // Not System.exit() so that GUI can display error
 		}
@@ -344,6 +345,7 @@ public class Controller extends Thread {
 			apiService.start();
 		} catch (Exception e) {
 			LOGGER.error("Unable to start API", e);
+			Controller.getInstance().shutdown();
 			Gui.getInstance().fatalError("API failure", e);
 			return; // Not System.exit() so that GUI can display error
 		}
