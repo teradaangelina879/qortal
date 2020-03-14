@@ -6,6 +6,23 @@ if [ "$USER" = "root" ]; then
 	exit
 fi
 
+# Validate Java is installed and the minimum version is available
+MIN_JAVA_VER='11'
+
+if command -v java > /dev/null 2>&1; then
+    version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+    version=$(echo $version | cut -d'.' -f1,2)
+    if [ `echo "${version}>=${MIN_JAVA_VER}" | bc` -eq 1 ]; then
+        echo 'Passed Java version check'
+    else
+        echo 'Please upgrade your Java to version 11 or greater'
+        exit 1
+    fi
+else
+  echo 'Java is not available, please install Java 11 or greater'
+  exit 1
+fi
+
 # No qortal.jar but we have a Maven built one?
 # Be helpful and copy across to correct location
 if [ ! -e qortal.jar -a -f target/qortal*.jar ]; then
