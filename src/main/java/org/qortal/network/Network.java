@@ -88,7 +88,10 @@ public class Network {
 			"node4.qortal.org",
 			"node5.qortal.org",
 			"node6.qortal.org",
-			"node7.qortal.org"
+			"node7.qortal.org",
+			"node8.qortal.org",
+			"node9.qortal.org",
+			"node10.qortal.org"
 	};
 
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
