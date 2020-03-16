@@ -481,18 +481,20 @@ public class Network {
 
 		try {
 			if (now == null) {
-				LOGGER.debug(String.format("Connection discarded from peer %s due to lack of NTP sync", socketChannel.getRemoteAddress()));
+				LOGGER.debug(() -> String.format("Connection discarded from peer %s due to lack of NTP sync", PeerAddress.fromSocket(socketChannel.socket())));
+				socketChannel.close();
 				return;
 			}
 
 			synchronized (this.connectedPeers) {
 				if (connectedPeers.size() >= maxPeers) {
 					// We have enough peers
-					LOGGER.debug(String.format("Connection discarded from peer %s", socketChannel.getRemoteAddress()));
+					LOGGER.debug(() -> String.format("Connection discarded from peer %s", PeerAddress.fromSocket(socketChannel.socket())));
+					socketChannel.close();
 					return;
 				}
 
-				LOGGER.debug(String.format("Connection accepted from peer %s", socketChannel.getRemoteAddress()));
+				LOGGER.debug(() -> String.format("Connection accepted from peer %s", PeerAddress.fromSocket(socketChannel.socket())));
 
 				newPeer = new Peer(socketChannel);
 				this.connectedPeers.add(newPeer);
