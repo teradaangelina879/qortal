@@ -241,6 +241,10 @@ public class Controller extends Thread {
 		return this.savedArgs;
 	}
 
+	/* package */ static boolean isStopping() {
+		return isStopping;
+	}
+
 	// Entry point
 
 	public static void main(String[] args) {
@@ -543,6 +547,10 @@ public class Controller extends Thread {
 			case REPOSITORY_ISSUE:
 				// These are minor failure results so fine to try again
 				LOGGER.debug(() -> String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
+				break;
+
+			case SHUTTING_DOWN:
+				// Just quietly exit
 				break;
 
 			case OK:

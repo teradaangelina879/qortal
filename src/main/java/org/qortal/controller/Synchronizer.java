@@ -45,7 +45,7 @@ public class Synchronizer {
 	private static Synchronizer instance;
 
 	public enum SynchronizationResult {
-		OK, NOTHING_TO_DO, GENESIS_ONLY, NO_COMMON_BLOCK, TOO_DIVERGENT, NO_REPLY, INFERIOR_CHAIN, INVALID_DATA, NO_BLOCKCHAIN_LOCK, REPOSITORY_ISSUE;
+		OK, NOTHING_TO_DO, GENESIS_ONLY, NO_COMMON_BLOCK, TOO_DIVERGENT, NO_REPLY, INFERIOR_CHAIN, INVALID_DATA, NO_BLOCKCHAIN_LOCK, REPOSITORY_ISSUE, SHUTTING_DOWN;
 	}
 
 	// Constructors
@@ -94,6 +94,9 @@ public class Synchronizer {
 							ourInitialHeight, Base58.encode(ourLastBlockSignature), ourLatestBlockData.getTimestamp()));
 
 					List<BlockSummaryData> peerBlockSummaries = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight);
+					if (peerBlockSummaries == null && Controller.isStopping())
+						return SynchronizationResult.SHUTTING_DOWN;
+
 					if (peerBlockSummaries == null) {
 						LOGGER.info(String.format("Error while trying to find common block with peer %s", peer));
 						return SynchronizationResult.NO_REPLY;
@@ -154,6 +157,9 @@ public class Synchronizer {
 							int peerBlockCount = peerHeight - commonBlockHeight;
 
 							while (peerBlockSummaries.size() < peerBlockCount) {
+								if (Controller.isStopping())
+									return SynchronizationResult.SHUTTING_DOWN;
+
 								int lastSummaryHeight = commonBlockHeight + peerBlockSummaries.size();
 								byte[] previousSignature;
 								if (peerBlockSummaries.isEmpty())
@@ -212,6 +218,9 @@ public class Synchronizer {
 						LOGGER.debug(String.format("Orphaning blocks back to common block height %d, sig %.8s", commonBlockHeight, commonBlockSig58));
 
 						while (ourHeight > commonBlockHeight) {
+							if (Controller.isStopping())
+								return SynchronizationResult.SHUTTING_DOWN;
+
 							BlockData blockData = repository.getBlockRepository().fromHeight(ourHeight);
 							Block block = new Block(repository, blockData);
 							block.orphan();
@@ -232,6 +241,9 @@ public class Synchronizer {
 					List<byte[]> peerBlockSignatures = peerBlockSummaries.stream().map(BlockSummaryData::getSignature).collect(Collectors.toList());
 
 					while (ourHeight < peerHeight && ourHeight < maxBatchHeight) {
+						if (Controller.isStopping())
+							return SynchronizationResult.SHUTTING_DOWN;
+
 						// Do we need more signatures?
 						if (peerBlockSignatures.isEmpty()) {
 							int numberRequested = maxBatchHeight - ourHeight;
@@ -331,6 +343,10 @@ public class Synchronizer {
 		BlockData testBlockData = null;
 
 		while (testHeight >= 1) {
+			// Are we shutting down?
+			if (Controller.isStopping())
+				return null;
+
 			// Fetch our block signature at this height
 			testBlockData = repository.getBlockRepository().fromHeight(testHeight);
 			if (testBlockData == null) {
