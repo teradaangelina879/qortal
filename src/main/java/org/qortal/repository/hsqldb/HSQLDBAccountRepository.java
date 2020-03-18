@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.qortal.asset.Asset;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.account.MintingAccountData;
@@ -144,6 +145,10 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public void ensureAccount(AccountData accountData) throws DataException {
+		/*
+		 * Why do we need to check/set the public_key?
+		 * Is there something that sets an account's balance which also needs to set the public key?
+
 		byte[] publicKey = accountData.getPublicKey();
 		String sql = "SELECT public_key FROM Accounts WHERE account = ?";
 
@@ -165,6 +170,15 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				saveHelper.bind("public_key", publicKey);
 
 			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to ensure minimal account in repository", e);
+		}
+
+		 */
+
+		String sql = "INSERT IGNORE INTO Accounts (account) VALUES (?)"; // MySQL syntax
+		try {
+			this.repository.checkedExecuteUpdateCount(sql, accountData.getAddress());
 		} catch (SQLException e) {
 			throw new DataException("Unable to ensure minimal account in repository", e);
 		}
@@ -270,6 +284,18 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's minted block count into repository", e);
+		}
+	}
+
+	@Override
+	public int modifyMintedBlockCount(String address, int delta) throws DataException {
+		String sql = "INSERT INTO Accounts (account, blocks_minted) VALUES (?, ?) " +
+			"ON DUPLICATE KEY UPDATE blocks_minted = blocks_minted + ?";
+
+		try {
+			return this.repository.checkedExecuteUpdateCount(sql, address, delta, delta);
+		} catch (SQLException e) {
+			throw new DataException("Unable to modify account's minted block count in repository", e);
 		}
 	}
 
@@ -471,6 +497,54 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public void modifyAssetBalance(String address, long assetId, BigDecimal deltaBalance) throws DataException {
+		// If deltaBalance is zero then do nothing
+		if (deltaBalance.signum() == 0)
+			return;
+
+		// If deltaBalance is negative then we assume AccountBalances & parent Accounts rows exist
+		if (deltaBalance.signum() < 0) {
+			// Perform actual balance change
+			String sql = "UPDATE AccountBalances set balance = balance + ? WHERE account = ? AND asset_id = ?";
+			try {
+				this.repository.checkedExecuteUpdateCount(sql, deltaBalance, address, assetId);
+			} catch (SQLException e) {
+				throw new DataException("Unable to reduce account balance in repository", e);
+			}
+
+			// If balance is now zero, and there are no prior historic balances, then simply delete row for this address-assetId (typically during orphaning)
+			String deleteWhereSql = "account = ? AND asset_id = ? AND balance = 0 " + // covers "if balance now zero"
+				"AND (" +
+					"SELECT TRUE FROM HistoricAccountBalances " +
+					"WHERE account = ? AND asset_id = ? AND height < (SELECT height - 1 FROM NextBlockHeight) " +
+					"LIMIT 1" +
+				")";
+			try {
+				this.repository.delete("AccountBalances", deleteWhereSql, address, assetId, address, assetId);
+			} catch (SQLException e) {
+				throw new DataException("Unable to prune account balance in repository", e);
+			}
+		} else {
+			// We have to ensure parent row exists to satisfy foreign key constraint
+			try {
+				String sql = "INSERT IGNORE INTO Accounts (account) VALUES (?)"; // MySQL syntax
+				this.repository.checkedExecuteUpdateCount(sql, address);
+			} catch (SQLException e) {
+				throw new DataException("Unable to ensure minimal account in repository", e);
+			}
+
+			// Perform actual balance change
+			String sql = "INSERT INTO AccountBalances (account, asset_id, balance) VALUES (?, ?, ?) " +
+				"ON DUPLICATE KEY UPDATE balance = balance + ?";
+			try {
+				this.repository.checkedExecuteUpdateCount(sql, address, assetId, deltaBalance, deltaBalance);
+			} catch (SQLException e) {
+				throw new DataException("Unable to increase account balance in repository", e);
+			}
+		}
+	}
+
+	@Override
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
 		// If balance is zero and there are no prior historic balance, then simply delete balances for this assetId (typically during orphaning)
 		if (accountBalanceData.getBalance().signum() == 0) {
@@ -490,12 +564,16 @@ public class HSQLDBAccountRepository implements AccountRepository {
 					throw new DataException("Unable to delete account balance from repository", e);
 				}
 
-				// I don't think we need to do this as Block.orphan() would do this for us?
+				/*
+				 *  I don't think we need to do this as Block.orphan() would do this for us?
+
 				try {
 					this.repository.delete("HistoricAccountBalances", "account = ? AND asset_id = ?", accountBalanceData.getAddress(), accountBalanceData.getAssetId());
 				} catch (SQLException e) {
 					throw new DataException("Unable to delete historic account balances from repository", e);
 				}
+
+				 */
 
 				return;
 			}
@@ -768,6 +846,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	// Minting accounts used by BlockMinter
 
+	@Override
 	public List<MintingAccountData> getMintingAccounts() throws DataException {
 		List<MintingAccountData> mintingAccounts = new ArrayList<>();
 
@@ -787,6 +866,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
 	public void save(MintingAccountData mintingAccountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("MintingAccounts");
 
@@ -799,6 +879,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
 	public int delete(byte[] minterPrivateKey) throws DataException {
 		try {
 			return this.repository.delete("MintingAccounts", "minter_private_key = ?", minterPrivateKey);
@@ -809,6 +890,42 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	// Managing QORT from legacy QORA
 
+	@Override
+	public List<AccountBalanceData> getEligibleLegacyQoraHolders(Integer blockHeight) throws DataException {
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT account, balance from AccountBalances ");
+		sql.append("LEFT OUTER JOIN AccountQortFromQoraInfo USING (account) ");
+		sql.append("WHERE asset_id = ");
+		sql.append(Asset.LEGACY_QORA); // int is safe to use literally
+		sql.append(" AND (final_block_height IS NULL");
+
+		if (blockHeight != null) {
+			sql.append(" OR final_block_height >= ");
+			sql.append(blockHeight);
+		}
+
+		sql.append(")");
+
+		List<AccountBalanceData> accountBalances = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+			if (resultSet == null)
+				return accountBalances;
+
+			do {
+				String address = resultSet.getString(1);
+				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
+
+				accountBalances.add(new AccountBalanceData(address, Asset.LEGACY_QORA, balance));
+			} while (resultSet.next());
+
+			return accountBalances;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch eligible legacy QORA holders from repository", e);
+		}
+	}
+
+	@Override
 	public QortFromQoraData getQortFromQoraInfo(String address) throws DataException {
 		String sql = "SELECT final_qort_from_qora, final_block_height FROM AccountQortFromQoraInfo WHERE account = ?";
 
@@ -827,6 +944,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
 	public void save(QortFromQoraData qortFromQoraData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountQortFromQoraInfo");
 
@@ -841,6 +959,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
 	public int deleteQortFromQoraInfo(String address) throws DataException {
 		try {
 			return this.repository.delete("AccountQortFromQoraInfo", "account = ?", address);

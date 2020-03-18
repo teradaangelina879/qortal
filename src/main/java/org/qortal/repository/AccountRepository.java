@@ -1,5 +1,6 @@
 package org.qortal.repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.qortal.data.account.AccountBalanceData;
@@ -82,6 +83,12 @@ public interface AccountRepository {
 	 */
 	public void setMintedBlockCount(AccountData accountData) throws DataException;
 
+	/** Modifies account's minted block count only.
+	 * <p>
+	 * @return 2 if minted block count updated, 1 if block count set to delta, 0 if address not found.
+	 */
+	public int modifyMintedBlockCount(String address, int delta) throws DataException;
+
 	/** Delete account from repository. */
 	public void delete(String address) throws DataException;
 
@@ -104,6 +111,8 @@ public interface AccountRepository {
 	public List<AccountBalanceData> getAssetBalances(long assetId, Boolean excludeZero) throws DataException;
 
 	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Boolean excludeZero, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	public void modifyAssetBalance(String address, long assetId, BigDecimal deltaBalance) throws DataException;
 
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 
@@ -154,6 +163,21 @@ public interface AccountRepository {
 	public int delete(byte[] mintingAccountPrivateKey) throws DataException;
 
 	// Managing QORT from legacy QORA
+
+	/**
+	 * Returns balance data for accounts with legacy QORA asset that are eligible
+	 * for more block reward (block processing) or for block reward removal (block orphaning).
+	 * <p>
+	 * For block processing, accounts that have already received their final QORT reward for owning
+	 * legacy QORA are omitted from the results. <tt>blockHeight</tt> should be <tt>null</tt>.
+	 * <p>
+	 * For block orphaning, accounts that did not receive a QORT reward at <tt>blockHeight</tt>
+	 * are omitted from the results.
+	 * 
+	 * @param blockHeight QORT reward must have be present at this height (for orphaning only)
+	 * @throws DataException
+	 */
+	public List<AccountBalanceData> getEligibleLegacyQoraHolders(Integer blockHeight) throws DataException;
 
 	public QortFromQoraData getQortFromQoraInfo(String address) throws DataException;
 
