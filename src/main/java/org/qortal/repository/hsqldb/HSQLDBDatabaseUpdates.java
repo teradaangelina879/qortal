@@ -928,6 +928,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX IF NOT EXISTS HistoricAccountBalancesHeightIndex ON HistoricAccountBalances (height)");
 					break;
 
+				case 66:
+					// Add CHECK constraint to account balances
+					stmt.execute("ALTER TABLE AccountBalances ADD CONSTRAINT CheckBalanceNotNegative CHECK (balance >= 0)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
