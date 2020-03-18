@@ -39,7 +39,7 @@ public class Synchronizer {
 
 	private static final int INITIAL_BLOCK_STEP = 8;
 	private static final int MAXIMUM_BLOCK_STEP = 500;
-	private static final int MAXIMUM_COMMON_DELTA = 1440; // XXX move to Settings?
+	private static final int MAXIMUM_COMMON_DELTA = 240; // XXX move to Settings?
 	private static final int SYNC_BATCH_SIZE = 200;
 
 	private static Synchronizer instance;
