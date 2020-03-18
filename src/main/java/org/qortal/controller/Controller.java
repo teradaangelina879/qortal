@@ -1342,7 +1342,7 @@ public class Controller extends Thread {
 		}
 	}
 
-	public void ensureTestingAccountOnline(PrivateKeyAccount mintingAccount) {
+	public void ensureTestingAccountsOnline(PrivateKeyAccount... onlineAccounts) {
 		if (!BlockChain.getInstance().isTestChain()) {
 			LOGGER.warn("Ignoring attempt to ensure test account is online for non-test chain!");
 			return;
@@ -1352,19 +1352,21 @@ public class Controller extends Thread {
 		if (now == null)
 			return;
 
-		// Check mintingAccount is actually reward-share?
-
-		// Add reward-share & timestamp to online accounts
 		final long onlineAccountsTimestamp = Controller.toOnlineAccountTimestamp(now);
 		byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
 
-		byte[] signature = mintingAccount.sign(timestampBytes);
-		byte[] publicKey = mintingAccount.getPublicKey();
-
-		OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
 		synchronized (this.onlineAccounts) {
 			this.onlineAccounts.clear();
-			this.onlineAccounts.add(ourOnlineAccountData);
+
+			for (PrivateKeyAccount onlineAccount : onlineAccounts) {
+				// Check mintingAccount is actually reward-share?
+
+				byte[] signature = onlineAccount.sign(timestampBytes);
+				byte[] publicKey = onlineAccount.getPublicKey();
+
+				OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
+				this.onlineAccounts.add(ourOnlineAccountData);
+			}
 		}
 	}
 

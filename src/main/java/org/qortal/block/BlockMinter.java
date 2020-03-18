@@ -341,16 +341,18 @@ public class BlockMinter extends Thread {
 		this.interrupt();
 	}
 
-	public static void mintTestingBlock(Repository repository, PrivateKeyAccount mintingAccount) throws DataException {
+	public static void mintTestingBlock(Repository repository, PrivateKeyAccount... mintingAndOnlineAccounts) throws DataException {
 		if (!BlockChain.getInstance().isTestChain()) {
 			LOGGER.warn("Ignoring attempt to mint testing block for non-test chain!");
 			return;
 		}
 
 		// Ensure mintingAccount is 'online' so blocks can be minted
-		Controller.getInstance().ensureTestingAccountOnline(mintingAccount);
+		Controller.getInstance().ensureTestingAccountsOnline(mintingAndOnlineAccounts);
 
 		BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
+
+		PrivateKeyAccount mintingAccount = mintingAndOnlineAccounts[0];
 
 		Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
 
