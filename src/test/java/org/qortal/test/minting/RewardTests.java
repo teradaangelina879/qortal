@@ -4,9 +4,11 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.bitcoinj.core.Base58;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -201,6 +203,57 @@ public class RewardTests extends Common {
 			BlockUtils.orphanToBlock(repository, 1);
 
 			assertEquals(0, (int) chloe.getLevel());
+		}
+	}
+
+	/** Test rewards to founders, one in reward-share, the other is self-share. */
+	@Test
+	public void testFounderRewards() throws DataException {
+		Common.useSettings("test-settings-v2-founder-rewards.json");
+
+		BigDecimal perHundred = BigDecimal.valueOf(100L);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
+
+			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
+
+			// Alice to mint, therefore online
+			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
+			mintingAndOnlineAccounts.add(aliceSelfShare);
+
+			// Bob self-share NOT online
+
+			// Chloe self-share and reward-share with Dilbert both online
+			PrivateKeyAccount chloeSelfShare = Common.getTestAccount(repository, "chloe-reward-share");
+			mintingAndOnlineAccounts.add(chloeSelfShare);
+			PrivateKeyAccount chloeDilbertRewardShare = new PrivateKeyAccount(repository, Base58.decode("HuiyqLipUN1V9p1HZfLhyEwmEA6BTaT2qEfjgkwPViV4"));
+			mintingAndOnlineAccounts.add(chloeDilbertRewardShare);
+
+			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// 3 founders (online or not) so blockReward divided by 3
+			BigDecimal founderCount = BigDecimal.valueOf(3L);
+			BigDecimal perFounderReward = blockReward.divide(founderCount, RoundingMode.DOWN);
+
+			// Alice simple self-share so her reward is perFounderReward
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, perFounderReward);
+
+			// Bob not online so his reward is simply perFounderReward
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, perFounderReward);
+
+			// Chloe has two reward-shares, so her reward is divided by 2
+			BigDecimal chloeSharesCount = BigDecimal.valueOf(2L);
+			BigDecimal chloePerShareReward = perFounderReward.divide(chloeSharesCount, RoundingMode.DOWN);
+			// Her self-share gets chloePerShareReward
+			BigDecimal chloeExpectedBalance = chloePerShareReward;
+			// Her reward-share with Dilbert: 25% goes to Dilbert
+			BigDecimal dilbertSharePercent = BigDecimal.valueOf(25L);
+			BigDecimal dilbertExpectedBalance = chloePerShareReward.multiply(dilbertSharePercent).divide(perHundred, RoundingMode.DOWN);
+			// The remaining 75% goes to Chloe
+			BigDecimal rewardShareRemaining = chloePerShareReward.subtract(dilbertExpectedBalance);
+			chloeExpectedBalance = chloeExpectedBalance.add(rewardShareRemaining);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeExpectedBalance);
 		}
 	}
 
