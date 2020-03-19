@@ -133,6 +133,9 @@ public class Controller extends Thread {
 	/** Whether we can mint new blocks, as reported by BlockMinter. */
 	private volatile boolean isMintingPossible = false;
 
+	/** Whether we are attempting to synchronize. */
+	private volatile boolean isSynchronizing = false;
+
 	/** Latest block signatures from other peers that we know are on inferior chains. */
 	List<ByteArray> inferiorChainSignatures = new ArrayList<>();
 
@@ -243,6 +246,15 @@ public class Controller extends Thread {
 
 	/* package */ static boolean isStopping() {
 		return isStopping;
+	}
+
+	// For API use
+	public boolean isMintingPossible() {
+		return this.isMintingPossible;
+	}
+
+	public boolean isSynchronizing() {
+		return this.isSynchronizing;
 	}
 
 	// Entry point
@@ -497,7 +509,13 @@ public class Controller extends Thread {
 		int index = new SecureRandom().nextInt(peers.size());
 		Peer peer = peers.get(index);
 
+		isSynchronizing = true;
+		updateSysTray();
+
 		actuallySynchronize(peer, false);
+
+		isSynchronizing = false;
+		requestSysTrayUpdate = true;
 	}
 
 	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
@@ -601,9 +619,17 @@ public class Controller extends Thread {
 
 		String connectionsText = Translator.INSTANCE.translate("SysTray", numberOfPeers != 1 ? "CONNECTIONS" : "CONNECTION");
 		String heightText = Translator.INSTANCE.translate("SysTray", "BLOCK_HEIGHT");
-		String mintingText = Translator.INSTANCE.translate("SysTray", isMintingPossible ? "MINTING_ENABLED" : "MINTING_DISABLED");
 
-		String tooltip = String.format("%s - %d %s - %s %d", mintingText, numberOfPeers, connectionsText, heightText, height);
+		String actionKey;
+		if (isMintingPossible)
+			actionKey = "MINTING_ENABLED";
+		else if (isSynchronizing)
+			actionKey = "SYNCHRONIZING_BLOCKCHAIN";
+		else
+			actionKey = "MINTING_DISABLED";
+		String actionText = Translator.INSTANCE.translate("SysTray", actionKey);
+
+		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height);
 		SysTray.getInstance().setToolTipText(tooltip);
 	}
 

@@ -45,6 +45,7 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.ActivitySummary;
 import org.qortal.api.model.NodeInfo;
+import org.qortal.api.model.NodeStatus;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
@@ -118,6 +119,27 @@ public class AdminResource {
 		nodeInfo.buildTimestamp = Controller.getInstance().getBuildTimestamp();
 
 		return nodeInfo;
+	}
+
+	@GET
+	@Path("/status")
+	@Operation(
+		summary = "Fetch node status",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeStatus.class))
+			)
+		}
+	)
+	public NodeStatus status() {
+		Security.checkApiCallAllowed(request);
+
+		NodeStatus nodeStatus = new NodeStatus();
+
+		nodeStatus.isMintingPossible = Controller.getInstance().isMintingPossible();
+		nodeStatus.isSynchronizing = Controller.getInstance().isSynchronizing();
+
+		return nodeStatus;
 	}
 
 	@GET
