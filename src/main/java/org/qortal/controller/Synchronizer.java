@@ -3,7 +3,7 @@ package org.qortal.controller;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -93,18 +93,11 @@ public class Synchronizer {
 							peerHeight, Base58.encode(peersLastBlockSignature), peer.getChainTipData().getLastBlockTimestamp(),
 							ourInitialHeight, Base58.encode(ourLastBlockSignature), ourLatestBlockData.getTimestamp()));
 
-					List<BlockSummaryData> peerBlockSummaries = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight);
-					if (peerBlockSummaries == null && Controller.isStopping())
-						return SynchronizationResult.SHUTTING_DOWN;
-
-					if (peerBlockSummaries == null) {
-						LOGGER.info(String.format("Error while trying to find common block with peer %s", peer));
-						return SynchronizationResult.NO_REPLY;
-					}
-					if (peerBlockSummaries.isEmpty()) {
-						LOGGER.info(String.format("Failure to find common block with peer %s", peer));
-						return SynchronizationResult.NO_COMMON_BLOCK;
-					}
+					List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
+					SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, force, peerBlockSummaries);
+					if (findCommonBlockResult != SynchronizationResult.OK)
+						// Logging performed by fetchSummariesFromCommonBlock() above
+						return findCommonBlockResult;
 
 					// First summary is common block
 					final BlockData commonBlockData = repository.getBlockRepository().fromSignature(peerBlockSummaries.get(0).getSignature());
@@ -130,13 +123,6 @@ public class Synchronizer {
 							LOGGER.debug(String.format("We have the same blockchain as peer %s, but longer", peer));
 
 						return SynchronizationResult.NOTHING_TO_DO;
-					}
-
-					// If common block is too far behind us then we're on massively different forks so give up.
-					int minCommonHeight = ourInitialHeight - MAXIMUM_COMMON_DELTA;
-					if (!force && commonBlockHeight < minCommonHeight) {
-						LOGGER.info(String.format("Blockchain too divergent with peer %s", peer));
-						return SynchronizationResult.TOO_DIVERGENT;
 					}
 
 					// Unless we're doing a forced sync, we might need to compare blocks after common block
@@ -332,49 +318,59 @@ public class Synchronizer {
 	 * @throws DataException
 	 * @throws InterruptedException
 	 */
-	private List<BlockSummaryData> fetchSummariesFromCommonBlock(Repository repository, Peer peer, int ourHeight) throws DataException, InterruptedException {
+	private SynchronizationResult fetchSummariesFromCommonBlock(Repository repository, Peer peer, int ourHeight, boolean force, List<BlockSummaryData> blockSummariesFromCommon) throws DataException, InterruptedException {
 		// Start by asking for a few recent block hashes as this will cover a majority of reorgs
 		// Failing that, back off exponentially
 		int step = INITIAL_BLOCK_STEP;
 
-		List<BlockSummaryData> blockSummaries = null;
-
 		int testHeight = Math.max(ourHeight - step, 1);
 		BlockData testBlockData = null;
+
+		List<BlockSummaryData> blockSummariesBatch = null;
 
 		while (testHeight >= 1) {
 			// Are we shutting down?
 			if (Controller.isStopping())
-				return null;
+				return SynchronizationResult.SHUTTING_DOWN;
 
 			// Fetch our block signature at this height
 			testBlockData = repository.getBlockRepository().fromHeight(testHeight);
 			if (testBlockData == null) {
 				// Not found? But we've locked the blockchain and height is below blockchain's tip!
 				LOGGER.error("Failed to get block at height lower than blockchain tip during synchronization?");
-				return null;
+				return SynchronizationResult.REPOSITORY_ISSUE;
 			}
 
 			// Ask for block signatures since test block's signature
 			byte[] testSignature = testBlockData.getSignature();
 			LOGGER.trace(String.format("Requesting %d summar%s after height %d", step, (step != 1 ? "ies": "y"), testHeight));
-			blockSummaries = this.getBlockSummaries(peer, testSignature, step);
+			blockSummariesBatch = this.getBlockSummaries(peer, testSignature, step);
 
-			if (blockSummaries == null)
+			if (blockSummariesBatch == null) {
 				// No response - give up this time
-				return null;
+				LOGGER.info(String.format("Error while trying to find common block with peer %s", peer));
+				return SynchronizationResult.NO_REPLY;
+			}
 
-			LOGGER.trace(String.format("Received %s summar%s", blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y")));
+			LOGGER.trace(String.format("Received %s summar%s", blockSummariesBatch.size(), (blockSummariesBatch.size() != 1 ? "ies" : "y")));
 
 			// Empty list means remote peer is unaware of test signature OR has no new blocks after test signature
-			if (!blockSummaries.isEmpty())
+			if (!blockSummariesBatch.isEmpty())
 				// We have entries so we have found a common block
 				break;
 
 			// No blocks after genesis block?
 			// We don't get called for a peer at genesis height so this means NO blocks in common
-			if (testHeight == 1)
-				return Collections.emptyList();
+			if (testHeight == 1) {
+				LOGGER.info(String.format("Failure to find common block with peer %s", peer));
+				return SynchronizationResult.NO_COMMON_BLOCK;
+			}
+
+			// If common block is too far behind us then we're on massively different forks so give up.
+			if (!force && testHeight < ourHeight - MAXIMUM_COMMON_DELTA) {
+				LOGGER.info(String.format("Blockchain too divergent with peer %s", peer));
+				return SynchronizationResult.TOO_DIVERGENT;
+			}
 
 			if (peer.getVersion() >= 2) {
 				step <<= 1;
@@ -389,20 +385,21 @@ public class Synchronizer {
 
 		// Prepend test block's summary as first block summary, as summaries returned are *after* test block
 		BlockSummaryData testBlockSummary = new BlockSummaryData(testBlockData);
-		blockSummaries.add(0, testBlockSummary);
+		blockSummariesFromCommon.add(0, testBlockSummary);
+		blockSummariesFromCommon.addAll(blockSummariesBatch);
 
 		// Trim summaries so that first summary is common block.
 		// Currently we work back from the end until we hit a block we also have.
 		// TODO: rewrite as modified binary search!
-		for (int i = blockSummaries.size() - 1; i > 0; --i) {
-			if (repository.getBlockRepository().exists(blockSummaries.get(i).getSignature())) {
+		for (int i = blockSummariesFromCommon.size() - 1; i > 0; --i) {
+			if (repository.getBlockRepository().exists(blockSummariesFromCommon.get(i).getSignature())) {
 				// Note: index i isn't cleared: List.subList is fromIndex inclusive to toIndex exclusive
-				blockSummaries.subList(0, i).clear();
+				blockSummariesFromCommon.subList(0, i).clear();
 				break;
 			}
 		}
 
-		return blockSummaries;
+		return SynchronizationResult.OK;
 	}
 
 	private List<BlockSummaryData> getBlockSummaries(Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
