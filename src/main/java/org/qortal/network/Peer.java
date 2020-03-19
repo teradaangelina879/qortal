@@ -489,6 +489,7 @@ public class Peer {
 			final long after = System.currentTimeMillis();
 
 			if (message == null || message.getType() != MessageType.PING) {
+				LOGGER.debug(() -> String.format("Didn't receive reply from %s for PING ID %d", this, pingMessage.getId()));
 				this.disconnect("no ping received");
 				return;
 			}
