@@ -14,7 +14,8 @@ public class CheckTranslations {
 
 	private static final String[] SUPPORTED_LANGS = new String[] { "en", "de", "zh", "ru" };
 	private static final Set<String> SYSTRAY_KEYS = Set.of("BLOCK_HEIGHT", "CHECK_TIME_ACCURACY", "CONNECTION", "CONNECTIONS",
-			"EXIT", "MINTING_DISABLED", "MINTING_ENABLED", "OPEN_UI", "SYNCHRONIZE_CLOCK", "SYNCHRONIZING_CLOCK");
+			"EXIT", "MINTING_DISABLED", "MINTING_ENABLED", "NTP_NAG_CAPTION", "NTP_NAG_TEXT_UNIX", "NTP_NAG_TEXT_WINDOWS",
+			"OPEN_UI", "SYNCHRONIZE_CLOCK", "SYNCHRONIZING_BLOCKCHAIN", "SYNCHRONIZING_CLOCK");
 
 	private static String failurePrefix;
 

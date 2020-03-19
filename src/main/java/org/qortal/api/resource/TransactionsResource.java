@@ -573,7 +573,7 @@ public class TransactionsResource {
 
 	public static ApiException createTransactionInvalidException(HttpServletRequest request, ValidationResult result) {
 		String translatedResult = Translator.INSTANCE.translate("TransactionValidity", request.getLocale().getLanguage(), result.name());
-		return ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_INVALID, null, translatedResult);
+		return ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_INVALID, null, translatedResult, result.name());
 	}
 
 }
