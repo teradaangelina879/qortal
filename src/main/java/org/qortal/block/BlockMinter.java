@@ -137,19 +137,18 @@ public class BlockMinter extends Thread {
 				// Disregard peers that have "misbehaved" recently
 				peers.removeIf(Controller.hasMisbehaved);
 
-				// Don't mint if we don't have enough connected peers as where would the transactions/consensus come from?
-				if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
-					continue;
-
 				// Disregard peers that don't have a recent block
 				peers.removeIf(Controller.hasNoRecentBlock);
 
-				// If we have any peers with a recent block, but our latest block isn't recent
-				// then we need to synchronize instead of minting.
+				// Don't mint if we don't have enough up-to-date peers as where would the transactions/consensus come from?
+				if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
+					continue;
+
+				// If our latest block isn't recent then we need to synchronize instead of minting.
 				if (!peers.isEmpty() && lastBlockData.getTimestamp() < minLatestBlockTimestamp)
 					continue;
 
-				// There are no peers with a recent block and/or our latest block is recent
+				// There are enough peers with a recent block and our latest block is recent
 				// so go ahead and mint a block if possible.
 				isMintingPossible = true;
 
