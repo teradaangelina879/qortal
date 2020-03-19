@@ -31,6 +31,7 @@ import org.qortal.network.PeerAddress;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.utils.ExecuteProduceConsume;
 
 @Path("/peers")
 @Tag(name = "Peers")
@@ -106,6 +107,29 @@ public class PeersResource {
 	)
 	public List<PeerAddress> getSelfPeers() {
 		return Network.getInstance().getSelfPeers();
+	}
+
+	@GET
+	@Path("/enginestats")
+	@Operation(
+		summary = "Fetch statistics snapshot for networking engine",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = ExecuteProduceConsume.StatsSnapshot.class
+						)
+					)
+				)
+			)
+		}
+	)
+	public ExecuteProduceConsume.StatsSnapshot getEngineStats() {
+		Security.checkApiCallAllowed(request);
+
+		return Network.getInstance().getStatsSnapshot();
 	}
 
 	@POST

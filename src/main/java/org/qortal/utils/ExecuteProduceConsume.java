@@ -5,10 +5,25 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public abstract class ExecuteProduceConsume implements Runnable {
+
+	@XmlAccessorType(XmlAccessType.FIELD)
+	public static class StatsSnapshot {
+		public int activeThreadCount = 0;
+		public int greatestActiveThreadCount = 0;
+		public int consumerCount = 0;
+		public int tasksProduced = 0;
+		public int tasksConsumed = 0;
+
+		public StatsSnapshot() {
+		}
+	}
 
 	private final String className;
 	private final Logger logger;
@@ -51,28 +66,18 @@ public abstract class ExecuteProduceConsume implements Runnable {
 		return this.executor.awaitTermination(timeout, TimeUnit.MILLISECONDS);
 	}
 
-	public int getActiveThreadCount() {
-		synchronized (this) {
-			return this.activeThreadCount;
-		}
-	}
+	public StatsSnapshot getStatsSnapshot() {
+		StatsSnapshot snapshot = new StatsSnapshot();
 
-	public int getGreatestActiveThreadCount() {
 		synchronized (this) {
-			return this.greatestActiveThreadCount;
+			snapshot.activeThreadCount = this.activeThreadCount;
+			snapshot.greatestActiveThreadCount = this.greatestActiveThreadCount;
+			snapshot.consumerCount = this.consumerCount;
+			snapshot.tasksProduced = this.tasksProduced;
+			snapshot.tasksConsumed = this.tasksConsumed;
 		}
-	}
 
-	public int getTasksProduced() {
-		synchronized (this) {
-			return this.tasksProduced;
-		}
-	}
-
-	public int getTasksConsumed() {
-		synchronized (this) {
-			return this.tasksConsumed;
-		}
+		return snapshot;
 	}
 
 	/**

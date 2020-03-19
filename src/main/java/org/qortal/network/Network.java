@@ -56,6 +56,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.utils.ExecuteProduceConsume;
+import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
 import org.qortal.utils.NTP;
 
 // For managing peers
@@ -197,6 +198,10 @@ public class Network {
 	/** Maximum message size (bytes). Needs to be at least maximum block size + MAGIC + message type, etc. */
 	/* package */ int getMaxMessageSize() {
 		return this.maxMessageSize;
+	}
+
+	public StatsSnapshot getStatsSnapshot() {
+		return this.networkEPC.getStatsSnapshot();
 	}
 
 	// Peer lists

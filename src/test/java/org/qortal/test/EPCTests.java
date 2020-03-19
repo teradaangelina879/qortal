@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.qortal.utils.ExecuteProduceConsume;
+import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
 
 public class EPCTests {
 
@@ -60,13 +61,12 @@ public class EPCTests {
 		ScheduledExecutorService statusExecutor = Executors.newSingleThreadScheduledExecutor();
 
 		statusExecutor.scheduleAtFixedRate(() -> {
-			synchronized (testEPC) {
-				final long seconds = (System.currentTimeMillis() - start) / 1000L;
-				System.out.println(String.format("After %d second%s, active threads: %d, greatest thread count: %d, tasks produced: %d, tasks consumed: %d",
-						seconds, (seconds != 1 ? "s" : ""),
-						testEPC.getActiveThreadCount(), testEPC.getGreatestActiveThreadCount(),
-						testEPC.getTasksProduced(), testEPC.getTasksConsumed()));
-			}
+			StatsSnapshot snapshot = testEPC.getStatsSnapshot();
+			final long seconds = (System.currentTimeMillis() - start) / 1000L;
+			System.out.println(String.format("After %d second%s, active threads: %d, greatest thread count: %d, tasks produced: %d, tasks consumed: %d",
+					seconds, (seconds != 1 ? "s" : ""),
+					snapshot.activeThreadCount, snapshot.greatestActiveThreadCount,
+					snapshot.tasksProduced, snapshot.tasksConsumed));
 		}, 1L, 1L, TimeUnit.SECONDS);
 
 		// Let it run for a minute
@@ -78,10 +78,10 @@ public class EPCTests {
 		final long after = System.currentTimeMillis();
 
 		System.out.println(String.format("Shutdown took %d milliseconds", after - before));
-		System.out.println(String.format("Greatest thread count: %d", testEPC.getGreatestActiveThreadCount()));
 
-		System.out.println(String.format("Tasks produced: %d", testEPC.getTasksProduced()));
-		System.out.println(String.format("Tasks consumed: %d", testEPC.getTasksConsumed()));
+		StatsSnapshot snapshot = testEPC.getStatsSnapshot();
+		System.out.println(String.format("Greatest thread count: %d, tasks produced: %d, tasks consumed: %d",
+				snapshot.greatestActiveThreadCount, snapshot.tasksProduced, snapshot.tasksConsumed));
 	}
 
 	@Test
