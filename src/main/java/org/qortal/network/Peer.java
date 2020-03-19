@@ -464,7 +464,7 @@ public class Peer {
 	}
 
 	/* package */ void startPings() {
-		// Replacing initial null value allows pingCheck() to start sending pings.
+		// Replacing initial null value allows getPingTask() to start sending pings.
 		LOGGER.trace(() -> String.format("Enabling pings for peer %s", this));
 		this.lastPingSent = System.currentTimeMillis();
 	}
