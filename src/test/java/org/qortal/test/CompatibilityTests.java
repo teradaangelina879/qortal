@@ -3,6 +3,7 @@ package org.qortal.test;
 import org.junit.Test;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
+import org.qortal.settings.Settings;
 import org.qortal.test.common.Common;
 import org.qortal.transaction.CreateAssetOrderTransaction;
 import org.qortal.transaction.CreatePollTransaction;
@@ -22,7 +23,7 @@ public class CompatibilityTests extends Common {
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useSettings("test-settings-v1.json");
-		NTP.testMode();
+		NTP.setFixedOffset(Settings.getInstance().getTestNtpOffset());
 	}
 
 	@Test

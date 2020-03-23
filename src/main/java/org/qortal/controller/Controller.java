@@ -25,6 +25,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiService;
@@ -282,7 +283,11 @@ public class Controller extends Thread {
 		Controller.newInstance(args);
 
 		LOGGER.info("Starting NTP");
-		NTP.start();
+		Long ntpOffset = Settings.getInstance().getTestNtpOffset();
+		if (ntpOffset != null)
+			NTP.setFixedOffset(ntpOffset);
+		else
+			NTP.start(Settings.getInstance().getNtpServers());
 
 		LOGGER.info("Starting repository");
 		try {
@@ -804,509 +809,546 @@ public class Controller extends Thread {
 	public void onNetworkMessage(Peer peer, Message message) {
 		LOGGER.trace(() -> String.format("Processing %s message from %s", message.getType().name(), peer));
 
+		// Ordered by message type value
 		switch (message.getType()) {
-			case BLOCK: {
-				// From a v1 peer, with no message ID, this is a broadcast of peer's latest block
-
-				// Not version 1?
-				if (peer.getVersion() == null || peer.getVersion() > 1)
-					break;
-
-				// Message ID present?
-				if (message.hasId())
-					break;
-
-				BlockMessage blockMessage = (BlockMessage) message;
-				BlockData blockData = blockMessage.getBlockData();
-
-				// Update all peers with same ID
-
-				List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
-				for (Peer connectedPeer : connectedPeers) {
-					// Skip connectedPeer if they have no ID or their ID doesn't match sender's ID
-					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
-						continue;
-
-					// Update peer chain tip data
-					PeerChainTipData newChainTipData = new PeerChainTipData(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getMinterPublicKey());
-					connectedPeer.setChainTipData(newChainTipData);
-				}
-
-				// Potentially synchronize
-				requestSync = true;
-
+			case HEIGHT:
+				onNetworkHeightMessage(peer, message);
 				break;
-			}
 
-			case HEIGHT: {
-				HeightMessage heightMessage = (HeightMessage) message;
-
-				// Update all peers with same ID
-
-				List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
-				for (Peer connectedPeer : connectedPeers) {
-					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
-						continue;
-
-					// Update peer chain tip data
-					PeerChainTipData newChainTipData = new PeerChainTipData(heightMessage.getHeight(), null, null, null);
-					connectedPeer.setChainTipData(newChainTipData);
-				}
-
-				// Potentially synchronize
-				requestSync = true;
-
+			case GET_SIGNATURES:
+				onNetworkGetSignaturesMessage(peer, message);
 				break;
-			}
 
-			case HEIGHT_V2: {
-				HeightV2Message heightV2Message = (HeightV2Message) message;
-
-				// If peer is inbound and we've not updated their height
-				// then this is probably their initial HEIGHT_V2 message
-				// so they need a corresponding HEIGHT_V2 message from us
-				if (!peer.isOutbound() && (peer.getChainTipData() == null || peer.getChainTipData().getLastHeight() == null))
-					peer.sendMessage(Network.getInstance().buildHeightMessage(peer, getChainTip()));
-
-				// Update all peers with same ID
-
-				List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
-				for (Peer connectedPeer : connectedPeers) {
-					// Skip connectedPeer if they have no ID or their ID doesn't match sender's ID
-					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
-						continue;
-
-					// Update peer chain tip data
-					PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getMinterPublicKey());
-					connectedPeer.setChainTipData(newChainTipData);
-				}
-
-				// Potentially synchronize
-				requestSync = true;
-
+			case GET_BLOCK:
+				onNetworkGetBlockMessage(peer, message);
 				break;
-			}
 
-			case GET_SIGNATURES: {
-				GetSignaturesMessage getSignaturesMessage = (GetSignaturesMessage) message;
-				byte[] parentSignature = getSignaturesMessage.getParentSignature();
-
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					List<byte[]> signatures = new ArrayList<>();
-
-					do {
-						BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
-
-						if (blockData == null)
-							break;
-
-						parentSignature = blockData.getSignature();
-						signatures.add(parentSignature);
-					} while (signatures.size() < Network.MAX_SIGNATURES_PER_REPLY);
-
-					Message signaturesMessage = new SignaturesMessage(signatures);
-					signaturesMessage.setId(message.getId());
-					if (!peer.sendMessage(signaturesMessage))
-						peer.disconnect("failed to send signatures");
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while sending signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);
-				}
-
+			case BLOCK:
+				onNetworkBlockMessage(peer, message);
 				break;
-			}
 
-			case GET_SIGNATURES_V2: {
-				GetSignaturesV2Message getSignaturesMessage = (GetSignaturesV2Message) message;
-				byte[] parentSignature = getSignaturesMessage.getParentSignature();
-
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					List<byte[]> signatures = new ArrayList<>();
-
-					do {
-						BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
-
-						if (blockData == null)
-							break;
-
-						parentSignature = blockData.getSignature();
-						signatures.add(parentSignature);
-					} while (signatures.size() < getSignaturesMessage.getNumberRequested());
-
-					Message signaturesMessage = new SignaturesMessage(signatures);
-					signaturesMessage.setId(message.getId());
-					if (!peer.sendMessage(signaturesMessage))
-						peer.disconnect("failed to send signatures (v2)");
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while sending V2 signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);
-				}
-
+			case TRANSACTION:
+				onNetworkTransactionMessage(peer, message);
 				break;
-			}
 
-			case GET_BLOCK: {
-				GetBlockMessage getBlockMessage = (GetBlockMessage) message;
-				byte[] signature = getBlockMessage.getSignature();
-
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					BlockData blockData = repository.getBlockRepository().fromSignature(signature);
-					if (blockData == null) {
-						LOGGER.debug(() -> String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
-						// Send no response at all???
-						break;
-					}
-
-					Block block = new Block(repository, blockData);
-
-					Message blockMessage = new BlockMessage(block);
-					blockMessage.setId(message.getId());
-					if (!peer.sendMessage(blockMessage))
-						peer.disconnect("failed to send block");
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);
-				}
-
+			case GET_BLOCK_SUMMARIES:
+				onNetworkGetBlockSummariesMessage(peer, message);
 				break;
-			}
 
-			case GET_TRANSACTION: {
-				GetTransactionMessage getTransactionMessage = (GetTransactionMessage) message;
-				byte[] signature = getTransactionMessage.getSignature();
-
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-					if (transactionData == null) {
-						LOGGER.debug(() -> String.format("Ignoring GET_TRANSACTION request from peer %s for unknown transaction %s", peer, Base58.encode(signature)));
-						// Send no response at all???
-						break;
-					}
-
-					Message transactionMessage = new TransactionMessage(transactionData);
-					transactionMessage.setId(message.getId());
-					if (!peer.sendMessage(transactionMessage))
-						peer.disconnect("failed to send transaction");
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while send transaction %s to peer %s", Base58.encode(signature), peer), e);
-				}
-
+			case GET_SIGNATURES_V2:
+				onNetworkGetSignaturesV2Message(peer, message);
 				break;
-			}
 
-			case TRANSACTION: {
-				TransactionMessage transactionMessage = (TransactionMessage) message;
-				TransactionData transactionData = transactionMessage.getTransactionData();
-
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					Transaction transaction = Transaction.fromData(repository, transactionData);
-
-					// Check signature
-					if (!transaction.isSignatureValid()) {
-						LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-						break;
-					}
-
-					ValidationResult validationResult = transaction.importAsUnconfirmed();
-
-					if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
-						LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-						break;
-					}
-
-					if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
-						LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-						break;
-					}
-
-					if (validationResult != ValidationResult.OK) {
-						LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-						break;
-					}
-
-					LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
-				}
-
+			case HEIGHT_V2:
+				onNetworkHeightV2Message(peer, message);
 				break;
-			}
 
-			case GET_UNCONFIRMED_TRANSACTIONS: {
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					List<byte[]> signatures = repository.getTransactionRepository().getUnconfirmedTransactionSignatures();
-
-					Message transactionSignaturesMessage = new TransactionSignaturesMessage(signatures);
-					if (!peer.sendMessage(transactionSignaturesMessage))
-						peer.disconnect("failed to send unconfirmed transaction signatures");
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while sending unconfirmed transaction signatures to peer %s", peer), e);
-				}
+			case GET_TRANSACTION:
+				onNetworkGetTransactionMessage(peer, message);
 				break;
-			}
 
-			case TRANSACTION_SIGNATURES: {
-				TransactionSignaturesMessage transactionSignaturesMessage = (TransactionSignaturesMessage) message;
-				List<byte[]> signatures = transactionSignaturesMessage.getSignatures();
-				List<byte[]> newSignatures = new ArrayList<>();
-
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					for (byte[] signature : signatures) {
-						// Do we have it already? (Before requesting transaction data itself)
-						if (repository.getTransactionRepository().exists(signature)) {
-							LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(signature), peer));
-							continue;
-						}
-
-						// Check isInterrupted() here and exit fast
-						if (Thread.currentThread().isInterrupted())
-							return;
-
-						// Fetch actual transaction data from peer
-						Message getTransactionMessage = new GetTransactionMessage(signature);
-						Message responseMessage = peer.getResponse(getTransactionMessage);
-						if (!(responseMessage instanceof TransactionMessage)) {
-							// Maybe peer no longer has this transaction
-							LOGGER.trace(() -> String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
-							continue;
-						}
-
-						// Check isInterrupted() here and exit fast
-						if (Thread.currentThread().isInterrupted())
-							return;
-
-						TransactionMessage transactionMessage = (TransactionMessage) responseMessage;
-						TransactionData transactionData = transactionMessage.getTransactionData();
-						Transaction transaction = Transaction.fromData(repository, transactionData);
-
-						// Check signature
-						if (!transaction.isSignatureValid()) {
-							LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-							continue;
-						}
-
-						ValidationResult validationResult = transaction.importAsUnconfirmed();
-
-						if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
-							LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-							continue;
-						}
-
-						if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
-							LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-							// Some other thread (e.g. Synchronizer) might have blockchain lock for a while so might as well give up for now
-							break;
-						}
-
-						if (validationResult != ValidationResult.OK) {
-							LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-							continue;
-						}
-
-						LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-
-						// We could collate signatures that are new to us and broadcast them to our peers too
-						newSignatures.add(signature);
-					}
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while processing unconfirmed transactions from peer %s", peer), e);
-				} catch (InterruptedException e) {
-					// Shutdown
-					return;
-				}
-
-				if (newSignatures.isEmpty())
-					break;
-
-				// Broadcast signatures that are new to us
-				Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(newSignatures));
-
+			case GET_UNCONFIRMED_TRANSACTIONS:
+				onNetworkGetUnconfirmedTransactionsMessage(peer, message);
 				break;
-			}
 
-			case GET_BLOCK_SUMMARIES: {
-				GetBlockSummariesMessage getBlockSummariesMessage = (GetBlockSummariesMessage) message;
-				byte[] parentSignature = getBlockSummariesMessage.getParentSignature();
-
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					List<BlockSummaryData> blockSummaries = new ArrayList<>();
-
-					int numberRequested = Math.min(Network.MAX_BLOCK_SUMMARIES_PER_REPLY, getBlockSummariesMessage.getNumberRequested());
-
-					do {
-						BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
-
-						if (blockData == null)
-							break;
-
-						BlockSummaryData blockSummary = new BlockSummaryData(blockData);
-						blockSummaries.add(blockSummary);
-						parentSignature = blockData.getSignature();
-					} while (blockSummaries.size() < numberRequested);
-
-					Message blockSummariesMessage = new BlockSummariesMessage(blockSummaries);
-					blockSummariesMessage.setId(message.getId());
-					if (!peer.sendMessage(blockSummariesMessage))
-						peer.disconnect("failed to send block summaries");
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while sending block summaries after %s to peer %s", Base58.encode(parentSignature), peer), e);
-				}
-
+			case TRANSACTION_SIGNATURES:
+				onNetworkTransactionSignaturesMessage(peer, message);
 				break;
-			}
 
-			case GET_ARBITRARY_DATA: {
-				GetArbitraryDataMessage getArbitraryDataMessage = (GetArbitraryDataMessage) message;
-
-				byte[] signature = getArbitraryDataMessage.getSignature();
-				String signature58 = Base58.encode(signature);
-				Long timestamp = NTP.getTime();
-				Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
-
-				// If we've seen this request recently, then ignore
-				if (arbitraryDataRequests.putIfAbsent(message.getId(), newEntry) != null)
-					break;
-
-				// Do we even have this transaction?
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-					if (transactionData == null || transactionData.getType() != TransactionType.ARBITRARY)
-						break;
-
-					ArbitraryTransaction transaction = new ArbitraryTransaction(repository, transactionData);
-
-					// If we have the data then send it
-					if (transaction.isDataLocal()) {
-						byte[] data = transaction.fetchData();
-						if (data == null)
-							break;
-
-						// Update requests map to reflect that we've sent it
-						newEntry = new Triple<>(signature58, null, timestamp);
-						arbitraryDataRequests.put(message.getId(), newEntry);
-
-						Message arbitraryDataMessage = new ArbitraryDataMessage(signature, data);
-						arbitraryDataMessage.setId(message.getId());
-						if (!peer.sendMessage(arbitraryDataMessage))
-							peer.disconnect("failed to send arbitrary data");
-
-						break;
-					}
-
-					// Ask our other peers if they have it
-					Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : message);
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while finding arbitrary transaction data for peer %s", peer), e);
-				}
-
+			case GET_ARBITRARY_DATA:
+				onNetworkGetArbitraryDataMessage(peer, message);
 				break;
-			}
 
-			case ARBITRARY_DATA: {
-				ArbitraryDataMessage arbitraryDataMessage = (ArbitraryDataMessage) message;
-
-				// Do we have a pending request for this data?
-				Triple<String, Peer, Long> request = arbitraryDataRequests.get(message.getId());
-				if (request == null || request.getA() == null)
-					break;
-
-				// Does this message's signature match what we're expecting?
-				byte[] signature = arbitraryDataMessage.getSignature();
-				String signature58 = Base58.encode(signature);
-				if (!request.getA().equals(signature58))
-					break;
-
-				byte[] data = arbitraryDataMessage.getData();
-
-				// Check transaction exists and payload hash is correct
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-					if (!(transactionData instanceof ArbitraryTransactionData))
-						break;
-
-					ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
-
-					byte[] actualHash = Crypto.digest(data);
-
-					// "data" from repository will always be hash of actual raw data
-					if (!Arrays.equals(arbitraryTransactionData.getData(), actualHash))
-						break;
-
-					// Update requests map to reflect that we've received it
-					Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
-					arbitraryDataRequests.put(message.getId(), newEntry);
-
-					// Save payload locally
-					// TODO: storage policy
-					arbitraryTransactionData.setDataType(DataType.RAW_DATA);
-					arbitraryTransactionData.setData(data);
-					repository.getArbitraryRepository().save(arbitraryTransactionData);
-					repository.saveChanges();
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while finding arbitrary transaction data for peer %s", peer), e);
-				}
-
-				Peer requestingPeer = request.getB();
-				if (requestingPeer != null) {
-					// Forward to requesting peer;
-					if (!requestingPeer.sendMessage(arbitraryDataMessage))
-						requestingPeer.disconnect("failed to forward arbitrary data");
-				}
-
+			case ARBITRARY_DATA:
+				onNetworkArbitraryDataMessage(peer, message);
 				break;
-			}
 
-			case GET_ONLINE_ACCOUNTS: {
-				GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
-
-				List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
-
-				// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-				List<OnlineAccountData> accountsToSend;
-				synchronized (this.onlineAccounts) {
-					accountsToSend = new ArrayList<>(this.onlineAccounts);
-				}
-
-				Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
-
-				SEND_ITERATOR:
-				while (iterator.hasNext()) {
-					OnlineAccountData onlineAccountData = iterator.next();
-
-					for (int i = 0; i < excludeAccounts.size(); ++i) {
-						OnlineAccountData excludeAccountData = excludeAccounts.get(i);
-
-						if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
-							iterator.remove();
-							continue SEND_ITERATOR;
-						}
-					}
-				}
-
-				Message onlineAccountsMessage = new OnlineAccountsMessage(accountsToSend);
-				peer.sendMessage(onlineAccountsMessage);
-
-				LOGGER.trace(() -> String.format("Sent %d of our %d online accounts to %s", accountsToSend.size(), this.onlineAccounts.size(), peer));
-
+			case GET_ONLINE_ACCOUNTS:
+				onNetworkGetOnlineAccountsMessage(peer, message);
 				break;
-			}
 
-			case ONLINE_ACCOUNTS: {
-				OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
-
-				List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-				LOGGER.trace(() -> String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
-
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
-						this.verifyAndAddAccount(repository, onlineAccountData);
-				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while verifying online accounts from peer %s", peer), e);
-				}
-
+			case ONLINE_ACCOUNTS:
+				onNetworkOnlineAccountsMessage(peer, message);
 				break;
-			}
 
 			default:
 				LOGGER.debug(String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
+		}
+	}
+
+	private void onNetworkHeightMessage(Peer peer, Message message) {
+		HeightMessage heightMessage = (HeightMessage) message;
+
+		// Update all peers with same ID
+
+		List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
+		for (Peer connectedPeer : connectedPeers) {
+			if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
+				continue;
+
+			// Update peer chain tip data
+			PeerChainTipData newChainTipData = new PeerChainTipData(heightMessage.getHeight(), null, null, null);
+			connectedPeer.setChainTipData(newChainTipData);
+		}
+
+		// Potentially synchronize
+		requestSync = true;
+	}
+
+	private void onNetworkGetSignaturesMessage(Peer peer, Message message) {
+		GetSignaturesMessage getSignaturesMessage = (GetSignaturesMessage) message;
+		byte[] parentSignature = getSignaturesMessage.getParentSignature();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<byte[]> signatures = new ArrayList<>();
+
+			do {
+				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+
+				if (blockData == null)
+					break;
+
+				parentSignature = blockData.getSignature();
+				signatures.add(parentSignature);
+			} while (signatures.size() < Network.MAX_SIGNATURES_PER_REPLY);
+
+			Message signaturesMessage = new SignaturesMessage(signatures);
+			signaturesMessage.setId(message.getId());
+			if (!peer.sendMessage(signaturesMessage))
+				peer.disconnect("failed to send signatures");
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while sending signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);
+		}
+	}
+
+	private void onNetworkGetBlockMessage(Peer peer, Message message) {
+		GetBlockMessage getBlockMessage = (GetBlockMessage) message;
+		byte[] signature = getBlockMessage.getSignature();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
+			if (blockData == null) {
+				LOGGER.debug(() -> String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
+				// Send no response at all???
+				return;
+			}
+
+			Block block = new Block(repository, blockData);
+
+			Message blockMessage = new BlockMessage(block);
+			blockMessage.setId(message.getId());
+			if (!peer.sendMessage(blockMessage))
+				peer.disconnect("failed to send block");
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);
+		}
+	}
+
+	private void onNetworkBlockMessage(Peer peer, Message message) {
+		// From a v1 peer, with no message ID, this is a broadcast of peer's latest block
+		// v2 peers announce new blocks using HEIGHT_V2
+
+		// Not version 1?
+		if (peer.getVersion() == null || peer.getVersion() > 1)
+			return;
+
+		// Message ID present?
+		// XXX Why is this test here? If BLOCK had an ID then surely it would be a response to GET_BLOCK
+		// and hence captured by Peer's reply queue?
+		if (message.hasId())
+			return;
+
+		BlockMessage blockMessage = (BlockMessage) message;
+		BlockData blockData = blockMessage.getBlockData();
+
+		// Update all peers with same ID
+
+		List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
+		for (Peer connectedPeer : connectedPeers) {
+			// Skip connectedPeer if they have no ID or their ID doesn't match sender's ID
+			if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
+				continue;
+
+			// Update peer chain tip data
+			PeerChainTipData newChainTipData = new PeerChainTipData(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getMinterPublicKey());
+			connectedPeer.setChainTipData(newChainTipData);
+		}
+
+		// Potentially synchronize
+		requestSync = true;
+	}
+
+	private void onNetworkTransactionMessage(Peer peer, Message message) {
+		TransactionMessage transactionMessage = (TransactionMessage) message;
+		TransactionData transactionData = transactionMessage.getTransactionData();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			// Check signature
+			if (!transaction.isSignatureValid()) {
+				LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+				return;
+			}
+
+			ValidationResult validationResult = transaction.importAsUnconfirmed();
+
+			if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
+				LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+				return;
+			}
+
+			if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
+				LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+				return;
+			}
+
+			if (validationResult != ValidationResult.OK) {
+				LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+				return;
+			}
+
+			LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
+		}
+	}
+
+	private void onNetworkGetBlockSummariesMessage(Peer peer, Message message) {
+		GetBlockSummariesMessage getBlockSummariesMessage = (GetBlockSummariesMessage) message;
+		byte[] parentSignature = getBlockSummariesMessage.getParentSignature();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<BlockSummaryData> blockSummaries = new ArrayList<>();
+
+			int numberRequested = Math.min(Network.MAX_BLOCK_SUMMARIES_PER_REPLY, getBlockSummariesMessage.getNumberRequested());
+
+			do {
+				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+
+				if (blockData == null)
+					// No more blocks to send to peer
+					break;
+
+				BlockSummaryData blockSummary = new BlockSummaryData(blockData);
+				blockSummaries.add(blockSummary);
+				parentSignature = blockData.getSignature();
+			} while (blockSummaries.size() < numberRequested);
+
+			Message blockSummariesMessage = new BlockSummariesMessage(blockSummaries);
+			blockSummariesMessage.setId(message.getId());
+			if (!peer.sendMessage(blockSummariesMessage))
+				peer.disconnect("failed to send block summaries");
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while sending block summaries after %s to peer %s", Base58.encode(parentSignature), peer), e);
+		}
+	}
+
+	private void onNetworkGetSignaturesV2Message(Peer peer, Message message) {
+		GetSignaturesV2Message getSignaturesMessage = (GetSignaturesV2Message) message;
+		byte[] parentSignature = getSignaturesMessage.getParentSignature();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<byte[]> signatures = new ArrayList<>();
+
+			do {
+				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+
+				if (blockData == null)
+					// No more signatures to send to peer
+					break;
+
+				parentSignature = blockData.getSignature();
+				signatures.add(parentSignature);
+			} while (signatures.size() < getSignaturesMessage.getNumberRequested());
+
+			Message signaturesMessage = new SignaturesMessage(signatures);
+			signaturesMessage.setId(message.getId());
+			if (!peer.sendMessage(signaturesMessage))
+				peer.disconnect("failed to send signatures (v2)");
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while sending V2 signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);
+		}
+	}
+
+	private void onNetworkHeightV2Message(Peer peer, Message message) {
+		HeightV2Message heightV2Message = (HeightV2Message) message;
+
+		// If peer is inbound and we've not updated their height
+		// then this is probably their initial HEIGHT_V2 message
+		// so they need a corresponding HEIGHT_V2 message from us
+		if (!peer.isOutbound() && (peer.getChainTipData() == null || peer.getChainTipData().getLastHeight() == null))
+			peer.sendMessage(Network.getInstance().buildHeightMessage(peer, getChainTip()));
+
+		// Update all peers with same ID
+
+		List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
+		for (Peer connectedPeer : connectedPeers) {
+			// Skip connectedPeer if they have no ID or their ID doesn't match sender's ID
+			if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
+				continue;
+
+			// Update peer chain tip data
+			PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getMinterPublicKey());
+			connectedPeer.setChainTipData(newChainTipData);
+		}
+
+		// Potentially synchronize
+		requestSync = true;
+	}
+
+	private void onNetworkGetTransactionMessage(Peer peer, Message message) {
+		GetTransactionMessage getTransactionMessage = (GetTransactionMessage) message;
+		byte[] signature = getTransactionMessage.getSignature();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+			if (transactionData == null) {
+				LOGGER.debug(() -> String.format("Ignoring GET_TRANSACTION request from peer %s for unknown transaction %s", peer, Base58.encode(signature)));
+				// Send no response at all???
+				return;
+			}
+
+			Message transactionMessage = new TransactionMessage(transactionData);
+			transactionMessage.setId(message.getId());
+			if (!peer.sendMessage(transactionMessage))
+				peer.disconnect("failed to send transaction");
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while send transaction %s to peer %s", Base58.encode(signature), peer), e);
+		}
+	}
+
+	private void onNetworkGetUnconfirmedTransactionsMessage(Peer peer, Message message) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<byte[]> signatures = repository.getTransactionRepository().getUnconfirmedTransactionSignatures();
+
+			Message transactionSignaturesMessage = new TransactionSignaturesMessage(signatures);
+			if (!peer.sendMessage(transactionSignaturesMessage))
+				peer.disconnect("failed to send unconfirmed transaction signatures");
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while sending unconfirmed transaction signatures to peer %s", peer), e);
+		}
+	}
+
+	private void onNetworkTransactionSignaturesMessage(Peer peer, Message message) {
+		TransactionSignaturesMessage transactionSignaturesMessage = (TransactionSignaturesMessage) message;
+		List<byte[]> signatures = transactionSignaturesMessage.getSignatures();
+		List<byte[]> newSignatures = new ArrayList<>();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (byte[] signature : signatures) {
+				// Do we have it already? (Before requesting transaction data itself)
+				if (repository.getTransactionRepository().exists(signature)) {
+					LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(signature), peer));
+					continue;
+				}
+
+				// Check isInterrupted() here and exit fast
+				if (Thread.currentThread().isInterrupted())
+					return;
+
+				// Fetch actual transaction data from peer
+				Message getTransactionMessage = new GetTransactionMessage(signature);
+				Message responseMessage = peer.getResponse(getTransactionMessage);
+				if (!(responseMessage instanceof TransactionMessage)) {
+					// Maybe peer no longer has this transaction
+					LOGGER.trace(() -> String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
+					continue;
+				}
+
+				// Check isInterrupted() here and exit fast
+				if (Thread.currentThread().isInterrupted())
+					return;
+
+				TransactionMessage transactionMessage = (TransactionMessage) responseMessage;
+				TransactionData transactionData = transactionMessage.getTransactionData();
+				Transaction transaction = Transaction.fromData(repository, transactionData);
+
+				// Check signature
+				if (!transaction.isSignatureValid()) {
+					LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+					continue;
+				}
+
+				ValidationResult validationResult = transaction.importAsUnconfirmed();
+
+				if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
+					LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+					continue;
+				}
+
+				if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
+					LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+					// Some other thread (e.g. Synchronizer) might have blockchain lock for a while so might as well give up for now
+					break;
+				}
+
+				if (validationResult != ValidationResult.OK) {
+					LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+					continue;
+				}
+
+				LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+
+				// We could collate signatures that are new to us and broadcast them to our peers too
+				newSignatures.add(signature);
+			}
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while processing unconfirmed transactions from peer %s", peer), e);
+		} catch (InterruptedException e) {
+			// Shutdown
+			return;
+		}
+
+		if (newSignatures.isEmpty())
+			return;
+
+		// Broadcast signatures that are new to us
+		Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(newSignatures));
+	}
+
+	private void onNetworkGetArbitraryDataMessage(Peer peer, Message message) {
+		GetArbitraryDataMessage getArbitraryDataMessage = (GetArbitraryDataMessage) message;
+
+		byte[] signature = getArbitraryDataMessage.getSignature();
+		String signature58 = Base58.encode(signature);
+		Long timestamp = NTP.getTime();
+		Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
+
+		// If we've seen this request recently, then ignore
+		if (arbitraryDataRequests.putIfAbsent(message.getId(), newEntry) != null)
+			return;
+
+		// Do we even have this transaction?
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+			if (transactionData == null || transactionData.getType() != TransactionType.ARBITRARY)
+				return;
+
+			ArbitraryTransaction transaction = new ArbitraryTransaction(repository, transactionData);
+
+			// If we have the data then send it
+			if (transaction.isDataLocal()) {
+				byte[] data = transaction.fetchData();
+				if (data == null)
+					return;
+
+				// Update requests map to reflect that we've sent it
+				newEntry = new Triple<>(signature58, null, timestamp);
+				arbitraryDataRequests.put(message.getId(), newEntry);
+
+				Message arbitraryDataMessage = new ArbitraryDataMessage(signature, data);
+				arbitraryDataMessage.setId(message.getId());
+				if (!peer.sendMessage(arbitraryDataMessage))
+					peer.disconnect("failed to send arbitrary data");
+
+				return;
+			}
+
+			// Ask our other peers if they have it
+			Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : message);
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while finding arbitrary transaction data for peer %s", peer), e);
+		}
+	}
+
+	private void onNetworkArbitraryDataMessage(Peer peer, Message message) {
+		ArbitraryDataMessage arbitraryDataMessage = (ArbitraryDataMessage) message;
+
+		// Do we have a pending request for this data?
+		Triple<String, Peer, Long> request = arbitraryDataRequests.get(message.getId());
+		if (request == null || request.getA() == null)
+			return;
+
+		// Does this message's signature match what we're expecting?
+		byte[] signature = arbitraryDataMessage.getSignature();
+		String signature58 = Base58.encode(signature);
+		if (!request.getA().equals(signature58))
+			return;
+
+		byte[] data = arbitraryDataMessage.getData();
+
+		// Check transaction exists and payload hash is correct
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+			if (!(transactionData instanceof ArbitraryTransactionData))
+				return;
+
+			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+
+			byte[] actualHash = Crypto.digest(data);
+
+			// "data" from repository will always be hash of actual raw data
+			if (!Arrays.equals(arbitraryTransactionData.getData(), actualHash))
+				return;
+
+			// Update requests map to reflect that we've received it
+			Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
+			arbitraryDataRequests.put(message.getId(), newEntry);
+
+			// Save payload locally
+			// TODO: storage policy
+			arbitraryTransactionData.setDataType(DataType.RAW_DATA);
+			arbitraryTransactionData.setData(data);
+			repository.getArbitraryRepository().save(arbitraryTransactionData);
+			repository.saveChanges();
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while finding arbitrary transaction data for peer %s", peer), e);
+		}
+
+		Peer requestingPeer = request.getB();
+		if (requestingPeer != null) {
+			// Forward to requesting peer;
+			if (!requestingPeer.sendMessage(arbitraryDataMessage))
+				requestingPeer.disconnect("failed to forward arbitrary data");
+		}
+	}
+
+	private void onNetworkGetOnlineAccountsMessage(Peer peer, Message message) {
+		GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
+
+		List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
+
+		// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
+		List<OnlineAccountData> accountsToSend;
+		synchronized (this.onlineAccounts) {
+			accountsToSend = new ArrayList<>(this.onlineAccounts);
+		}
+
+		Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
+
+		SEND_ITERATOR:
+		while (iterator.hasNext()) {
+			OnlineAccountData onlineAccountData = iterator.next();
+
+			for (int i = 0; i < excludeAccounts.size(); ++i) {
+				OnlineAccountData excludeAccountData = excludeAccounts.get(i);
+
+				if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
+					iterator.remove();
+					continue SEND_ITERATOR;
+				}
+			}
+		}
+
+		Message onlineAccountsMessage = new OnlineAccountsMessage(accountsToSend);
+		peer.sendMessage(onlineAccountsMessage);
+
+		LOGGER.trace(() -> String.format("Sent %d of our %d online accounts to %s", accountsToSend.size(), this.onlineAccounts.size(), peer));
+	}
+
+	private void onNetworkOnlineAccountsMessage(Peer peer, Message message) {
+		OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
+
+		List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
+		LOGGER.trace(() -> String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
+				this.verifyAndAddAccount(repository, onlineAccountData);
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while verifying online accounts from peer %s", peer), e);
 		}
 	}
 
@@ -1340,7 +1382,7 @@ public class Controller extends Thread {
 			return;
 		}
 
-		PublicKeyAccount mintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+		Account mintingAccount = new Account(repository, rewardShareData.getMinter());
 		if (!mintingAccount.canMint()) {
 			// Minting-account component of reward-share can no longer mint - disregard
 			LOGGER.trace(() -> String.format("Rejecting online reward-share with non-minting account %s", mintingAccount.getAddress()));
@@ -1460,7 +1502,7 @@ public class Controller extends Thread {
 					continue;
 				}
 
-				PublicKeyAccount mintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+				Account mintingAccount = new Account(repository, rewardShareData.getMinter());
 				if (!mintingAccount.canMint()) {
 					// Minting-account component of reward-share can no longer mint - disregard
 					iterator.remove();

@@ -32,10 +32,13 @@ public class BlockMinterSummary {
 	}
 
 	/** Constructs BlockMinterSummary in reward-share context. */
-	public BlockMinterSummary(byte[] rewardSharePublicKey, int blockCount, byte[] mintingAccountPublicKey, String recipientAccount) {
-		this(mintingAccountPublicKey, blockCount);
-
+	public BlockMinterSummary(byte[] rewardSharePublicKey, int blockCount, byte[] mintingAccountPublicKey, String minterAccount, String recipientAccount) {
 		this.rewardSharePublicKey = rewardSharePublicKey;
+		this.blockCount = blockCount;
+
+		this.mintingAccountPublicKey = mintingAccountPublicKey;
+		this.mintingAccount = minterAccount;
+
 		this.recipientAccount = recipientAccount;
 	}
 

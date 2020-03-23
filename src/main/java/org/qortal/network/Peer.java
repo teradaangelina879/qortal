@@ -466,15 +466,13 @@ public class Peer {
 	/* package */ void startPings() {
 		// Replacing initial null value allows getPingTask() to start sending pings.
 		LOGGER.trace(() -> String.format("Enabling pings for peer %s", this));
-		this.lastPingSent = System.currentTimeMillis();
+		this.lastPingSent = NTP.getTime();
 	}
 
-	/* package */ ExecuteProduceConsume.Task getPingTask() {
+	/* package */ ExecuteProduceConsume.Task getPingTask(Long now) {
 		// Pings not enabled yet?
-		if (this.lastPingSent == null)
+		if (now == null || this.lastPingSent == null)
 			return null;
-
-		final long now = System.currentTimeMillis();
 
 		// Time to send another ping?
 		if (now < this.lastPingSent + PING_INTERVAL)
@@ -486,7 +484,6 @@ public class Peer {
 		return () -> {
 			PingMessage pingMessage = new PingMessage();
 			Message message = this.getResponse(pingMessage);
-			final long after = System.currentTimeMillis();
 
 			if (message == null || message.getType() != MessageType.PING) {
 				LOGGER.debug(() -> String.format("Didn't receive reply from %s for PING ID %d", this, pingMessage.getId()));
@@ -494,7 +491,7 @@ public class Peer {
 				return;
 			}
 
-			this.setLastPing(after - now);
+			this.setLastPing(NTP.getTime() - now);
 		};
 	}
 

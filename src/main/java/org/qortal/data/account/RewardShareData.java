@@ -5,8 +5,9 @@ import java.math.BigDecimal;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlTransient;
 
-import org.qortal.crypto.Crypto;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -14,6 +15,12 @@ public class RewardShareData {
 
 	// Properties
 	private byte[] minterPublicKey;
+
+	// "minter" is called "mintingAccount" instead
+	@XmlTransient
+	@Schema(hidden = true)
+	private String minter;
+
 	private String recipient;
 	private byte[] rewardSharePublicKey;
 	private BigDecimal sharePercent;
@@ -25,8 +32,9 @@ public class RewardShareData {
 	}
 
 	// Used when fetching from repository
-	public RewardShareData(byte[] minterPublicKey, String recipient, byte[] rewardSharePublicKey, BigDecimal sharePercent) {
+	public RewardShareData(byte[] minterPublicKey, String minter, String recipient, byte[] rewardSharePublicKey, BigDecimal sharePercent) {
 		this.minterPublicKey = minterPublicKey;
+		this.minter = minter;
 		this.recipient = recipient;
 		this.rewardSharePublicKey = rewardSharePublicKey;
 		this.sharePercent = sharePercent;
@@ -36,6 +44,10 @@ public class RewardShareData {
 
 	public byte[] getMinterPublicKey() {
 		return this.minterPublicKey;
+	}
+
+	public String getMinter() {
+		return this.minter;
 	}
 
 	public String getRecipient() {
@@ -52,7 +64,7 @@ public class RewardShareData {
 
 	@XmlElement(name = "mintingAccount")
 	public String getMintingAccount() {
-		return Crypto.toAddress(this.minterPublicKey);
+		return this.minter;
 	}
 
 }

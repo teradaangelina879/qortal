@@ -195,7 +195,9 @@ public class RewardShareTransaction extends Transaction {
 			this.repository.getAccountRepository().delete(mintingAccount.getPublicKey(), rewardShareTransactionData.getRecipient());
 		} else {
 			// Save reward-share info
-			rewardShareData = new RewardShareData(mintingAccount.getPublicKey(), rewardShareTransactionData.getRecipient(), rewardShareTransactionData.getRewardSharePublicKey(), rewardShareTransactionData.getSharePercent());
+			rewardShareData = new RewardShareData(mintingAccount.getPublicKey(), mintingAccount.getAddress(),
+					rewardShareTransactionData.getRecipient(), rewardShareTransactionData.getRewardSharePublicKey(),
+					rewardShareTransactionData.getSharePercent());
 			this.repository.getAccountRepository().save(rewardShareData);
 		}
 	}
@@ -217,8 +219,9 @@ public class RewardShareTransaction extends Transaction {
 
 		if (rewardShareTransactionData.getPreviousSharePercent() != null) {
 			// Revert previous sharing arrangement
-			RewardShareData rewardShareData = new RewardShareData(mintingAccount.getPublicKey(), rewardShareTransactionData.getRecipient(),
-					rewardShareTransactionData.getRewardSharePublicKey(), rewardShareTransactionData.getPreviousSharePercent());
+			RewardShareData rewardShareData = new RewardShareData(mintingAccount.getPublicKey(), mintingAccount.getAddress(),
+					rewardShareTransactionData.getRecipient(), rewardShareTransactionData.getRewardSharePublicKey(),
+					rewardShareTransactionData.getPreviousSharePercent());
 
 			this.repository.getAccountRepository().save(rewardShareData);
 		} else {

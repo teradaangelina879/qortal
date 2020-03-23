@@ -36,8 +36,8 @@ import javax.ws.rs.core.MediaType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
+import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiException;
@@ -240,7 +240,7 @@ public class AdminResource {
 					// ignore
 				}
 
-				return new MintingAccountData(mintingAccountData.getPrivateKey(), rewardShareData);
+				return new MintingAccountData(mintingAccountData, rewardShareData);
 			}).collect(Collectors.toList());
 
 			return mintingAccounts;
@@ -284,11 +284,11 @@ public class AdminResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 			// Qortal: check reward-share's minting account is still allowed to mint
-			PublicKeyAccount rewardShareMintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+			Account rewardShareMintingAccount = new Account(repository, rewardShareData.getMinter());
 			if (!rewardShareMintingAccount.canMint())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.CANNOT_MINT);
 
-			MintingAccountData mintingAccountData = new MintingAccountData(seed);
+			MintingAccountData mintingAccountData = new MintingAccountData(mintingAccount.getPrivateKey(), mintingAccount.getPublicKey());
 
 			repository.getAccountRepository().save(mintingAccountData);
 			repository.saveChanges();

@@ -201,7 +201,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		String subquerySql = "SELECT minter, COUNT(signature) FROM Blocks GROUP BY minter";
 
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append("SELECT DISTINCT block_minter, n_blocks, minter_public_key, recipient FROM (");
+		sql.append("SELECT DISTINCT block_minter, n_blocks, minter_public_key, minter, recipient FROM (");
 		sql.append(subquerySql);
 		sql.append(") AS Minters (block_minter, n_blocks) LEFT OUTER JOIN RewardShares ON reward_share_public_key = block_minter ");
 
@@ -239,14 +239,17 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			do {
 				byte[] blockMinterPublicKey = resultSet.getBytes(1);
 				int nBlocks = resultSet.getInt(2);
+
+				// May not be present if no reward-share:
 				byte[] mintingAccountPublicKey = resultSet.getBytes(3);
-				String recipientAccount = resultSet.getString(4);
+				String minterAccount = resultSet.getString(4);
+				String recipientAccount = resultSet.getString(5);
 
 				BlockMinterSummary blockMinterSummary;
 				if (recipientAccount == null)
 					blockMinterSummary = new BlockMinterSummary(blockMinterPublicKey, nBlocks);
 				else
-					blockMinterSummary = new BlockMinterSummary(blockMinterPublicKey, nBlocks, mintingAccountPublicKey, recipientAccount);
+					blockMinterSummary = new BlockMinterSummary(blockMinterPublicKey, nBlocks, mintingAccountPublicKey, minterAccount, recipientAccount);
 
 				summaries.add(blockMinterSummary);
 			} while (resultSet.next());
@@ -260,13 +263,13 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	@Override
 	public List<BlockSummaryData> getBlockSummariesByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT signature, height, minter, online_accounts_count FROM ");
+		sql.append("SELECT signature, height, Blocks.minter, online_accounts_count FROM ");
 
 		// List of minter account's public key and reward-share public keys with minter's public key
 		sql.append("(SELECT * FROM (VALUES (CAST(? AS QortalPublicKey))) UNION (SELECT reward_share_public_key FROM RewardShares WHERE minter_public_key = ?)) AS PublicKeys (public_key) ");
 
 		// Match Blocks signed with public key from above list
-		sql.append("JOIN Blocks ON minter = public_key ");
+		sql.append("JOIN Blocks ON Blocks.minter = public_key ");
 
 		sql.append("ORDER BY Blocks.height ");
 		if (reverse != null && reverse)

@@ -6,6 +6,7 @@ import org.junit.Test;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.test.common.AccountUtils;
 import org.qortal.test.common.AssetUtils;
 import org.qortal.test.common.Common;
@@ -19,7 +20,7 @@ public class OldTradingTests extends Common {
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useSettings("test-settings-old-asset.json");
-		NTP.testMode();
+		NTP.setFixedOffset(Settings.getInstance().getTestNtpOffset());
 	}
 
 	@After

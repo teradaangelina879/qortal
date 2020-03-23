@@ -116,7 +116,7 @@ public class Common {
 
 	public static void useDefaultSettings() throws DataException {
 		useSettings(testSettingsFilename);
-		NTP.testMode();
+		NTP.setFixedOffset(Settings.getInstance().getTestNtpOffset());
 	}
 
 	public static void resetBlockchain() throws DataException {

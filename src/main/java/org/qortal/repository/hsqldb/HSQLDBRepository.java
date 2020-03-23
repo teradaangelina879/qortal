@@ -28,6 +28,8 @@ import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.account.PrivateKeyAccount;
+import org.qortal.crypto.Crypto;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.AccountRepository;
 import org.qortal.repository.ArbitraryRepository;
@@ -57,6 +59,8 @@ public class HSQLDBRepository implements Repository {
 	protected List<String> sqlStatements;
 	protected long sessionId;
 
+	// Constructors
+
 	// NB: no visibility modifier so only callable from within same package
 	/* package */ HSQLDBRepository(Connection connection) throws DataException {
 		this.connection = connection;
@@ -83,6 +87,8 @@ public class HSQLDBRepository implements Repository {
 
 		assertEmptyTransaction("connection creation");
 	}
+
+	// Getters / setters
 
 	@Override
 	public ATRepository getATRepository() {
@@ -133,6 +139,18 @@ public class HSQLDBRepository implements Repository {
 	public VotingRepository getVotingRepository() {
 		return new HSQLDBVotingRepository(this);
 	}
+
+	@Override
+	public boolean getDebug() {
+		return this.debugState;
+	}
+
+	@Override
+	public void setDebug(boolean debugState) {
+		this.debugState = debugState;
+	}
+
+	// Transaction COMMIT / ROLLBACK / savepoints
 
 	@Override
 	public void saveChanges() throws DataException {
@@ -203,6 +221,8 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
+	// Close / backup / rebuild / restore
+
 	@Override
 	public void close() throws DataException {
 		// Already closed? No need to do anything but maybe report double-call
@@ -255,16 +275,6 @@ public class HSQLDBRepository implements Repository {
 		} catch (SQLException | IOException e) {
 			throw new DataException("Unable to remove previous repository");
 		}
-	}
-
-	@Override
-	public boolean getDebug() {
-		return this.debugState;
-	}
-
-	@Override
-	public void setDebug(boolean debugState) {
-		this.debugState = debugState;
 	}
 
 	@Override
@@ -386,6 +396,8 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
+	// SQL statements, etc.
+
 	/**
 	 * Returns prepared statement using passed SQL, logging query if necessary.
 	 */
@@ -397,19 +409,6 @@ public class HSQLDBRepository implements Repository {
 			this.sqlStatements.add(sql);
 
 		return this.connection.prepareStatement(sql);
-	}
-
-	/**
-	 * Logs this transaction's SQL statements, if enabled.
-	 */
-	public void logStatements() {
-		if (this.sqlStatements == null)
-			return;
-
-		LOGGER.info(String.format("HSQLDB SQL statements (session %d) leading up to this were:", this.sessionId));
-
-		for (String sql : this.sqlStatements)
-			LOGGER.info(sql);
 	}
 
 	/**
@@ -429,15 +428,18 @@ public class HSQLDBRepository implements Repository {
 		// We can't use try-with-resources here as closing the PreparedStatement on return would also prematurely close the ResultSet.
 		preparedStatement.closeOnCompletion();
 
-		long beforeQuery = System.currentTimeMillis();
+		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
 
 		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects);
 
-		long queryTime = System.currentTimeMillis() - beforeQuery;
-		if (this.slowQueryThreshold != null && queryTime > this.slowQueryThreshold) {
-			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+		if (this.slowQueryThreshold != null) {
+			long queryTime = System.currentTimeMillis() - beforeQuery;
 
-			logStatements();
+			if (queryTime > this.slowQueryThreshold) {
+				LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+
+				logStatements();
+			}
 		}
 
 		return resultSet;
@@ -500,16 +502,19 @@ public class HSQLDBRepository implements Repository {
 		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
 			prepareExecute(preparedStatement, objects);
 
-			long beforeQuery = System.currentTimeMillis();
+			long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
 
 			if (preparedStatement.execute())
 				throw new SQLException("Database produced results, not row count");
 
-			long queryTime = System.currentTimeMillis() - beforeQuery;
-			if (this.slowQueryThreshold != null && queryTime > this.slowQueryThreshold) {
-				LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+			if (this.slowQueryThreshold != null) {
+				long queryTime = System.currentTimeMillis() - beforeQuery;
 
-				logStatements();
+				if (queryTime > this.slowQueryThreshold) {
+					LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+
+					logStatements();
+				}
 			}
 
 			int rowCount = preparedStatement.getUpdateCount();
@@ -670,6 +675,21 @@ public class HSQLDBRepository implements Repository {
 		stringBuilder.append(") ");
 	}
 
+	// Debugging
+
+	/**
+	 * Logs this transaction's SQL statements, if enabled.
+	 */
+	public void logStatements() {
+		if (this.sqlStatements == null)
+			return;
+
+		LOGGER.info(String.format("HSQLDB SQL statements (session %d) leading up to this were:", this.sessionId));
+
+		for (String sql : this.sqlStatements)
+			LOGGER.info(sql);
+	}
+
 	/** Logs other HSQLDB sessions then re-throws passed exception */
 	public SQLException examineException(SQLException e) throws SQLException {
 		LOGGER.error(String.format("HSQLDB error (session %d): %s", this.sessionId, e.getMessage()), e);
@@ -724,6 +744,22 @@ public class HSQLDBRepository implements Repository {
 		} catch (SQLException e) {
 			throw new DataException("Error checking repository status after " + context, e);
 		}
+	}
+
+	// Utility methods
+
+	public static byte[] ed25519PrivateToPublicKey(byte[] privateKey) {
+		if (privateKey == null)
+			return null;
+
+		return PrivateKeyAccount.toPublicKey(privateKey);
+	}
+
+	public static String ed25519PublicKeyToAddress(byte[] publicKey) {
+		if (publicKey == null)
+			return null;
+
+		return Crypto.toAddress(publicKey);
 	}
 
 	/** Converts milliseconds from epoch to OffsetDateTime needed for TIMESTAMP WITH TIME ZONE columns. */

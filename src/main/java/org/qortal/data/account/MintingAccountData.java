@@ -2,10 +2,8 @@ package org.qortal.data.account;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qortal.account.PrivateKeyAccount;
 import org.qortal.crypto.Crypto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,14 +14,17 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 public class MintingAccountData {
 
 	// Properties
+
+	// Never actually displayed by API
 	@Schema(hidden = true)
 	@XmlTransient
 	protected byte[] privateKey;
 
-	// Not always present - used by API if not null
-	@XmlTransient
-	@Schema(hidden = true)
+	// Read-only by API, we never ask for it as input
+	@Schema(accessMode = AccessMode.READ_ONLY)
 	protected byte[] publicKey;
+
+	// Not always present - used by API if not null
 	protected String mintingAccount;
 	protected String recipientAccount;
 	protected String address;
@@ -34,17 +35,17 @@ public class MintingAccountData {
 	protected MintingAccountData() {
 	}
 
-	public MintingAccountData(byte[] privateKey) {
+	public MintingAccountData(byte[] privateKey, byte[] publicKey) {
 		this.privateKey = privateKey;
-		this.publicKey = PrivateKeyAccount.toPublicKey(privateKey);
+		this.publicKey = publicKey;
 	}
 
-	public MintingAccountData(byte[] privateKey, RewardShareData rewardShareData) {
-		this(privateKey);
+	public MintingAccountData(MintingAccountData srcMintingAccountData, RewardShareData rewardShareData) {
+		this(srcMintingAccountData.privateKey, srcMintingAccountData.publicKey);
 
 		if (rewardShareData != null) {
 			this.recipientAccount = rewardShareData.getRecipient();
-			this.mintingAccount = Crypto.toAddress(rewardShareData.getMinterPublicKey());
+			this.mintingAccount = rewardShareData.getMinter();
 		} else {
 			this.address = Crypto.toAddress(this.publicKey);
 		}
@@ -56,8 +57,6 @@ public class MintingAccountData {
 		return this.privateKey;
 	}
 
-	@XmlElement(name = "publicKey")
-	@Schema(accessMode = AccessMode.READ_ONLY)
 	public byte[] getPublicKey() {
 		return this.publicKey;
 	}

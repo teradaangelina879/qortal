@@ -82,6 +82,8 @@ public class Settings {
 	private int minOutboundPeers = 40;
 	/** Maximum number of peer connections we allow. */
 	private int maxPeers = 80;
+	/** Maximum number of threads for network engine. */
+	private int maxNetworkThreadPoolSize = 10;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
@@ -113,7 +115,7 @@ public class Settings {
 		"3.cn.pool.ntp.org"
 	};
 	/** Additional offset added to values returned by NTP.getTime() */
-	private long testNtpOffset = 0;
+	private Long testNtpOffset = null;
 
 	// Constructors
 
@@ -331,6 +333,10 @@ public class Settings {
 		return this.maxPeers;
 	}
 
+	public int getMaxNetworkThreadPoolSize() {
+		return this.maxNetworkThreadPoolSize;
+	}
+
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;
 	}
@@ -359,7 +365,7 @@ public class Settings {
 		return this.ntpServers;
 	}
 
-	public long getTestNtpOffset() {
+	public Long getTestNtpOffset() {
 		return this.testNtpOffset;
 	}
 

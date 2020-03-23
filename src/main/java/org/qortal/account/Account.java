@@ -204,11 +204,15 @@ public class Account {
 	 * @throws DataException
 	 */
 	public boolean canMint() throws DataException {
-		Integer level = this.getLevel();
+		AccountData accountData = this.repository.getAccountRepository().getAccount(this.address);
+		if (accountData == null)
+			return false;
+
+		Integer level = accountData.getLevel();
 		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToMint())
 			return true;
 
-		if (this.isFounder())
+		if (Account.isFounder(accountData.getFlags()))
 			return true;
 
 		return false;
@@ -226,11 +230,15 @@ public class Account {
 	 * @throws DataException
 	 */
 	public boolean canRewardShare() throws DataException {
-		Integer level = this.getLevel();
+		AccountData accountData = this.repository.getAccountRepository().getAccount(this.address);
+		if (accountData == null)
+			return false;
+
+		Integer level = accountData.getLevel();
 		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToRewardShare())
 			return true;
 
-		if (this.isFounder())
+		if (Account.isFounder(accountData.getFlags()))
 			return true;
 
 		return false;
@@ -264,10 +272,14 @@ public class Account {
 	 * @throws DataException
 	 */
 	public int getEffectiveMintingLevel() throws DataException {
-		if (this.isFounder())
+		AccountData accountData = this.repository.getAccountRepository().getAccount(this.address);
+		if (accountData == null)
+			return 0;
+
+		if (Account.isFounder(accountData.getFlags()))
 			return BlockChain.getInstance().getFounderEffectiveMintingLevel();
 
-		Integer level = this.getLevel();
+		Integer level = accountData.getLevel();
 		if (level == null)
 			return 0;
 
@@ -290,7 +302,7 @@ public class Account {
 		if (rewardShareData == null)
 			return 0;
 
-		PublicKeyAccount rewardShareMinter = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+		Account rewardShareMinter = new Account(repository, rewardShareData.getMinter());
 		return rewardShareMinter.getEffectiveMintingLevel();
 	}
 

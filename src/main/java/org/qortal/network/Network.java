@@ -95,6 +95,8 @@ public class Network {
 			"node10.qortal.org"
 	};
 
+	private static final long NETWORK_EPC_KEEPALIVE = 10L; // seconds
+
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
 	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
 	public static final int PEER_ID_LENGTH = 128;
@@ -142,9 +144,10 @@ public class Network {
 
 		mergePeersLock = new ReentrantLock();
 
-		// We'll use a cached thread pool, max 10 threads, but with more aggressive 10 second timeout.
-		ExecutorService networkExecutor = new ThreadPoolExecutor(1, 10,
-				10L, TimeUnit.SECONDS,
+		// We'll use a cached thread pool but with more aggressive timeout.
+		ExecutorService networkExecutor = new ThreadPoolExecutor(1,
+				Settings.getInstance().getMaxNetworkThreadPoolSize(),
+				NETWORK_EPC_KEEPALIVE, TimeUnit.SECONDS,
 				new SynchronousQueue<Runnable>());
 		networkEPC = new NetworkProcessor(networkExecutor);
 	}
@@ -302,15 +305,17 @@ public class Network {
 			if (task != null)
 				return task;
 
-			task = maybeProducePeerPingTask();
+			final Long now = NTP.getTime();
+
+			task = maybeProducePeerPingTask(now);
 			if (task != null)
 				return task;
 
-			task = maybeProduceConnectPeerTask();
+			task = maybeProduceConnectPeerTask(now);
 			if (task != null)
 				return task;
 
-			task = maybeProduceBroadcastTask();
+			task = maybeProduceBroadcastTask(now);
 			if (task != null)
 				return task;
 
@@ -321,6 +326,65 @@ public class Network {
 
 			// Really nothing to do
 			return null;
+		}
+
+		private Task maybeProducePeerMessageTask() {
+			for (Peer peer : getConnectedPeers()) {
+				Task peerTask = peer.getMessageTask();
+				if (peerTask != null)
+					return peerTask;
+			}
+
+			return null;
+		}
+
+		private Task maybeProducePeerPingTask(Long now) {
+			// Ask connected peers whether they need a ping
+			for (Peer peer : getConnectedPeers()) {
+				Task peerTask = peer.getPingTask(now);
+				if (peerTask != null)
+					return peerTask;
+			}
+
+			return null;
+		}
+
+		class PeerConnectTask implements ExecuteProduceConsume.Task {
+			private final Peer peer;
+
+			public PeerConnectTask(Peer peer) {
+				this.peer = peer;
+			}
+
+			@Override
+			public void perform() throws InterruptedException {
+				connectPeer(peer);
+			}
+		}
+
+		private Task maybeProduceConnectPeerTask(Long now) throws InterruptedException {
+			if (now == null || now < nextConnectTaskTimestamp)
+				return null;
+
+			if (getOutboundHandshakedPeers().size() >= minOutboundPeers)
+				return null;
+
+			nextConnectTaskTimestamp = now + 1000L;
+
+			Peer targetPeer = getConnectablePeer(now);
+			if (targetPeer == null)
+				return null;
+
+			// Create connection task
+			return new PeerConnectTask(targetPeer);
+		}
+
+		private Task maybeProduceBroadcastTask(Long now) {
+			if (now == null || now < nextBroadcastTimestamp)
+				return null;
+
+			nextBroadcastTimestamp = now + BROADCAST_INTERVAL;
+			return () -> Controller.getInstance().doNetworkBroadcast();
 		}
 
 		class ChannelTask implements ExecuteProduceConsume.Task {
@@ -404,67 +468,6 @@ public class Network {
 				return null;
 
 			return new ChannelTask(nextSelectionKey);
-		}
-
-		private Task maybeProducePeerMessageTask() {
-			for (Peer peer : getConnectedPeers()) {
-				Task peerTask = peer.getMessageTask();
-				if (peerTask != null)
-					return peerTask;
-			}
-
-			return null;
-		}
-
-		private Task maybeProducePeerPingTask() {
-			// Ask connected peers whether they need a ping
-			for (Peer peer : getConnectedPeers()) {
-				Task peerTask = peer.getPingTask();
-				if (peerTask != null)
-					return peerTask;
-			}
-
-			return null;
-		}
-
-		class PeerConnectTask implements ExecuteProduceConsume.Task {
-			private final Peer peer;
-
-			public PeerConnectTask(Peer peer) {
-				this.peer = peer;
-			}
-
-			@Override
-			public void perform() throws InterruptedException {
-				connectPeer(peer);
-			}
-		}
-
-		private Task maybeProduceConnectPeerTask() throws InterruptedException {
-			if (getOutboundHandshakedPeers().size() >= minOutboundPeers)
-				return null;
-
-			final Long now = NTP.getTime();
-			if (now == null || now < nextConnectTaskTimestamp)
-				return null;
-
-			nextConnectTaskTimestamp = now + 1000L;
-
-			Peer targetPeer = getConnectablePeer();
-			if (targetPeer == null)
-				return null;
-
-			// Create connection task
-			return new PeerConnectTask(targetPeer);
-		}
-
-		private Task maybeProduceBroadcastTask() {
-			final Long now = NTP.getTime();
-			if (now == null || now < nextBroadcastTimestamp)
-				return null;
-
-			nextBroadcastTimestamp = now + BROADCAST_INTERVAL;
-			return () -> Controller.getInstance().doNetworkBroadcast();
 		}
 	}
 
@@ -588,9 +591,27 @@ public class Network {
 		}
 	}
 
-	private Peer getConnectablePeer() throws InterruptedException {
-		final long now = NTP.getTime();
+	private final Predicate<PeerData> isSelfPeer = peerData -> {
+		PeerAddress peerAddress = peerData.getAddress();
+		return this.selfPeers.stream().anyMatch(selfPeer -> selfPeer.equals(peerAddress));
+	};
 
+	private final Predicate<PeerData> isConnectedPeer = peerData -> {
+		PeerAddress peerAddress = peerData.getAddress();
+		return this.connectedPeers.stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
+	};
+
+	private final Predicate<PeerData> isResolvedAsConnectedPeer = peerData -> {
+		try {
+			InetSocketAddress resolvedSocketAddress = peerData.getAddress().toSocketAddress();
+			return this.connectedPeers.stream().anyMatch(peer -> peer.getResolvedAddress().equals(resolvedSocketAddress));
+		} catch (UnknownHostException e) {
+			// Can't resolve - no point even trying to connect
+			return true;
+		}
+	};
+
+	private Peer getConnectablePeer(final Long now) throws InterruptedException {
 		// We can't block here so use tryRepository(). We don't NEED to connect a new peer.
 		try (final Repository repository = RepositoryManager.tryRepository()) {
 			if (repository == null)
@@ -606,36 +627,17 @@ public class Network {
 					peerData.getLastAttempted() > lastAttemptedThreshold);
 
 			// Don't consider peers that we know loop back to ourself
-			Predicate<PeerData> isSelfPeer = peerData -> {
-				PeerAddress peerAddress = peerData.getAddress();
-				return this.selfPeers.stream().anyMatch(selfPeer -> selfPeer.equals(peerAddress));
-			};
-
 			synchronized (this.selfPeers) {
 				peers.removeIf(isSelfPeer);
 			}
 
 			// Don't consider already connected peers (simple address match)
-			Predicate<PeerData> isConnectedPeer = peerData -> {
-				PeerAddress peerAddress = peerData.getAddress();
-				return this.connectedPeers.stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
-			};
-
 			synchronized (this.connectedPeers) {
 				peers.removeIf(isConnectedPeer);
 			}
 
 			// Don't consider already connected peers (resolved address match)
-			Predicate<PeerData> isResolvedAsConnectedPeer = peerData -> {
-				try {
-					InetSocketAddress resolvedSocketAddress = peerData.getAddress().toSocketAddress();
-					return this.connectedPeers.stream().anyMatch(peer -> peer.getResolvedAddress().equals(resolvedSocketAddress));
-				} catch (UnknownHostException e) {
-					// Can't resolve - no point even trying to connect
-					return true;
-				}
-			};
-
+			// XXX This might be too slow if we end up waiting a long time for hostnames to resolve via DNS
 			synchronized (this.connectedPeers) {
 				peers.removeIf(isResolvedAsConnectedPeer);
 			}
@@ -735,126 +737,43 @@ public class Network {
 
 		Handshake handshakeStatus = peer.getHandshakeStatus();
 		if (handshakeStatus != Handshake.COMPLETED) {
-			try {
-				// Still handshaking
-				LOGGER.trace(() -> String.format("Handshake status %s, message %s from peer %s", handshakeStatus.name(), (message != null ? message.getType().name() : "null"), peer));
-
-				// v1 nodes are keen on sending PINGs early. Send to back of queue so we'll process right after handshake
-				if (message != null && message.getType() == MessageType.PING) {
-					peer.queueMessage(message);
-					return;
-				}
-
-				// Check message type is as expected
-				if (handshakeStatus.expectedMessageType != null && message.getType() != handshakeStatus.expectedMessageType) {
-					LOGGER.debug(String.format("Unexpected %s message from %s, expected %s", message.getType().name(), peer, handshakeStatus.expectedMessageType));
-					peer.disconnect("unexpected message");
-					return;
-				}
-
-				Handshake newHandshakeStatus = handshakeStatus.onMessage(peer, message);
-
-				if (newHandshakeStatus == null) {
-					// Handshake failure
-					LOGGER.debug(String.format("Handshake failure with peer %s message %s", peer, message.getType().name()));
-					peer.disconnect("handshake failure");
-					return;
-				}
-
-				if (peer.isOutbound())
-					// If we made outbound connection then we need to act first
-					newHandshakeStatus.action(peer);
-				else
-					// We have inbound connection so we need to respond in kind with what we just received
-					handshakeStatus.action(peer);
-
-				peer.setHandshakeStatus(newHandshakeStatus);
-
-				if (newHandshakeStatus == Handshake.COMPLETED)
-					this.onHandshakeCompleted(peer);
-
-				return;
-			} finally {
-				peer.resetHandshakeMessagePending();
-			}
+			onHandshakingMessage(peer, message, handshakeStatus);
+			return;
 		}
 
 		// Should be non-handshaking messages from now on
 
+		// Ordered by message type value
 		switch (message.getType()) {
-			case PEER_VERIFY:
-				// Remote peer wants extra verification
-				possibleVerificationResponse(peer);
+			case GET_PEERS:
+				onGetPeersMessage(peer, message);
 				break;
 
-			case VERIFICATION_CODES:
-				VerificationCodesMessage verificationCodesMessage = (VerificationCodesMessage) message;
+			case PEERS:
+				onPeersMessage(peer, message);
+				break;
 
-				// Remote peer is sending the code it wants to receive back via our outbound connection to it
-				Peer ourUnverifiedPeer = Network.getInstance().getInboundPeerWithId(Network.getInstance().getOurPeerId());
-				ourUnverifiedPeer.setVerificationCodes(verificationCodesMessage.getVerificationCodeSent(), verificationCodesMessage.getVerificationCodeExpected());
-
-				possibleVerificationResponse(ourUnverifiedPeer);
+			case PING:
+				onPingMessage(peer, message);
 				break;
 
 			case VERSION:
 			case PEER_ID:
 			case PROOF:
-				LOGGER.debug(String.format("Unexpected handshaking message %s from peer %s", message.getType().name(), peer));
+				LOGGER.debug(() -> String.format("Unexpected handshaking message %s from peer %s", message.getType().name(), peer));
 				peer.disconnect("unexpected handshaking message");
 				return;
 
-			case PING:
-				PingMessage pingMessage = (PingMessage) message;
-
-				// Generate 'pong' using same ID
-				PingMessage pongMessage = new PingMessage();
-				pongMessage.setId(pingMessage.getId());
-
-				if (!peer.sendMessage(pongMessage))
-					peer.disconnect("failed to send ping reply");
-
-				break;
-
-			case PEERS:
-				PeersMessage peersMessage = (PeersMessage) message;
-
-				List<PeerAddress> peerAddresses = new ArrayList<>();
-
-				// v1 PEERS message doesn't support port numbers so we have to add default port
-				for (InetAddress peerAddress : peersMessage.getPeerAddresses())
-					// This is always IPv4 so we don't have to worry about bracketing IPv6.
-					peerAddresses.add(PeerAddress.fromString(peerAddress.getHostAddress()));
-
-				// Also add peer's details
-				peerAddresses.add(PeerAddress.fromString(peer.getPeerData().getAddress().getHost()));
-
-				mergePeers(peer.toString(), peerAddresses);
-				break;
-
 			case PEERS_V2:
-				PeersV2Message peersV2Message = (PeersV2Message) message;
-
-				List<PeerAddress> peerV2Addresses = peersV2Message.getPeerAddresses();
-
-				// First entry contains remote peer's listen port but empty address.
-				int peerPort = peerV2Addresses.get(0).getPort();
-				peerV2Addresses.remove(0);
-
-				// If inbound peer, use listen port and socket address to recreate first entry
-				if (!peer.isOutbound()) {
-					PeerAddress sendingPeerAddress = PeerAddress.fromString(peer.getPeerData().getAddress().getHost() + ":" + peerPort);
-					LOGGER.trace(() -> String.format("PEERS_V2 sending peer's listen address: %s", sendingPeerAddress.toString()));
-					peerV2Addresses.add(0, sendingPeerAddress);
-				}
-
-				mergePeers(peer.toString(), peerV2Addresses);
+				onPeersV2Message(peer, message);
 				break;
 
-			case GET_PEERS:
-				// Send our known peers
-				if (!peer.sendMessage(buildPeersMessage(peer)))
-					peer.disconnect("failed to send peers list");
+			case PEER_VERIFY:
+				onPeerVerifyMessage(peer, message);
+				break;
+
+			case VERIFICATION_CODES:
+				onVerificationCodesMessage(peer, message);
 				break;
 
 			default:
@@ -862,6 +781,116 @@ public class Network {
 				Controller.getInstance().onNetworkMessage(peer, message);
 				break;
 		}
+	}
+
+	private void onHandshakingMessage(Peer peer, Message message, Handshake handshakeStatus) {
+		try {
+			// Still handshaking
+			LOGGER.trace(() -> String.format("Handshake status %s, message %s from peer %s", handshakeStatus.name(), (message != null ? message.getType().name() : "null"), peer));
+
+			// v1 nodes are keen on sending PINGs early. Send to back of queue so we'll process right after handshake
+			if (message != null && message.getType() == MessageType.PING) {
+				peer.queueMessage(message);
+				return;
+			}
+
+			// Check message type is as expected
+			if (handshakeStatus.expectedMessageType != null && message.getType() != handshakeStatus.expectedMessageType) {
+				LOGGER.debug(() -> String.format("Unexpected %s message from %s, expected %s", message.getType().name(), peer, handshakeStatus.expectedMessageType));
+				peer.disconnect("unexpected message");
+				return;
+			}
+
+			Handshake newHandshakeStatus = handshakeStatus.onMessage(peer, message);
+
+			if (newHandshakeStatus == null) {
+				// Handshake failure
+				LOGGER.debug(() -> String.format("Handshake failure with peer %s message %s", peer, message.getType().name()));
+				peer.disconnect("handshake failure");
+				return;
+			}
+
+			if (peer.isOutbound())
+				// If we made outbound connection then we need to act first
+				newHandshakeStatus.action(peer);
+			else
+				// We have inbound connection so we need to respond in kind with what we just received
+				handshakeStatus.action(peer);
+
+			peer.setHandshakeStatus(newHandshakeStatus);
+
+			if (newHandshakeStatus == Handshake.COMPLETED)
+				this.onHandshakeCompleted(peer);
+		} finally {
+			peer.resetHandshakeMessagePending();
+		}
+	}
+
+	private void onGetPeersMessage(Peer peer, Message message) {
+		// Send our known peers
+		if (!peer.sendMessage(buildPeersMessage(peer)))
+			peer.disconnect("failed to send peers list");
+	}
+
+	private void onPeersMessage(Peer peer, Message message) {
+		PeersMessage peersMessage = (PeersMessage) message;
+
+		List<PeerAddress> peerAddresses = new ArrayList<>();
+
+		// v1 PEERS message doesn't support port numbers so we have to add default port
+		for (InetAddress peerAddress : peersMessage.getPeerAddresses())
+			// This is always IPv4 so we don't have to worry about bracketing IPv6.
+			peerAddresses.add(PeerAddress.fromString(peerAddress.getHostAddress()));
+
+		// Also add peer's details
+		peerAddresses.add(PeerAddress.fromString(peer.getPeerData().getAddress().getHost()));
+
+		mergePeers(peer.toString(), peerAddresses);
+	}
+
+	private void onPingMessage(Peer peer, Message message) {
+		PingMessage pingMessage = (PingMessage) message;
+
+		// Generate 'pong' using same ID
+		PingMessage pongMessage = new PingMessage();
+		pongMessage.setId(pingMessage.getId());
+
+		if (!peer.sendMessage(pongMessage))
+			peer.disconnect("failed to send ping reply");
+	}
+
+	private void onPeersV2Message(Peer peer, Message message) {
+		PeersV2Message peersV2Message = (PeersV2Message) message;
+
+		List<PeerAddress> peerV2Addresses = peersV2Message.getPeerAddresses();
+
+		// First entry contains remote peer's listen port but empty address.
+		int peerPort = peerV2Addresses.get(0).getPort();
+		peerV2Addresses.remove(0);
+
+		// If inbound peer, use listen port and socket address to recreate first entry
+		if (!peer.isOutbound()) {
+			PeerAddress sendingPeerAddress = PeerAddress.fromString(peer.getPeerData().getAddress().getHost() + ":" + peerPort);
+			LOGGER.trace(() -> String.format("PEERS_V2 sending peer's listen address: %s", sendingPeerAddress.toString()));
+			peerV2Addresses.add(0, sendingPeerAddress);
+		}
+
+		mergePeers(peer.toString(), peerV2Addresses);
+	}
+
+	private void onPeerVerifyMessage(Peer peer, Message message) {
+		// Remote peer wants extra verification
+		possibleVerificationResponse(peer);
+	}
+
+	private void onVerificationCodesMessage(Peer peer, Message message) {
+		VerificationCodesMessage verificationCodesMessage = (VerificationCodesMessage) message;
+
+		// Remote peer is sending the code it wants to receive back via our outbound connection to it
+		Peer ourUnverifiedPeer = Network.getInstance().getInboundPeerWithId(Network.getInstance().getOurPeerId());
+		ourUnverifiedPeer.setVerificationCodes(verificationCodesMessage.getVerificationCodeSent(), verificationCodesMessage.getVerificationCodeExpected());
+
+		possibleVerificationResponse(ourUnverifiedPeer);
 	}
 
 	private void possibleVerificationResponse(Peer peer) {

@@ -12,7 +12,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.block.Block.ValidationResult;
 import org.qortal.controller.Controller;
 import org.qortal.data.account.MintingAccountData;
@@ -123,7 +122,7 @@ public class BlockMinter extends Thread {
 						continue;
 					}
 
-					PublicKeyAccount mintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
+					Account mintingAccount = new Account(repository, rewardShareData.getMinter());
 					if (!mintingAccount.canMint()) {
 						// Minting-account component of reward-share can no longer mint - disregard
 						madi.remove();
@@ -158,11 +157,11 @@ public class BlockMinter extends Thread {
 					newBlocks.clear();
 				}
 
+				// Discard accounts we have already built blocks with
+				mintingAccountsData.removeIf(mintingAccountData -> newBlocks.stream().anyMatch(newBlock -> Arrays.equals(newBlock.getBlockData().getMinterPublicKey(), mintingAccountData.getPublicKey())));
+
 				// Do we need to build any potential new blocks?
 				List<PrivateKeyAccount> mintingAccounts = mintingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getPrivateKey())).collect(Collectors.toList());
-
-				// Discard accounts we have blocks for
-				mintingAccounts.removeIf(account -> newBlocks.stream().anyMatch(newBlock -> newBlock.getMinter().getAddress().equals(account.getAddress())));
 
 				for (PrivateKeyAccount mintingAccount : mintingAccounts) {
 					// First block does the AT heavy-lifting
@@ -257,11 +256,10 @@ public class BlockMinter extends Thread {
 						RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(newBlock.getBlockData().getMinterPublicKey());
 
 						if (rewardShareData != null) {
-							PublicKeyAccount mintingAccount = new PublicKeyAccount(repository, rewardShareData.getMinterPublicKey());
 							LOGGER.info(String.format("Minted block %d, sig %.8s by %s on behalf of %s",
 									newBlock.getBlockData().getHeight(),
 									Base58.encode(newBlock.getBlockData().getSignature()),
-									mintingAccount.getAddress(),
+									rewardShareData.getMinter(),
 									rewardShareData.getRecipient()));
 						} else {
 							LOGGER.info(String.format("Minted block %d, sig %.8s by %s",

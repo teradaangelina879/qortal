@@ -933,6 +933,24 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE AccountBalances ADD CONSTRAINT CheckBalanceNotNegative CHECK (balance >= 0)");
 					break;
 
+				case 67:
+					// Provide external function to convert private keys to public keys
+					stmt.execute("CREATE FUNCTION Ed25519_private_to_public_key (IN privateKey VARBINARY(32)) RETURNS VARBINARY(32) LANGUAGE JAVA DETERMINISTIC NO SQL EXTERNAL NAME 'CLASSPATH:org.qortal.repository.hsqldb.HSQLDBRepository.ed25519PrivateToPublicKey'");
+
+					// Cache minting account public keys to save us recalculating them
+					stmt.execute("ALTER TABLE MintingAccounts ADD minter_public_key QortalPublicKey");
+					stmt.execute("UPDATE MintingAccounts SET minter_public_key = Ed25519_private_to_public_key(minter_private_key)");
+					stmt.execute("ALTER TABLE MintingAccounts ALTER COLUMN minter_public_key SET NOT NULL");
+
+					// Provide external function to convert public keys to addresses
+					stmt.execute("CREATE FUNCTION Ed25519_public_key_to_address (IN privateKey VARBINARY(32)) RETURNS VARCHAR(36) LANGUAGE JAVA DETERMINISTIC NO SQL EXTERNAL NAME 'CLASSPATH:org.qortal.repository.hsqldb.HSQLDBRepository.ed25519PublicKeyToAddress'");
+
+					// Cache reward-share minting account's address
+					stmt.execute("ALTER TABLE RewardShares ADD minter QortalAddress BEFORE recipient");
+					stmt.execute("UPDATE RewardShares SET minter = Ed25519_public_key_to_address(minter_public_key)");
+					stmt.execute("ALTER TABLE RewardShares ALTER COLUMN minter SET NOT NULL");
+					break;
+
 				default:
 					// nothing to do
 					return false;

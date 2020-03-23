@@ -145,7 +145,7 @@ public class Block {
 			this.repository = repository;
 			this.rewardShareData = repository.getAccountRepository().getRewardShareByIndex(accountIndex);
 
-			this.mintingAccount = new PublicKeyAccount(repository, this.rewardShareData.getMinterPublicKey());
+			this.mintingAccount = new Account(repository, this.rewardShareData.getMinter());
 			this.mintingAccountData = repository.getAccountRepository().getAccount(this.mintingAccount.getAddress());
 			this.isMinterFounder = Account.isFounder(mintingAccountData.getFlags());
 
