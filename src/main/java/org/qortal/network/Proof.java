@@ -5,6 +5,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.HashSet;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.network.message.ProofMessage;
 
 import com.google.common.primitives.Longs;
@@ -13,6 +15,7 @@ public class Proof extends Thread {
 
 	private static final int MIN_PROOF_ZEROS = 2;
 	private static final HashSet<Long> seenSalts = new HashSet<>();
+	private static final Logger LOGGER = LogManager.getLogger(Proof.class);
 
 	private Peer peer;
 
@@ -38,6 +41,7 @@ public class Proof extends Thread {
 		setName("Proof for peer " + this.peer);
 
 		// Do proof-of-work calculation to gain acceptance with remote end
+		final long startTime = LOGGER.isTraceEnabled() ? System.currentTimeMillis() : 0;
 
 		// Remote end knows this (approximately)
 		long timestamp = this.peer.getConnectionTimestamp();
@@ -64,7 +68,7 @@ public class Proof extends Thread {
 		long nonce;
 		for (nonce = 0; nonce < Long.MAX_VALUE; ++nonce) {
 			// Check whether we're shutting down every so often
-			if ((nonce & 0xff) == 0 && (peer.isStopping() || Thread.currentThread().isInterrupted()))
+			if ((nonce & 0xff) == 0 && (this.peer.isStopping() || Thread.currentThread().isInterrupted()))
 				// throw new InterruptedException("Interrupted during peer proof calculation");
 				return;
 
@@ -78,6 +82,8 @@ public class Proof extends Thread {
 
 			sha256.reset();
 		}
+
+		LOGGER.trace(() -> String.format("Proof for peer %s took %dms", this.peer, System.currentTimeMillis() - startTime));
 
 		ProofMessage proofMessage = new ProofMessage(timestamp, salt, nonce);
 		peer.sendMessage(proofMessage);
