@@ -470,7 +470,7 @@ public class TransactionsResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE);
 
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-			if (!blockchainLock.tryLock(500, TimeUnit.MILLISECONDS))
+			if (!blockchainLock.tryLock(30, TimeUnit.SECONDS))
 				throw createTransactionInvalidException(request, ValidationResult.NO_BLOCKCHAIN_LOCK);
 
 			try {
