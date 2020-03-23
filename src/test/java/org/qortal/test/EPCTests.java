@@ -61,12 +61,10 @@ public class EPCTests {
 		ScheduledExecutorService statusExecutor = Executors.newSingleThreadScheduledExecutor();
 
 		statusExecutor.scheduleAtFixedRate(() -> {
-			StatsSnapshot snapshot = testEPC.getStatsSnapshot();
+			final StatsSnapshot snapshot = testEPC.getStatsSnapshot();
 			final long seconds = (System.currentTimeMillis() - start) / 1000L;
-			System.out.println(String.format("After %d second%s, active threads: %d, greatest thread count: %d, tasks produced: %d, tasks consumed: %d",
-					seconds, (seconds != 1 ? "s" : ""),
-					snapshot.activeThreadCount, snapshot.greatestActiveThreadCount,
-					snapshot.tasksProduced, snapshot.tasksConsumed));
+			System.out.print(String.format("After %d second%s, ", seconds, (seconds != 1 ? "s" : "")));
+			printSnapshot(snapshot);
 		}, 1L, 1L, TimeUnit.SECONDS);
 
 		// Let it run for a minute
@@ -79,9 +77,16 @@ public class EPCTests {
 
 		System.out.println(String.format("Shutdown took %d milliseconds", after - before));
 
-		StatsSnapshot snapshot = testEPC.getStatsSnapshot();
-		System.out.println(String.format("Greatest thread count: %d, tasks produced: %d, tasks consumed: %d",
-				snapshot.greatestActiveThreadCount, snapshot.tasksProduced, snapshot.tasksConsumed));
+		final StatsSnapshot snapshot = testEPC.getStatsSnapshot();
+		System.out.print("After shutdown, ");
+		printSnapshot(snapshot);
+	}
+
+	private void printSnapshot(final StatsSnapshot snapshot) {
+		System.out.println(String.format("threads: %d active (%d max, %d exhaustion%s), tasks: %d produced / %d consumed",
+				snapshot.activeThreadCount, snapshot.greatestActiveThreadCount,
+				snapshot.spawnFailures, (snapshot.spawnFailures != 1 ? "s": ""),
+				snapshot.tasksProduced, snapshot.tasksConsumed));
 	}
 
 	@Test
