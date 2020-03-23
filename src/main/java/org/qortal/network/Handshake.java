@@ -62,11 +62,10 @@ public enum Handshake {
 
 			// Is this ID already connected inbound or outbound?
 			Peer otherInboundPeer = Network.getInstance().getInboundPeerWithId(peerId);
+			Peer otherOutboundPeer = Network.getInstance().getOutboundHandshakedPeerWithId(peerId);
 
 			// Extra checks on inbound peers with known IDs, to prevent ID stealing
 			if (!peer.isOutbound() && otherInboundPeer != null) {
-				Peer otherOutboundPeer = Network.getInstance().getOutboundHandshakedPeerWithId(peerId);
-
 				if (otherOutboundPeer == null) {
 					// We already have an inbound peer with this ID, but no outgoing peer with which to request verification
 					LOGGER.trace(String.format("Discarding inbound peer %s with existing ID", peer));
@@ -86,6 +85,11 @@ public enum Handshake {
 					// Generate verification codes for later
 					peer.generateVerificationCodes();
 				}
+			} else if (peer.isOutbound() && otherOutboundPeer != null) {
+				// We already have an outbound connection to this peer?
+				LOGGER.info(String.format("We already have another outbound connection to peer %s - discarding", peer));
+				// Handshake failure - caller will deal with disconnect
+				return null;
 			} else {
 				// Set peer's ID
 				peer.setPeerId(peerId);
@@ -231,7 +235,7 @@ public enum Handshake {
 	private static void sendProof(Peer peer) {
 		if (peer.isOutbound()) {
 			// For outbound connections we need to generate real proof
-			new Proof(peer).start();
+			new Proof(peer).start(); // Calculate & send in a new thread to free up networking processing
 		} else {
 			// For incoming connections we only need to send a fake proof message as confirmation
 			Message proofMessage = new ProofMessage(peer.getConnectionTimestamp(), 0, 0);
