@@ -71,6 +71,8 @@ public class Settings {
 	private int maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
 	/** Whether we check, fetch and install auto-updates */
 	private boolean autoUpdateEnabled = true;
+	/** Whether to show a notification when we backup repository. */
+	private boolean showBackupNotification = false;
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
@@ -367,6 +369,10 @@ public class Settings {
 
 	public Long getTestNtpOffset() {
 		return this.testNtpOffset;
+	}
+
+	public boolean getShowBackupNotification() {
+		return this.showBackupNotification;
 	}
 
 }

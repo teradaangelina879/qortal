@@ -1,5 +1,6 @@
 package org.qortal.controller;
 
+import java.awt.TrayIcon.MessageType;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -430,6 +431,12 @@ public class Controller extends Thread {
 				// Give repository a chance to backup
 				if (now >= repositoryBackupTimestamp) {
 					repositoryBackupTimestamp = now + REPOSITORY_BACKUP_PERIOD;
+
+					if (Settings.getInstance().getShowBackupNotification())
+						SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_BACKUP"),
+								Translator.INSTANCE.translate("SysTray", "CREATING_BACKUP_OF_DB_FILES"),
+								MessageType.INFO);
+
 					RepositoryManager.backup(true);
 				}
 

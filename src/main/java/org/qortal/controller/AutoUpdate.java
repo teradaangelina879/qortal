@@ -21,6 +21,7 @@ import org.qortal.ApplyUpdate;
 import org.qortal.api.ApiRequest;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.globalization.Translator;
 import org.qortal.gui.SysTray;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -245,7 +246,9 @@ public class AutoUpdate extends Thread {
 
 			LOGGER.info(String.format("Applying update with: %s", String.join(" ", javaCmd)));
 
-			SysTray.getInstance().showMessage("Auto Update", "Applying automatic update and restarting...", MessageType.INFO);
+			SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "AUTO_UPDATE"),
+					Translator.INSTANCE.translate("SysTray", "APPLYING_UPDATE_AND_RESTARTING"),
+					MessageType.INFO);
 
 			new ProcessBuilder(javaCmd).start();
 
