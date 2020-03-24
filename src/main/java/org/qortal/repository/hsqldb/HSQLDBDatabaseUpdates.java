@@ -951,6 +951,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE RewardShares ALTER COLUMN minter SET NOT NULL");
 					break;
 
+				case 68:
+					// Slow down log fsync() calls from every 500ms to reduce I/O load
+					stmt.execute("SET FILES WRITE DELAY 5"); // only fsync() every 5 seconds
+					break;
+
 				default:
 					// nothing to do
 					return false;
