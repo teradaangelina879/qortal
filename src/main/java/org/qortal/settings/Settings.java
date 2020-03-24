@@ -79,11 +79,11 @@ public class Settings {
 	/** Minimum number of peers to allow block minting / synchronization. */
 	private int minBlockchainPeers = 10;
 	/** Target number of outbound connections to peers we should make. */
-	private int minOutboundPeers = 40;
+	private int minOutboundPeers = 25;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 80;
+	private int maxPeers = 50;
 	/** Maximum number of threads for network engine. */
-	private int maxNetworkThreadPoolSize = 10;
+	private int maxNetworkThreadPoolSize = 20;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
