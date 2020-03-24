@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.qortal</groupId>
 	<artifactId>qortal</artifactId>
-	<version>1.0.4</version>
+	<version>1.0.5</version>
 	<packaging>jar</packaging>
 	<properties>
 		<bitcoin.version>0.15.4</bitcoin.version>
@@ -257,6 +257,8 @@
 							<!-- Don't include original swagger-UI as we're including our own 
 								modified version -->
 							<exclude>org.webjars:swagger-ui</exclude>
+							<!-- Don't include JUnit as it's for testing only! -->
+							<exclude>junit:junit</exclude>
 						</excludes>
 					</artifactSet>
 					<filters>
@@ -379,12 +381,14 @@
 			<groupId>org.codehaus.mojo</groupId>
 			<artifactId>build-helper-maven-plugin</artifactId>
 			<version>3.0.0</version>
+			<scope>provided</scope><!-- needed for build, not for runtime -->
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.github.bohnman/package-info-maven-plugin -->
 		<dependency>
 			<groupId>com.github.bohnman</groupId>
 			<artifactId>package-info-maven-plugin</artifactId>
 			<version>${package-info-maven-plugin.version}</version>
+			<scope>provided</scope><!-- needed for build, not for runtime -->
 		</dependency>
 		<!-- HSQLDB for repository -->
 		<dependency>
