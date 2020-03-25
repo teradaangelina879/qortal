@@ -86,11 +86,11 @@ die("Can't convert base58 public key to hex:\n$pubkey_hex\n") unless $pubkey_hex
 printf "Public key hex: %s\n", $pubkey_hex;
 
 my $address = `curl --silent --url http://localhost:${port}/addresses/convert/${pubkey}`;
-die("Can't convert base58 public key to address:\n$address\n") unless $address =~ m/^\w{34}$/;
+die("Can't convert base58 public key to address:\n$address\n") unless $address =~ m/^\w{33,34}$/;
 printf "Address: %s\n", $address;
 
 my $reference = `curl --silent --url http://localhost:${port}/addresses/lastreference/${address}`;
-die("Can't fetch last reference for $address:\n$reference\n") unless $reference =~ m/^\w{88}$/;
+die("Can't fetch last reference for $address:\n$reference\n") unless $reference =~ m/^\w{87,88}$/;
 printf "Last reference: %s\n", $reference;
 
 my $reference_hex = `curl --silent --url http://localhost:${port}/utils/frombase58 --data ${reference}`;
