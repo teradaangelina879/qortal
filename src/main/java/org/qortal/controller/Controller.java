@@ -104,7 +104,6 @@ public class Controller extends Thread {
 	private static final Object shutdownLock = new Object();
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s" + File.separator + "blockchain;create=true;hsqldb.full_log_replay=true";
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000L; // ms
-	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000L; // ms
 	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms
 	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000L; // ms
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
@@ -127,7 +126,7 @@ public class Controller extends Thread {
 
 	private volatile BlockData chainTip = null;
 
-	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD; // ms
+	private long repositoryBackupTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
 	private long onlineAccountsTasksTimestamp = startTime + ONLINE_ACCOUNTS_TASKS_INTERVAL; // ms
@@ -388,6 +387,8 @@ public class Controller extends Thread {
 	public void run() {
 		Thread.currentThread().setName("Controller");
 
+		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
+
 		try {
 			while (!isStopping) {
 				// Maybe update SysTray
@@ -428,9 +429,9 @@ public class Controller extends Thread {
 				final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
 				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
 
-				// Give repository a chance to backup
-				if (now >= repositoryBackupTimestamp) {
-					repositoryBackupTimestamp = now + REPOSITORY_BACKUP_PERIOD;
+				// Give repository a chance to backup (if enabled)
+				if (repositoryBackupInterval > 0 && now >= repositoryBackupTimestamp + repositoryBackupInterval) {
+					repositoryBackupTimestamp = now + repositoryBackupInterval;
 
 					if (Settings.getInstance().getShowBackupNotification())
 						SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_BACKUP"),

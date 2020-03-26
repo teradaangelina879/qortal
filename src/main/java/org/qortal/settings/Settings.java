@@ -71,6 +71,8 @@ public class Settings {
 	private int maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
 	/** Whether we check, fetch and install auto-updates */
 	private boolean autoUpdateEnabled = true;
+	/** How long between repository backups (ms), or 0 if disabled. */
+	private long repositoryBackupInterval = 0; // ms
 	/** Whether to show a notification when we backup repository. */
 	private boolean showBackupNotification = false;
 
@@ -369,6 +371,10 @@ public class Settings {
 
 	public Long getTestNtpOffset() {
 		return this.testNtpOffset;
+	}
+
+	public long getRepositoryBackupInterval() {
+		return this.repositoryBackupInterval;
 	}
 
 	public boolean getShowBackupNotification() {
