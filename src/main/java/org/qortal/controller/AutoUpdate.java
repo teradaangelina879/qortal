@@ -41,7 +41,7 @@ public class AutoUpdate extends Thread {
 	public static final String NEW_JAR_FILENAME = "new-" + JAR_FILENAME;
 
 	private static final Logger LOGGER = LogManager.getLogger(AutoUpdate.class);
-	private static final long CHECK_INTERVAL = 5 * 60 * 1000L; // ms
+	private static final long CHECK_INTERVAL = 20 * 60 * 1000L; // ms
 
 	private static final int DEV_GROUP_ID = 1;
 	private static final int UPDATE_SERVICE = 1;
@@ -210,7 +210,7 @@ public class AutoUpdate extends Thread {
 				return false; // failed - try another repo
 			}
 		} catch (IOException e) {
-			LOGGER.warn(String.format("Failed to fetch update from %s", repoUri));
+			LOGGER.warn(String.format("Failed to fetch update from %s: %s", repoUri, e.getMessage()));
 			return false; // failed - try another repo
 		}
 
