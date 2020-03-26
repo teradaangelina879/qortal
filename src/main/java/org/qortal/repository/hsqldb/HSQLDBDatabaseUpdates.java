@@ -966,6 +966,15 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CHECKPOINT DEFRAG");
 					break;
 
+				case 70:
+					// Reduce space used for storing online account in Blocks
+					stmt.execute("ALTER TABLE Blocks ALTER COLUMN online_accounts BLOB(1M)");
+					stmt.execute("ALTER TABLE Blocks ALTER COLUMN online_accounts_signatures BLOB(1M)");
+					// Reclaim space
+					stmt.execute("CHECKPOINT");
+					stmt.execute("CHECKPOINT DEFRAG");
+					break;
+
 				default:
 					// nothing to do
 					return false;
