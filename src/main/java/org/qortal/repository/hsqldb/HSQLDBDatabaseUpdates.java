@@ -956,6 +956,16 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("SET FILES WRITE DELAY 5"); // only fsync() every 5 seconds
 					break;
 
+				case 69:
+					// Get rid of historic account balances as they simply use up way too much space
+					stmt.execute("DROP TRIGGER Historic_Account_Balance_Insert_Trigger");
+					stmt.execute("DROP TRIGGER Historic_Account_Balance_Update_Trigger");
+					stmt.execute("DROP TABLE HistoricAccountBalances");
+					// Reclaim space
+					stmt.execute("CHECKPOINT");
+					stmt.execute("CHECKPOINT DEFRAG");
+					break;
+
 				default:
 					// nothing to do
 					return false;

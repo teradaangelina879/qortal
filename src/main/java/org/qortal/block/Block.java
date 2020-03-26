@@ -1466,9 +1466,6 @@ public class Block {
 				decreaseAccountLevels();
 			}
 
-			// Delete orphaned balances
-			this.repository.getAccountRepository().deleteBalancesFromHeight(this.blockData.getHeight());
-
 			// Delete block from blockchain
 			this.repository.getBlockRepository().delete(this.blockData);
 			this.blockData.setHeight(null);

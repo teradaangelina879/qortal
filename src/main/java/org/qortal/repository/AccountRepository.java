@@ -96,12 +96,6 @@ public interface AccountRepository {
 
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException;
 
-	/** Returns account balance data for address & assetId at (or before) passed block height. */
-	public AccountBalanceData getBalance(String address, long assetId, int height) throws DataException;
-
-	/** Returns per-height historic balance for address & assetId. */
-	public List<AccountBalanceData> getHistoricBalances(String address, long assetId) throws DataException;
-
 	public enum BalanceOrdering {
 		ASSET_BALANCE_ACCOUNT,
 		ACCOUNT_ASSET,
@@ -117,9 +111,6 @@ public interface AccountRepository {
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 
 	public void delete(String address, long assetId) throws DataException;
-
-	/** Deletes orphaned balances at block height >= <tt>height</tt>. */
-	public int deleteBalancesFromHeight(int height) throws DataException;
 
 	// Reward-shares
 

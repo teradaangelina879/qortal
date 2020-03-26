@@ -53,8 +53,8 @@ public class Account {
 
 	// Balance manipulations - assetId is 0 for QORT
 
-	public BigDecimal getBalance(long assetId, int height) throws DataException {
-		AccountBalanceData accountBalanceData = this.repository.getAccountRepository().getBalance(this.address, assetId, height);
+	public BigDecimal getBalance(long assetId) throws DataException {
+		AccountBalanceData accountBalanceData = this.repository.getAccountRepository().getBalance(this.address, assetId);
 		if (accountBalanceData == null)
 			return BigDecimal.ZERO.setScale(8);
 

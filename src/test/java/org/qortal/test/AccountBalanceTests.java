@@ -14,15 +14,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
-import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
-import org.qortal.data.transaction.BaseTransactionData;
-import org.qortal.data.transaction.PaymentTransactionData;
-import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -30,7 +25,6 @@ import org.qortal.repository.AccountRepository.BalanceOrdering;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
-import org.qortal.test.common.TransactionUtils;
 
 public class AccountBalanceTests extends Common {
 
@@ -86,123 +80,6 @@ public class AccountBalanceTests extends Common {
 			// Confirm post-orphan balance is same as initial
 			assertEqualBigDecimals("Post-orphan balance should match initial", initialBalance, orphanedBalance);
 		}
-	}
-
-	/** Tests we can fetch initial balance when newer balance exists. */
-	@Test
-	public void testGetBalanceAtHeight() throws DataException {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			TestAccount alice = Common.getTestAccount(repository, "alice");
-
-			BigDecimal initialBalance = testNewerBalance(repository, alice);
-
-			// Fetch all historic balances
-			List<AccountBalanceData> historicBalances = repository.getAccountRepository().getHistoricBalances(alice.getAddress(), Asset.QORT);
-			for (AccountBalanceData historicBalance : historicBalances)
-				System.out.println(String.format("Balance at height %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
-
-			// Fetch balance at height 1, even though newer balance exists
-			AccountBalanceData accountBalanceData = repository.getAccountRepository().getBalance(alice.getAddress(), Asset.QORT, 1);
-			BigDecimal genesisBalance = accountBalanceData.getBalance();
-
-			// Confirm genesis balance is same as initial
-			assertEqualBigDecimals("Genesis balance should match initial", initialBalance, genesisBalance);
-		}
-	}
-
-	/** Tests we can fetch balance with a height where no balance change occurred. */
-	@Test
-	public void testGetBalanceAtNearestHeight() throws DataException {
-		Random random = new Random();
-
-		byte[] publicKey = new byte[32];
-		random.nextBytes(publicKey);
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			PublicKeyAccount recipientAccount = new PublicKeyAccount(repository, publicKey);
-			System.out.println(String.format("Test recipient: %s", recipientAccount.getAddress()));
-
-			// Mint a few blocks
-			for (int i = 0; i < 10; ++i)
-				BlockUtils.mintBlock(repository);
-
-			// Confirm recipient balance is zero
-			BigDecimal balance = recipientAccount.getConfirmedBalance(Asset.QORT);
-			assertEqualBigDecimals("recipient's balance should be zero", BigDecimal.ZERO, balance);
-
-			// Confirm recipient has no historic balances
-			List<AccountBalanceData> historicBalances = repository.getAccountRepository().getHistoricBalances(recipientAccount.getAddress(), Asset.QORT);
-			for (AccountBalanceData historicBalance : historicBalances)
-				System.err.println(String.format("Block %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
-			assertTrue("recipient should not have historic balances yet", historicBalances.isEmpty());
-
-			// Send 1 QORT to recipient
-			TestAccount sendingAccount = Common.getTestAccount(repository, "alice");
-			pay(repository, sendingAccount, recipientAccount, BigDecimal.ONE);
-
-			// Mint some more blocks
-			for (int i = 0; i < 10; ++i)
-				BlockUtils.mintBlock(repository);
-
-			// Send more QORT to recipient
-			BigDecimal amount = BigDecimal.valueOf(random.nextInt(123456));
-			pay(repository, sendingAccount, recipientAccount, amount);
-			BigDecimal totalAmount = BigDecimal.ONE.add(amount);
-
-			// Mint some more blocks
-			for (int i = 0; i < 10; ++i)
-				BlockUtils.mintBlock(repository);
-
-			// Confirm recipient balance is as expected
-			balance = recipientAccount.getConfirmedBalance(Asset.QORT);
-			assertEqualBigDecimals("recipient's balance incorrect", totalAmount, balance);
-
-			historicBalances = repository.getAccountRepository().getHistoricBalances(recipientAccount.getAddress(), Asset.QORT);
-			for (AccountBalanceData historicBalance : historicBalances)
-				System.out.println(String.format("Block %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
-
-			// Confirm balance as of 2 blocks ago
-			int height = repository.getBlockRepository().getBlockchainHeight();
-			balance = repository.getAccountRepository().getBalance(recipientAccount.getAddress(), Asset.QORT, height - 2).getBalance();
-			assertEqualBigDecimals("recipient's historic balance incorrect", totalAmount, balance);
-
-			// Confirm balance prior to last payment
-			balance = repository.getAccountRepository().getBalance(recipientAccount.getAddress(), Asset.QORT, height - 15).getBalance();
-			assertEqualBigDecimals("recipient's historic balance incorrect", BigDecimal.ONE, balance);
-
-			// Orphan blocks to before last payment
-			BlockUtils.orphanBlocks(repository, 10 + 5);
-
-			// Re-check balance from (now) invalid height
-			AccountBalanceData accountBalanceData = repository.getAccountRepository().getBalance(recipientAccount.getAddress(), Asset.QORT, height - 2);
-			balance = accountBalanceData.getBalance();
-			assertEqualBigDecimals("recipient's invalid-height balance should be one", BigDecimal.ONE, balance);
-
-			// Orphan blocks to before initial 1 QORT payment
-			BlockUtils.orphanBlocks(repository, 10 + 5);
-
-			// Re-check balance from (now) invalid height
-			accountBalanceData = repository.getAccountRepository().getBalance(recipientAccount.getAddress(), Asset.QORT, height - 2);
-			assertNull("recipient's invalid-height balance data should be null", accountBalanceData);
-
-			// Confirm recipient has no historic balances
-			historicBalances = repository.getAccountRepository().getHistoricBalances(recipientAccount.getAddress(), Asset.QORT);
-			for (AccountBalanceData historicBalance : historicBalances)
-				System.err.println(String.format("Block %d: %s", historicBalance.getHeight(), historicBalance.getBalance().toPlainString()));
-			assertTrue("recipient should have no remaining historic balances", historicBalances.isEmpty());
-		}
-	}
-
-	private void pay(Repository repository, PrivateKeyAccount sendingAccount, Account recipientAccount, BigDecimal amount) throws DataException {
-		byte[] reference = sendingAccount.getLastReference();
-		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
-
-		int txGroupId = 0;
-		BigDecimal fee = BlockChain.getInstance().getUnitFee();
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, sendingAccount.getPublicKey(), fee, null);
-		TransactionData transactionData = new PaymentTransactionData(baseTransactionData, recipientAccount.getAddress(), amount);
-
-		TransactionUtils.signAndMint(repository, transactionData, sendingAccount);
 	}
 
 	/** Tests SQL query speed for account balance fetches. */

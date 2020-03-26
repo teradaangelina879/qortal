@@ -328,44 +328,6 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public AccountBalanceData getBalance(String address, long assetId, int height) throws DataException {
-		String sql = "SELECT IFNULL(balance, 0) FROM HistoricAccountBalances WHERE account = ? AND asset_id = ? AND height <= ? ORDER BY height DESC LIMIT 1";
-
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId, height)) {
-			if (resultSet == null)
-				return null;
-
-			BigDecimal balance = resultSet.getBigDecimal(1).setScale(8);
-
-			return new AccountBalanceData(address, assetId, balance);
-		} catch (SQLException e) {
-			throw new DataException("Unable to fetch account balance from repository", e);
-		}
-	}
-
-	@Override
-	public List<AccountBalanceData> getHistoricBalances(String address, long assetId) throws DataException {
-		String sql = "SELECT height, balance FROM HistoricAccountBalances WHERE account = ? AND asset_id = ? ORDER BY height DESC";
-
-		List<AccountBalanceData> historicBalances = new ArrayList<>();
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId)) {
-			if (resultSet == null)
-				return historicBalances;
-
-			do {
-				int height = resultSet.getInt(1);
-				BigDecimal balance = resultSet.getBigDecimal(2);
-
-				historicBalances.add(new AccountBalanceData(address, assetId, balance, height));
-			} while (resultSet.next());
-
-			return historicBalances;
-		} catch (SQLException e) {
-			throw new DataException("Unable to fetch historic account balances from repository", e);
-		}
-	}
-
-	@Override
 	public List<AccountBalanceData> getAssetBalances(long assetId, Boolean excludeZero) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
 		sql.append("SELECT account, IFNULL(balance, 0) FROM AccountBalances WHERE asset_id = ?");
@@ -510,19 +472,6 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			} catch (SQLException e) {
 				throw new DataException("Unable to reduce account balance in repository", e);
 			}
-
-			// If balance is now zero, and there are no prior historic balances, then simply delete row for this address-assetId (typically during orphaning)
-			String deleteWhereSql = "account = ? AND asset_id = ? AND balance = 0 " + // covers "if balance now zero"
-				"AND (" +
-					"SELECT TRUE FROM HistoricAccountBalances " +
-					"WHERE account = ? AND asset_id = ? AND height < (SELECT height - 1 FROM NextBlockHeight) " +
-					"LIMIT 1" +
-				")";
-			try {
-				this.repository.delete("AccountBalances", deleteWhereSql, address, assetId, address, assetId);
-			} catch (SQLException e) {
-				throw new DataException("Unable to prune account balance in repository", e);
-			}
 		} else {
 			// We have to ensure parent row exists to satisfy foreign key constraint
 			try {
@@ -545,47 +494,12 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
-		// If balance is zero and there are no prior historic balance, then simply delete balances for this assetId (typically during orphaning)
-		if (accountBalanceData.getBalance().signum() == 0) {
-			String existsSql = "account = ? AND asset_id = ? AND height < (SELECT height - 1 FROM NextBlockHeight)"; // height prior to current block. no matches (obviously) prior to genesis block
-
-			boolean hasPriorBalances;
-			try {
-				hasPriorBalances = this.repository.exists("HistoricAccountBalances", existsSql, accountBalanceData.getAddress(), accountBalanceData.getAssetId());
-			} catch (SQLException e) {
-				throw new DataException("Unable to check for historic account balances in repository", e);
-			}
-
-			if (!hasPriorBalances) {
-				try {
-					this.repository.delete("AccountBalances", "account = ? AND asset_id = ?", accountBalanceData.getAddress(), accountBalanceData.getAssetId());
-				} catch (SQLException e) {
-					throw new DataException("Unable to delete account balance from repository", e);
-				}
-
-				/*
-				 *  I don't think we need to do this as Block.orphan() would do this for us?
-
-				try {
-					this.repository.delete("HistoricAccountBalances", "account = ? AND asset_id = ?", accountBalanceData.getAddress(), accountBalanceData.getAssetId());
-				} catch (SQLException e) {
-					throw new DataException("Unable to delete historic account balances from repository", e);
-				}
-
-				 */
-
-				return;
-			}
-		}
-
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
 
 		saveHelper.bind("account", accountBalanceData.getAddress()).bind("asset_id", accountBalanceData.getAssetId()).bind("balance",
 				accountBalanceData.getBalance());
 
 		try {
-			// HistoricAccountBalances auto-updated via trigger
-
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account balance into repository", e);
@@ -598,21 +512,6 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			this.repository.delete("AccountBalances", "account = ? AND asset_id = ?", address, assetId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete account balance from repository", e);
-		}
-
-		try {
-			this.repository.delete("HistoricAccountBalances", "account = ? AND asset_id = ?", address, assetId);
-		} catch (SQLException e) {
-			throw new DataException("Unable to delete historic account balances from repository", e);
-		}
-	}
-
-	@Override
-	public int deleteBalancesFromHeight(int height) throws DataException {
-		try {
-			return this.repository.delete("HistoricAccountBalances", "height >= ?", height);
-		} catch (SQLException e) {
-			throw new DataException("Unable to delete historic account balances from repository", e);
 		}
 	}
 

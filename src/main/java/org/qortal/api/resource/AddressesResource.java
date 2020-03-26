@@ -192,7 +192,7 @@ public class AddressesResource {
 	@Path("/balance/{address}")
 	@Operation(
 		summary = "Returns account balance",
-		description = "Returns account's balance, optionally of given asset and at given height",
+		description = "Returns account's QORT balance, or of other specified asset",
 		responses = {
 			@ApiResponse(
 				description = "the balance",
@@ -202,8 +202,7 @@ public class AddressesResource {
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.INVALID_ASSET_ID, ApiError.INVALID_HEIGHT,  ApiError.REPOSITORY_ISSUE})
 	public BigDecimal getBalance(@PathParam("address") String address,
-			@QueryParam("assetId") Long assetId,
-			@QueryParam("height") Integer height) {
+			@QueryParam("assetId") Long assetId) {
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
@@ -215,12 +214,7 @@ public class AddressesResource {
 			else if (!repository.getAssetRepository().assetExists(assetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			if (height == null)
-				height = repository.getBlockRepository().getBlockchainHeight();
-			else if (height <= 0)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
-
-			return account.getBalance(assetId, height);
+			return account.getBalance(assetId);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
