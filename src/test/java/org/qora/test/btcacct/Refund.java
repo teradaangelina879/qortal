@@ -171,7 +171,7 @@ public class Refund {
 			System.out.println(String.format("P2SH address %s balance: %s BTC", p2shAddress, p2shBalance.toPlainString()));
 
 			// Grab all P2SH funding transactions (just in case there are more than one)
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString(), lockTime - REFUND_TIMEOUT);
+			List<TransactionOutput> fundingOutputs = BTC.getInstance().getOutputs(p2shAddress.toString(), lockTime - REFUND_TIMEOUT);
 			System.out.println(String.format("Found %d unspent output%s for P2SH", fundingOutputs.size(), (fundingOutputs.size() != 1 ? "s" : "")));
 
 			if (fundingOutputs.isEmpty()) {

@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestOutputStream;
@@ -21,6 +20,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,22 +28,28 @@ import org.bitcoinj.core.Address;
 import org.bitcoinj.core.BlockChain;
 import org.bitcoinj.core.CheckpointManager;
 import org.bitcoinj.core.Coin;
+import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.PeerAddress;
 import org.bitcoinj.core.PeerGroup;
 import org.bitcoinj.core.Sha256Hash;
 import org.bitcoinj.core.StoredBlock;
+import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionOutput;
+import org.bitcoinj.core.listeners.BlocksDownloadedEventListener;
 import org.bitcoinj.core.listeners.NewBestBlockListener;
 import org.bitcoinj.net.discovery.DnsDiscovery;
 import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.params.TestNet3Params;
+import org.bitcoinj.script.Script.ScriptType;
 import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.store.MemoryBlockStore;
 import org.bitcoinj.utils.Threading;
 import org.bitcoinj.wallet.Wallet;
+import org.bitcoinj.wallet.WalletTransaction;
+import org.bitcoinj.wallet.WalletTransaction.Pool;
 import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
 import org.bitcoinj.wallet.listeners.WalletCoinsSentEventListener;
 import org.qortal.settings.Settings;
@@ -168,10 +174,12 @@ public class BTC {
 
 	private BTC() {
 		if (Settings.getInstance().useBitcoinTestNet()) {
+			/*
 			this.params = RegTestParams.get();
 			this.checkpointsFileName = "checkpoints-regtest.txt";
-			// TestNet3Params.get();
-			// this.checkpointsFileName = "checkpoints-testnet.txt";
+			*/
+			this.params = TestNet3Params.get();
+			this.checkpointsFileName = "checkpoints-testnet.txt";
 		} else {
 			this.params = MainNetParams.get();
 			this.checkpointsFileName = "checkpoints.txt";
@@ -256,7 +264,25 @@ public class BTC {
 		return Wallet.createBasic(this.params);
 	}
 
-	private void replayChain(long startTime, Wallet wallet) throws BlockStoreException {
+	private class ReplayHooks {
+		private Runnable preReplay;
+		private Runnable postReplay;
+
+		public ReplayHooks(Runnable preReplay, Runnable postReplay) {
+			this.preReplay = preReplay;
+			this.postReplay = postReplay;
+		}
+
+		public void preReplay() {
+			this.preReplay.run();
+		}
+
+		public void postReplay() {
+			this.postReplay.run();
+		}
+	}
+
+	private void replayChain(long startTime, Wallet wallet, ReplayHooks replayHooks) throws BlockStoreException {
 		this.start(startTime);
 
 		final WalletCoinsReceivedEventListener coinsReceivedListener = (someWallet, tx, prevBalance, newBalance) -> {
@@ -277,12 +303,18 @@ public class BTC {
 		}
 
 		try {
+			if (replayHooks != null)
+				replayHooks.preReplay();
+
 			// Sync blockchain using peerGroup, skipping as much as we can before startTime
 			this.peerGroup.setFastCatchupTimeSecs(startTime);
 			this.chain.addNewBestBlockListener(Threading.SAME_THREAD, this.manager);
 			this.peerGroup.downloadBlockChain();
 		} finally {
 			// Clean up
+			if (replayHooks != null)
+				replayHooks.postReplay();
+
 			if (wallet != null) {
 				wallet.removeCoinsReceivedEventListener(coinsReceivedListener);
 				wallet.removeCoinsSentEventListener(coinsSentListener);
@@ -296,7 +328,7 @@ public class BTC {
 	}
 
 	private void replayChain(long startTime) throws BlockStoreException {
-		this.replayChain(startTime, null);
+		this.replayChain(startTime, null, null);
 	}
 
 	// Actual useful methods for use by other classes
@@ -334,7 +366,7 @@ public class BTC {
 		wallet.addWatchedAddress(address, startTime);
 
 		try {
-			replayChain(startTime, wallet);
+			replayChain(startTime, wallet, null);
 
 			// Now that blockchain is up-to-date, return current balance
 			return wallet.getBalance();
@@ -344,16 +376,66 @@ public class BTC {
 		}
 	}
 
-	public List<TransactionOutput> getUnspentOutputs(String base58Address, long startTime) {
+	public List<TransactionOutput> getOutputs(String base58Address, long startTime) {
 		Wallet wallet = createEmptyWallet();
 		Address address = Address.fromString(this.params, base58Address);
 		wallet.addWatchedAddress(address, startTime);
 
 		try {
-			replayChain(startTime, wallet);
+			replayChain(startTime, wallet, null);
 
 			// Now that blockchain is up-to-date, return outputs
 			return wallet.getWatchedOutputs(true);
+		} catch (BlockStoreException e) {
+			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			return null;
+		}
+	}
+
+	private static class TransactionStorage {
+		private Transaction transaction;
+
+		public void store(Transaction transaction) {
+			this.transaction = transaction;
+		}
+
+		public Transaction getTransaction() {
+			return this.transaction;
+		}
+	}
+
+	public List<TransactionOutput> getOutputs(byte[] txId, long startTime) {
+		Wallet wallet = createEmptyWallet();
+
+		// Add random address to wallet
+		ECKey fakeKey = new ECKey();
+		wallet.addWatchedAddress(Address.fromKey(this.params, fakeKey, ScriptType.P2PKH), startTime);
+
+		final Sha256Hash txHash = Sha256Hash.wrap(txId);
+
+		final TransactionStorage transactionStorage = new TransactionStorage();
+
+		final BlocksDownloadedEventListener listener = (peer, block, filteredBlock, blocksLeft) -> {
+			List<Transaction> transactions = block.getTransactions();
+
+			if (transactions == null)
+				return;
+
+			for (Transaction transaction : transactions)
+				if (transaction.getTxId().equals(txHash)) {
+					System.out.println(String.format("We downloaded block containing tx!"));
+					transactionStorage.store(transaction);
+				}
+		};
+
+		ReplayHooks replayHooks = new ReplayHooks(() -> this.peerGroup.addBlocksDownloadedEventListener(listener), () -> this.peerGroup.removeBlocksDownloadedEventListener(listener));
+		
+		// Replay chain in the hope it will download transactionId as a dependency
+		try {
+			replayChain(startTime, wallet, replayHooks);
+
+			Transaction realTx = transactionStorage.getTransaction();
+			return realTx.getOutputs();
 		} catch (BlockStoreException e) {
 			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
 			return null;

@@ -10,6 +10,8 @@ import org.ciyam.at.FunctionData;
 import org.ciyam.at.IllegalFunctionCodeException;
 import org.ciyam.at.MachineState;
 import org.ciyam.at.Timestamp;
+import org.qortal.crypto.Crypto;
+import org.qortal.settings.Settings;
 
 /**
  * Qortal-specific CIYAM-AT Functions.
@@ -20,7 +22,7 @@ import org.ciyam.at.Timestamp;
 public enum QortalFunctionCode {
 	/**
 	 * <tt>0x0500</tt><br>
-	 * Returns current BTC block's "timestamp"
+	 * Returns current BTC block's "timestamp".
 	 */
 	GET_BTC_BLOCK_TIMESTAMP(0x0500, 0, true) {
 		@Override
@@ -30,7 +32,7 @@ public enum QortalFunctionCode {
 	},
 	/**
 	 * <tt>0x0501</tt><br>
-	 * Put transaction from specific recipient after timestamp in A, or zero if none<br>
+	 * Put transaction from specific recipient after timestamp in A, or zero if none.
 	 */
 	PUT_TX_FROM_B_RECIPIENT_AFTER_TIMESTAMP_IN_A(0x0501, 1, false) {
 		@Override
@@ -42,13 +44,74 @@ public enum QortalFunctionCode {
 			BlockchainAPI blockchainAPI = BlockchainAPI.valueOf(timestamp.blockchainId);
 			blockchainAPI.putTransactionFromRecipientAfterTimestampInA(recipient, timestamp, state);
 		}
+	},
+	/**
+	 * <tt>0x0502</tt><br>
+	 * Get output, using transaction in A and passed index, putting address in B and returning amount.<br>
+	 * Return -1 if no such output;
+	 */
+	GET_INDEXED_OUTPUT(0x0502, 1, true) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			int outputIndex = (int) (functionData.value1 & 0xffffffffL);
+
+			BlockchainAPI.TransactionOutput output = BlockchainAPI.BTC.getIndexedOutputFromTransactionInA(state, outputIndex);
+
+			if (output == null) {
+				functionData.returnValue = -1L;
+				return;
+			}
+
+			state.getAPI().setB(state, output.recipient);
+			functionData.returnValue = output.amount;
+		}
+	},
+	/**
+	 * <tt>0x0510</tt><br>
+	 * Convert address in B to 20-byte value in LSB of B1, and all of B2 & B3.
+	 */
+	CONVERT_B_TO_PKH(0x0510, 0, false) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			// Needs to be 'B' sized
+			byte[] pkh = new byte[32];
+
+			// Copy PKH part of B to last 20 bytes
+			System.arraycopy(state.getB(), 32 - 20 - 4, pkh, 32 - 20, 20);
+
+			state.getAPI().setB(state, pkh);
+		}
+	},
+	/**
+	 * <tt>0x0511</tt><br>
+	 * Convert 20-byte value in LSB of B1, and all of B2 & B3 to P2SH.<br>
+	 * P2SH stored in lower 25 bytes of B.
+	 */
+	CONVERT_B_TO_P2SH(0x0511, 0, false) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			byte addressPrefix = Settings.getInstance().useBitcoinTestNet() ? (byte) 0xc4 : 0x05;
+
+			convertAddressInB(addressPrefix, state);
+		}
+	},
+	/**
+	 * <tt>0x0512</tt><br>
+	 * Convert 20-byte value in LSB of B1, and all of B2 & B3 to Qortal address.<br>
+	 * Qortal address stored in lower 25 bytes of B.
+	 */
+	CONVERT_B_TO_QORTAL(0x0512, 0, false) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			convertAddressInB(Crypto.ADDRESS_VERSION, state);
+		}
 	};
 
 	public final short value;
 	public final int paramCount;
 	public final boolean returnsValue;
 
-	private final static Map<Short, QortalFunctionCode> map = Arrays.stream(QortalFunctionCode.values())
+	private static final Map<Short, QortalFunctionCode> map = Arrays.stream(QortalFunctionCode.values())
 			.collect(Collectors.toMap(functionCode -> functionCode.value, functionCode -> functionCode));
 
 	private QortalFunctionCode(int value, int paramCount, boolean returnsValue) {
@@ -99,5 +162,20 @@ public enum QortalFunctionCode {
 
 	/** Actually execute function */
 	protected abstract void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException;
+
+	private static void convertAddressInB(byte addressPrefix, MachineState state) {
+		byte[] addressNoChecksum = new byte[1 + 20];
+		addressNoChecksum[0] = addressPrefix;
+		System.arraycopy(state.getB(), 0, addressNoChecksum, 1, 20);
+
+		byte[] checksum = Crypto.doubleDigest(addressNoChecksum);
+
+		// Needs to be 'B' sized
+		byte[] address = new byte[32];
+		System.arraycopy(addressNoChecksum, 0, address, 32 - 1 - 20 - 4, addressNoChecksum.length);
+		System.arraycopy(checksum, 0, address, 32 - 4, 4);
+
+		state.getAPI().setB(state, address);
+	}
 
 }
