@@ -108,8 +108,19 @@ public class ApiService {
 				swaggerUIServlet.setInitParameter("pathInfoOnly", "true");
 				context.addServlet(swaggerUIServlet, "/api-documentation/*");
 
-				rewriteHandler.addRule(new RedirectPatternRule("", "/api-documentation/")); // redirect to Swagger UI start page
-				rewriteHandler.addRule(new RedirectPatternRule("/api-documentation", "/api-documentation/")); // redirect to Swagger UI start page
+				rewriteHandler.addRule(new RedirectPatternRule("", "/api-documentation/")); // redirect empty path to API docs
+				rewriteHandler.addRule(new RedirectPatternRule("/api-documentation", "/api-documentation/")); // redirect to add trailing slash if missing
+			} else {
+				// Simple pages that explains that API documentation is disabled
+				ClassLoader loader = this.getClass().getClassLoader();
+				ServletHolder swaggerUIServlet = new ServletHolder("api-docs-disabled", DefaultServlet.class);
+				swaggerUIServlet.setInitParameter("resourceBase", loader.getResource("api-docs-disabled/").toString());
+				swaggerUIServlet.setInitParameter("dirAllowed", "true");
+				swaggerUIServlet.setInitParameter("pathInfoOnly", "true");
+				context.addServlet(swaggerUIServlet, "/api-documentation/*");
+
+				rewriteHandler.addRule(new RedirectPatternRule("", "/api-documentation/")); // redirect empty path to API docs
+				rewriteHandler.addRule(new RedirectPatternRule("/api-documentation", "/api-documentation/")); // redirect to add trailing slash if missing
 			}
 
 			// Start server
