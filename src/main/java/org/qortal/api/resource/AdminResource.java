@@ -139,6 +139,9 @@ public class AdminResource {
 		nodeStatus.isMintingPossible = Controller.getInstance().isMintingPossible();
 		nodeStatus.isSynchronizing = Controller.getInstance().isSynchronizing();
 
+		if (nodeStatus.isSynchronizing)
+			nodeStatus.syncPercent = Controller.getInstance().getSyncPercent();
+
 		return nodeStatus;
 	}
 

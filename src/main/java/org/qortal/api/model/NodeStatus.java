@@ -9,6 +9,9 @@ public class NodeStatus {
 	public boolean isMintingPossible;
 	public boolean isSynchronizing;
 
+	// Not always present
+	public Integer syncPercent;
+
 	public NodeStatus() {
 	}
 
