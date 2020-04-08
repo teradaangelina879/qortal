@@ -10,8 +10,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -19,8 +22,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.function.Function;
+import java.util.TreeMap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -46,15 +50,18 @@ import org.bitcoinj.script.Script.ScriptType;
 import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.store.MemoryBlockStore;
+import org.bitcoinj.utils.MonetaryFormat;
 import org.bitcoinj.utils.Threading;
 import org.bitcoinj.wallet.Wallet;
-import org.bitcoinj.wallet.WalletTransaction;
-import org.bitcoinj.wallet.WalletTransaction.Pool;
 import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
 import org.bitcoinj.wallet.listeners.WalletCoinsSentEventListener;
 import org.qortal.settings.Settings;
 
 public class BTC {
+
+	public static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
+	public static final long NO_LOCKTIME_NO_RBF_SEQUENCE = 0xFFFFFFFFL;
+	public static final long LOCKTIME_NO_RBF_SEQUENCE = NO_LOCKTIME_NO_RBF_SEQUENCE - 1;
 
 	private static final MessageDigest RIPE_MD160_DIGESTER;
 	private static final MessageDigest SHA256_DIGESTER;
@@ -68,6 +75,29 @@ public class BTC {
 	}
 
 	protected static final Logger LOGGER = LogManager.getLogger(BTC.class);
+
+	public enum BitcoinNet {
+		MAIN {
+			@Override
+			public NetworkParameters getParams() {
+				return MainNetParams.get();
+			}
+		},
+		TEST3 {
+			@Override
+			public NetworkParameters getParams() {
+				return TestNet3Params.get();
+			}
+		},
+		REGTEST {
+			@Override
+			public NetworkParameters getParams() {
+				return RegTestParams.get();
+			}
+		};
+
+		public abstract NetworkParameters getParams();
+	}
 
 	private static BTC instance;
 
@@ -85,22 +115,58 @@ public class BTC {
 		private static final String MINIMAL_TESTNET3_TEXTFILE = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAAApmwX6UCEnJcYIKTa7HO3pFkqqNhAzJVBMdEuGAAAAAPSAvVCBUypCbBW/OqU0oIF7ISF84h2spOqHrFCWN9Zw6r6/T///AB0E5oOO\n";
 		private static final String MINIMAL_MAINNET_TEXTFILE = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAABjl7tqvU/FIcDT9gcbVlA4nwtFUbxAtOawZzBpAAAAAKzkcK7NqciBjI/ldojNKncrWleVSgDfBCCn3VRrbSxXaw5/Sf//AB0z8Bkv\n";
 
-		public UpdateableCheckpointManager(NetworkParameters params) throws IOException {
-			super(params, getMinimalTextFileStream(params));
+		public UpdateableCheckpointManager(NetworkParameters params, File checkpointsFile) throws IOException {
+			super(params, getMinimalTextFileStream(params, checkpointsFile));
 		}
 
 		public UpdateableCheckpointManager(NetworkParameters params, InputStream inputStream) throws IOException {
 			super(params, inputStream);
 		}
 
-		private static ByteArrayInputStream getMinimalTextFileStream(NetworkParameters params) {
+		private static ByteArrayInputStream getMinimalTextFileStream(NetworkParameters params, File checkpointsFile) {
 			if (params == MainNetParams.get())
 				return new ByteArrayInputStream(MINIMAL_MAINNET_TEXTFILE.getBytes());
 
 			if (params == TestNet3Params.get())
 				return new ByteArrayInputStream(MINIMAL_TESTNET3_TEXTFILE.getBytes());
 
+			if (params == RegTestParams.get())
+				return newRegTestCheckpointsStream(checkpointsFile); // We have to build this
+
 			throw new RuntimeException("Failed to construct empty UpdateableCheckpointManageer");
+		}
+
+		private static ByteArrayInputStream newRegTestCheckpointsStream(File checkpointsFile) {
+			try {
+				final NetworkParameters params = RegTestParams.get();
+
+				final BlockStore store = new MemoryBlockStore(params);
+				final BlockChain chain = new BlockChain(params, store);
+				final PeerGroup peerGroup = new PeerGroup(params, chain);
+
+				final InetAddress ipAddress = InetAddress.getLoopbackAddress();
+				final PeerAddress peerAddress = new PeerAddress(params, ipAddress);
+				peerGroup.addAddress(peerAddress);
+				peerGroup.start();
+
+				final TreeMap<Integer, StoredBlock> checkpoints = new TreeMap<>();
+				chain.addNewBestBlockListener((block) -> checkpoints.put(block.getHeight(), block));
+
+				peerGroup.downloadBlockChain();
+				peerGroup.stop();
+
+				saveAsText(checkpointsFile, checkpoints.values());
+
+				return new ByteArrayInputStream(Files.readAllBytes(checkpointsFile.toPath()));
+			} catch (BlockStoreException e) {
+				throw new RuntimeException(e);
+			} catch (UnknownHostException e) {
+				throw new RuntimeException(e);
+			} catch (FileNotFoundException e) {
+				throw new RuntimeException(e);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
 		@Override
@@ -119,22 +185,22 @@ public class BTC {
 			this.checkpoints.put(blockTimestamp, block);
 
 			try {
-				this.saveAsText(new File(BTC.getInstance().getDirectory(), BTC.getInstance().getCheckpointsFileName()));
+				saveAsText(new File(BTC.getInstance().getDirectory(), BTC.getInstance().getCheckpointsFileName()), this.checkpoints.values());
 			} catch (FileNotFoundException e) {
 				// Save failed - log it but it's not critical
 				LOGGER.warn("Failed to save updated BTC checkpoints: " + e.getMessage());
 			}
 		}
 
-		public void saveAsText(File textFile) throws FileNotFoundException {
+		private static void saveAsText(File textFile, Collection<StoredBlock> checkpointBlocks) throws FileNotFoundException {
 			try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(textFile), StandardCharsets.US_ASCII))) {
 				writer.println("TXT CHECKPOINTS 1");
 				writer.println("0"); // Number of signatures to read. Do this later.
-				writer.println(this.checkpoints.size());
+				writer.println(checkpointBlocks.size());
 
 				ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
 
-				for (StoredBlock block : this.checkpoints.values()) {
+				for (StoredBlock block : checkpointBlocks) {
 					block.serializeCompact(buffer);
 					writer.println(CheckpointManager.BASE64.encode(buffer.array()));
 					buffer.position(0);
@@ -173,16 +239,24 @@ public class BTC {
 	// Constructors and instance
 
 	private BTC() {
-		if (Settings.getInstance().useBitcoinTestNet()) {
-			/*
-			this.params = RegTestParams.get();
-			this.checkpointsFileName = "checkpoints-regtest.txt";
-			*/
-			this.params = TestNet3Params.get();
-			this.checkpointsFileName = "checkpoints-testnet.txt";
-		} else {
-			this.params = MainNetParams.get();
-			this.checkpointsFileName = "checkpoints.txt";
+		BitcoinNet bitcoinNet = Settings.getInstance().getBitcoinNet();
+		this.params = bitcoinNet.getParams();
+
+		switch (bitcoinNet) {
+			case MAIN:
+				this.checkpointsFileName = "checkpoints.txt";
+				break;
+
+			case TEST3:
+				this.checkpointsFileName = "checkpoints-testnet.txt";
+				break;
+
+			case REGTEST:
+				this.checkpointsFileName = "checkpoints-regtest.txt";
+				break;
+
+			default:
+				throw new IllegalStateException("Unsupported Bitcoin network: " + bitcoinNet.name());
 		}
 
 		this.directory = new File("Qortal-BTC");
@@ -196,7 +270,7 @@ public class BTC {
 		} catch (FileNotFoundException e) {
 			// Construct with no checkpoints then
 			try {
-				this.manager = new UpdateableCheckpointManager(this.params);
+				this.manager = new UpdateableCheckpointManager(this.params, checkpointsFile);
 			} catch (IOException e2) {
 				throw new RuntimeException("Failed to create new BTC checkpoints", e2);
 			}
@@ -222,7 +296,7 @@ public class BTC {
 		return this.checkpointsFileName;
 	}
 
-	/* package */ NetworkParameters getNetworkParameters() {
+	public NetworkParameters getNetworkParameters() {
 		return this.params;
 	}
 

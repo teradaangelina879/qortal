@@ -1,6 +1,5 @@
 package org.qortal.at;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -10,6 +9,7 @@ import org.ciyam.at.FunctionData;
 import org.ciyam.at.IllegalFunctionCodeException;
 import org.ciyam.at.MachineState;
 import org.ciyam.at.Timestamp;
+import org.qortal.crosschain.BTC;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 
@@ -20,52 +20,6 @@ import org.qortal.settings.Settings;
  *
  */
 public enum QortalFunctionCode {
-	/**
-	 * <tt>0x0500</tt><br>
-	 * Returns current BTC block's "timestamp".
-	 */
-	GET_BTC_BLOCK_TIMESTAMP(0x0500, 0, true) {
-		@Override
-		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
-			functionData.returnValue = Timestamp.toLong(state.getAPI().getCurrentBlockHeight(), BlockchainAPI.BTC.value, 0);
-		}
-	},
-	/**
-	 * <tt>0x0501</tt><br>
-	 * Put transaction from specific recipient after timestamp in A, or zero if none.
-	 */
-	PUT_TX_FROM_B_RECIPIENT_AFTER_TIMESTAMP_IN_A(0x0501, 1, false) {
-		@Override
-		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
-			Timestamp timestamp = new Timestamp(functionData.value2);
-
-			String recipient = new String(state.getB(), StandardCharsets.UTF_8);
-
-			BlockchainAPI blockchainAPI = BlockchainAPI.valueOf(timestamp.blockchainId);
-			blockchainAPI.putTransactionFromRecipientAfterTimestampInA(recipient, timestamp, state);
-		}
-	},
-	/**
-	 * <tt>0x0502</tt><br>
-	 * Get output, using transaction in A and passed index, putting address in B and returning amount.<br>
-	 * Return -1 if no such output;
-	 */
-	GET_INDEXED_OUTPUT(0x0502, 1, true) {
-		@Override
-		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
-			int outputIndex = (int) (functionData.value1 & 0xffffffffL);
-
-			BlockchainAPI.TransactionOutput output = BlockchainAPI.BTC.getIndexedOutputFromTransactionInA(state, outputIndex);
-
-			if (output == null) {
-				functionData.returnValue = -1L;
-				return;
-			}
-
-			state.getAPI().setB(state, output.recipient);
-			functionData.returnValue = output.amount;
-		}
-	},
 	/**
 	 * <tt>0x0510</tt><br>
 	 * Convert address in B to 20-byte value in LSB of B1, and all of B2 & B3.
@@ -90,7 +44,7 @@ public enum QortalFunctionCode {
 	CONVERT_B_TO_P2SH(0x0511, 0, false) {
 		@Override
 		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
-			byte addressPrefix = Settings.getInstance().useBitcoinTestNet() ? (byte) 0xc4 : 0x05;
+			byte addressPrefix = Settings.getInstance().getBitcoinNet() == BTC.BitcoinNet.MAIN ? 0x05 : (byte) 0xc4;
 
 			convertAddressInB(addressPrefix, state);
 		}

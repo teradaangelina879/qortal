@@ -17,19 +17,24 @@ import org.qortal.account.Account;
 import org.qortal.account.GenesisAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.CiyamAtSettings;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.block.BlockData;
+import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.transaction.ATTransactionData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
+import org.qortal.data.transaction.PaymentTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
+import org.qortal.repository.BlockRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.AtTransaction;
+import org.qortal.transaction.Transaction;
 
 import com.google.common.primitives.Bytes;
 
@@ -108,31 +113,90 @@ public class QortalATAPI extends API {
 	}
 
 	@Override
-	public void putPreviousBlockHashInA(MachineState state) {
+	public void putPreviousBlockHashIntoA(MachineState state) {
 		try {
-			BlockData blockData = this.repository.getBlockRepository().fromHeight(this.getPreviousBlockHeight());
+			int previousBlockHeight = this.repository.getBlockRepository().getBlockchainHeight() - 1;
+
+			// We only need signature, so only request a block summary
+			List<BlockSummaryData> blockSummaries = this.repository.getBlockRepository().getBlockSummaries(previousBlockHeight, previousBlockHeight);
+			if (blockSummaries == null || blockSummaries.size() != 1)
+				throw new RuntimeException("AT API unable to fetch previous block hash?");
 
 			// Block's signature is 128 bytes so we need to reduce this to 4 longs (32 bytes)
-			byte[] blockHash = Crypto.digest(blockData.getSignature());
+			// To be able to use hash to look up block, save height (8 bytes) and rehash with SHA192 (24 bytes)
+			this.setA1(state, previousBlockHeight);
 
-			this.setA(state, blockHash);
+			byte[] sigHash192 = sha192(blockSummaries.get(0).getSignature());
+			this.setA2(state, fromBytes(sigHash192, 0));
+			this.setA3(state, fromBytes(sigHash192, 8));
+			this.setA4(state, fromBytes(sigHash192, 16));
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch previous block?", e);
 		}
 	}
 
 	@Override
-	public void putTransactionAfterTimestampInA(Timestamp timestamp, MachineState state) {
+	public void putTransactionAfterTimestampIntoA(Timestamp timestamp, MachineState state) {
 		// Recipient is this AT
 		String recipient = this.atData.getATAddress();
 
-		BlockchainAPI blockchainAPI = BlockchainAPI.valueOf(timestamp.blockchainId);
-		blockchainAPI.putTransactionFromRecipientAfterTimestampInA(recipient, timestamp, state);
+		int height = timestamp.blockHeight;
+		int sequence = timestamp.transactionSequence + 1;
+
+		BlockRepository blockRepository = this.getRepository().getBlockRepository();
+
+		try {
+			Account recipientAccount = new Account(this.getRepository(), recipient);
+			int currentHeight = blockRepository.getBlockchainHeight();
+
+			while (height <= currentHeight) {
+				BlockData blockData = blockRepository.fromHeight(height);
+
+				if (blockData == null)
+					throw new DataException("Unable to fetch block " + height + " from repository?");
+
+				Block block = new Block(this.getRepository(), blockData);
+
+				List<Transaction> blockTransactions = block.getTransactions();
+
+				// No more transactions in this block? Try next block
+				if (sequence >= blockTransactions.size()) {
+					++height;
+					sequence = 0;
+					continue;
+				}
+
+				Transaction transaction = blockTransactions.get(sequence);
+
+				// Transaction needs to be sent to specified recipient
+				if (transaction.getRecipientAccounts().contains(recipientAccount)) {
+					// Found a transaction
+
+					this.setA1(state, new Timestamp(height, timestamp.blockchainId, sequence).longValue());
+
+					// Hash transaction's signature into other three A fields for future verification that it's the same transaction
+					byte[] sigHash192 = sha192(transaction.getTransactionData().getSignature());
+					this.setA2(state, fromBytes(sigHash192, 0));
+					this.setA3(state, fromBytes(sigHash192, 8));
+					this.setA4(state, fromBytes(sigHash192, 16));
+
+					return;
+				}
+
+				// Transaction wasn't for us - keep going
+				++sequence;
+			}
+
+			// No more transactions - zero A and exit
+			this.zeroA(state);
+		} catch (DataException e) {
+			throw new RuntimeException("AT API unable to fetch next transaction?", e);
+		}
 	}
 
 	@Override
 	public long getTypeFromTransactionInA(MachineState state) {
-		TransactionData transactionData = this.fetchTransaction(state);
+		TransactionData transactionData = this.getTransactionFromA(state);
 
 		switch (transactionData.getType()) {
 			case PAYMENT:
@@ -154,9 +218,23 @@ public class QortalATAPI extends API {
 
 	@Override
 	public long getAmountFromTransactionInA(MachineState state) {
-		Timestamp timestamp = new Timestamp(state.getA1());
-		BlockchainAPI blockchainAPI = BlockchainAPI.valueOf(timestamp.blockchainId);
-		return blockchainAPI.getAmountFromTransactionInA(timestamp, state);
+		TransactionData transactionData = this.getTransactionFromA(state);
+
+		switch (transactionData.getType()) {
+			case PAYMENT:
+				return ((PaymentTransactionData) transactionData).getAmount().unscaledValue().longValue();
+
+			case AT:
+				BigDecimal amount = ((ATTransactionData) transactionData).getAmount();
+
+				if (amount != null)
+					return amount.unscaledValue().longValue();
+
+				// fall-through to default
+
+			default:
+				return 0xffffffffffffffffL;
+		}
 	}
 
 	@Override
@@ -168,8 +246,8 @@ public class QortalATAPI extends API {
 
 	@Override
 	public long generateRandomUsingTransactionInA(MachineState state) {
-		// The plan here is to sleep for a block then use next block's signature and this transaction's signature to generate pseudo-random, but deterministic,
-		// value.
+		// The plan here is to sleep for a block then use next block's signature
+		// and this transaction's signature to generate pseudo-random, but deterministic, value.
 
 		if (!isFirstOpCodeAfterSleeping(state)) {
 			// First call
@@ -182,7 +260,7 @@ public class QortalATAPI extends API {
 			// Second call
 
 			// HASH(A and new block hash)
-			TransactionData transactionData = this.fetchTransaction(state);
+			TransactionData transactionData = this.getTransactionFromA(state);
 
 			try {
 				BlockData blockData = this.repository.getBlockRepository().getLastBlock();
@@ -206,7 +284,7 @@ public class QortalATAPI extends API {
 		// Zero B in case of issues or shorter-than-B message
 		this.zeroB(state);
 
-		TransactionData transactionData = this.fetchTransaction(state);
+		TransactionData transactionData = this.getTransactionFromA(state);
 
 		byte[] messageData = null;
 
@@ -236,7 +314,7 @@ public class QortalATAPI extends API {
 
 	@Override
 	public void putAddressFromTransactionInAIntoB(MachineState state) {
-		TransactionData transactionData = this.fetchTransaction(state);
+		TransactionData transactionData = this.getTransactionFromA(state);
 
 		// We actually use public key as it has more potential utility (e.g. message verification) than an address
 		byte[] bytes = transactionData.getCreatorPublicKey();
@@ -265,9 +343,7 @@ public class QortalATAPI extends API {
 
 	@Override
 	public void payAmountToB(long unscaledAmount, MachineState state) {
-		byte[] publicKey = state.getB();
-
-		PublicKeyAccount recipient = new PublicKeyAccount(this.repository, publicKey);
+		Account recipient = getAccountFromB(state);
 
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
@@ -285,9 +361,7 @@ public class QortalATAPI extends API {
 	@Override
 	public void messageAToB(MachineState state) {
 		byte[] message = state.getA();
-		byte[] publicKey = state.getB();
-
-		PublicKeyAccount recipient = new PublicKeyAccount(this.repository, publicKey);
+		Account recipient = getAccountFromB(state);
 
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
@@ -306,7 +380,7 @@ public class QortalATAPI extends API {
 		int blockHeight = timestamp.blockHeight;
 
 		// At least one block in the future
-		blockHeight += (minutes / this.ciyamAtSettings.minutesPerBlock) + 1;
+		blockHeight += Math.max(minutes / this.ciyamAtSettings.minutesPerBlock, 1);
 
 		return new Timestamp(blockHeight, 0).longValue();
 	}
@@ -380,7 +454,7 @@ public class QortalATAPI extends API {
 	}
 
 	/** Returns transaction data from repository using block height & sequence from A1, checking the transaction signatures match too */
-	/* package */ TransactionData fetchTransaction(MachineState state) {
+	/* package */ TransactionData getTransactionFromA(MachineState state) {
 		Timestamp timestamp = new Timestamp(state.getA1());
 
 		try {
@@ -415,11 +489,6 @@ public class QortalATAPI extends API {
 		 * Timestamp is block's timestamp + position in AT-Transactions list.
 		 * 
 		 * We need increasing timestamps to preserve transaction order and hence a correct signature-reference chain when the block is processed.
-		 * 
-		 * As Qora blocks must share the same milliseconds component in their timestamps, this allows us to generate up to 1,000 AT-Transactions per AT without
-		 * issue.
-		 * 
-		 * As long as ATs are not allowed to generate that many per block, e.g. by limiting maximum steps per execution round, then we should be fine.
 		 */
 
 		// XXX THE ABOVE IS NO LONGER TRUE IN QORTAL!
@@ -441,6 +510,29 @@ public class QortalATAPI extends API {
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch AT's last reference from repository?", e);
 		}
+	}
+
+	/**
+	 * Returns Account (possibly PublicKeyAccount) based on value in B.
+	 * <p>
+	 * If bytes in B start with 'Q' then use B as an address, but only if valid.
+	 * <p>
+	 * Otherwise, assume B is a public key.
+	 * @return
+	 */
+	private Account getAccountFromB(MachineState state) {
+		byte[] bBytes = state.getB();
+
+		if (bBytes[0] == 'Q') {
+			int zeroIndex = Bytes.indexOf(bBytes, (byte) 0);
+			if (zeroIndex > 0) {
+				String address = new String(bBytes, 0, zeroIndex);
+				if (Crypto.isValidAddress(address))
+					return new Account(this.repository, address);
+			}
+		}
+
+		return new PublicKeyAccount(this.repository, bBytes);
 	}
 
 }

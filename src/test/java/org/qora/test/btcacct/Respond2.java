@@ -136,7 +136,7 @@ public class Respond2 {
 			byte[] secretHash = HashCode.fromString(secretHashHex).asBytes();
 			System.out.println("Hash of secret: " + HashCode.fromBytes(secretHash).toString());
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(secretHash, theirBitcoinPubKey, yourBitcoinPubKey, lockTime);
+			byte[] redeemScriptBytes = null; // BTCACCT.buildScript(secretHash, theirBitcoinPubKey, yourBitcoinPubKey, lockTime);
 			System.out.println("Redeem script: " + HashCode.fromBytes(redeemScriptBytes).toString());
 
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
@@ -166,7 +166,7 @@ public class Respond2 {
 			System.out.println("\nYour response:");
 
 			// If good, deploy AT
-			byte[] creationBytes = BTCACCT.buildCiyamAT(secretHash, theirQortPubKey, REFUND_TIMEOUT / 60);
+			byte[] creationBytes = null; // BTCACCT.buildQortalAT(secretHash, theirQortPubKey, REFUND_TIMEOUT / 60);
 			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			BigDecimal qortAmount = new BigDecimal(rawQortAmount).setScale(8);

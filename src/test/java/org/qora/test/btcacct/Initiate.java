@@ -121,7 +121,7 @@ public class Initiate {
 			int lockTime = (int) ((System.currentTimeMillis() / 1000L) + REFUND_TIMEOUT);
 			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneOffset.UTC), lockTime));
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(tradeKey.getPubKeyHash(), yourBitcoinAddress.getHash(), theirBitcoinAddress.getHash(), lockTime);
+			byte[] redeemScriptBytes = null; // BTCACCT.buildScript(tradeKey.getPubKeyHash(), yourBitcoinAddress.getHash(), theirBitcoinAddress.getHash(), lockTime);
 			System.out.println(String.format("Redeem script: %s", HashCode.fromBytes(redeemScriptBytes)));
 
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);

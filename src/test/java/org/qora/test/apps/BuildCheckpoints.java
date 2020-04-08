@@ -16,8 +16,6 @@ import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.PeerAddress;
 import org.bitcoinj.core.PeerGroup;
 import org.bitcoinj.core.StoredBlock;
-import org.bitcoinj.core.VerificationException;
-import org.bitcoinj.core.listeners.NewBestBlockListener;
 import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.MemoryBlockStore;
@@ -33,7 +31,7 @@ public class BuildCheckpoints {
 		final BlockChain chain = new BlockChain(params, store);
 		final PeerGroup peerGroup = new PeerGroup(params, chain);
 
-		final InetAddress ipAddress = InetAddress.getLocalHost();
+		final InetAddress ipAddress = InetAddress.getLoopbackAddress();
 		final PeerAddress peerAddress = new PeerAddress(params, ipAddress);
 		peerGroup.addAddress(peerAddress);
 		peerGroup.start();
