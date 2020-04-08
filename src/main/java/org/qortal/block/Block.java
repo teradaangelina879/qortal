@@ -1693,6 +1693,9 @@ public class Block {
 		LOGGER.trace(() -> String.format("Total legacy QORA held: %s", finalTotalQoraHeld.toPlainString()));
 
 		BigDecimal sharedAmount = BigDecimal.ZERO;
+		if (totalQoraHeld.signum() <= 0)
+			return sharedAmount;
+
 		for (int h = 0; h < qoraHolders.size(); ++h) {
 			AccountBalanceData qoraHolder = qoraHolders.get(h);
 
