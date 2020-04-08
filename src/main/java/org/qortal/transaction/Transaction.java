@@ -346,18 +346,10 @@ public abstract class Transaction {
 
 		BigDecimal maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
 
-		BigDecimal recommendedFee = BigDecimal.valueOf(dataLength).divide(maxBytePerUnitFee, MathContext.DECIMAL32).setScale(8);
+		BigDecimal unitFeeCount = BigDecimal.valueOf(dataLength).divide(maxBytePerUnitFee, RoundingMode.UP);
 
-		// security margin
-		recommendedFee = recommendedFee.add(new BigDecimal("0.00000001"));
-
-		if (recommendedFee.compareTo(BlockChain.getInstance().getUnitFee()) <= 0) {
-			recommendedFee = BlockChain.getInstance().getUnitFee();
-		} else {
-			recommendedFee = recommendedFee.setScale(0, RoundingMode.CEILING);
-		}
-
-		return recommendedFee.setScale(8);
+		BigDecimal recommendedFee = BlockChain.getInstance().getUnitFee().multiply(unitFeeCount).setScale(8);
+		return recommendedFee;
 	}
 
 	/**
