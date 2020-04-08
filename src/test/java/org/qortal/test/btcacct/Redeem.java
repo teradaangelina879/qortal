@@ -1,4 +1,4 @@
-package org.qora.test.btcacct;
+package org.qortal.test.btcacct;
 
 import java.security.Security;
 import java.time.Instant;
@@ -16,37 +16,19 @@ import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionOutput;
 import org.bitcoinj.script.Script.ScriptType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.qora.controller.Controller;
-import org.qora.crosschain.BTC;
-import org.qora.crosschain.BTCACCT;
-import org.qora.repository.DataException;
-import org.qora.repository.Repository;
-import org.qora.repository.RepositoryFactory;
-import org.qora.repository.RepositoryManager;
-import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
-import org.qora.settings.Settings;
+import org.qortal.controller.Controller;
+import org.qortal.crosschain.BTC;
+import org.qortal.crosschain.BTCACCT;
+import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryFactory;
+import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
+import org.qortal.settings.Settings;
 
 import com.google.common.hash.HashCode;
 
-/**
- * Initiator must be Qora-chain so that initiator can send initial message to BTC P2SH then Qora can scan for P2SH add send corresponding message to Qora AT.
- *
- * Initiator (wants Qora, has BTC)
- * 		Funds BTC P2SH address
- * 
- * Responder (has Qora, wants BTC)
- * 		Builds Qora ACCT AT and funds it with Qora
- * 
- * Initiator sends recipient+secret+script as input to BTC P2SH address, releasing BTC amount - fees to responder
- * 
- * Qora nodes scan for P2SH output, checks amount and recipient and if ok sends secret to Qora ACCT AT
- * (Or it's possible to feed BTC transaction details into Qora AT so it can check them itself?)
- * 
- * Qora ACCT AT sends its Qora to initiator
- *
- */
-
-public class Refund {
+public class Redeem {
 
 	static {
 		// This must go before any calls to LogManager/Logger
@@ -57,12 +39,12 @@ public class Refund {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: Refund <P2SH-address> <refund-BTC-PRIVATE-KEY> <redeem-BTC-P2PKH> <HASH160-of-secret> <locktime> (<BTC-redeem/refund-fee>)"));
-		System.err.println(String.format("example: Refund "
+		System.err.println(String.format("usage: Redeem <P2SH-address> <refund-BTC-P2PKH> <redeem-BTC-PRIVATE-key> <secret> <locktime> (<BTC-redeem/refund-fee>)"));
+		System.err.println(String.format("example: Redeem "
 				+ "2NEZboTLhBDPPQciR7sExBhy3TsDi7wV3Cv \\\n"
-				+ "\tef027fb5828c5e201eaf6de4cd3b0b340d16a191ef848cd691f35ef8f727358c9c01b576fb7e \\\n"
-				+ "\tn2N5VKrzq39nmuefZwp3wBiF4icdXX2B6o \\\n"
-				+ "\td1b64100879ad93ceaa3c15929b6fe8550f54967 \\\n"
+				+ "\tmrTDPdM15cFWJC4g223BXX5snicfVJBx6M \\\n"
+				+ "\tec199a4abc9d3bf024349e397535dfee9d287e174aeabae94237eb03a0118c03 \\\n"
+				+ "\t736563726574 \\\n"
 				+ "\t1585920000"));
 		System.exit(1);
 	}
@@ -78,9 +60,9 @@ public class Refund {
 		NetworkParameters params = btc.getNetworkParameters();
 
 		Address p2shAddress = null;
-		byte[] refundPrivateKey = null;
-		Address redeemBitcoinAddress = null;
-		byte[] secretHash = null;
+		Address refundBitcoinAddress = null;
+		byte[] redeemPrivateKey = null;
+		byte[] secret = null;
 		int lockTime = 0;
 		Coin bitcoinFee = BTCACCT.DEFAULT_BTC_FEE;
 
@@ -90,20 +72,20 @@ public class Refund {
 			if (p2shAddress.getOutputScriptType() != ScriptType.P2SH)
 				usage("P2SH address invalid");
 
-			refundPrivateKey = HashCode.fromString(args[argIndex++]).asBytes();
+			refundBitcoinAddress = Address.fromString(params, args[argIndex++]);
+			if (refundBitcoinAddress.getOutputScriptType() != ScriptType.P2PKH)
+				usage("Refund BTC address must be in P2PKH form");
+
+			redeemPrivateKey = HashCode.fromString(args[argIndex++]).asBytes();
 			// Auto-trim
-			if (refundPrivateKey.length >= 37 && refundPrivateKey.length <= 38)
-				refundPrivateKey = Arrays.copyOfRange(refundPrivateKey, 1, 33);
-			if (refundPrivateKey.length != 32)
-				usage("Refund private key must be 32 bytes");
+			if (redeemPrivateKey.length >= 37 && redeemPrivateKey.length <= 38)
+				redeemPrivateKey = Arrays.copyOfRange(redeemPrivateKey, 1, 33);
+			if (redeemPrivateKey.length != 32)
+				usage("Redeem private key must be 32 bytes");
 
-			redeemBitcoinAddress = Address.fromString(params, args[argIndex++]);
-			if (redeemBitcoinAddress.getOutputScriptType() != ScriptType.P2PKH)
-				usage("Their BTC address must be in P2PKH form");
-
-			secretHash = HashCode.fromString(args[argIndex++]).asBytes();
-			if (secretHash.length != 20)
-				usage("HASH160 of secret must be 20 bytes");
+			secret = HashCode.fromString(args[argIndex++]).asBytes();
+			if (secret.length == 0)
+				usage("Invalid secret bytes");
 
 			lockTime = Integer.parseInt(args[argIndex++]);
 
@@ -123,21 +105,22 @@ public class Refund {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			System.out.println("Confirm the following is correct based on the info you've given:");
 
-			System.out.println(String.format("Refund PRIVATE key: %s", HashCode.fromBytes(refundPrivateKey)));
-			System.out.println(String.format("Redeem Bitcoin address: %s", redeemBitcoinAddress));
+			System.out.println(String.format("Redeem PRIVATE key: %s", HashCode.fromBytes(redeemPrivateKey)));
+			System.out.println(String.format("Redeem miner's fee: %s", BTC.FORMAT.format(bitcoinFee)));
 			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneOffset.UTC), lockTime));
-			System.out.println(String.format("P2SH address: %s", p2shAddress));
-			System.out.println(String.format("Refund miner's fee: %s", BTC.FORMAT.format(bitcoinFee)));
 
 			// New/derived info
 
-			System.out.println("\nCHECKING info from other party:");
+			byte[] secretHash = BTC.hash160(secret);
+			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
-			ECKey refundKey = ECKey.fromPrivate(refundPrivateKey);
-			Address refundAddress = Address.fromKey(params, refundKey, ScriptType.P2PKH);
-			System.out.println(String.format("Refund recipient (PKH): %s (%s)", refundAddress, HashCode.fromBytes(refundAddress.getHash())));
+			ECKey redeemKey = ECKey.fromPrivate(redeemPrivateKey);
+			Address redeemAddress = Address.fromKey(params, redeemKey, ScriptType.P2PKH);
+			System.out.println(String.format("Redeem recipient (PKH): %s (%s)", redeemAddress, HashCode.fromBytes(redeemAddress.getHash())));
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
+			System.out.println(String.format("P2SH address: %s", p2shAddress));
+
+			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), lockTime, redeemAddress.getHash(), secretHash);
 			System.out.println(String.format("Redeem script: %s", HashCode.fromBytes(redeemScriptBytes)));
 
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
@@ -158,12 +141,7 @@ public class Refund {
 			long now = System.currentTimeMillis();
 
 			if (now < medianBlockTime * 1000L) {
-				System.err.println(String.format("Too soon (%s) to refund based on median block time %s", LocalDateTime.ofInstant(Instant.ofEpochMilli(now), ZoneOffset.UTC), LocalDateTime.ofInstant(Instant.ofEpochSecond(medianBlockTime), ZoneOffset.UTC)));
-				System.exit(2);
-			}
-
-			if (now < lockTime * 1000L) {
-				System.err.println(String.format("Too soon (%s) to refund based on lockTime %s", LocalDateTime.ofInstant(Instant.ofEpochMilli(now), ZoneOffset.UTC), LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneOffset.UTC)));
+				System.err.println(String.format("Too soon (%s) to redeem based on median block time %s", LocalDateTime.ofInstant(Instant.ofEpochMilli(now), ZoneOffset.UTC), LocalDateTime.ofInstant(Instant.ofEpochSecond(medianBlockTime), ZoneOffset.UTC)));
 				System.exit(2);
 			}
 
@@ -190,7 +168,7 @@ public class Refund {
 				System.out.println(String.format("Output %s:%d amount %s", HashCode.fromBytes(fundingOutput.getParentTransactionHash().getBytes()), fundingOutput.getIndex(), BTC.FORMAT.format(fundingOutput.getValue())));
 
 			if (fundingOutputs.isEmpty()) {
-				System.err.println(String.format("Can't refund spent/unfunded P2SH"));
+				System.err.println(String.format("Can't redeem spent/unfunded P2SH"));
 				System.exit(2);
 			}
 
@@ -200,12 +178,12 @@ public class Refund {
 			}
 
 			TransactionOutput fundingOutput = fundingOutputs.get(0);
-			System.out.println(String.format("Using output %s:%d for refund", HashCode.fromBytes(fundingOutput.getParentTransactionHash().getBytes()), fundingOutput.getIndex()));
+			System.out.println(String.format("Using output %s:%d for redeem", HashCode.fromBytes(fundingOutput.getParentTransactionHash().getBytes()), fundingOutput.getIndex()));
 
-			Coin refundAmount = p2shBalance.subtract(bitcoinFee);
-			System.out.println(String.format("Spending %s of output, with %s as mining fee", BTC.FORMAT.format(refundAmount), BTC.FORMAT.format(bitcoinFee)));
+			Coin redeemAmount = p2shBalance.subtract(bitcoinFee);
+			System.out.println(String.format("Spending %s of output, with %s as mining fee", BTC.FORMAT.format(redeemAmount), BTC.FORMAT.format(bitcoinFee)));
 
-			Transaction redeemTransaction = BTCACCT.buildRefundTransaction(refundAmount, refundKey, fundingOutput, redeemScriptBytes, lockTime);
+			Transaction redeemTransaction = BTCACCT.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutput, redeemScriptBytes, secret);
 
 			byte[] redeemBytes = redeemTransaction.bitcoinSerialize();
 

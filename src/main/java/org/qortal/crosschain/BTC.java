@@ -503,7 +503,7 @@ public class BTC {
 		};
 
 		ReplayHooks replayHooks = new ReplayHooks(() -> this.peerGroup.addBlocksDownloadedEventListener(listener), () -> this.peerGroup.removeBlocksDownloadedEventListener(listener));
-		
+
 		// Replay chain in the hope it will download transactionId as a dependency
 		try {
 			replayChain(startTime, wallet, replayHooks);

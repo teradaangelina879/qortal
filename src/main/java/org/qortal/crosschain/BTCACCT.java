@@ -1,4 +1,4 @@
-package org.qora.crosschain;
+package org.qortal.crosschain;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -19,7 +19,7 @@ import org.bitcoinj.script.ScriptOpCodes;
 import org.ciyam.at.FunctionCode;
 import org.ciyam.at.MachineState;
 import org.ciyam.at.OpCode;
-import org.qora.utils.BitTwiddling;
+import org.qortal.utils.BitTwiddling;
 
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
@@ -214,7 +214,7 @@ public class BTCACCT {
 		// Temp buffer for hashing any passed secret
 		dataByteBuffer.putLong(addrHashTemp1);
 		dataByteBuffer.putLong(32L);
-		
+
 		// Initial payout amount
 		dataByteBuffer.putLong(initialPayout.unscaledValue().longValue());
 

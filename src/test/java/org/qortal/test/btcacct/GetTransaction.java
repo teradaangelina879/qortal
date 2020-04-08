@@ -1,4 +1,4 @@
-package org.qora.test.btcacct;
+package org.qortal.test.btcacct;
 
 import java.security.Security;
 import java.util.List;
@@ -6,8 +6,8 @@ import java.util.List;
 import org.bitcoinj.core.AddressFormatException;
 import org.bitcoinj.core.TransactionOutput;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.qora.crosschain.BTC;
-import org.qora.settings.Settings;
+import org.qortal.crosschain.BTC;
+import org.qortal.settings.Settings;
 
 import com.google.common.hash.HashCode;
 
@@ -23,8 +23,8 @@ public class GetTransaction {
 			System.err.println(error);
 
 		System.err.println(String.format("usage: GetTransaction <bitcoin-tx>"));
-		System.err.println(String.format("example: GetTransaction 816407e79568f165f13e09e9912c5f2243e0a23a007cec425acedc2e89284660 (mainnet)"));
-		System.err.println(String.format("example: GetTransaction 3bfd17a492a4e3d6cb7204e17e20aca6c1ab82e1828bd1106eefbaf086fb8a4e (testnet)"));
+		System.err.println(String.format("example (mainnet): GetTransaction 816407e79568f165f13e09e9912c5f2243e0a23a007cec425acedc2e89284660"));
+		System.err.println(String.format("example (testnet): GetTransaction 3bfd17a492a4e3d6cb7204e17e20aca6c1ab82e1828bd1106eefbaf086fb8a4e"));
 		System.exit(1);
 	}
 

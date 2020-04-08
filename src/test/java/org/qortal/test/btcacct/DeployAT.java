@@ -1,4 +1,4 @@
-package org.qora.test.btcacct;
+package org.qortal.test.btcacct;
 
 import java.math.BigDecimal;
 import java.security.Security;
@@ -7,26 +7,26 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.qora.account.PrivateKeyAccount;
-import org.qora.asset.Asset;
-import org.qora.controller.Controller;
-import org.qora.crosschain.BTCACCT;
-import org.qora.crypto.Crypto;
-import org.qora.data.transaction.BaseTransactionData;
-import org.qora.data.transaction.DeployAtTransactionData;
-import org.qora.data.transaction.TransactionData;
-import org.qora.group.Group;
-import org.qora.repository.DataException;
-import org.qora.repository.Repository;
-import org.qora.repository.RepositoryFactory;
-import org.qora.repository.RepositoryManager;
-import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
-import org.qora.settings.Settings;
-import org.qora.transaction.DeployAtTransaction;
-import org.qora.transaction.Transaction;
-import org.qora.transform.TransformationException;
-import org.qora.transform.transaction.TransactionTransformer;
-import org.qora.utils.Base58;
+import org.qortal.account.PrivateKeyAccount;
+import org.qortal.asset.Asset;
+import org.qortal.controller.Controller;
+import org.qortal.crosschain.BTCACCT;
+import org.qortal.crypto.Crypto;
+import org.qortal.data.transaction.BaseTransactionData;
+import org.qortal.data.transaction.DeployAtTransactionData;
+import org.qortal.data.transaction.TransactionData;
+import org.qortal.group.Group;
+import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryFactory;
+import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
+import org.qortal.settings.Settings;
+import org.qortal.transaction.DeployAtTransaction;
+import org.qortal.transaction.Transaction;
+import org.qortal.transform.TransformationException;
+import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.Base58;
 
 import com.google.common.hash.HashCode;
 
@@ -115,7 +115,7 @@ public class DeployAT {
 
 			// Deploy AT
 			final int BLOCK_TIME = 60; // seconds
-			final int refundTimeout = (lockTime - (int) (System.currentTimeMillis() / 1000L)) / BLOCK_TIME; 
+			final int refundTimeout = (lockTime - (int) (System.currentTimeMillis() / 1000L)) / BLOCK_TIME;
 
 			byte[] creationBytes = BTCACCT.buildQortalAT(secretHash, redeemAddress, refundTimeout, initialPayout);
 			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());

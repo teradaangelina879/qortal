@@ -1,4 +1,4 @@
-package org.qora.test.apps;
+package org.qortal.test.apps;
 
 import java.io.File;
 import java.io.FileNotFoundException;

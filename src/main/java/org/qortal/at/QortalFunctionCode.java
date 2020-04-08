@@ -8,7 +8,6 @@ import org.ciyam.at.ExecutionException;
 import org.ciyam.at.FunctionData;
 import org.ciyam.at.IllegalFunctionCodeException;
 import org.ciyam.at.MachineState;
-import org.ciyam.at.Timestamp;
 import org.qortal.crosschain.BTC;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
