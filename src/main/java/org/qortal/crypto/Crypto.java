@@ -108,14 +108,15 @@ public class Crypto {
 		return isValidTypedAddress(address, ADDRESS_VERSION, AT_ADDRESS_VERSION);
 	}
 
+	public static boolean isValidAddress(byte[] addressBytes) {
+		return areValidTypedAddressBytes(addressBytes, ADDRESS_VERSION, AT_ADDRESS_VERSION);
+	}
+
 	public static boolean isValidAtAddress(String address) {
 		return isValidTypedAddress(address, AT_ADDRESS_VERSION);
 	}
 
 	private static boolean isValidTypedAddress(String address, byte...addressVersions) {
-		if (addressVersions == null || addressVersions.length == 0)
-			return false;
-
 		byte[] addressBytes;
 
 		try {
@@ -124,6 +125,13 @@ public class Crypto {
 		} catch (NumberFormatException e) {
 			return false;
 		}
+
+		return areValidTypedAddressBytes(addressBytes, addressVersions);
+	}
+
+	private static boolean areValidTypedAddressBytes(byte[] addressBytes, byte...addressVersions) {
+		if (addressVersions == null || addressVersions.length == 0)
+			return false;
 
 		// Check address length
 		if (addressBytes == null || addressBytes.length != Account.ADDRESS_LENGTH)

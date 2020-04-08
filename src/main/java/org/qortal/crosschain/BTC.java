@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -466,18 +467,6 @@ public class BTC {
 		}
 	}
 
-	private static class TransactionStorage {
-		private Transaction transaction;
-
-		public void store(Transaction transaction) {
-			this.transaction = transaction;
-		}
-
-		public Transaction getTransaction() {
-			return this.transaction;
-		}
-	}
-
 	public List<TransactionOutput> getOutputs(byte[] txId, long startTime) {
 		Wallet wallet = createEmptyWallet();
 
@@ -487,7 +476,7 @@ public class BTC {
 
 		final Sha256Hash txHash = Sha256Hash.wrap(txId);
 
-		final TransactionStorage transactionStorage = new TransactionStorage();
+		final AtomicReference<Transaction> foundTransaction = new AtomicReference<>();
 
 		final BlocksDownloadedEventListener listener = (peer, block, filteredBlock, blocksLeft) -> {
 			List<Transaction> transactions = block.getTransactions();
@@ -498,7 +487,7 @@ public class BTC {
 			for (Transaction transaction : transactions)
 				if (transaction.getTxId().equals(txHash)) {
 					System.out.println(String.format("We downloaded block containing tx!"));
-					transactionStorage.store(transaction);
+					foundTransaction.set(transaction);
 				}
 		};
 
@@ -508,7 +497,7 @@ public class BTC {
 		try {
 			replayChain(startTime, wallet, replayHooks);
 
-			Transaction realTx = transactionStorage.getTransaction();
+			Transaction realTx = foundTransaction.get();
 			return realTx.getOutputs();
 		} catch (BlockStoreException e) {
 			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));

@@ -16,9 +16,11 @@ import org.bitcoinj.script.Script;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
+import org.ciyam.at.API;
 import org.ciyam.at.FunctionCode;
 import org.ciyam.at.MachineState;
 import org.ciyam.at.OpCode;
+import org.qortal.utils.Base58;
 import org.qortal.utils.BitTwiddling;
 
 import com.google.common.hash.HashCode;
@@ -170,9 +172,10 @@ public class BTCACCT {
 		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutput, redeemScriptBytes, null, redeemSigScriptBuilder);
 	}
 
-	public static byte[] buildQortalAT(byte[] secretHash, String destinationQortalAddress, long refundMinutes, BigDecimal initialPayout) {
+	public static byte[] buildQortalAT(byte[] secretHash, String recipientQortalAddress, long refundMinutes, BigDecimal initialPayout) {
 		// Labels for data segment addresses
 		int addrCounter = 0;
+		// Constants (with corresponding dataByteBuffer.put*() calls below)
 		final int addrHashPart1 = addrCounter++;
 		final int addrHashPart2 = addrCounter++;
 		final int addrHashPart3 = addrCounter++;
@@ -185,6 +188,8 @@ public class BTCACCT {
 		final int addrHashTempIndex = addrCounter++;
 		final int addrHashTempLength = addrCounter++;
 		final int addrInitialPayoutAmount = addrCounter++;
+		final int addrExpectedTxType = addrCounter++;
+		// Variables
 		final int addrRefundTimestamp = addrCounter++;
 		final int addrLastTimestamp = addrCounter++;
 		final int addrBlockTimestamp = addrCounter++;
@@ -200,72 +205,99 @@ public class BTCACCT {
 		final int addrHashTemp4 = addrCounter++;
 
 		// Data segment
-		ByteBuffer dataByteBuffer = ByteBuffer.allocate(addrCounter * 8);
+		ByteBuffer dataByteBuffer = ByteBuffer.allocate(addrCounter * MachineState.VALUE_SIZE);
 
 		// Hash of secret into HashPart1-4
-		dataByteBuffer.put(secretHash);
+		assert dataByteBuffer.position() == addrHashPart1 * MachineState.VALUE_SIZE : "addrHashPart1 incorrect";
+		dataByteBuffer.put(Bytes.ensureCapacity(secretHash, 32, 0));
 
-		// Destination Qortal account's public key
-		dataByteBuffer.put(Bytes.ensureCapacity(destinationQortalAddress.getBytes(), 32, 0));
+		// Recipient Qortal address, decoded from Base58
+		assert dataByteBuffer.position() == addrAddressPart1 * MachineState.VALUE_SIZE : "addrAddressPart1 incorrect";
+		byte[] recipientAddressBytes = Base58.decode(recipientQortalAddress);
+		dataByteBuffer.put(Bytes.ensureCapacity(recipientAddressBytes, 32, 0));
 
 		// Expiry in minutes
+		assert dataByteBuffer.position() == addrRefundMinutes * MachineState.VALUE_SIZE : "addrRefundMinutes incorrect";
 		dataByteBuffer.putLong(refundMinutes);
 
-		// Temp buffer for hashing any passed secret
+		// Source location and length for hashing any passed secret
+		assert dataByteBuffer.position() == addrHashTempIndex * MachineState.VALUE_SIZE : "addrHashTempIndex incorrect";
 		dataByteBuffer.putLong(addrHashTemp1);
+		assert dataByteBuffer.position() == addrHashTempLength * MachineState.VALUE_SIZE : "addrHashTempLength incorrect";
 		dataByteBuffer.putLong(32L);
 
 		// Initial payout amount
+		assert dataByteBuffer.position() == addrInitialPayoutAmount * MachineState.VALUE_SIZE : "addrInitialPayoutAmount incorrect";
 		dataByteBuffer.putLong(initialPayout.unscaledValue().longValue());
 
+		// We're only interested in MESSAGE transactions
+		assert dataByteBuffer.position() == addrExpectedTxType * MachineState.VALUE_SIZE : "addrExpectedTxType incorrect";
+		dataByteBuffer.putLong(API.ATTransactionType.MESSAGE.value);
+
 		// Code labels
-		final int addrTxLoop = 0x36;
-		final int addrCheckTx = 0x4b;
-		final int addrCheckSender = 0x64;
-		final int addrCheckMessage = 0xab;
-		final int addrPayout = 0xdf;
-		final int addrRefund = 0x102;
-		final int addrEndOfCode = 0x109;
+		final int addrTxLoop = 0x0036;
+		final int addrCheckTx = 0x004b;
+		final int addrRefund = 0x00c6;
+		final int addrEndOfCode = 0x00cd;
 
 		int tempPC;
 		ByteBuffer codeByteBuffer = ByteBuffer.allocate(addrEndOfCode * 1);
 
-		// init:
-		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_CREATION_TIMESTAMP.value).putInt(addrRefundTimestamp);
-		codeByteBuffer.put(OpCode.SET_DAT.value).putInt(addrLastTimestamp).putInt(addrRefundTimestamp);
-		codeByteBuffer.put(OpCode.EXT_FUN_RET_DAT_2.value).putShort(FunctionCode.ADD_MINUTES_TO_TIMESTAMP.value).putInt(addrRefundTimestamp)
-				.putInt(addrRefundTimestamp).putInt(addrRefundMinutes);
+		/* Initialization */
 
+		// Use AT creation 'timestamp' as starting point for finding transactions sent to AT
+		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_CREATION_TIMESTAMP.value).putInt(addrLastTimestamp);
+		// Calculate refund 'timestamp' by adding minutes to above 'timestamp', then save into addrRefundTimestamp
+		codeByteBuffer.put(OpCode.EXT_FUN_RET_DAT_2.value).putShort(FunctionCode.ADD_MINUTES_TO_TIMESTAMP.value).putInt(addrRefundTimestamp)
+				.putInt(addrLastTimestamp).putInt(addrRefundMinutes);
+
+		// Load recipient's address into B register
 		codeByteBuffer.put(OpCode.EXT_FUN_DAT.value).putShort(FunctionCode.SET_B_IND.value).putInt(addrAddressPart1);
+		// Send initial payment to recipient so they have enough funds to message AT if all goes well
 		codeByteBuffer.put(OpCode.EXT_FUN_DAT.value).putShort(FunctionCode.PAY_TO_ADDRESS_IN_B.value).putInt(addrInitialPayoutAmount);
 
+		// Set restart position to after this opcode
 		codeByteBuffer.put(OpCode.SET_PCS.value);
 
-		// loop:
-		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_BLOCK_TIMESTAMP.value).putInt(addrBlockTimestamp);
-		tempPC = codeByteBuffer.position();
-		codeByteBuffer.put(OpCode.BLT_DAT.value).putInt(addrBlockTimestamp).putInt(addrRefundTimestamp).put((byte) (addrTxLoop - tempPC));
-		codeByteBuffer.put(OpCode.JMP_ADR.value).putInt(addrRefund);
+		/* Main loop */
 
-		// txloop:
+		// Fetch current block 'timestamp'
+		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_BLOCK_TIMESTAMP.value).putInt(addrBlockTimestamp);
+		// If we're past refund 'timestamp' then go refund everything back to AT creator
+		tempPC = codeByteBuffer.position();
+		codeByteBuffer.put(OpCode.BGE_DAT.value).putInt(addrBlockTimestamp).putInt(addrRefundTimestamp).put((byte) (addrRefund - tempPC));
+
+		/* Transaction processing loop */
 		assert codeByteBuffer.position() == addrTxLoop : "addrTxLoop incorrect";
+
+		// Find next transaction to this AT since the last one (if any)
 		codeByteBuffer.put(OpCode.EXT_FUN_DAT.value).putShort(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A.value).putInt(addrLastTimestamp);
+		// If no transaction found, A will be zero. If A is zero, set addrComparator to 1, otherwise 0.
 		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.CHECK_A_IS_ZERO.value).putInt(addrComparator);
+		// If addrComparator is zero (i.e. A is non-zero, transaction was found) then branch to addrCheckTx
 		tempPC = codeByteBuffer.position();
 		codeByteBuffer.put(OpCode.BZR_DAT.value).putInt(addrComparator).put((byte) (addrCheckTx - tempPC));
+		// Stop and wait for next block
 		codeByteBuffer.put(OpCode.STP_IMD.value);
 
-		// checkTx:
-		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_TIMESTAMP_FROM_TX_IN_A.value).putInt(addrLastTimestamp);
-		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_TYPE_FROM_TX_IN_A.value).putInt(addrTxType);
-		tempPC = codeByteBuffer.position();
-		codeByteBuffer.put(OpCode.BNZ_DAT.value).putInt(addrTxType).put((byte) (addrCheckSender - tempPC));
-		codeByteBuffer.put(OpCode.JMP_ADR.value).putInt(addrTxLoop);
+		/* Check transaction */
+		assert codeByteBuffer.position() == addrCheckTx : "addrCheckTx incorrect";
 
-		// checkSender
-		assert codeByteBuffer.position() == addrCheckSender : "addrCheckSender incorrect";
+		// Update our 'last found transaction's timestamp' using 'timestamp' from transaction
+		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_TIMESTAMP_FROM_TX_IN_A.value).putInt(addrLastTimestamp);
+		// Extract transaction type (message/payment) from transaction and save type in addrTxType
+		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_TYPE_FROM_TX_IN_A.value).putInt(addrTxType);
+		// If transaction type is not MESSAGE type then go look for another transaction
+		tempPC = codeByteBuffer.position();
+		codeByteBuffer.put(OpCode.BNE_DAT.value).putInt(addrTxType).putInt(addrExpectedTxType).put((byte) (addrTxLoop - tempPC));
+
+		/* Check transaction's sender */
+
+		// Extract sender address from transaction into B register
 		codeByteBuffer.put(OpCode.EXT_FUN.value).putShort(FunctionCode.PUT_ADDRESS_FROM_TX_IN_A_INTO_B.value);
+		// Save B register into data segment starting at addrAddressTemp1
 		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_B_IND.value).putInt(addrAddressTemp1);
+		// Compare each part of transaction's sender's address with expected address. If they don't match, look for another transaction.
 		tempPC = codeByteBuffer.position();
 		codeByteBuffer.put(OpCode.BNE_DAT.value).putInt(addrAddressTemp1).putInt(addrAddressPart1).put((byte) (addrTxLoop - tempPC));
 		tempPC = codeByteBuffer.position();
@@ -275,26 +307,38 @@ public class BTCACCT {
 		tempPC = codeByteBuffer.position();
 		codeByteBuffer.put(OpCode.BNE_DAT.value).putInt(addrAddressTemp4).putInt(addrAddressPart4).put((byte) (addrTxLoop - tempPC));
 
-		// checkMessage:
-		assert codeByteBuffer.position() == addrCheckMessage : "addrCheckMessage incorrect";
-		codeByteBuffer.put(OpCode.EXT_FUN.value).putShort(FunctionCode.PUT_MESSAGE_FROM_TX_IN_A_INTO_B.value);
-		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_B_IND.value).putInt(addrHashTemp1);
-		codeByteBuffer.put(OpCode.EXT_FUN_DAT.value).putShort(FunctionCode.SET_B_IND.value).putInt(addrHashPart1);
-		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.CHECK_HASH160_WITH_B.value).putInt(addrHashTempIndex).putInt(addrHashTempLength);
-		tempPC = codeByteBuffer.position();
-		codeByteBuffer.put(OpCode.BNZ_DAT.value).putInt(addrComparator).put((byte) (addrPayout - tempPC));
-		codeByteBuffer.put(OpCode.JMP_ADR.value).putInt(addrTxLoop);
+		/* Check 'secret' in transaction's message */
 
-		// payout:
-		assert codeByteBuffer.position() == addrPayout : "addrPayout incorrect";
+		// Extract message from transaction into B register
+		codeByteBuffer.put(OpCode.EXT_FUN.value).putShort(FunctionCode.PUT_MESSAGE_FROM_TX_IN_A_INTO_B.value);
+		// Save B register into data segment starting at addrHashTemp1
+		codeByteBuffer.put(OpCode.EXT_FUN_RET.value).putShort(FunctionCode.GET_B_IND.value).putInt(addrHashTemp1);
+		// Load B register with expected hash result
+		codeByteBuffer.put(OpCode.EXT_FUN_DAT.value).putShort(FunctionCode.SET_B_IND.value).putInt(addrHashPart1);
+		// Perform HASH160 using source data at addrHashTemp1 through addrHashTemp4. (Location and length specified via addrHashTempIndex and addrHashTemplength).
+		// Save the equality result (1 if they match, 0 otherwise) into addrComparator.
+		codeByteBuffer.put(OpCode.EXT_FUN_RET_DAT_2.value).putShort(FunctionCode.CHECK_HASH160_WITH_B.value).putInt(addrComparator).putInt(addrHashTempIndex).putInt(addrHashTempLength);
+		// If hashes don't match, addrComparator will be zero so go find another transaction
+		tempPC = codeByteBuffer.position();
+		codeByteBuffer.put(OpCode.BZR_DAT.value).putInt(addrComparator).put((byte) (addrTxLoop - tempPC));
+
+		/* Success! Pay balance to intended recipient */
+
+		// Load B register with intended recipient address.
 		codeByteBuffer.put(OpCode.EXT_FUN_DAT.value).putShort(FunctionCode.SET_B_IND.value).putInt(addrAddressPart1);
+		// Pay AT's balance to recipient
 		codeByteBuffer.put(OpCode.EXT_FUN.value).putShort(FunctionCode.PAY_ALL_TO_ADDRESS_IN_B.value);
+		// We're finished forever
 		codeByteBuffer.put(OpCode.FIN_IMD.value);
 
-		// refund:
+		/* Refund balance back to AT creator */
 		assert codeByteBuffer.position() == addrRefund : "addrRefund incorrect";
+
+		// Load B register with AT creator's address.
 		codeByteBuffer.put(OpCode.EXT_FUN.value).putShort(FunctionCode.PUT_CREATOR_INTO_B.value);
+		// Pay AT's balance back to AT's creator.
 		codeByteBuffer.put(OpCode.EXT_FUN.value).putShort(FunctionCode.PAY_ALL_TO_ADDRESS_IN_B.value);
+		// We're finished forever
 		codeByteBuffer.put(OpCode.FIN_IMD.value);
 
 		// end-of-code

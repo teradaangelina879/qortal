@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.ciyam.at.API;
@@ -35,10 +36,14 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.AtTransaction;
 import org.qortal.transaction.Transaction;
+import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.Base58;
 
 import com.google.common.primitives.Bytes;
 
 public class QortalATAPI extends API {
+
+	private static final byte[] ADDRESS_PADDING = new byte[32 - Account.ADDRESS_LENGTH];
 
 	// Properties
 	private Repository repository;
@@ -316,18 +321,30 @@ public class QortalATAPI extends API {
 	public void putAddressFromTransactionInAIntoB(MachineState state) {
 		TransactionData transactionData = this.getTransactionFromA(state);
 
-		// We actually use public key as it has more potential utility (e.g. message verification) than an address
-		byte[] bytes = transactionData.getCreatorPublicKey();
+		String address;
+		if (transactionData.getType() == TransactionType.AT) {
+			// Use AT address from transaction data, as transaction's public key will always be fake
+			address = ((ATTransactionData) transactionData).getATAddress();
+		} else {
+			byte[] publicKey = transactionData.getCreatorPublicKey();
+			address = Crypto.toAddress(publicKey);
+		}
 
-		this.setB(state, bytes);
+		// Convert to byte form as this only takes 25 bytes,
+		// compared to string-form's 34 bytes,
+		// and we only have 32 bytes available.
+		byte[] addressBytes = Bytes.ensureCapacity(Base58.decode(address), 32, 0); // pad to 32 bytes
+
+		this.setB(state, addressBytes);
 	}
 
 	@Override
 	public void putCreatorAddressIntoB(MachineState state) {
-		// We actually use public key as it has more potential utility (e.g. message verification) than an address
-		byte[] bytes = atData.getCreatorPublicKey();
+		byte[] publicKey = atData.getCreatorPublicKey();
+		String address = Crypto.toAddress(publicKey);
+		byte[] addressBytes = Bytes.ensureCapacity(address.getBytes(), 32, 0);
 
-		this.setB(state, bytes);
+		this.setB(state, addressBytes);
 	}
 
 	@Override
@@ -490,10 +507,7 @@ public class QortalATAPI extends API {
 		 * 
 		 * We need increasing timestamps to preserve transaction order and hence a correct signature-reference chain when the block is processed.
 		 */
-
-		// XXX THE ABOVE IS NO LONGER TRUE IN QORTAL!
-		// return this.blockTimestamp + this.transactions.size();
-		throw new RuntimeException("AT timestamp code not fixed!");
+		return this.blockTimestamp + this.transactions.size();
 	}
 
 	/** Returns AT account's lastReference, taking newly generated ATTransactions into account */
@@ -515,21 +529,22 @@ public class QortalATAPI extends API {
 	/**
 	 * Returns Account (possibly PublicKeyAccount) based on value in B.
 	 * <p>
-	 * If bytes in B start with 'Q' then use B as an address, but only if valid.
+	 * If first byte in B starts with either address version bytes,<br>
+	 * and bytes 26 to 32 are zero, then use as an address, but only if valid.
 	 * <p>
 	 * Otherwise, assume B is a public key.
-	 * @return
 	 */
 	private Account getAccountFromB(MachineState state) {
 		byte[] bBytes = state.getB();
 
-		if (bBytes[0] == 'Q') {
-			int zeroIndex = Bytes.indexOf(bBytes, (byte) 0);
-			if (zeroIndex > 0) {
-				String address = new String(bBytes, 0, zeroIndex);
-				if (Crypto.isValidAddress(address))
-					return new Account(this.repository, address);
-			}
+		if ((bBytes[0] == Crypto.ADDRESS_VERSION || bBytes[0] == Crypto.AT_ADDRESS_VERSION)
+				&& Arrays.mismatch(bBytes, Account.ADDRESS_LENGTH, 32, ADDRESS_PADDING, 0, ADDRESS_PADDING.length) == -1) {
+			// Extract only the bytes containing address
+			byte[] addressBytes = Arrays.copyOf(bBytes, Account.ADDRESS_LENGTH);
+			// If address (in byte form) is valid...
+			if (Crypto.isValidAddress(addressBytes))
+				// ...then return an Account using address (converted to Base58
+				return new Account(this.repository, Base58.encode(addressBytes));
 		}
 
 		return new PublicKeyAccount(this.repository, bBytes);

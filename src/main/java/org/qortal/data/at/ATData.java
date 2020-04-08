@@ -46,6 +46,14 @@ public class ATData {
 			this.frozenBalance = BigDecimal.valueOf(frozenBalance, 8);
 	}
 
+	/** For constructing skeleton ATData with bare minimum info. */
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, long assetId) {
+		this.ATAddress = ATAddress;
+		this.creatorPublicKey = creatorPublicKey;
+		this.creation = creation;
+		this.assetId = assetId;
+	}
+
 	// Getters / setters
 
 	public String getATAddress() {

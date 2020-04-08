@@ -8,12 +8,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.ciyam.at.MachineState;
+import org.ciyam.at.Timestamp;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.at.AT;
+import org.qortal.at.QortalATAPI;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.asset.AssetData;
+import org.qortal.data.at.ATData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
@@ -79,6 +82,7 @@ public class DeployAtTransaction extends Transaction {
 	/** Returns AT version from the header bytes */
 	private short getVersion() {
 		byte[] creationBytes = deployATTransactionData.getCreationBytes();
+		// XXX this is currently little-endian, but ok for the moment as newer versions will be reported as 512+ so tests like version >= 2 will work
 		return (short) ((creationBytes[0] & 0xff) | (creationBytes[1] << 8)); // Little-endian
 	}
 
@@ -86,6 +90,13 @@ public class DeployAtTransaction extends Transaction {
 	private void ensureATAddress() throws DataException {
 		if (this.deployATTransactionData.getAtAddress() != null)
 			return;
+
+		// For new version, simply use transaction signature
+		if (this.getVersion() > 1) {
+			String atAddress = Crypto.toATAddress(this.deployATTransactionData.getSignature());
+			this.deployATTransactionData.setAtAddress(atAddress);
+			return;
+		}
 
 		int blockHeight = this.getHeight();
 		if (blockHeight == 0)
@@ -189,8 +200,21 @@ public class DeployAtTransaction extends Transaction {
 		// Check creation bytes are valid (for v2+)
 		if (this.getVersion() >= 2) {
 			// Do actual validation
+			ensureATAddress();
+
+			// Just enough AT data to allow API to query initial balances, etc.
+			String atAddress = this.deployATTransactionData.getAtAddress();
+			byte[] creatorPublicKey = this.deployATTransactionData.getCreatorPublicKey();
+			long creation = this.deployATTransactionData.getTimestamp();
+			ATData skeletonAtData = new ATData(atAddress, creatorPublicKey, creation, assetId);
+
+			int height = this.repository.getBlockRepository().getBlockchainHeight() + 1;
+			long blockTimestamp = Timestamp.toLong(height, 0);
+
+			QortalATAPI api = new QortalATAPI(repository, skeletonAtData, blockTimestamp);
+
 			try {
-				new MachineState(deployATTransactionData.getCreationBytes());
+				new MachineState(api, deployATTransactionData.getCreationBytes());
 			} catch (IllegalArgumentException e) {
 				// Not valid
 				return ValidationResult.INVALID_CREATION_BYTES;

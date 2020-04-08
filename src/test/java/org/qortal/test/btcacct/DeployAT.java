@@ -129,8 +129,13 @@ public class DeployAT {
 			}
 
 			BigDecimal fee = BigDecimal.ZERO;
+			String name = "QORT-BTC cross-chain trade";
+			String description = String.format("Qortal-Bitcoin cross-chain trade between %s and %s", refundAccount.getAddress(), redeemAddress);
+			String atType = "ACCT";
+			String tags = "QORT-BTC ACCT";
+
 			BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, refundAccount.getPublicKey(), fee, null);
-			TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, "QORT-BTC", "QORT-BTC ACCT", "", "", creationBytes, qortAmount, Asset.QORT);
+			TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, qortAmount, Asset.QORT);
 
 			Transaction deployAtTransaction = new DeployAtTransaction(repository, deployAtTransactionData);
 

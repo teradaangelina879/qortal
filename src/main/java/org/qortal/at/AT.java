@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.ciyam.at.MachineState;
+import org.ciyam.at.Timestamp;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
@@ -48,7 +49,13 @@ public class AT {
 		short version = (short) ((creationBytes[0] & 0xff) | (creationBytes[1] << 8)); // Little-endian
 
 		if (version >= 2) {
-			MachineState machineState = new MachineState(deployATTransactionData.getCreationBytes());
+			// Just enough AT data to allow API to query initial balances, etc.
+			ATData skeletonAtData = new ATData(atAddress, creatorPublicKey, creation, assetId);
+
+			long blockTimestamp = Timestamp.toLong(height, 0);
+			QortalATAPI api = new QortalATAPI(repository, skeletonAtData, blockTimestamp);
+
+			MachineState machineState = new MachineState(api, deployATTransactionData.getCreationBytes());
 
 			this.atData = new ATData(atAddress, creatorPublicKey, creation, machineState.version, assetId, machineState.getCodeBytes(),
 					machineState.getIsSleeping(), machineState.getSleepUntilHeight(), machineState.getIsFinished(), machineState.getHadFatalError(),
