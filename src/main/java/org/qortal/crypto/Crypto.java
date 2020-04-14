@@ -59,6 +59,18 @@ public class Crypto {
 		return Bytes.concat(digest, digest);
 	}
 
+	/** Returns RMD160(SHA256(data)) */
+	public static byte[] hash160(byte[] data) {
+		byte[] interim = digest(data);
+
+		try {
+			MessageDigest md160 = MessageDigest.getInstance("RIPEMD160");
+			return md160.digest(interim);
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("RIPEMD160 message digest not available");
+		}
+	}
+
 	@SuppressWarnings("deprecation")
 	private static String toAddress(byte addressVersion, byte[] input) {
 		// SHA2-256 input to create new data and of known size

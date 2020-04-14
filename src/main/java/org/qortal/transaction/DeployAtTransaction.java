@@ -13,6 +13,7 @@ import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.at.AT;
 import org.qortal.at.QortalATAPI;
+import org.qortal.at.QortalAtLoggerFactory;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.asset.AssetData;
@@ -212,9 +213,10 @@ public class DeployAtTransaction extends Transaction {
 			long blockTimestamp = Timestamp.toLong(height, 0);
 
 			QortalATAPI api = new QortalATAPI(repository, skeletonAtData, blockTimestamp);
+			QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
 
 			try {
-				new MachineState(api, deployATTransactionData.getCreationBytes());
+				new MachineState(api, loggerFactory, deployATTransactionData.getCreationBytes());
 			} catch (IllegalArgumentException e) {
 				// Not valid
 				return ValidationResult.INVALID_CREATION_BYTES;

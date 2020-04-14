@@ -17,9 +17,9 @@ public class BlockUtils {
 	private static final Logger LOGGER = LogManager.getLogger(BlockUtils.class);
 
 	/** Mints a new block using "alice-reward-share" test account. */
-	public static void mintBlock(Repository repository) throws DataException {
+	public static Block mintBlock(Repository repository) throws DataException {
 		PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice-reward-share");
-		BlockMinter.mintTestingBlock(repository, mintingAccount);
+		return BlockMinter.mintTestingBlock(repository, mintingAccount);
 	}
 
 	public static BigDecimal getNextBlockReward(Repository repository) throws DataException {

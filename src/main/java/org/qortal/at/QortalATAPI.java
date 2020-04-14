@@ -1,12 +1,13 @@
 package org.qortal.at;
 
 import java.math.BigDecimal;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ciyam.at.API;
 import org.ciyam.at.ExecutionException;
 import org.ciyam.at.FunctionData;
@@ -44,6 +45,7 @@ import com.google.common.primitives.Bytes;
 public class QortalATAPI extends API {
 
 	private static final byte[] ADDRESS_PADDING = new byte[32 - Account.ADDRESS_LENGTH];
+	private static final Logger LOGGER = LogManager.getLogger(QortalATAPI.class);
 
 	// Properties
 	private Repository repository;
@@ -128,13 +130,14 @@ public class QortalATAPI extends API {
 				throw new RuntimeException("AT API unable to fetch previous block hash?");
 
 			// Block's signature is 128 bytes so we need to reduce this to 4 longs (32 bytes)
-			// To be able to use hash to look up block, save height (8 bytes) and rehash with SHA192 (24 bytes)
+			// To be able to use hash to look up block, save height (8 bytes) and partial signature (24 bytes)
 			this.setA1(state, previousBlockHeight);
 
-			byte[] sigHash192 = sha192(blockSummaries.get(0).getSignature());
-			this.setA2(state, fromBytes(sigHash192, 0));
-			this.setA3(state, fromBytes(sigHash192, 8));
-			this.setA4(state, fromBytes(sigHash192, 16));
+			byte[] signature = blockSummaries.get(0).getSignature();
+			// Save some of minter's signature and transactions signature, so middle 24 bytes of the full 128 byte signature.
+			this.setA2(state, fromBytes(signature, 52));
+			this.setA3(state, fromBytes(signature, 60));
+			this.setA4(state, fromBytes(signature, 68));
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch previous block?", e);
 		}
@@ -143,7 +146,7 @@ public class QortalATAPI extends API {
 	@Override
 	public void putTransactionAfterTimestampIntoA(Timestamp timestamp, MachineState state) {
 		// Recipient is this AT
-		String recipient = this.atData.getATAddress();
+		String atAddress = this.atData.getATAddress();
 
 		int height = timestamp.blockHeight;
 		int sequence = timestamp.transactionSequence + 1;
@@ -151,39 +154,44 @@ public class QortalATAPI extends API {
 		BlockRepository blockRepository = this.getRepository().getBlockRepository();
 
 		try {
-			Account recipientAccount = new Account(this.getRepository(), recipient);
 			int currentHeight = blockRepository.getBlockchainHeight();
+			List<Transaction> blockTransactions = null;
 
 			while (height <= currentHeight) {
-				BlockData blockData = blockRepository.fromHeight(height);
+				if (blockTransactions == null) {
+					BlockData blockData = blockRepository.fromHeight(height);
 
-				if (blockData == null)
-					throw new DataException("Unable to fetch block " + height + " from repository?");
+					if (blockData == null)
+						throw new DataException("Unable to fetch block " + height + " from repository?");
 
-				Block block = new Block(this.getRepository(), blockData);
+					Block block = new Block(this.getRepository(), blockData);
 
-				List<Transaction> blockTransactions = block.getTransactions();
+					blockTransactions = block.getTransactions();
+				}
 
 				// No more transactions in this block? Try next block
 				if (sequence >= blockTransactions.size()) {
 					++height;
 					sequence = 0;
+					blockTransactions = null;
 					continue;
 				}
 
 				Transaction transaction = blockTransactions.get(sequence);
 
 				// Transaction needs to be sent to specified recipient
-				if (transaction.getRecipientAccounts().contains(recipientAccount)) {
+				List<Account> recipientAccounts = transaction.getRecipientAccounts();
+				List<String> recipientAddresses = recipientAccounts.stream().map(Account::getAddress).collect(Collectors.toList());
+				if (recipientAddresses.contains(atAddress)) {
 					// Found a transaction
 
 					this.setA1(state, new Timestamp(height, timestamp.blockchainId, sequence).longValue());
 
-					// Hash transaction's signature into other three A fields for future verification that it's the same transaction
-					byte[] sigHash192 = sha192(transaction.getTransactionData().getSignature());
-					this.setA2(state, fromBytes(sigHash192, 0));
-					this.setA3(state, fromBytes(sigHash192, 8));
-					this.setA4(state, fromBytes(sigHash192, 16));
+					// Copy transaction's partial signature into the other three A fields for future verification that it's the same transaction
+					byte[] signature = transaction.getTransactionData().getSignature();
+					this.setA2(state, fromBytes(signature, 8));
+					this.setA3(state, fromBytes(signature, 16));
+					this.setA4(state, fromBytes(signature, 24));
 
 					return;
 				}
@@ -245,7 +253,7 @@ public class QortalATAPI extends API {
 	@Override
 	public long getTimestampFromTransactionInA(MachineState state) {
 		// Transaction's "timestamp" already stored in A1
-		Timestamp timestamp = new Timestamp(state.getA1());
+		Timestamp timestamp = new Timestamp(this.getA1(state));
 		return timestamp.longValue();
 	}
 
@@ -340,11 +348,10 @@ public class QortalATAPI extends API {
 
 	@Override
 	public void putCreatorAddressIntoB(MachineState state) {
+		// Simply use raw public key
 		byte[] publicKey = atData.getCreatorPublicKey();
-		String address = Crypto.toAddress(publicKey);
-		byte[] addressBytes = Bytes.ensureCapacity(address.getBytes(), 32, 0);
 
-		this.setB(state, addressBytes);
+		this.setB(state, publicKey);
 	}
 
 	@Override
@@ -377,7 +384,7 @@ public class QortalATAPI extends API {
 
 	@Override
 	public void messageAToB(MachineState state) {
-		byte[] message = state.getA();
+		byte[] message = this.getA(state);
 		Account recipient = getAccountFromB(state);
 
 		long timestamp = this.getNextTransactionTimestamp();
@@ -404,6 +411,9 @@ public class QortalATAPI extends API {
 
 	@Override
 	public void onFinished(long finalBalance, MachineState state) {
+		if (finalBalance <= 0)
+			return;
+
 		// Refund remaining balance (if any) to AT's creator
 		Account creator = this.getCreator();
 		long timestamp = this.getNextTransactionTimestamp();
@@ -421,7 +431,7 @@ public class QortalATAPI extends API {
 
 	@Override
 	public void onFatalError(MachineState state, ExecutionException e) {
-		state.getLogger().error("AT " + this.atData.getATAddress() + " suffered fatal error: " + e.getMessage());
+		LOGGER.error("AT " + this.atData.getATAddress() + " suffered fatal error: " + e.getMessage());
 	}
 
 	@Override
@@ -432,7 +442,7 @@ public class QortalATAPI extends API {
 		if (qortalFunctionCode == null)
 			throw new IllegalFunctionCodeException("Unknown Qortal function code 0x" + String.format("%04x", rawFunctionCode) + " encountered");
 
-		qortalFunctionCode.preExecuteCheck(2, true, state, rawFunctionCode);
+		qortalFunctionCode.preExecuteCheck(paramCount, returnValueExpected, rawFunctionCode);
 	}
 
 	@Override
@@ -450,29 +460,23 @@ public class QortalATAPI extends API {
 				| (bytes[start + 4] & 0xffL) << 32 | (bytes[start + 5] & 0xffL) << 40 | (bytes[start + 6] & 0xffL) << 48 | (bytes[start + 7] & 0xffL) << 56;
 	}
 
-	/** Returns SHA2-192 digest of input - used to verify transaction signatures */
-	public static byte[] sha192(byte[] input) {
-		try {
-			// SHA2-192
-			MessageDigest sha192 = MessageDigest.getInstance("SHA-192");
-			return sha192.digest(input);
-		} catch (NoSuchAlgorithmException e) {
-			throw new RuntimeException("SHA-192 not available");
-		}
+	/** Returns partial transaction signature, used to verify we're operating on the same transaction and not naively using block height & sequence. */
+	public static byte[] partialSignature(byte[] fullSignature) {
+		return Arrays.copyOfRange(fullSignature, 8, 32);
 	}
 
-	/** Verify transaction's SHA2-192 hashed signature matches A2 thru A4 */
-	private static void verifyTransaction(TransactionData transactionData, MachineState state) {
-		// Compare SHA2-192 of transaction's signature against A2 thru A4
-		byte[] hash = sha192(transactionData.getSignature());
+	/** Verify transaction's partial signature matches A2 thru A4 */
+	private void verifyTransaction(TransactionData transactionData, MachineState state) {
+		// Compare end of transaction's signature against A2 thru A4
+		byte[] sig = transactionData.getSignature();
 
-		if (state.getA2() != fromBytes(hash, 0) || state.getA3() != fromBytes(hash, 8) || state.getA4() != fromBytes(hash, 16))
+		if (this.getA2(state) != fromBytes(sig, 8) || this.getA3(state) != fromBytes(sig, 16) || this.getA4(state) != fromBytes(sig, 24))
 			throw new IllegalStateException("Transaction signature in A no longer matches signature from repository");
 	}
 
 	/** Returns transaction data from repository using block height & sequence from A1, checking the transaction signatures match too */
 	/* package */ TransactionData getTransactionFromA(MachineState state) {
-		Timestamp timestamp = new Timestamp(state.getA1());
+		Timestamp timestamp = new Timestamp(this.getA1(state));
 
 		try {
 			TransactionData transactionData = this.repository.getTransactionRepository().fromHeightAndSequence(timestamp.blockHeight,
@@ -503,11 +507,11 @@ public class QortalATAPI extends API {
 	/** Returns the timestamp to use for next AT Transaction */
 	private long getNextTransactionTimestamp() {
 		/*
-		 * Timestamp is block's timestamp + position in AT-Transactions list.
+		 * Use block's timestamp.
 		 * 
-		 * We need increasing timestamps to preserve transaction order and hence a correct signature-reference chain when the block is processed.
+		 * This is OK because AT transactions are always generated locally and order is preserved in Transaction.getDataComparator().
 		 */
-		return this.blockTimestamp + this.transactions.size();
+		return this.blockTimestamp;
 	}
 
 	/** Returns AT account's lastReference, taking newly generated ATTransactions into account */
@@ -535,7 +539,7 @@ public class QortalATAPI extends API {
 	 * Otherwise, assume B is a public key.
 	 */
 	private Account getAccountFromB(MachineState state) {
-		byte[] bBytes = state.getB();
+		byte[] bBytes = this.getB(state);
 
 		if ((bBytes[0] == Crypto.ADDRESS_VERSION || bBytes[0] == Crypto.AT_ADDRESS_VERSION)
 				&& Arrays.mismatch(bBytes, Account.ADDRESS_LENGTH, 32, ADDRESS_PADDING, 0, ADDRESS_PADDING.length) == -1) {
@@ -548,6 +552,16 @@ public class QortalATAPI extends API {
 		}
 
 		return new PublicKeyAccount(this.repository, bBytes);
+	}
+
+	/* Convenience methods to allow QortalFunctionCode package-visibility access to A/B-get/set methods. */
+
+	protected byte[] getB(MachineState state) {
+		return super.getB(state);
+	}
+
+	protected void setB(MachineState state, byte[] bBytes) {
+		super.setB(state, bBytes);
 	}
 
 }

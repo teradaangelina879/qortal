@@ -34,7 +34,7 @@ public class BuildP2SH {
 				+ "mrTDPdM15cFWJC4g223BXX5snicfVJBx6M \\\n"
 				+ "\t0.00008642 \\\n"
 				+ "\tn2N5VKrzq39nmuefZwp3wBiF4icdXX2B6o \\\n"
-				+ "\td1b64100879ad93ceaa3c15929b6fe8550f54967 \\\n"
+				+ "\tdaf59884b4d1aec8c1b17102530909ee43c0151a \\\n"
 				+ "\t1585920000"));
 		System.exit(1);
 	}

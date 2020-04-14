@@ -32,34 +32,37 @@ import com.google.common.hash.HashCode;
 
 public class DeployAT {
 
+	public static final BigDecimal atFundingExtra = new BigDecimal("0.2").setScale(8);
+
 	private static void usage(String error) {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <redeem Qortal address> <HASH160-of-secret> <locktime> (<initial QORT payout>)"));
+		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <redeem Qortal address> <HASH160-of-secret> <locktime> [<initial QORT payout> [<AT funding amount>]]"));
 		System.err.println(String.format("example: DeployAT "
 				+ "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot \\\n"
 				+ "\t3.1415 \\\n"
 				+ "\tQgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v \\\n"
-				+ "\td1b64100879ad93ceaa3c15929b6fe8550f54967 \\\n"
+				+ "\tdaf59884b4d1aec8c1b17102530909ee43c0151a \\\n"
 				+ "\t1585920000 \\\n"
 				+ "\t0.0001"));
 		System.exit(1);
 	}
 
 	public static void main(String[] args) {
-		if (args.length < 5 || args.length > 6)
+		if (args.length < 5 || args.length > 7)
 			usage(null);
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
 		Settings.fileInstance("settings-test.json");
 
 		byte[] refundPrivateKey = null;
-		BigDecimal qortAmount = null;
+		BigDecimal redeemAmount = null;
 		String redeemAddress = null;
 		byte[] secretHash = null;
 		int lockTime = 0;
 		BigDecimal initialPayout = BigDecimal.ZERO.setScale(8);
+		BigDecimal fundingAmount = null;
 
 		int argIndex = 0;
 		try {
@@ -67,8 +70,8 @@ public class DeployAT {
 			if (refundPrivateKey.length != 32)
 				usage("Refund private key must be 32 bytes");
 
-			qortAmount = new BigDecimal(args[argIndex++]);
-			if (qortAmount.signum() <= 0)
+			redeemAmount = new BigDecimal(args[argIndex++]).setScale(8);
+			if (redeemAmount.signum() <= 0)
 				usage("QORT amount must be positive");
 
 			redeemAddress = args[argIndex++];
@@ -83,6 +86,13 @@ public class DeployAT {
 
 			if (args.length > argIndex)
 				initialPayout = new BigDecimal(args[argIndex++]).setScale(8);
+
+			if (args.length > argIndex) {
+				fundingAmount = new BigDecimal(args[argIndex++]).setScale(8);
+
+				if (fundingAmount.compareTo(redeemAmount) <= 0)
+					usage("AT funding amount must be greater than QORT redeem amount");
+			}
 		} catch (IllegalArgumentException e) {
 			usage(String.format("Invalid argument %d: %s", argIndex, e.getMessage()));
 		}
@@ -100,7 +110,11 @@ public class DeployAT {
 			PrivateKeyAccount refundAccount = new PrivateKeyAccount(repository, refundPrivateKey);
 			System.out.println(String.format("Refund Qortal address: %s", refundAccount.getAddress()));
 
-			System.out.println(String.format("QORT amount (INCLUDING FEES): %s", qortAmount.toPlainString()));
+			System.out.println(String.format("QORT redeem amount: %s", redeemAmount.toPlainString()));
+
+			if (fundingAmount == null)
+				fundingAmount = redeemAmount.add(atFundingExtra);
+			System.out.println(String.format("AT funding amount: %s", fundingAmount.toPlainString()));
 
 			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
@@ -117,7 +131,7 @@ public class DeployAT {
 			final int BLOCK_TIME = 60; // seconds
 			final int refundTimeout = (lockTime - (int) (System.currentTimeMillis() / 1000L)) / BLOCK_TIME;
 
-			byte[] creationBytes = BTCACCT.buildQortalAT(secretHash, redeemAddress, refundTimeout, initialPayout);
+			byte[] creationBytes = BTCACCT.buildQortalAT(secretHash, redeemAddress, refundTimeout, initialPayout, fundingAmount);
 			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			long txTimestamp = System.currentTimeMillis();
@@ -135,7 +149,7 @@ public class DeployAT {
 			String tags = "QORT-BTC ACCT";
 
 			BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, refundAccount.getPublicKey(), fee, null);
-			TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, qortAmount, Asset.QORT);
+			TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, redeemAmount, Asset.QORT);
 
 			Transaction deployAtTransaction = new DeployAtTransaction(repository, deployAtTransactionData);
 

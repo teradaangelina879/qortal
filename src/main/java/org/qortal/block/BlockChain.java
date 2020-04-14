@@ -471,7 +471,7 @@ public class BlockChain {
 		this.unitFee = this.unitFee.setScale(8);
 		this.minFeePerByte = this.unitFee.divide(this.maxBytesPerUnitFee, MathContext.DECIMAL32);
 
-		this.ciyamAtSettings.feePerStep.setScale(8);
+		this.ciyamAtSettings.feePerStep = this.ciyamAtSettings.feePerStep.setScale(8);
 
 		// Pre-calculate cumulative blocks required for each level
 		int cumulativeBlocks = 0;

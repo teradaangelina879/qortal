@@ -4,6 +4,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.ciyam.at.ExecutionException;
 import org.ciyam.at.FunctionData;
 import org.ciyam.at.IllegalFunctionCodeException;
@@ -30,9 +32,9 @@ public enum QortalFunctionCode {
 			byte[] pkh = new byte[32];
 
 			// Copy PKH part of B to last 20 bytes
-			System.arraycopy(state.getB(), 32 - 20 - 4, pkh, 32 - 20, 20);
+			System.arraycopy(getB(state), 32 - 20 - 4, pkh, 32 - 20, 20);
 
-			state.getAPI().setB(state, pkh);
+			setB(state, pkh);
 		}
 	},
 	/**
@@ -64,6 +66,8 @@ public enum QortalFunctionCode {
 	public final int paramCount;
 	public final boolean returnsValue;
 
+	private static final Logger LOGGER = LogManager.getLogger(QortalFunctionCode.class);
+
 	private static final Map<Short, QortalFunctionCode> map = Arrays.stream(QortalFunctionCode.values())
 			.collect(Collectors.toMap(functionCode -> functionCode.value, functionCode -> functionCode));
 
@@ -77,7 +81,7 @@ public enum QortalFunctionCode {
 		return map.get((short) value);
 	}
 
-	public void preExecuteCheck(int paramCount, boolean returnValueExpected, MachineState state, short rawFunctionCode) throws IllegalFunctionCodeException {
+	public void preExecuteCheck(int paramCount, boolean returnValueExpected, short rawFunctionCode) throws IllegalFunctionCodeException {
 		if (paramCount != this.paramCount)
 			throw new IllegalFunctionCodeException(
 					"Passed paramCount (" + paramCount + ") does not match function's required paramCount (" + this.paramCount + ")");
@@ -100,7 +104,7 @@ public enum QortalFunctionCode {
 	 */
 	public void execute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
 		// Check passed functionData against requirements of this function
-		preExecuteCheck(functionData.paramCount, functionData.returnValueExpected, state, rawFunctionCode);
+		preExecuteCheck(functionData.paramCount, functionData.returnValueExpected, rawFunctionCode);
 
 		if (functionData.paramCount >= 1 && functionData.value1 == null)
 			throw new IllegalFunctionCodeException("Passed value1 is null but function has paramCount of (" + this.paramCount + ")");
@@ -108,7 +112,7 @@ public enum QortalFunctionCode {
 		if (functionData.paramCount == 2 && functionData.value2 == null)
 			throw new IllegalFunctionCodeException("Passed value2 is null but function has paramCount of (" + this.paramCount + ")");
 
-		state.getLogger().debug("Function \"" + this.name() + "\"");
+		LOGGER.debug(() -> String.format("Function \"%s\"", this.name()));
 
 		postCheckExecute(functionData, state, rawFunctionCode);
 	}
@@ -119,7 +123,7 @@ public enum QortalFunctionCode {
 	private static void convertAddressInB(byte addressPrefix, MachineState state) {
 		byte[] addressNoChecksum = new byte[1 + 20];
 		addressNoChecksum[0] = addressPrefix;
-		System.arraycopy(state.getB(), 0, addressNoChecksum, 1, 20);
+		System.arraycopy(getB(state), 0, addressNoChecksum, 1, 20);
 
 		byte[] checksum = Crypto.doubleDigest(addressNoChecksum);
 
@@ -128,7 +132,17 @@ public enum QortalFunctionCode {
 		System.arraycopy(addressNoChecksum, 0, address, 32 - 1 - 20 - 4, addressNoChecksum.length);
 		System.arraycopy(checksum, 0, address, 32 - 4, 4);
 
-		state.getAPI().setB(state, address);
+		setB(state, address);
+	}
+
+	private static byte[] getB(MachineState state) {
+		QortalATAPI api = (QortalATAPI) state.getAPI();
+		return api.getB(state);
+	}
+
+	private static void setB(MachineState state, byte[] bBytes) {
+		QortalATAPI api = (QortalATAPI) state.getAPI();
+		api.setB(state, bBytes);
 	}
 
 }

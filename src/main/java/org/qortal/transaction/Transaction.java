@@ -1020,11 +1020,16 @@ public abstract class Transaction {
 				// AT transactions come before non-AT transactions
 				if (td1.getType() == TransactionType.AT && td2.getType() != TransactionType.AT)
 					return -1;
+
 				// Non-AT transactions come after AT transactions
 				if (td1.getType() != TransactionType.AT && td2.getType() == TransactionType.AT)
 					return 1;
 
-				// Both transactions are either AT or non-AT so compare timestamps
+				// If both transactions are AT type, then preserve existing ordering.
+				if (td1.getType() == TransactionType.AT)
+					return 0;
+
+				// Both transactions are non-AT so compare timestamps
 				int result = Long.compare(td1.getTimestamp(), td2.getTimestamp());
 
 				if (result == 0)

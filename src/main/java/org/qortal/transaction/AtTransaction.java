@@ -178,6 +178,8 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public void processReferencesAndFees() throws DataException {
+		getATAccount().setLastReference(this.atTransactionData.getSignature());
+
 		if (this.atTransactionData.getAmount() != null) {
 			Account recipient = getRecipient();
 			long assetId = this.atTransactionData.getAssetId();
@@ -211,6 +213,8 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public void orphanReferencesAndFees() throws DataException {
+		getATAccount().setLastReference(this.atTransactionData.getReference());
+
 		if (this.atTransactionData.getAmount() != null) {
 			Account recipient = getRecipient();
 

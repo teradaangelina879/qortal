@@ -975,6 +975,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CHECKPOINT DEFRAG");
 					break;
 
+				case 71:
+					// Add flag to AT state data to indicate 'initial deployment state'
+					stmt.execute("ALTER TABLE ATStates ADD COLUMN is_initial BOOLEAN NOT NULL DEFAULT TRUE");
+					break;
+
 				default:
 					// nothing to do
 					return false;

@@ -506,8 +506,10 @@ public class Block {
 		// Allocate cache for results
 		List<TransactionData> transactionsData = this.repository.getBlockRepository().getTransactionsFromSignature(this.blockData.getSignature());
 
-		// The number of transactions fetched from repository should correspond with Block's transactionCount
-		if (transactionsData.size() != this.blockData.getTransactionCount())
+		long nonAtTransactionCount = transactionsData.stream().filter(transactionData -> transactionData.getType() != TransactionType.AT).count();
+
+		// The number of non-AT transactions fetched from repository should correspond with Block's transactionCount
+		if (nonAtTransactionCount != this.blockData.getTransactionCount())
 			throw new IllegalStateException("Block's transactions from repository do not match block's transaction count");
 
 		this.transactions = new ArrayList<>();
@@ -540,8 +542,10 @@ public class Block {
 		// Allocate cache for results
 		List<ATStateData> atStateData = this.repository.getATRepository().getBlockATStatesAtHeight(this.blockData.getHeight());
 
-		// The number of AT states fetched from repository should correspond with Block's atCount
-		if (atStateData.size() != this.blockData.getATCount())
+		// The number of non-initial AT states fetched from repository should correspond with Block's atCount.
+		// We exclude initial AT states created by processing DEPLOY_AT transactions as they are never serialized and so not included in block's AT count.
+		int nonInitialCount = (int) atStateData.stream().filter(atState -> !atState.isInitial()).count();
+		if (nonInitialCount != this.blockData.getATCount())
 			throw new IllegalStateException("Block's AT states from repository do not match block's AT count");
 
 		this.atStates = atStateData;
@@ -1182,7 +1186,7 @@ public class Block {
 		// Run each AT, appends AT-Transactions and corresponding AT states, to our lists
 		for (ATData atData : executableATs) {
 			AT at = new AT(this.repository, atData);
-			List<AtTransaction> atTransactions = at.run(this.blockData.getTimestamp());
+			List<AtTransaction> atTransactions = at.run(this.blockData.getHeight(), this.blockData.getTimestamp());
 
 			allAtTransactions.addAll(atTransactions);
 
@@ -1192,14 +1196,16 @@ public class Block {
 			this.ourAtFees = this.ourAtFees.add(atStateData.getFees());
 		}
 
+		// AT Transactions never need approval
+		allAtTransactions.forEach(transaction -> transaction.getTransactionData().setApprovalStatus(ApprovalStatus.NOT_REQUIRED));
+
 		// Prepend our entire AT-Transactions/states to block's transactions
 		this.transactions.addAll(0, allAtTransactions);
 
 		// Re-sort
 		this.transactions.sort(Transaction.getComparator());
 
-		// Update transaction count
-		this.blockData.setTransactionCount(this.blockData.getTransactionCount() + 1);
+		// AT Transactions do not affect block's transaction count
 
 		// We've added transactions, so recalculate transactions signature
 		calcTransactionsSignature();
@@ -1408,13 +1414,17 @@ public class Block {
 	protected void processAtFeesAndStates() throws DataException {
 		ATRepository atRepository = this.repository.getATRepository();
 
-		for (ATStateData atState : this.getATStates()) {
-			Account atAccount = new Account(this.repository, atState.getATAddress());
+		for (ATStateData atStateData : this.getATStates()) {
+			Account atAccount = new Account(this.repository, atStateData.getATAddress());
 
 			// Subtract AT-generated fees from AT accounts
-			atAccount.setConfirmedBalance(Asset.QORT, atAccount.getConfirmedBalance(Asset.QORT).subtract(atState.getFees()));
+			atAccount.setConfirmedBalance(Asset.QORT, atAccount.getConfirmedBalance(Asset.QORT).subtract(atStateData.getFees()));
 
-			atRepository.save(atState);
+			// Update AT info with latest state
+			ATData atData = atRepository.fromATAddress(atStateData.getATAddress());
+
+			AT at = new AT(repository, atData, atStateData);
+			at.update(this.blockData.getHeight(), this.blockData.getTimestamp());
 		}
 	}
 
@@ -1568,15 +1578,18 @@ public class Block {
 
 	protected void orphanAtFeesAndStates() throws DataException {
 		ATRepository atRepository = this.repository.getATRepository();
-		for (ATStateData atState : this.getATStates()) {
-			Account atAccount = new Account(this.repository, atState.getATAddress());
+		for (ATStateData atStateData : this.getATStates()) {
+			Account atAccount = new Account(this.repository, atStateData.getATAddress());
 
 			// Return AT-generated fees to AT accounts
-			atAccount.setConfirmedBalance(Asset.QORT, atAccount.getConfirmedBalance(Asset.QORT).add(atState.getFees()));
-		}
+			atAccount.setConfirmedBalance(Asset.QORT, atAccount.getConfirmedBalance(Asset.QORT).add(atStateData.getFees()));
 
-		// Delete ATStateData for this height
-		atRepository.deleteATStates(this.blockData.getHeight());
+			// Revert AT info to prior values
+			ATData atData = atRepository.fromATAddress(atStateData.getATAddress());
+
+			AT at = new AT(repository, atData, atStateData);
+			at.revert(this.blockData.getHeight(), this.blockData.getTimestamp());
+		}
 	}
 
 	protected void decreaseAccountLevels() throws DataException {

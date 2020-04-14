@@ -13,17 +13,23 @@ import org.qortal.settings.Settings;
 public class orphan {
 
 	public static void main(String[] args) {
-		if (args.length == 0) {
-			System.err.println("usage: orphan <new-blockchain-tip-height>");
+		if (args.length < 1 || args.length > 2) {
+			System.err.println("usage: orphan [<settings-file>] <new-blockchain-tip-height>");
 			System.exit(1);
 		}
 
-		int targetHeight = Integer.parseInt(args[0]);
-
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
 
-		// Load/check settings, which potentially sets up blockchain config, etc.
-		Settings.getInstance();
+		int argIndex = 0;
+
+		if (args.length > 1) {
+			Settings.fileInstance(args[argIndex++]);
+		} else {
+			// Load/check settings, which potentially sets up blockchain config, etc.
+			Settings.getInstance();
+		}
+
+		int targetHeight = Integer.parseInt(args[argIndex]);
 
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.getRepositoryUrl());

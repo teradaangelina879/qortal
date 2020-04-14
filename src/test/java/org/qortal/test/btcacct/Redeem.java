@@ -44,7 +44,7 @@ public class Redeem {
 				+ "2NEZboTLhBDPPQciR7sExBhy3TsDi7wV3Cv \\\n"
 				+ "\tmrTDPdM15cFWJC4g223BXX5snicfVJBx6M \\\n"
 				+ "\tec199a4abc9d3bf024349e397535dfee9d287e174aeabae94237eb03a0118c03 \\\n"
-				+ "\t736563726574 \\\n"
+				+ "\t5468697320737472696e672069732065786163746c7920333220627974657321 \\\n"
 				+ "\t1585920000"));
 		System.exit(1);
 	}
