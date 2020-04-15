@@ -528,103 +528,105 @@ public class Controller extends Thread {
 		int index = new SecureRandom().nextInt(peers.size());
 		Peer peer = peers.get(index);
 
+		actuallySynchronize(peer, false);
+	}
+
+	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
 		syncPercent = (this.chainTip.getHeight() * 100) / peer.getChainTipData().getLastHeight();
 		isSynchronizing = true;
 		updateSysTray();
 
-		actuallySynchronize(peer, false);
+		BlockData priorChainTip = this.chainTip;
 
-		isSynchronizing = false;
-		requestSysTrayUpdate = true;
-	}
+		try {
+			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, force);
+			switch (syncResult) {
+				case GENESIS_ONLY:
+				case NO_COMMON_BLOCK:
+				case TOO_DIVERGENT:
+				case INVALID_DATA: {
+					// These are more serious results that warrant a cool-off
+					LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
 
-	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
-		BlockData latestBlockData = getChainTip();
+					// Don't use this peer again for a while
+					PeerData peerData = peer.getPeerData();
+					peerData.setLastMisbehaved(NTP.getTime());
 
-		SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, force);
-		switch (syncResult) {
-			case GENESIS_ONLY:
-			case NO_COMMON_BLOCK:
-			case TOO_DIVERGENT:
-			case INVALID_DATA: {
-				// These are more serious results that warrant a cool-off
-				LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
+					// Only save to repository if outbound peer
+					if (peer.isOutbound())
+						try (final Repository repository = RepositoryManager.getRepository()) {
+							repository.getNetworkRepository().save(peerData);
+							repository.saveChanges();
+						} catch (DataException e) {
+							LOGGER.warn("Repository issue while updating peer synchronization info", e);
+						}
+					break;
+				}
 
-				// Don't use this peer again for a while
-				PeerData peerData = peer.getPeerData();
-				peerData.setLastMisbehaved(NTP.getTime());
+				case INFERIOR_CHAIN: {
+					// Update our list of inferior chain tips
+					ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
+					if (!inferiorChainSignatures.contains(inferiorChainSignature))
+						inferiorChainSignatures.add(inferiorChainSignature);
 
-				// Only save to repository if outbound peer
-				if (peer.isOutbound())
-					try (final Repository repository = RepositoryManager.getRepository()) {
-						repository.getNetworkRepository().save(peerData);
-						repository.saveChanges();
-					} catch (DataException e) {
-						LOGGER.warn("Repository issue while updating peer synchronization info", e);
-					}
-				break;
+					// These are minor failure results so fine to try again
+					LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
+
+					// Notify peer of our superior chain
+					if (!peer.sendMessage(Network.getInstance().buildHeightMessage(peer, priorChainTip)))
+						peer.disconnect("failed to notify peer of our superior chain");
+					break;
+				}
+
+				case NO_REPLY:
+				case NO_BLOCKCHAIN_LOCK:
+				case REPOSITORY_ISSUE:
+					// These are minor failure results so fine to try again
+					LOGGER.debug(() -> String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
+					break;
+
+				case SHUTTING_DOWN:
+					// Just quietly exit
+					break;
+
+				case OK:
+					requestSysTrayUpdate = true;
+					// fall-through...
+				case NOTHING_TO_DO: {
+					// Update our list of inferior chain tips
+					ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
+					if (!inferiorChainSignatures.contains(inferiorChainSignature))
+						inferiorChainSignatures.add(inferiorChainSignature);
+
+					LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
+					break;
+				}
 			}
 
-			case INFERIOR_CHAIN: {
-				// Update our list of inferior chain tips
-				ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
-				if (!inferiorChainSignatures.contains(inferiorChainSignature))
-					inferiorChainSignatures.add(inferiorChainSignature);
+			// Has our chain tip changed?
+			BlockData newChainTip;
 
-				// These are minor failure results so fine to try again
-				LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
-
-				// Notify peer of our superior chain
-				if (!peer.sendMessage(Network.getInstance().buildHeightMessage(peer, latestBlockData)))
-					peer.disconnect("failed to notify peer of our superior chain");
-				break;
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				newChainTip = repository.getBlockRepository().getLastBlock();
+				this.setChainTip(newChainTip);
+			} catch (DataException e) {
+				LOGGER.warn(String.format("Repository issue when trying to fetch post-synchronization chain tip: %s", e.getMessage()));
+				return syncResult;
 			}
 
-			case NO_REPLY:
-			case NO_BLOCKCHAIN_LOCK:
-			case REPOSITORY_ISSUE:
-				// These are minor failure results so fine to try again
-				LOGGER.debug(() -> String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
-				break;
+			if (!Arrays.equals(newChainTip.getSignature(), priorChainTip.getSignature())) {
+				// Broadcast our new chain tip
+				Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newChainTip));
 
-			case SHUTTING_DOWN:
-				// Just quietly exit
-				break;
-
-			case OK:
-				requestSysTrayUpdate = true;
-				// fall-through...
-			case NOTHING_TO_DO: {
-				// Update our list of inferior chain tips
-				ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
-				if (!inferiorChainSignatures.contains(inferiorChainSignature))
-					inferiorChainSignatures.add(inferiorChainSignature);
-
-				LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
-				break;
+				// Reset our cache of inferior chains
+				inferiorChainSignatures.clear();
 			}
-		}
 
-		// Has our chain tip changed?
-		BlockData newLatestBlockData;
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			newLatestBlockData = repository.getBlockRepository().getLastBlock();
-			this.setChainTip(newLatestBlockData);
-		} catch (DataException e) {
-			LOGGER.warn(String.format("Repository issue when trying to fetch post-synchronization chain tip: %s", e.getMessage()));
 			return syncResult;
+		} finally {
+			isSynchronizing = false;
+			requestSysTrayUpdate = true;
 		}
-
-		if (!Arrays.equals(newLatestBlockData.getSignature(), latestBlockData.getSignature())) {
-			// Broadcast our new chain tip
-			Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newLatestBlockData));
-
-			// Reset our cache of inferior chains
-			inferiorChainSignatures.clear();
-		}
-
-		return syncResult;
 	}
 
 	private void updateSysTray() {
