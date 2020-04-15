@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -75,20 +76,15 @@ public class BlockMinter extends Thread {
 			boolean isMintingPossible = false;
 			boolean wasMintingPossible = isMintingPossible;
 			while (running) {
+				repository.discardChanges(); // Free repository locks, if any
+
+				if (isMintingPossible != wasMintingPossible)
+					Controller.getInstance().onMintingPossibleChange(isMintingPossible);
+
+				wasMintingPossible = isMintingPossible;
+
 				// Sleep for a while
-				try {
-					repository.discardChanges(); // Free repository locks, if any
-
-					if (isMintingPossible != wasMintingPossible)
-						Controller.getInstance().onMintingPossibleChange(isMintingPossible);
-
-					wasMintingPossible = isMintingPossible;
-
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {
-					// We've been interrupted - time to exit
-					return;
-				}
+				Thread.sleep(1000);
 
 				isMintingPossible = false;
 
@@ -181,7 +177,7 @@ public class BlockMinter extends Thread {
 
 				// Make sure we're the only thread modifying the blockchain
 				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-				if (!blockchainLock.tryLock())
+				if (!blockchainLock.tryLock(30, TimeUnit.SECONDS))
 					continue;
 
 				boolean newBlockMinted = false;
@@ -286,6 +282,9 @@ public class BlockMinter extends Thread {
 			}
 		} catch (DataException e) {
 			LOGGER.warn("Repository issue while running block minter", e);
+		} catch (InterruptedException e) {
+			// We've been interrupted - time to exit
+			return;
 		}
 	}
 
