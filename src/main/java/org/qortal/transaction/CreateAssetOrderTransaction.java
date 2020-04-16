@@ -2,7 +2,6 @@ package org.qortal.transaction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.qortal.account.Account;
@@ -172,10 +171,6 @@ public class CreateAssetOrderTransaction extends Transaction {
 					&& creator.getConfirmedBalance(Asset.QORT).compareTo(createOrderTransactionData.getFee()) < 0)
 				return ValidationResult.NO_BALANCE;
 		}
-
-		// Check reference is correct
-		if (!Arrays.equals(creator.getLastReference(), createOrderTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
 
 		return ValidationResult.OK;
 	}
