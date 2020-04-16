@@ -1026,6 +1026,10 @@ public class Block {
 			for (Transaction transaction : this.getTransactions()) {
 				TransactionData transactionData = transaction.getTransactionData();
 
+				// Skip AT transactions as they are covered by prior call to Block.areAtsValid()
+				if (transactionData.getType() == TransactionType.AT)
+					continue;
+
 				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
 				if (transactionData.getType() == TransactionType.GENESIS || transactionData.getType() == TransactionType.ACCOUNT_FLAGS)
 					return ValidationResult.GENESIS_TRANSACTIONS_INVALID;
