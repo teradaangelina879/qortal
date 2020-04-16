@@ -1,5 +1,7 @@
 package org.qortal.data.network;
 
+import java.util.Arrays;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -42,6 +44,38 @@ public class OnlineAccountData {
 	@XmlElement(name = "address")
 	protected String getAddress() {
 		return new PublicKeyAccount(null, this.publicKey).getAddress();
+	}
+
+	// Comparison
+
+	@Override
+	public boolean equals(Object other) {
+		if (other == this)
+			return true;
+
+		if (!(other instanceof OnlineAccountData))
+			return false;
+
+		OnlineAccountData otherOnlineAccountData = (OnlineAccountData) other;
+
+		// Very quick comparison
+		if (otherOnlineAccountData.timestamp != this.timestamp)
+			return false;
+
+		// Signature more likely to be unique than public key
+		if (!Arrays.equals(otherOnlineAccountData.signature, this.signature))
+			return false;
+
+		if (!Arrays.equals(otherOnlineAccountData.publicKey, this.publicKey))
+			return false;
+
+		return true;
+	}
+
+	@Override
+	public int hashCode() {
+		// Pretty lazy implementation
+		return (int) this.timestamp;
 	}
 
 }

@@ -916,26 +916,34 @@ public class Block {
 			expandedAccounts.add(rewardShareData);
 		}
 
-		// Possibly check signatures if block is recent
+		// If block is past a certain age then we simply assume the signatures were correct
 		long signatureRequirementThreshold = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMinLifetime();
-		if (this.blockData.getTimestamp() >= signatureRequirementThreshold) {
-			if (this.blockData.getOnlineAccountsSignatures() == null || this.blockData.getOnlineAccountsSignatures().length == 0)
-				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MISSING;
+		if (this.blockData.getTimestamp() < signatureRequirementThreshold)
+			return ValidationResult.OK;
 
-			if (this.blockData.getOnlineAccountsSignatures().length != expandedAccounts.size() * Transformer.SIGNATURE_LENGTH)
-				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
+		if (this.blockData.getOnlineAccountsSignatures() == null || this.blockData.getOnlineAccountsSignatures().length == 0)
+			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MISSING;
 
-			// Check signatures
-			List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
-			byte[] message = Longs.toByteArray(this.blockData.getOnlineAccountsTimestamp());
+		if (this.blockData.getOnlineAccountsSignatures().length != expandedAccounts.size() * Transformer.SIGNATURE_LENGTH)
+			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 
-			for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
-				PublicKeyAccount account = new PublicKeyAccount(null, expandedAccounts.get(i).getRewardSharePublicKey());
-				byte[] signature = onlineAccountsSignatures.get(i);
+		// Check signatures
+		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
+		long onlineTimestamp = this.blockData.getOnlineAccountsTimestamp();
+		byte[] onlineTimestampBytes = Longs.toByteArray(onlineTimestamp);
+		List<OnlineAccountData> onlineAccounts = Controller.getInstance().getOnlineAccounts();
 
-				if (!account.verify(signature, message))
-					return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
-			}
+		for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
+			byte[] signature = onlineAccountsSignatures.get(i);
+			byte[] publicKey = expandedAccounts.get(i).getRewardSharePublicKey();
+
+			// If signature is still current then no need to perform Ed25519 verify
+			OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, signature, publicKey);
+			if (onlineAccounts.remove(onlineAccountData)) // remove() is like contains() but also reduces the number to check next time
+				continue;
+
+			if (!PublicKeyAccount.verify(publicKey, signature, onlineTimestampBytes))
+				return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
 		}
 
 		return ValidationResult.OK;
