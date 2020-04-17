@@ -2,6 +2,11 @@ package org.qortal.data.at;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
 public class ATData {
 
 	// Properties
@@ -11,6 +16,7 @@ public class ATData {
 	private int version;
 	private long assetId;
 	private byte[] codeBytes;
+	private byte[] codeHash;
 	private boolean isSleeping;
 	private Integer sleepUntilHeight;
 	private boolean isFinished;
@@ -20,14 +26,19 @@ public class ATData {
 
 	// Constructors
 
-	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, boolean isSleeping,
-			Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, BigDecimal frozenBalance) {
+	// necessary for JAX-RS serialization
+	protected ATData() {
+	}
+
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, byte[] codeHash,
+			boolean isSleeping, Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, BigDecimal frozenBalance) {
 		this.ATAddress = ATAddress;
 		this.creatorPublicKey = creatorPublicKey;
 		this.creation = creation;
 		this.version = version;
 		this.assetId = assetId;
 		this.codeBytes = codeBytes;
+		this.codeHash = codeHash;
 		this.isSleeping = isSleeping;
 		this.sleepUntilHeight = sleepUntilHeight;
 		this.isFinished = isFinished;
@@ -36,10 +47,10 @@ public class ATData {
 		this.frozenBalance = frozenBalance;
 	}
 
-	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, boolean isSleeping,
-			Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
-		this(ATAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen,
-				(BigDecimal) null);
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, byte[] codeHash,
+			boolean isSleeping, Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
+		this(ATAddress, creatorPublicKey, creation, version, assetId, codeBytes, codeHash,
+				isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, (BigDecimal) null);
 
 		// Convert Long frozenBalance to BigDecimal
 		if (frozenBalance != null)
@@ -78,6 +89,10 @@ public class ATData {
 
 	public byte[] getCodeBytes() {
 		return this.codeBytes;
+	}
+
+	public byte[] getCodeHash() {
+		return this.codeHash;
 	}
 
 	public boolean getIsSleeping() {

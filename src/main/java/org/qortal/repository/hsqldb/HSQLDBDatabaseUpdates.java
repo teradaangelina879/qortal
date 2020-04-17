@@ -980,6 +980,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ATStates ADD COLUMN is_initial BOOLEAN NOT NULL DEFAULT TRUE");
 					break;
 
+				case 72:
+					// For ATs, add hash of code bytes to allow searching for specific function ATs, e.g. cross-chain trading
+					stmt.execute("ALTER TABLE ATs ADD COLUMN code_hash VARBINARY(32) NOT NULL BEFORE is_sleeping"); // Assuming something like SHA256
+					break;
+
 				default:
 					// nothing to do
 					return false;

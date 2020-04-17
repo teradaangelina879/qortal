@@ -58,7 +58,9 @@ public class AT {
 
 			MachineState machineState = new MachineState(api, loggerFactory, deployATTransactionData.getCreationBytes());
 
-			this.atData = new ATData(atAddress, creatorPublicKey, creation, machineState.version, assetId, machineState.getCodeBytes(),
+			byte[] codeHash = Crypto.digest(machineState.getCodeBytes());
+
+			this.atData = new ATData(atAddress, creatorPublicKey, creation, machineState.version, assetId, machineState.getCodeBytes(), codeHash,
 					machineState.isSleeping(), machineState.getSleepUntilHeight(), machineState.isFinished(), machineState.hadFatalError(),
 					machineState.isFrozen(), machineState.getFrozenBalance());
 
@@ -104,9 +106,10 @@ public class AT {
 			boolean hadFatalError = false;
 			boolean isFrozen = false;
 			Long frozenBalance = null;
+			byte[] codeHash = Crypto.digest(codeBytes);
 
-			this.atData = new ATData(atAddress, creatorPublicKey, creation, version, Asset.QORT, codeBytes, isSleeping, sleepUntilHeight, isFinished,
-					hadFatalError, isFrozen, frozenBalance);
+			this.atData = new ATData(atAddress, creatorPublicKey, creation, version, Asset.QORT, codeBytes, codeHash,
+					isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
 
 			this.atStateData = new ATStateData(atAddress, height, creation, null, null, BigDecimal.ZERO.setScale(8), true);
 		}

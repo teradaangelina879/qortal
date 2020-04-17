@@ -2,16 +2,12 @@ package org.qortal.test.btcacct;
 
 import java.math.BigDecimal;
 import java.security.Security;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTCACCT;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -38,14 +34,14 @@ public class DeployAT {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <redeem Qortal address> <HASH160-of-secret> <locktime> [<initial QORT payout> [<AT funding amount>]]"));
+		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <HASH160-of-secret> [<initial QORT payout> [<AT funding amount>]]"));
 		System.err.println(String.format("example: DeployAT "
 				+ "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot \\\n"
-				+ "\t3.1415 \\\n"
-				+ "\tQgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v \\\n"
+				+ "\t80.4020 \\\n"
+				+ "\t0.00864200 \\\n"
 				+ "\tdaf59884b4d1aec8c1b17102530909ee43c0151a \\\n"
-				+ "\t1585920000 \\\n"
-				+ "\t0.0001"));
+				+ "\t0.0001 \\\n"
+				+ "\t123.456"));
 		System.exit(1);
 	}
 
@@ -58,9 +54,8 @@ public class DeployAT {
 
 		byte[] refundPrivateKey = null;
 		BigDecimal redeemAmount = null;
-		String redeemAddress = null;
+		BigDecimal expectedBitcoin = null;
 		byte[] secretHash = null;
-		int lockTime = 0;
 		BigDecimal initialPayout = BigDecimal.ZERO.setScale(8);
 		BigDecimal fundingAmount = null;
 
@@ -74,15 +69,13 @@ public class DeployAT {
 			if (redeemAmount.signum() <= 0)
 				usage("QORT amount must be positive");
 
-			redeemAddress = args[argIndex++];
-			if (!Crypto.isValidAddress(redeemAddress))
-				usage("Redeem address invalid");
+			expectedBitcoin = new BigDecimal(args[argIndex++]).setScale(8);
+			if (expectedBitcoin.signum() <= 0)
+				usage("Expected BTC amount must be positive");
 
 			secretHash = HashCode.fromString(args[argIndex++]).asBytes();
 			if (secretHash.length != 20)
 				usage("Hash of secret must be 20 bytes");
-
-			lockTime = Integer.parseInt(args[argIndex++]);
 
 			if (args.length > argIndex)
 				initialPayout = new BigDecimal(args[argIndex++]).setScale(8);
@@ -118,20 +111,11 @@ public class DeployAT {
 
 			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
-			System.out.println(String.format("Redeem Qortal address: %s", redeemAddress));
-
-			// New/derived info
-
-			System.out.println("\nCHECKING info from other party:");
-
-			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneId.systemDefault()), lockTime));
-			System.out.println("Make sure this is BEFORE P2SH lockTime to allow you to refund AT before P2SH refunded");
-
 			// Deploy AT
-			final int BLOCK_TIME = 60; // seconds
-			final int refundTimeout = (lockTime - (int) (System.currentTimeMillis() / 1000L)) / BLOCK_TIME;
+			final int offerTimeout = 2 * 60; // minutes
+			final int tradeTimeout = 60; // minutes
 
-			byte[] creationBytes = BTCACCT.buildQortalAT(secretHash, redeemAddress, refundTimeout, initialPayout, fundingAmount);
+			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), secretHash, offerTimeout, tradeTimeout, initialPayout, fundingAmount, expectedBitcoin);
 			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			long txTimestamp = System.currentTimeMillis();
@@ -144,7 +128,7 @@ public class DeployAT {
 
 			BigDecimal fee = BigDecimal.ZERO;
 			String name = "QORT-BTC cross-chain trade";
-			String description = String.format("Qortal-Bitcoin cross-chain trade between %s and %s", refundAccount.getAddress(), redeemAddress);
+			String description = String.format("Qortal-Bitcoin cross-chain trade");
 			String atType = "ACCT";
 			String tags = "QORT-BTC ACCT";
 

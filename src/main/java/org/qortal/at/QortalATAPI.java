@@ -348,10 +348,15 @@ public class QortalATAPI extends API {
 
 	@Override
 	public void putCreatorAddressIntoB(MachineState state) {
-		// Simply use raw public key
 		byte[] publicKey = atData.getCreatorPublicKey();
+		String address = Crypto.toAddress(publicKey);
 
-		this.setB(state, publicKey);
+		// Convert to byte form as this only takes 25 bytes,
+		// compared to string-form's 34 bytes,
+		// and we only have 32 bytes available.
+		byte[] addressBytes = Bytes.ensureCapacity(Base58.decode(address), 32, 0); // pad to 32 bytes
+
+		this.setB(state, addressBytes);
 	}
 
 	@Override

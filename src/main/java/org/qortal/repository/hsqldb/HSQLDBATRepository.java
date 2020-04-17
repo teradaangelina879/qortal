@@ -26,7 +26,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATData fromATAddress(String atAddress) throws DataException {
-		String sql = "SELECT creator, creation, version, asset_id, code_bytes, "
+		String sql = "SELECT creator, creation, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, is_finished, had_fatal_error, "
 				+ "is_frozen, frozen_balance "
 				+ "FROM ATs "
@@ -41,20 +41,21 @@ public class HSQLDBATRepository implements ATRepository {
 			int version = resultSet.getInt(3);
 			long assetId = resultSet.getLong(4);
 			byte[] codeBytes = resultSet.getBytes(5); // Actually BLOB
-			boolean isSleeping = resultSet.getBoolean(6);
+			byte[] codeHash = resultSet.getBytes(6);
+			boolean isSleeping = resultSet.getBoolean(7);
 
-			Integer sleepUntilHeight = resultSet.getInt(7);
+			Integer sleepUntilHeight = resultSet.getInt(8);
 			if (sleepUntilHeight == 0 && resultSet.wasNull())
 				sleepUntilHeight = null;
 
-			boolean isFinished = resultSet.getBoolean(8);
-			boolean hadFatalError = resultSet.getBoolean(9);
-			boolean isFrozen = resultSet.getBoolean(10);
+			boolean isFinished = resultSet.getBoolean(9);
+			boolean hadFatalError = resultSet.getBoolean(10);
+			boolean isFrozen = resultSet.getBoolean(11);
 
-			BigDecimal frozenBalance = resultSet.getBigDecimal(11);
+			BigDecimal frozenBalance = resultSet.getBigDecimal(12);
 
-			return new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError,
-					isFrozen, frozenBalance);
+			return new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, codeHash,
+					isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT from repository", e);
 		}
@@ -71,7 +72,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public List<ATData> getAllExecutableATs() throws DataException {
-		String sql = "SELECT AT_address, creator, creation, version, asset_id, code_bytes, "
+		String sql = "SELECT AT_address, creator, creation, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, had_fatal_error, "
 				+ "is_frozen, frozen_balance "
 				+ "FROM ATs "
@@ -93,19 +94,20 @@ public class HSQLDBATRepository implements ATRepository {
 				int version = resultSet.getInt(4);
 				long assetId = resultSet.getLong(5);
 				byte[] codeBytes = resultSet.getBytes(6); // Actually BLOB
-				boolean isSleeping = resultSet.getBoolean(7);
+				byte[] codeHash = resultSet.getBytes(7);
+				boolean isSleeping = resultSet.getBoolean(8);
 
-				Integer sleepUntilHeight = resultSet.getInt(8);
+				Integer sleepUntilHeight = resultSet.getInt(9);
 				if (sleepUntilHeight == 0 && resultSet.wasNull())
 					sleepUntilHeight = null;
 
-				boolean hadFatalError = resultSet.getBoolean(9);
-				boolean isFrozen = resultSet.getBoolean(10);
+				boolean hadFatalError = resultSet.getBoolean(10);
+				boolean isFrozen = resultSet.getBoolean(11);
 
-				BigDecimal frozenBalance = resultSet.getBigDecimal(11);
+				BigDecimal frozenBalance = resultSet.getBigDecimal(12);
 
-				ATData atData = new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished,
-						hadFatalError, isFrozen, frozenBalance);
+				ATData atData = new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, codeHash,
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
 
 				executableATs.add(atData);
 			} while (resultSet.next());
@@ -113,6 +115,62 @@ public class HSQLDBATRepository implements ATRepository {
 			return executableATs;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch executable ATs from repository", e);
+		}
+	}
+
+	@Override
+	public List<ATData> getATsByFunctionality(byte[] codeHash, Boolean isExecutable, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT AT_address, creator, creation, version, asset_id, code_bytes, ")
+				.append("is_sleeping, sleep_until_height, is_finished, had_fatal_error, ")
+				.append("is_frozen, frozen_balance ")
+				.append("FROM ATs ")
+				.append("WHERE code_hash = ? ");
+
+		if (isExecutable != null)
+			sql.append("AND is_finished = ").append(isExecutable ? "false" : "true");
+
+		sql.append(" ORDER BY creation ");
+		if (reverse != null && reverse)
+			sql.append("DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
+
+		List<ATData> matchingATs = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), codeHash)) {
+			if (resultSet == null)
+				return matchingATs;
+
+			do {
+				String atAddress = resultSet.getString(1);
+				byte[] creatorPublicKey = resultSet.getBytes(2);
+				long creation = getZonedTimestampMilli(resultSet, 3);
+				int version = resultSet.getInt(4);
+				long assetId = resultSet.getLong(5);
+				byte[] codeBytes = resultSet.getBytes(6); // Actually BLOB
+				boolean isSleeping = resultSet.getBoolean(7);
+
+				Integer sleepUntilHeight = resultSet.getInt(8);
+				if (sleepUntilHeight == 0 && resultSet.wasNull())
+					sleepUntilHeight = null;
+
+				boolean isFinished = resultSet.getBoolean(9);
+
+				boolean hadFatalError = resultSet.getBoolean(10);
+				boolean isFrozen = resultSet.getBoolean(11);
+
+				BigDecimal frozenBalance = resultSet.getBigDecimal(12);
+
+				ATData atData = new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, codeHash,
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+
+				matchingATs.add(atData);
+			} while (resultSet.next());
+
+			return matchingATs;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching ATs from repository", e);
 		}
 	}
 
@@ -140,7 +198,8 @@ public class HSQLDBATRepository implements ATRepository {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ATs");
 
 		saveHelper.bind("AT_address", atData.getATAddress()).bind("creator", atData.getCreatorPublicKey()).bind("creation", toOffsetDateTime(atData.getCreation()))
-				.bind("version", atData.getVersion()).bind("asset_id", atData.getAssetId()).bind("code_bytes", atData.getCodeBytes())
+				.bind("version", atData.getVersion()).bind("asset_id", atData.getAssetId())
+				.bind("code_bytes", atData.getCodeBytes()).bind("code_hash", atData.getCodeHash())
 				.bind("is_sleeping", atData.getIsSleeping()).bind("sleep_until_height", atData.getSleepUntilHeight())
 				.bind("is_finished", atData.getIsFinished()).bind("had_fatal_error", atData.getHadFatalError()).bind("is_frozen", atData.getIsFrozen())
 				.bind("frozen_balance", atData.getFrozenBalance());

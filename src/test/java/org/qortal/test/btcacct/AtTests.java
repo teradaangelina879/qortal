@@ -10,7 +10,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 
+import org.bitcoinj.core.Base58;
 import org.ciyam.at.MachineState;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,6 +24,7 @@ import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
+import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
@@ -37,6 +40,7 @@ import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.MessageTransaction;
 
 import com.google.common.hash.HashCode;
+import com.google.common.primitives.Bytes;
 
 public class AtTests extends Common {
 
@@ -46,6 +50,7 @@ public class AtTests extends Common {
 	public static final BigDecimal initialPayout = new BigDecimal("0.001").setScale(8);
 	public static final BigDecimal redeemAmount = new BigDecimal("80.4020").setScale(8);
 	public static final BigDecimal fundingAmount = new BigDecimal("123.456").setScale(8);
+	public static final BigDecimal bitcoinAmount = new BigDecimal("0.00864200").setScale(8);
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -54,9 +59,9 @@ public class AtTests extends Common {
 
 	@Test
 	public void testCompile() {
-		String redeemAddress = Common.getTestAccount(null, "chloe").getAddress();
+		Account deployer = Common.getTestAccount(null, "chloe");
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(secretHash, redeemAddress, refundTimeout, initialPayout, redeemAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), secretHash, refundTimeout, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
 		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
@@ -69,7 +74,7 @@ public class AtTests extends Common {
 			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
 			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
 
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, recipient);
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 
 			BigDecimal expectedBalance = deployersInitialBalance.subtract(fundingAmount).subtract(deployAtTransaction.getTransactionData().getFee());
 			BigDecimal actualBalance = deployer.getBalance(Asset.QORT);
@@ -108,6 +113,37 @@ public class AtTests extends Common {
 
 	@SuppressWarnings("unused")
 	@Test
+	public void testAutomaticOfferRefund() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
+			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+
+			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
+			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
+
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
+			Account at = deployAtTransaction.getATAccount();
+			String atAddress = at.getAddress();
+
+			BigDecimal deployAtFee = deployAtTransaction.getTransactionData().getFee();
+			BigDecimal deployersPostDeploymentBalance = deployersInitialBalance.subtract(fundingAmount).subtract(deployAtFee);
+
+			checkAtRefund(repository, deployer, deployersInitialBalance, deployAtFee);
+
+			describeAt(repository, atAddress);
+
+			// Test orphaning
+			BlockUtils.orphanLastBlock(repository);
+
+			BigDecimal expectedBalance = deployersPostDeploymentBalance;
+			BigDecimal actualBalance = deployer.getBalance(Asset.QORT);
+
+			Common.assertEqualBigDecimals("Deployer's post-orphan/pre-refund balance incorrect", expectedBalance, actualBalance);
+		}
+	}
+
+	@SuppressWarnings("unused")
+	@Test
 	public void testInitialPayment() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
@@ -116,15 +152,23 @@ public class AtTests extends Common {
 			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
 			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
 
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, recipient);
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
+			Account at = deployAtTransaction.getATAccount();
+			String atAddress = at.getAddress();
 
-			// Initial payment should happen 1st block after deployment
+			// Send recipient's address to AT
+			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(recipient.getAddress()), 32, 0);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, recipientAddressBytes, atAddress);
+
+			// Initial payment should happen 1st block after receiving recipient address
 			BlockUtils.mintBlock(repository);
 
 			BigDecimal expectedBalance = recipientsInitialBalance.add(initialPayout);
 			BigDecimal actualBalance = recipient.getConfirmedBalance(Asset.QORT);
 
 			Common.assertEqualBigDecimals("Recipient's post-initial-payout balance incorrect", expectedBalance, actualBalance);
+
+			describeAt(repository, atAddress);
 
 			// Test orphaning
 			BlockUtils.orphanLastBlock(repository);
@@ -136,9 +180,41 @@ public class AtTests extends Common {
 		}
 	}
 
+	// TEST SENDING RECIPIENT ADDRESS BUT NOT FROM AT CREATOR (SHOULD BE IGNORED)
 	@SuppressWarnings("unused")
 	@Test
-	public void testAutomaticRefund() throws DataException {
+	public void testIncorrectTradeSender() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
+			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount bystander = Common.getTestAccount(repository, "bob");
+
+			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
+			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
+
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
+			Account at = deployAtTransaction.getATAccount();
+			String atAddress = at.getAddress();
+
+			// Send recipient's address to AT BUT NOT FROM AT CREATOR
+			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(recipient.getAddress()), 32, 0);
+			MessageTransaction messageTransaction = sendMessage(repository, bystander, recipientAddressBytes, atAddress);
+
+			// Initial payment should NOT happen
+			BlockUtils.mintBlock(repository);
+
+			BigDecimal expectedBalance = recipientsInitialBalance;
+			BigDecimal actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+
+			Common.assertEqualBigDecimals("Recipient's post-initial-payout balance incorrect", expectedBalance, actualBalance);
+
+			describeAt(repository, atAddress);
+		}
+	}
+
+	@SuppressWarnings("unused")
+	@Test
+	public void testAutomaticTradeRefund() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
 			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
@@ -146,14 +222,27 @@ public class AtTests extends Common {
 			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
 			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
 
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, recipient);
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
+			Account at = deployAtTransaction.getATAccount();
+			String atAddress = at.getAddress();
+
+			// Send recipient's address to AT
+			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(recipient.getAddress()), 32, 0);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, recipientAddressBytes, atAddress);
+
+			// Initial payment should happen 1st block after receiving recipient address
+			BlockUtils.mintBlock(repository);
 
 			BigDecimal deployAtFee = deployAtTransaction.getTransactionData().getFee();
-			BigDecimal deployersPostDeploymentBalance = deployersInitialBalance.subtract(fundingAmount).subtract(deployAtFee);
+			BigDecimal messageFee = messageTransaction.getTransactionData().getFee();
+			BigDecimal deployersPostDeploymentBalance = deployersInitialBalance.subtract(fundingAmount).subtract(deployAtFee).subtract(messageFee);
 
 			checkAtRefund(repository, deployer, deployersInitialBalance, deployAtFee);
 
+			describeAt(repository, atAddress);
+
 			// Test orphaning
+			BlockUtils.orphanLastBlock(repository);
 			BlockUtils.orphanLastBlock(repository);
 
 			BigDecimal expectedBalance = deployersPostDeploymentBalance;
@@ -173,12 +262,19 @@ public class AtTests extends Common {
 			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
 			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
 
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, recipient);
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			// Send recipient's address to AT
+			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(recipient.getAddress()), 32, 0);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, recipientAddressBytes, atAddress);
+
+			// Initial payment should happen 1st block after receiving recipient address
+			BlockUtils.mintBlock(repository);
+
 			// Send correct secret to AT
-			MessageTransaction messageTransaction = sendSecret(repository, recipient, secret, atAddress);
+			messageTransaction = sendMessage(repository, recipient, secret, atAddress);
 
 			// AT should send funds in the next block
 			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
@@ -188,6 +284,8 @@ public class AtTests extends Common {
 			BigDecimal actualBalance = recipient.getConfirmedBalance(Asset.QORT);
 
 			Common.assertEqualBigDecimals("Recipent's post-redeem balance incorrect", expectedBalance, actualBalance);
+
+			describeAt(repository, atAddress);
 
 			// Orphan redeem
 			BlockUtils.orphanLastBlock(repository);
@@ -215,14 +313,21 @@ public class AtTests extends Common {
 			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
 			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
 
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, recipient);
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			BigDecimal deployAtFee = deployAtTransaction.getTransactionData().getFee();
 
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			// Send recipient's address to AT
+			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(recipient.getAddress()), 32, 0);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, recipientAddressBytes, atAddress);
+
+			// Initial payment should happen 1st block after receiving recipient address
+			BlockUtils.mintBlock(repository);
+
 			// Send correct secret to AT, but from wrong account
-			MessageTransaction messageTransaction = sendSecret(repository, bystander, secret, atAddress);
+			messageTransaction = sendMessage(repository, bystander, secret, atAddress);
 
 			// AT should NOT send funds in the next block
 			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
@@ -232,6 +337,8 @@ public class AtTests extends Common {
 			BigDecimal actualBalance = recipient.getConfirmedBalance(Asset.QORT);
 
 			Common.assertEqualBigDecimals("Recipent's balance incorrect", expectedBalance, actualBalance);
+
+			describeAt(repository, atAddress);
 
 			checkAtRefund(repository, deployer, deployersInitialBalance, deployAtFee);
 		}
@@ -247,15 +354,22 @@ public class AtTests extends Common {
 			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
 			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
 
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, recipient);
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			BigDecimal deployAtFee = deployAtTransaction.getTransactionData().getFee();
 
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			// Send recipient's address to AT
+			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(recipient.getAddress()), 32, 0);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, recipientAddressBytes, atAddress);
+
+			// Initial payment should happen 1st block after receiving recipient address
+			BlockUtils.mintBlock(repository);
+
 			// Send correct secret to AT, but from wrong account
 			byte[] wrongSecret = Crypto.digest(secret);
-			MessageTransaction messageTransaction = sendSecret(repository, recipient, wrongSecret, atAddress);
+			messageTransaction = sendMessage(repository, recipient, wrongSecret, atAddress);
 
 			// AT should NOT send funds in the next block
 			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
@@ -265,6 +379,8 @@ public class AtTests extends Common {
 			BigDecimal actualBalance = recipient.getConfirmedBalance(Asset.QORT);
 
 			Common.assertEqualBigDecimals("Recipent's balance incorrect", expectedBalance, actualBalance);
+
+			describeAt(repository, atAddress);
 
 			checkAtRefund(repository, deployer, deployersInitialBalance, deployAtFee);
 		}
@@ -280,10 +396,10 @@ public class AtTests extends Common {
 			BigDecimal deployersInitialBalance = deployer.getBalance(Asset.QORT);
 			BigDecimal recipientsInitialBalance = recipient.getBalance(Asset.QORT);
 
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, recipient);
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 
 			List<ATData> executableAts = repository.getATRepository().getAllExecutableATs();
-			
+
 			for (ATData atData : executableAts) {
 				String atAddress = atData.getATAddress();
 				byte[] codeBytes = atData.getCodeBytes();
@@ -299,37 +415,13 @@ public class AtTests extends Common {
 				if (!Arrays.equals(codeHash, BTCACCT.CODE_BYTES_HASH))
 					continue;
 
-				ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
-				byte[] stateData = atStateData.getStateData();
-
-				QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-				byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
-
-				BTCACCT.AtConstants atConstants = BTCACCT.extractAtConstants(dataBytes);
-
-				long autoRefundTimestamp = atData.getCreation() + atConstants.refundMinutes * 60 * 1000L;
-
-				String autoRefundString = LocalDateTime.ofInstant(Instant.ofEpochMilli(autoRefundTimestamp), ZoneOffset.UTC).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
-				System.out.println(String.format("%s:\n"
-						+ "\tcreator: %s,\n"
-						+ "\tHASH160 of secret: %s,\n"
-						+ "\trecipient: %s,\n"
-						+ "\tinitial payout: %s QORT,\n"
-						+ "\tredeem payout: %s QORT,\n"
-						+ "\tauto-refund at: %s (local time)",
-						atAddress,
-						Crypto.toAddress(atData.getCreatorPublicKey()),
-						HashCode.fromBytes(atConstants.secretHash).toString().substring(0, 40),
-						atConstants.recipient,
-						atConstants.initialPayout.toPlainString(),
-						atConstants.redeemPayout.toPlainString(),
-						autoRefundString));
+				describeAt(repository, atAddress);
 			}
 		}
 	}
 
-	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer, Account recipient) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(secretHash, recipient.getAddress(), refundTimeout, initialPayout, redeemAmount);
+	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer) throws DataException {
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), secretHash, refundTimeout, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();
@@ -341,7 +433,7 @@ public class AtTests extends Common {
 
 		BigDecimal fee = BigDecimal.ZERO;
 		String name = "QORT-BTC cross-chain trade";
-		String description = String.format("Qortal-Bitcoin cross-chain trade between %s and %s", deployer.getAddress(), recipient.getAddress());
+		String description = String.format("Qortal-Bitcoin cross-chain trade");
 		String atType = "ACCT";
 		String tags = "QORT-BTC ACCT";
 
@@ -358,7 +450,7 @@ public class AtTests extends Common {
 		return deployAtTransaction;
 	}
 
-	private MessageTransaction sendSecret(Repository repository, PrivateKeyAccount sender, byte[] data, String recipient) throws DataException {
+	private MessageTransaction sendMessage(Repository repository, PrivateKeyAccount sender, byte[] data, String recipient) throws DataException {
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = sender.getLastReference();
 
@@ -398,6 +490,63 @@ public class AtTests extends Common {
 
 		assertTrue(String.format("Deployer's balance %s should be above minimum %s", actualBalance.toPlainString(), expectedMinimumBalance.toPlainString()), actualBalance.compareTo(expectedMinimumBalance) > 0);
 		assertTrue(String.format("Deployer's balance %s should be below maximum %s", actualBalance.toPlainString(), expectedMaximumBalance.toPlainString()), actualBalance.compareTo(expectedMaximumBalance) < 0);
+	}
+
+	private void describeAt(Repository repository, String atAddress) throws DataException {
+		ATData atData = repository.getATRepository().fromATAddress(atAddress);
+
+		ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
+		byte[] stateData = atStateData.getStateData();
+
+		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
+		byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
+
+		CrossChainTradeData tradeData = new CrossChainTradeData();
+		tradeData.qortalAddress = atAddress;
+		tradeData.qortalCreator = Crypto.toAddress(atData.getCreatorPublicKey());
+		tradeData.creationTimestamp = atData.getCreation();
+		tradeData.qortBalance = repository.getAccountRepository().getBalance(atAddress, Asset.QORT).getBalance();
+
+		BTCACCT.populateTradeData(tradeData, dataBytes);
+
+		Function<Long, String> epochMilliFormatter = (timestamp) -> LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
+		int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();
+
+		System.out.print(String.format("%s:\n"
+				+ "\tcreator: %s,\n"
+				+ "\tcreation timestamp: %s,\n"
+				+ "\tcurrent balance: %s QORT,\n"
+				+ "\tHASH160 of secret: %s,\n"
+				+ "\tinitial payout: %s QORT,\n"
+				+ "\tredeem payout: %s QORT,\n"
+				+ "\texpected bitcoin: %s BTC,\n"
+				+ "\toffer timeout: %d minutes (from creation),\n"
+				+ "\ttrade timeout: %d minutes (from trade start),\n"
+				+ "\tcurrent block height: %d,\n",
+				tradeData.qortalAddress,
+				tradeData.qortalCreator,
+				epochMilliFormatter.apply(tradeData.creationTimestamp),
+				tradeData.qortBalance.toPlainString(),
+				HashCode.fromBytes(tradeData.secretHash).toString().substring(0, 40),
+				tradeData.initialPayout.toPlainString(),
+				tradeData.redeemPayout.toPlainString(),
+				tradeData.expectedBitcoin.toPlainString(),
+				tradeData.offerRefundTimeout,
+				tradeData.tradeRefundTimeout,
+				currentBlockHeight));
+
+		// Are we in 'offer' or 'trade' stage?
+		if (tradeData.tradeRefundHeight == null) {
+			// Offer
+			System.out.println(String.format("\toffer timeout: block %d",
+					tradeData.offerRefundHeight));
+		} else {
+			// Trade
+			System.out.println(String.format("\ttrade timeout: block %d,\n"
+					+ "\ttrade recipient: %s",
+					tradeData.tradeRefundHeight,
+					tradeData.qortalRecipient));
+		}
 	}
 
 }
