@@ -64,7 +64,7 @@ public class Refund {
 		Address redeemBitcoinAddress = null;
 		byte[] secretHash = null;
 		int lockTime = 0;
-		Coin bitcoinFee = BTCACCT.DEFAULT_BTC_FEE;
+		Coin bitcoinFee = Common.DEFAULT_BTC_FEE;
 
 		int argIndex = 0;
 		try {

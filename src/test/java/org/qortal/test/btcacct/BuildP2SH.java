@@ -54,7 +54,7 @@ public class BuildP2SH {
 		Address redeemBitcoinAddress = null;
 		byte[] secretHash = null;
 		int lockTime = 0;
-		Coin bitcoinFee = BTCACCT.DEFAULT_BTC_FEE;
+		Coin bitcoinFee = Common.DEFAULT_BTC_FEE;
 
 		int argIndex = 0;
 		try {
@@ -74,8 +74,8 @@ public class BuildP2SH {
 
 			lockTime = Integer.parseInt(args[argIndex++]);
 			int refundTimeoutDelay = lockTime - (int) (System.currentTimeMillis() / 1000L);
-			if (refundTimeoutDelay < 600 || refundTimeoutDelay > 7 * 24 * 60 * 60)
-				usage("Locktime (seconds) should be at between 10 minutes and 1 week from now");
+			if (refundTimeoutDelay < 600 || refundTimeoutDelay > 30 * 24 * 60 * 60)
+				usage("Locktime (seconds) should be at between 10 minutes and 1 month from now");
 
 			if (args.length > argIndex)
 				bitcoinFee = Coin.parseCoin(args[argIndex++]);

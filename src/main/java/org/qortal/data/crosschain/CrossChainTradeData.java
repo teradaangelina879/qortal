@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class CrossChainTradeData {
 
+	public static enum Mode { OFFER, TRADE };
+
 	// Properties
 
 	@Schema(description = "AT's Qortal address")
@@ -37,12 +39,6 @@ public class CrossChainTradeData {
 	@Schema(description = "Trade partner's Qortal address (trade begins when this is set)")
 	public String qortalRecipient;
 
-	@Schema(description = "How long from AT creation until AT triggers automatic refund to AT creator (minutes)")
-	public long offerRefundTimeout;
-
-	@Schema(description = "Actual Qortal block height when AT will automatically refund to AT creator (before trade begins)")
-	public int offerRefundHeight;
-
 	@Schema(description = "How long from beginning trade until AT triggers automatic refund to AT creator (minutes)")
 	public long tradeRefundTimeout;
 
@@ -51,6 +47,8 @@ public class CrossChainTradeData {
 
 	@Schema(description = "Amount, in BTC, that AT creator expects Bitcoin P2SH to pay out (excluding miner fees)")
 	public BigDecimal expectedBitcoin;
+
+	public Mode mode;
 
 	// Constructors
 

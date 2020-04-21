@@ -22,7 +22,9 @@ import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
+import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 
 import com.google.common.base.Utf8;
 
@@ -92,11 +94,15 @@ public class DeployAtTransaction extends Transaction {
 		if (this.deployATTransactionData.getAtAddress() != null)
 			return;
 
-		// For new version, simply use transaction signature
+		// For new version, simply use transaction transformer
 		if (this.getVersion() > 1) {
-			String atAddress = Crypto.toATAddress(this.deployATTransactionData.getSignature());
-			this.deployATTransactionData.setAtAddress(atAddress);
-			return;
+			try {
+				String atAddress = Crypto.toATAddress(DeployAtTransactionTransformer.toBytesForSigningImpl(this.deployATTransactionData));
+				this.deployATTransactionData.setAtAddress(atAddress);
+				return;
+			} catch (TransformationException e) {
+				throw new DataException("Unable to generate AT address");
+			}
 		}
 
 		int blockHeight = this.getHeight();

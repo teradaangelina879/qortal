@@ -34,19 +34,20 @@ public class DeployAT {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <HASH160-of-secret> [<initial QORT payout> [<AT funding amount>]]"));
+		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <HASH160-of-secret> <initial QORT payout> <AT funding amount> <AT trade timeout>"));
 		System.err.println(String.format("example: DeployAT "
 				+ "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot \\\n"
 				+ "\t80.4020 \\\n"
 				+ "\t0.00864200 \\\n"
 				+ "\tdaf59884b4d1aec8c1b17102530909ee43c0151a \\\n"
 				+ "\t0.0001 \\\n"
-				+ "\t123.456"));
+				+ "\t123.456 \\\n"
+				+ "\t10"));
 		System.exit(1);
 	}
 
 	public static void main(String[] args) {
-		if (args.length < 5 || args.length > 7)
+		if (args.length != 8)
 			usage(null);
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
@@ -58,6 +59,7 @@ public class DeployAT {
 		byte[] secretHash = null;
 		BigDecimal initialPayout = BigDecimal.ZERO.setScale(8);
 		BigDecimal fundingAmount = null;
+		int tradeTimeout = 0;
 
 		int argIndex = 0;
 		try {
@@ -77,15 +79,15 @@ public class DeployAT {
 			if (secretHash.length != 20)
 				usage("Hash of secret must be 20 bytes");
 
-			if (args.length > argIndex)
-				initialPayout = new BigDecimal(args[argIndex++]).setScale(8);
+			initialPayout = new BigDecimal(args[argIndex++]).setScale(8);
 
-			if (args.length > argIndex) {
-				fundingAmount = new BigDecimal(args[argIndex++]).setScale(8);
+			fundingAmount = new BigDecimal(args[argIndex++]).setScale(8);
+			if (fundingAmount.compareTo(redeemAmount) <= 0)
+				usage("AT funding amount must be greater than QORT redeem amount");
 
-				if (fundingAmount.compareTo(redeemAmount) <= 0)
-					usage("AT funding amount must be greater than QORT redeem amount");
-			}
+			tradeTimeout = Integer.parseInt(args[argIndex++]);
+			if (tradeTimeout < 10 || tradeTimeout > 50000)
+				usage("AT trade timeout should be between 10 and 50,000 minutes");
 		} catch (IllegalArgumentException e) {
 			usage(String.format("Invalid argument %d: %s", argIndex, e.getMessage()));
 		}
@@ -105,17 +107,12 @@ public class DeployAT {
 
 			System.out.println(String.format("QORT redeem amount: %s", redeemAmount.toPlainString()));
 
-			if (fundingAmount == null)
-				fundingAmount = redeemAmount.add(atFundingExtra);
 			System.out.println(String.format("AT funding amount: %s", fundingAmount.toPlainString()));
 
 			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
 			// Deploy AT
-			final int offerTimeout = 2 * 60; // minutes
-			final int tradeTimeout = 60; // minutes
-
-			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), secretHash, offerTimeout, tradeTimeout, initialPayout, fundingAmount, expectedBitcoin);
+			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), secretHash, tradeTimeout, initialPayout, redeemAmount, expectedBitcoin);
 			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			long txTimestamp = System.currentTimeMillis();
@@ -133,7 +130,7 @@ public class DeployAT {
 			String tags = "QORT-BTC ACCT";
 
 			BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, refundAccount.getPublicKey(), fee, null);
-			TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, redeemAmount, Asset.QORT);
+			TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, fundingAmount, Asset.QORT);
 
 			Transaction deployAtTransaction = new DeployAtTransaction(repository, deployAtTransactionData);
 

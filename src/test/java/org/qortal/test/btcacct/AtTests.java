@@ -61,7 +61,7 @@ public class AtTests extends Common {
 	public void testCompile() {
 		Account deployer = Common.getTestAccount(null, "chloe");
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), secretHash, refundTimeout, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), secretHash, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
 		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
@@ -113,7 +113,7 @@ public class AtTests extends Common {
 
 	@SuppressWarnings("unused")
 	@Test
-	public void testAutomaticOfferRefund() throws DataException {
+	public void testOfferCancel() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
 			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
@@ -128,15 +128,29 @@ public class AtTests extends Common {
 			BigDecimal deployAtFee = deployAtTransaction.getTransactionData().getFee();
 			BigDecimal deployersPostDeploymentBalance = deployersInitialBalance.subtract(fundingAmount).subtract(deployAtFee);
 
-			checkAtRefund(repository, deployer, deployersInitialBalance, deployAtFee);
+			// Send creator's address to AT
+			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(deployer.getAddress()), 32, 0);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, recipientAddressBytes, atAddress);
+			BigDecimal messageFee = messageTransaction.getTransactionData().getFee();
+
+			// Refund should happen 1st block after receiving recipient address
+			BlockUtils.mintBlock(repository);
+
+			BigDecimal expectedMinimumBalance = deployersPostDeploymentBalance;
+			BigDecimal expectedMaximumBalance = deployersInitialBalance.subtract(deployAtFee).subtract(messageFee);
+
+			BigDecimal actualBalance = deployer.getConfirmedBalance(Asset.QORT);
+
+			assertTrue(String.format("Deployer's balance %s should be above minimum %s", actualBalance.toPlainString(), expectedMinimumBalance.toPlainString()), actualBalance.compareTo(expectedMinimumBalance) > 0);
+			assertTrue(String.format("Deployer's balance %s should be below maximum %s", actualBalance.toPlainString(), expectedMaximumBalance.toPlainString()), actualBalance.compareTo(expectedMaximumBalance) < 0);
 
 			describeAt(repository, atAddress);
 
 			// Test orphaning
 			BlockUtils.orphanLastBlock(repository);
 
-			BigDecimal expectedBalance = deployersPostDeploymentBalance;
-			BigDecimal actualBalance = deployer.getBalance(Asset.QORT);
+			BigDecimal expectedBalance = deployersPostDeploymentBalance.subtract(messageFee);
+			actualBalance = deployer.getBalance(Asset.QORT);
 
 			Common.assertEqualBigDecimals("Deployer's post-orphan/pre-refund balance incorrect", expectedBalance, actualBalance);
 		}
@@ -237,7 +251,7 @@ public class AtTests extends Common {
 			BigDecimal messageFee = messageTransaction.getTransactionData().getFee();
 			BigDecimal deployersPostDeploymentBalance = deployersInitialBalance.subtract(fundingAmount).subtract(deployAtFee).subtract(messageFee);
 
-			checkAtRefund(repository, deployer, deployersInitialBalance, deployAtFee);
+			checkTradeRefund(repository, deployer, deployersInitialBalance, deployAtFee);
 
 			describeAt(repository, atAddress);
 
@@ -340,7 +354,7 @@ public class AtTests extends Common {
 
 			describeAt(repository, atAddress);
 
-			checkAtRefund(repository, deployer, deployersInitialBalance, deployAtFee);
+			checkTradeRefund(repository, deployer, deployersInitialBalance, deployAtFee);
 		}
 	}
 
@@ -382,7 +396,7 @@ public class AtTests extends Common {
 
 			describeAt(repository, atAddress);
 
-			checkAtRefund(repository, deployer, deployersInitialBalance, deployAtFee);
+			checkTradeRefund(repository, deployer, deployersInitialBalance, deployAtFee);
 		}
 	}
 
@@ -421,7 +435,7 @@ public class AtTests extends Common {
 	}
 
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), secretHash, refundTimeout, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), secretHash, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();
@@ -475,7 +489,7 @@ public class AtTests extends Common {
 		return messageTransaction;
 	}
 
-	private void checkAtRefund(Repository repository, Account deployer, BigDecimal deployersInitialBalance, BigDecimal deployAtFee) throws DataException {
+	private void checkTradeRefund(Repository repository, Account deployer, BigDecimal deployersInitialBalance, BigDecimal deployAtFee) throws DataException {
 		BigDecimal deployersPostDeploymentBalance = deployersInitialBalance.subtract(fundingAmount).subtract(deployAtFee);
 
 		// AT should automatically refund deployer after 'refundTimeout' blocks
@@ -520,7 +534,6 @@ public class AtTests extends Common {
 				+ "\tinitial payout: %s QORT,\n"
 				+ "\tredeem payout: %s QORT,\n"
 				+ "\texpected bitcoin: %s BTC,\n"
-				+ "\toffer timeout: %d minutes (from creation),\n"
 				+ "\ttrade timeout: %d minutes (from trade start),\n"
 				+ "\tcurrent block height: %d,\n",
 				tradeData.qortalAddress,
@@ -531,18 +544,17 @@ public class AtTests extends Common {
 				tradeData.initialPayout.toPlainString(),
 				tradeData.redeemPayout.toPlainString(),
 				tradeData.expectedBitcoin.toPlainString(),
-				tradeData.offerRefundTimeout,
 				tradeData.tradeRefundTimeout,
 				currentBlockHeight));
 
 		// Are we in 'offer' or 'trade' stage?
 		if (tradeData.tradeRefundHeight == null) {
 			// Offer
-			System.out.println(String.format("\toffer timeout: block %d",
-					tradeData.offerRefundHeight));
+			System.out.println(String.format("\tstatus: 'offer mode'"));
 		} else {
 			// Trade
-			System.out.println(String.format("\ttrade timeout: block %d,\n"
+			System.out.println(String.format("\tstatus: 'trade mode',\n"
+					+ "\ttrade timeout: block %d,\n"
 					+ "\ttrade recipient: %s",
 					tradeData.tradeRefundHeight,
 					tradeData.qortalRecipient));

@@ -1108,9 +1108,6 @@ public class Block {
 	 * @throws DataException
 	 */
 	private ValidationResult areAtsValid() throws DataException {
-		if (this.blockData.getATCount() == 0)
-			return ValidationResult.OK;
-
 		// Locally generated AT states should be valid so no need to re-execute them
 		if (this.ourAtStates == this.getATStates()) // Note object reference compare
 			return ValidationResult.OK;
@@ -1207,8 +1204,7 @@ public class Block {
 
 		// AT Transactions do not affect block's transaction count
 
-		// We've added transactions, so recalculate transactions signature
-		calcTransactionsSignature();
+		// AT Transactions do not affect block's transaction signature
 	}
 
 	/** Returns whether block's minter is actually allowed to mint this block. */
@@ -1414,7 +1410,7 @@ public class Block {
 	protected void processAtFeesAndStates() throws DataException {
 		ATRepository atRepository = this.repository.getATRepository();
 
-		for (ATStateData atStateData : this.getATStates()) {
+		for (ATStateData atStateData : this.ourAtStates) {
 			Account atAccount = new Account(this.repository, atStateData.getATAddress());
 
 			// Subtract AT-generated fees from AT accounts

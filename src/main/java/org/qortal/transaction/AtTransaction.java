@@ -187,7 +187,7 @@ public class AtTransaction extends Transaction {
 			// For QORT amounts only: if recipient has no reference yet, then this is their starting reference
 			if (assetId == Asset.QORT && recipient.getLastReference() == null)
 				// In Qora1 last reference was set to 64-bytes of zero
-				// In Qortal we use AT-Transction's signature, which makes more sense
+				// In Qortal we use AT-Transaction's signature, which makes more sense
 				recipient.setLastReference(this.atTransactionData.getSignature());
 		}
 	}

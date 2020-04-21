@@ -64,7 +64,7 @@ public class Redeem {
 		byte[] redeemPrivateKey = null;
 		byte[] secret = null;
 		int lockTime = 0;
-		Coin bitcoinFee = BTCACCT.DEFAULT_BTC_FEE;
+		Coin bitcoinFee = Common.DEFAULT_BTC_FEE;
 
 		int argIndex = 0;
 		try {
