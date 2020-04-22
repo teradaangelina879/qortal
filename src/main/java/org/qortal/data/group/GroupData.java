@@ -35,6 +35,9 @@ public class GroupData {
 	)
 	private int creationGroupId;
 
+	// We abuse this class for API purposes by adding this unrelated field. Not always present.
+	private Boolean isAdmin;
+
 	// Constructors
 
 	// necessary for JAX-RS serialization
@@ -138,6 +141,16 @@ public class GroupData {
 
 	public int getCreationGroupId() {
 		return this.creationGroupId;
+	}
+
+	// This is for API call GET /groups/member/{address}
+
+	public Boolean isAdmin() {
+		return this.isAdmin;
+	}
+
+	public void setIsAdmin(boolean isAdmin) {
+		this.isAdmin = isAdmin;
 	}
 
 }

@@ -206,8 +206,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	public List<GroupData> getGroupsWithMember(String member, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		sql.append("SELECT group_id, owner, group_name, description, created, updated, reference, is_open, "
-				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups "
-				+ "JOIN GroupMembers USING (group_id) WHERE address = ? ORDER BY group_name");
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id, admin FROM Groups "
+				+ "JOIN GroupMembers USING (group_id) "
+				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.group_id = GroupMembers.group_id AND GroupAdmins.admin = GroupMembers.address "
+				+ "WHERE address = ? ORDER BY group_name");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -239,8 +241,13 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				int maxBlockDelay = resultSet.getInt(11);
 
 				int creationGroupId = resultSet.getInt(12);
+				resultSet.getString(13);
+				boolean isAdmin = !resultSet.wasNull();
 
-				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId));
+				GroupData groupData = new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+				groupData.setIsAdmin(isAdmin);
+
+				groups.add(groupData);
 			} while (resultSet.next());
 
 			return groups;
