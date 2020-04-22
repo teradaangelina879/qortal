@@ -150,7 +150,7 @@ public class Refund {
 			}
 
 			// Check P2SH is funded
-			final long startTime = ((int) (System.currentTimeMillis() / 1000L)) - 86400;
+			final int startTime = ((int) (System.currentTimeMillis() / 1000L)) - 86400;
 
 			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString(), startTime);
 			if (p2shBalance == null) {

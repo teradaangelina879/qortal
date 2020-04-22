@@ -35,6 +35,7 @@ import org.qortal.block.BlockChain;
 import org.qortal.block.BlockMinter;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.crosschain.BTC;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
@@ -377,6 +378,9 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
+		LOGGER.info(String.format("Starting Bitcoin support using %s", Settings.getInstance().getBitcoinNet().name()));
+		BTC.getInstance();
+
 		// If GUI is enabled, we're no longer starting up but actually running now
 		Gui.getInstance().notifyRunning();
 	}
@@ -686,6 +690,9 @@ public class Controller extends Thread {
 		synchronized (shutdownLock) {
 			if (!isStopping) {
 				isStopping = true;
+
+				LOGGER.info("Shutting down Bitcoin support");
+				BTC.getInstance().shutdown();
 
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();

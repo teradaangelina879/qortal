@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.LogManager;
@@ -35,11 +36,13 @@ import org.bitcoinj.core.CheckpointManager;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.Peer;
 import org.bitcoinj.core.PeerAddress;
 import org.bitcoinj.core.PeerGroup;
 import org.bitcoinj.core.Sha256Hash;
 import org.bitcoinj.core.StoredBlock;
 import org.bitcoinj.core.Transaction;
+import org.bitcoinj.core.TransactionBroadcast;
 import org.bitcoinj.core.TransactionOutput;
 import org.bitcoinj.core.listeners.BlocksDownloadedEventListener;
 import org.bitcoinj.core.listeners.NewBestBlockListener;
@@ -54,6 +57,7 @@ import org.bitcoinj.store.MemoryBlockStore;
 import org.bitcoinj.utils.MonetaryFormat;
 import org.bitcoinj.utils.Threading;
 import org.bitcoinj.wallet.Wallet;
+import org.bitcoinj.wallet.WalletTransaction;
 import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
 import org.bitcoinj.wallet.listeners.WalletCoinsSentEventListener;
 import org.qortal.settings.Settings;
@@ -63,6 +67,7 @@ public class BTC {
 	public static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
 	public static final long NO_LOCKTIME_NO_RBF_SEQUENCE = 0xFFFFFFFFL;
 	public static final long LOCKTIME_NO_RBF_SEQUENCE = NO_LOCKTIME_NO_RBF_SEQUENCE - 1;
+	public static final int HASH160_LENGTH = 20;
 
 	private static final MessageDigest RIPE_MD160_DIGESTER;
 	private static final MessageDigest SHA256_DIGESTER;
@@ -99,16 +104,6 @@ public class BTC {
 
 		public abstract NetworkParameters getParams();
 	}
-
-	private static BTC instance;
-
-	private final NetworkParameters params;
-	private final String checkpointsFileName;
-	private final File directory;
-
-	private PeerGroup peerGroup;
-	private BlockStore blockStore;
-	private BlockChain chain;
 
 	private static class UpdateableCheckpointManager extends CheckpointManager implements NewBestBlockListener {
 		private static final long CHECKPOINT_THRESHOLD = 7 * 24 * 60 * 60; // seconds
@@ -235,6 +230,27 @@ public class BTC {
 			}
 		}
 	}
+
+	private static class ResettableBlockChain extends BlockChain {
+		public ResettableBlockChain(NetworkParameters params, BlockStore blockStore) throws BlockStoreException {
+			super(params, blockStore);
+		}
+
+		public void setChainHead(StoredBlock chainHead) throws BlockStoreException {
+			super.setChainHead(chainHead);
+		}
+	}
+
+	private static BTC instance;
+
+	private final NetworkParameters params;
+	private final String checkpointsFileName;
+	private final File directory;
+
+	private PeerGroup peerGroup;
+	private BlockStore blockStore;
+	private ResettableBlockChain chain;
+
 	private UpdateableCheckpointManager manager;
 
 	// Constructors and instance
@@ -278,6 +294,13 @@ public class BTC {
 		} catch (IOException e) {
 			throw new RuntimeException("Failed to load BTC checkpoints", e);
 		}
+
+		try {
+			this.start(System.currentTimeMillis() / 1000L);
+			// this.peerGroup.waitForPeers(this.peerGroup.getMaxConnections()).get();
+		} catch (BlockStoreException e) {
+			throw new RuntimeException("Failed to start BTC instance", e);
+		}
 	}
 
 	public static synchronized BTC getInstance() {
@@ -315,10 +338,12 @@ public class BTC {
 		this.blockStore.put(checkpoint);
 		this.blockStore.setChainHead(checkpoint);
 
-		this.chain = new BlockChain(this.params, this.blockStore);
+		this.chain = new ResettableBlockChain(this.params, this.blockStore);
 
 		this.peerGroup = new PeerGroup(this.params, this.chain);
 		this.peerGroup.setUserAgent("qortal", "1.0");
+		this.peerGroup.setPingIntervalMsec(1000L);
+		this.peerGroup.setMaxConnections(20);
 
 		if (this.params != RegTestParams.get()) {
 			this.peerGroup.addPeerDiscovery(new DnsDiscovery(this.params));
@@ -329,7 +354,7 @@ public class BTC {
 		this.peerGroup.start();
 	}
 
-	private void stop() {
+	public void shutdown() {
 		this.peerGroup.stop();
 	}
 
@@ -357,8 +382,11 @@ public class BTC {
 		}
 	}
 
-	private void replayChain(long startTime, Wallet wallet, ReplayHooks replayHooks) throws BlockStoreException {
-		this.start(startTime);
+	private void replayChain(int startTime, Wallet wallet, ReplayHooks replayHooks) throws BlockStoreException {
+		StoredBlock checkpoint = this.manager.getCheckpointBefore(startTime - 1);
+		this.blockStore.put(checkpoint);
+		this.blockStore.setChainHead(checkpoint);
+		this.chain.setChainHead(checkpoint);
 
 		final WalletCoinsReceivedEventListener coinsReceivedListener = (someWallet, tx, prevBalance, newBalance) -> {
 			LOGGER.debug(String.format("Wallet-related transaction %s", tx.getTxId()));
@@ -398,12 +426,11 @@ public class BTC {
 				this.chain.removeWallet(wallet);
 			}
 
-			this.stop();
+			// For safety, disconnect download peer just in case
+			Peer downloadPeer = this.peerGroup.getDownloadPeer();
+			if (downloadPeer != null)
+				downloadPeer.close();
 		}
-	}
-
-	private void replayChain(long startTime) throws BlockStoreException {
-		this.replayChain(startTime, null, null);
 	}
 
 	// Actual useful methods for use by other classes
@@ -412,10 +439,10 @@ public class BTC {
 	public Long getMedianBlockTime() {
 		// 11 blocks, at roughly 10 minutes per block, means we should go back at least 110 minutes
 		// but some blocks have been way longer than 10 minutes, so be massively pessimistic
-		long startTime = (System.currentTimeMillis() / 1000L) - 11 * 60 * 60; // 11 hours before now, in seconds
+		int startTime = (int) (System.currentTimeMillis() / 1000L) - 110 * 60; // 110 minutes before now, in seconds
 
 		try {
-			replayChain(startTime);
+			this.replayChain(startTime, null, null);
 
 			List<StoredBlock> latestBlocks = new ArrayList<>(11);
 			StoredBlock block = this.blockStore.getChainHead();
@@ -434,7 +461,7 @@ public class BTC {
 		}
 	}
 
-	public Coin getBalance(String base58Address, long startTime) {
+	public Coin getBalance(String base58Address, int startTime) {
 		// Create new wallet containing only the address we're interested in, ignoring anything prior to startTime
 		Wallet wallet = createEmptyWallet();
 		Address address = Address.fromString(this.params, base58Address);
@@ -451,7 +478,7 @@ public class BTC {
 		}
 	}
 
-	public List<TransactionOutput> getOutputs(String base58Address, long startTime) {
+	public List<TransactionOutput> getOutputs(String base58Address, int startTime) {
 		Wallet wallet = createEmptyWallet();
 		Address address = Address.fromString(this.params, base58Address);
 		wallet.addWatchedAddress(address, startTime);
@@ -467,7 +494,30 @@ public class BTC {
 		}
 	}
 
-	public List<TransactionOutput> getOutputs(byte[] txId, long startTime) {
+	public Coin getBalanceAndOtherInfo(String base58Address, int startTime, List<TransactionOutput> unspentOutputs, List<WalletTransaction> walletTransactions) {
+		// Create new wallet containing only the address we're interested in, ignoring anything prior to startTime
+		Wallet wallet = createEmptyWallet();
+		Address address = Address.fromString(this.params, base58Address);
+		wallet.addWatchedAddress(address, startTime);
+
+		try {
+			replayChain(startTime, wallet, null);
+
+			if (unspentOutputs != null)
+				unspentOutputs.addAll(wallet.getWatchedOutputs(true));
+
+			if (walletTransactions != null)
+				for (WalletTransaction walletTransaction : wallet.getWalletTransactions())
+					walletTransactions.add(walletTransaction);
+
+			return wallet.getBalance();
+		} catch (BlockStoreException e) {
+			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			return null;
+		}
+	}
+
+	public List<TransactionOutput> getOutputs(byte[] txId, int startTime) {
 		Wallet wallet = createEmptyWallet();
 
 		// Add random address to wallet
@@ -502,6 +552,17 @@ public class BTC {
 		} catch (BlockStoreException e) {
 			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
 			return null;
+		}
+	}
+
+	public boolean broadcastTransaction(Transaction transaction) {
+		TransactionBroadcast transactionBroadcast = this.peerGroup.broadcastTransaction(transaction);
+
+		try {
+			transactionBroadcast.future().get();
+			return true;
+		} catch (InterruptedException | ExecutionException e) {
+			return false;
 		}
 	}
 

@@ -13,13 +13,11 @@ import java.util.List;
 import java.util.function.Function;
 
 import org.bitcoinj.core.Base58;
-import org.ciyam.at.MachineState;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.at.QortalAtLoggerFactory;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
@@ -508,20 +506,7 @@ public class AtTests extends Common {
 
 	private void describeAt(Repository repository, String atAddress) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(atAddress);
-
-		ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
-		byte[] stateData = atStateData.getStateData();
-
-		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-		byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
-
-		CrossChainTradeData tradeData = new CrossChainTradeData();
-		tradeData.qortalAddress = atAddress;
-		tradeData.qortalCreator = Crypto.toAddress(atData.getCreatorPublicKey());
-		tradeData.creationTimestamp = atData.getCreation();
-		tradeData.qortBalance = repository.getAccountRepository().getBalance(atAddress, Asset.QORT).getBalance();
-
-		BTCACCT.populateTradeData(tradeData, dataBytes);
+		CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
 
 		Function<Long, String> epochMilliFormatter = (timestamp) -> LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
 		int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();
@@ -536,7 +521,7 @@ public class AtTests extends Common {
 				+ "\texpected bitcoin: %s BTC,\n"
 				+ "\ttrade timeout: %d minutes (from trade start),\n"
 				+ "\tcurrent block height: %d,\n",
-				tradeData.qortalAddress,
+				tradeData.qortalAtAddress,
 				tradeData.qortalCreator,
 				epochMilliFormatter.apply(tradeData.creationTimestamp),
 				tradeData.qortBalance.toPlainString(),
@@ -555,8 +540,10 @@ public class AtTests extends Common {
 			// Trade
 			System.out.println(String.format("\tstatus: 'trade mode',\n"
 					+ "\ttrade timeout: block %d,\n"
+					+ "\tBitcoin P2SH nLockTime: %d (%s),\n"
 					+ "\ttrade recipient: %s",
 					tradeData.tradeRefundHeight,
+					tradeData.lockTime, epochMilliFormatter.apply(tradeData.lockTime * 1000L),
 					tradeData.qortalRecipient));
 		}
 	}

@@ -134,7 +134,7 @@ public class CheckP2SH {
 				System.out.println(String.format("Too soon (%s) to redeem based on median block time %s", LocalDateTime.ofInstant(Instant.ofEpochMilli(now), ZoneOffset.UTC), LocalDateTime.ofInstant(Instant.ofEpochSecond(medianBlockTime), ZoneOffset.UTC)));
 
 			// Check P2SH is funded
-			final long startTime = lockTime - 86400;
+			final int startTime = lockTime - 86400;
 
 			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString(), startTime);
 			if (p2shBalance == null) {

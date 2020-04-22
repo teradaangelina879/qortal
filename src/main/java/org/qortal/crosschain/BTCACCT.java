@@ -5,8 +5,10 @@ import static org.ciyam.at.OpCode.calcOffset;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Function;
 
+import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.NetworkParameters;
@@ -19,6 +21,8 @@ import org.bitcoinj.script.Script;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
+import org.bitcoinj.script.Script.ScriptType;
+import org.bitcoinj.wallet.WalletTransaction;
 import org.ciyam.at.API;
 import org.ciyam.at.CompilationException;
 import org.ciyam.at.FunctionCode;
@@ -26,8 +30,17 @@ import org.ciyam.at.MachineState;
 import org.ciyam.at.OpCode;
 import org.ciyam.at.Timestamp;
 import org.qortal.account.Account;
+import org.qortal.asset.Asset;
+import org.qortal.at.QortalAtLoggerFactory;
+import org.qortal.block.BlockChain;
+import org.qortal.block.BlockChain.CiyamAtSettings;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.at.ATData;
+import org.qortal.data.at.ATStateData;
+import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.CrossChainTradeData;
+import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
 import org.qortal.utils.Base58;
 import org.qortal.utils.BitTwiddling;
 
@@ -57,6 +70,8 @@ import com.google.common.primitives.Bytes;
 
 public class BTCACCT {
 
+	public static final int SECRET_LENGTH = 32;
+	public static final int MIN_LOCKTIME = 1500000000;
 	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("edcdb1feb36e079c5f956faff2f24219b12e5fbaaa05654335e615e33218282f").asBytes(); // SHA256 of AT code bytes
 
 	/*
@@ -511,12 +526,27 @@ public class BTCACCT {
 	}
 
 	/**
-	 * Populates passed CrossChainTradeData with useful info extracted from AT data segment.
+	 * Returns CrossChainTradeData with useful info extracted from AT.
 	 * 
-	 * @param tradeData
-	 * @param dataBytes
+	 * @param repository
+	 * @param atAddress
+	 * @throws DataException
 	 */
-	public static void populateTradeData(CrossChainTradeData tradeData, byte[] dataBytes) {
+	public static CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
+		String atAddress = atData.getATAddress();
+
+		ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
+		byte[] stateData = atStateData.getStateData();
+
+		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
+		byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
+
+		CrossChainTradeData tradeData = new CrossChainTradeData();
+		tradeData.qortalAtAddress = atAddress;
+		tradeData.qortalCreator = Crypto.toAddress(atData.getCreatorPublicKey());
+		tradeData.creationTimestamp = atData.getCreation();
+		tradeData.qortBalance = repository.getAccountRepository().getBalance(atAddress, Asset.QORT).getBalance();
+
 		ByteBuffer dataByteBuffer = ByteBuffer.wrap(dataBytes);
 		byte[] addressBytes = new byte[32];
 
@@ -524,8 +554,9 @@ public class BTCACCT {
 		dataByteBuffer.position(dataByteBuffer.position() + 32);
 
 		// Hash of secret
-		tradeData.secretHash = new byte[32];
+		tradeData.secretHash = new byte[20];
 		dataByteBuffer.get(tradeData.secretHash);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - 20); // skip to 32 bytes
 
 		// Trade timeout
 		tradeData.tradeRefundTimeout = dataByteBuffer.getLong();
@@ -569,9 +600,65 @@ public class BTCACCT {
 
 			if (addressBytes[0] != 0)
 				tradeData.qortalRecipient = Base58.encode(Arrays.copyOf(addressBytes, Account.ADDRESS_LENGTH));
+
+			// We'll suggest half of trade timeout
+			CiyamAtSettings ciyamAtSettings = BlockChain.getInstance().getCiyamAtSettings();
+
+			int tradeModeSwitchHeight = (int) (tradeData.tradeRefundHeight - tradeData.tradeRefundTimeout / ciyamAtSettings.minutesPerBlock);
+
+			BlockData blockData = repository.getBlockRepository().fromHeight(tradeModeSwitchHeight);
+			if (blockData != null) {
+				tradeData.tradeModeTimestamp = blockData.getTimestamp(); // NOTE: milliseconds from epoch
+				tradeData.lockTime = (int) (tradeData.tradeModeTimestamp / 1000L + tradeData.tradeRefundTimeout / 2 * 60);
+			}
 		} else {
 			tradeData.mode = CrossChainTradeData.Mode.OFFER;
 		}
+
+		return tradeData;
+	}
+
+	public static byte[] findP2shSecret(String p2shAddress, List<WalletTransaction> walletTransactions) {
+		NetworkParameters params = BTC.getInstance().getNetworkParameters();
+
+		for (WalletTransaction walletTransaction : walletTransactions) {
+			Transaction transaction = walletTransaction.getTransaction();
+
+			// Cycle through inputs, looking for one that spends our P2SH
+			for (TransactionInput input : transaction.getInputs()) {
+				TransactionOutput connectedOutput = input.getConnectedOutput();
+				if (connectedOutput == null)
+					// We don't know about this transaction that this input is spending, so won't be our P2SH
+					continue;
+
+				Script scriptPubKey = connectedOutput.getScriptPubKey();
+				ScriptType scriptType = scriptPubKey.getScriptType();
+				if (scriptType != ScriptType.P2SH)
+					// Input isn't spending our P2SH
+					continue;
+
+				Address inputAddress = scriptPubKey.getToAddress(params);
+				if (!inputAddress.toString().equals(p2shAddress))
+					// Input isn't spending our P2SH
+					continue;
+
+				Script scriptSig = input.getScriptSig();
+				List<ScriptChunk> scriptChunks = scriptSig.getChunks();
+
+				// Expected number of script chunks
+				int expectedChunkCount = 1 /* secret */ + 1 /* sig */ + 1 /* pubkey */ + 1 /* redeemScript */;
+				if (scriptChunks.size() != expectedChunkCount)
+					continue;
+
+				byte[] secret = scriptChunks.get(0).data;
+				if (secret.length != BTCACCT.SECRET_LENGTH)
+					continue;
+
+				return secret;
+			}
+		}
+
+		return null;
 	}
 
 }
