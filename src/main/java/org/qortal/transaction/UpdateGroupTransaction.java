@@ -83,6 +83,16 @@ public class UpdateGroupTransaction extends Transaction {
 		if (updateGroupTransactionData.getNewApprovalThreshold() == null)
 			return ValidationResult.INVALID_GROUP_APPROVAL_THRESHOLD;
 
+		// Check min/max block delay values
+		if (updateGroupTransactionData.getNewMinimumBlockDelay() < 0)
+			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
+
+		if (updateGroupTransactionData.getNewMaximumBlockDelay() < 1)
+			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
+
+		if (updateGroupTransactionData.getNewMaximumBlockDelay() < updateGroupTransactionData.getNewMinimumBlockDelay())
+			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
+
 		// Check new description size bounds
 		int newDescriptionLength = Utf8.encodedLength(updateGroupTransactionData.getNewDescription());
 		if (newDescriptionLength < 1 || newDescriptionLength > Group.MAX_DESCRIPTION_SIZE)

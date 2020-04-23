@@ -77,6 +77,16 @@ public class CreateGroupTransaction extends Transaction {
 		if (createGroupTransactionData.getApprovalThreshold() == null)
 			return ValidationResult.INVALID_GROUP_APPROVAL_THRESHOLD;
 
+		// Check min/max block delay values
+		if (createGroupTransactionData.getMinimumBlockDelay() < 0)
+			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
+
+		if (createGroupTransactionData.getMaximumBlockDelay() < 1)
+			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
+
+		if (createGroupTransactionData.getMaximumBlockDelay() < createGroupTransactionData.getMinimumBlockDelay())
+			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
+
 		// Check group name size bounds
 		int groupNameLength = Utf8.encodedLength(createGroupTransactionData.getGroupName());
 		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)

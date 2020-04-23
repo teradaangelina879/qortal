@@ -242,6 +242,7 @@ public abstract class Transaction {
 		ACCOUNT_CANNOT_REWARD_SHARE(90),
 		SELF_SHARE_EXISTS(91),
 		ACCOUNT_ALREADY_EXISTS(92),
+		INVALID_GROUP_BLOCK_DELAY(93),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
