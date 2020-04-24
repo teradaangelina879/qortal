@@ -40,6 +40,7 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("group creator's public key", TransformationType.PUBLIC_KEY);
+		layout.add("group owner's address", TransformationType.ADDRESS);
 		layout.add("group's name length", TransformationType.INT);
 		layout.add("group's name", TransformationType.STRING);
 		layout.add("group's description length", TransformationType.INT);
