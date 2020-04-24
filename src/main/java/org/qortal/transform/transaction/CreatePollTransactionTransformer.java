@@ -39,6 +39,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("poll creator's public key", TransformationType.PUBLIC_KEY);
+		layout.add("poll owner's address", TransformationType.ADDRESS);
 		layout.add("poll name length", TransformationType.INT);
 		layout.add("poll name", TransformationType.STRING);
 		layout.add("poll description length", TransformationType.INT);
