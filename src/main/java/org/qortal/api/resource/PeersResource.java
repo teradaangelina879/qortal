@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,9 +30,8 @@ import org.qortal.data.network.PeerData;
 import org.qortal.network.Network;
 import org.qortal.network.PeerAddress;
 import org.qortal.repository.DataException;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
 import org.qortal.utils.ExecuteProduceConsume;
+import org.qortal.utils.NTP;
 
 @Path("/peers")
 @Tag(name = "Peers")
@@ -81,11 +81,7 @@ public class PeersResource {
 		ApiError.REPOSITORY_ISSUE
 	})
 	public List<PeerData> getKnownPeers() {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getNetworkRepository().getAllPeers();
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
+		return Network.getInstance().getAllKnownPeers();
 	}
 
 	@GET
@@ -166,12 +162,14 @@ public class PeersResource {
 	public String addPeer(String address) {
 		Security.checkApiCallAllowed(request);
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
+		final Long addedWhen = NTP.getTime();
+		if (addedWhen == null)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NO_TIME_SYNC);
+
+		try {
 			PeerAddress peerAddress = PeerAddress.fromString(address);
 
-			PeerData peerData = new PeerData(peerAddress, System.currentTimeMillis(), "API");
-			repository.getNetworkRepository().save(peerData);
-			repository.saveChanges();
+			Network.getInstance().mergePeers("API", addedWhen, Arrays.asList(peerAddress));
 
 			return "true";
 		} catch (IllegalArgumentException e) {

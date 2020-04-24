@@ -30,7 +30,7 @@ public abstract class ExecuteProduceConsume implements Runnable {
 	private final Logger logger;
 	private final boolean isLoggerTraceEnabled;
 
-	private ExecutorService executor;
+	protected ExecutorService executor;
 
 	// These are volatile to prevent thread-local caching of values
 	// but all are updated inside synchronized blocks
@@ -83,6 +83,10 @@ public abstract class ExecuteProduceConsume implements Runnable {
 		}
 
 		return snapshot;
+	}
+
+	protected void onSpawnFailure() {
+		/* Allow override in subclasses */
 	}
 
 	/**
@@ -180,6 +184,7 @@ public abstract class ExecuteProduceConsume implements Runnable {
 							++this.spawnFailures;
 							this.hasThreadPending = false;
 							this.logger.trace(() -> String.format("[%d] failed to spawn another thread", Thread.currentThread().getId()));
+							this.onSpawnFailure();
 						}
 					} else {
 						this.logger.trace(() -> String.format("[%d] NOT spawning another thread", Thread.currentThread().getId()));

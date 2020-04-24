@@ -7,6 +7,8 @@ import java.net.SocketTimeoutException;
 import java.net.StandardSocketOptions;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.security.SecureRandom;
 import java.util.Collections;
@@ -108,10 +110,10 @@ public class Peer {
 	}
 
 	/** Construct Peer using existing, connected socket */
-	public Peer(SocketChannel socketChannel) throws IOException {
+	public Peer(SocketChannel socketChannel, Selector channelSelector) throws IOException {
 		this.isOutbound = false;
 		this.socketChannel = socketChannel;
-		sharedSetup();
+		sharedSetup(channelSelector);
 
 		this.resolvedAddress = ((InetSocketAddress) socketChannel.socket().getRemoteSocketAddress());
 		this.isLocal = isAddressLocal(this.resolvedAddress.getAddress());
@@ -254,17 +256,18 @@ public class Peer {
 		new SecureRandom().nextBytes(verificationCodeExpected);
 	}
 
-	private void sharedSetup() throws IOException {
+	private void sharedSetup(Selector channelSelector) throws IOException {
 		this.connectionTimestamp = NTP.getTime();
 		this.socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
 		this.socketChannel.configureBlocking(false);
+		this.socketChannel.register(channelSelector, SelectionKey.OP_READ);
 		this.byteBuffer = null; // Defer allocation to when we need it, to save memory. Sorry GC!
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
 		this.pendingMessages = new LinkedBlockingQueue<>();
 	}
 
-	public SocketChannel connect() {
-		LOGGER.trace(String.format("Connecting to peer %s", this));
+	public SocketChannel connect(Selector channelSelector) {
+		LOGGER.trace(() -> String.format("Connecting to peer %s", this));
 
 		try {
 			this.resolvedAddress = this.peerData.getAddress().toSocketAddress();
@@ -272,10 +275,6 @@ public class Peer {
 
 			this.socketChannel = SocketChannel.open();
 			this.socketChannel.socket().connect(resolvedAddress, CONNECT_TIMEOUT);
-
-			LOGGER.debug(String.format("Connected to peer %s", this));
-			sharedSetup();
-			return socketChannel;
 		} catch (SocketTimeoutException e) {
 			LOGGER.trace(String.format("Connection timed out to peer %s", this));
 			return null;
@@ -284,6 +283,20 @@ public class Peer {
 			return null;
 		} catch (IOException e) {
 			LOGGER.trace(String.format("Connection failed to peer %s", this));
+			return null;
+		}
+
+		try {
+			LOGGER.debug(() -> String.format("Connected to peer %s", this));
+			sharedSetup(channelSelector);
+			return socketChannel;
+		} catch (IOException e) {
+			LOGGER.trace(String.format("Post-connection setup failed, peer %s", this));
+			try {
+				socketChannel.close();
+			} catch (IOException ce) {
+				// Failed to close?
+			}
 			return null;
 		}
 	}

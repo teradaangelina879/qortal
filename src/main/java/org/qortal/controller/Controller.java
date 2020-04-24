@@ -336,7 +336,7 @@ public class Controller extends Thread {
 		try {
 			Network network = Network.getInstance();
 			network.start();
-		} catch (IOException e) {
+		} catch (IOException | DataException e) {
 			LOGGER.error("Unable to start networking", e);
 			Controller.getInstance().shutdown();
 			Gui.getInstance().fatalError("Networking failure", e);
@@ -549,17 +549,7 @@ public class Controller extends Thread {
 					LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
 
 					// Don't use this peer again for a while
-					PeerData peerData = peer.getPeerData();
-					peerData.setLastMisbehaved(NTP.getTime());
-
-					// Only save to repository if outbound peer
-					if (peer.isOutbound())
-						try (final Repository repository = RepositoryManager.getRepository()) {
-							repository.getNetworkRepository().save(peerData);
-							repository.saveChanges();
-						} catch (DataException e) {
-							LOGGER.warn("Repository issue while updating peer synchronization info", e);
-						}
+					Network.getInstance().peerMisbehaved(peer);
 					break;
 				}
 
