@@ -1,7 +1,6 @@
 package org.qortal.account;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -12,10 +11,8 @@ import org.qortal.block.BlockChain;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.account.RewardShareData;
-import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
-import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 
 @XmlAccessorType(XmlAccessType.NONE) // Stops JAX-RS errors when unmarshalling blockchain config
@@ -109,35 +106,8 @@ public class Account {
 	 * @throws DataException
 	 */
 	public byte[] getLastReference() throws DataException {
-		byte[] reference = this.repository.getAccountRepository().getLastReference(this.address);
+		byte[] reference = AccountRefCache.getLastReference(this.repository, this.address);
 		LOGGER.trace(() -> String.format("Last reference for %s is %s", this.address, reference == null ? "null" : Base58.encode(reference)));
-		return reference;
-	}
-
-	/**
-	 * Fetch last reference for account, considering unconfirmed transactions only, or return null.
-	 * <p>
-	 * NOTE: calls Transaction.getUnconfirmedTransactions which discards uncommitted
-	 * repository changes.
-	 * 
-	 * @return byte[] reference, or null if no unconfirmed transactions for this account.
-	 * @throws DataException
-	 */
-	public byte[] getUnconfirmedLastReference() throws DataException {
-		// Newest unconfirmed transaction takes priority
-		List<TransactionData> unconfirmedTransactions = Transaction.getUnconfirmedTransactions(repository);
-
-		byte[] reference = null;
-
-		for (TransactionData transactionData : unconfirmedTransactions) {
-			String unconfirmedTransactionAddress = PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey());
-
-			if (unconfirmedTransactionAddress.equals(this.address))
-				reference = transactionData.getSignature();
-		}
-
-		final byte[] loggingReference = reference;
-		LOGGER.trace(() -> String.format("Last unconfirmed reference for %s is %s", this.address, loggingReference == null ? "null" : Base58.encode(loggingReference)));
 		return reference;
 	}
 
@@ -153,7 +123,7 @@ public class Account {
 
 		AccountData accountData = this.buildAccountData();
 		accountData.setReference(reference);
-		this.repository.getAccountRepository().setLastReference(accountData);
+		AccountRefCache.setLastReference(this.repository, accountData);
 	}
 
 	// Default groupID manipulations

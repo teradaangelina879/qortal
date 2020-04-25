@@ -537,54 +537,31 @@ public abstract class Transaction {
 		if (feeValidationResult != ValidationResult.OK)
 			return feeValidationResult;
 
-		/*
-		 * We have to grab the blockchain lock because we're updating
-		 * when we fake the creator's last reference,
-		 * even though we throw away the update when we discard changes.
-		 */
-		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		blockchainLock.lock();
-		try {
-			// Clear repository's "in transaction" state so we don't cause a repository deadlock
-			repository.discardChanges();
+		PublicKeyAccount creator = this.getCreator();
+		if (creator == null)
+			return ValidationResult.MISSING_CREATOR;
 
-			try {
-				PublicKeyAccount creator = this.getCreator();
-				if (creator == null)
-					return ValidationResult.MISSING_CREATOR;
+		// Reject if unconfirmed pile already has X transactions from same creator
+		if (countUnconfirmedByCreator(creator) >= Settings.getInstance().getMaxUnconfirmedPerAccount())
+			return ValidationResult.TOO_MANY_UNCONFIRMED;
 
-				// Reject if unconfirmed pile already has X transactions from same creator
-				if (countUnconfirmedByCreator(creator) >= Settings.getInstance().getMaxUnconfirmedPerAccount())
-					return ValidationResult.TOO_MANY_UNCONFIRMED;
+		// Check transaction's txGroupId
+		if (!this.isValidTxGroupId())
+			return ValidationResult.INVALID_TX_GROUP_ID;
 
-				// Check transaction's txGroupId
-				if (!this.isValidTxGroupId())
-					return ValidationResult.INVALID_TX_GROUP_ID;
+		// Check transaction references
+		if (!this.hasValidReference())
+			return ValidationResult.INVALID_REFERENCE;
 
-				byte[] unconfirmedLastReference = creator.getUnconfirmedLastReference();
-				if (unconfirmedLastReference != null)
-					creator.setLastReference(unconfirmedLastReference);
+		// Check transaction is valid
+		ValidationResult result = this.isValid();
+		if (result != ValidationResult.OK)
+			return result;
 
-				// Check transaction is valid
-				ValidationResult result = this.isValid();
-				if (result != ValidationResult.OK)
-					return result;
+		// Check transaction is processable
+		result = this.isProcessable();
 
-				// Check transaction references
-				if (!this.hasValidReference())
-					return ValidationResult.INVALID_REFERENCE;
-
-				// Check transaction is processable
-				result = this.isProcessable();
-
-				return result;
-			} finally {
-				repository.discardChanges();
-			}
-		} finally {
-			// In separate finally block just in case rollback throws
-			blockchainLock.unlock();
-		}
+		return result;
 	}
 
 	/** Returns whether transaction's fee is valid. Might be overriden in transaction subclasses. */

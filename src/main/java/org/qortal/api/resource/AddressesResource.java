@@ -66,32 +66,18 @@ public class AddressesResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public AccountData getAccountInfo(@PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			AccountData accountData = repository.getAccountRepository().getAccount(address);
-
 			// Not found?
 			if (accountData == null)
-				accountData = new AccountData(address);
-			else {
-				// Unconfirmed transactions could update lastReference
-				Account account = new Account(repository, address);
-
-				// Use last reference based on unconfirmed transactions if possible
-				byte[] unconfirmedLastReference = account.getUnconfirmedLastReference();
-
-				if (unconfirmedLastReference != null)
-					// There are unconfirmed transactions so modify returned data
-					accountData.setReference(unconfirmedLastReference);
-			}
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
 			return accountData;
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -100,42 +86,37 @@ public class AddressesResource {
 	@GET
 	@Path("/lastreference/{address}")
 	@Operation(
-		summary = "Fetch reference for next transaction to be created by address, considering unconfirmed transactions",
-		description = "Returns the base58-encoded signature of the last confirmed/unconfirmed transaction created by address, failing that: the first incoming transaction. Returns \"false\" if there is no transactions.",
+		summary = "Fetch reference for next transaction to be created by address",
+		description = "Returns the base58-encoded signature of the last confirmed transaction created by address, failing that: the first incoming transaction. Returns \"false\" if there is no last-reference.",
 		responses = {
 			@ApiResponse(
-				description = "the base58-encoded transaction signature",
+				description = "the base58-encoded last-reference",
 				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public String getLastReferenceUnconfirmed(@PathParam("address") String address) {
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
+	public String getLastReference(@PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		byte[] lastReference = null;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			Account account = new Account(repository, address);
+			AccountData accountData = repository.getAccountRepository().getAccount(address);
+			// Not found?
+			if (accountData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
-			// Use last reference based on unconfirmed transactions if possible
-			lastReference = account.getUnconfirmedLastReference();
-
-			if (lastReference == null)
-				// No unconfirmed transactions so fallback to using one save in account data
-				lastReference = account.getLastReference();
-		} catch (ApiException e) {
-			throw e;
+			lastReference = accountData.getReference();
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 
-		if(lastReference == null || lastReference.length == 0) {
+		if (lastReference == null || lastReference.length == 0)
 			return "false";
-		} else {
-			return Base58.encode(lastReference);
-		}
+
+		return Base58.encode(lastReference);
 	}
 
 	@GET
