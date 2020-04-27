@@ -67,7 +67,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		// V3+ allows payments but always return a list of payments, even if empty
+		// Always return a list of payments, even if empty
 		List<PaymentData> payments = new ArrayList<>();
 		if (version != 1) {
 			int paymentsCount = byteBuffer.getInt();

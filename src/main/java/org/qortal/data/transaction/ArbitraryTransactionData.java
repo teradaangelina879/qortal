@@ -49,7 +49,6 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
-	/** V3 */
 	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
 			int version, int service, byte[] data, DataType dataType, List<PaymentData> payments) {
 		super(TransactionType.ARBITRARY, baseTransactionData);
@@ -60,12 +59,6 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.data = data;
 		this.dataType = dataType;
 		this.payments = payments;
-	}
-
-	/** V1 */
-	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
-			int version, int service, byte[] data, DataType dataType) {
-		this(baseTransactionData, version, service, data, dataType, null);
 	}
 
 	// Getters/Setters

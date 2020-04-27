@@ -1107,14 +1107,8 @@ public class Block {
 		if (this.ourAtStates == this.getATStates()) // Note object reference compare
 			return ValidationResult.OK;
 
-		// For old v1 CIYAM ATs we blindly accept them
-		if (this.blockData.getVersion() < 4) {
-			this.ourAtStates = this.atStates;
-			this.ourAtFees = this.blockData.getATFees();
-		} else {
-			// Generate local AT states for comparison
-			this.executeATs();
-		}
+		// Generate local AT states for comparison
+		this.executeATs();
 
 		// Check locally generated AT states against ones received from elsewhere
 
