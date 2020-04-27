@@ -225,6 +225,19 @@ public class BlockChain {
 			Throwable linkedException = e.getLinkedException();
 			if (linkedException instanceof XMLMarshalException) {
 				String message = ((XMLMarshalException) linkedException).getInternalException().getLocalizedMessage();
+
+				if (message == null && linkedException.getCause() != null && linkedException.getCause().getCause() != null )
+					message = linkedException.getCause().getCause().getLocalizedMessage();
+
+				if (message == null && linkedException.getCause() != null)
+					message = linkedException.getCause().getLocalizedMessage();
+
+				if (message == null)
+					message = linkedException.getLocalizedMessage();
+
+				if (message == null)
+					message = e.getLocalizedMessage();
+
 				LOGGER.error(message);
 				throw new RuntimeException(message, e);
 			}
