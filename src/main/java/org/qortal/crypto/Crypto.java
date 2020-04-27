@@ -5,7 +5,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 import org.qortal.account.Account;
-import org.qortal.block.BlockChain;
 import org.qortal.utils.Base58;
 
 import com.google.common.primitives.Bytes;
@@ -59,24 +58,17 @@ public class Crypto {
 		return Bytes.concat(digest, digest);
 	}
 
-	@SuppressWarnings("deprecation")
 	private static String toAddress(byte addressVersion, byte[] input) {
 		// SHA2-256 input to create new data and of known size
 		byte[] inputHash = digest(input);
 
 		// Use RIPEMD160 to create shorter address
-		if (BlockChain.getInstance().getUseBrokenMD160ForAddresses()) {
-			// Legacy BROKEN MD160
-			BrokenMD160 brokenMD160 = new BrokenMD160();
-			inputHash = brokenMD160.digest(inputHash);
-		} else {
-			// Use legit MD160
-			try {
-				MessageDigest md160 = MessageDigest.getInstance("RIPEMD160");
-				inputHash = md160.digest(inputHash);
-			} catch (NoSuchAlgorithmException e) {
-				throw new RuntimeException("RIPEMD160 message digest not available");
-			}
+		// Use legit MD160
+		try {
+			MessageDigest md160 = MessageDigest.getInstance("RIPEMD160");
+			inputHash = md160.digest(inputHash);
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("RIPEMD160 message digest not available");
 		}
 
 		// Create address data using above hash and addressVersion (prepended)
