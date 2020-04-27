@@ -4,7 +4,6 @@
 	"maxBlockSize": 2097152,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.001",
-	"useBrokenMD160ForAddresses": false,
 	"requireGroupForApproval": false,
 	"defaultGroupId": 0,
 	"oneNamePerAccount": true,
@@ -59,9 +58,9 @@
 		"version": 4,
 		"timestamp": "1583870000000",
 		"transactions": [
-			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT", "description": "QORTAL coin", "quantity": 0, "isDivisible": true, "reference": "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC", "data": "{}" },
-			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "Legacy-QORA", "description": "Representative legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
-			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "QORT-from-QORA", "description": "QORT gained from holding legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
+			{ "type": "ISSUE_ASSET", "owner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "assetName": "QORT", "description": "QORTAL coin", "quantity": 0, "isDivisible": true, "data": "{}" },
+			{ "type": "ISSUE_ASSET", "owner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "assetName": "Legacy-QORA", "description": "Representative legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
+			{ "type": "ISSUE_ASSET", "owner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "assetName": "QORT-from-QORA", "description": "QORT gained from holding legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
 
 			{ "type": "ACCOUNT_FLAGS", "target": "QY82MasqEH6ChwXaETH4piMtE8Pk4NBWD3", "andMask": -1, "orMask": 1, "xorMask": 0 },
 			{ "type": "ACCOUNT_FLAGS", "target": "QcPro2T97Q8cAfcVM4Pn4fv71Za4T6oeFD", "andMask": -1, "orMask": 1, "xorMask": 0 },
@@ -121,7 +120,7 @@
 			{ "type": "JOIN_GROUP", "joinerPublicKey": "25jxnXz3xF3tK2WJHpUHwGx7DXR6yfjAHF1hFX5ice6H", "groupId": 1 },
 			{ "type": "ADD_GROUP_ADMIN", "ownerPublicKey": "CVancqfgb2vWLXHjqZF8LtoQyB7Y5HtZUrFKvtwrTkNW", "groupId": 1, "member": "QhPXuFFRa9s91Q2qYKpSN5LVCUTqYkgRLz" },
 
-			{ "type": "UPDATE_GROUP", "ownerPublicKey": "CVancqfgb2vWLXHjqZF8LtoQyB7Y5HtZUrFKvtwrTkNW", "groupId": 1, "newOwner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "newDescription": "developer group", "newIsOpen": false, "newApprovalThreshold": "PCT40", "minimumBlockDelay": 10, "maximumBlockDelay": 1440 },
+			{ "type": "UPDATE_GROUP", "ownerPublicKey": "CVancqfgb2vWLXHjqZF8LtoQyB7Y5HtZUrFKvtwrTkNW", "groupId": 1, "newOwner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "newDescription": "developer group", "newIsOpen": false, "newApprovalThreshold": "PCT40", "minimumBlockDelay": 10, "maximumBlockDelay": 1440 },
 
 			{ "type": "ACCOUNT_LEVEL", "target": "QVLuvt9krmxXwQPAeAhxzhuMF5i8F4aNs8", "level": 5 },
 			{ "type": "ACCOUNT_LEVEL", "target": "Qe9VPzQp3h4Kg3DHSHBUQ3AM3AiRBfCDfX", "level": 5 },
