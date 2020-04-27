@@ -95,9 +95,8 @@ public class IssueAssetTransaction extends Transaction {
 		if (assetDescriptionlength < 1 || assetDescriptionlength > Asset.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
-		// Check quantity - either 10 billion or if that's not enough: a billion billion!
-		long maxQuantity = issueAssetTransactionData.getIsDivisible() ? Asset.MAX_DIVISIBLE_QUANTITY : Asset.MAX_INDIVISIBLE_QUANTITY;
-		if (issueAssetTransactionData.getQuantity() < 1 || issueAssetTransactionData.getQuantity() > maxQuantity)
+		// Check quantity
+		if (issueAssetTransactionData.getQuantity() < 1 || issueAssetTransactionData.getQuantity() > Asset.MAX_QUANTITY)
 			return ValidationResult.INVALID_QUANTITY;
 
 		// Check fee is positive
