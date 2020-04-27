@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
+import org.qortal.account.AccountRefCache;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
@@ -1015,7 +1016,9 @@ public class Block {
 
 	/** Returns whether block's transactions are valid. */
 	private ValidationResult areTransactionsValid() throws DataException {
-		try {
+		// We're about to (test-)process a batch of transactions,
+		// so create an account reference cache so get/set correct last-references.
+		try (AccountRefCache accountRefCache = new AccountRefCache(repository)) {
 			// Create repository savepoint here so we can rollback to it after testing transactions
 			repository.setSavepoint();
 
@@ -1229,14 +1232,21 @@ public class Block {
 			rewardTransactionFees();
 		}
 
-		// Process transactions (we'll link them to this block after saving the block itself)
-		processTransactions();
+		// We're about to (test-)process a batch of transactions,
+		// so create an account reference cache so get/set correct last-references.
+		try (AccountRefCache accountRefCache = new AccountRefCache(this.repository)) {
+			// Process transactions (we'll link them to this block after saving the block itself)
+			processTransactions();
 
-		// Group-approval transactions
-		processGroupApprovalTransactions();
+			// Group-approval transactions
+			processGroupApprovalTransactions();
 
-		// Process AT fees and save AT states into repository
-		processAtFeesAndStates();
+			// Process AT fees and save AT states into repository
+			processAtFeesAndStates();
+
+			// Commit new accounts' last-reference changes
+			accountRefCache.commit();
+		}
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
 		BlockData latestBlockData = this.repository.getBlockRepository().fromHeight(blockchainHeight);
