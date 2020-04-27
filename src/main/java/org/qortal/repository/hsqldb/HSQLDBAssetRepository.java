@@ -188,6 +188,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	public void delete(long assetId) throws DataException {
 		try {
 			this.repository.delete("Assets", "asset_id = ?", assetId);
+
+			// Also delete account balances that refer to asset
+			this.repository.delete("AccountBalances", "asset_id = ?", assetId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete asset from repository", e);
 		}

@@ -250,8 +250,10 @@ public class Payment {
 			 * For QORT amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own
 			 * (which would have changed their last reference) thus this is their first reference so remove it.
 			 */
-			if ((alwaysUninitializeRecipientReference || assetId == Asset.QORT) && Arrays.equals(recipient.getLastReference(), signature))
+			if ((alwaysUninitializeRecipientReference || assetId == Asset.QORT) && Arrays.equals(recipient.getLastReference(), signature)) {
 				recipient.setLastReference(null);
+				this.repository.getAccountRepository().delete(recipient.getAddress(), assetId);
+			}
 		}
 	}
 

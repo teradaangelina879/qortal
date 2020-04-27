@@ -77,6 +77,12 @@ public class Account {
 			throw new DataException(message);
 		}
 
+		// Delete account balance record instead of setting balance to zero
+		if (balance.signum() == 0) {
+			this.repository.getAccountRepository().delete(this.address, assetId);
+			return;
+		}
+
 		// Can't have a balance without an account - make sure it exists!
 		this.repository.getAccountRepository().ensureAccount(this.buildAccountData());
 
