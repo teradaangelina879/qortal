@@ -71,15 +71,6 @@ public class BlockChain {
 	private GenesisBlock.GenesisInfo genesisInfo;
 
 	public enum FeatureTrigger {
-		messageHeight, // block height when MESSAGE transactions are enabled
-		atHeight, // block height when CIYAM automated transactions are enabled
-		assetsTimestamp, // timestamp when assets (issue/transfer/payments) are enabled
-		votingTimestamp, // timestamp when voting is enabled
-		arbitraryTimestamp, // timestamp when arbitrary transactions are enabled
-		powfixTimestamp, // timestamp when various legacy fixes come into effect
-		qortalTimestamp, // timestamp when Qortal changes come into effect
-		newAssetPricingTimestamp, // timestamp when new asset pricing comes into effect
-		groupApprovalTimestamp; // timestamp when transaction approval comes into effect
 	}
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
@@ -356,42 +347,6 @@ public class BlockChain {
 	}
 
 	// Convenience methods for specific blockchain feature triggers
-
-	public long getMessageReleaseHeight() {
-		return featureTriggers.get("messageHeight");
-	}
-
-	public long getATReleaseHeight() {
-		return featureTriggers.get("atHeight");
-	}
-
-	public long getPowFixReleaseTimestamp() {
-		return featureTriggers.get("powfixTimestamp");
-	}
-
-	public long getAssetsReleaseTimestamp() {
-		return featureTriggers.get("assetsTimestamp");
-	}
-
-	public long getVotingReleaseTimestamp() {
-		return featureTriggers.get("votingTimestamp");
-	}
-
-	public long getArbitraryReleaseTimestamp() {
-		return featureTriggers.get("arbitraryTimestamp");
-	}
-
-	public long getQortalTimestamp() {
-		return featureTriggers.get("qortalTimestamp");
-	}
-
-	public long getNewAssetPricingTimestamp() {
-		return featureTriggers.get("newAssetPricingTimestamp");
-	}
-
-	public long getGroupApprovalTimestamp() {
-		return featureTriggers.get("groupApprovalTimestamp");
-	}
 
 	// More complex getters for aspects that change by height or timestamp
 

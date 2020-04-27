@@ -677,12 +677,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("SET TIME ZONE INTERVAL '0:00' HOUR TO MINUTE");
 					// Normalize amount/fulfilled to asset with highest assetID, BEFORE price correction
 					stmt.execute("UPDATE AssetOrders SET amount = amount * price, fulfilled = fulfilled * price "
-							+ "WHERE ordered < timestamp(" + BlockChain.getInstance().getNewAssetPricingTimestamp() + ") "
+							+ "WHERE ordered < timestamp(" + 0 /* was BlockChain.getInstance().getNewAssetPricingTimestamp() */ + ") "
 							+ "AND have_asset_id < want_asset_id");
 					// Normalize price into lowest-assetID/highest-assetID price-pair, e.g. QORT/asset100
 					// Note: HSQLDB uses BigDecimal's dividend.divide(divisor, RoundingMode.DOWN) too
 					stmt.execute("UPDATE AssetOrders SET price = CAST(1 AS QortalAmount) / price "
-							+ "WHERE ordered < timestamp(" + BlockChain.getInstance().getNewAssetPricingTimestamp() + ") "
+							+ "WHERE ordered < timestamp(" + 0 /* was BlockChain.getInstance().getNewAssetPricingTimestamp() */ + ") "
 							+ "AND have_asset_id < want_asset_id");
 					// Revert time zone change above
 					stmt.execute("SET TIME ZONE LOCAL");

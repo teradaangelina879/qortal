@@ -7,7 +7,6 @@ import java.util.Base64;
 import java.util.Base64.Encoder;
 
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.block.BlockChain;
 import org.qortal.data.asset.OrderData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.CancelAssetOrderTransactionData;
@@ -113,8 +112,6 @@ public class AssetUtils {
 			OrderData targetOrderData = repository.getAssetRepository().fromOrderId(targetOrderId);
 			OrderData initiatingOrderData = repository.getAssetRepository().fromOrderId(initiatingOrderId);
 
-			boolean isNewPricing = initiatingOrderData.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
-
 			// Alice selling have asset
 			expectedBalance = initialBalances.get("alice").get(haveAssetId).subtract(aliceCommitment);
 			AccountUtils.assertBalance(repository, "alice", haveAssetId, expectedBalance);
@@ -132,17 +129,14 @@ public class AssetUtils {
 			AccountUtils.assertBalance(repository, "bob", haveAssetId, expectedBalance);
 
 			// Check orders
-			BigDecimal expectedFulfilled;
-			BigDecimal newPricingAmount = (initiatingOrderData.getHaveAssetId() < initiatingOrderData.getWantAssetId()) ? bobReturn : aliceReturn;
+			BigDecimal expectedFulfilled = (initiatingOrderData.getHaveAssetId() < initiatingOrderData.getWantAssetId()) ? bobReturn : aliceReturn;
 
 			// Check matching order
 			assertNotNull("matching order missing", initiatingOrderData);
-			expectedFulfilled = isNewPricing ? newPricingAmount : aliceReturn;
 			Common.assertEqualBigDecimals(String.format("Bob's order \"fulfilled\" incorrect"), expectedFulfilled, initiatingOrderData.getFulfilled());
 
 			// Check initial order
 			assertNotNull("initial order missing", targetOrderData);
-			expectedFulfilled = isNewPricing ? newPricingAmount : bobReturn;
 			Common.assertEqualBigDecimals(String.format("Alice's order \"fulfilled\" incorrect"), expectedFulfilled, targetOrderData.getFulfilled());
 		}
 	}

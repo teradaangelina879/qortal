@@ -18,7 +18,6 @@ import javax.xml.bind.annotation.XmlElement;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -222,13 +221,8 @@ public abstract class TransactionTransformer extends Transformer {
 	}
 
 	protected static int getBaseLength(TransactionData transactionData) {
-		// All transactions have at least txType, timestamp, reference, tx creator's public key and also fee and signature (on the end)
-		int baseLength = TYPE_LENGTH + TIMESTAMP_LENGTH + REFERENCE_LENGTH + PUBLIC_KEY_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
-
-		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp())
-			baseLength += GROUPID_LENGTH;
-
-		return baseLength;
+		// All transactions have at least txType, timestamp, txGroupId, reference, tx creator's public key and also fee and signature (on the end)
+		return TYPE_LENGTH + TIMESTAMP_LENGTH + GROUPID_LENGTH + REFERENCE_LENGTH + PUBLIC_KEY_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -309,17 +303,14 @@ public abstract class TransactionTransformer extends Transformer {
 	}
 
 	protected static void transformCommonBytes(TransactionData transactionData, ByteArrayOutputStream bytes) throws IOException {
-		boolean v2 = transactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp();
-
 		// Transaction type
 		bytes.write(Ints.toByteArray(transactionData.getType().value));
 
 		// Timestamp
 		bytes.write(Longs.toByteArray(transactionData.getTimestamp()));
 
-		if (v2)
-			// Transaction's groupID
-			bytes.write(Ints.toByteArray(transactionData.getTxGroupId()));
+		// Transaction's groupID
+		bytes.write(Ints.toByteArray(transactionData.getTxGroupId()));
 
 		// Reference
 		bytes.write(transactionData.getReference());

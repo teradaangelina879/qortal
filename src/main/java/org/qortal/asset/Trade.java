@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
-import org.qortal.block.BlockChain;
 import org.qortal.data.asset.OrderData;
 import org.qortal.data.asset.TradeData;
 import org.qortal.repository.AssetRepository;
@@ -17,12 +16,11 @@ public class Trade {
 	private Repository repository;
 	private TradeData tradeData;
 
-	private boolean isNewPricing;
 	private AssetRepository assetRepository;
 
 	private OrderData initiatingOrder;
 	private OrderData targetOrder;
-	private BigDecimal newPricingFulfilled;
+	private BigDecimal fulfilled;
 
 	// Constructors
 
@@ -30,7 +28,6 @@ public class Trade {
 		this.repository = repository;
 		this.tradeData = tradeData;
 
-		this.isNewPricing = this.tradeData.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
 		this.assetRepository = this.repository.getAssetRepository();
 	}
 
@@ -43,9 +40,9 @@ public class Trade {
 		// Note: targetAmount is amount traded FROM target order
 		// Note: initiatorAmount is amount traded FROM initiating order
 
-		// Under 'new' pricing scheme, "amount" and "fulfilled" are the same asset for both orders
+		// "amount" and "fulfilled" are the same asset for both orders
 		// which is the matchedAmount in asset with highest assetID
-		this.newPricingFulfilled = (initiatingOrder.getHaveAssetId() < initiatingOrder.getWantAssetId()) ? this.tradeData.getTargetAmount() : this.tradeData.getInitiatorAmount();
+		this.fulfilled = (initiatingOrder.getHaveAssetId() < initiatingOrder.getWantAssetId()) ? this.tradeData.getTargetAmount() : this.tradeData.getInitiatorAmount();
 	}
 
 	public void process() throws DataException {
@@ -55,16 +52,16 @@ public class Trade {
 		// Note: targetAmount is amount traded FROM target order
 		// Note: initiatorAmount is amount traded FROM initiating order
 
-		// Update corresponding Orders on both sides of trade
 		commonPrep();
 
-		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().add(isNewPricing ? newPricingFulfilled : tradeData.getInitiatorAmount()));
+		// Update corresponding Orders on both sides of trade
+		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().add(fulfilled));
 		initiatingOrder.setIsFulfilled(Order.isFulfilled(initiatingOrder));
 		// Set isClosed to true if isFulfilled now true
 		initiatingOrder.setIsClosed(initiatingOrder.getIsFulfilled());
 		assetRepository.save(initiatingOrder);
 
-		targetOrder.setFulfilled(targetOrder.getFulfilled().add(isNewPricing ? newPricingFulfilled : tradeData.getTargetAmount()));
+		targetOrder.setFulfilled(targetOrder.getFulfilled().add(fulfilled));
 		targetOrder.setIsFulfilled(Order.isFulfilled(targetOrder));
 		// Set isClosed to true if isFulfilled now true
 		targetOrder.setIsClosed(targetOrder.getIsFulfilled());
@@ -89,16 +86,16 @@ public class Trade {
 		// Note: targetAmount is amount traded FROM target order
 		// Note: initiatorAmount is amount traded FROM initiating order
 
-		// Revert corresponding Orders on both sides of trade
 		commonPrep();
 
-		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().subtract(isNewPricing ? newPricingFulfilled : tradeData.getInitiatorAmount()));
+		// Revert corresponding Orders on both sides of trade
+		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().subtract(fulfilled));
 		initiatingOrder.setIsFulfilled(Order.isFulfilled(initiatingOrder));
 		// Set isClosed to false if isFulfilled now false
 		initiatingOrder.setIsClosed(initiatingOrder.getIsFulfilled());
 		assetRepository.save(initiatingOrder);
 
-		targetOrder.setFulfilled(targetOrder.getFulfilled().subtract(isNewPricing ? newPricingFulfilled : tradeData.getTargetAmount()));
+		targetOrder.setFulfilled(targetOrder.getFulfilled().subtract(fulfilled));
 		targetOrder.setIsFulfilled(Order.isFulfilled(targetOrder));
 		// Set isClosed to false if isFulfilled now false
 		targetOrder.setIsClosed(targetOrder.getIsFulfilled());

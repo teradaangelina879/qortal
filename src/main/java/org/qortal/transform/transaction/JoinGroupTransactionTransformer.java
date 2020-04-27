@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.JoinGroupTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -39,9 +38,7 @@ public class JoinGroupTransactionTransformer extends TransactionTransformer {
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
-		int txGroupId = 0;
-		if (timestamp >= BlockChain.getInstance().getQortalTimestamp())
-			txGroupId = byteBuffer.getInt();
+		int txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);

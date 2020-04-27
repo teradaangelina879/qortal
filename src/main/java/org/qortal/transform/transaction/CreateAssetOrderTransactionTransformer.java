@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.CreateAssetOrderTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -13,7 +12,6 @@ import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
-import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
 public class CreateAssetOrderTransactionTransformer extends TransactionTransformer {
@@ -44,9 +42,7 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
-		int txGroupId = 0;
-		if (timestamp >= BlockChain.getInstance().getQortalTimestamp())
-			txGroupId = byteBuffer.getInt();
+		int txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -95,43 +91,6 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 
 			if (createOrderTransactionData.getSignature() != null)
 				bytes.write(createOrderTransactionData.getSignature());
-
-			return bytes.toByteArray();
-		} catch (IOException | ClassCastException e) {
-			throw new TransformationException(e);
-		}
-	}
-
-	/**
-	 * In Qora v1, the bytes used for verification have mangled price so we need to test for v1-ness and adjust the bytes accordingly.
-	 * 
-	 * @param transactionData
-	 * @return byte[]
-	 * @throws TransformationException
-	 */
-	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
-		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp())
-			return TransactionTransformer.toBytesForSigningImpl(transactionData);
-
-		// Special v1 version
-		try {
-			CreateAssetOrderTransactionData createOrderTransactionData = (CreateAssetOrderTransactionData) transactionData;
-
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			bytes.write(Ints.toByteArray(createOrderTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(createOrderTransactionData.getTimestamp()));
-			bytes.write(createOrderTransactionData.getReference());
-
-			bytes.write(createOrderTransactionData.getCreatorPublicKey());
-			bytes.write(Longs.toByteArray(createOrderTransactionData.getHaveAssetId()));
-			bytes.write(Longs.toByteArray(createOrderTransactionData.getWantAssetId()));
-			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
-
-			// This is the crucial difference
-			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getPrice(), FEE_LENGTH);
-
-			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getFee());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

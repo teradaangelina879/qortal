@@ -7,7 +7,6 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.TransferAssetTransactionData;
@@ -83,11 +82,6 @@ public class TransferAssetTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Are TransferAssetTransactions even allowed at this point?
-		// In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used
-		if (this.transferAssetTransactionData.getTimestamp() < BlockChain.getInstance().getAssetsReleaseTimestamp())
-			return ValidationResult.NOT_YET_RELEASED;
-
 		// Wrap asset transfer as a payment and delegate final payment checks to Payment class
 		return new Payment(this.repository).isValid(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee());
 	}

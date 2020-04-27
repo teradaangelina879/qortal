@@ -7,7 +7,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.CreatePollTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -54,9 +53,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
-		int txGroupId = 0;
-		if (timestamp >= BlockChain.getInstance().getQortalTimestamp())
-			txGroupId = byteBuffer.getInt();
+		int txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -78,13 +75,6 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			String optionName = Serialization.deserializeSizedString(byteBuffer, Poll.MAX_NAME_SIZE);
 
 			pollOptions.add(new PollOptionData(optionName));
-
-			// V1 only: voter count also present
-			if (timestamp < BlockChain.getInstance().getQortalTimestamp()) {
-				int voterCount = byteBuffer.getInt();
-				if (voterCount != 0)
-					throw new TransformationException("Unexpected voter count in byte data for CreatePollTransaction");
-			}
 		}
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
@@ -104,14 +94,9 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 				+ Utf8.encodedLength(createPollTransactionData.getDescription());
 
 		// Add lengths for each poll options
-		for (PollOptionData pollOptionData : createPollTransactionData.getPollOptions()) {
+		for (PollOptionData pollOptionData : createPollTransactionData.getPollOptions())
 			// option-string-length, option-string
 			dataLength += INT_LENGTH + Utf8.encodedLength(pollOptionData.getOptionName());
-
-			if (transactionData.getTimestamp() < BlockChain.getInstance().getQortalTimestamp())
-				// v1 only: voter-count (should always be zero)
-				dataLength += INT_LENGTH;
-		}
 
 		return dataLength;
 	}
@@ -133,15 +118,8 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			List<PollOptionData> pollOptions = createPollTransactionData.getPollOptions();
 			bytes.write(Ints.toByteArray(pollOptions.size()));
 
-			for (PollOptionData pollOptionData : pollOptions) {
+			for (PollOptionData pollOptionData : pollOptions)
 				Serialization.serializeSizedString(bytes, pollOptionData.getOptionName());
-
-				if (transactionData.getTimestamp() < BlockChain.getInstance().getQortalTimestamp()) {
-					// In v1, CreatePollTransaction uses Poll.toBytes which serializes voters too.
-					// Zero voters as this is a new poll.
-					bytes.write(Ints.toByteArray(0));
-				}
-			}
 
 			Serialization.serializeBigDecimal(bytes, createPollTransactionData.getFee());
 
@@ -152,28 +130,6 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	/**
-	 * In Qora v1, the bytes used for verification have transaction type set to REGISTER_NAME_TRANSACTION so we need to test for v1-ness and adjust the bytes
-	 * accordingly.
-	 * 
-	 * @param transactionData
-	 * @return byte[]
-	 * @throws TransformationException
-	 */
-	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
-		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
-
-		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp())
-			return bytes;
-
-		// Special v1 version
-
-		// Replace transaction type with incorrect Register Name value
-		System.arraycopy(Ints.toByteArray(TransactionType.REGISTER_NAME.value), 0, bytes, 0, INT_LENGTH);
-
-		return bytes;
 	}
 
 }

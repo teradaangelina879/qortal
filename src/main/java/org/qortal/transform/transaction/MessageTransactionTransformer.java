@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -29,7 +27,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 	private static final int IS_TEXT_LENGTH = BOOLEAN_LENGTH;
 	private static final int IS_ENCRYPTED_LENGTH = BOOLEAN_LENGTH;
 
-	private static final int EXTRAS_LENGTH = RECIPIENT_LENGTH + AMOUNT_LENGTH + DATA_SIZE_LENGTH + IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH;
+	private static final int EXTRAS_LENGTH = RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH + DATA_SIZE_LENGTH + IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -41,7 +39,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
 		layout.add("recipient", TransformationType.ADDRESS);
-		layout.add("asset ID of payment (v2+)", TransformationType.LONG);
+		layout.add("asset ID of payment", TransformationType.LONG);
 		layout.add("payment (can be zero)", TransformationType.AMOUNT);
 		layout.add("message length", TransformationType.INT);
 		layout.add("message", TransformationType.DATA);
@@ -56,9 +54,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		int version = Transaction.getVersionByTimestamp(timestamp);
 
-		int txGroupId = 0;
-		if (timestamp >= BlockChain.getInstance().getQortalTimestamp())
-			txGroupId = byteBuffer.getInt();
+		int txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -67,11 +63,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		String recipient = Serialization.deserializeAddress(byteBuffer);
 
-		long assetId;
-		if (version == 1)
-			assetId = Asset.QORT;
-		else
-			assetId = byteBuffer.getLong();
+		long assetId = byteBuffer.getLong();
 
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
@@ -100,13 +92,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		MessageTransactionData messageTransactionData = (MessageTransactionData) transactionData;
 
-		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH + messageTransactionData.getData().length;
-
-		// V3+ has assetID for amount
-		if (messageTransactionData.getVersion() != 1)
-			dataLength += ASSET_ID_LENGTH;
-
-		return dataLength;
+		return getBaseLength(transactionData) + EXTRAS_LENGTH + messageTransactionData.getData().length;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -119,8 +105,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeAddress(bytes, messageTransactionData.getRecipient());
 
-			if (messageTransactionData.getVersion() != 1)
-				bytes.write(Longs.toByteArray(messageTransactionData.getAssetId()));
+			bytes.write(Longs.toByteArray(messageTransactionData.getAssetId()));
 
 			Serialization.serializeBigDecimal(bytes, messageTransactionData.getAmount());
 

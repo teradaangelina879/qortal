@@ -473,6 +473,9 @@ public class Block {
 
 	/**
 	 * Return the next block's version.
+	 * <p>
+	 * We're starting with version 4 as a nod to being newer than successor Qora,
+	 * whose latest block version was 3.
 	 * 
 	 * @return 1, 2, 3 or 4
 	 */
@@ -480,14 +483,7 @@ public class Block {
 		if (this.blockData.getHeight() == null)
 			throw new IllegalStateException("Can't determine next block's version as this block has no height set");
 
-		if (this.blockData.getHeight() < BlockChain.getInstance().getATReleaseHeight())
-			return 1;
-		else if (this.blockData.getTimestamp() < BlockChain.getInstance().getPowFixReleaseTimestamp())
-			return 2;
-		else if (this.blockData.getTimestamp() < BlockChain.getInstance().getQortalTimestamp())
-			return 3;
-		else
-			return 4;
+		return 4;
 	}
 
 	/**

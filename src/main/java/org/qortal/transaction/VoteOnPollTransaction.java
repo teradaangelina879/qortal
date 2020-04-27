@@ -9,7 +9,6 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.VoteOnPollTransactionData;
 import org.qortal.data.voting.PollData;
@@ -69,11 +68,6 @@ public class VoteOnPollTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Are VoteOnPollTransactions even allowed at this point?
-		// In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used
-		if (this.voteOnPollTransactionData.getTimestamp() < BlockChain.getInstance().getVotingReleaseTimestamp())
-			return ValidationResult.NOT_YET_RELEASED;
-
 		// Check name size bounds
 		int pollNameLength = Utf8.encodedLength(voteOnPollTransactionData.getPollName());
 		if (pollNameLength < 1 || pollNameLength > Poll.MAX_NAME_SIZE)

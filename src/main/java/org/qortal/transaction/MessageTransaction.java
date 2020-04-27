@@ -7,7 +7,6 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -89,13 +88,6 @@ public class MessageTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Are message transactions even allowed at this point?
-		if (messageTransactionData.getVersion() != Transaction.getVersionByTimestamp(messageTransactionData.getTimestamp()))
-			return ValidationResult.NOT_YET_RELEASED;
-
-		if (this.repository.getBlockRepository().getBlockchainHeight() < BlockChain.getInstance().getMessageReleaseHeight())
-			return ValidationResult.NOT_YET_RELEASED;
-
 		// Check data length
 		if (messageTransactionData.getData().length < 1 || messageTransactionData.getData().length > MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;

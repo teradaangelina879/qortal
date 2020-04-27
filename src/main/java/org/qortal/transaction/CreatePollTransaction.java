@@ -8,7 +8,6 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.CreatePollTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -78,11 +77,6 @@ public class CreatePollTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Are CreatePollTransactions even allowed at this point?
-		// In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used
-		if (this.createPollTransactionData.getTimestamp() < BlockChain.getInstance().getVotingReleaseTimestamp())
-			return ValidationResult.NOT_YET_RELEASED;
-
 		// Check owner address is valid
 		if (!Crypto.isValidAddress(createPollTransactionData.getOwner()))
 			return ValidationResult.INVALID_ADDRESS;

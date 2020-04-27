@@ -8,7 +8,6 @@ import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.asset.Order;
-import org.qortal.block.BlockChain;
 import org.qortal.data.asset.AssetData;
 import org.qortal.data.asset.OrderData;
 import org.qortal.data.transaction.CreateAssetOrderTransactionData;
@@ -106,42 +105,27 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 		Account creator = getCreator();
 
-		boolean isNewPricing = createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
-
 		BigDecimal committedCost;
 		BigDecimal maxOtherAmount;
 
-		if (isNewPricing) {
-			/*
-			 * This is different under "new" pricing scheme as "amount" might be either have-asset or want-asset,
-			 * whichever has the highest assetID.
-			 * 
-			 * e.g. with assetID 11 "GOLD":
-			 * haveAssetId: 0 (QORT), wantAssetId: 11 (GOLD), amount: 123 (GOLD), price: 400 (QORT/GOLD)
-			 * stake 49200 QORT, return 123 GOLD
-			 * 
-			 * haveAssetId: 11 (GOLD), wantAssetId: 0 (QORT), amount: 123 (GOLD), price: 400 (QORT/GOLD)
-			 * stake 123 GOLD, return 49200 QORT
-			 */
-			boolean isAmountWantAsset = haveAssetId < wantAssetId;
+		/*
+		 * "amount" might be either have-asset or want-asset, whichever has the highest assetID.
+		 * 
+		 * e.g. with assetID 11 "GOLD":
+		 * haveAssetId: 0 (QORT), wantAssetId: 11 (GOLD), amount: 123 (GOLD), price: 400 (QORT/GOLD)
+		 * stake 49200 QORT, return 123 GOLD
+		 * 
+		 * haveAssetId: 11 (GOLD), wantAssetId: 0 (QORT), amount: 123 (GOLD), price: 400 (QORT/GOLD)
+		 * stake 123 GOLD, return 49200 QORT
+		 */
+		boolean isAmountWantAsset = haveAssetId < wantAssetId;
 
-			if (isAmountWantAsset) {
-				// have/commit 49200 QORT, want/return 123 GOLD
-				committedCost = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
-				maxOtherAmount = createOrderTransactionData.getAmount();
-			} else {
-				// have/commit 123 GOLD, want/return 49200 QORT
-				committedCost = createOrderTransactionData.getAmount();
-				maxOtherAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
-			}
+		if (isAmountWantAsset) {
+			// have/commit 49200 QORT, want/return 123 GOLD
+			committedCost = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+			maxOtherAmount = createOrderTransactionData.getAmount();
 		} else {
-			/*
-			 * Under "old" pricing scheme, "amount" is always have-asset and price is always want-per-have.
-			 * 
-			 * e.g. with assetID 11 "GOLD":
-			 * haveAssetId: 0 (QORT), wantAssetId: 11 (GOLD), amount: 49200 (QORT), price: 0.00250000 (GOLD/QORT)
-			 * haveAssetId: 11 (GOLD), wantAssetId: 0 (QORT), amount: 123 (GOLD), price: 400 (QORT/GOLD)
-			 */
+			// have/commit 123 GOLD, want/return 49200 QORT
 			committedCost = createOrderTransactionData.getAmount();
 			maxOtherAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
 		}
@@ -166,9 +150,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 				return ValidationResult.NO_BALANCE;
 
 			// Check creator has enough funds for fee in QORT
-			// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
-			if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getPowFixReleaseTimestamp()
-					&& creator.getConfirmedBalance(Asset.QORT).compareTo(createOrderTransactionData.getFee()) < 0)
+			if (creator.getConfirmedBalance(Asset.QORT).compareTo(createOrderTransactionData.getFee()) < 0)
 				return ValidationResult.NO_BALANCE;
 		}
 

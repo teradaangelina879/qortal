@@ -7,7 +7,6 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
-import org.qortal.block.BlockChain;
 import org.qortal.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -54,25 +53,16 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 
 	// Called before converting to JSON for API
 	public void beforeMarshal(Marshaller m) {
-		final boolean isNewPricing = this.timestamp > BlockChain.getInstance().getNewAssetPricingTimestamp();
-
-		this.amountAssetId = (isNewPricing && this.haveAssetId < this.wantAssetId) ? this.wantAssetId : this.haveAssetId;
+		this.amountAssetId = Math.max(this.haveAssetId, this.wantAssetId);
 
 		// If we don't have the extra asset name fields then we can't fill in the others
 		if (this.haveAssetName == null)
 			return;
 
-		if (isNewPricing) {
-			// 'new' pricing scheme
-			if (this.haveAssetId < this.wantAssetId) {
-				this.amountAssetName = this.wantAssetName;
-				this.pricePair = this.haveAssetName + "/" + this.wantAssetName;
-			} else {
-				this.amountAssetName = this.haveAssetName;
-				this.pricePair = this.wantAssetName + "/" + this.haveAssetName;
-			}
+		if (this.haveAssetId < this.wantAssetId) {
+			this.amountAssetName = this.wantAssetName;
+			this.pricePair = this.haveAssetName + "/" + this.wantAssetName;
 		} else {
-			// 'old' pricing scheme is simpler
 			this.amountAssetName = this.haveAssetName;
 			this.pricePair = this.wantAssetName + "/" + this.haveAssetName;
 		}

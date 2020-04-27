@@ -7,7 +7,6 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.MultiPaymentTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -90,10 +89,6 @@ public class MultiPaymentTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		List<PaymentData> payments = multiPaymentTransactionData.getPayments();
 
-		// Are MultiPaymentTransactions even allowed at this point?
-		if (this.multiPaymentTransactionData.getTimestamp() < BlockChain.getInstance().getAssetsReleaseTimestamp())
-			return ValidationResult.NOT_YET_RELEASED;
-
 		// Check number of payments
 		if (payments.isEmpty() || payments.size() > MAX_PAYMENTS_COUNT)
 			return ValidationResult.INVALID_PAYMENTS_COUNT;
@@ -102,9 +97,7 @@ public class MultiPaymentTransaction extends Transaction {
 		Account sender = getSender();
 
 		// Check sender has enough funds for fee
-		// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
-		if (multiPaymentTransactionData.getTimestamp() >= BlockChain.getInstance().getPowFixReleaseTimestamp()
-				&& sender.getConfirmedBalance(Asset.QORT).compareTo(multiPaymentTransactionData.getFee()) < 0)
+		if (sender.getConfirmedBalance(Asset.QORT).compareTo(multiPaymentTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return new Payment(this.repository).isValid(multiPaymentTransactionData.getSenderPublicKey(), payments, multiPaymentTransactionData.getFee());

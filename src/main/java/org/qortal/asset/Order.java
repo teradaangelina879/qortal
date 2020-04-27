@@ -11,7 +11,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
-import org.qortal.block.BlockChain;
 import org.qortal.data.asset.AssetData;
 import org.qortal.data.asset.OrderData;
 import org.qortal.data.asset.TradeData;
@@ -29,7 +28,6 @@ public class Order {
 	private OrderData orderData;
 
 	// Used quite a bit
-	private final boolean isOurOrderNewPricing;
 	private final long haveAssetId;
 	private final long wantAssetId;
 
@@ -47,7 +45,6 @@ public class Order {
 		this.repository = repository;
 		this.orderData = orderData;
 
-		this.isOurOrderNewPricing = this.orderData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
 		this.haveAssetId = this.orderData.getHaveAssetId();
 		this.wantAssetId = this.orderData.getWantAssetId();
 	}
@@ -130,7 +127,7 @@ public class Order {
 
 	/** Calculate price pair. (e.g. QORT/GOLD)
 	 * <p>
-	 * Under 'new' pricing scheme, lowest-assetID asset is first,
+	 * Lowest-assetID asset is first,
 	 * so if QORT has assetID 0 and GOLD has assetID 10, then
 	 * the pricing pair is QORT/GOLD.
 	 * <p>
@@ -141,7 +138,7 @@ public class Order {
 		AssetData haveAssetData = getHaveAsset();
 		AssetData wantAssetData = getWantAsset();
 
-		if (isOurOrderNewPricing && haveAssetId > wantAssetId)
+		if (haveAssetId > wantAssetId)
 			cachedPricePair = wantAssetData.getName() + "/" + haveAssetData.getName();
 		else
 			cachedPricePair = haveAssetData.getName() + "/" + wantAssetData.getName();
@@ -151,8 +148,8 @@ public class Order {
 	private BigDecimal calcHaveAssetCommittment() {
 		BigDecimal committedCost = this.orderData.getAmount();
 
-		// If 'new' pricing and "amount" is in want-asset then we need to convert
-		if (isOurOrderNewPricing && haveAssetId < wantAssetId)
+		// If "amount" is in want-asset then we need to convert
+		if (haveAssetId < wantAssetId)
 			committedCost = committedCost.multiply(this.orderData.getPrice()).setScale(8, RoundingMode.HALF_UP);
 
 		return committedCost;
@@ -162,8 +159,8 @@ public class Order {
 	private BigDecimal calcHaveAssetRefund() {
 		BigDecimal refund = getAmountLeft();
 
-		// If 'new' pricing and "amount" is in want-asset then we need to convert
-		if (isOurOrderNewPricing && haveAssetId < wantAssetId)
+		// If "amount" is in want-asset then we need to convert
+		if (haveAssetId < wantAssetId)
 			refund = refund.multiply(this.orderData.getPrice()).setScale(8, RoundingMode.HALF_UP);
 
 		return refund;
@@ -192,27 +189,19 @@ public class Order {
 	/**
 	 * Returns AssetData for asset in effect for "amount" field.
 	 * <p>
-	 * For 'old' pricing, this is the have-asset.<br>
-	 * For 'new' pricing, this is the asset with highest assetID.
+	 * This is the asset with highest assetID.
 	 */
 	public AssetData getAmountAsset() throws DataException {
-		if (isOurOrderNewPricing && wantAssetId > haveAssetId)
-			return getWantAsset();
-		else
-			return getHaveAsset();
+		return (wantAssetId > haveAssetId) ? getWantAsset() : getHaveAsset();
 	}
 
 	/**
 	 * Returns AssetData for other (return) asset traded.
 	 * <p>
-	 * For 'old' pricing, this is the want-asset.<br>
-	 * For 'new' pricing, this is the asset with lowest assetID.
+	 * This is the asset with lowest assetID.
 	 */
 	public AssetData getReturnAsset() throws DataException {
-		if (isOurOrderNewPricing && haveAssetId < wantAssetId)
-			return getHaveAsset();
-		else
-			return getWantAsset();
+		return (haveAssetId < wantAssetId) ? getHaveAsset() : getWantAsset();
 	}
 
 	// Processing
@@ -227,8 +216,6 @@ public class Order {
 
 		// NOTE: the following values are specific to passed orderData, not the same as class instance values!
 
-		final boolean isOrderNewAssetPricing = orderData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
-
 		// Cached for readability
 		final long _haveAssetId = orderData.getHaveAssetId();
 		final long _wantAssetId = orderData.getWantAssetId();
@@ -236,15 +223,15 @@ public class Order {
 		final AssetData haveAssetData = this.repository.getAssetRepository().fromAssetId(_haveAssetId);
 		final AssetData wantAssetData = this.repository.getAssetRepository().fromAssetId(_wantAssetId);
 
-		final long amountAssetId = (isOurOrderNewPricing && _wantAssetId > _haveAssetId) ? _wantAssetId : _haveAssetId;
-		final long returnAssetId = (isOurOrderNewPricing && _haveAssetId < _wantAssetId) ? _haveAssetId : _wantAssetId;
+		final long amountAssetId = (_wantAssetId > _haveAssetId) ? _wantAssetId : _haveAssetId;
+		final long returnAssetId = (_haveAssetId < _wantAssetId) ? _haveAssetId : _wantAssetId;
 
 		final AssetData amountAssetData = this.repository.getAssetRepository().fromAssetId(amountAssetId);
 		final AssetData returnAssetData = this.repository.getAssetRepository().fromAssetId(returnAssetId);
 
 		LOGGER.debug(String.format("%s %s", orderPrefix, Base58.encode(orderData.getOrderId())));
 
-		LOGGER.trace(String.format("%s have %s, want %s. '%s' pricing scheme.", weThey, haveAssetData.getName(), wantAssetData.getName(), isOrderNewAssetPricing ? "new" : "old"));
+		LOGGER.trace(String.format("%s have %s, want %s.", weThey, haveAssetData.getName(), wantAssetData.getName()));
 
 		LOGGER.trace(String.format("%s amount: %s (ordered) - %s (fulfilled) = %s %s left", ourTheir,
 				orderData.getAmount().stripTrailingZeros().toPlainString(),
@@ -266,9 +253,9 @@ public class Order {
 		AssetData wantAssetData = getWantAsset();
 
 		/** The asset while working out amount that matches. */
-		AssetData matchingAssetData = isOurOrderNewPricing ? getAmountAsset() : wantAssetData;
+		AssetData matchingAssetData = getAmountAsset();
 		/** The return asset traded if trade completes. */
-		AssetData returnAssetData = isOurOrderNewPricing ? getReturnAsset() : haveAssetData;
+		AssetData returnAssetData = getReturnAsset();
 
 		// Subtract have-asset from creator
 		Account creator = new PublicKeyAccount(this.repository, this.orderData.getCreatorPublicKey());
@@ -281,7 +268,7 @@ public class Order {
 
 		// Fetch corresponding open orders that might potentially match, hence reversed want/have assetIDs.
 		// Returned orders are sorted with lowest "price" first.
-		List<OrderData> orders = assetRepository.getOpenOrdersForTrading(wantAssetId, haveAssetId, isOurOrderNewPricing ? this.orderData.getPrice() : null);
+		List<OrderData> orders = assetRepository.getOpenOrdersForTrading(wantAssetId, haveAssetId, this.orderData.getPrice());
 		LOGGER.trace("Open orders fetched from repository: " + orders.size());
 
 		if (orders.isEmpty())
@@ -290,27 +277,7 @@ public class Order {
 		// Attempt to match orders
 
 		/*
-		 * Potential matching order example ("old"):
-		 * 
-		 * Our order:
-		 * haveAssetId=[GOLD], wantAssetId=0 (QORT), amount=40 (GOLD), price=486 (QORT/GOLD)
-		 * This translates to "we have 40 GOLD and want QORT at a price of 486 QORT per GOLD"
-		 * If our order matched, we'd end up with 40 * 486 = 19,440 QORT.
-		 * 
-		 * Their order:
-		 * haveAssetId=0 (QORT), wantAssetId=[GOLD], amount=20,000 (QORT), price=0.00205761 (GOLD/QORT)
-		 * This translates to "they have 20,000 QORT and want GOLD at a price of 0.00205761 GOLD per QORT"
-		 * 
-		 * Their price, converted into 'our' units of QORT/GOLD, is: 1 / 0.00205761 = 486.00074844 QORT/GOLD.
-		 * This is better than our requested 486 QORT/GOLD so this order matches.
-		 * 
-		 * Using their price, we end up with 40 * 486.00074844 = 19440.02993760 QORT. They end up with 40 GOLD.
-		 * 
-		 * If their order had 19,440 QORT left, only 19,440 * 0.00205761 = 39.99993840 GOLD would be traded.
-		 */
-
-		/*
-		 * Potential matching order example ("new"):
+		 * Potential matching order example:
 		 * 
 		 * Our order:
 		 * haveAssetId=[GOLD], wantAssetId=0 (QORT), amount=40 (GOLD), price=486 (QORT/GOLD)
@@ -333,44 +300,21 @@ public class Order {
 		for (OrderData theirOrderData : orders) {
 			logOrder("Considering order", false, theirOrderData);
 
-			// Not used:
-			// boolean isTheirOrderNewAssetPricing = theirOrderData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
-
 			// Determine their order price
 			BigDecimal theirPrice;
 
-			if (isOurOrderNewPricing) {
-				// Pricing units are the same way round for both orders, so no conversion needed.
-				// Orders under 'old' pricing have been converted during repository update.
-				theirPrice = theirOrderData.getPrice();
-				LOGGER.trace(String.format("Their price: %s %s", theirPrice.toPlainString(), getPricePair()));
-			} else {
-				// If our order is 'old' pricing then all other existing orders must be 'old' pricing too
-				// Their order pricing will be inverted, so convert
-				theirPrice = BigDecimal.ONE.setScale(8).divide(theirOrderData.getPrice(), RoundingMode.DOWN);
-				LOGGER.trace(String.format("Their price: %s %s per %s", theirPrice.toPlainString(), wantAssetData.getName(), haveAssetData.getName()));
-			}
+			// Pricing units are the same way round for both orders, so no conversion needed.
+			theirPrice = theirOrderData.getPrice();
+			LOGGER.trace(String.format("Their price: %s %s", theirPrice.toPlainString(), getPricePair()));
 
 			// If their price is worse than what we're willing to accept then we're done as prices only get worse as we iterate through list of orders
-			if (isOurOrderNewPricing) {
-				if (haveAssetId < wantAssetId && theirPrice.compareTo(ourPrice) > 0)
-					break;
-				if (haveAssetId > wantAssetId && theirPrice.compareTo(ourPrice) < 0)
-					break;
-			} else {
-				// 'old' pricing scheme
-				if (theirPrice.compareTo(ourPrice) < 0)
-					break;
-			}
+			if (haveAssetId < wantAssetId && theirPrice.compareTo(ourPrice) > 0)
+				break;
+			if (haveAssetId > wantAssetId && theirPrice.compareTo(ourPrice) < 0)
+				break;
 
-			// Calculate how much we could buy at their price.
-			BigDecimal ourMaxAmount;
-			if (isOurOrderNewPricing)
-				// In 'new' pricing scheme, "amount" is expressed in terms of asset with highest assetID
-				ourMaxAmount = this.getAmountLeft();
-			else
-				// In 'old' pricing scheme, "amount" is expressed in terms of our want-asset.
-				ourMaxAmount = this.getAmountLeft().multiply(theirPrice).setScale(8, RoundingMode.DOWN);
+			// Calculate how much we could buy at their price, "amount" is expressed in terms of asset with highest assetID.
+			BigDecimal ourMaxAmount = this.getAmountLeft();
 			LOGGER.trace("ourMaxAmount (max we could trade at their price): " + ourMaxAmount.stripTrailingZeros().toPlainString() + " " + matchingAssetData.getName());
 
 			// How much is remaining available in their order.
@@ -421,11 +365,11 @@ public class Order {
 				throw new DataException(message);
 			}
 
-			BigDecimal tradedWantAmount = (isOurOrderNewPricing && haveAssetId > wantAssetId) ? returnAmountTraded : matchedAmount;
-			BigDecimal tradedHaveAmount = (isOurOrderNewPricing && haveAssetId > wantAssetId) ? matchedAmount : returnAmountTraded;
+			BigDecimal tradedWantAmount = (haveAssetId > wantAssetId) ? returnAmountTraded : matchedAmount;
+			BigDecimal tradedHaveAmount = (haveAssetId > wantAssetId) ? matchedAmount : returnAmountTraded;
 
-			// We also need to know how much have-asset to refund based on price improvement ('new' pricing only and only one direction applies)
-			BigDecimal haveAssetRefund = isOurOrderNewPricing && haveAssetId < wantAssetId ? ourPrice.subtract(theirPrice).abs().multiply(matchedAmount).setScale(8, RoundingMode.DOWN) : BigDecimal.ZERO;
+			// We also need to know how much have-asset to refund based on price improvement (only one direction applies)
+			BigDecimal haveAssetRefund = haveAssetId < wantAssetId ? ourPrice.subtract(theirPrice).abs().multiply(matchedAmount).setScale(8, RoundingMode.DOWN) : BigDecimal.ZERO;
 
 			LOGGER.trace(String.format("We traded %s %s (have-asset) for %s %s (want-asset), saving %s %s (have-asset)",
 					tradedHaveAmount.toPlainString(), haveAssetData.getName(),
@@ -440,7 +384,7 @@ public class Order {
 			trade.process();
 
 			// Update our order in terms of fulfilment, etc. but do not save into repository as that's handled by Trade above
-			BigDecimal amountFulfilled = isOurOrderNewPricing ? matchedAmount : returnAmountTraded;
+			BigDecimal amountFulfilled = matchedAmount;
 			this.orderData.setFulfilled(this.orderData.getFulfilled().add(amountFulfilled));
 			LOGGER.trace("Updated our order's fulfilled amount to: " + this.orderData.getFulfilled().stripTrailingZeros().toPlainString() + " " + matchingAssetData.getName());
 			LOGGER.trace("Our order's amount remaining: " + this.getAmountLeft().stripTrailingZeros().toPlainString() + " " + matchingAssetData.getName());

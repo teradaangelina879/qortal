@@ -7,7 +7,6 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -91,13 +90,6 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Are arbitrary transactions even allowed at this point?
-		if (arbitraryTransactionData.getVersion() != Transaction.getVersionByTimestamp(arbitraryTransactionData.getTimestamp()))
-			return ValidationResult.NOT_YET_RELEASED;
-
-		if (this.arbitraryTransactionData.getTimestamp() < BlockChain.getInstance().getArbitraryReleaseTimestamp())
-			return ValidationResult.NOT_YET_RELEASED;
-
 		// Check data length
 		if (arbitraryTransactionData.getData().length < 1 || arbitraryTransactionData.getData().length > MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;

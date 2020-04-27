@@ -5,10 +5,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import org.qortal.block.BlockChain;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.MultiPaymentTransactionData;
@@ -47,9 +45,7 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
-		int txGroupId = 0;
-		if (timestamp >= BlockChain.getInstance().getQortalTimestamp())
-			txGroupId = byteBuffer.getInt();
+		int txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -101,29 +97,6 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	/**
-	 * In Qora v1, the bytes used for verification are really mangled so we need to test for v1-ness and adjust the bytes accordingly.
-	 * 
-	 * @param transactionData
-	 * @return byte[]
-	 * @throws TransformationException
-	 */
-	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
-		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
-
-		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp())
-			return bytes;
-
-		// Special v1 version
-
-		// In v1, a coding error means that all bytes prior to final payment entry are lost!
-		// So we're left with: final payment entry and fee. Signature has already been stripped
-		int v1Length = PaymentTransformer.getDataLength() + FEE_LENGTH;
-		int v1Start = bytes.length - v1Length;
-
-		return Arrays.copyOfRange(bytes, v1Start, bytes.length);
 	}
 
 }

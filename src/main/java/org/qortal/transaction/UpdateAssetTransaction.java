@@ -7,7 +7,6 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.asset.AssetData;
 import org.qortal.data.transaction.TransactionData;
@@ -75,10 +74,6 @@ public class UpdateAssetTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// V2-only transaction
-		if (this.updateAssetTransactionData.getTimestamp() < BlockChain.getInstance().getQortalTimestamp())
-			return ValidationResult.NOT_YET_RELEASED;
-
 		// Check asset actually exists
 		AssetData assetData = this.repository.getAssetRepository().fromAssetId(updateAssetTransactionData.getAssetId());
 		if (assetData == null)

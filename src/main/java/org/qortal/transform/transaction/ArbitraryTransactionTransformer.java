@@ -5,10 +5,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -32,7 +30,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 	private static final int NUMBER_PAYMENTS_LENGTH = INT_LENGTH;
 
-	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + DATA_SIZE_LENGTH;
+	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + DATA_TYPE_LENGTH + DATA_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -43,14 +41,14 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
-		layout.add("number of payments (v3+)", TransformationType.INT);
+		layout.add("number of payments", TransformationType.INT);
 
 		layout.add("* recipient", TransformationType.ADDRESS);
 		layout.add("* asset ID of payment", TransformationType.LONG);
 		layout.add("* payment amount", TransformationType.AMOUNT);
 
 		layout.add("service ID", TransformationType.INT);
-		layout.add("is data raw? (v4+)", TransformationType.BOOLEAN);
+		layout.add("is data raw?", TransformationType.BOOLEAN);
 		layout.add("data length", TransformationType.INT);
 		layout.add("data", TransformationType.DATA);
 		layout.add("fee", TransformationType.AMOUNT);
@@ -62,9 +60,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		int version = Transaction.getVersionByTimestamp(timestamp);
 
-		int txGroupId = 0;
-		if (timestamp >= BlockChain.getInstance().getQortalTimestamp())
-			txGroupId = byteBuffer.getInt();
+		int txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -82,14 +78,10 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		int service = byteBuffer.getInt();
 
-		// With V4+ we might be receiving hash of data instead of actual raw data
-		DataType dataType = DataType.RAW_DATA;
-		if (version >= 4) {
-			boolean isRaw = byteBuffer.get() != 0;
+		// We might be receiving hash of data instead of actual raw data
+		boolean isRaw = byteBuffer.get() != 0;
 
-			if (!isRaw)
-				dataType = DataType.DATA_HASH;
-		}
+		DataType dataType = isRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
 
 		int dataSize = byteBuffer.getInt();
 		// Don't allow invalid dataSize here to avoid run-time issues
@@ -114,13 +106,8 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + arbitraryTransactionData.getData().length;
 
-		// V4+ transactions have data type
-		if (arbitraryTransactionData.getVersion() >= 4)
-			length += DATA_TYPE_LENGTH;
-
-		// V3+ transactions have optional payments
-		if (arbitraryTransactionData.getVersion() >= 3)
-			length += NUMBER_PAYMENTS_LENGTH + arbitraryTransactionData.getPayments().size() * PaymentTransformer.getDataLength();
+		// Optional payments
+		length += NUMBER_PAYMENTS_LENGTH + arbitraryTransactionData.getPayments().size() * PaymentTransformer.getDataLength();
 
 		return length;
 	}
@@ -133,19 +120,15 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 			transformCommonBytes(transactionData, bytes);
 
-			if (arbitraryTransactionData.getVersion() != 1) {
-				List<PaymentData> payments = arbitraryTransactionData.getPayments();
-				bytes.write(Ints.toByteArray(payments.size()));
+			List<PaymentData> payments = arbitraryTransactionData.getPayments();
+			bytes.write(Ints.toByteArray(payments.size()));
 
-				for (PaymentData paymentData : payments)
-					bytes.write(PaymentTransformer.toBytes(paymentData));
-			}
+			for (PaymentData paymentData : payments)
+				bytes.write(PaymentTransformer.toBytes(paymentData));
 
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService()));
 
-			// V4+ also has data type
-			if (arbitraryTransactionData.getVersion() >= 4)
-				bytes.write((byte) (arbitraryTransactionData.getDataType() == DataType.RAW_DATA ? 1 : 0));
+			bytes.write((byte) (arbitraryTransactionData.getDataType() == DataType.RAW_DATA ? 1 : 0));
 
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getData().length));
 			bytes.write(arbitraryTransactionData.getData());
@@ -162,38 +145,15 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	}
 
 	/**
-	 * In Qora v1, the bytes used for verification are really mangled so we need to test for v1-ness and adjust the bytes accordingly.
+	 * Signature for ArbitraryTransactions always uses hash of data, not raw data itself.
 	 * 
 	 * @param transactionData
 	 * @return byte[]
 	 * @throws TransformationException
 	 */
-	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
+	protected static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-		// For v4, signature uses hash of data, not raw data itself
-		if (arbitraryTransactionData.getVersion() == 4)
-			return toBytesForSigningImplV4(arbitraryTransactionData);
-
-		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
-		if (arbitraryTransactionData.getVersion() == 1 || transactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp())
-			return bytes;
-
-		// Special v1 version
-
-		// In v1, a coding error means that all bytes prior to final payment entry are lost!
-		// If there are no payments then we can skip mangling
-		if (arbitraryTransactionData.getPayments().isEmpty())
-			return bytes;
-
-		// So we're left with: final payment entry, service, data size, data, fee
-		int v1Length = PaymentTransformer.getDataLength() + SERVICE_LENGTH + DATA_SIZE_LENGTH + arbitraryTransactionData.getData().length + FEE_LENGTH;
-		int v1Start = bytes.length - v1Length;
-
-		return Arrays.copyOfRange(bytes, v1Start, bytes.length);
-	}
-
-	private static byte[] toBytesForSigningImplV4(ArbitraryTransactionData arbitraryTransactionData) throws TransformationException {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -210,6 +170,8 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService()));
 
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getData().length));
+
+			// Signature uses hash of data, not raw data itself
 			switch (arbitraryTransactionData.getDataType()) {
 				case DATA_HASH:
 					bytes.write(arbitraryTransactionData.getData());
@@ -228,7 +190,6 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-
 	}
 
 }

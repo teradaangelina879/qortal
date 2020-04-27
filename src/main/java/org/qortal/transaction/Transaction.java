@@ -354,18 +354,15 @@ public abstract class Transaction {
 
 	/**
 	 * Return the transaction version number that should be used, based on passed timestamp.
+	 * <p>
+	 * We're starting with version 4 as a nod to being newer than successor Qora,
+	 * whose latest transaction version was 3.
 	 * 
 	 * @param timestamp
-	 * @return transaction version number, likely 1 or 3
+	 * @return transaction version number
 	 */
 	public static int getVersionByTimestamp(long timestamp) {
-		if (timestamp < BlockChain.getInstance().getPowFixReleaseTimestamp()) {
-			return 1;
-		} else if (timestamp < BlockChain.getInstance().getQortalTimestamp()) {
-			return 3;
-		} else {
-			return 4;
-		}
+		return 4;
 	}
 
 	/**
@@ -801,10 +798,6 @@ public abstract class Transaction {
 	public boolean needsGroupApproval() throws DataException {
 		// Does this transaction type bypass approval?
 		if (!this.transactionData.getType().needsApproval)
-			return false;
-
-		// Is group-approval even in effect yet?
-		if (this.transactionData.getTimestamp() < BlockChain.getInstance().getGroupApprovalTimestamp())
 			return false;
 
 		int txGroupId = this.transactionData.getTxGroupId();

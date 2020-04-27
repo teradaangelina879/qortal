@@ -7,7 +7,6 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.IssueAssetTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -76,23 +75,11 @@ public class IssueAssetTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Are IssueAssetTransactions even allowed at this point?
-		// In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used
-		if (this.issueAssetTransactionData.getTimestamp() < BlockChain.getInstance().getAssetsReleaseTimestamp())
-			return ValidationResult.NOT_YET_RELEASED;
-
-		// "data" field is only allowed in v2
+		// Check data field
 		String data = this.issueAssetTransactionData.getData();
-		if (this.issueAssetTransactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp()) {
-			// v2 so check data field properly
-			int dataLength = Utf8.encodedLength(data);
-			if (data == null || dataLength < 1 || dataLength > Asset.MAX_DATA_SIZE)
-				return ValidationResult.INVALID_DATA_LENGTH;
-		} else {
-			// pre-v2 so disallow data field
-			if (data != null && !data.isEmpty())
-				return ValidationResult.NOT_YET_RELEASED;
-		}
+		int dataLength = Utf8.encodedLength(data);
+		if (data == null || dataLength < 1 || dataLength > Asset.MAX_DATA_SIZE)
+			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// Check owner address is valid
 		if (!Crypto.isValidAddress(issueAssetTransactionData.getOwner()))
@@ -128,10 +115,9 @@ public class IssueAssetTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
-		// Check the asset name isn't already taken. This check is not present in gen1.
-		if (issueAssetTransactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp())
-			if (this.repository.getAssetRepository().assetExists(issueAssetTransactionData.getAssetName()))
-				return ValidationResult.ASSET_ALREADY_EXISTS;
+		// Check the asset name isn't already taken.
+		if (this.repository.getAssetRepository().assetExists(issueAssetTransactionData.getAssetName()))
+			return ValidationResult.ASSET_ALREADY_EXISTS;
 
 		return ValidationResult.OK;
 	}

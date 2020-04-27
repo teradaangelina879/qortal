@@ -11,7 +11,6 @@ import org.ciyam.at.MachineState;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.at.AT;
-import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.asset.AssetData;
 import org.qortal.data.transaction.DeployAtTransactionData;
@@ -124,9 +123,6 @@ public class DeployAtTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		if (this.repository.getBlockRepository().getBlockchainHeight() < BlockChain.getInstance().getATReleaseHeight())
-			return ValidationResult.NOT_YET_RELEASED;
-
 		// Check name size bounds
 		int nameLength = Utf8.encodedLength(deployATTransactionData.getName());
 		if (nameLength < 1 || nameLength > MAX_NAME_SIZE)

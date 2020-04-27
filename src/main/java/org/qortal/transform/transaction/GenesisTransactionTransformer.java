@@ -6,8 +6,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.account.GenesisAccount;
-import org.qortal.asset.Asset;
-import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.GenesisTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -28,6 +26,8 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 	private static final int AMOUNT_LENGTH = LONG_LENGTH;
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 
+	private static final int TOTAL_LENGTH = TYPE_LENGTH + TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH;
+
 	protected static final TransactionLayout layout;
 
 	static {
@@ -47,9 +47,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
-		long assetId = Asset.QORT;
-		if (timestamp >= BlockChain.getInstance().getQortalTimestamp())
-			assetId = byteBuffer.getLong();
+		long assetId = byteBuffer.getLong();
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
 
@@ -57,11 +55,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		if (transactionData.getTimestamp() < BlockChain.getInstance().getQortalTimestamp())
-			return TYPE_LENGTH + TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
-
-		// Qortal
-		return TYPE_LENGTH + TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH;
+		return TOTAL_LENGTH;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -78,8 +72,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeBigDecimal(bytes, genesisTransactionData.getAmount());
 
-			if (genesisTransactionData.getTimestamp() >= BlockChain.getInstance().getQortalTimestamp())
-				bytes.write(Longs.toByteArray(genesisTransactionData.getAssetId()));
+			bytes.write(Longs.toByteArray(genesisTransactionData.getAssetId()));
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {
