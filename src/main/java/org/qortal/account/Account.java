@@ -3,6 +3,9 @@ package org.qortal.account;
 import java.math.BigDecimal;
 import java.util.List;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.block.BlockChain;
@@ -15,6 +18,7 @@ import org.qortal.repository.Repository;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 
+@XmlAccessorType(XmlAccessType.NONE) // Stops JAX-RS errors when unmarshalling blockchain config
 public class Account {
 
 	private static final Logger LOGGER = LogManager.getLogger(Account.class);

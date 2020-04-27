@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.GenesisAccount;
+import org.qortal.account.NullAccount;
 import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.AccountLevelTransactionData;
@@ -70,7 +70,7 @@ public class AccountLevelTransaction extends Transaction {
 		Account creator = getCreator();
 
 		// Only genesis account can modify level
-		if (!creator.getAddress().equals(new GenesisAccount(repository).getAddress()))
+		if (!creator.getAddress().equals(new NullAccount(repository).getAddress()))
 			return ValidationResult.NO_FLAG_PERMISSION;
 
 		// Check fee is zero or positive

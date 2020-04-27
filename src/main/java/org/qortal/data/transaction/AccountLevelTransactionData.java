@@ -6,7 +6,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
-import org.qortal.account.GenesisAccount;
+import org.qortal.account.NullAccount;
 import org.qortal.block.GenesisBlock;
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -33,10 +33,10 @@ public class AccountLevelTransactionData extends TransactionData {
 		/*
 		 *  If we're being constructed as part of the genesis block info inside blockchain config
 		 *  and no specific creator's public key is supplied
-		 *  then use genesis account's public key.
+		 *  then use null account's public key.
 		 */
 		if (parent instanceof GenesisBlock.GenesisInfo && this.creatorPublicKey == null)
-			this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
+			this.creatorPublicKey = NullAccount.PUBLIC_KEY;
 	}
 
 	/** From repository, network/API */

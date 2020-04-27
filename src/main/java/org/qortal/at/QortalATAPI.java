@@ -14,7 +14,7 @@ import org.ciyam.at.MachineState;
 import org.ciyam.at.OpCode;
 import org.ciyam.at.Timestamp;
 import org.qortal.account.Account;
-import org.qortal.account.GenesisAccount;
+import org.qortal.account.NullAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
@@ -270,7 +270,7 @@ public class QortalATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(unscaledAmount, 8);
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
 				recipient.getAddress(), amount, this.atData.getAssetId(), new byte[0]);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
@@ -289,7 +289,7 @@ public class QortalATAPI extends API {
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
 				recipient.getAddress(), BigDecimal.ZERO, this.atData.getAssetId(), message);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
@@ -316,7 +316,7 @@ public class QortalATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(finalBalance, 8);
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
 				creator.getAddress(), amount, this.atData.getAssetId(), new byte[0]);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);

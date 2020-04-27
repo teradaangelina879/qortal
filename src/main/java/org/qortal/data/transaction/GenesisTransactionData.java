@@ -34,10 +34,8 @@ public class GenesisTransactionData extends TransactionData {
 		super(TransactionType.GENESIS);
 	}
 
-	/** From repository (V2) */
+	/** From repository */
 	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount, long assetId) {
-		// No groupID, null reference, zero fee, no approval required, height always 1
-		// super(TransactionType.GENESIS, timestamp, Group.NO_GROUP, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, ApprovalStatus.NOT_REQUIRED, 1, signature);
 		super(TransactionType.GENESIS, baseTransactionData);
 
 		this.recipient = recipient;
@@ -45,7 +43,7 @@ public class GenesisTransactionData extends TransactionData {
 		this.assetId = assetId;
 	}
 
-	/** From repository (V1, where asset locked to QORT) */
+	/** From repository (where asset locked to QORT) */
 	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount) {
 		this(baseTransactionData, recipient, amount, Asset.QORT);
 	}

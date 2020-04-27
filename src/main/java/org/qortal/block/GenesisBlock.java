@@ -7,27 +7,21 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.account.Account;
-import org.qortal.account.GenesisAccount;
-import org.qortal.account.PublicKeyAccount;
+import org.qortal.account.NullAccount;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.asset.AssetData;
 import org.qortal.data.block.BlockData;
-import org.qortal.data.transaction.IssueAssetTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ApprovalStatus;
-import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.TransactionTransformer;
 
@@ -39,9 +33,8 @@ public class GenesisBlock extends Block {
 
 	private static final Logger LOGGER = LogManager.getLogger(GenesisBlock.class);
 
-	private static final byte[] GENESIS_REFERENCE = new byte[] {
-		1, 1, 1, 1, 1, 1, 1, 1
-	}; // NOTE: Neither 64 nor 128 bytes!
+	private static final byte[] GENESIS_BLOCK_REFERENCE = new byte[128];
+	private static final byte[] GENESIS_TRANSACTION_REFERENCE = new byte[64];
 
 	@XmlAccessorType(XmlAccessType.FIELD)
 	public static class GenesisInfo {
@@ -96,37 +89,16 @@ public class GenesisBlock extends Block {
 				transactionData.setFee(BigDecimal.ZERO.setScale(8));
 
 			if (transactionData.getCreatorPublicKey() == null)
-				transactionData.setCreatorPublicKey(GenesisAccount.PUBLIC_KEY);
+				transactionData.setCreatorPublicKey(NullAccount.PUBLIC_KEY);
 
 			if (transactionData.getTimestamp() == 0)
 				transactionData.setTimestamp(info.timestamp);
 		});
 
-		// For version 1, extract any ISSUE_ASSET transactions into initialAssets and only allow GENESIS transactions
-		if (info.version == 1) {
-			List<TransactionData> issueAssetTransactions = transactionsData.stream()
-					.filter(transactionData -> transactionData.getType() == TransactionType.ISSUE_ASSET).collect(Collectors.toList());
-			transactionsData.removeAll(issueAssetTransactions);
-
-			// There should be only GENESIS transactions left;
-			if (transactionsData.stream().anyMatch(transactionData -> transactionData.getType() != TransactionType.GENESIS)) {
-				LOGGER.error("Version 1 genesis block only allowed to contain GENESIS transctions (after issue-asset processing)");
-				throw new RuntimeException("Version 1 genesis block only allowed to contain GENESIS transctions (after issue-asset processing)");
-			}
-
-			// Convert ISSUE_ASSET transactions into initial assets
-			initialAssets = issueAssetTransactions.stream().map(transactionData -> {
-				IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
-
-				return new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(), issueAssetTransactionData.getDescription(),
-						issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(), "", false, Group.NO_GROUP, issueAssetTransactionData.getReference());
-			}).collect(Collectors.toList());
-		}
-
-		byte[] reference = GENESIS_REFERENCE;
+		byte[] reference = GENESIS_BLOCK_REFERENCE;
 		int transactionCount = transactionsData.size();
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
-		byte[] minterPublicKey = GenesisAccount.PUBLIC_KEY;
+		byte[] minterPublicKey = NullAccount.PUBLIC_KEY;
 		byte[] bytesForSignature = getBytesForMinterSignature(info.timestamp, reference, minterPublicKey);
 		byte[] minterSignature = calcGenesisMinterSignature(bytesForSignature);
 		byte[] transactionsSignature = calcGenesisTransactionsSignature();
@@ -212,24 +184,16 @@ public class GenesisBlock extends Block {
 		try {
 			// Passing expected size to ByteArrayOutputStream avoids reallocation when adding more bytes than default 32.
 			// See below for explanation of some of the values used to calculated expected size.
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + 64 + 8 + 32);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + 128 + 32);
 
-			/*
-			 * NOTE: Historic code had genesis block using Longs.toByteArray(version) compared to standard block's Ints.toByteArray. The subsequent
-			 * Bytes.ensureCapacity(versionBytes, 0, 4) did not truncate versionBytes back to 4 bytes either. This means 8 bytes were used even though
-			 * VERSION_LENGTH is set to 4. Correcting this historic bug will break genesis block signatures!
-			 */
-			// For Qortal, we use genesis timestamp instead
+			// Genesis block timestamp
 			bytes.write(Longs.toByteArray(timestamp));
 
-			/*
-			 * NOTE: Historic code had the reference expanded to only 64 bytes whereas standard block references are 128 bytes. Correcting this historic bug
-			 * will break genesis block signatures!
-			 */
-			bytes.write(Bytes.ensureCapacity(reference, 64, 0));
+			// Block's reference
+			bytes.write(reference);
 
-			// NOTE: Genesis account's public key is only 8 bytes, not the usual 32, so we have to pad.
-			bytes.write(Bytes.ensureCapacity(minterPublicKey, 32, 0));
+			// Minting account's public key (typically NullAccount)
+			bytes.write(minterPublicKey);
 
 			return bytes.toByteArray();
 		} catch (IOException e) {
@@ -295,26 +259,18 @@ public class GenesisBlock extends Block {
 	public void process() throws DataException {
 		LOGGER.info(String.format("Using genesis block timestamp of %d", this.blockData.getTimestamp()));
 
-		// If we're a version 1 genesis block, create assets now
-		if (this.blockData.getVersion() == 1)
-			for (AssetData assetData : initialAssets)
-				repository.getAssetRepository().save(assetData);
-
 		/*
 		 * Some transactions will be missing references and signatures,
-		 * so we generate them by trial-processing transactions and using
-		 * account's last-reference to fill in the gaps for reference,
+		 * so we generate them by using <tt>GENESIS_TRANSACTION_REFERENCE</tt>
 		 * and a duplicated SHA256 digest for signature
 		 */
-		this.repository.setSavepoint();
 		try {
 			for (Transaction transaction : this.getTransactions()) {
 				TransactionData transactionData = transaction.getTransactionData();
-				Account creator = new PublicKeyAccount(this.repository, transactionData.getCreatorPublicKey());
 
 				// Missing reference?
 				if (transactionData.getReference() == null)
-					transactionData.setReference(creator.getLastReference());
+					transactionData.setReference(GENESIS_TRANSACTION_REFERENCE);
 
 				// Missing signature?
 				if (transactionData.getSignature() == null) {
@@ -324,18 +280,11 @@ public class GenesisBlock extends Block {
 					transactionData.setSignature(signature);
 				}
 
-				// Missing approval status (not used in V1)
+				// Approval status
 				transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
-
-				// Ask transaction to update references, etc.
-				transaction.processReferencesAndFees();
-
-				creator.setLastReference(transactionData.getSignature());
 			}
 		} catch (TransformationException e) {
 			throw new RuntimeException("Can't process genesis block transaction", e);
-		} finally {
-			this.repository.rollbackToSavepoint();
 		}
 
 		// Save transactions into repository ready for processing

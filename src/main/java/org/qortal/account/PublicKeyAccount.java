@@ -22,6 +22,18 @@ public class PublicKeyAccount extends Account {
 		this.publicKey = edPublicKeyParams.getEncoded();
 	}
 
+	protected PublicKeyAccount(Repository repository, byte[] publicKey, String address) {
+		super(repository, address);
+
+		this.publicKey = publicKey;
+		this.edPublicKeyParams = null;
+	}
+
+	protected PublicKeyAccount() {
+		this.publicKey = null;
+		this.edPublicKeyParams = null;
+	}
+
 	public byte[] getPublicKey() {
 		return this.publicKey;
 	}

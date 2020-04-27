@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.GenesisAccount;
+import org.qortal.account.NullAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.transaction.AccountFlagsTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -68,8 +68,8 @@ public class AccountFlagsTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		Account creator = getCreator();
 
-		// Only genesis account can modify flags
-		if (!creator.getAddress().equals(new GenesisAccount(repository).getAddress()))
+		// Only null account can modify flags
+		if (!creator.getAddress().equals(NullAccount.ADDRESS))
 			return ValidationResult.NO_FLAG_PERMISSION;
 
 		// Check fee is zero or positive

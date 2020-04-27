@@ -6,7 +6,7 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
-import org.qortal.account.GenesisAccount;
+import org.qortal.account.NullAccount;
 import org.qortal.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -31,14 +31,14 @@ public class ATTransactionData extends TransactionData {
 	}
 
 	public void afterUnmarshal(Unmarshaller u, Object parent) {
-		this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
+		this.creatorPublicKey = NullAccount.PUBLIC_KEY;
 	}
 
 	/** From repository */
 	public ATTransactionData(BaseTransactionData baseTransactionData, String atAddress, String recipient, BigDecimal amount, Long assetId, byte[] message) {
 		super(TransactionType.AT, baseTransactionData);
 
-		this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
+		this.creatorPublicKey = NullAccount.PUBLIC_KEY;
 		this.atAddress = atAddress;
 		this.recipient = recipient;
 		this.amount = amount;

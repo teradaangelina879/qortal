@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.qortal.account.GenesisAccount;
+import org.qortal.account.NullAccount;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.GenesisTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -49,7 +49,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 
 		long assetId = byteBuffer.getLong();
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, null, NullAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
 
 		return new GenesisTransactionData(baseTransactionData, recipient, amount, assetId);
 	}

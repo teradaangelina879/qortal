@@ -5,7 +5,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
-import org.qortal.account.GenesisAccount;
+import org.qortal.account.NullAccount;
 import org.qortal.block.GenesisBlock;
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -51,10 +51,10 @@ public class IssueAssetTransactionData extends TransactionData {
 		/*
 		 *  If we're being constructed as part of the genesis block info inside blockchain config
 		 *  and no specific issuer's public key is supplied
-		 *  then use genesis account's public key.
+		 *  then use null account's public key.
 		 */
 		if (parent instanceof GenesisBlock.GenesisInfo && this.issuerPublicKey == null)
-			this.issuerPublicKey = GenesisAccount.PUBLIC_KEY;
+			this.issuerPublicKey = NullAccount.PUBLIC_KEY;
 
 		this.creatorPublicKey = this.issuerPublicKey;
 	}
