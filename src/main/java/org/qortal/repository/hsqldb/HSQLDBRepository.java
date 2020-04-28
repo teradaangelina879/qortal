@@ -35,6 +35,7 @@ import org.qortal.repository.AccountRepository;
 import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.AssetRepository;
 import org.qortal.repository.BlockRepository;
+import org.qortal.repository.ChatRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.NameRepository;
@@ -113,6 +114,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public BlockRepository getBlockRepository() {
 		return new HSQLDBBlockRepository(this);
+	}
+
+	@Override
+	public ChatRepository getChatRepository() {
+		return new HSQLDBChatRepository(this);
 	}
 
 	@Override

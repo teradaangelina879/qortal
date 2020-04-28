@@ -975,6 +975,13 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CHECKPOINT DEFRAG");
 					break;
 
+				case 71:
+					// Chat transactions
+					stmt.execute("CREATE TABLE ChatTransactions (signature Signature, sender QortalAddress NOT NULL, nonce INT NOT NULL, recipient QortalAddress, "
+							+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, data MessageData NOT NULL, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

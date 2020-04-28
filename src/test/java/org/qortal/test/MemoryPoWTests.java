@@ -9,6 +9,11 @@ import java.util.Random;
 
 public class MemoryPoWTests {
 
+	private static final int workBufferLength = 8 * 1024 * 1024;
+	private static final int start = 0;
+	private static final int range = 1000000;
+	private static final int difficulty = 11;
+
 	@Test
 	public void testCompute() {
 		Random random = new Random();
@@ -16,15 +21,14 @@ public class MemoryPoWTests {
 		byte[] data = new byte[256];
 		random.nextBytes(data);
 
-		int start = 0;
-		int range = 1000000;
-		int difficulty = 1;
-
 		long startTime = System.currentTimeMillis();
-		Integer nonce = MemoryPoW.compute(data, start, range, difficulty);
+
+		// Integer nonce = MemoryPoW.compute(data, workBufferLength, start, range, difficulty);
+		int nonce = MemoryPoW.compute2(data, workBufferLength, difficulty);
+
 		long finishTime = System.currentTimeMillis();
 
-		System.out.println(String.format("Memory-hard PoW (buffer size: %dKB, range: %d, leading zeros: %d) took %dms", MemoryPoW.WORK_BUFFER_LENGTH / 1024, range, difficulty, finishTime - startTime));
+		System.out.println(String.format("Memory-hard PoW (buffer size: %dKB, range: %d, leading zeros: %d) took %dms", workBufferLength / 1024, range, difficulty, finishTime - startTime));
 
 		assertNotNull(nonce);
 
@@ -33,8 +37,34 @@ public class MemoryPoWTests {
 
 	@Test
 	public void testMultipleComputes() {
-		for (int i = 0; i < 10; ++i)
-			testCompute();
+		Random random = new Random();
+
+		byte[] data = new byte[256];
+		int[] times = new int[100];
+
+		int timesS1 = 0;
+		int timesS2 = 0;
+
+		int maxNonce = 0;
+
+		for (int i = 0; i < times.length; ++i) {
+			random.nextBytes(data);
+
+			long startTime = System.currentTimeMillis();
+			int nonce = MemoryPoW.compute2(data, workBufferLength, difficulty);
+			times[i] = (int) (System.currentTimeMillis() - startTime);
+
+			timesS1 += times[i];
+			timesS2 += (times[i] * times[i]);
+
+			if (nonce > maxNonce)
+				maxNonce = nonce;
+		}
+
+		double stddev = Math.sqrt( ((double) times.length * timesS2 - timesS1 * timesS1) / ((double) times.length * (times.length - 1)) );
+		System.out.println(String.format("%d timings, mean: %d ms, stddev: %.2f ms", times.length, timesS1 / times.length, stddev));
+
+		System.out.println(String.format("Max nonce: %d", maxNonce));
 	}
 
 }
