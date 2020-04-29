@@ -1,12 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
-import org.qortal.asset.Asset;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -33,57 +30,14 @@ public class ArbitraryTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		List<Account> recipients = new ArrayList<>();
-
-		if (arbitraryTransactionData.getVersion() != 1)
-			for (PaymentData paymentData : arbitraryTransactionData.getPayments())
-				recipients.add(new Account(this.repository, paymentData.getRecipient()));
-
-		return recipients;
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getSender().getAddress()))
-			return true;
-
-		if (arbitraryTransactionData.getVersion() != 1)
-			for (PaymentData paymentData : arbitraryTransactionData.getPayments())
-				if (address.equals(paymentData.getRecipient()))
-					return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-		String senderAddress = this.getSender().getAddress();
-
-		if (address.equals(senderAddress))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		if (arbitraryTransactionData.getVersion() != 1)
-			for (PaymentData paymentData : arbitraryTransactionData.getPayments())
-				// We're only interested in QORT
-				if (paymentData.getAssetId() == Asset.QORT) {
-					if (address.equals(paymentData.getRecipient()))
-						amount = amount.add(paymentData.getAmount());
-					else if (address.equals(senderAddress))
-						amount = amount.subtract(paymentData.getAmount());
-				}
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return this.arbitraryTransactionData.getPayments().stream().map(PaymentData::getRecipient).collect(Collectors.toList());
 	}
 
 	// Navigation
 
-	public Account getSender() throws DataException {
-		return new PublicKeyAccount(this.repository, this.arbitraryTransactionData.getSenderPublicKey());
+	public Account getSender() {
+		return this.getCreator();
 	}
 
 	// Processing
@@ -110,7 +64,7 @@ public class ArbitraryTransaction extends Transaction {
 	public void process() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
-				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature());
+				arbitraryTransactionData.getSignature());
 	}
 
 	@Override
@@ -124,7 +78,7 @@ public class ArbitraryTransaction extends Transaction {
 	public void orphan() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).orphan(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
-				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference());
+				arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference());
 	}
 
 	@Override

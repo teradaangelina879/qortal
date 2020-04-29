@@ -27,7 +27,7 @@ public class AssetData {
 
 	// Constructors
 
-	// necessary for JAX-RS serialization
+	// necessary for JAXB serialization
 	protected AssetData() {
 	}
 

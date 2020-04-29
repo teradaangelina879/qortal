@@ -1,9 +1,9 @@
 package org.qortal.data.account;
 
-import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -12,7 +12,9 @@ public class AccountBalanceData {
 	// Properties
 	private String address;
 	private long assetId;
-	private BigDecimal balance;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long balance;
 
 	// Not always present:
 	private Integer height;
@@ -24,19 +26,19 @@ public class AccountBalanceData {
 	protected AccountBalanceData() {
 	}
 
-	public AccountBalanceData(String address, long assetId, BigDecimal balance) {
+	public AccountBalanceData(String address, long assetId, long balance) {
 		this.address = address;
 		this.assetId = assetId;
 		this.balance = balance;
 	}
 
-	public AccountBalanceData(String address, long assetId, BigDecimal balance, int height) {
+	public AccountBalanceData(String address, long assetId, long balance, int height) {
 		this(address, assetId, balance);
 
 		this.height = height;
 	}
 
-	public AccountBalanceData(String address, long assetId, BigDecimal balance, String assetName) {
+	public AccountBalanceData(String address, long assetId, long balance, String assetName) {
 		this(address, assetId, balance);
 
 		this.assetName = assetName;
@@ -52,11 +54,11 @@ public class AccountBalanceData {
 		return this.assetId;
 	}
 
-	public BigDecimal getBalance() {
+	public long getBalance() {
 		return this.balance;
 	}
 
-	public void setBalance(BigDecimal balance) {
+	public void setBalance(long balance) {
 		this.balance = balance;
 	}
 

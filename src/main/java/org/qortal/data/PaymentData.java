@@ -1,18 +1,21 @@
 package org.qortal.data;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 public class PaymentData {
 
 	// Properties
+
 	private String recipient;
+
 	private long assetId;
-	private BigDecimal amount;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
 
 	// Constructors
 
@@ -20,7 +23,7 @@ public class PaymentData {
 	protected PaymentData() {
 	}
 
-	public PaymentData(String recipient, long assetId, BigDecimal amount) {
+	public PaymentData(String recipient, long assetId, long amount) {
 		this.recipient = recipient;
 		this.assetId = assetId;
 		this.amount = amount;
@@ -36,7 +39,7 @@ public class PaymentData {
 		return this.assetId;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 

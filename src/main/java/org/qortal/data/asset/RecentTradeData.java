@@ -20,9 +20,7 @@ public class RecentTradeData {
 
 	private BigDecimal amount;
 
-	@Schema(
-		description = "when trade happened"
-	)
+	@Schema(description = "when trade happened")
 	private long timestamp;
 
 	// Constructors
@@ -31,11 +29,11 @@ public class RecentTradeData {
 	protected RecentTradeData() {
 	}
 
-	public RecentTradeData(long assetId, long otherAssetId, BigDecimal otherAmount, BigDecimal amount, long timestamp) {
+	public RecentTradeData(long assetId, long otherAssetId, long otherAmount, long amount, long timestamp) {
 		this.assetId = assetId;
 		this.otherAssetId = otherAssetId;
-		this.otherAmount = otherAmount;
-		this.amount = amount;
+		this.otherAmount = BigDecimal.valueOf(otherAmount, 8);
+		this.amount = BigDecimal.valueOf(amount, 8);
 		this.timestamp = timestamp;
 	}
 

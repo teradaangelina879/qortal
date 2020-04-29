@@ -1,9 +1,8 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -20,7 +19,8 @@ public class DeployAtTransactionData extends TransactionData {
 	private String aTType;
 	private String tags;
 	private byte[] creationBytes;
-	private BigDecimal amount;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
 	private long assetId;
 	private String aTAddress;
 
@@ -33,7 +33,7 @@ public class DeployAtTransactionData extends TransactionData {
 
 	/** From repository */
 	public DeployAtTransactionData(BaseTransactionData baseTransactionData,
-			String aTAddress, String name, String description, String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId) {
+			String aTAddress, String name, String description, String aTType, String tags, byte[] creationBytes, long amount, long assetId) {
 		super(TransactionType.DEPLOY_AT, baseTransactionData);
 
 		this.aTAddress = aTAddress;
@@ -48,7 +48,7 @@ public class DeployAtTransactionData extends TransactionData {
 
 	/** From network/API */
 	public DeployAtTransactionData(BaseTransactionData baseTransactionData,
-			String name, String description, String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId) {
+			String name, String description, String aTType, String tags, byte[] creationBytes, long amount, long assetId) {
 		this(baseTransactionData, null, name, description, aTType, tags, creationBytes, amount, assetId);
 	}
 
@@ -74,7 +74,7 @@ public class DeployAtTransactionData extends TransactionData {
 		return this.creationBytes;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 

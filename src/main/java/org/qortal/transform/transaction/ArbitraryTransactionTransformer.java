@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +20,7 @@ import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
@@ -91,7 +91,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		byte[] data = new byte[dataSize];
 		byteBuffer.get(data);
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -133,7 +133,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getData().length));
 			bytes.write(arbitraryTransactionData.getData());
 
-			Serialization.serializeBigDecimal(bytes, arbitraryTransactionData.getFee());
+			bytes.write(Longs.toByteArray(arbitraryTransactionData.getFee()));
 
 			if (arbitraryTransactionData.getSignature() != null)
 				bytes.write(arbitraryTransactionData.getSignature());
@@ -182,7 +182,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 					break;
 			}
 
-			Serialization.serializeBigDecimal(bytes, arbitraryTransactionData.getFee());
+			bytes.write(Longs.toByteArray(arbitraryTransactionData.getFee()));
 
 			// Never append signature
 

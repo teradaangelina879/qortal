@@ -99,7 +99,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE Signature AS VARBINARY(64)");
 					stmt.execute("CREATE TYPE QortalAddress AS VARCHAR(36)");
 					stmt.execute("CREATE TYPE QortalPublicKey AS VARBINARY(32)");
-					stmt.execute("CREATE TYPE QortalAmount AS DECIMAL(27, 8)");
+					stmt.execute("CREATE TYPE QortalAmount AS BIGINT");
 					stmt.execute("CREATE TYPE GenericDescription AS VARCHAR(4000)");
 					stmt.execute("CREATE TYPE RegisteredName AS VARCHAR(128) COLLATE SQL_TEXT_NO_PAD");
 					stmt.execute("CREATE TYPE NameData AS VARCHAR(4000)");
@@ -122,6 +122,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE GroupID AS INTEGER");
 					stmt.execute("CREATE TYPE GroupName AS VARCHAR(400) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE GroupReason AS VARCHAR(128) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE RewardSharePercent AS INT");
 					break;
 
 				case 1:
@@ -713,10 +714,10 @@ public class HSQLDBDatabaseUpdates {
 				case 46:
 					// Proxy forging
 					// Transaction emitted by forger announcing they are forging on behalf of recipient
-					stmt.execute("CREATE TABLE ProxyForgingTransactions (signature Signature, forger QortalPublicKey NOT NULL, recipient QortalAddress NOT NULL, proxy_public_key QortalPublicKey NOT NULL, share DECIMAL(5,2) NOT NULL, "
-							+ "previous_share DECIMAL(5,2), PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute("CREATE TABLE ProxyForgingTransactions (signature Signature, forger QortalPublicKey NOT NULL, recipient QortalAddress NOT NULL, proxy_public_key QortalPublicKey NOT NULL, share RewardSharePercent NOT NULL, "
+							+ "previous_share RewardSharePercent, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// Table of current shares
-					stmt.execute("CREATE TABLE ProxyForgers (forger QortalPublicKey NOT NULL, recipient QortalAddress NOT NULL, proxy_public_key QortalPublicKey NOT NULL, share DECIMAL(5,2) NOT NULL, "
+					stmt.execute("CREATE TABLE ProxyForgers (forger QortalPublicKey NOT NULL, recipient QortalAddress NOT NULL, proxy_public_key QortalPublicKey NOT NULL, share RewardSharePercent NOT NULL, "
 							+ "PRIMARY KEY (forger, recipient))");
 					// Proxy-forged blocks will contain proxy public key, which will be used to look up block reward sharing, so create index for those lookups
 					stmt.execute("CREATE INDEX ProxyForgersProxyPublicKeyIndex ON ProxyForgers (proxy_public_key)");

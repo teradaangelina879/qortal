@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -25,8 +24,6 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 	private static final int AT_TYPE_SIZE_LENGTH = INT_LENGTH;
 	private static final int TAGS_SIZE_LENGTH = INT_LENGTH;
 	private static final int CREATION_BYTES_SIZE_LENGTH = INT_LENGTH;
-	private static final int AMOUNT_LENGTH = LONG_LENGTH;
-	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 
 	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + AT_TYPE_SIZE_LENGTH + TAGS_SIZE_LENGTH + CREATION_BYTES_SIZE_LENGTH
 			+ AMOUNT_LENGTH + ASSET_ID_LENGTH;
@@ -68,7 +65,7 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 
 		String description = Serialization.deserializeSizedString(byteBuffer, DeployAtTransaction.MAX_DESCRIPTION_SIZE);
 
-		String ATType = Serialization.deserializeSizedString(byteBuffer, DeployAtTransaction.MAX_AT_TYPE_SIZE);
+		String atType = Serialization.deserializeSizedString(byteBuffer, DeployAtTransaction.MAX_AT_TYPE_SIZE);
 
 		String tags = Serialization.deserializeSizedString(byteBuffer, DeployAtTransaction.MAX_TAGS_SIZE);
 
@@ -79,18 +76,18 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 		byte[] creationBytes = new byte[creationBytesSize];
 		byteBuffer.get(creationBytes);
 
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+		long amount = byteBuffer.getLong();
 
 		long assetId = byteBuffer.getLong();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
-		return new DeployAtTransactionData(baseTransactionData, name, description, ATType, tags, creationBytes, amount, assetId);
+		return new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, amount, assetId);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -125,11 +122,11 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 			bytes.write(Ints.toByteArray(creationBytes.length));
 			bytes.write(creationBytes);
 
-			Serialization.serializeBigDecimal(bytes, deployATTransactionData.getAmount());
+			bytes.write(Longs.toByteArray(deployATTransactionData.getAmount()));
 
 			bytes.write(Longs.toByteArray(deployATTransactionData.getAssetId()));
 
-			Serialization.serializeBigDecimal(bytes, deployATTransactionData.getFee());
+			bytes.write(Longs.toByteArray(deployATTransactionData.getFee()));
 
 			if (deployATTransactionData.getSignature() != null)
 				bytes.write(deployATTransactionData.getSignature());

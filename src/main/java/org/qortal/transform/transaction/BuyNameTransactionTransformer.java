@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -14,12 +13,12 @@ import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
 import com.google.common.base.Utf8;
+import com.google.common.primitives.Longs;
 
 public class BuyNameTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
-	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
 	private static final int SELLER_LENGTH = ADDRESS_LENGTH;
 
 	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + AMOUNT_LENGTH + SELLER_LENGTH;
@@ -53,11 +52,11 @@ public class BuyNameTransactionTransformer extends TransactionTransformer {
 
 		String name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
 
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+		long amount = byteBuffer.getLong();
 
 		String seller = Serialization.deserializeAddress(byteBuffer);
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -83,11 +82,11 @@ public class BuyNameTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeSizedString(bytes, buyNameTransactionData.getName());
 
-			Serialization.serializeBigDecimal(bytes, buyNameTransactionData.getAmount());
+			bytes.write(Longs.toByteArray(buyNameTransactionData.getAmount()));
 
 			Serialization.serializeAddress(bytes, buyNameTransactionData.getSeller());
 
-			Serialization.serializeBigDecimal(bytes, buyNameTransactionData.getFee());
+			bytes.write(Longs.toByteArray(buyNameTransactionData.getFee()));
 
 			if (buyNameTransactionData.getSignature() != null)
 				bytes.write(buyNameTransactionData.getSignature());

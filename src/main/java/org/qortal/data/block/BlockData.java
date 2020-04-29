@@ -3,11 +3,11 @@ package org.qortal.data.block;
 import com.google.common.primitives.Bytes;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.crypto.Crypto;
 
@@ -23,14 +23,20 @@ public class BlockData implements Serializable {
 	private int version;
 	private byte[] reference;
 	private int transactionCount;
-	private BigDecimal totalFees;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long totalFees;
+
 	private byte[] transactionsSignature;
 	private Integer height;
 	private long timestamp;
 	private byte[] minterPublicKey;
 	private byte[] minterSignature;
 	private int atCount;
-	private BigDecimal atFees;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long atFees;
+
 	private byte[] encodedOnlineAccounts;
 	private int onlineAccountsCount;
 	private Long onlineAccountsTimestamp;
@@ -42,8 +48,8 @@ public class BlockData implements Serializable {
 	protected BlockData() {
 	}
 
-	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
-			byte[] minterPublicKey, byte[] minterSignature, int atCount, BigDecimal atFees,
+	public BlockData(int version, byte[] reference, int transactionCount, long totalFees, byte[] transactionsSignature, Integer height, long timestamp,
+			byte[] minterPublicKey, byte[] minterSignature, int atCount, long atFees,
 			byte[] encodedOnlineAccounts, int onlineAccountsCount, Long onlineAccountsTimestamp, byte[] onlineAccountsSignatures) {
 		this.version = version;
 		this.reference = reference;
@@ -67,8 +73,8 @@ public class BlockData implements Serializable {
 			this.signature = null;
 	}
 
-	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
-			byte[] minterPublicKey, byte[] minterSignature, int atCount, BigDecimal atFees) {
+	public BlockData(int version, byte[] reference, int transactionCount, long totalFees, byte[] transactionsSignature, Integer height, long timestamp,
+			byte[] minterPublicKey, byte[] minterSignature, int atCount, long atFees) {
 		this(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, minterPublicKey, minterSignature, atCount, atFees,
 				null, 0, null, null);
 	}
@@ -103,11 +109,11 @@ public class BlockData implements Serializable {
 		this.transactionCount = transactionCount;
 	}
 
-	public BigDecimal getTotalFees() {
+	public long getTotalFees() {
 		return this.totalFees;
 	}
 
-	public void setTotalFees(BigDecimal totalFees) {
+	public void setTotalFees(long totalFees) {
 		this.totalFees = totalFees;
 	}
 
@@ -151,11 +157,11 @@ public class BlockData implements Serializable {
 		this.atCount = atCount;
 	}
 
-	public BigDecimal getATFees() {
+	public long getATFees() {
 		return this.atFees;
 	}
 
-	public void setATFees(BigDecimal atFees) {
+	public void setATFees(long atFees) {
 		this.atFees = atFees;
 	}
 

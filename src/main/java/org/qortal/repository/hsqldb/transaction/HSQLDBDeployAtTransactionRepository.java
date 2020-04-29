@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -29,7 +28,7 @@ public class HSQLDBDeployAtTransactionRepository extends HSQLDBTransactionReposi
 			String atType = resultSet.getString(3);
 			String tags = resultSet.getString(4);
 			byte[] creationBytes = resultSet.getBytes(5);
-			BigDecimal amount = resultSet.getBigDecimal(6).setScale(8);
+			long amount = resultSet.getLong(6);
 			long assetId = resultSet.getLong(7);
 
 			// Special null-checking for AT address

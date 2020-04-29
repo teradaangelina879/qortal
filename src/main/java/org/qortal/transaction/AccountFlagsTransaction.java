@@ -1,12 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.NullAccount;
-import org.qortal.asset.Asset;
 import org.qortal.data.transaction.AccountFlagsTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
@@ -15,7 +12,9 @@ import org.qortal.repository.Repository;
 public class AccountFlagsTransaction extends Transaction {
 
 	// Properties
+
 	private AccountFlagsTransactionData accountFlagsTransactionData;
+	private Account targetAccount = null;
 
 	// Constructors
 
@@ -28,78 +27,46 @@ public class AccountFlagsTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getCreator().getAddress()))
-			return true;
-
-		if (address.equals(this.getTarget().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getCreator().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.accountFlagsTransactionData.getTarget());
 	}
 
 	// Navigation
 
 	public Account getTarget() {
-		return new Account(this.repository, this.accountFlagsTransactionData.getTarget());
+		if (this.targetAccount == null)
+			this.targetAccount = new Account(this.repository, this.accountFlagsTransactionData.getTarget());
+
+		return this.targetAccount;
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		Account creator = getCreator();
-
-		// Only null account can modify flags
-		if (!creator.getAddress().equals(NullAccount.ADDRESS))
-			return ValidationResult.NO_FLAG_PERMISSION;
-
-		// Check fee is zero or positive
-		if (accountFlagsTransactionData.getFee().compareTo(BigDecimal.ZERO) < 0)
-			return ValidationResult.NEGATIVE_FEE;
-
-		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORT).compareTo(accountFlagsTransactionData.getFee()) < 0)
-			return ValidationResult.NO_BALANCE;
-
-		return ValidationResult.OK;
+		// Invalid outside of genesis block
+		return ValidationResult.NO_FLAG_PERMISSION;
 	}
 
 	@Override
 	public void process() throws DataException {
-		Account target = getTarget();
+		Account target = this.getTarget();
 		Integer previousFlags = target.getFlags();
 
-		accountFlagsTransactionData.setPreviousFlags(previousFlags);
+		this.accountFlagsTransactionData.setPreviousFlags(previousFlags);
 
 		// Save this transaction with target account's previous flags value
-		this.repository.getTransactionRepository().save(accountFlagsTransactionData);
+		this.repository.getTransactionRepository().save(this.accountFlagsTransactionData);
 
 		// If account doesn't have entry in database yet (e.g. genesis block) then flags are zero
 		if (previousFlags == null)
 			previousFlags = 0;
 
 		// Set account's new flags
-		int newFlags = previousFlags & accountFlagsTransactionData.getAndMask()
-				| accountFlagsTransactionData.getOrMask() ^ accountFlagsTransactionData.getXorMask();
+		int newFlags = previousFlags
+				& this.accountFlagsTransactionData.getAndMask()
+				| this.accountFlagsTransactionData.getOrMask()
+				^ this.accountFlagsTransactionData.getXorMask();
 
 		target.setFlags(newFlags);
 	}
@@ -107,15 +74,14 @@ public class AccountFlagsTransaction extends Transaction {
 	@Override
 	public void processReferencesAndFees() throws DataException {
 		// Set account's reference
-		getTarget().setLastReference(this.accountFlagsTransactionData.getSignature());
+		this.getTarget().setLastReference(this.accountFlagsTransactionData.getSignature());
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert
 		Account target = getTarget();
-
-		Integer previousFlags = accountFlagsTransactionData.getPreviousFlags();
+		Integer previousFlags = this.accountFlagsTransactionData.getPreviousFlags();
 
 		// If previousFlags are null then account didn't exist before this transaction
 		if (previousFlags == null)
@@ -124,7 +90,7 @@ public class AccountFlagsTransaction extends Transaction {
 			target.setFlags(previousFlags);
 
 		// Remove previous flags from transaction itself
-		accountFlagsTransactionData.setPreviousFlags(null);
+		this.accountFlagsTransactionData.setPreviousFlags(null);
 		this.repository.getTransactionRepository().save(accountFlagsTransactionData);
 	}
 

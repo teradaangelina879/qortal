@@ -1,7 +1,5 @@
 package org.qortal.data.at;
 
-import java.math.BigDecimal;
-
 public class ATStateData {
 
 	// Properties
@@ -10,12 +8,12 @@ public class ATStateData {
 	private Long creation;
 	private byte[] stateData;
 	private byte[] stateHash;
-	private BigDecimal fees;
+	private Long fees;
 
 	// Constructors
 
 	/** Create new ATStateData */
-	public ATStateData(String ATAddress, Integer height, Long creation, byte[] stateData, byte[] stateHash, BigDecimal fees) {
+	public ATStateData(String ATAddress, Integer height, Long creation, byte[] stateData, byte[] stateHash, Long fees) {
 		this.ATAddress = ATAddress;
 		this.height = height;
 		this.creation = creation;
@@ -25,7 +23,7 @@ public class ATStateData {
 	}
 
 	/** For recreating per-block ATStateData from repository where not all info is needed */
-	public ATStateData(String ATAddress, int height, byte[] stateHash, BigDecimal fees) {
+	public ATStateData(String ATAddress, int height, byte[] stateHash, Long fees) {
 		this(ATAddress, height, null, null, stateHash, fees);
 	}
 
@@ -35,7 +33,7 @@ public class ATStateData {
 	}
 
 	/** For creating ATStateData from serialized bytes when we don't have all the info */
-	public ATStateData(String ATAddress, byte[] stateHash, BigDecimal fees) {
+	public ATStateData(String ATAddress, byte[] stateHash, Long fees) {
 		this(ATAddress, null, null, null, stateHash, fees);
 	}
 
@@ -66,7 +64,7 @@ public class ATStateData {
 		return this.stateHash;
 	}
 
-	public BigDecimal getFees() {
+	public Long getFees() {
 		return this.fees;
 	}
 

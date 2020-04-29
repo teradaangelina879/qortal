@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -26,8 +25,11 @@ public class HSQLDBRewardShareTransactionRepository extends HSQLDBTransactionRep
 
 			String recipient = resultSet.getString(1);
 			byte[] rewardSharePublicKey = resultSet.getBytes(2);
-			BigDecimal sharePercent = resultSet.getBigDecimal(3);
-			BigDecimal previousSharePercent = resultSet.getBigDecimal(4);
+			int sharePercent = resultSet.getInt(3);
+
+			Integer previousSharePercent = resultSet.getInt(4);
+			if (previousSharePercent == 0 && resultSet.wasNull())
+				previousSharePercent = null;
 
 			return new RewardShareTransactionData(baseTransactionData, recipient, rewardSharePublicKey, sharePercent, previousSharePercent);
 		} catch (SQLException e) {

@@ -1,18 +1,23 @@
 package org.qortal.data.account;
 
-import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 public class QortFromQoraData {
 
 	// Properties
+
 	private String address;
-	// Not always present:
-	private BigDecimal finalQortFromQora;
+
+	// Not always present
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private Long finalQortFromQora;
+
+	// Not always present
 	private Integer finalBlockHeight;
 
 	// Constructors
@@ -21,7 +26,7 @@ public class QortFromQoraData {
 	protected QortFromQoraData() {
 	}
 
-	public QortFromQoraData(String address, BigDecimal finalQortFromQora, Integer finalBlockHeight) {
+	public QortFromQoraData(String address, Long finalQortFromQora, Integer finalBlockHeight) {
 		this.address = address;
 		this.finalQortFromQora = finalQortFromQora;
 		this.finalBlockHeight = finalBlockHeight;
@@ -33,11 +38,11 @@ public class QortFromQoraData {
 		return this.address;
 	}
 
-	public BigDecimal getFinalQortFromQora() {
+	public Long getFinalQortFromQora() {
 		return this.finalQortFromQora;
 	}
 
-	public void setFinalQortFromQora(BigDecimal finalQortFromQora) {
+	public void setFinalQortFromQora(Long finalQortFromQora) {
 		this.finalQortFromQora = finalQortFromQora;
 	}
 

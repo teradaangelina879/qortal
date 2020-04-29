@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -11,6 +10,8 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
+
+import com.google.common.primitives.Longs;
 
 public class CancelAssetOrderTransactionTransformer extends TransactionTransformer {
 
@@ -46,7 +47,7 @@ public class CancelAssetOrderTransactionTransformer extends TransactionTransform
 		byte[] orderId = new byte[ORDER_ID_LENGTH];
 		byteBuffer.get(orderId);
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -70,7 +71,7 @@ public class CancelAssetOrderTransactionTransformer extends TransactionTransform
 
 			bytes.write(cancelOrderTransactionData.getOrderId());
 
-			Serialization.serializeBigDecimal(bytes, cancelOrderTransactionData.getFee());
+			bytes.write(Longs.toByteArray(cancelOrderTransactionData.getFee()));
 
 			if (cancelOrderTransactionData.getSignature() != null)
 				bytes.write(cancelOrderTransactionData.getSignature());

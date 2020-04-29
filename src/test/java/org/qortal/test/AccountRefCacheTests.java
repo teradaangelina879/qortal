@@ -2,7 +2,6 @@ package org.qortal.test;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -247,7 +246,7 @@ public class AccountRefCacheTests extends Common {
 	// Test Block support
 	@Test
 	public void testBlockSupport() throws DataException {
-		final BigDecimal amount = BigDecimal.valueOf(12345670000L, 8);
+		final long amount = 12345670000L;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount alice = Common.getTestAccount(repository, "alice");

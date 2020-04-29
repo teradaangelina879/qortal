@@ -1,16 +1,16 @@
 package org.qortal.repository.hsqldb.transaction;
 
+import static org.qortal.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
+import static org.qortal.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
+
 import static org.qortal.transaction.Transaction.TransactionType.*;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -135,8 +135,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			byte[] reference = resultSet.getBytes(2);
 			byte[] creatorPublicKey = resultSet.getBytes(3);
-			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
+			long timestamp = getZonedTimestampMilli(resultSet, 4);
+
+			Long fee = resultSet.getLong(5);
+			if (fee == 0 && resultSet.wasNull())
+				fee = null;
+
 			int txGroupId = resultSet.getInt(6);
 
 			Integer blockHeight = resultSet.getInt(7);
@@ -168,8 +172,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			byte[] signature = resultSet.getBytes(2);
 			byte[] creatorPublicKey = resultSet.getBytes(3);
-			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
+			long timestamp = getZonedTimestampMilli(resultSet, 4);
+
+			Long fee = resultSet.getLong(5);
+			if (fee == 0 && resultSet.wasNull())
+				fee = null;
+
 			int txGroupId = resultSet.getInt(6);
 
 			Integer blockHeight = resultSet.getInt(7);
@@ -244,7 +252,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			// NOTE: do-while because checkedExecute() above has already called rs.next() for us
 			do {
 				String recipient = resultSet.getString(1);
-				BigDecimal amount = resultSet.getBigDecimal(2);
+				long amount = resultSet.getLong(2);
 				long assetId = resultSet.getLong(3);
 
 				payments.add(new PaymentData(recipient, assetId, amount));
@@ -673,10 +681,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				return assetTransfers;
 
 			do {
-				long timestamp = resultSet.getTimestamp(1, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long timestamp = getZonedTimestampMilli(resultSet, 1);
 				int txGroupId = resultSet.getInt(2);
 				byte[] reference = resultSet.getBytes(3);
-				BigDecimal fee = resultSet.getBigDecimal(4).setScale(8);
+				long fee = resultSet.getLong(4);
 				byte[] signature = resultSet.getBytes(5);
 				byte[] creatorPublicKey = resultSet.getBytes(6);
 
@@ -693,7 +701,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, blockHeight, approvalHeight, signature);
 
 				String recipient = resultSet.getString(10);
-				BigDecimal amount = resultSet.getBigDecimal(11);
+				long amount = resultSet.getLong(11);
 				String assetName = resultSet.getString(12);
 
 				assetTransfers.add(new TransferAssetTransactionData(baseTransactionData, recipient, amount, assetId, assetName));
@@ -1027,7 +1035,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	public void unconfirmTransaction(TransactionData transactionData) throws DataException {
 		HSQLDBSaver saver = new HSQLDBSaver("UnconfirmedTransactions");
 
-		saver.bind("signature", transactionData.getSignature()).bind("creation", new Timestamp(transactionData.getTimestamp()));
+		saver.bind("signature", transactionData.getSignature()).bind("creation", toOffsetDateTime(transactionData.getTimestamp()));
 
 		try {
 			saver.execute(repository);
@@ -1044,7 +1052,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		saver.bind("signature", transactionData.getSignature()).bind("reference", transactionData.getReference())
 			.bind("type", transactionData.getType().value)
-			.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", new Timestamp(transactionData.getTimestamp()))
+			.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", toOffsetDateTime(transactionData.getTimestamp()))
 			.bind("fee", transactionData.getFee()).bind("milestone_block", null).bind("tx_group_id", transactionData.getTxGroupId())
 			.bind("approval_status", transactionData.getApprovalStatus().value);
 

@@ -1,12 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
-import org.qortal.asset.Asset;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.TransferAssetTransactionData;
@@ -17,7 +14,9 @@ import org.qortal.repository.Repository;
 public class TransferAssetTransaction extends Transaction {
 
 	// Properties
+
 	private TransferAssetTransactionData transferAssetTransactionData;
+	private PaymentData paymentData = null;
 
 	// Constructors
 
@@ -30,94 +29,63 @@ public class TransferAssetTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.singletonList(new Account(this.repository, transferAssetTransactionData.getRecipient()));
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getSender().getAddress()))
-			return true;
-
-		if (address.equals(transferAssetTransactionData.getRecipient()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-		String senderAddress = this.getSender().getAddress();
-
-		if (address.equals(senderAddress))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		// We're only interested in OQRT amounts
-		if (transferAssetTransactionData.getAssetId() == Asset.QORT) {
-			if (address.equals(transferAssetTransactionData.getRecipient()))
-				amount = amount.add(transferAssetTransactionData.getAmount());
-			else if (address.equals(senderAddress))
-				amount = amount.subtract(transferAssetTransactionData.getAmount());
-		}
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.transferAssetTransactionData.getRecipient());
 	}
 
 	// Navigation
 
-	public Account getSender() throws DataException {
-		return new PublicKeyAccount(this.repository, this.transferAssetTransactionData.getSenderPublicKey());
+	public Account getSender() {
+		return this.getCreator();
 	}
 
 	// Processing
 
 	private PaymentData getPaymentData() {
-		return new PaymentData(transferAssetTransactionData.getRecipient(), transferAssetTransactionData.getAssetId(),
-				transferAssetTransactionData.getAmount());
+		if (this.paymentData == null)
+			this.paymentData = new PaymentData(this.transferAssetTransactionData.getRecipient(), this.transferAssetTransactionData.getAssetId(),
+					this.transferAssetTransactionData.getAmount());
+
+		return this.paymentData;
 	}
 
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Wrap asset transfer as a payment and delegate final payment checks to Payment class
-		return new Payment(this.repository).isValid(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee());
+		return new Payment(this.repository).isValid(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), this.transferAssetTransactionData.getFee());
 	}
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Wrap asset transfer as a payment and delegate final processable checks to Payment class
-		return new Payment(this.repository).isProcessable(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee());
+		return new Payment(this.repository).isProcessable(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), this.transferAssetTransactionData.getFee());
 	}
 
 	@Override
 	public void process() throws DataException {
-		// Wrap asset transfer as a payment and delegate processing to Payment class. Only update recipient's last reference if transferring QORT.
-		new Payment(this.repository).process(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee(),
-				transferAssetTransactionData.getSignature());
+		// Wrap asset transfer as a payment and delegate processing to Payment class.
+		new Payment(this.repository).process(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), this.transferAssetTransactionData.getSignature());
 	}
 
 	@Override
 	public void processReferencesAndFees() throws DataException {
 		// Wrap asset transfer as a payment and delegate processing to Payment class. Only update recipient's last reference if transferring QORT.
-		new Payment(this.repository).processReferencesAndFees(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee(),
-				transferAssetTransactionData.getSignature(), false);
+		new Payment(this.repository).processReferencesAndFees(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), this.transferAssetTransactionData.getFee(),
+				this.transferAssetTransactionData.getSignature(), false);
 	}
 
 	@Override
 	public void orphan() throws DataException {
-		// Wrap asset transfer as a payment and delegate processing to Payment class. Only revert recipient's last reference if transferring QORT.
-		new Payment(this.repository).orphan(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee(),
-				transferAssetTransactionData.getSignature(), transferAssetTransactionData.getReference());
+		// Wrap asset transfer as a payment and delegate processing to Payment class.
+		new Payment(this.repository).orphan(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData(),
+				this.transferAssetTransactionData.getSignature(), this.transferAssetTransactionData.getReference());
 	}
 
 	@Override
 	public void orphanReferencesAndFees() throws DataException {
 		// Wrap asset transfer as a payment and delegate processing to Payment class. Only revert recipient's last reference if transferring QORT.
-		new Payment(this.repository).orphanReferencesAndFees(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee(),
-				transferAssetTransactionData.getSignature(), transferAssetTransactionData.getReference(), false);
+		new Payment(this.repository).orphanReferencesAndFees(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), this.transferAssetTransactionData.getFee(),
+				this.transferAssetTransactionData.getSignature(), this.transferAssetTransactionData.getReference(), false);
 	}
 
 }

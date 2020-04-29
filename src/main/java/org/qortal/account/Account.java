@@ -1,6 +1,6 @@
 package org.qortal.account;
 
-import java.math.BigDecimal;
+import static org.qortal.utils.Amounts.prettyAmount;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -54,32 +54,24 @@ public class Account {
 
 	// Balance manipulations - assetId is 0 for QORT
 
-	public BigDecimal getBalance(long assetId) throws DataException {
+	public long getConfirmedBalance(long assetId) throws DataException {
 		AccountBalanceData accountBalanceData = this.repository.getAccountRepository().getBalance(this.address, assetId);
 		if (accountBalanceData == null)
-			return BigDecimal.ZERO.setScale(8);
+			return 0;
 
 		return accountBalanceData.getBalance();
 	}
 
-	public BigDecimal getConfirmedBalance(long assetId) throws DataException {
-		AccountBalanceData accountBalanceData = this.repository.getAccountRepository().getBalance(this.address, assetId);
-		if (accountBalanceData == null)
-			return BigDecimal.ZERO.setScale(8);
-
-		return accountBalanceData.getBalance();
-	}
-
-	public void setConfirmedBalance(long assetId, BigDecimal balance) throws DataException {
+	public void setConfirmedBalance(long assetId, long balance) throws DataException {
 		// Safety feature!
-		if (balance.compareTo(BigDecimal.ZERO) < 0) {
-			String message = String.format("Refusing to set negative balance %s [assetId %d] for %s", balance.toPlainString(), assetId, this.address);
+		if (balance < 0) {
+			String message = String.format("Refusing to set negative balance %s [assetId %d] for %s", prettyAmount(balance), assetId, this.address);
 			LOGGER.error(message);
 			throw new DataException(message);
 		}
 
 		// Delete account balance record instead of setting balance to zero
-		if (balance.signum() == 0) {
+		if (balance == 0) {
 			this.repository.getAccountRepository().delete(this.address, assetId);
 			return;
 		}
@@ -90,7 +82,7 @@ public class Account {
 		AccountBalanceData accountBalanceData = new AccountBalanceData(this.address, assetId, balance);
 		this.repository.getAccountRepository().save(accountBalanceData);
 
-		LOGGER.trace(() -> String.format("%s balance now %s [assetId %s]", this.address, balance.toPlainString(), assetId));
+		LOGGER.trace(() -> String.format("%s balance now %s [assetId %s]", this.address, prettyAmount(balance), assetId));
 	}
 
 	public void deleteBalance(long assetId) throws DataException {

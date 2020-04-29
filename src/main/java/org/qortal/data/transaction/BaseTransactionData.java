@@ -1,13 +1,11 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
-
 import org.qortal.transaction.Transaction.ApprovalStatus;
 
 public class BaseTransactionData extends TransactionData {
 
 	/** Constructor for use by repository. */
-	public BaseTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, 
+	public BaseTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, Long fee, 
 			ApprovalStatus approvalStatus, Integer blockHeight, Integer approvalHeight, byte[] signature) {
 		this.timestamp = timestamp;
 		this.txGroupId = txGroupId;
@@ -21,7 +19,7 @@ public class BaseTransactionData extends TransactionData {
 	}
 
 	/** Constructor for use by transaction transformer. */
-	public BaseTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) {
+	public BaseTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, Long fee, byte[] signature) {
 		this(timestamp, txGroupId, reference, creatorPublicKey, fee, null, null, null, signature);
 	}
 

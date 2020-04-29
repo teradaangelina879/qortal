@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.asset.Asset;
@@ -19,7 +18,6 @@ import com.google.common.primitives.Longs;
 public class UpdateAssetTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 	private static final int NEW_OWNER_LENGTH = ADDRESS_LENGTH;
 	private static final int NEW_DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int NEW_DATA_SIZE_LENGTH = INT_LENGTH;
@@ -64,7 +62,7 @@ public class UpdateAssetTransactionTransformer extends TransactionTransformer {
 
 		String newData = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_DATA_SIZE);
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -98,7 +96,7 @@ public class UpdateAssetTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeSizedString(bytes, updateAssetTransactionData.getNewData());
 
-			Serialization.serializeBigDecimal(bytes, updateAssetTransactionData.getFee());
+			bytes.write(Longs.toByteArray(updateAssetTransactionData.getFee()));
 
 			if (updateAssetTransactionData.getSignature() != null)
 				bytes.write(updateAssetTransactionData.getSignature());

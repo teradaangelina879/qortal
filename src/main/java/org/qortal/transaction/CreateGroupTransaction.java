@@ -1,6 +1,5 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
@@ -31,38 +30,14 @@ public class CreateGroupTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.singletonList(getOwner());
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getCreator().getAddress()))
-			return true;
-
-		if (address.equals(this.getOwner().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getCreator().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.createGroupTransactionData.getOwner());
 	}
 
 	// Navigation
 
-	public Account getOwner() throws DataException {
-		return new Account(this.repository, this.createGroupTransactionData.getOwner());
+	public Account getOwner() {
+		return this.getCreator();
 	}
 
 	// Processing
@@ -70,45 +45,41 @@ public class CreateGroupTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Check owner address is valid
-		if (!Crypto.isValidAddress(createGroupTransactionData.getOwner()))
+		if (!Crypto.isValidAddress(this.createGroupTransactionData.getOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check approval threshold is valid
-		if (createGroupTransactionData.getApprovalThreshold() == null)
+		if (this.createGroupTransactionData.getApprovalThreshold() == null)
 			return ValidationResult.INVALID_GROUP_APPROVAL_THRESHOLD;
 
 		// Check min/max block delay values
-		if (createGroupTransactionData.getMinimumBlockDelay() < 0)
+		if (this.createGroupTransactionData.getMinimumBlockDelay() < 0)
 			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
 
-		if (createGroupTransactionData.getMaximumBlockDelay() < 1)
+		if (this.createGroupTransactionData.getMaximumBlockDelay() < 1)
 			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
 
-		if (createGroupTransactionData.getMaximumBlockDelay() < createGroupTransactionData.getMinimumBlockDelay())
+		if (this.createGroupTransactionData.getMaximumBlockDelay() < this.createGroupTransactionData.getMinimumBlockDelay())
 			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
 
 		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(createGroupTransactionData.getGroupName());
+		int groupNameLength = Utf8.encodedLength(this.createGroupTransactionData.getGroupName());
 		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check description size bounds
-		int descriptionLength = Utf8.encodedLength(createGroupTransactionData.getDescription());
+		int descriptionLength = Utf8.encodedLength(this.createGroupTransactionData.getDescription());
 		if (descriptionLength < 1 || descriptionLength > Group.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
 		// Check group name is lowercase
-		if (!createGroupTransactionData.getGroupName().equals(createGroupTransactionData.getGroupName().toLowerCase()))
+		if (!this.createGroupTransactionData.getGroupName().equals(this.createGroupTransactionData.getGroupName().toLowerCase()))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		// Check fee is positive
-		if (createGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
 
 		Account creator = getCreator();
 
 		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORT).compareTo(createGroupTransactionData.getFee()) < 0)
+		if (creator.getConfirmedBalance(Asset.QORT) < this.createGroupTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -117,7 +88,7 @@ public class CreateGroupTransaction extends Transaction {
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Check the group name isn't already taken
-		if (this.repository.getGroupRepository().groupExists(createGroupTransactionData.getGroupName()))
+		if (this.repository.getGroupRepository().groupExists(this.createGroupTransactionData.getGroupName()))
 			return ValidationResult.GROUP_ALREADY_EXISTS;
 
 		return ValidationResult.OK;
@@ -126,27 +97,27 @@ public class CreateGroupTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Create Group
-		Group group = new Group(this.repository, createGroupTransactionData);
-		group.create(createGroupTransactionData);
+		Group group = new Group(this.repository, this.createGroupTransactionData);
+		group.create(this.createGroupTransactionData);
 
 		// Note newly assigned group ID in our transaction record
-		createGroupTransactionData.setGroupId(group.getGroupData().getGroupId());
+		this.createGroupTransactionData.setGroupId(group.getGroupData().getGroupId());
 
 		// Save this transaction with newly assigned group ID
-		this.repository.getTransactionRepository().save(createGroupTransactionData);
+		this.repository.getTransactionRepository().save(this.createGroupTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Uncreate group
-		Group group = new Group(this.repository, createGroupTransactionData.getGroupId());
+		Group group = new Group(this.repository, this.createGroupTransactionData.getGroupId());
 		group.uncreate();
 
 		// Remove assigned group ID from transaction record
-		createGroupTransactionData.setGroupId(null);
+		this.createGroupTransactionData.setGroupId(null);
 
 		// Save this transaction with removed group ID
-		this.repository.getTransactionRepository().save(createGroupTransactionData);
+		this.repository.getTransactionRepository().save(this.createGroupTransactionData);
 	}
 
 }

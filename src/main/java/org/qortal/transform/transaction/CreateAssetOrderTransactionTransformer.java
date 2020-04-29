@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -17,8 +16,6 @@ import com.google.common.primitives.Longs;
 public class CreateAssetOrderTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
-	private static final int AMOUNT_LENGTH = 12; // Not standard BIG_DECIMAL_LENGTH
 
 	private static final int EXTRAS_LENGTH = (ASSET_ID_LENGTH + AMOUNT_LENGTH) * 2;
 
@@ -33,8 +30,8 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 		layout.add("order creator's public key", TransformationType.PUBLIC_KEY);
 		layout.add("ID of asset of offer", TransformationType.LONG);
 		layout.add("ID of asset wanted", TransformationType.LONG);
-		layout.add("amount of asset on offer", TransformationType.ASSET_QUANTITY);
-		layout.add("trade price in (lowest-assetID asset)/(highest-assetID asset)", TransformationType.ASSET_QUANTITY);
+		layout.add("amount of asset on offer", TransformationType.AMOUNT);
+		layout.add("trade price in (lowest-assetID asset)/(highest-assetID asset)", TransformationType.AMOUNT);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
@@ -53,11 +50,11 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 
 		long wantAssetId = byteBuffer.getLong();
 
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
+		long amount = byteBuffer.getLong();
 
-		BigDecimal price = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
+		long price = byteBuffer.getLong();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -83,11 +80,11 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 
 			bytes.write(Longs.toByteArray(createOrderTransactionData.getWantAssetId()));
 
-			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
+			bytes.write(Longs.toByteArray(createOrderTransactionData.getAmount()));
 
-			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getPrice(), AMOUNT_LENGTH);
+			bytes.write(Longs.toByteArray(createOrderTransactionData.getPrice()));
 
-			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getFee());
+			bytes.write(Longs.toByteArray(createOrderTransactionData.getFee()));
 
 			if (createOrderTransactionData.getSignature() != null)
 				bytes.write(createOrderTransactionData.getSignature());

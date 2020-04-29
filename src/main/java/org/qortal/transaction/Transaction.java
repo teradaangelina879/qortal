@@ -1,9 +1,6 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -261,8 +258,11 @@ public abstract class Transaction {
 	private static final Logger LOGGER = LogManager.getLogger(Transaction.class);
 
 	// Properties
+
 	protected Repository repository;
 	protected TransactionData transactionData;
+	/** Cached creator account. Use <tt>getCreator()</tt> to access. */
+	private PublicKeyAccount creator = null;
 
 	// Constructors
 
@@ -320,12 +320,12 @@ public abstract class Transaction {
 
 	/** Returns whether transaction's fee is at least minimum unit fee as specified in blockchain config. */
 	public boolean hasMinimumFee() {
-		return this.transactionData.getFee().compareTo(BlockChain.getInstance().getUnitFee()) >= 0;
+		return this.transactionData.getFee() >= BlockChain.getInstance().getUnscaledUnitFee();
 	}
 
-	public BigDecimal feePerByte() {
+	public long feePerByte() {
 		try {
-			return this.transactionData.getFee().divide(new BigDecimal(TransactionTransformer.getDataLength(this.transactionData)), MathContext.DECIMAL32);
+			return this.transactionData.getFee() / TransactionTransformer.getDataLength(this.transactionData);
 		} catch (TransformationException e) {
 			throw new IllegalStateException("Unable to get transaction byte length?");
 		}
@@ -333,10 +333,13 @@ public abstract class Transaction {
 
 	/** Returns whether transaction's fee is at least amount needed to cover byte-length of transaction. */
 	public boolean hasMinimumFeePerByte() {
-		return this.feePerByte().compareTo(BlockChain.getInstance().getMinFeePerByte()) >= 0;
+		long unitFee = BlockChain.getInstance().getUnscaledUnitFee();
+		int maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
+
+		return this.feePerByte() >= maxBytePerUnitFee / unitFee;
 	}
 
-	public BigDecimal calcRecommendedFee() {
+	public long calcRecommendedFee() {
 		int dataLength;
 		try {
 			dataLength = TransactionTransformer.getDataLength(this.transactionData);
@@ -344,12 +347,11 @@ public abstract class Transaction {
 			throw new IllegalStateException("Unable to get transaction byte length?");
 		}
 
-		BigDecimal maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
+		int maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
 
-		BigDecimal unitFeeCount = BigDecimal.valueOf(dataLength).divide(maxBytePerUnitFee, RoundingMode.UP);
+		int unitFeeCount = ((dataLength - 1) / maxBytePerUnitFee) + 1;
 
-		BigDecimal recommendedFee = BlockChain.getInstance().getUnitFee().multiply(unitFeeCount).setScale(8);
-		return recommendedFee;
+		return BlockChain.getInstance().getUnscaledUnitFee() * unitFeeCount;
 	}
 
 	/**
@@ -399,45 +401,32 @@ public abstract class Transaction {
 	 * @return list of recipients accounts, or empty list if none
 	 * @throws DataException
 	 */
-	public abstract List<Account> getRecipientAccounts() throws DataException;
-
-	/**
-	 * Returns a list of involved accounts for this transaction.
-	 * <p>
-	 * "Involved" means sender or recipient.
-	 * 
-	 * @return list of involved accounts, or empty list if none
-	 * @throws DataException
-	 */
-	public List<Account> getInvolvedAccounts() throws DataException {
-		// Typically this is all the recipients plus the transaction creator/sender
-		List<Account> participants = new ArrayList<>(getRecipientAccounts());
-		participants.add(getCreator());
-		return participants;
+	public List<Account> getRecipientAccounts() throws DataException {
+		throw new DataException("Placeholder for new AT code");
 	}
 
 	/**
-	 * Returns whether passed account is an involved party in this transaction.
-	 * <p>
-	 * Account could be sender, or any one of the potential recipients.
+	 * Returns a list of recipient addresses for this transaction.
 	 * 
-	 * @param account
-	 * @return true if account is involved, false otherwise
+	 * @return list of recipients addresses, or empty list if none
 	 * @throws DataException
 	 */
-	public abstract boolean isInvolved(Account account) throws DataException;
+	public abstract List<String> getRecipientAddresses() throws DataException;
 
 	/**
-	 * Returns amount of QORT lost/gained by passed account due to this transaction.
+	 * Returns a list of involved addresses for this transaction.
 	 * <p>
-	 * Amounts "lost", e.g. sent by sender and fees, are returned as negative values.<br>
-	 * Amounts "gained", e.g. QORT sent to recipient, are returned as positive values.
+	 * "Involved" means sender or recipient.
 	 * 
-	 * @param account
-	 * @return Amount of QORT lost/gained by account, or BigDecimal.ZERO otherwise
+	 * @return list of involved addresses, or empty list if none
 	 * @throws DataException
 	 */
-	public abstract BigDecimal getAmount(Account account) throws DataException;
+	public List<String> getInvolvedAddresses() throws DataException {
+		// Typically this is all the recipients plus the transaction creator/sender
+		List<String> participants = new ArrayList<>(getRecipientAddresses());
+		participants.add(0, this.getCreator().getAddress());
+		return participants;
+	}
 
 	// Navigation
 
@@ -447,11 +436,11 @@ public abstract class Transaction {
 	 * @return creator
 	 * @throws DataException
 	 */
-	protected PublicKeyAccount getCreator() throws DataException {
-		if (this.transactionData.getCreatorPublicKey() == null)
-			return null;
+	protected PublicKeyAccount getCreator() {
+		if (this.creator == null)
+			this.creator = new PublicKeyAccount(this.repository, this.transactionData.getCreatorPublicKey());
 
-		return new PublicKeyAccount(this.repository, this.transactionData.getCreatorPublicKey());
+		return this.creator;
 	}
 
 	/**
@@ -460,7 +449,7 @@ public abstract class Transaction {
 	 * @return Parent's TransactionData, or null if no parent found (which should not happen)
 	 * @throws DataException
 	 */
-	public TransactionData getParent() throws DataException {
+	protected TransactionData getParent() throws DataException {
 		byte[] reference = this.transactionData.getReference();
 		if (reference == null)
 			return null;
@@ -474,7 +463,7 @@ public abstract class Transaction {
 	 * @return Child's TransactionData, or null if no child found
 	 * @throws DataException
 	 */
-	public TransactionData getChild() throws DataException {
+	protected TransactionData getChild() throws DataException {
 		byte[] signature = this.transactionData.getSignature();
 		if (signature == null)
 			return null;
@@ -925,9 +914,9 @@ public abstract class Transaction {
 		Account creator = getCreator();
 
 		// Update transaction creator's balance
-		creator.setConfirmedBalance(Asset.QORT, creator.getConfirmedBalance(Asset.QORT).subtract(transactionData.getFee()));
+		creator.setConfirmedBalance(Asset.QORT, creator.getConfirmedBalance(Asset.QORT) - transactionData.getFee());
 
-		// Update transaction creator's reference
+		// Update transaction creator's reference (and possibly public key)
 		creator.setLastReference(transactionData.getSignature());
 	}
 
@@ -949,9 +938,9 @@ public abstract class Transaction {
 		Account creator = getCreator();
 
 		// Update transaction creator's balance
-		creator.setConfirmedBalance(Asset.QORT, creator.getConfirmedBalance(Asset.QORT).add(transactionData.getFee()));
+		creator.setConfirmedBalance(Asset.QORT, creator.getConfirmedBalance(Asset.QORT) + transactionData.getFee());
 
-		// Update transaction creator's reference
+		// Update transaction creator's reference (and possibly public key)
 		creator.setLastReference(transactionData.getReference());
 	}
 

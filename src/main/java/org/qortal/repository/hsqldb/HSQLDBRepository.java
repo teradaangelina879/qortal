@@ -763,7 +763,7 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	/** Converts milliseconds from epoch to OffsetDateTime needed for TIMESTAMP WITH TIME ZONE columns. */
-	/* package */ static OffsetDateTime toOffsetDateTime(Long timestamp) {
+	public static OffsetDateTime toOffsetDateTime(Long timestamp) {
 		if (timestamp == null)
 			return null;
 
@@ -771,12 +771,12 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	/** Converts OffsetDateTime from TIMESTAMP WITH TIME ZONE column to milliseconds from epoch. */
-	/* package */ static long fromOffsetDateTime(OffsetDateTime offsetDateTime) {
+	public static long fromOffsetDateTime(OffsetDateTime offsetDateTime) {
 		return offsetDateTime.toInstant().toEpochMilli();
 	}
 
 	/** Returns TIMESTAMP WITH TIME ZONE column value as milliseconds from epoch, or null. */
-	/* package */ static Long getZonedTimestampMilli(ResultSet resultSet, int columnIndex) throws SQLException {
+	public static Long getZonedTimestampMilli(ResultSet resultSet, int columnIndex) throws SQLException {
 		OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
 		if (offsetDateTime == null)
 			return null;

@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
 
 import org.qortal.account.NullAccount;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -17,10 +18,19 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class ATTransactionData extends TransactionData {
 
 	// Properties
+
 	private String atAddress;
+
 	private String recipient;
-	private BigDecimal amount;
+
+	@XmlTransient
+	@Schema(hidden = true)
+	// Not always present
+	private Long amount;
+
+	// Not always present
 	private Long assetId;
+
 	private byte[] message;
 
 	// Constructors
@@ -35,7 +45,7 @@ public class ATTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public ATTransactionData(BaseTransactionData baseTransactionData, String atAddress, String recipient, BigDecimal amount, Long assetId, byte[] message) {
+	public ATTransactionData(BaseTransactionData baseTransactionData, String atAddress, String recipient, Long amount, Long assetId, byte[] message) {
 		super(TransactionType.AT, baseTransactionData);
 
 		this.creatorPublicKey = NullAccount.PUBLIC_KEY;
@@ -56,7 +66,7 @@ public class ATTransactionData extends TransactionData {
 		return this.recipient;
 	}
 
-	public BigDecimal getAmount() {
+	public Long getAmount() {
 		return this.amount;
 	}
 
@@ -66,6 +76,16 @@ public class ATTransactionData extends TransactionData {
 
 	public byte[] getMessage() {
 		return this.message;
+	}
+
+	// Some JAXB/API-related getters
+
+	@Schema(name = "amount")
+	public BigDecimal getAmountJaxb() {
+		if (this.amount == null)
+			return null;
+
+		return BigDecimal.valueOf(this.amount, 8);
 	}
 
 }

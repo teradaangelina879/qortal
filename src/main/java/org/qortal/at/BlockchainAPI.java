@@ -3,7 +3,6 @@ package org.qortal.at;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -85,15 +84,15 @@ public enum BlockchainAPI {
 
 			switch (transactionData.getType()) {
 				case PAYMENT:
-					return ((PaymentTransactionData) transactionData).getAmount().unscaledValue().longValue();
+					return ((PaymentTransactionData) transactionData).getAmount();
 
 				case AT:
-					BigDecimal amount = ((ATTransactionData) transactionData).getAmount();
+					Long amount = ((ATTransactionData) transactionData).getAmount();
 
-					if (amount != null)
-						return amount.unscaledValue().longValue();
-					else
+					if (amount == null)
 						return 0xffffffffffffffffL;
+
+					return amount;
 
 				default:
 					return 0xffffffffffffffffL;

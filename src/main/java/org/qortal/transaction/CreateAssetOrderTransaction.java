@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.asset.Order;
 import org.qortal.data.asset.AssetData;
@@ -32,31 +30,11 @@ public class CreateAssetOrderTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() {
-		return new ArrayList<>();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		return account.getAddress().equals(this.getCreator().getAddress());
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (account.getAddress().equals(this.getCreator().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.emptyList();
 	}
 
 	// Navigation
-
-	@Override
-	public PublicKeyAccount getCreator() throws DataException {
-		return new PublicKeyAccount(this.repository, createOrderTransactionData.getCreatorPublicKey());
-	}
 
 	public Order getOrder() throws DataException {
 		// orderId is the transaction signature
@@ -68,24 +46,20 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		long haveAssetId = createOrderTransactionData.getHaveAssetId();
-		long wantAssetId = createOrderTransactionData.getWantAssetId();
+		long haveAssetId = this.createOrderTransactionData.getHaveAssetId();
+		long wantAssetId = this.createOrderTransactionData.getWantAssetId();
 
 		// Check have/want assets are not the same
 		if (haveAssetId == wantAssetId)
 			return ValidationResult.HAVE_EQUALS_WANT;
 
 		// Check amount is positive
-		if (createOrderTransactionData.getAmount().compareTo(BigDecimal.ZERO) <= 0)
+		if (this.createOrderTransactionData.getAmount() <= 0)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check price is positive
-		if (createOrderTransactionData.getPrice().compareTo(BigDecimal.ZERO) <= 0)
+		if (this.createOrderTransactionData.getPrice() <= 0)
 			return ValidationResult.NEGATIVE_PRICE;
-
-		// Check fee is positive
-		if (createOrderTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
 
 		AssetRepository assetRepository = this.repository.getAssetRepository();
 
@@ -105,8 +79,8 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 		Account creator = getCreator();
 
-		BigDecimal committedCost;
-		BigDecimal maxOtherAmount;
+		long committedCost;
+		long maxOtherAmount;
 
 		/*
 		 * "amount" might be either have-asset or want-asset, whichever has the highest assetID.
@@ -122,35 +96,35 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 		if (isAmountWantAsset) {
 			// have/commit 49200 QORT, want/return 123 GOLD
-			committedCost = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
-			maxOtherAmount = createOrderTransactionData.getAmount();
+			committedCost = this.createOrderTransactionData.getAmount() * this.createOrderTransactionData.getPrice();
+			maxOtherAmount = this.createOrderTransactionData.getAmount();
 		} else {
 			// have/commit 123 GOLD, want/return 49200 QORT
-			committedCost = createOrderTransactionData.getAmount();
-			maxOtherAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+			committedCost = this.createOrderTransactionData.getAmount();
+			maxOtherAmount = this.createOrderTransactionData.getAmount() * this.createOrderTransactionData.getPrice();
 		}
 
 		// Check amount is integer if amount's asset is not divisible
-		if (!haveAssetData.getIsDivisible() && committedCost.stripTrailingZeros().scale() > 0)
+		if (!haveAssetData.getIsDivisible() && committedCost % Asset.MULTIPLIER != 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		// Check total return from fulfilled order would be integer if return's asset is not divisible
-		if (!wantAssetData.getIsDivisible() && maxOtherAmount.stripTrailingZeros().scale() > 0)
+		if (!wantAssetData.getIsDivisible() && maxOtherAmount % Asset.MULTIPLIER != 0)
 			return ValidationResult.INVALID_RETURN;
 
 		// Check order creator has enough asset balance AFTER removing fee, in case asset is QORT
 		// If asset is QORT then we need to check amount + fee in one go
 		if (haveAssetId == Asset.QORT) {
 			// Check creator has enough funds for amount + fee in QORT
-			if (creator.getConfirmedBalance(Asset.QORT).compareTo(committedCost.add(createOrderTransactionData.getFee())) < 0)
+			if (creator.getConfirmedBalance(Asset.QORT) < committedCost + this.createOrderTransactionData.getFee())
 				return ValidationResult.NO_BALANCE;
 		} else {
 			// Check creator has enough funds for amount in whatever asset
-			if (creator.getConfirmedBalance(haveAssetId).compareTo(committedCost) < 0)
+			if (creator.getConfirmedBalance(haveAssetId) < committedCost)
 				return ValidationResult.NO_BALANCE;
 
 			// Check creator has enough funds for fee in QORT
-			if (creator.getConfirmedBalance(Asset.QORT).compareTo(createOrderTransactionData.getFee()) < 0)
+			if (creator.getConfirmedBalance(Asset.QORT) < this.createOrderTransactionData.getFee())
 				return ValidationResult.NO_BALANCE;
 		}
 
@@ -160,12 +134,13 @@ public class CreateAssetOrderTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Order Id is transaction's signature
-		byte[] orderId = createOrderTransactionData.getSignature();
+		byte[] orderId = this.createOrderTransactionData.getSignature();
 
 		// Process the order itself
-		OrderData orderData = new OrderData(orderId, createOrderTransactionData.getCreatorPublicKey(), createOrderTransactionData.getHaveAssetId(),
-				createOrderTransactionData.getWantAssetId(), createOrderTransactionData.getAmount(), createOrderTransactionData.getPrice(),
-				createOrderTransactionData.getTimestamp());
+		OrderData orderData = new OrderData(orderId, this.createOrderTransactionData.getCreatorPublicKey(),
+				this.createOrderTransactionData.getHaveAssetId(), this.createOrderTransactionData.getWantAssetId(),
+				this.createOrderTransactionData.getAmount(), this.createOrderTransactionData.getPrice(),
+				this.createOrderTransactionData.getTimestamp());
 
 		new Order(this.repository, orderData).process();
 	}
@@ -173,7 +148,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Order Id is transaction's signature
-		byte[] orderId = createOrderTransactionData.getSignature();
+		byte[] orderId = this.createOrderTransactionData.getSignature();
 
 		// Orphan the order itself
 		OrderData orderData = this.repository.getAssetRepository().fromOrderId(orderId);

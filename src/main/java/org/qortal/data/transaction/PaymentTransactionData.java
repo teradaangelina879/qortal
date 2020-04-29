@@ -1,7 +1,5 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -17,16 +15,16 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class PaymentTransactionData extends TransactionData {
 
 	// Properties
+
 	@Schema(description = "sender's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] senderPublicKey;
+
 	@Schema(description = "recipient's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
 	private String recipient;
+
 	@Schema(description = "amount to send", example = "123.456")
-	@XmlJavaTypeAdapter(
-		type = BigDecimal.class,
-		value = org.qortal.api.BigDecimalTypeAdapter.class
-	)
-	private BigDecimal amount;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
 
 	// Constructors
 
@@ -40,7 +38,7 @@ public class PaymentTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public PaymentTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount) {
+	public PaymentTransactionData(BaseTransactionData baseTransactionData, String recipient, long amount) {
 		super(TransactionType.PAYMENT, baseTransactionData);
 
 		this.senderPublicKey = baseTransactionData.creatorPublicKey;
@@ -58,7 +56,7 @@ public class PaymentTransactionData extends TransactionData {
 		return this.recipient;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 

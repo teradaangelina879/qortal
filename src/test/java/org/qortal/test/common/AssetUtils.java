@@ -1,8 +1,8 @@
 package org.qortal.test.common;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.Base64.Encoder;
 
@@ -26,7 +26,7 @@ import java.util.Random;
 public class AssetUtils {
 
 	public static final int txGroupId = Group.NO_GROUP;
-	public static final BigDecimal fee = BigDecimal.ONE.setScale(8);
+	public static final long fee = 1L;
 
 	// QORT: 0, LEGACY_QORA: 1, QORT_FROM_QORA: 2
 	public static final long testAssetId = 3L; // Owned by Alice
@@ -47,7 +47,7 @@ public class AssetUtils {
 		return repository.getAssetRepository().fromAssetName(assetName).getAssetId();
 	}
 
-	public static void transferAsset(Repository repository, String fromAccountName, String toAccountName, long assetId, BigDecimal amount) throws DataException {
+	public static void transferAsset(Repository repository, String fromAccountName, String toAccountName, long assetId, long amount) throws DataException {
 		PrivateKeyAccount fromAccount = Common.getTestAccount(repository, fromAccountName);
 		PrivateKeyAccount toAccount = Common.getTestAccount(repository, toAccountName);
 
@@ -60,7 +60,7 @@ public class AssetUtils {
 		TransactionUtils.signAndMint(repository, transactionData, fromAccount);
 	}
 
-	public static byte[] createOrder(Repository repository, String accountName, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price) throws DataException {
+	public static byte[] createOrder(Repository repository, String accountName, long haveAssetId, long wantAssetId, long amount, long price) throws DataException {
 		PrivateKeyAccount account = Common.getTestAccount(repository, accountName);
 
 		byte[] reference = account.getLastReference();
@@ -94,12 +94,12 @@ public class AssetUtils {
 	}
 
 	public static void genericTradeTest(long haveAssetId, long wantAssetId,
-			BigDecimal aliceAmount, BigDecimal alicePrice,
-			BigDecimal bobAmount, BigDecimal bobPrice,
-			BigDecimal aliceCommitment, BigDecimal bobCommitment,
-			BigDecimal aliceReturn, BigDecimal bobReturn, BigDecimal bobSaving) throws DataException {
+			long aliceAmount, long alicePrice,
+			long bobAmount, long bobPrice,
+			long aliceCommitment, long bobCommitment,
+			long aliceReturn, long bobReturn, long bobSaving) throws DataException {
 		try (Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, haveAssetId, wantAssetId);
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, haveAssetId, wantAssetId);
 
 			// Create target order
 			byte[] targetOrderId = createOrder(repository, "alice", haveAssetId, wantAssetId, aliceAmount, alicePrice);
@@ -108,36 +108,36 @@ public class AssetUtils {
 			byte[] initiatingOrderId = createOrder(repository, "bob", wantAssetId, haveAssetId, bobAmount, bobPrice);
 
 			// Check balances to check expected outcome
-			BigDecimal expectedBalance;
+			long expectedBalance;
 			OrderData targetOrderData = repository.getAssetRepository().fromOrderId(targetOrderId);
 			OrderData initiatingOrderData = repository.getAssetRepository().fromOrderId(initiatingOrderId);
 
 			// Alice selling have asset
-			expectedBalance = initialBalances.get("alice").get(haveAssetId).subtract(aliceCommitment);
+			expectedBalance = initialBalances.get("alice").get(haveAssetId) - aliceCommitment;
 			AccountUtils.assertBalance(repository, "alice", haveAssetId, expectedBalance);
 
 			// Alice buying want asset
-			expectedBalance = initialBalances.get("alice").get(wantAssetId).add(aliceReturn);
+			expectedBalance = initialBalances.get("alice").get(wantAssetId) + aliceReturn;
 			AccountUtils.assertBalance(repository, "alice", wantAssetId, expectedBalance);
 
 			// Bob selling want asset
-			expectedBalance = initialBalances.get("bob").get(wantAssetId).subtract(bobCommitment).add(bobSaving);
+			expectedBalance = initialBalances.get("bob").get(wantAssetId) - bobCommitment + bobSaving;
 			AccountUtils.assertBalance(repository, "bob", wantAssetId, expectedBalance);
 
 			// Bob buying have asset
-			expectedBalance = initialBalances.get("bob").get(haveAssetId).add(bobReturn);
+			expectedBalance = initialBalances.get("bob").get(haveAssetId) + bobReturn;
 			AccountUtils.assertBalance(repository, "bob", haveAssetId, expectedBalance);
 
 			// Check orders
-			BigDecimal expectedFulfilled = (initiatingOrderData.getHaveAssetId() < initiatingOrderData.getWantAssetId()) ? bobReturn : aliceReturn;
+			long expectedFulfilled = (initiatingOrderData.getHaveAssetId() < initiatingOrderData.getWantAssetId()) ? bobReturn : aliceReturn;
 
 			// Check matching order
 			assertNotNull("matching order missing", initiatingOrderData);
-			Common.assertEqualBigDecimals(String.format("Bob's order \"fulfilled\" incorrect"), expectedFulfilled, initiatingOrderData.getFulfilled());
+			assertEquals(String.format("Bob's order \"fulfilled\" incorrect"), expectedFulfilled, initiatingOrderData.getFulfilled());
 
 			// Check initial order
 			assertNotNull("initial order missing", targetOrderData);
-			Common.assertEqualBigDecimals(String.format("Alice's order \"fulfilled\" incorrect"), expectedFulfilled, targetOrderData.getFulfilled());
+			assertEquals(String.format("Alice's order \"fulfilled\" incorrect"), expectedFulfilled, targetOrderData.getFulfilled());
 		}
 	}
 

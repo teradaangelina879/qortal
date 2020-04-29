@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -25,7 +24,7 @@ public class HSQLDBBuyNameTransactionRepository extends HSQLDBTransactionReposit
 				return null;
 
 			String name = resultSet.getString(1);
-			BigDecimal amount = resultSet.getBigDecimal(2);
+			long amount = resultSet.getLong(2);
 			String seller = resultSet.getString(3);
 			byte[] nameReference = resultSet.getBytes(4);
 

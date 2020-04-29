@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +16,7 @@ import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 
@@ -58,7 +58,7 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 		for (int i = 0; i < paymentsCount; ++i)
 			payments.add(PaymentTransformer.fromByteBuffer(byteBuffer));
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -88,7 +88,7 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 			for (PaymentData paymentData : payments)
 				bytes.write(PaymentTransformer.toBytes(paymentData));
 
-			Serialization.serializeBigDecimal(bytes, multiPaymentTransactionData.getFee());
+			bytes.write(Longs.toByteArray(multiPaymentTransactionData.getFee()));
 
 			if (multiPaymentTransactionData.getSignature() != null)
 				bytes.write(multiPaymentTransactionData.getSignature());

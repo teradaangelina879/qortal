@@ -1,6 +1,5 @@
 package org.qortal.payment;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -37,15 +36,15 @@ public class Payment {
 	// isValid
 
 	/** Are payments valid? */
-	public ValidationResult isValid(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
+	public ValidationResult isValid(byte[] senderPublicKey, List<PaymentData> payments, long fee, boolean isZeroAmountValid) throws DataException {
 		AssetRepository assetRepository = this.repository.getAssetRepository();
 
 		// Check fee is positive
-		if (fee.compareTo(BigDecimal.ZERO) <= 0)
+		if (fee <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Total up payment amounts by assetId
-		Map<Long, BigDecimal> amountsByAssetId = new HashMap<>();
+		Map<Long, Long> amountsByAssetId = new HashMap<>();
 		// Add transaction fee to start with
 		amountsByAssetId.put(Asset.QORT, fee);
 
@@ -55,11 +54,11 @@ public class Payment {
 		// Check payments, and calculate amount total by assetId
 		for (PaymentData paymentData : payments) {
 			// Check amount is zero or positive
-			if (paymentData.getAmount().compareTo(BigDecimal.ZERO) < 0)
+			if (paymentData.getAmount() < 0)
 				return ValidationResult.NEGATIVE_AMOUNT;
 
 			// Optional zero-amount check
-			if (!isZeroAmountValid && paymentData.getAmount().compareTo(BigDecimal.ZERO) <= 0)
+			if (!isZeroAmountValid && paymentData.getAmount() <= 0)
 				return ValidationResult.NEGATIVE_AMOUNT;
 
 			// Check recipient address is valid
@@ -94,64 +93,63 @@ public class Payment {
 				return ValidationResult.ASSET_DOES_NOT_MATCH_AT;
 
 			// Check asset amount is integer if asset is not divisible
-			if (!assetData.getIsDivisible() && paymentData.getAmount().stripTrailingZeros().scale() > 0)
+			if (!assetData.getIsDivisible() && paymentData.getAmount() % Asset.MULTIPLIER != 0)
 				return ValidationResult.INVALID_AMOUNT;
 
 			// Set or add amount into amounts-by-asset map
-			amountsByAssetId.compute(paymentData.getAssetId(), (assetId, amount) -> amount == null ? paymentData.getAmount() : amount.add(paymentData.getAmount()));
+			amountsByAssetId.compute(paymentData.getAssetId(), (assetId, amount) -> amount == null ? paymentData.getAmount() : amount + paymentData.getAmount());
 		}
 
 		// Check sender has enough of each asset
-		for (Entry<Long, BigDecimal> pair : amountsByAssetId.entrySet())
-			if (sender.getConfirmedBalance(pair.getKey()).compareTo(pair.getValue()) < 0)
+		for (Entry<Long, Long> pair : amountsByAssetId.entrySet())
+			if (sender.getConfirmedBalance(pair.getKey()) < pair.getValue())
 				return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
 	}
 
 	/** Are payments valid? */
-	public ValidationResult isValid(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee) throws DataException {
+	public ValidationResult isValid(byte[] senderPublicKey, List<PaymentData> payments, long fee) throws DataException {
 		return isValid(senderPublicKey, payments, fee, false);
 	}
 
 	/** Is single payment valid? */
-	public ValidationResult isValid(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
+	public ValidationResult isValid(byte[] senderPublicKey, PaymentData paymentData, long fee, boolean isZeroAmountValid) throws DataException {
 		return isValid(senderPublicKey, Collections.singletonList(paymentData), fee, isZeroAmountValid);
 	}
 
 	/** Is single payment valid? */
-	public ValidationResult isValid(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee) throws DataException {
+	public ValidationResult isValid(byte[] senderPublicKey, PaymentData paymentData, long fee) throws DataException {
 		return isValid(senderPublicKey, paymentData, fee, false);
 	}
 
 	// isProcessable
 
 	/** Are multiple payments processable? */
-	public ValidationResult isProcessable(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
+	public ValidationResult isProcessable(byte[] senderPublicKey, List<PaymentData> payments, long fee, boolean isZeroAmountValid) throws DataException {
 		// Essentially the same as isValid...
 		return isValid(senderPublicKey, payments, fee, isZeroAmountValid);
 	}
 
 	/** Are multiple payments processable? */
-	public ValidationResult isProcessable(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee) throws DataException {
+	public ValidationResult isProcessable(byte[] senderPublicKey, List<PaymentData> payments, long fee) throws DataException {
 		return isProcessable(senderPublicKey, payments, fee, false);
 	}
 
 	/** Is single payment processable? */
-	public ValidationResult isProcessable(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
+	public ValidationResult isProcessable(byte[] senderPublicKey, PaymentData paymentData, long fee, boolean isZeroAmountValid) throws DataException {
 		return isProcessable(senderPublicKey, Collections.singletonList(paymentData), fee, isZeroAmountValid);
 	}
 
 	/** Is single payment processable? */
-	public ValidationResult isProcessable(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee) throws DataException {
+	public ValidationResult isProcessable(byte[] senderPublicKey, PaymentData paymentData, long fee) throws DataException {
 		return isProcessable(senderPublicKey, paymentData, fee, false);
 	}
 
 	// process
 
 	/** Multiple payment processing */
-	public void process(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature)
-			throws DataException {
+	public void process(byte[] senderPublicKey, List<PaymentData> payments, byte[] signature) throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Process all payments
@@ -159,31 +157,30 @@ public class Payment {
 			Account recipient = new Account(this.repository, paymentData.getRecipient());
 
 			long assetId = paymentData.getAssetId();
-			BigDecimal amount = paymentData.getAmount();
+			long amount = paymentData.getAmount();
 
 			// Update sender's balance due to amount
-			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId).subtract(amount));
+			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId) - amount);
 
 			// Update recipient's balance
-			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).add(amount));
+			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId) + amount);
 		}
 	}
 
 	/** Single payment processing */
-	public void process(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature)
-			throws DataException {
-		process(senderPublicKey, Collections.singletonList(paymentData), fee, signature);
+	public void process(byte[] senderPublicKey, PaymentData paymentData, byte[] signature) throws DataException {
+		process(senderPublicKey, Collections.singletonList(paymentData), signature);
 	}
 
 	// processReferenceAndFees
 
 	/** Multiple payment reference processing */
-	public void processReferencesAndFees(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
+	public void processReferencesAndFees(byte[] senderPublicKey, List<PaymentData> payments, long fee, byte[] signature, boolean alwaysInitializeRecipientReference)
 			throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
-		sender.setConfirmedBalance(Asset.QORT, sender.getConfirmedBalance(Asset.QORT).subtract(fee));
+		sender.setConfirmedBalance(Asset.QORT, sender.getConfirmedBalance(Asset.QORT) - fee);
 
 		// Update sender's reference
 		sender.setLastReference(signature);
@@ -201,42 +198,42 @@ public class Payment {
 	}
 
 	/** Multiple payment reference processing */
-	public void processReferencesAndFees(byte[] senderPublicKey, PaymentData payment, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
+	public void processReferencesAndFees(byte[] senderPublicKey, PaymentData payment, long fee, byte[] signature, boolean alwaysInitializeRecipientReference)
 			throws DataException {
 		processReferencesAndFees(senderPublicKey, Collections.singletonList(payment), fee, signature, alwaysInitializeRecipientReference);
 	}
 
 	// orphan
 
-	public void orphan(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, byte[] reference) throws DataException {
+	public void orphan(byte[] senderPublicKey, List<PaymentData> payments, byte[] signature, byte[] reference) throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Orphan all payments
 		for (PaymentData paymentData : payments) {
 			Account recipient = new Account(this.repository, paymentData.getRecipient());
 			long assetId = paymentData.getAssetId();
-			BigDecimal amount = paymentData.getAmount();
+			long amount = paymentData.getAmount();
 
 			// Update sender's balance due to amount
-			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId).add(amount));
+			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId) + amount);
 
 			// Update recipient's balance
-			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).subtract(amount));
+			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId) - amount);
 		}
 	}
 
-	public void orphan(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, byte[] reference) throws DataException {
-		orphan(senderPublicKey, Collections.singletonList(paymentData), fee, signature, reference);
+	public void orphan(byte[] senderPublicKey, PaymentData paymentData, byte[] signature, byte[] reference) throws DataException {
+		orphan(senderPublicKey, Collections.singletonList(paymentData), signature, reference);
 	}
 
 	// orphanReferencesAndFees
 
-	public void orphanReferencesAndFees(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, byte[] reference,
+	public void orphanReferencesAndFees(byte[] senderPublicKey, List<PaymentData> payments, long fee, byte[] signature, byte[] reference,
 			boolean alwaysUninitializeRecipientReference) throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
-		sender.setConfirmedBalance(Asset.QORT, sender.getConfirmedBalance(Asset.QORT).add(fee));
+		sender.setConfirmedBalance(Asset.QORT, sender.getConfirmedBalance(Asset.QORT) + fee);
 
 		// Update sender's reference
 		sender.setLastReference(reference);
@@ -257,7 +254,7 @@ public class Payment {
 		}
 	}
 
-	public void orphanReferencesAndFees(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, byte[] reference,
+	public void orphanReferencesAndFees(byte[] senderPublicKey, PaymentData paymentData, long fee, byte[] signature, byte[] reference,
 			boolean alwaysUninitializeRecipientReference) throws DataException {
 		orphanReferencesAndFees(senderPublicKey, Collections.singletonList(paymentData), fee, signature, reference, alwaysUninitializeRecipientReference);
 	}

@@ -1,7 +1,5 @@
 package org.qortal.test.common;
 
-import java.math.BigDecimal;
-
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.CreateGroupTransactionData;
@@ -17,7 +15,7 @@ import org.qortal.transaction.Transaction.ApprovalStatus;
 public class GroupUtils {
 
 	public static final int txGroupId = Group.NO_GROUP;
-	public static final BigDecimal fee = BigDecimal.ONE.setScale(8);
+	public static final long fee = 1L;
 
 	public static int createGroup(Repository repository, String creatorAccountName, String groupName, boolean isOpen, ApprovalThreshold approvalThreshold,
 				int minimumBlockDelay, int maximumBlockDelay) throws DataException {

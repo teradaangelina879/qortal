@@ -23,7 +23,11 @@ public class RewardShareData {
 
 	private String recipient;
 	private byte[] rewardSharePublicKey;
-	private BigDecimal sharePercent;
+
+	// JAXB to use separate getter
+	@XmlTransient
+	@Schema(hidden = true)
+	private int sharePercent;
 
 	// Constructors
 
@@ -32,7 +36,7 @@ public class RewardShareData {
 	}
 
 	// Used when fetching from repository
-	public RewardShareData(byte[] minterPublicKey, String minter, String recipient, byte[] rewardSharePublicKey, BigDecimal sharePercent) {
+	public RewardShareData(byte[] minterPublicKey, String minter, String recipient, byte[] rewardSharePublicKey, int sharePercent) {
 		this.minterPublicKey = minterPublicKey;
 		this.minter = minter;
 		this.recipient = recipient;
@@ -58,13 +62,21 @@ public class RewardShareData {
 		return this.rewardSharePublicKey;
 	}
 
-	public BigDecimal getSharePercent() {
+	/** Returns share percent scaled by 100. i.e. 12.34% is represented by 1234 */
+	public int getSharePercent() {
 		return this.sharePercent;
 	}
+
+	// Some JAXB/API-related getters
 
 	@XmlElement(name = "mintingAccount")
 	public String getMintingAccount() {
 		return this.minter;
+	}
+
+	@XmlElement(name = "sharePercent")
+	public BigDecimal getSharePercentJaxb() {
+		return BigDecimal.valueOf(this.sharePercent, 2);
 	}
 
 }

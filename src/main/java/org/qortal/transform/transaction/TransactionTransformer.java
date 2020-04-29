@@ -35,7 +35,7 @@ public abstract class TransactionTransformer extends Transformer {
 	protected static final int TYPE_LENGTH = INT_LENGTH;
 	protected static final int GROUPID_LENGTH = INT_LENGTH;
 	protected static final int REFERENCE_LENGTH = SIGNATURE_LENGTH;
-	protected static final int FEE_LENGTH = BIG_DECIMAL_LENGTH;
+	protected static final int FEE_LENGTH = AMOUNT_LENGTH;
 
 	/** Description of one component of raw transaction layout */
 	public enum TransformationType {
@@ -43,8 +43,7 @@ public abstract class TransactionTransformer extends Transformer {
 		SIGNATURE("transaction signature", SIGNATURE_LENGTH),
 		PUBLIC_KEY("public key", PUBLIC_KEY_LENGTH),
 		ADDRESS("address", ADDRESS_LENGTH),
-		AMOUNT("amount", BIG_DECIMAL_LENGTH),
-		ASSET_QUANTITY("asset-related quantity", 12),
+		AMOUNT("unscaled amount", AMOUNT_LENGTH),
 		INT("int", INT_LENGTH),
 		LONG("long", LONG_LENGTH),
 		STRING("UTF-8 string of variable length", null),

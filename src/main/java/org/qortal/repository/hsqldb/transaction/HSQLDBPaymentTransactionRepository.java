@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -25,7 +24,7 @@ public class HSQLDBPaymentTransactionRepository extends HSQLDBTransactionReposit
 				return null;
 
 			String recipient = resultSet.getString(1);
-			BigDecimal amount = resultSet.getBigDecimal(2);
+			long amount = resultSet.getLong(2);
 
 			return new PaymentTransactionData(baseTransactionData, recipient, amount);
 		} catch (SQLException e) {

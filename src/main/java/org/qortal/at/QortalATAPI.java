@@ -1,6 +1,5 @@
 package org.qortal.at;
 
-import java.math.BigDecimal;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -34,7 +33,7 @@ import com.google.common.primitives.Bytes;
 public class QortalATAPI extends API {
 
 	// Useful constants
-	private static final BigDecimal FEE_PER_STEP = BigDecimal.valueOf(1.0).setScale(8); // 1 QORT per "step"
+	private static final long FEE_PER_STEP = 1 * Asset.MULTIPLIER; // 1 QORT per "step"
 	private static final int MAX_STEPS_PER_ROUND = 500;
 	private static final int STEPS_PER_FUNCTION_CALL = 10;
 	private static final int MINUTES_PER_BLOCK = 10;
@@ -62,8 +61,8 @@ public class QortalATAPI extends API {
 		return this.transactions;
 	}
 
-	public BigDecimal calcFinalFees(MachineState state) {
-		return FEE_PER_STEP.multiply(BigDecimal.valueOf(state.getSteps()));
+	public long calcFinalFees(MachineState state) {
+		return state.getSteps() * FEE_PER_STEP;
 	}
 
 	// Inherited methods from CIYAM AT API
@@ -83,7 +82,7 @@ public class QortalATAPI extends API {
 
 	@Override
 	public long getFeePerStep() {
-		return FEE_PER_STEP.unscaledValue().longValue();
+		return FEE_PER_STEP;
 	}
 
 	@Override
@@ -254,23 +253,22 @@ public class QortalATAPI extends API {
 		try {
 			Account atAccount = this.getATAccount();
 
-			return atAccount.getConfirmedBalance(Asset.QORT).unscaledValue().longValue();
+			return atAccount.getConfirmedBalance(Asset.QORT);
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch AT's current balance?", e);
 		}
 	}
 
 	@Override
-	public void payAmountToB(long unscaledAmount, MachineState state) {
+	public void payAmountToB(long amount, MachineState state) {
 		byte[] publicKey = state.getB();
 
 		PublicKeyAccount recipient = new PublicKeyAccount(this.repository, publicKey);
 
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
-		BigDecimal amount = BigDecimal.valueOf(unscaledAmount, 8);
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, 0L, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
 				recipient.getAddress(), amount, this.atData.getAssetId(), new byte[0]);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
@@ -289,9 +287,9 @@ public class QortalATAPI extends API {
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, 0L, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
-				recipient.getAddress(), BigDecimal.ZERO, this.atData.getAssetId(), message);
+				recipient.getAddress(), 0L, this.atData.getAssetId(), message);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
@@ -314,11 +312,10 @@ public class QortalATAPI extends API {
 		Account creator = this.getCreator();
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
-		BigDecimal amount = BigDecimal.valueOf(finalBalance, 8);
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, 0L, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
-				creator.getAddress(), amount, this.atData.getAssetId(), new byte[0]);
+				creator.getAddress(), finalBalance, this.atData.getAssetId(), new byte[0]);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions

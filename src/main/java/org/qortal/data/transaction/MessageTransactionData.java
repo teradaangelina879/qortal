@@ -1,10 +1,9 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.asset.Asset;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -21,7 +20,8 @@ public class MessageTransactionData extends TransactionData {
 	private int version;
 	private String recipient;
 	private Long assetId;
-	private BigDecimal amount;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
 	private byte[] data;
 	private boolean isText;
 	private boolean isEncrypted;
@@ -38,7 +38,7 @@ public class MessageTransactionData extends TransactionData {
 	}
 
 	public MessageTransactionData(BaseTransactionData baseTransactionData,
-			int version, String recipient, Long assetId, BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted) {
+			int version, String recipient, Long assetId, long amount, byte[] data, boolean isText, boolean isEncrypted) {
 		super(TransactionType.MESSAGE, baseTransactionData);
 
 		this.senderPublicKey = baseTransactionData.creatorPublicKey;
@@ -74,7 +74,7 @@ public class MessageTransactionData extends TransactionData {
 		return this.assetId;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 

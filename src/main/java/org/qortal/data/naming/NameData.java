@@ -1,10 +1,9 @@
 package org.qortal.data.naming;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -20,17 +19,14 @@ public class NameData {
 	private Long updated;
 	// No need to expose this via API
 	@XmlTransient
-	@Schema(
-		hidden = true
-	)
+	@Schema(hidden = true)
 	private byte[] reference;
 	private boolean isForSale;
-	private BigDecimal salePrice;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private Long salePrice;
 	// For internal use
 	@XmlTransient
-	@Schema(
-		hidden = true
-	)
+	@Schema(hidden = true)
 	private int creationGroupId;
 
 	// Constructors
@@ -39,7 +35,7 @@ public class NameData {
 	protected NameData() {
 	}
 
-	public NameData(String owner, String name, String data, long registered, Long updated, byte[] reference, boolean isForSale, BigDecimal salePrice,
+	public NameData(String owner, String name, String data, long registered, Long updated, byte[] reference, boolean isForSale, Long salePrice,
 			int creationGroupId) {
 		this.owner = owner;
 		this.name = name;
@@ -106,11 +102,11 @@ public class NameData {
 		this.isForSale = isForSale;
 	}
 
-	public BigDecimal getSalePrice() {
+	public Long getSalePrice() {
 		return this.salePrice;
 	}
 
-	public void setSalePrice(BigDecimal salePrice) {
+	public void setSalePrice(Long salePrice) {
 		this.salePrice = salePrice;
 	}
 

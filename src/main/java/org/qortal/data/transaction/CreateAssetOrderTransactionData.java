@@ -1,11 +1,10 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -18,14 +17,20 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 public class CreateAssetOrderTransactionData extends TransactionData {
 
 	// Properties
+
 	@Schema(description = "ID of asset on offer to give by order creator", example = "1")
 	private long haveAssetId;
+
 	@Schema(description = "ID of asset wanted to receive by order creator", example = "0")
 	private long wantAssetId;
+
 	@Schema(description = "amount of highest-assetID asset to trade")
-	private BigDecimal amount;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
+
 	@Schema(description = "price in lowest-assetID asset / highest-assetID asset")
-	private BigDecimal price;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long price;
 
 	// Used by API - not always present
 
@@ -70,7 +75,7 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 
 	/** Constructs using data from repository, including optional asset names. */
 	public CreateAssetOrderTransactionData(BaseTransactionData baseTransactionData,
-			long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, String haveAssetName, String wantAssetName) {
+			long haveAssetId, long wantAssetId, long amount, long price, String haveAssetName, String wantAssetName) {
 		super(TransactionType.CREATE_ASSET_ORDER, baseTransactionData);
 
 		this.haveAssetId = haveAssetId;
@@ -83,7 +88,7 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 	}
 
 	/** Constructor excluding optional asset names. */
-	public CreateAssetOrderTransactionData(BaseTransactionData baseTransactionData, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price) {
+	public CreateAssetOrderTransactionData(BaseTransactionData baseTransactionData, long haveAssetId, long wantAssetId, long amount, long price) {
 		this(baseTransactionData, haveAssetId, wantAssetId, amount, price, null, null);
 	}
 
@@ -97,11 +102,11 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 		return this.wantAssetId;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 
-	public BigDecimal getPrice() {
+	public long getPrice() {
 		return this.price;
 	}
 

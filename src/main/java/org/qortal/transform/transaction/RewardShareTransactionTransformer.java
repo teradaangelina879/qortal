@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -12,11 +11,13 @@ import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
+import com.google.common.primitives.Longs;
+
 public class RewardShareTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int TARGET_LENGTH = ADDRESS_LENGTH;
-	private static final int REWARD_SHARE_LENGTH = BIG_DECIMAL_LENGTH;
+	private static final int REWARD_SHARE_LENGTH = LONG_LENGTH;
 
 	private static final int EXTRAS_LENGTH = TARGET_LENGTH + PUBLIC_KEY_LENGTH + REWARD_SHARE_LENGTH;
 
@@ -31,7 +32,8 @@ public class RewardShareTransactionTransformer extends TransactionTransformer {
 		layout.add("minter's public key", TransformationType.PUBLIC_KEY);
 		layout.add("recipient account's address", TransformationType.ADDRESS);
 		layout.add("reward-share public key", TransformationType.PUBLIC_KEY);
-		layout.add("recipient's percentage share of block rewards", TransformationType.AMOUNT);
+		// XXX This needs to become an int, scaled *100
+		layout.add("recipient's percentage share of block rewards (unscaled)", TransformationType.LONG);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
@@ -50,9 +52,9 @@ public class RewardShareTransactionTransformer extends TransactionTransformer {
 
 		byte[] rewardSharePublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		BigDecimal sharePercent = Serialization.deserializeBigDecimal(byteBuffer);
+		int sharePercent = (int) byteBuffer.getLong();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -78,9 +80,9 @@ public class RewardShareTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(rewardShareTransactionData.getRewardSharePublicKey());
 
-			Serialization.serializeBigDecimal(bytes, rewardShareTransactionData.getSharePercent());
+			bytes.write(Longs.toByteArray(rewardShareTransactionData.getSharePercent()));
 
-			Serialization.serializeBigDecimal(bytes, rewardShareTransactionData.getFee());
+			bytes.write(Longs.toByteArray(rewardShareTransactionData.getFee()));
 
 			if (rewardShareTransactionData.getSignature() != null)
 				bytes.write(rewardShareTransactionData.getSignature());

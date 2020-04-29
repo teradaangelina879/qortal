@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -28,7 +27,7 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 			String recipient = resultSet.getString(2);
 			boolean isText = resultSet.getBoolean(3);
 			boolean isEncrypted = resultSet.getBoolean(4);
-			BigDecimal amount = resultSet.getBigDecimal(5);
+			long amount = resultSet.getLong(5);
 
 			// Special null-checking for asset ID
 			Long assetId = resultSet.getLong(6);

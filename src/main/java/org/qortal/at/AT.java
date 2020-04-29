@@ -1,6 +1,5 @@
 package org.qortal.at;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import org.ciyam.at.MachineState;
@@ -51,7 +50,7 @@ public class AT {
 		byte[] stateData = machineState.toBytes();
 		byte[] stateHash = Crypto.digest(stateData);
 
-		this.atStateData = new ATStateData(atAddress, height, creation, stateData, stateHash, BigDecimal.ZERO.setScale(8));
+		this.atStateData = new ATStateData(atAddress, height, creation, stateData, stateHash, 0L);
 	}
 
 	// Getters / setters
@@ -97,7 +96,7 @@ public class AT {
 		long creation = this.atData.getCreation();
 		byte[] stateData = state.toBytes();
 		byte[] stateHash = Crypto.digest(stateData);
-		BigDecimal atFees = api.calcFinalFees(state);
+		long atFees = api.calcFinalFees(state);
 
 		this.atStateData = new ATStateData(atAddress, height, creation, stateData, stateHash, atFees);
 

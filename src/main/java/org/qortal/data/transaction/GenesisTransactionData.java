@@ -1,9 +1,8 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qortal.asset.Asset;
@@ -13,18 +12,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
-@Schema(
-	allOf = {
-		TransactionData.class
-	}
-)
+@Schema(allOf = {TransactionData.class})
 //JAXB: use this subclass if XmlDiscriminatorNode matches XmlDiscriminatorValue below:
 @XmlDiscriminatorValue("GENESIS")
 public class GenesisTransactionData extends TransactionData {
 
 	// Properties
+
 	private String recipient;
-	private BigDecimal amount;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
+
 	private long assetId;
 
 	// Constructors
@@ -35,7 +34,7 @@ public class GenesisTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount, long assetId) {
+	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, long amount, long assetId) {
 		super(TransactionType.GENESIS, baseTransactionData);
 
 		this.recipient = recipient;
@@ -44,7 +43,7 @@ public class GenesisTransactionData extends TransactionData {
 	}
 
 	/** From repository (where asset locked to QORT) */
-	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount) {
+	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, long amount) {
 		this(baseTransactionData, recipient, amount, Asset.QORT);
 	}
 
@@ -54,7 +53,7 @@ public class GenesisTransactionData extends TransactionData {
 		return this.recipient;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 

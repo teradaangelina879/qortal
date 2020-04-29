@@ -1,13 +1,11 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.VoteOnPollTransactionData;
@@ -39,72 +37,55 @@ public class VoteOnPollTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() {
-		return new ArrayList<>();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		return account.getAddress().equals(this.getCreator().getAddress());
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (account.getAddress().equals(this.getCreator().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.emptyList();
 	}
 
 	// Navigation
 
-	public Account getVoter() throws DataException {
-		return new PublicKeyAccount(this.repository, voteOnPollTransactionData.getVoterPublicKey());
+	public Account getVoter() {
+		return this.getCreator();
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		String pollName = this.voteOnPollTransactionData.getPollName();
+
 		// Check name size bounds
-		int pollNameLength = Utf8.encodedLength(voteOnPollTransactionData.getPollName());
+		int pollNameLength = Utf8.encodedLength(pollName);
 		if (pollNameLength < 1 || pollNameLength > Poll.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check poll name is lowercase
-		if (!voteOnPollTransactionData.getPollName().equals(voteOnPollTransactionData.getPollName().toLowerCase()))
+		if (!pollName.equals(pollName.toLowerCase()))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
 		VotingRepository votingRepository = this.repository.getVotingRepository();
 
 		// Check poll exists
-		PollData pollData = votingRepository.fromPollName(voteOnPollTransactionData.getPollName());
+		PollData pollData = votingRepository.fromPollName(pollName);
 		if (pollData == null)
 			return ValidationResult.POLL_DOES_NOT_EXIST;
 
 		// Check poll option index is within bounds
 		List<PollOptionData> pollOptions = pollData.getPollOptions();
-		int optionIndex = voteOnPollTransactionData.getOptionIndex();
+		int optionIndex = this.voteOnPollTransactionData.getOptionIndex();
 
 		if (optionIndex < 0 || optionIndex > pollOptions.size() - 1)
 			return ValidationResult.POLL_OPTION_DOES_NOT_EXIST;
 
 		// Check if vote already exists
-		VoteOnPollData voteOnPollData = votingRepository.getVote(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey());
+		VoteOnPollData voteOnPollData = votingRepository.getVote(pollName, this.voteOnPollTransactionData.getVoterPublicKey());
 		if (voteOnPollData != null && voteOnPollData.getOptionIndex() == optionIndex)
 			return ValidationResult.ALREADY_VOTED_FOR_THAT_OPTION;
-
-		// Check fee is positive
-		if (voteOnPollTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
 		Account voter = getVoter();
 
 		// Check voter has enough funds
-		if (voter.getConfirmedBalance(Asset.QORT).compareTo(voteOnPollTransactionData.getFee()) < 0)
+		if (voter.getConfirmedBalance(Asset.QORT) < this.voteOnPollTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -112,27 +93,28 @@ public class VoteOnPollTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
+		String pollName = this.voteOnPollTransactionData.getPollName();
+
 		Account voter = getVoter();
 
 		VotingRepository votingRepository = this.repository.getVotingRepository();
 
 		// Check for previous vote so we can save option in case of orphaning
-		VoteOnPollData previousVoteOnPollData = votingRepository.getVote(voteOnPollTransactionData.getPollName(),
-				voteOnPollTransactionData.getVoterPublicKey());
+		VoteOnPollData previousVoteOnPollData = votingRepository.getVote(pollName, this.voteOnPollTransactionData.getVoterPublicKey());
 		if (previousVoteOnPollData != null) {
 			voteOnPollTransactionData.setPreviousOptionIndex(previousVoteOnPollData.getOptionIndex());
-			LOGGER.trace("Previous vote by " + voter.getAddress() + " on poll \"" + voteOnPollTransactionData.getPollName() + "\" was option index "
-					+ previousVoteOnPollData.getOptionIndex());
+			LOGGER.trace(() -> String.format("Previous vote by %s on poll \"%s\" was option index %d",
+					voter.getAddress(), pollName, previousVoteOnPollData.getOptionIndex()));
 		}
 
 		// Save this transaction, now with possible previous vote
 		this.repository.getTransactionRepository().save(voteOnPollTransactionData);
 
 		// Apply vote to poll
-		LOGGER.trace("Vote by " + voter.getAddress() + " on poll \"" + voteOnPollTransactionData.getPollName() + "\" with option index "
-				+ voteOnPollTransactionData.getOptionIndex());
-		VoteOnPollData newVoteOnPollData = new VoteOnPollData(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey(),
-				voteOnPollTransactionData.getOptionIndex());
+		LOGGER.trace(() -> String.format("Vote by %s on poll \"%s\" with option index %d",
+				voter.getAddress(), pollName, this.voteOnPollTransactionData.getOptionIndex()));
+		VoteOnPollData newVoteOnPollData = new VoteOnPollData(pollName, this.voteOnPollTransactionData.getVoterPublicKey(),
+				this.voteOnPollTransactionData.getOptionIndex());
 		votingRepository.save(newVoteOnPollData);
 	}
 
@@ -142,22 +124,24 @@ public class VoteOnPollTransaction extends Transaction {
 
 		// Does this transaction have previous vote info?
 		VotingRepository votingRepository = this.repository.getVotingRepository();
-		Integer previousOptionIndex = voteOnPollTransactionData.getPreviousOptionIndex();
+		Integer previousOptionIndex = this.voteOnPollTransactionData.getPreviousOptionIndex();
 		if (previousOptionIndex != null) {
 			// Reinstate previous vote
-			LOGGER.trace(() -> String.format("Reinstating previous vote by %s on poll \"%s\" with option index %d", voter.getAddress(), voteOnPollTransactionData.getPollName(), previousOptionIndex));
-			VoteOnPollData previousVoteOnPollData = new VoteOnPollData(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey(),
+			LOGGER.trace(() -> String.format("Reinstating previous vote by %s on poll \"%s\" with option index %d",
+					voter.getAddress(), this.voteOnPollTransactionData.getPollName(), previousOptionIndex));
+			VoteOnPollData previousVoteOnPollData = new VoteOnPollData(this.voteOnPollTransactionData.getPollName(), this.voteOnPollTransactionData.getVoterPublicKey(),
 					previousOptionIndex);
 			votingRepository.save(previousVoteOnPollData);
 		} else {
 			// Delete vote
-			LOGGER.trace(() -> String.format("Deleting vote by %s on poll \"%s\" with option index %d", voter.getAddress(), voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getOptionIndex()));
-			votingRepository.delete(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey());
+			LOGGER.trace(() -> String.format("Deleting vote by %s on poll \"%s\" with option index %d",
+					voter.getAddress(), this.voteOnPollTransactionData.getPollName(), this.voteOnPollTransactionData.getOptionIndex()));
+			votingRepository.delete(this.voteOnPollTransactionData.getPollName(), this.voteOnPollTransactionData.getVoterPublicKey());
 		}
 
 		// Save this transaction, with removed previous vote info
-		voteOnPollTransactionData.setPreviousOptionIndex(null);
-		this.repository.getTransactionRepository().save(voteOnPollTransactionData);
+		this.voteOnPollTransactionData.setPreviousOptionIndex(null);
+		this.repository.getTransactionRepository().save(this.voteOnPollTransactionData);
 	}
 
 }

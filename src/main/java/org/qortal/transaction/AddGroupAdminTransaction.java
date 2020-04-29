@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.AddGroupAdminTransactionData;
@@ -17,7 +15,9 @@ import org.qortal.repository.Repository;
 public class AddGroupAdminTransaction extends Transaction {
 
 	// Properties
+
 	private AddGroupAdminTransactionData addGroupAdminTransactionData;
+	Account memberAccount = null;
 
 	// Constructors
 
@@ -30,79 +30,55 @@ public class AddGroupAdminTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getOwner().getAddress()))
-			return true;
-
-		if (address.equals(this.getMember().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getOwner().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.addGroupAdminTransactionData.getMember());
 	}
 
 	// Navigation
 
-	public Account getOwner() throws DataException {
-		return new PublicKeyAccount(this.repository, this.addGroupAdminTransactionData.getOwnerPublicKey());
+	public Account getOwner() {
+		return this.getCreator();
 	}
 
-	public Account getMember() throws DataException {
-		return new Account(this.repository, this.addGroupAdminTransactionData.getMember());
+	public Account getMember() {
+		if (this.memberAccount == null)
+			this.memberAccount = new Account(this.repository, this.addGroupAdminTransactionData.getMember());
+
+		return this.memberAccount;
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		int groupId = this.addGroupAdminTransactionData.getGroupId();
+		String memberAddress = this.addGroupAdminTransactionData.getMember();
+
 		// Check member address is valid
-		if (!Crypto.isValidAddress(addGroupAdminTransactionData.getMember()))
+		if (!Crypto.isValidAddress(memberAddress))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check group exists
-		if (!this.repository.getGroupRepository().groupExists(addGroupAdminTransactionData.getGroupId()))
+		if (!this.repository.getGroupRepository().groupExists(groupId))
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
-		// Check fee is positive
-		if (addGroupAdminTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		Account owner = getOwner();
-		String groupOwner = this.repository.getGroupRepository().getOwner(addGroupAdminTransactionData.getGroupId());
+		String groupOwner = this.repository.getGroupRepository().getOwner(groupId);
 
 		// Check transaction's public key matches group's current owner
 		if (!owner.getAddress().equals(groupOwner))
 			return ValidationResult.INVALID_GROUP_OWNER;
 
-		Account member = getMember();
-
-		// Check address is a member
-		if (!this.repository.getGroupRepository().memberExists(addGroupAdminTransactionData.getGroupId(), member.getAddress()))
+		// Check address is a group member
+		if (!this.repository.getGroupRepository().memberExists(groupId, memberAddress))
 			return ValidationResult.NOT_GROUP_MEMBER;
 
-		// Check member is not already an admin
-		if (this.repository.getGroupRepository().adminExists(addGroupAdminTransactionData.getGroupId(), member.getAddress()))
+		// Check group member is not already an admin
+		if (this.repository.getGroupRepository().adminExists(groupId, memberAddress))
 			return ValidationResult.ALREADY_GROUP_ADMIN;
 
 		// Check group owner has enough funds
-		if (owner.getConfirmedBalance(Asset.QORT).compareTo(addGroupAdminTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORT) < this.addGroupAdminTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -111,15 +87,15 @@ public class AddGroupAdminTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group adminship
-		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
-		group.promoteToAdmin(addGroupAdminTransactionData);
+		Group group = new Group(this.repository, this.addGroupAdminTransactionData.getGroupId());
+		group.promoteToAdmin(this.addGroupAdminTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert group adminship
-		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
-		group.unpromoteToAdmin(addGroupAdminTransactionData);
+		Group group = new Group(this.repository, this.addGroupAdminTransactionData.getGroupId());
+		group.unpromoteToAdmin(this.addGroupAdminTransactionData);
 	}
 
 }

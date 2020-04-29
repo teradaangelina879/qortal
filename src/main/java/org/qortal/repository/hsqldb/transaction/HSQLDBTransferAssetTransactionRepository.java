@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -27,7 +26,7 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 
 			String recipient = resultSet.getString(1);
 			long assetId = resultSet.getLong(2);
-			BigDecimal amount = resultSet.getBigDecimal(3);
+			long amount = resultSet.getLong(3);
 			String assetName = resultSet.getString(4);
 
 			return new TransferAssetTransactionData(baseTransactionData, recipient, amount, assetId, assetName);

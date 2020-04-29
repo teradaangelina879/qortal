@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -15,6 +14,7 @@ import org.qortal.utils.Serialization;
 
 import com.google.common.base.Utf8;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public class GroupBanTransactionTransformer extends TransactionTransformer {
 
@@ -62,7 +62,7 @@ public class GroupBanTransactionTransformer extends TransactionTransformer {
 
 		int timeToLive = byteBuffer.getInt();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -94,7 +94,7 @@ public class GroupBanTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(Ints.toByteArray(groupBanTransactionData.getTimeToLive()));
 
-			Serialization.serializeBigDecimal(bytes, groupBanTransactionData.getFee());
+			bytes.write(Longs.toByteArray(groupBanTransactionData.getFee()));
 
 			if (groupBanTransactionData.getSignature() != null)
 				bytes.write(groupBanTransactionData.getSignature());

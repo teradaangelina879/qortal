@@ -152,7 +152,7 @@ public class Common {
 			checkOrphanedLists("group", initialGroups, remainingGroups, GroupData::getGroupId, GroupData::getGroupId);
 
 			List<AccountBalanceData> remainingBalances = repository.getAccountRepository().getAssetBalances(Collections.emptyList(), Collections.emptyList(), BalanceOrdering.ASSET_ACCOUNT, false, null, null, null);
-			checkOrphanedLists("account balance", initialBalances, remainingBalances, entry -> entry.getAddress() + " [" + entry.getAssetName() + "]", entry -> entry.getBalance().toPlainString());
+			checkOrphanedLists("account balance", initialBalances, remainingBalances, entry -> entry.getAddress() + " [" + entry.getAssetName() + "]", entry -> entry.getBalance());
 
 			assertEquals("remainingBalances is different size", initialBalances.size(), remainingBalances.size());
 			// Actually compare balances
@@ -163,7 +163,7 @@ public class Common {
 				assertEquals("Remaining balance's address differs", initialBalance.getAddress(), remainingBalance.getAddress());
 				assertEquals(initialBalance.getAddress() + " remaining balance's asset differs", initialBalance.getAssetId(), remainingBalance.getAssetId());
 
-				assertEqualBigDecimals(initialBalance.getAddress() + " remaining balance differs", initialBalance.getBalance(), remainingBalance.getBalance());
+				assertEquals(initialBalance.getAddress() + " remaining balance differs", initialBalance.getBalance(), remainingBalance.getBalance());
 			}
 		}
 	}

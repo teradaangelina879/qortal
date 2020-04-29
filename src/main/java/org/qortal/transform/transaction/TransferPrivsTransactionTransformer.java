@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -11,6 +10,8 @@ import org.qortal.data.transaction.TransferPrivsTransactionData;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
+
+import com.google.common.primitives.Longs;
 
 public class TransferPrivsTransactionTransformer extends TransactionTransformer {
 
@@ -45,7 +46,7 @@ public class TransferPrivsTransactionTransformer extends TransactionTransformer 
 
 		String recipient = Serialization.deserializeAddress(byteBuffer);
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -69,7 +70,7 @@ public class TransferPrivsTransactionTransformer extends TransactionTransformer 
 
 			Serialization.serializeAddress(bytes, transferPrivsTransactionData.getRecipient());
 
-			Serialization.serializeBigDecimal(bytes, transferPrivsTransactionData.getFee());
+			bytes.write(Longs.toByteArray(transferPrivsTransactionData.getFee()));
 
 			if (transferPrivsTransactionData.getSignature() != null)
 				bytes.write(transferPrivsTransactionData.getSignature());

@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -46,7 +45,9 @@ public class HSQLDBATRepository implements ATRepository {
 			boolean hadFatalError = resultSet.getBoolean(9);
 			boolean isFrozen = resultSet.getBoolean(10);
 
-			BigDecimal frozenBalance = resultSet.getBigDecimal(11);
+			Long frozenBalance = resultSet.getLong(11);
+			if (frozenBalance == 0 && resultSet.wasNull())
+				frozenBalance = null;
 
 			return new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError,
 					isFrozen, frozenBalance);
@@ -92,7 +93,9 @@ public class HSQLDBATRepository implements ATRepository {
 				boolean hadFatalError = resultSet.getBoolean(9);
 				boolean isFrozen = resultSet.getBoolean(10);
 
-				BigDecimal frozenBalance = resultSet.getBigDecimal(11);
+				Long frozenBalance = resultSet.getLong(11);
+				if (frozenBalance == 0 && resultSet.wasNull())
+					frozenBalance = null;
 
 				ATData atData = new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished,
 						hadFatalError, isFrozen, frozenBalance);
@@ -159,7 +162,7 @@ public class HSQLDBATRepository implements ATRepository {
 			long creation = resultSet.getTimestamp(1, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			byte[] stateData = resultSet.getBytes(2); // Actually BLOB
 			byte[] stateHash = resultSet.getBytes(3);
-			BigDecimal fees = resultSet.getBigDecimal(4);
+			long fees = resultSet.getLong(4);
 
 			return new ATStateData(atAddress, height, creation, stateData, stateHash, fees);
 		} catch (SQLException e) {
@@ -178,7 +181,7 @@ public class HSQLDBATRepository implements ATRepository {
 			long creation = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			byte[] stateData = resultSet.getBytes(3); // Actually BLOB
 			byte[] stateHash = resultSet.getBytes(4);
-			BigDecimal fees = resultSet.getBigDecimal(5);
+			long fees = resultSet.getLong(5);
 
 			return new ATStateData(atAddress, height, creation, stateData, stateHash, fees);
 		} catch (SQLException e) {
@@ -199,7 +202,7 @@ public class HSQLDBATRepository implements ATRepository {
 			do {
 				String atAddress = resultSet.getString(1);
 				byte[] stateHash = resultSet.getBytes(2);
-				BigDecimal fees = resultSet.getBigDecimal(3);
+				long fees = resultSet.getLong(3);
 
 				ATStateData atStateData = new ATStateData(atAddress, height, stateHash, fees);
 				atStates.add(atStateData);

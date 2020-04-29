@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.AccountLevelTransactionData;
@@ -11,6 +10,8 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
+
+import com.google.common.primitives.Longs;
 
 
 public class AccountLevelTransactionTransformer extends TransactionTransformer {
@@ -50,7 +51,7 @@ public class AccountLevelTransactionTransformer extends TransactionTransformer {
 
 		byte level = byteBuffer.get();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -76,7 +77,7 @@ public class AccountLevelTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(accountLevelTransactionData.getLevel());
 
-			Serialization.serializeBigDecimal(bytes, accountLevelTransactionData.getFee());
+			bytes.write(Longs.toByteArray(accountLevelTransactionData.getFee()));
 
 			if (accountLevelTransactionData.getSignature() != null)
 				bytes.write(accountLevelTransactionData.getSignature());

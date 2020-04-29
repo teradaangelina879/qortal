@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.transaction.GroupApprovalTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -28,35 +26,14 @@ public class GroupApprovalTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
+	public List<String> getRecipientAddresses() throws DataException {
 		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getAdmin().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getAdmin().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
 	}
 
 	// Navigation
 
-	public Account getAdmin() throws DataException {
-		return new PublicKeyAccount(this.repository, this.groupApprovalTransactionData.getAdminPublicKey());
+	public Account getAdmin() {
+		return this.getCreator();
 	}
 
 	// Processing
@@ -64,7 +41,7 @@ public class GroupApprovalTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Grab pending transaction's data
-		TransactionData pendingTransactionData = this.repository.getTransactionRepository().fromSignature(groupApprovalTransactionData.getPendingSignature());
+		TransactionData pendingTransactionData = this.repository.getTransactionRepository().fromSignature(this.groupApprovalTransactionData.getPendingSignature());
 		if (pendingTransactionData == null)
 			return ValidationResult.TRANSACTION_UNKNOWN;
 
@@ -82,12 +59,8 @@ public class GroupApprovalTransaction extends Transaction {
 		if (!this.repository.getGroupRepository().adminExists(pendingTransactionData.getTxGroupId(), admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
-		// Check fee is positive
-		if (groupApprovalTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		// Check creator has enough funds
-		if (admin.getConfirmedBalance(Asset.QORT).compareTo(groupApprovalTransactionData.getFee()) < 0)
+		if (admin.getConfirmedBalance(Asset.QORT) < this.groupApprovalTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -96,20 +69,20 @@ public class GroupApprovalTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Find previous approval decision (if any) by this admin for pending transaction
-		GroupApprovalTransactionData previousApproval = this.repository.getTransactionRepository().getLatestApproval(groupApprovalTransactionData.getPendingSignature(), groupApprovalTransactionData.getAdminPublicKey());
+		GroupApprovalTransactionData previousApproval = this.repository.getTransactionRepository().getLatestApproval(this.groupApprovalTransactionData.getPendingSignature(), this.groupApprovalTransactionData.getAdminPublicKey());
 		
 		if (previousApproval != null)
-			groupApprovalTransactionData.setPriorReference(previousApproval.getSignature());
+			this.groupApprovalTransactionData.setPriorReference(previousApproval.getSignature());
 
 		// Save this transaction with updated prior reference to transaction that can help restore state
-		this.repository.getTransactionRepository().save(groupApprovalTransactionData);
+		this.repository.getTransactionRepository().save(this.groupApprovalTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Save this transaction with removed prior reference
-		groupApprovalTransactionData.setPriorReference(null);
-		this.repository.getTransactionRepository().save(groupApprovalTransactionData);
+		this.groupApprovalTransactionData.setPriorReference(null);
+		this.repository.getTransactionRepository().save(this.groupApprovalTransactionData);
 	}
 
 }

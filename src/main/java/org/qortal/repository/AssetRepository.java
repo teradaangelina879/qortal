@@ -1,6 +1,5 @@
 package org.qortal.repository;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import org.qortal.data.asset.AssetData;
@@ -45,7 +44,7 @@ public interface AssetRepository {
 		return getOpenOrders(haveAssetId, wantAssetId, null, null, null);
 	}
 
-	public List<OrderData> getOpenOrdersForTrading(long haveAssetId, long wantAssetId, BigDecimal minimumPrice) throws DataException;
+	public List<OrderData> getOpenOrdersForTrading(long haveAssetId, long wantAssetId, Long minimumPrice) throws DataException;
 
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 

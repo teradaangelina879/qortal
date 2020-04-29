@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +17,7 @@ import org.qortal.voting.Poll;
 
 import com.google.common.base.Utf8;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public class CreatePollTransactionTransformer extends TransactionTransformer {
 
@@ -77,7 +77,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			pollOptions.add(new PollOptionData(optionName));
 		}
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -121,7 +121,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			for (PollOptionData pollOptionData : pollOptions)
 				Serialization.serializeSizedString(bytes, pollOptionData.getOptionName());
 
-			Serialization.serializeBigDecimal(bytes, createPollTransactionData.getFee());
+			bytes.write(Longs.toByteArray(createPollTransactionData.getFee()));
 
 			if (createPollTransactionData.getSignature() != null)
 				bytes.write(createPollTransactionData.getSignature());

@@ -1,7 +1,5 @@
 package org.qortal.test.common;
 
-import java.math.BigDecimal;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.PrivateKeyAccount;
@@ -22,7 +20,7 @@ public class BlockUtils {
 		BlockMinter.mintTestingBlock(repository, mintingAccount);
 	}
 
-	public static BigDecimal getNextBlockReward(Repository repository) throws DataException {
+	public static Long getNextBlockReward(Repository repository) throws DataException {
 		int currentHeight = repository.getBlockRepository().getBlockchainHeight();
 
 		return BlockChain.getInstance().getRewardAtHeight(currentHeight + 1);

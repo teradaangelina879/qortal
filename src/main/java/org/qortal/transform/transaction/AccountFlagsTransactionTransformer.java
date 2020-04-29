@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.AccountFlagsTransactionData;
@@ -13,6 +12,7 @@ import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public class AccountFlagsTransactionTransformer extends TransactionTransformer {
 
@@ -57,7 +57,7 @@ public class AccountFlagsTransactionTransformer extends TransactionTransformer {
 		int orMask = byteBuffer.getInt();
 		int xorMask = byteBuffer.getInt();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -85,7 +85,7 @@ public class AccountFlagsTransactionTransformer extends TransactionTransformer {
 			bytes.write(Ints.toByteArray(accountFlagsTransactionData.getOrMask()));
 			bytes.write(Ints.toByteArray(accountFlagsTransactionData.getXorMask()));
 
-			Serialization.serializeBigDecimal(bytes, accountFlagsTransactionData.getFee());
+			bytes.write(Longs.toByteArray(accountFlagsTransactionData.getFee()));
 
 			if (accountFlagsTransactionData.getSignature() != null)
 				bytes.write(accountFlagsTransactionData.getSignature());

@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -13,6 +12,7 @@ import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public class SetGroupTransactionTransformer extends TransactionTransformer {
 
@@ -47,7 +47,7 @@ public class SetGroupTransactionTransformer extends TransactionTransformer {
 
 		int defaultGroupId = byteBuffer.getInt();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -71,7 +71,7 @@ public class SetGroupTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(Ints.toByteArray(setGroupTransactionData.getDefaultGroupId()));
 
-			Serialization.serializeBigDecimal(bytes, setGroupTransactionData.getFee());
+			bytes.write(Longs.toByteArray(setGroupTransactionData.getFee()));
 
 			if (setGroupTransactionData.getSignature() != null)
 				bytes.write(setGroupTransactionData.getSignature());

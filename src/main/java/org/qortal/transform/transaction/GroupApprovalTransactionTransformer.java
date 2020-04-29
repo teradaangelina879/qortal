@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -11,6 +10,8 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
+
+import com.google.common.primitives.Longs;
 
 public class GroupApprovalTransactionTransformer extends TransactionTransformer {
 
@@ -50,7 +51,7 @@ public class GroupApprovalTransactionTransformer extends TransactionTransformer 
 
 		boolean approval = byteBuffer.get() != 0;
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -76,7 +77,7 @@ public class GroupApprovalTransactionTransformer extends TransactionTransformer 
 
 			bytes.write((byte) (groupApprovalTransactionData.getApproval() ? 1 : 0));
 
-			Serialization.serializeBigDecimal(bytes, groupApprovalTransactionData.getFee());
+			bytes.write(Longs.toByteArray(groupApprovalTransactionData.getFee()));
 
 			if (groupApprovalTransactionData.getSignature() != null)
 				bytes.write(groupApprovalTransactionData.getSignature());

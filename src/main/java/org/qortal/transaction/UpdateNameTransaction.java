@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.naming.NameData;
@@ -33,41 +31,17 @@ public class UpdateNameTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.singletonList(getNewOwner());
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getOwner().getAddress()))
-			return true;
-
-		if (address.equals(this.getNewOwner().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getOwner().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.updateNameTransactionData.getNewOwner());
 	}
 
 	// Navigation
 
-	public Account getOwner() throws DataException {
-		return new PublicKeyAccount(this.repository, this.updateNameTransactionData.getOwnerPublicKey());
+	public Account getOwner() {
+		return this.getCreator();
 	}
 
-	public Account getNewOwner() throws DataException {
+	public Account getNewOwner() {
 		return new Account(this.repository, this.updateNameTransactionData.getNewOwner());
 	}
 
@@ -75,42 +49,40 @@ public class UpdateNameTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		String name = this.updateNameTransactionData.getName();
+
 		// Check new owner address is valid
-		if (!Crypto.isValidAddress(updateNameTransactionData.getNewOwner()))
+		if (!Crypto.isValidAddress(this.updateNameTransactionData.getNewOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
-		int nameLength = Utf8.encodedLength(updateNameTransactionData.getName());
+		int nameLength = Utf8.encodedLength(name);
 		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check new data size bounds
-		int newDataLength = Utf8.encodedLength(updateNameTransactionData.getNewData());
+		int newDataLength = Utf8.encodedLength(this.updateNameTransactionData.getNewData());
 		if (newDataLength < 1 || newDataLength > Name.MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// Check name is lowercase
-		if (!updateNameTransactionData.getName().equals(updateNameTransactionData.getName().toLowerCase()))
+		if (!name.equals(name.toLowerCase()))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
-		NameData nameData = this.repository.getNameRepository().fromName(updateNameTransactionData.getName());
+		NameData nameData = this.repository.getNameRepository().fromName(name);
 
 		// Check name exists
 		if (nameData == null)
 			return ValidationResult.NAME_DOES_NOT_EXIST;
 
 		// As this transaction type could require approval, check txGroupId matches groupID at creation
-		if (nameData.getCreationGroupId() != updateNameTransactionData.getTxGroupId())
+		if (nameData.getCreationGroupId() != this.updateNameTransactionData.getTxGroupId())
 			return ValidationResult.TX_GROUP_ID_MISMATCH;
 
 		Account owner = getOwner();
 
-		// Check fee is positive
-		if (updateNameTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
-		// Check issuer has enough funds
-		if (owner.getConfirmedBalance(Asset.QORT).compareTo(updateNameTransactionData.getFee()) < 0)
+		// Check owner has enough funds
+		if (owner.getConfirmedBalance(Asset.QORT) < this.updateNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -118,7 +90,7 @@ public class UpdateNameTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
-		NameData nameData = this.repository.getNameRepository().fromName(updateNameTransactionData.getName());
+		NameData nameData = this.repository.getNameRepository().fromName(this.updateNameTransactionData.getName());
 
 		// Check name isn't currently for sale
 		if (nameData.getIsForSale())
@@ -136,21 +108,21 @@ public class UpdateNameTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Name
-		Name name = new Name(this.repository, updateNameTransactionData.getName());
-		name.update(updateNameTransactionData);
+		Name name = new Name(this.repository, this.updateNameTransactionData.getName());
+		name.update(this.updateNameTransactionData);
 
 		// Save this transaction, now with updated "name reference" to previous transaction that updated name
-		this.repository.getTransactionRepository().save(updateNameTransactionData);
+		this.repository.getTransactionRepository().save(this.updateNameTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert name
-		Name name = new Name(this.repository, updateNameTransactionData.getName());
-		name.revert(updateNameTransactionData);
+		Name name = new Name(this.repository, this.updateNameTransactionData.getName());
+		name.revert(this.updateNameTransactionData);
 
 		// Save this transaction, now with removed "name reference"
-		this.repository.getTransactionRepository().save(updateNameTransactionData);
+		this.repository.getTransactionRepository().save(this.updateNameTransactionData);
 	}
 
 }

@@ -1,10 +1,9 @@
 package org.qortal.data.asset;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.crypto.Crypto;
 
@@ -26,13 +25,16 @@ public class OrderData implements Comparable<OrderData> {
 	private long wantAssetId;
 
 	@Schema(description = "amount of highest-assetID asset to trade")
-	private BigDecimal amount;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
 
 	@Schema(description = "price in lowest-assetID asset / highest-assetID asset")
-	private BigDecimal price;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long price;
 
 	@Schema(description = "how much of \"amount\" has traded")
-	private BigDecimal fulfilled;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long fulfilled;
 
 	private long timestamp;
 
@@ -73,26 +75,23 @@ public class OrderData implements Comparable<OrderData> {
 		if (this.creator == null && this.creatorPublicKey != null)
 			this.creator = Crypto.toAddress(this.creatorPublicKey);
 
+		this.amountAssetId = Math.max(this.haveAssetId, this.wantAssetId);
+
 		// If we don't have the extra asset name fields then we can't fill in the others
 		if (this.haveAssetName == null)
 			return;
 
-		// TODO: fill in for 'old' pricing scheme
-
-		// 'new' pricing scheme
 		if (this.haveAssetId < this.wantAssetId) {
-			this.amountAssetId = this.wantAssetId;
 			this.amountAssetName = this.wantAssetName;
 			this.pricePair = this.haveAssetName + "/" + this.wantAssetName;
 		} else {
-			this.amountAssetId = this.haveAssetId;
 			this.amountAssetName = this.haveAssetName;
 			this.pricePair = this.wantAssetName + "/" + this.haveAssetName;
 		}
 	}
 
 	/** Constructs OrderData using data from repository, including optional API fields. */
-	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price, long timestamp,
+	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, long amount, long fulfilled, long price, long timestamp,
 			boolean isClosed, boolean isFulfilled, String haveAssetName, String wantAssetName) {
 		this.orderId = orderId;
 		this.creatorPublicKey = creatorPublicKey;
@@ -110,13 +109,13 @@ public class OrderData implements Comparable<OrderData> {
 	}
 
 	/** Constructs OrderData using data from repository, excluding optional API fields. */
-	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price, long timestamp, boolean isClosed, boolean isFulfilled) {
+	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, long amount, long fulfilled, long price, long timestamp, boolean isClosed, boolean isFulfilled) {
 		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed, isFulfilled, null, null);
 	}
 
 	/** Constructs OrderData using data typically received from network. */
-	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, long timestamp) {
-		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, BigDecimal.ZERO.setScale(8), price, timestamp, false, false);
+	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, long amount, long price, long timestamp) {
+		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, 0 /*fulfilled*/, price, timestamp, false, false);
 	}
 
 	// Getters/setters
@@ -137,19 +136,19 @@ public class OrderData implements Comparable<OrderData> {
 		return this.wantAssetId;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 
-	public BigDecimal getFulfilled() {
+	public long getFulfilled() {
 		return this.fulfilled;
 	}
 
-	public void setFulfilled(BigDecimal fulfilled) {
+	public void setFulfilled(long fulfilled) {
 		this.fulfilled = fulfilled;
 	}
 
-	public BigDecimal getPrice() {
+	public long getPrice() {
 		return this.price;
 	}
 
@@ -198,7 +197,7 @@ public class OrderData implements Comparable<OrderData> {
 	@Override
 	public int compareTo(OrderData orderData) {
 		// Compare using prices
-		return this.price.compareTo(orderData.getPrice());
+		return Long.compare(this.price, orderData.getPrice());
 	}
 
 }

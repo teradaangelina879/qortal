@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.group.GroupData;
 import org.qortal.data.transaction.LeaveGroupTransactionData;
@@ -30,42 +28,23 @@ public class LeaveGroupTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
+	public List<String> getRecipientAddresses() throws DataException {
 		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getLeaver().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getLeaver().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
 	}
 
 	// Navigation
 
-	public Account getLeaver() throws DataException {
-		return new PublicKeyAccount(this.repository, this.leaveGroupTransactionData.getLeaverPublicKey());
+	public Account getLeaver() {
+		return this.getCreator();
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(leaveGroupTransactionData.getGroupId());
+		int groupId = this.leaveGroupTransactionData.getGroupId();
+
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(groupId);
 
 		// Check group exists
 		if (groupData == null)
@@ -78,15 +57,11 @@ public class LeaveGroupTransaction extends Transaction {
 			return ValidationResult.GROUP_OWNER_CANNOT_LEAVE;
 
 		// Check leaver is actually a member of group
-		if (!this.repository.getGroupRepository().memberExists(leaveGroupTransactionData.getGroupId(), leaver.getAddress()))
+		if (!this.repository.getGroupRepository().memberExists(groupId, leaver.getAddress()))
 			return ValidationResult.NOT_GROUP_MEMBER;
 
-		// Check fee is positive
-		if (leaveGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
-		// Check creator has enough funds
-		if (leaver.getConfirmedBalance(Asset.QORT).compareTo(leaveGroupTransactionData.getFee()) < 0)
+		// Check leaver has enough funds
+		if (leaver.getConfirmedBalance(Asset.QORT) < this.leaveGroupTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -95,21 +70,21 @@ public class LeaveGroupTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, leaveGroupTransactionData.getGroupId());
-		group.leave(leaveGroupTransactionData);
+		Group group = new Group(this.repository, this.leaveGroupTransactionData.getGroupId());
+		group.leave(this.leaveGroupTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
-		this.repository.getTransactionRepository().save(leaveGroupTransactionData);
+		this.repository.getTransactionRepository().save(this.leaveGroupTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, leaveGroupTransactionData.getGroupId());
-		group.unleave(leaveGroupTransactionData);
+		Group group = new Group(this.repository, this.leaveGroupTransactionData.getGroupId());
+		group.unleave(this.leaveGroupTransactionData);
 
 		// Save this transaction with removed member/admin references
-		this.repository.getTransactionRepository().save(leaveGroupTransactionData);
+		this.repository.getTransactionRepository().save(this.leaveGroupTransactionData);
 	}
 
 }

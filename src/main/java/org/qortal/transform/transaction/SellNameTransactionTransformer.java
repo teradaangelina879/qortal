@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -14,12 +13,12 @@ import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
 import com.google.common.base.Utf8;
+import com.google.common.primitives.Longs;
 
 public class SellNameTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
-	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
 
 	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + AMOUNT_LENGTH;
 
@@ -51,9 +50,9 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 
 		String name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
 
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+		long amount = byteBuffer.getLong();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -79,9 +78,9 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeSizedString(bytes, sellNameTransactionData.getName());
 
-			Serialization.serializeBigDecimal(bytes, sellNameTransactionData.getAmount());
+			bytes.write(Longs.toByteArray(sellNameTransactionData.getAmount()));
 
-			Serialization.serializeBigDecimal(bytes, sellNameTransactionData.getFee());
+			bytes.write(Longs.toByteArray(sellNameTransactionData.getFee()));
 
 			if (sellNameTransactionData.getSignature() != null)
 				bytes.write(sellNameTransactionData.getSignature());

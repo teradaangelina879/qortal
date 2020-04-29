@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -13,6 +12,7 @@ import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public class CancelGroupInviteTransactionTransformer extends TransactionTransformer {
 
@@ -51,7 +51,7 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 
 		String invitee = Serialization.deserializeAddress(byteBuffer);
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -77,7 +77,7 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 
 			Serialization.serializeAddress(bytes, cancelGroupInviteTransactionData.getInvitee());
 
-			Serialization.serializeBigDecimal(bytes, cancelGroupInviteTransactionData.getFee());
+			bytes.write(Longs.toByteArray(cancelGroupInviteTransactionData.getFee()));
 
 			if (cancelGroupInviteTransactionData.getSignature() != null)
 				bytes.write(cancelGroupInviteTransactionData.getSignature());

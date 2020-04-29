@@ -1,6 +1,5 @@
 package org.qortal.repository;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import org.qortal.data.account.AccountBalanceData;
@@ -106,7 +105,7 @@ public interface AccountRepository {
 
 	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Boolean excludeZero, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public void modifyAssetBalance(String address, long assetId, BigDecimal deltaBalance) throws DataException;
+	public void modifyAssetBalance(String address, long assetId, long deltaBalance) throws DataException;
 
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 

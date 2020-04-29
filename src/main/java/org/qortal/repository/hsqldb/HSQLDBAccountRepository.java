@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -319,7 +318,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			if (resultSet == null)
 				return null;
 
-			BigDecimal balance = resultSet.getBigDecimal(1).setScale(8);
+			long balance = resultSet.getLong(1);
 
 			return new AccountBalanceData(address, assetId, balance);
 		} catch (SQLException e) {
@@ -342,7 +341,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 			do {
 				String address = resultSet.getString(1);
-				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
+				long balance = resultSet.getLong(2);
 
 				accountBalances.add(new AccountBalanceData(address, assetId, balance));
 			} while (resultSet.next());
@@ -445,7 +444,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			do {
 				String address = resultSet.getString(1);
 				long assetId = resultSet.getLong(2);
-				BigDecimal balance = resultSet.getBigDecimal(3).setScale(8);
+				long balance = resultSet.getLong(3);
 				String assetName = resultSet.getString(4);
 
 				accountBalances.add(new AccountBalanceData(address, assetId, balance, assetName));
@@ -458,13 +457,13 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public void modifyAssetBalance(String address, long assetId, BigDecimal deltaBalance) throws DataException {
+	public void modifyAssetBalance(String address, long assetId, long deltaBalance) throws DataException {
 		// If deltaBalance is zero then do nothing
-		if (deltaBalance.signum() == 0)
+		if (deltaBalance == 0)
 			return;
 
 		// If deltaBalance is negative then we assume AccountBalances & parent Accounts rows exist
-		if (deltaBalance.signum() < 0) {
+		if (deltaBalance < 0) {
 			// Perform actual balance change
 			String sql = "UPDATE AccountBalances set balance = balance + ? WHERE account = ? AND asset_id = ?";
 			try {
@@ -496,8 +495,8 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
 
-		saveHelper.bind("account", accountBalanceData.getAddress()).bind("asset_id", accountBalanceData.getAssetId()).bind("balance",
-				accountBalanceData.getBalance());
+		saveHelper.bind("account", accountBalanceData.getAddress()).bind("asset_id", accountBalanceData.getAssetId())
+				.bind("balance", accountBalanceData.getBalance());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -527,7 +526,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 			String minter = resultSet.getString(1);
 			byte[] rewardSharePublicKey = resultSet.getBytes(2);
-			BigDecimal sharePercent = resultSet.getBigDecimal(3);
+			int sharePercent = resultSet.getInt(3);
 
 			return new RewardShareData(minterPublicKey, minter, recipient, rewardSharePublicKey, sharePercent);
 		} catch (SQLException e) {
@@ -546,7 +545,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			byte[] minterPublicKey = resultSet.getBytes(1);
 			String minter = resultSet.getString(2);
 			String recipient = resultSet.getString(3);
-			BigDecimal sharePercent = resultSet.getBigDecimal(4);
+			int sharePercent = resultSet.getInt(4);
 
 			return new RewardShareData(minterPublicKey, minter, recipient, rewardSharePublicKey, sharePercent);
 		} catch (SQLException e) {
@@ -588,7 +587,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				byte[] minterPublicKey = resultSet.getBytes(1);
 				String minter = resultSet.getString(2);
 				String recipient = resultSet.getString(3);
-				BigDecimal sharePercent = resultSet.getBigDecimal(4);
+				int sharePercent = resultSet.getInt(4);
 				byte[] rewardSharePublicKey = resultSet.getBytes(5);
 
 				rewardShares.add(new RewardShareData(minterPublicKey, minter, recipient, rewardSharePublicKey, sharePercent));
@@ -676,7 +675,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				byte[] minterPublicKey = resultSet.getBytes(1);
 				String minter = resultSet.getString(2);
 				String recipient = resultSet.getString(3);
-				BigDecimal sharePercent = resultSet.getBigDecimal(4);
+				int sharePercent = resultSet.getInt(4);
 				byte[] rewardSharePublicKey = resultSet.getBytes(5);
 
 				rewardShares.add(new RewardShareData(minterPublicKey, minter, recipient, rewardSharePublicKey, sharePercent));
@@ -715,7 +714,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			byte[] minterPublicKey = resultSet.getBytes(1);
 			String minter = resultSet.getString(2);
 			String recipient = resultSet.getString(3);
-			BigDecimal sharePercent = resultSet.getBigDecimal(4);
+			int sharePercent = resultSet.getInt(4);
 			byte[] rewardSharePublicKey = resultSet.getBytes(5);
 
 			return new RewardShareData(minterPublicKey, minter, recipient, rewardSharePublicKey, sharePercent);
@@ -820,7 +819,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 			do {
 				String address = resultSet.getString(1);
-				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
+				long balance = resultSet.getLong(2);
 
 				accountBalances.add(new AccountBalanceData(address, Asset.LEGACY_QORA, balance));
 			} while (resultSet.next());
@@ -839,7 +838,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			if (resultSet == null)
 				return null;
 
-			BigDecimal finalQortFromQora = resultSet.getBigDecimal(1);
+			long finalQortFromQora = resultSet.getLong(1);
 			Integer finalBlockHeight = resultSet.getInt(2);
 			if (finalBlockHeight == 0 && resultSet.wasNull())
 				finalBlockHeight = null;

@@ -2,7 +2,6 @@ package org.qortal.block;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -86,7 +85,7 @@ public class GenesisBlock extends Block {
 		// Add default values to transactions
 		transactionsData.stream().forEach(transactionData -> {
 			if (transactionData.getFee() == null)
-				transactionData.setFee(BigDecimal.ZERO.setScale(8));
+				transactionData.setFee(0L);
 
 			if (transactionData.getCreatorPublicKey() == null)
 				transactionData.setCreatorPublicKey(NullAccount.PUBLIC_KEY);
@@ -97,14 +96,14 @@ public class GenesisBlock extends Block {
 
 		byte[] reference = GENESIS_BLOCK_REFERENCE;
 		int transactionCount = transactionsData.size();
-		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
+		long totalFees = 0;
 		byte[] minterPublicKey = NullAccount.PUBLIC_KEY;
 		byte[] bytesForSignature = getBytesForMinterSignature(info.timestamp, reference, minterPublicKey);
 		byte[] minterSignature = calcGenesisMinterSignature(bytesForSignature);
 		byte[] transactionsSignature = calcGenesisTransactionsSignature();
 		int height = 1;
 		int atCount = 0;
-		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
+		long atFees = 0;
 
 		genesisBlockData = new BlockData(info.version, reference, transactionCount, totalFees, transactionsSignature, height, info.timestamp,
 				minterPublicKey, minterSignature, atCount, atFees);

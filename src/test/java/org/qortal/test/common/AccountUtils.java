@@ -1,6 +1,7 @@
 package org.qortal.test.common;
 
-import java.math.BigDecimal;
+import static org.junit.Assert.assertEquals;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,9 +17,9 @@ import org.qortal.repository.Repository;
 public class AccountUtils {
 
 	public static final int txGroupId = Group.NO_GROUP;
-	public static final BigDecimal fee = BigDecimal.ONE.setScale(8);
+	public static final long fee = 1L;
 
-	public static void pay(Repository repository, String sender, String recipient, BigDecimal amount) throws DataException {
+	public static void pay(Repository repository, String sender, String recipient, long amount) throws DataException {
 		PrivateKeyAccount sendingAccount = Common.getTestAccount(repository, sender);
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
 
@@ -31,7 +32,7 @@ public class AccountUtils {
 		TransactionUtils.signAndMint(repository, transactionData, sendingAccount);
 	}
 
-	public static TransactionData createRewardShare(Repository repository, String minter, String recipient, BigDecimal sharePercent) throws DataException {
+	public static TransactionData createRewardShare(Repository repository, String minter, String recipient, int sharePercent) throws DataException {
 		PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, minter);
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
 
@@ -47,7 +48,7 @@ public class AccountUtils {
 		return transactionData;
 	}
 
-	public static byte[] rewardShare(Repository repository, String minter, String recipient, BigDecimal sharePercent) throws DataException {
+	public static byte[] rewardShare(Repository repository, String minter, String recipient, int sharePercent) throws DataException {
 		TransactionData transactionData = createRewardShare(repository, minter, recipient, sharePercent);
 
 		PrivateKeyAccount rewardShareAccount = Common.getTestAccount(repository, minter);
@@ -59,16 +60,16 @@ public class AccountUtils {
 		return rewardSharePrivateKey;
 	}
 
-	public static Map<String, Map<Long, BigDecimal>> getBalances(Repository repository, long... assetIds) throws DataException {
-		Map<String, Map<Long, BigDecimal>> balances = new HashMap<>();
+	public static Map<String, Map<Long, Long>> getBalances(Repository repository, long... assetIds) throws DataException {
+		Map<String, Map<Long, Long>> balances = new HashMap<>();
 
 		for (TestAccount account : Common.getTestAccounts(repository))
 			for (Long assetId : assetIds) {
-				BigDecimal balance = account.getConfirmedBalance(assetId);
+				long balance = account.getConfirmedBalance(assetId);
 
 				balances.compute(account.accountName, (key, value) -> {
 					if (value == null)
-						value = new HashMap<Long, BigDecimal>();
+						value = new HashMap<Long, Long>();
 
 					value.put(assetId, balance);
 
@@ -79,15 +80,15 @@ public class AccountUtils {
 		return balances;
 	}
 
-	public static BigDecimal getBalance(Repository repository, String accountName, long assetId) throws DataException {
+	public static long getBalance(Repository repository, String accountName, long assetId) throws DataException {
 		return Common.getTestAccount(repository, accountName).getConfirmedBalance(assetId);
 	}
 
-	public static void assertBalance(Repository repository, String accountName, long assetId, BigDecimal expectedBalance) throws DataException {
-		BigDecimal actualBalance = getBalance(repository, accountName, assetId);
+	public static void assertBalance(Repository repository, String accountName, long assetId, long expectedBalance) throws DataException {
+		long actualBalance = getBalance(repository, accountName, assetId);
 		String assetName = repository.getAssetRepository().fromAssetId(assetId).getName();
 
-		Common.assertEqualBigDecimals(String.format("%s's %s [%d] balance incorrect", accountName, assetName, assetId), expectedBalance, actualBalance);
+		assertEquals(String.format("%s's %s [%d] balance incorrect", accountName, assetName, assetId), expectedBalance, actualBalance);
 	}
 
 }

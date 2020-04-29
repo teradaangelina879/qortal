@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.GroupInviteTransactionData;
@@ -17,7 +15,9 @@ import org.qortal.repository.Repository;
 public class GroupInviteTransaction extends Transaction {
 
 	// Properties
+
 	private GroupInviteTransactionData groupInviteTransactionData;
+	private Account inviteeAccount = null;
 
 	// Constructors
 
@@ -30,56 +30,35 @@ public class GroupInviteTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getAdmin().getAddress()))
-			return true;
-
-		if (address.equals(this.getInvitee().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getAdmin().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.groupInviteTransactionData.getInvitee());
 	}
 
 	// Navigation
 
-	public Account getAdmin() throws DataException {
-		return new PublicKeyAccount(this.repository, this.groupInviteTransactionData.getAdminPublicKey());
+	public Account getAdmin() {
+		return this.getCreator();
 	}
 
-	public Account getInvitee() throws DataException {
-		return new Account(this.repository, this.groupInviteTransactionData.getInvitee());
+	public Account getInvitee() {
+		if (this.inviteeAccount == null)
+			this.inviteeAccount = new Account(this.repository, this.groupInviteTransactionData.getInvitee());
+
+		return this.inviteeAccount;
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		int groupId = groupInviteTransactionData.getGroupId();
+		int groupId = this.groupInviteTransactionData.getGroupId();
 
 		// Check time to live zero (infinite) or positive
-		if (groupInviteTransactionData.getTimeToLive() < 0)
+		if (this.groupInviteTransactionData.getTimeToLive() < 0)
 			return ValidationResult.INVALID_LIFETIME;
 
 		// Check member address is valid
-		if (!Crypto.isValidAddress(groupInviteTransactionData.getInvitee()))
+		if (!Crypto.isValidAddress(this.groupInviteTransactionData.getInvitee()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check group exists
@@ -102,12 +81,8 @@ public class GroupInviteTransaction extends Transaction {
 		if (this.repository.getGroupRepository().banExists(groupId, invitee.getAddress()))
 			return ValidationResult.BANNED_FROM_GROUP;
 
-		// Check fee is positive
-		if (groupInviteTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		// Check creator has enough funds
-		if (admin.getConfirmedBalance(Asset.QORT).compareTo(groupInviteTransactionData.getFee()) < 0)
+		if (admin.getConfirmedBalance(Asset.QORT) < this.groupInviteTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -116,21 +91,21 @@ public class GroupInviteTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, groupInviteTransactionData.getGroupId());
-		group.invite(groupInviteTransactionData);
+		Group group = new Group(this.repository, this.groupInviteTransactionData.getGroupId());
+		group.invite(this.groupInviteTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
-		this.repository.getTransactionRepository().save(groupInviteTransactionData);
+		this.repository.getTransactionRepository().save(this.groupInviteTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, groupInviteTransactionData.getGroupId());
-		group.uninvite(groupInviteTransactionData);
+		Group group = new Group(this.repository, this.groupInviteTransactionData.getGroupId());
+		group.uninvite(this.groupInviteTransactionData);
 
 		// Save this transaction with removed member/admin references
-		this.repository.getTransactionRepository().save(groupInviteTransactionData);
+		this.repository.getTransactionRepository().save(this.groupInviteTransactionData);
 	}
 
 }

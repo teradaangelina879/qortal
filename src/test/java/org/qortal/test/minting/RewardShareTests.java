@@ -2,8 +2,6 @@ package org.qortal.test.minting;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -23,7 +21,7 @@ import org.qortal.utils.Base58;
 
 public class RewardShareTests extends Common {
 
-	private static final BigDecimal CANCEL_SHARE_PERCENT = BigDecimal.ONE.negate();
+	private static final int CANCEL_SHARE_PERCENT = -1;
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -37,7 +35,7 @@ public class RewardShareTests extends Common {
 
 	@Test
 	public void testCreateRewardShare() throws DataException {
-		final BigDecimal sharePercent = new BigDecimal("12.8");
+		final int sharePercent = 12_80; // 12.80%
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
@@ -53,13 +51,13 @@ public class RewardShareTests extends Common {
 			RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(rewardShareAccount.getPublicKey());
 			assertEquals("Incorrect minter public key", Base58.encode(aliceAccount.getPublicKey()), Base58.encode(rewardShareData.getMinterPublicKey()));
 			assertEquals("Incorrect recipient", bobAccount.getAddress(), rewardShareData.getRecipient());
-			assertEqualBigDecimals("Incorrect share percentage", sharePercent, rewardShareData.getSharePercent());
+			assertEquals("Incorrect share percentage", sharePercent, rewardShareData.getSharePercent());
 
 			// Fetch using minter public key and recipient address combination
 			rewardShareData = repository.getAccountRepository().getRewardShare(aliceAccount.getPublicKey(), bobAccount.getAddress());
 			assertEquals("Incorrect minter public key", Base58.encode(aliceAccount.getPublicKey()), Base58.encode(rewardShareData.getMinterPublicKey()));
 			assertEquals("Incorrect recipient", bobAccount.getAddress(), rewardShareData.getRecipient());
-			assertEqualBigDecimals("Incorrect share percentage", sharePercent, rewardShareData.getSharePercent());
+			assertEquals("Incorrect share percentage", sharePercent, rewardShareData.getSharePercent());
 
 			// Delete reward-share
 			byte[] newRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "bob", CANCEL_SHARE_PERCENT);
@@ -89,14 +87,14 @@ public class RewardShareTests extends Common {
 			assertNotNull("Reward-share should have been restored", newRewardShareData);
 			assertEquals("Incorrect minter public key", Base58.encode(aliceAccount.getPublicKey()), Base58.encode(newRewardShareData.getMinterPublicKey()));
 			assertEquals("Incorrect recipient", bobAccount.getAddress(), newRewardShareData.getRecipient());
-			assertEqualBigDecimals("Incorrect share percentage", sharePercent, newRewardShareData.getSharePercent());
+			assertEquals("Incorrect share percentage", sharePercent, newRewardShareData.getSharePercent());
 
 			// Fetch using minter public key and recipient address combination
 			newRewardShareData = repository.getAccountRepository().getRewardShare(aliceAccount.getPublicKey(), bobAccount.getAddress());
 			assertNotNull("Reward-share should have been restored", newRewardShareData);
 			assertEquals("Incorrect minter public key", Base58.encode(aliceAccount.getPublicKey()), Base58.encode(newRewardShareData.getMinterPublicKey()));
 			assertEquals("Incorrect recipient", bobAccount.getAddress(), newRewardShareData.getRecipient());
-			assertEqualBigDecimals("Incorrect share percentage", sharePercent, newRewardShareData.getSharePercent());
+			assertEquals("Incorrect share percentage", sharePercent, newRewardShareData.getSharePercent());
 
 			// Orphan another block to remove initial reward-share
 			BlockUtils.orphanLastBlock(repository);
@@ -137,7 +135,7 @@ public class RewardShareTests extends Common {
 			// PrivateKeyAccount rewardShareAccount = new PrivateKeyAccount(repository, rewardSharePrivateKey);
 
 			// Create self-reward-share
-			TransactionData transactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, BigDecimal.valueOf(100L));
+			TransactionData transactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, 100_00);
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
 			// Confirm self-share is valid
@@ -145,14 +143,14 @@ public class RewardShareTests extends Common {
 			assertEquals("Initial self-share should be valid", ValidationResult.OK, validationResult);
 
 			// Check zero fee is valid
-			transactionData.setFee(BigDecimal.ZERO);
+			transactionData.setFee(0L);
 			validationResult = transaction.isValidUnconfirmed();
 			assertEquals("Zero-fee self-share should be valid", ValidationResult.OK, validationResult);
 
 			TransactionUtils.signAndMint(repository, transactionData, signingAccount);
 
 			// Subsequent non-terminating (0% share) self-reward-share should be invalid
-			TransactionData newTransactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, BigDecimal.valueOf(99L));
+			TransactionData newTransactionData = AccountUtils.createRewardShare(repository, testAccountName, testAccountName, 99_00);
 			Transaction newTransaction = Transaction.fromData(repository, newTransactionData);
 
 			// Confirm subsequent self-reward-share is actually invalid
@@ -160,7 +158,7 @@ public class RewardShareTests extends Common {
 			assertNotSame("Subsequent self-share should be invalid", ValidationResult.OK, validationResult);
 
 			// Recheck with zero fee
-			newTransactionData.setFee(BigDecimal.ZERO);
+			newTransactionData.setFee(0L);
 			validationResult = newTransaction.isValidUnconfirmed();
 			assertNotSame("Subsequent zero-fee self-share should be invalid", ValidationResult.OK, validationResult);
 
@@ -173,7 +171,7 @@ public class RewardShareTests extends Common {
 			assertEquals("Subsequent self-share cancel should be valid", ValidationResult.OK, validationResult);
 
 			// Confirm terminating reward-share with zero fee is invalid
-			newTransactionData.setFee(BigDecimal.ZERO);
+			newTransactionData.setFee(0L);
 			validationResult = newTransaction.isValidUnconfirmed();
 			assertNotSame("Subsequent zero-fee self-share cancel should be invalid", ValidationResult.OK, validationResult);
 		}

@@ -58,8 +58,9 @@ public abstract class TransactionData {
 	protected long timestamp;
 	@Schema(description = "sender's last transaction ID", example = "real_transaction_reference_in_base58")
 	protected byte[] reference;
-	@Schema(description = "fee for processing transaction", example = "1.0")
-	protected BigDecimal fee;
+	@XmlTransient
+	@Schema(hidden = true)
+	protected Long fee; // can be null if fee not calculated yet
 	@Schema(accessMode = AccessMode.READ_ONLY, description = "signature for transaction's raw bytes, using sender's private key", example = "real_transaction_signature_in_base58")
 	protected byte[] signature;
 	@Schema(description = "groupID for this transaction")
@@ -138,11 +139,11 @@ public abstract class TransactionData {
 		this.creatorPublicKey = creatorPublicKey;
 	}
 
-	public BigDecimal getFee() {
+	public Long getFee() {
 		return this.fee;
 	}
 
-	public void setFee(BigDecimal fee) {
+	public void setFee(Long fee) {
 		this.fee = fee;
 	}
 
@@ -182,6 +183,14 @@ public abstract class TransactionData {
 	}
 
 	// JAXB special
+
+	@Schema(name = "fee", description = "fee for processing transaction", example = "0.0001")
+	protected BigDecimal getFeeJaxb() {
+		if (this.fee == null)
+			return null;
+
+		return BigDecimal.valueOf(this.fee, 8);
+	}
 
 	@XmlElement(name = "creatorAddress")
 	protected String getCreatorAddress() {

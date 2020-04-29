@@ -1,6 +1,5 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,42 +31,14 @@ public class UpdateAssetTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.singletonList(getNewOwner());
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getOwner().getAddress()))
-			return true;
-
-		if (address.equals(this.getNewOwner().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getOwner().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.updateAssetTransactionData.getNewOwner());
 	}
 
 	// Navigation
 
-	public PublicKeyAccount getOwner() throws DataException {
-		return new PublicKeyAccount(this.repository, this.updateAssetTransactionData.getOwnerPublicKey());
-	}
-
-	public Account getNewOwner() throws DataException {
-		return new Account(this.repository, this.updateAssetTransactionData.getNewOwner());
+	public PublicKeyAccount getOwner() {
+		return this.getCreator();
 	}
 
 	// Processing
@@ -75,37 +46,33 @@ public class UpdateAssetTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Check asset actually exists
-		AssetData assetData = this.repository.getAssetRepository().fromAssetId(updateAssetTransactionData.getAssetId());
+		AssetData assetData = this.repository.getAssetRepository().fromAssetId(this.updateAssetTransactionData.getAssetId());
 		if (assetData == null)
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
 		// Check new owner address is valid
-		if (!Crypto.isValidAddress(updateAssetTransactionData.getNewOwner()))
+		if (!Crypto.isValidAddress(this.updateAssetTransactionData.getNewOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check new description size bounds. Note: zero length means DO NOT CHANGE description
-		int newDescriptionLength = Utf8.encodedLength(updateAssetTransactionData.getNewDescription());
+		int newDescriptionLength = Utf8.encodedLength(this.updateAssetTransactionData.getNewDescription());
 		if (newDescriptionLength > Asset.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// Check new data size bounds. Note: zero length means DO NOT CHANGE data
-		int newDataLength = Utf8.encodedLength(updateAssetTransactionData.getNewData());
+		int newDataLength = Utf8.encodedLength(this.updateAssetTransactionData.getNewData());
 		if (newDataLength > Asset.MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// As this transaction type could require approval, check txGroupId
 		// matches groupID at creation
-		if (assetData.getCreationGroupId() != updateAssetTransactionData.getTxGroupId())
+		if (assetData.getCreationGroupId() != this.updateAssetTransactionData.getTxGroupId())
 			return ValidationResult.TX_GROUP_ID_MISMATCH;
-
-		// Check fee is positive
-		if (updateAssetTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
 
 		Account currentOwner = getOwner();
 
 		// Check current owner has enough funds
-		if (currentOwner.getConfirmedBalance(Asset.QORT).compareTo(updateAssetTransactionData.getFee()) < 0)
+		if (currentOwner.getConfirmedBalance(Asset.QORT) < this.updateAssetTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -115,7 +82,7 @@ public class UpdateAssetTransaction extends Transaction {
 	public ValidationResult isProcessable() throws DataException {
 		// Check transaction's public key matches asset's current owner
 		Account currentOwner = getOwner();
-		AssetData assetData = this.repository.getAssetRepository().fromAssetId(updateAssetTransactionData.getAssetId());
+		AssetData assetData = this.repository.getAssetRepository().fromAssetId(this.updateAssetTransactionData.getAssetId());
 
 		if (!assetData.getOwner().equals(currentOwner.getAddress()))
 			return ValidationResult.INVALID_ASSET_OWNER;
@@ -126,21 +93,21 @@ public class UpdateAssetTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Asset
-		Asset asset = new Asset(this.repository, updateAssetTransactionData.getAssetId());
-		asset.update(updateAssetTransactionData);
+		Asset asset = new Asset(this.repository, this.updateAssetTransactionData.getAssetId());
+		asset.update(this.updateAssetTransactionData);
 
 		// Save this transaction, with updated "name reference" to previous transaction that updated name
-		this.repository.getTransactionRepository().save(updateAssetTransactionData);
+		this.repository.getTransactionRepository().save(this.updateAssetTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert asset
-		Asset asset = new Asset(this.repository, updateAssetTransactionData.getAssetId());
-		asset.revert(updateAssetTransactionData);
+		Asset asset = new Asset(this.repository, this.updateAssetTransactionData.getAssetId());
+		asset.revert(this.updateAssetTransactionData);
 
 		// Save this transaction, with removed "name reference" to previous transaction that updated name
-		this.repository.getTransactionRepository().save(updateAssetTransactionData);
+		this.repository.getTransactionRepository().save(this.updateAssetTransactionData);
 	}
 
 }

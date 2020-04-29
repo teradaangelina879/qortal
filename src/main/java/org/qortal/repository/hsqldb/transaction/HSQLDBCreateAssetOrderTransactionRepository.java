@@ -1,6 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -30,9 +29,9 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 				return null;
 
 			long haveAssetId = resultSet.getLong(1);
-			BigDecimal amount = resultSet.getBigDecimal(2);
+			long amount = resultSet.getLong(2);
 			long wantAssetId = resultSet.getLong(3);
-			BigDecimal price = resultSet.getBigDecimal(4);
+			long price = resultSet.getLong(4);
 			String haveAssetName = resultSet.getString(5);
 			String wantAssetName = resultSet.getString(6);
 

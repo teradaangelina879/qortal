@@ -1,12 +1,11 @@
 package org.qortal.data.asset;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
@@ -24,17 +23,17 @@ public class TradeData {
 	@XmlElement(name = "targetOrderId")
 	private byte[] target;
 
-	@Schema(name = "targetAmount", description = "amount traded from target")
-	@XmlElement(name = "targetAmount")
-	private BigDecimal targetAmount;
+	@Schema(description = "amount traded from target")
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long targetAmount;
 
-	@Schema(name = "initiatorAmount", description = "amount traded from initiator")
-	@XmlElement(name = "initiatorAmount")
-	private BigDecimal initiatorAmount;
+	@Schema(description = "amount traded from initiator")
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long initiatorAmount;
 
-	@Schema(name = "initiatorSaving", description = "amount refunded to initiator due to price improvement")
-	@XmlElement(name = "initiatorSaving")
-	private BigDecimal initiatorSaving;
+	@Schema(description = "amount refunded to initiator due to price improvement")
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long initiatorSaving;
 
 	@Schema(description = "when trade happened")
 	private long timestamp;
@@ -95,7 +94,7 @@ public class TradeData {
 		}
 	}
 
-	public TradeData(byte[] initiator, byte[] target, BigDecimal targetAmount, BigDecimal initiatorAmount, BigDecimal initiatorSaving, long timestamp,
+	public TradeData(byte[] initiator, byte[] target, long targetAmount, long initiatorAmount, long initiatorSaving, long timestamp,
 			Long haveAssetId, String haveAssetName, Long wantAssetId, String wantAssetName) {
 		this.initiator = initiator;
 		this.target = target;
@@ -110,7 +109,7 @@ public class TradeData {
 		this.wantAssetName = wantAssetName;
 	}
 
-	public TradeData(byte[] initiator, byte[] target, BigDecimal targetAmount, BigDecimal initiatorAmount, BigDecimal initiatorSaving, long timestamp) {
+	public TradeData(byte[] initiator, byte[] target, long targetAmount, long initiatorAmount, long initiatorSaving, long timestamp) {
 		this(initiator, target, targetAmount, initiatorAmount, initiatorSaving, timestamp, null, null, null, null);
 	}
 
@@ -124,15 +123,15 @@ public class TradeData {
 		return this.target;
 	}
 
-	public BigDecimal getTargetAmount() {
+	public long getTargetAmount() {
 		return this.targetAmount;
 	}
 
-	public BigDecimal getInitiatorAmount() {
+	public long getInitiatorAmount() {
 		return this.initiatorAmount;
 	}
 
-	public BigDecimal getInitiatorSaving() {
+	public long getInitiatorSaving() {
 		return this.initiatorSaving;
 	}
 

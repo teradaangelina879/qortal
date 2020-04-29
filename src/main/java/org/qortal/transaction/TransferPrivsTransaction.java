@@ -1,6 +1,5 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -8,7 +7,6 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
@@ -36,42 +34,17 @@ public class TransferPrivsTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.singletonList(new Account(this.repository, transferPrivsTransactionData.getRecipient()));
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getSender().getAddress()))
-			return true;
-
-		if (address.equals(transferPrivsTransactionData.getRecipient()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-		String senderAddress = this.getSender().getAddress();
-
-		if (address.equals(senderAddress))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.transferPrivsTransactionData.getRecipient());
 	}
 
 	// Navigation
 
-	public Account getSender() throws DataException {
-		return new PublicKeyAccount(this.repository, this.transferPrivsTransactionData.getSenderPublicKey());
+	public Account getSender() {
+		return this.getCreator();
 	}
 
-	public Account getRecipient() throws DataException {
+	public Account getRecipient() {
 		return new Account(this.repository, this.transferPrivsTransactionData.getRecipient());
 	}
 
@@ -167,9 +140,9 @@ public class TransferPrivsTransaction extends Transaction {
 		super.processReferencesAndFees();
 
 		// If recipient has no last-reference then use this transaction's signature as last-reference so they can spend their block rewards
-		Account recipient = new Account(this.repository, transferPrivsTransactionData.getRecipient());
+		Account recipient = new Account(this.repository, this.transferPrivsTransactionData.getRecipient());
 		if (recipient.getLastReference() == null)
-			recipient.setLastReference(transferPrivsTransactionData.getSignature());
+			recipient.setLastReference(this.transferPrivsTransactionData.getSignature());
 	}
 
 	@Override
@@ -249,8 +222,8 @@ public class TransferPrivsTransaction extends Transaction {
 		super.orphanReferencesAndFees();
 
 		// If recipient didn't have a last-reference prior to this transaction then remove it
-		Account recipient = new Account(this.repository, transferPrivsTransactionData.getRecipient());
-		if (Arrays.equals(recipient.getLastReference(), transferPrivsTransactionData.getSignature()))
+		Account recipient = new Account(this.repository, this.transferPrivsTransactionData.getRecipient());
+		if (Arrays.equals(recipient.getLastReference(), this.transferPrivsTransactionData.getSignature()))
 			recipient.setLastReference(null);
 	}
 

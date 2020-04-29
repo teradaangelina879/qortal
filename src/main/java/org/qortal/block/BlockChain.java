@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -57,8 +56,9 @@ public class BlockChain {
 	private long transactionExpiryPeriod;
 
 	private BigDecimal unitFee;
-	private BigDecimal maxBytesPerUnitFee;
-	private BigDecimal minFeePerByte;
+	private long unscaledUnitFee; // calculated after unmarshal
+
+	private int maxBytesPerUnitFee;
 
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	private long blockTimestampMargin;
@@ -87,6 +87,7 @@ public class BlockChain {
 	public static class RewardByHeight {
 		public int height;
 		public BigDecimal reward;
+		public long unscaledReward; // reward * 1e8, calculated after unmarshal
 	}
 	List<RewardByHeight> rewardsByHeight;
 
@@ -94,13 +95,18 @@ public class BlockChain {
 	public static class ShareByLevel {
 		public List<Integer> levels;
 		public BigDecimal share;
+		public long unscaledShare; // share * 1e8, calculated after unmarshal
 	}
 	List<ShareByLevel> sharesByLevel;
 
 	/** Share of block reward/fees to legacy QORA coin holders */
 	BigDecimal qoraHoldersShare;
+	/** Unscaled (* 1e8) share of block reward/fees to legacy QORA coin holders */
+	private long qoraHoldersUnscaledShare; // calculated after unmarshal
 	/** How many legacy QORA per 1 QORT of block reward. */
 	BigDecimal qoraPerQortReward;
+	/** How many legacy QORA per 1 QORT of block reward. */
+	private long unscaledQoraPerQortReward;
 
 	/**
 	 * Number of minted blocks required to reach next level from previous.
@@ -265,12 +271,12 @@ public class BlockChain {
 		return this.unitFee;
 	}
 
-	public BigDecimal getMaxBytesPerUnitFee() {
-		return this.maxBytesPerUnitFee;
+	public long getUnscaledUnitFee() {
+		return this.unscaledUnitFee;
 	}
 
-	public BigDecimal getMinFeePerByte() {
-		return this.minFeePerByte;
+	public int getMaxBytesPerUnitFee() {
+		return this.maxBytesPerUnitFee;
 	}
 
 	public long getTransactionExpiryPeriod() {
@@ -318,8 +324,16 @@ public class BlockChain {
 		return this.qoraHoldersShare;
 	}
 
+	public long getQoraHoldersUnscaledShare() {
+		return this.qoraHoldersUnscaledShare;
+	}
+
 	public BigDecimal getQoraPerQortReward() {
 		return this.qoraPerQortReward;
+	}
+
+	public long getUnscaledQoraPerQortReward() {
+		return this.unscaledQoraPerQortReward;
 	}
 
 	public int getMinAccountLevelToMint() {
@@ -350,11 +364,11 @@ public class BlockChain {
 
 	// More complex getters for aspects that change by height or timestamp
 
-	public BigDecimal getRewardAtHeight(int ourHeight) {
+	public Long getRewardAtHeight(int ourHeight) {
 		// Scan through for reward at our height
 		for (int i = rewardsByHeight.size() - 1; i >= 0; --i)
 			if (rewardsByHeight.get(i).height <= ourHeight)
-				return rewardsByHeight.get(i).reward;
+				return rewardsByHeight.get(i).unscaledReward;
 
 		return null;
 	}
@@ -416,9 +430,8 @@ public class BlockChain {
 
 	/** Minor normalization, cached value generation, etc. */
 	private void fixUp() {
-		this.maxBytesPerUnitFee = this.maxBytesPerUnitFee.setScale(8);
 		this.unitFee = this.unitFee.setScale(8);
-		this.minFeePerByte = this.unitFee.divide(this.maxBytesPerUnitFee, MathContext.DECIMAL32);
+		this.unscaledUnitFee = this.unitFee.unscaledValue().longValue();
 
 		// Pre-calculate cumulative blocks required for each level
 		int cumulativeBlocks = 0;
@@ -429,6 +442,17 @@ public class BlockChain {
 			if (level < this.blocksNeededByLevel.size())
 				cumulativeBlocks += this.blocksNeededByLevel.get(level);
 		}
+
+		// Calculate unscaled long versions of block rewards by height
+		for (RewardByHeight rewardByHeight : this.rewardsByHeight)
+			rewardByHeight.unscaledReward = rewardByHeight.reward.setScale(8).unscaledValue().longValue();
+
+		// Calculate unscaled long versions of block reward shares-by-level
+		for (ShareByLevel shareByLevel : this.sharesByLevel)
+			shareByLevel.unscaledShare = shareByLevel.share.setScale(8).unscaledValue().longValue();
+
+		// Calculate unscaled long version of Qora-holders block reward share
+		this.qoraHoldersUnscaledShare = this.qoraHoldersShare.setScale(8).unscaledValue().longValue();
 
 		// Convert collections to unmodifiable form
 		this.rewardsByHeight = Collections.unmodifiableList(this.rewardsByHeight);

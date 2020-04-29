@@ -1,6 +1,5 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -36,40 +35,8 @@ public class GenesisTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.singletonList(new Account(this.repository, genesisTransactionData.getRecipient()));
-	}
-
-	/** For Genesis Transactions, do not include transaction creator (which is genesis account) */
-	@Override
-	public List<Account> getInvolvedAccounts() throws DataException {
-		return getRecipientAccounts();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getCreator().getAddress()))
-			return true;
-
-		if (address.equals(genesisTransactionData.getRecipient()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		// NOTE: genesis transactions have no fee, so no need to test against creator as sender
-
-		if (address.equals(genesisTransactionData.getRecipient()))
-			amount = amount.add(genesisTransactionData.getAmount());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.genesisTransactionData.getRecipient());
 	}
 
 	// Processing
@@ -123,11 +90,11 @@ public class GenesisTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() {
 		// Check amount is zero or positive
-		if (genesisTransactionData.getAmount().compareTo(BigDecimal.ZERO) < 0)
+		if (this.genesisTransactionData.getAmount() < 0)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check recipient address is valid
-		if (!Crypto.isValidAddress(genesisTransactionData.getRecipient()))
+		if (!Crypto.isValidAddress(this.genesisTransactionData.getRecipient()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		return ValidationResult.OK;
@@ -135,26 +102,26 @@ public class GenesisTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
+		Account recipient = new Account(repository, this.genesisTransactionData.getRecipient());
 
 		// Update recipient's balance
-		recipient.setConfirmedBalance(genesisTransactionData.getAssetId(), genesisTransactionData.getAmount());
+		recipient.setConfirmedBalance(this.genesisTransactionData.getAssetId(), this.genesisTransactionData.getAmount());
 	}
 
 	@Override
 	public void processReferencesAndFees() throws DataException {
 		// Do not attempt to update non-existent genesis account's reference!
 
-		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
+		Account recipient = new Account(repository, this.genesisTransactionData.getRecipient());
 
 		// Set recipient's starting reference (also creates account)
-		recipient.setLastReference(genesisTransactionData.getSignature());
+		recipient.setLastReference(this.genesisTransactionData.getSignature());
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Delete recipient's account (and balance)
-		this.repository.getAccountRepository().delete(genesisTransactionData.getRecipient());
+		this.repository.getAccountRepository().delete(this.genesisTransactionData.getRecipient());
 	}
 
 	@Override

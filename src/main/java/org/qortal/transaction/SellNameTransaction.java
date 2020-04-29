@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.SellNameTransactionData;
@@ -19,7 +17,7 @@ import com.google.common.base.Utf8;
 public class SellNameTransaction extends Transaction {
 
 	/** Maximum amount/price for selling a name. Chosen so value, including 8 decimal places, encodes into 8 bytes or fewer. */
-	private static final BigDecimal MAX_AMOUNT = BigDecimal.valueOf(10_000_000_000L);
+	private static final long MAX_AMOUNT = Asset.MAX_QUANTITY;
 
 	// Properties
 	private SellNameTransactionData sellNameTransactionData;
@@ -35,51 +33,32 @@ public class SellNameTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() {
-		return new ArrayList<>();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getOwner().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getOwner().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.emptyList();
 	}
 
 	// Navigation
 
-	public Account getOwner() throws DataException {
-		return new PublicKeyAccount(this.repository, this.sellNameTransactionData.getOwnerPublicKey());
+	public Account getOwner() {
+		return this.getCreator();
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		String name = this.sellNameTransactionData.getName();
+
 		// Check name size bounds
-		int nameLength = Utf8.encodedLength(sellNameTransactionData.getName());
+		int nameLength = Utf8.encodedLength(name);
 		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check name is lowercase
-		if (!sellNameTransactionData.getName().equals(sellNameTransactionData.getName().toLowerCase()))
+		if (!name.equals(name.toLowerCase()))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
-		NameData nameData = this.repository.getNameRepository().fromName(sellNameTransactionData.getName());
+		NameData nameData = this.repository.getNameRepository().fromName(name);
 
 		// Check name exists
 		if (nameData == null)
@@ -95,19 +74,15 @@ public class SellNameTransaction extends Transaction {
 			return ValidationResult.INVALID_NAME_OWNER;
 
 		// Check amount is positive
-		if (sellNameTransactionData.getAmount().compareTo(BigDecimal.ZERO) <= 0)
+		if (this.sellNameTransactionData.getAmount() <= 0)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check amount within bounds
-		if (sellNameTransactionData.getAmount().compareTo(MAX_AMOUNT) >= 0)
+		if (this.sellNameTransactionData.getAmount() >= MAX_AMOUNT)
 			return ValidationResult.INVALID_AMOUNT;
 
-		// Check fee is positive
-		if (sellNameTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		// Check issuer has enough funds
-		if (owner.getConfirmedBalance(Asset.QORT).compareTo(sellNameTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORT) < this.sellNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -116,15 +91,15 @@ public class SellNameTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Sell Name
-		Name name = new Name(this.repository, sellNameTransactionData.getName());
-		name.sell(sellNameTransactionData);
+		Name name = new Name(this.repository, this.sellNameTransactionData.getName());
+		name.sell(this.sellNameTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert name
-		Name name = new Name(this.repository, sellNameTransactionData.getName());
-		name.unsell(sellNameTransactionData);
+		Name name = new Name(this.repository, this.sellNameTransactionData.getName());
+		name.unsell(this.sellNameTransactionData);
 	}
 
 }

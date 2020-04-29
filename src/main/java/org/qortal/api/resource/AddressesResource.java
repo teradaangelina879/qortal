@@ -46,6 +46,7 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.RewardShareTransactionTransformer;
+import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
 
 @Path("/addresses")
@@ -195,7 +196,7 @@ public class AddressesResource {
 			else if (!repository.getAssetRepository().assetExists(assetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			return account.getBalance(assetId);
+			return Amounts.toBigDecimal(account.getConfirmedBalance(assetId));
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

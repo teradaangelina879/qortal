@@ -3,7 +3,6 @@ package org.qortal.repository.hsqldb;
 import static org.qortal.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
 import static org.qortal.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -39,14 +38,14 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			int version = resultSet.getInt(1);
 			byte[] reference = resultSet.getBytes(2);
 			int transactionCount = resultSet.getInt(3);
-			BigDecimal totalFees = resultSet.getBigDecimal(4);
+			long totalFees = resultSet.getLong(4);
 			byte[] transactionsSignature = resultSet.getBytes(5);
 			int height = resultSet.getInt(6);
 			long timestamp = getZonedTimestampMilli(resultSet, 7);
 			byte[] minterPublicKey = resultSet.getBytes(8);
 			byte[] minterSignature = resultSet.getBytes(9);
 			int atCount = resultSet.getInt(10);
-			BigDecimal atFees = resultSet.getBigDecimal(11);
+			long atFees = resultSet.getLong(11);
 			byte[] encodedOnlineAccounts = resultSet.getBytes(12);
 			int onlineAccountsCount = resultSet.getInt(13);
 			Long onlineAccountsTimestamp = getZonedTimestampMilli(resultSet, 14);

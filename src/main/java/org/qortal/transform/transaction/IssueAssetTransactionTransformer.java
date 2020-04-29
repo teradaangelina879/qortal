@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.asset.Asset;
@@ -22,7 +21,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	private static final int OWNER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
-	private static final int QUANTITY_LENGTH = LONG_LENGTH;
+	private static final int QUANTITY_LENGTH = AMOUNT_LENGTH;
 	private static final int IS_DIVISIBLE_LENGTH = BOOLEAN_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 	private static final int IS_UNSPENDABLE_LENGTH = BOOLEAN_LENGTH;
@@ -44,7 +43,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		layout.add("asset name", TransformationType.STRING);
 		layout.add("asset description length", TransformationType.INT);
 		layout.add("asset description", TransformationType.STRING);
-		layout.add("asset quantity", TransformationType.LONG);
+		layout.add("asset quantity", TransformationType.AMOUNT);
 		layout.add("can asset quantities be fractional?", TransformationType.BOOLEAN);
 		layout.add("asset data length", TransformationType.INT);
 		layout.add("asset data", TransformationType.STRING);
@@ -77,7 +76,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 		boolean isUnspendable = byteBuffer.get() != 0;
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -117,7 +116,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 			bytes.write((byte) (issueAssetTransactionData.getIsUnspendable() ? 1 : 0));
 
-			Serialization.serializeBigDecimal(bytes, issueAssetTransactionData.getFee());
+			bytes.write(Longs.toByteArray(issueAssetTransactionData.getFee()));
 
 			if (issueAssetTransactionData.getSignature() != null)
 				bytes.write(issueAssetTransactionData.getSignature());

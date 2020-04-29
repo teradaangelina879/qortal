@@ -2,7 +2,6 @@ package org.qortal.transform.block;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,7 +35,6 @@ public class BlockTransformer extends Transformer {
 	private static final int TRANSACTIONS_SIGNATURE_LENGTH = SIGNATURE_LENGTH;
 	private static final int MINTER_SIGNATURE_LENGTH = SIGNATURE_LENGTH;
 	private static final int BLOCK_REFERENCE_LENGTH = MINTER_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
-	private static final int TIMESTAMP_LENGTH = LONG_LENGTH;
 	private static final int MINTER_PUBLIC_KEY_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int TRANSACTION_COUNT_LENGTH = INT_LENGTH;
 
@@ -44,17 +42,19 @@ public class BlockTransformer extends Transformer {
 			+ TRANSACTIONS_SIGNATURE_LENGTH + MINTER_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
 
 	public static final int BLOCK_SIGNATURE_LENGTH = MINTER_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
+	
 	protected static final int TRANSACTION_SIZE_LENGTH = INT_LENGTH; // per transaction
+
 	protected static final int AT_BYTES_LENGTH = INT_LENGTH;
-	protected static final int AT_FEES_LENGTH = LONG_LENGTH;
+	protected static final int AT_FEES_LENGTH = AMOUNT_LENGTH;
 	protected static final int AT_LENGTH = AT_FEES_LENGTH + AT_BYTES_LENGTH;
 
 	protected static final int ONLINE_ACCOUNTS_COUNT_LENGTH = INT_LENGTH;
 	protected static final int ONLINE_ACCOUNTS_SIZE_LENGTH = INT_LENGTH;
-	protected static final int ONLINE_ACCOUNTS_TIMESTAMP_LENGTH = LONG_LENGTH;
+	protected static final int ONLINE_ACCOUNTS_TIMESTAMP_LENGTH = TIMESTAMP_LENGTH;
 	protected static final int ONLINE_ACCOUNTS_SIGNATURES_COUNT_LENGTH = INT_LENGTH;
 
-	protected static final int AT_ENTRY_LENGTH = ADDRESS_LENGTH + SHA256_LENGTH + BIG_DECIMAL_LENGTH;
+	protected static final int AT_ENTRY_LENGTH = ADDRESS_LENGTH + SHA256_LENGTH + AMOUNT_LENGTH;
 
 	/**
 	 * Extract block data and transaction data from serialized bytes.
@@ -104,10 +104,10 @@ public class BlockTransformer extends Transformer {
 		byte[] minterSignature = new byte[MINTER_SIGNATURE_LENGTH];
 		byteBuffer.get(minterSignature);
 
-		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
+		long totalFees = 0;
 
 		int atCount = 0;
-		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
+		long atFees = 0;
 		List<ATStateData> atStates = new ArrayList<>();
 
 		int atBytesLength = byteBuffer.getInt();
@@ -130,9 +130,10 @@ public class BlockTransformer extends Transformer {
 			byte[] stateHash = new byte[SHA256_LENGTH];
 			atByteBuffer.get(stateHash);
 
-			BigDecimal fees = Serialization.deserializeBigDecimal(atByteBuffer);
+			long fees = atByteBuffer.getLong();
+
 			// Add this AT's fees to our total
-			atFees = atFees.add(fees);
+			atFees += fees;
 
 			atStates.add(new ATStateData(atAddress, stateHash, fees));
 		}
@@ -141,7 +142,7 @@ public class BlockTransformer extends Transformer {
 		atCount = atStates.size();
 
 		// Add AT fees to totalFees
-		totalFees = totalFees.add(atFees);
+		totalFees += atFees;
 
 		int transactionCount = byteBuffer.getInt();
 
@@ -166,7 +167,7 @@ public class BlockTransformer extends Transformer {
 			TransactionData transactionData = TransactionTransformer.fromBytes(transactionBytes);
 			transactions.add(transactionData);
 
-			totalFees = totalFees.add(transactionData.getFee());
+			totalFees += transactionData.getFee();
 		}
 
 		// Online accounts info?
@@ -265,7 +266,7 @@ public class BlockTransformer extends Transformer {
 			for (ATStateData atStateData : block.getATStates()) {
 				bytes.write(Base58.decode(atStateData.getATAddress()));
 				bytes.write(atStateData.getStateHash());
-				Serialization.serializeBigDecimal(bytes, atStateData.getFees());
+				bytes.write(Longs.toByteArray(atStateData.getFees()));
 			}
 
 			// Transactions

@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.group.GroupData;
@@ -33,38 +31,14 @@ public class UpdateGroupTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.singletonList(getNewOwner());
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getOwner().getAddress()))
-			return true;
-
-		if (address.equals(this.getNewOwner().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getOwner().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.updateGroupTransactionData.getNewOwner());
 	}
 
 	// Navigation
 
-	public Account getOwner() throws DataException {
-		return new PublicKeyAccount(this.repository, this.updateGroupTransactionData.getOwnerPublicKey());
+	public Account getOwner() {
+		return this.getCreator();
 	}
 
 	public Account getNewOwner() throws DataException {
@@ -76,46 +50,42 @@ public class UpdateGroupTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Check new owner address is valid
-		if (!Crypto.isValidAddress(updateGroupTransactionData.getNewOwner()))
+		if (!Crypto.isValidAddress(this.updateGroupTransactionData.getNewOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check new approval threshold is valid
-		if (updateGroupTransactionData.getNewApprovalThreshold() == null)
+		if (this.updateGroupTransactionData.getNewApprovalThreshold() == null)
 			return ValidationResult.INVALID_GROUP_APPROVAL_THRESHOLD;
 
 		// Check min/max block delay values
-		if (updateGroupTransactionData.getNewMinimumBlockDelay() < 0)
+		if (this.updateGroupTransactionData.getNewMinimumBlockDelay() < 0)
 			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
 
-		if (updateGroupTransactionData.getNewMaximumBlockDelay() < 1)
+		if (this.updateGroupTransactionData.getNewMaximumBlockDelay() < 1)
 			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
 
-		if (updateGroupTransactionData.getNewMaximumBlockDelay() < updateGroupTransactionData.getNewMinimumBlockDelay())
+		if (this.updateGroupTransactionData.getNewMaximumBlockDelay() < this.updateGroupTransactionData.getNewMinimumBlockDelay())
 			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
 
 		// Check new description size bounds
-		int newDescriptionLength = Utf8.encodedLength(updateGroupTransactionData.getNewDescription());
+		int newDescriptionLength = Utf8.encodedLength(this.updateGroupTransactionData.getNewDescription());
 		if (newDescriptionLength < 1 || newDescriptionLength > Group.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(updateGroupTransactionData.getGroupId());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(this.updateGroupTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		// As this transaction type could require approval, check txGroupId matches groupID at creation
-		if (groupData.getCreationGroupId() != updateGroupTransactionData.getTxGroupId())
+		if (groupData.getCreationGroupId() != this.updateGroupTransactionData.getTxGroupId())
 			return ValidationResult.TX_GROUP_ID_MISMATCH;
 
 		Account owner = getOwner();
 
-		// Check fee is positive
-		if (updateGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		// Check creator has enough funds
-		if (owner.getConfirmedBalance(Asset.QORT).compareTo(updateGroupTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORT) < this.updateGroupTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -123,7 +93,7 @@ public class UpdateGroupTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(updateGroupTransactionData.getGroupId());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(this.updateGroupTransactionData.getGroupId());
 		Account owner = getOwner();
 
 		// Check transaction's public key matches group's current owner
@@ -133,9 +103,8 @@ public class UpdateGroupTransaction extends Transaction {
 		Account newOwner = getNewOwner();
 
 		// Check new owner is not banned
-		if (this.repository.getGroupRepository().banExists(updateGroupTransactionData.getGroupId(), newOwner.getAddress()))
+		if (this.repository.getGroupRepository().banExists(this.updateGroupTransactionData.getGroupId(), newOwner.getAddress()))
 			return ValidationResult.BANNED_FROM_GROUP;
-
 
 		return ValidationResult.OK;
 	}
@@ -143,21 +112,21 @@ public class UpdateGroupTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group
-		Group group = new Group(this.repository, updateGroupTransactionData.getGroupId());
-		group.updateGroup(updateGroupTransactionData);
+		Group group = new Group(this.repository, this.updateGroupTransactionData.getGroupId());
+		group.updateGroup(this.updateGroupTransactionData);
 
 		// Save this transaction, now with updated "group reference" to previous transaction that updated group
-		this.repository.getTransactionRepository().save(updateGroupTransactionData);
+		this.repository.getTransactionRepository().save(this.updateGroupTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert Group update
-		Group group = new Group(this.repository, updateGroupTransactionData.getGroupId());
-		group.unupdateGroup(updateGroupTransactionData);
+		Group group = new Group(this.repository, this.updateGroupTransactionData.getGroupId());
+		group.unupdateGroup(this.updateGroupTransactionData);
 
 		// Save this transaction, now with removed "group reference"
-		this.repository.getTransactionRepository().save(updateGroupTransactionData);
+		this.repository.getTransactionRepository().save(this.updateGroupTransactionData);
 	}
 
 }

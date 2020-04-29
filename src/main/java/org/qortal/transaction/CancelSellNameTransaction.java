@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.CancelSellNameTransactionData;
@@ -32,51 +30,32 @@ public class CancelSellNameTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() {
-		return new ArrayList<>();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getOwner().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getOwner().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.emptyList();
 	}
 
 	// Navigation
 
-	public Account getOwner() throws DataException {
-		return new PublicKeyAccount(this.repository, this.cancelSellNameTransactionData.getOwnerPublicKey());
+	public Account getOwner() {
+		return this.getCreator();
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		String name = this.cancelSellNameTransactionData.getName();
+
 		// Check name size bounds
-		int nameLength = Utf8.encodedLength(cancelSellNameTransactionData.getName());
+		int nameLength = Utf8.encodedLength(name);
 		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check name is lowercase
-		if (!cancelSellNameTransactionData.getName().equals(cancelSellNameTransactionData.getName().toLowerCase()))
+		if (!name.equals(name.toLowerCase()))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
-		NameData nameData = this.repository.getNameRepository().fromName(cancelSellNameTransactionData.getName());
+		NameData nameData = this.repository.getNameRepository().fromName(name);
 
 		// Check name exists
 		if (nameData == null)
@@ -86,17 +65,13 @@ public class CancelSellNameTransaction extends Transaction {
 		if (!nameData.getIsForSale())
 			return ValidationResult.NAME_NOT_FOR_SALE;
 
-		// Check transaction's public key matches name's current owner
+		// Check transaction creator matches name's current owner
 		Account owner = getOwner();
 		if (!owner.getAddress().equals(nameData.getOwner()))
 			return ValidationResult.INVALID_NAME_OWNER;
 
-		// Check fee is positive
-		if (cancelSellNameTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		// Check issuer has enough funds
-		if (owner.getConfirmedBalance(Asset.QORT).compareTo(cancelSellNameTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORT) < cancelSellNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

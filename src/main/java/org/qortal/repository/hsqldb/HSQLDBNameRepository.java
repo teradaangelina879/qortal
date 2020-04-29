@@ -1,6 +1,8 @@
 package org.qortal.repository.hsqldb;
 
-import java.math.BigDecimal;
+import static org.qortal.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
+import static org.qortal.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -38,7 +40,11 @@ public class HSQLDBNameRepository implements NameRepository {
 
 			byte[] reference = resultSet.getBytes(5);
 			boolean isForSale = resultSet.getBoolean(6);
-			BigDecimal salePrice = resultSet.getBigDecimal(7);
+
+			Long salePrice = resultSet.getLong(7);
+			if (salePrice == 0 && resultSet.wasNull())
+				salePrice = null;
+
 			int creationGroupId = resultSet.getInt(8);
 
 			return new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId);
@@ -75,15 +81,15 @@ public class HSQLDBNameRepository implements NameRepository {
 				String name = resultSet.getString(1);
 				String data = resultSet.getString(2);
 				String owner = resultSet.getString(3);
-				long registered = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-
-				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
-
+				long registered = getZonedTimestampMilli(resultSet, 4);
+				Long updated = getZonedTimestampMilli(resultSet, 5); // can be null
 				byte[] reference = resultSet.getBytes(6);
 				boolean isForSale = resultSet.getBoolean(7);
-				BigDecimal salePrice = resultSet.getBigDecimal(8);
+
+				Long salePrice = resultSet.getLong(8);
+				if (salePrice == 0 && resultSet.wasNull())
+					salePrice = null;
+
 				int creationGroupId = resultSet.getInt(9);
 
 				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
@@ -114,15 +120,15 @@ public class HSQLDBNameRepository implements NameRepository {
 				String name = resultSet.getString(1);
 				String data = resultSet.getString(2);
 				String owner = resultSet.getString(3);
-				long registered = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-
-				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
-
+				long registered = getZonedTimestampMilli(resultSet, 4);
+				Long updated = getZonedTimestampMilli(resultSet, 5); // can be null
 				byte[] reference = resultSet.getBytes(6);
 				boolean isForSale = true;
-				BigDecimal salePrice = resultSet.getBigDecimal(7);
+
+				Long salePrice = resultSet.getLong(7);
+				if (salePrice == 0 && resultSet.wasNull())
+					salePrice = null;
+
 				int creationGroupId = resultSet.getInt(8);
 
 				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
@@ -152,15 +158,15 @@ public class HSQLDBNameRepository implements NameRepository {
 			do {
 				String name = resultSet.getString(1);
 				String data = resultSet.getString(2);
-				long registered = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-
-				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
-
+				long registered = getZonedTimestampMilli(resultSet, 3);
+				Long updated = getZonedTimestampMilli(resultSet, 4); // can be null
 				byte[] reference = resultSet.getBytes(5);
 				boolean isForSale = resultSet.getBoolean(6);
-				BigDecimal salePrice = resultSet.getBigDecimal(7);
+
+				Long salePrice = resultSet.getLong(7);
+				if (salePrice == 0 && resultSet.wasNull())
+					salePrice = null;
+
 				int creationGroupId = resultSet.getInt(8);
 
 				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
@@ -200,12 +206,9 @@ public class HSQLDBNameRepository implements NameRepository {
 	public void save(NameData nameData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Names");
 
-		// Special handling for "updated" timestamp
-		Long updated = nameData.getUpdated();
-		Timestamp updatedTimestamp = updated == null ? null : new Timestamp(updated);
-
 		saveHelper.bind("owner", nameData.getOwner()).bind("name", nameData.getName()).bind("data", nameData.getData())
-				.bind("registered", new Timestamp(nameData.getRegistered())).bind("updated", updatedTimestamp).bind("reference", nameData.getReference())
+				.bind("registered", toOffsetDateTime(nameData.getRegistered())).bind("updated", toOffsetDateTime(nameData.getUpdated()))
+				.bind("reference", nameData.getReference())
 				.bind("is_for_sale", nameData.getIsForSale()).bind("sale_price", nameData.getSalePrice())
 				.bind("creation_group_id", nameData.getCreationGroupId());
 

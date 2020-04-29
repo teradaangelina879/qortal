@@ -1,6 +1,5 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
@@ -28,29 +27,8 @@ public class SetGroupTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
+	public List<String> getRecipientAddresses() throws DataException {
 		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getCreator().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getCreator().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
 	}
 
 	// Navigation
@@ -59,22 +37,20 @@ public class SetGroupTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		int defaultGroupId = this.setGroupTransactionData.getDefaultGroupId();
+
 		// Check group exists
-		if (!this.repository.getGroupRepository().groupExists(setGroupTransactionData.getDefaultGroupId()))
+		if (!this.repository.getGroupRepository().groupExists(defaultGroupId))
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account creator = getCreator();
 
 		// Must be member of group
-		if (!this.repository.getGroupRepository().memberExists(setGroupTransactionData.getDefaultGroupId(), creator.getAddress()))
+		if (!this.repository.getGroupRepository().memberExists(defaultGroupId, creator.getAddress()))
 			return ValidationResult.NOT_GROUP_MEMBER;
 
-		// Check fee is positive
-		if (setGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORT).compareTo(setGroupTransactionData.getFee()) < 0)
+		if (creator.getConfirmedBalance(Asset.QORT) < this.setGroupTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -88,13 +64,13 @@ public class SetGroupTransaction extends Transaction {
 		if (previousDefaultGroupId == null)
 			previousDefaultGroupId = Group.NO_GROUP;
 
-		setGroupTransactionData.setPreviousDefaultGroupId(previousDefaultGroupId);
+		this.setGroupTransactionData.setPreviousDefaultGroupId(previousDefaultGroupId);
 
 		// Save this transaction with account's previous defaultGroupId value
-		this.repository.getTransactionRepository().save(setGroupTransactionData);
+		this.repository.getTransactionRepository().save(this.setGroupTransactionData);
 
 		// Set account's new default groupID
-		creator.setDefaultGroupId(setGroupTransactionData.getDefaultGroupId());
+		creator.setDefaultGroupId(this.setGroupTransactionData.getDefaultGroupId());
 	}
 
 	@Override
@@ -102,15 +78,15 @@ public class SetGroupTransaction extends Transaction {
 		// Revert
 		Account creator = getCreator();
 
-		Integer previousDefaultGroupId = setGroupTransactionData.getPreviousDefaultGroupId();
+		Integer previousDefaultGroupId = this.setGroupTransactionData.getPreviousDefaultGroupId();
 		if (previousDefaultGroupId == null)
 			previousDefaultGroupId = Group.NO_GROUP;
 
 		creator.setDefaultGroupId(previousDefaultGroupId);
 
 		// Save this transaction with removed previous defaultGroupId value
-		setGroupTransactionData.setPreviousDefaultGroupId(null);
-		this.repository.getTransactionRepository().save(setGroupTransactionData);
+		this.setGroupTransactionData.setPreviousDefaultGroupId(null);
+		this.repository.getTransactionRepository().save(this.setGroupTransactionData);
 	}
 
 }

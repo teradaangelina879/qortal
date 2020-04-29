@@ -1,10 +1,9 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -17,11 +16,15 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 public class TransferAssetTransactionData extends TransactionData {
 
 	// Properties
+
 	@Schema(example = "sender_public_key")
 	private byte[] senderPublicKey;
 
 	private String recipient;
-	private BigDecimal amount;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
+
 	private long assetId;
 
 	// Used by API - not always present
@@ -40,7 +43,7 @@ public class TransferAssetTransactionData extends TransactionData {
 	}
 
 	/** Constructs using data from repository, including optional assetName. */
-	public TransferAssetTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount, long assetId, String assetName) {
+	public TransferAssetTransactionData(BaseTransactionData baseTransactionData, String recipient, long amount, long assetId, String assetName) {
 		super(TransactionType.TRANSFER_ASSET, baseTransactionData);
 
 		this.senderPublicKey = baseTransactionData.creatorPublicKey;
@@ -51,7 +54,7 @@ public class TransferAssetTransactionData extends TransactionData {
 	}
 
 	/** Constructor excluding optional assetName. */
-	public TransferAssetTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount, long assetId) {
+	public TransferAssetTransactionData(BaseTransactionData baseTransactionData, String recipient, long amount, long assetId) {
 		this(baseTransactionData, recipient, amount, assetId, null);
 	}
 
@@ -65,7 +68,7 @@ public class TransferAssetTransactionData extends TransactionData {
 		return this.recipient;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 

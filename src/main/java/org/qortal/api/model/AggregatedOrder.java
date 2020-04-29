@@ -1,11 +1,10 @@
 package org.qortal.api.model;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.data.asset.OrderData;
 
@@ -29,12 +28,14 @@ public class AggregatedOrder {
 	}
 
 	@XmlElement(name = "price")
-	public BigDecimal getPrice() {
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	public long getPrice() {
 		return this.orderData.getPrice();
 	}
 
 	@XmlElement(name = "unfulfilled")
-	public BigDecimal getUnfulfilled() {
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	public long getUnfulfilled() {
 		return this.orderData.getAmount();
 	}
 

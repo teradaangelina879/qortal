@@ -1,6 +1,5 @@
 package org.qortal.test;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import org.junit.Before;
@@ -56,7 +55,7 @@ public class BlockTests extends Common {
 				if (transactionData.getType() != Transaction.TransactionType.GENESIS)
 					continue;
 
-				assertTrue(transactionData.getFee().compareTo(BigDecimal.ZERO) == 0);
+				assertEquals(0L, (long) transactionData.getFee());
 				assertTrue(transaction.isSignatureValid());
 				assertEquals(Transaction.ValidationResult.OK, transaction.isValid());
 
@@ -68,7 +67,7 @@ public class BlockTests extends Common {
 			assertNotNull(transactionData);
 
 			assertEquals(Transaction.TransactionType.GENESIS, transactionData.getType());
-			assertTrue(transactionData.getFee().compareTo(BigDecimal.ZERO) == 0);
+			assertEquals(0L, (long) transactionData.getFee());
 			// assertNull(transactionData.getReference());
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);

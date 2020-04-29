@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
@@ -27,13 +28,15 @@ public class RewardShareTransactionData extends TransactionData {
 	@Schema(example = "reward_share_public_key")
 	private byte[] rewardSharePublicKey;
 
-	@Schema(description = "Percentage of block rewards that minter shares to recipient, or negative value to cancel existing reward-share")
-	private BigDecimal sharePercent;
+	// JAXB will use special getter below
+	@XmlTransient
+	@Schema(hidden = true)
+	private int sharePercent;
 
 	// No need to ever expose this via API
 	@XmlTransient
 	@Schema(hidden = true)
-	private BigDecimal previousSharePercent;
+	private Integer previousSharePercent;
 
 	// Constructors
 
@@ -48,7 +51,7 @@ public class RewardShareTransactionData extends TransactionData {
 
 	/** From repository */
 	public RewardShareTransactionData(BaseTransactionData baseTransactionData,
-			String recipient, byte[] rewardSharePublicKey, BigDecimal sharePercent, BigDecimal previousSharePercent) {
+			String recipient, byte[] rewardSharePublicKey, int sharePercent, Integer previousSharePercent) {
 		super(TransactionType.REWARD_SHARE, baseTransactionData);
 
 		this.minterPublicKey = baseTransactionData.creatorPublicKey;
@@ -60,7 +63,7 @@ public class RewardShareTransactionData extends TransactionData {
 
 	/** From network/API */
 	public RewardShareTransactionData(BaseTransactionData baseTransactionData,
-			String recipient, byte[] rewardSharePublicKey, BigDecimal sharePercent) {
+			String recipient, byte[] rewardSharePublicKey, int sharePercent) {
 		this(baseTransactionData, recipient, rewardSharePublicKey, sharePercent, null);
 	}
 
@@ -78,16 +81,24 @@ public class RewardShareTransactionData extends TransactionData {
 		return this.rewardSharePublicKey;
 	}
 
-	public BigDecimal getSharePercent() {
+	public int getSharePercent() {
 		return this.sharePercent;
 	}
 
-	public BigDecimal getPreviousSharePercent() {
+	public Integer getPreviousSharePercent() {
 		return this.previousSharePercent;
 	}
 
-	public void setPreviousSharePercent(BigDecimal previousSharePercent) {
+	public void setPreviousSharePercent(Integer previousSharePercent) {
 		this.previousSharePercent = previousSharePercent;
+	}
+
+	// Special JAXB getters
+
+	@Schema(name = "sharePercent", description = "Percentage of block rewards that minter shares to recipient, or negative value to cancel existing reward-share")
+	@XmlElement(name = "sharePercent")
+	public BigDecimal getSharePercentJaxb() {
+		return BigDecimal.valueOf(this.sharePercent, 2);
 	}
 
 }

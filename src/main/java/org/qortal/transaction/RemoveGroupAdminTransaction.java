@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.group.GroupData;
@@ -18,7 +16,9 @@ import org.qortal.repository.Repository;
 public class RemoveGroupAdminTransaction extends Transaction {
 
 	// Properties
+
 	private RemoveGroupAdminTransactionData removeGroupAdminTransactionData;
+	private Account adminAccount = null;
 
 	// Constructors
 
@@ -31,53 +31,34 @@ public class RemoveGroupAdminTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getOwner().getAddress()))
-			return true;
-
-		if (address.equals(this.getAdmin().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getOwner().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.removeGroupAdminTransactionData.getAdmin());
 	}
 
 	// Navigation
 
-	public Account getOwner() throws DataException {
-		return new PublicKeyAccount(this.repository, this.removeGroupAdminTransactionData.getOwnerPublicKey());
+	public Account getOwner() {
+		return this.getCreator();
 	}
 
-	public Account getAdmin() throws DataException {
-		return new Account(this.repository, this.removeGroupAdminTransactionData.getAdmin());
+	public Account getAdmin() {
+		if (this.adminAccount == null)
+			this.adminAccount = new Account(this.repository, this.removeGroupAdminTransactionData.getAdmin());
+
+		return this.adminAccount;
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		int groupId = this.removeGroupAdminTransactionData.getGroupId();
+
 		// Check admin address is valid
-		if (!Crypto.isValidAddress(removeGroupAdminTransactionData.getAdmin()))
+		if (!Crypto.isValidAddress(this.removeGroupAdminTransactionData.getAdmin()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(removeGroupAdminTransactionData.getGroupId());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(groupId);
 
 		// Check group exists
 		if (groupData == null)
@@ -92,15 +73,11 @@ public class RemoveGroupAdminTransaction extends Transaction {
 		Account admin = getAdmin();
 
 		// Check member is an admin
-		if (!this.repository.getGroupRepository().adminExists(removeGroupAdminTransactionData.getGroupId(), admin.getAddress()))
+		if (!this.repository.getGroupRepository().adminExists(groupId, admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
-		// Check fee is positive
-		if (removeGroupAdminTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		// Check creator has enough funds
-		if (owner.getConfirmedBalance(Asset.QORT).compareTo(removeGroupAdminTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORT) < this.removeGroupAdminTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -109,21 +86,21 @@ public class RemoveGroupAdminTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group adminship
-		Group group = new Group(this.repository, removeGroupAdminTransactionData.getGroupId());
-		group.demoteFromAdmin(removeGroupAdminTransactionData);
+		Group group = new Group(this.repository, this.removeGroupAdminTransactionData.getGroupId());
+		group.demoteFromAdmin(this.removeGroupAdminTransactionData);
 
 		// Save this transaction with cached references to transactions that can help restore state
-		this.repository.getTransactionRepository().save(removeGroupAdminTransactionData);
+		this.repository.getTransactionRepository().save(this.removeGroupAdminTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert group adminship
-		Group group = new Group(this.repository, removeGroupAdminTransactionData.getGroupId());
-		group.undemoteFromAdmin(removeGroupAdminTransactionData);
+		Group group = new Group(this.repository, this.removeGroupAdminTransactionData.getGroupId());
+		group.undemoteFromAdmin(this.removeGroupAdminTransactionData);
 
 		// Save this transaction with removed group references
-		this.repository.getTransactionRepository().save(removeGroupAdminTransactionData);
+		this.repository.getTransactionRepository().save(this.removeGroupAdminTransactionData);
 	}
 
 }

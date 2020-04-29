@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -21,8 +20,6 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
-	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
-	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 	private static final int IS_TEXT_LENGTH = BOOLEAN_LENGTH;
 	private static final int IS_ENCRYPTED_LENGTH = BOOLEAN_LENGTH;
@@ -65,7 +62,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		long assetId = byteBuffer.getLong();
 
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+		long amount = byteBuffer.getLong();
 
 		int dataSize = byteBuffer.getInt();
 		// Don't allow invalid dataSize here to avoid run-time issues
@@ -79,7 +76,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		boolean isText = byteBuffer.get() != 0;
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -107,7 +104,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(Longs.toByteArray(messageTransactionData.getAssetId()));
 
-			Serialization.serializeBigDecimal(bytes, messageTransactionData.getAmount());
+			bytes.write(Longs.toByteArray(messageTransactionData.getAmount()));
 
 			bytes.write(Ints.toByteArray(messageTransactionData.getData().length));
 
@@ -117,7 +114,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 			bytes.write((byte) (messageTransactionData.getIsText() ? 1 : 0));
 
-			Serialization.serializeBigDecimal(bytes, messageTransactionData.getFee());
+			bytes.write(Longs.toByteArray(messageTransactionData.getFee()));
 
 			if (messageTransactionData.getSignature() != null)
 				bytes.write(messageTransactionData.getSignature());

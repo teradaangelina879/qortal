@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
@@ -18,8 +17,6 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 
 	// Property lengths
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
-	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
-	private static final int AMOUNT_LENGTH = 12;
 
 	private static final int EXTRAS_LENGTH = RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH;
 
@@ -34,7 +31,7 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 		layout.add("asset owner's public key", TransformationType.PUBLIC_KEY);
 		layout.add("recipient", TransformationType.ADDRESS);
 		layout.add("asset ID", TransformationType.LONG);
-		layout.add("asset quantity", TransformationType.ASSET_QUANTITY);
+		layout.add("asset quantity", TransformationType.AMOUNT);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
@@ -53,9 +50,9 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 
 		long assetId = byteBuffer.getLong();
 
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
+		long amount = byteBuffer.getLong();
 
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		long fee = byteBuffer.getLong();
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -81,9 +78,9 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 
 			bytes.write(Longs.toByteArray(transferAssetTransactionData.getAssetId()));
 
-			Serialization.serializeBigDecimal(bytes, transferAssetTransactionData.getAmount(), AMOUNT_LENGTH);
+			bytes.write(Longs.toByteArray(transferAssetTransactionData.getAmount()));
 
-			Serialization.serializeBigDecimal(bytes, transferAssetTransactionData.getFee());
+			bytes.write(Longs.toByteArray(transferAssetTransactionData.getFee()));
 
 			if (transferAssetTransactionData.getSignature() != null)
 				bytes.write(transferAssetTransactionData.getSignature());

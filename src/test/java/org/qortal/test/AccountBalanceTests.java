@@ -2,7 +2,6 @@ package org.qortal.test;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,18 +47,18 @@ public class AccountBalanceTests extends Common {
 		}
 	}
 
-	private BigDecimal testNewerBalance(Repository repository, TestAccount testAccount) throws DataException {
+	private long testNewerBalance(Repository repository, TestAccount testAccount) throws DataException {
 		// Grab initial balance
-		BigDecimal initialBalance = testAccount.getConfirmedBalance(Asset.QORT);
+		long initialBalance = testAccount.getConfirmedBalance(Asset.QORT);
 
 		// Mint block to cause newer balance
 		BlockUtils.mintBlock(repository);
 
 		// Grab newer balance
-		BigDecimal newerBalance = testAccount.getConfirmedBalance(Asset.QORT);
+		long newerBalance = testAccount.getConfirmedBalance(Asset.QORT);
 
 		// Confirm newer balance is greater than initial balance
-		assertTrue("Newer balance should be greater than initial balance", newerBalance.compareTo(initialBalance) > 0);
+		assertTrue("Newer balance should be greater than initial balance", newerBalance > initialBalance);
 
 		return initialBalance;
 	}
@@ -70,15 +69,15 @@ public class AccountBalanceTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount alice = Common.getTestAccount(repository, "alice");
 
-			BigDecimal initialBalance = testNewerBalance(repository, alice);
+			long initialBalance = testNewerBalance(repository, alice);
 
 			BlockUtils.orphanLastBlock(repository);
 
 			// Grab post-orphan balance
-			BigDecimal orphanedBalance = alice.getConfirmedBalance(Asset.QORT);
+			long orphanedBalance = alice.getConfirmedBalance(Asset.QORT);
 
 			// Confirm post-orphan balance is same as initial
-			assertEqualBigDecimals("Post-orphan balance should match initial", initialBalance, orphanedBalance);
+			assertEquals("Post-orphan balance should match initial", initialBalance, orphanedBalance);
 		}
 	}
 
@@ -111,7 +110,7 @@ public class AccountBalanceTests extends Common {
 			for (int i = 0; i < 100000; ++i) {
 				Account account = accounts.get(random.nextInt(accounts.size()));
 				int assetId = random.nextInt(2);
-				BigDecimal balance = BigDecimal.valueOf(random.nextInt(100000));
+				long balance = random.nextInt(100000);
 
 				AccountBalanceData accountBalanceData = new AccountBalanceData(account.getAddress(), assetId, balance);
 				repository.getAccountRepository().save(accountBalanceData);

@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.MultiPaymentTransactionData;
@@ -33,109 +31,67 @@ public class MultiPaymentTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		List<Account> recipients = new ArrayList<>();
-
-		for (PaymentData paymentData : multiPaymentTransactionData.getPayments())
-			recipients.add(new Account(this.repository, paymentData.getRecipient()));
-
-		return recipients;
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getSender().getAddress()))
-			return true;
-
-		for (PaymentData paymentData : multiPaymentTransactionData.getPayments())
-			if (address.equals(paymentData.getRecipient()))
-				return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-		String senderAddress = this.getSender().getAddress();
-
-		if (address.equals(senderAddress))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		// We're only interested in QORT
-		for (PaymentData paymentData : multiPaymentTransactionData.getPayments())
-			if (paymentData.getAssetId() == Asset.QORT) {
-				if (address.equals(paymentData.getRecipient()))
-					amount = amount.add(paymentData.getAmount());
-				else if (address.equals(senderAddress))
-					amount = amount.subtract(paymentData.getAmount());
-			}
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return this.multiPaymentTransactionData.getPayments().stream().map(PaymentData::getRecipient).collect(Collectors.toList());
 	}
 
 	// Navigation
 
-	public Account getSender() throws DataException {
-		return new PublicKeyAccount(this.repository, this.multiPaymentTransactionData.getSenderPublicKey());
+	public Account getSender() {
+		return this.getCreator();
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		List<PaymentData> payments = multiPaymentTransactionData.getPayments();
+		List<PaymentData> payments = this.multiPaymentTransactionData.getPayments();
 
 		// Check number of payments
 		if (payments.isEmpty() || payments.size() > MAX_PAYMENTS_COUNT)
 			return ValidationResult.INVALID_PAYMENTS_COUNT;
 
-		// Check reference is correct
 		Account sender = getSender();
 
 		// Check sender has enough funds for fee
-		if (sender.getConfirmedBalance(Asset.QORT).compareTo(multiPaymentTransactionData.getFee()) < 0)
+		if (sender.getConfirmedBalance(Asset.QORT) > this.multiPaymentTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
-		return new Payment(this.repository).isValid(multiPaymentTransactionData.getSenderPublicKey(), payments, multiPaymentTransactionData.getFee());
+		return new Payment(this.repository).isValid(this.multiPaymentTransactionData.getSenderPublicKey(), payments, this.multiPaymentTransactionData.getFee());
 	}
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
-		List<PaymentData> payments = multiPaymentTransactionData.getPayments();
+		List<PaymentData> payments = this.multiPaymentTransactionData.getPayments();
 
-		return new Payment(this.repository).isProcessable(multiPaymentTransactionData.getSenderPublicKey(), payments, multiPaymentTransactionData.getFee());
+		return new Payment(this.repository).isProcessable(this.multiPaymentTransactionData.getSenderPublicKey(), payments, this.multiPaymentTransactionData.getFee());
 	}
 
 	@Override
 	public void process() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
-		new Payment(this.repository).process(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
-				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature());
+		new Payment(this.repository).process(this.multiPaymentTransactionData.getSenderPublicKey(), this.multiPaymentTransactionData.getPayments(), this.multiPaymentTransactionData.getSignature());
 	}
 
 	@Override
 	public void processReferencesAndFees() throws DataException {
 		// Wrap and delegate reference processing to Payment class. Always update recipients' last references regardless of asset.
-		new Payment(this.repository).processReferencesAndFees(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
-				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), true);
+		new Payment(this.repository).processReferencesAndFees(this.multiPaymentTransactionData.getSenderPublicKey(), this.multiPaymentTransactionData.getPayments(),
+				this.multiPaymentTransactionData.getFee(), this.multiPaymentTransactionData.getSignature(), true);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
-		new Payment(this.repository).orphan(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
-				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference());
+		new Payment(this.repository).orphan(this.multiPaymentTransactionData.getSenderPublicKey(), this.multiPaymentTransactionData.getPayments(),
+				this.multiPaymentTransactionData.getSignature(), this.multiPaymentTransactionData.getReference());
 	}
 
 	@Override
 	public void orphanReferencesAndFees() throws DataException {
 		// Wrap and delegate reference processing to Payment class. Always revert recipients' last references regardless of asset.
-		new Payment(this.repository).orphanReferencesAndFees(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
-				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference(), true);
+		new Payment(this.repository).orphanReferencesAndFees(this.multiPaymentTransactionData.getSenderPublicKey(), this.multiPaymentTransactionData.getPayments(),
+				this.multiPaymentTransactionData.getFee(), this.multiPaymentTransactionData.getSignature(), this.multiPaymentTransactionData.getReference(), true);
 	}
 
 }

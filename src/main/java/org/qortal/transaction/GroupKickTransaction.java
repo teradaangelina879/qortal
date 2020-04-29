@@ -1,6 +1,5 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,32 +31,8 @@ public class GroupKickTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getAdmin().getAddress()))
-			return true;
-
-		if (address.equals(this.getMember().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getAdmin().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.groupKickTransactionData.getMember());
 	}
 
 	// Navigation
@@ -74,12 +49,13 @@ public class GroupKickTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		int groupId = this.groupKickTransactionData.getGroupId();
+
 		// Check member address is valid
-		if (!Crypto.isValidAddress(groupKickTransactionData.getMember()))
+		if (!Crypto.isValidAddress(this.groupKickTransactionData.getMember()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		GroupRepository groupRepository = this.repository.getGroupRepository();
-		int groupId = groupKickTransactionData.getGroupId();
 		GroupData groupData = groupRepository.fromGroupId(groupId);
 
 		// Check group exists
@@ -102,12 +78,8 @@ public class GroupKickTransaction extends Transaction {
 		if (!admin.getAddress().equals(groupData.getOwner()) && groupRepository.adminExists(groupId, member.getAddress()))
 			return ValidationResult.INVALID_GROUP_OWNER;
 
-		// Check fee is positive
-		if (groupKickTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
 		// Check creator has enough funds
-		if (admin.getConfirmedBalance(Asset.QORT).compareTo(groupKickTransactionData.getFee()) < 0)
+		if (admin.getConfirmedBalance(Asset.QORT) < this.groupKickTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -116,21 +88,21 @@ public class GroupKickTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, groupKickTransactionData.getGroupId());
-		group.kick(groupKickTransactionData);
+		Group group = new Group(this.repository, this.groupKickTransactionData.getGroupId());
+		group.kick(this.groupKickTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
-		this.repository.getTransactionRepository().save(groupKickTransactionData);
+		this.repository.getTransactionRepository().save(this.groupKickTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, groupKickTransactionData.getGroupId());
-		group.unkick(groupKickTransactionData);
+		Group group = new Group(this.repository, this.groupKickTransactionData.getGroupId());
+		group.unkick(this.groupKickTransactionData);
 
 		// Save this transaction with removed member/admin references
-		this.repository.getTransactionRepository().save(groupKickTransactionData);
+		this.repository.getTransactionRepository().save(this.groupKickTransactionData);
 	}
 
 }

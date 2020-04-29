@@ -1,7 +1,5 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -17,16 +15,16 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class SellNameTransactionData extends TransactionData {
 
 	// Properties
+
 	@Schema(description = "owner's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] ownerPublicKey;
+
 	@Schema(description = "which name to sell", example = "my-name")
 	private String name;
+
 	@Schema(description = "selling price", example = "123.456")
-	@XmlJavaTypeAdapter(
-		type = BigDecimal.class,
-		value = org.qortal.api.BigDecimalTypeAdapter.class
-	)
-	private BigDecimal amount;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long amount;
 
 	// Constructors
 
@@ -39,7 +37,7 @@ public class SellNameTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public SellNameTransactionData(BaseTransactionData baseTransactionData, String name, BigDecimal amount) {
+	public SellNameTransactionData(BaseTransactionData baseTransactionData, String name, long amount) {
 		super(TransactionType.SELL_NAME, baseTransactionData);
 
 		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
@@ -57,7 +55,7 @@ public class SellNameTransactionData extends TransactionData {
 		return this.name;
 	}
 
-	public BigDecimal getAmount() {
+	public long getAmount() {
 		return this.amount;
 	}
 

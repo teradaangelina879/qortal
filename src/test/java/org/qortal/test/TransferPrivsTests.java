@@ -24,7 +24,6 @@ import org.qortal.transform.Transformer;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Random;
 
@@ -166,11 +165,11 @@ public class TransferPrivsTests extends Common {
 	public void testMultipleIntoChloeTransferPrivs() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Alice needs to mint block containing REWARD_SHARE BEFORE Alice loses minting privs
-			byte[] aliceChloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "chloe", BigDecimal.ZERO); // Block minted by Alice
+			byte[] aliceChloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "chloe", 0); // Block minted by Alice
 			PrivateKeyAccount aliceChloeRewardShareAccount = new PrivateKeyAccount(repository, aliceChloeRewardSharePrivateKey);
 
 			// Alice needs to mint block containing REWARD_SHARE BEFORE Alice loses minting privs
-			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", BigDecimal.ZERO); // Block minted by Alice
+			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", 0); // Block minted by Alice
 			PrivateKeyAccount dilbertRewardShareAccount = new PrivateKeyAccount(repository, dilbertRewardSharePrivateKey);
 
 			TestAccount alice = Common.getTestAccount(repository, "alice");
@@ -281,7 +280,7 @@ public class TransferPrivsTests extends Common {
 		byte[] reference = senderAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 		int txGroupId = 0;
-		BigDecimal fee = BigDecimal.ONE.setScale(8);
+		long fee = 1L;
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderAccount.getPublicKey(), fee, null);
 		TransactionData transactionData = new TransferPrivsTransactionData(baseTransactionData, recipientAccount.getAddress());

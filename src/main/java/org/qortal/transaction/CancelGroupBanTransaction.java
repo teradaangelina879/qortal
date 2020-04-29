@@ -1,11 +1,9 @@
 package org.qortal.transaction;
 
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.group.GroupData;
@@ -18,7 +16,9 @@ import org.qortal.repository.Repository;
 public class CancelGroupBanTransaction extends Transaction {
 
 	// Properties
+
 	private CancelGroupBanTransactionData groupUnbanTransactionData;
+	private Account memberAccount = null;
 
 	// Constructors
 
@@ -31,53 +31,34 @@ public class CancelGroupBanTransaction extends Transaction {
 	// More information
 
 	@Override
-	public List<Account> getRecipientAccounts() throws DataException {
-		return Collections.emptyList();
-	}
-
-	@Override
-	public boolean isInvolved(Account account) throws DataException {
-		String address = account.getAddress();
-
-		if (address.equals(this.getAdmin().getAddress()))
-			return true;
-
-		if (address.equals(this.getMember().getAddress()))
-			return true;
-
-		return false;
-	}
-
-	@Override
-	public BigDecimal getAmount(Account account) throws DataException {
-		String address = account.getAddress();
-		BigDecimal amount = BigDecimal.ZERO.setScale(8);
-
-		if (address.equals(this.getAdmin().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
-
-		return amount;
+	public List<String> getRecipientAddresses() throws DataException {
+		return Collections.singletonList(this.groupUnbanTransactionData.getMember());
 	}
 
 	// Navigation
 
-	public Account getAdmin() throws DataException {
-		return new PublicKeyAccount(this.repository, this.groupUnbanTransactionData.getAdminPublicKey());
+	public Account getAdmin() {
+		return this.getCreator();
 	}
 
-	public Account getMember() throws DataException {
-		return new Account(this.repository, this.groupUnbanTransactionData.getMember());
+	public Account getMember() {
+		if (this.memberAccount == null)
+			this.memberAccount = new Account(this.repository, this.groupUnbanTransactionData.getMember());
+
+		return this.memberAccount;
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		int groupId = this.groupUnbanTransactionData.getGroupId();
+
 		// Check member address is valid
-		if (!Crypto.isValidAddress(groupUnbanTransactionData.getMember()))
+		if (!Crypto.isValidAddress(this.groupUnbanTransactionData.getMember()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(groupUnbanTransactionData.getGroupId());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(groupId);
 
 		// Check group exists
 		if (groupData == null)
@@ -86,21 +67,17 @@ public class CancelGroupBanTransaction extends Transaction {
 		Account admin = getAdmin();
 
 		// Can't unban if not an admin
-		if (!this.repository.getGroupRepository().adminExists(groupUnbanTransactionData.getGroupId(), admin.getAddress()))
+		if (!this.repository.getGroupRepository().adminExists(groupId, admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
 		Account member = getMember();
 
 		// Check ban actually exists
-		if (!this.repository.getGroupRepository().banExists(groupUnbanTransactionData.getGroupId(), member.getAddress()))
+		if (!this.repository.getGroupRepository().banExists(groupId, member.getAddress()))
 			return ValidationResult.BAN_UNKNOWN;
 
-		// Check fee is positive
-		if (groupUnbanTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
-		// Check creator has enough funds
-		if (admin.getConfirmedBalance(Asset.QORT).compareTo(groupUnbanTransactionData.getFee()) < 0)
+		// Check admin has enough funds
+		if (admin.getConfirmedBalance(Asset.QORT) < this.groupUnbanTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -109,21 +86,21 @@ public class CancelGroupBanTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, groupUnbanTransactionData.getGroupId());
-		group.cancelBan(groupUnbanTransactionData);
+		Group group = new Group(this.repository, this.groupUnbanTransactionData.getGroupId());
+		group.cancelBan(this.groupUnbanTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
-		this.repository.getTransactionRepository().save(groupUnbanTransactionData);
+		this.repository.getTransactionRepository().save(this.groupUnbanTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, groupUnbanTransactionData.getGroupId());
-		group.uncancelBan(groupUnbanTransactionData);
+		Group group = new Group(this.repository, this.groupUnbanTransactionData.getGroupId());
+		group.uncancelBan(this.groupUnbanTransactionData);
 
 		// Save this transaction with removed member/admin references
-		this.repository.getTransactionRepository().save(groupUnbanTransactionData);
+		this.repository.getTransactionRepository().save(this.groupUnbanTransactionData);
 	}
 
 }

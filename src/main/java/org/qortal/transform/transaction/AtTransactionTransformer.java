@@ -2,7 +2,6 @@ package org.qortal.transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.ATTransactionData;
@@ -17,8 +16,6 @@ public class AtTransactionTransformer extends TransactionTransformer {
 
 	private static final int SENDER_LENGTH = ADDRESS_LENGTH;
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
-	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
-	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 
 	private static final int EXTRAS_LENGTH = SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH + DATA_SIZE_LENGTH;
@@ -51,8 +48,8 @@ public class AtTransactionTransformer extends TransactionTransformer {
 			Serialization.serializeAddress(bytes, atTransactionData.getRecipient());
 
 			// Only emit amount if greater than zero (safer than checking assetId)
-			if (atTransactionData.getAmount().compareTo(BigDecimal.ZERO) > 0) {
-				Serialization.serializeBigDecimal(bytes, atTransactionData.getAmount());
+			if (atTransactionData.getAmount() > 0) {
+				bytes.write(Longs.toByteArray(atTransactionData.getAmount()));
 				bytes.write(Longs.toByteArray(atTransactionData.getAssetId()));
 			}
 
@@ -64,7 +61,7 @@ public class AtTransactionTransformer extends TransactionTransformer {
 				bytes.write(Ints.toByteArray(0));
 			}
 
-			Serialization.serializeBigDecimal(bytes, atTransactionData.getFee());
+			bytes.write(Longs.toByteArray(atTransactionData.getFee()));
 
 			if (atTransactionData.getSignature() != null)
 				bytes.write(atTransactionData.getSignature());

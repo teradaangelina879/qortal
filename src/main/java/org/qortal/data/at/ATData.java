@@ -1,7 +1,5 @@
 package org.qortal.data.at;
 
-import java.math.BigDecimal;
-
 public class ATData {
 
 	// Properties
@@ -16,12 +14,12 @@ public class ATData {
 	private boolean isFinished;
 	private boolean hadFatalError;
 	private boolean isFrozen;
-	private BigDecimal frozenBalance;
+	private Long frozenBalance;
 
 	// Constructors
 
 	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, boolean isSleeping,
-			Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, BigDecimal frozenBalance) {
+			Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
 		this.ATAddress = ATAddress;
 		this.creatorPublicKey = creatorPublicKey;
 		this.creation = creation;
@@ -34,16 +32,6 @@ public class ATData {
 		this.hadFatalError = hadFatalError;
 		this.isFrozen = isFrozen;
 		this.frozenBalance = frozenBalance;
-	}
-
-	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, boolean isSleeping,
-			Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
-		this(ATAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen,
-				(BigDecimal) null);
-
-		// Convert Long frozenBalance to BigDecimal
-		if (frozenBalance != null)
-			this.frozenBalance = BigDecimal.valueOf(frozenBalance, 8);
 	}
 
 	// Getters / setters
@@ -112,11 +100,11 @@ public class ATData {
 		this.isFrozen = isFrozen;
 	}
 
-	public BigDecimal getFrozenBalance() {
+	public Long getFrozenBalance() {
 		return this.frozenBalance;
 	}
 
-	public void setFrozenBalance(BigDecimal frozenBalance) {
+	public void setFrozenBalance(Long frozenBalance) {
 		this.frozenBalance = frozenBalance;
 	}
 

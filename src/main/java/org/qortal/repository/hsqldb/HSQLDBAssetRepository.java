@@ -1,11 +1,11 @@
 package org.qortal.repository.hsqldb;
 
-import java.math.BigDecimal;
+import static org.qortal.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
+import static org.qortal.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 
@@ -171,8 +171,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 			if (assetData.getAssetId() == null) {
 				// Fetch new assetId
-				try (ResultSet resultSet = this.repository
-						.checkedExecute("SELECT asset_id FROM Assets WHERE reference = ?", assetData.getReference())) {
+				try (ResultSet resultSet = this.repository.checkedExecute("SELECT asset_id FROM Assets WHERE reference = ?", assetData.getReference())) {
 					if (resultSet == null)
 						throw new DataException("Unable to fetch new asset ID from repository");
 
@@ -213,10 +212,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			byte[] creatorPublicKey = resultSet.getBytes(1);
 			long haveAssetId = resultSet.getLong(2);
 			long wantAssetId = resultSet.getLong(3);
-			BigDecimal amount = resultSet.getBigDecimal(4);
-			BigDecimal fulfilled = resultSet.getBigDecimal(5);
-			BigDecimal price = resultSet.getBigDecimal(6);
-			long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			long amount = resultSet.getLong(4);
+			long fulfilled = resultSet.getLong(5);
+			long price = resultSet.getLong(6);
+			long timestamp = getZonedTimestampMilli(resultSet, 7);
 			boolean isClosed = resultSet.getBoolean(8);
 			boolean isFulfilled = resultSet.getBoolean(9);
 			String haveAssetName = resultSet.getString(10);
@@ -263,10 +262,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			do {
 				byte[] creatorPublicKey = resultSet.getBytes(1);
 				byte[] orderId = resultSet.getBytes(2);
-				BigDecimal amount = resultSet.getBigDecimal(3);
-				BigDecimal fulfilled = resultSet.getBigDecimal(4);
-				BigDecimal price = resultSet.getBigDecimal(5);
-				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long amount = resultSet.getLong(3);
+				long fulfilled = resultSet.getLong(4);
+				long price = resultSet.getLong(5);
+				long timestamp = getZonedTimestampMilli(resultSet, 6);
 				boolean isClosed = false;
 				boolean isFulfilled = false;
 
@@ -282,7 +281,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<OrderData> getOpenOrdersForTrading(long haveAssetId, long wantAssetId, BigDecimal minimumPrice) throws DataException {
+	public List<OrderData> getOpenOrdersForTrading(long haveAssetId, long wantAssetId, Long minimumPrice) throws DataException {
 		List<Object> bindParams = new ArrayList<>(3);
 
 		StringBuilder sql = new StringBuilder(512);
@@ -317,10 +316,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			do {
 				byte[] creatorPublicKey = resultSet.getBytes(1);
 				byte[] orderId = resultSet.getBytes(2);
-				BigDecimal amount = resultSet.getBigDecimal(3);
-				BigDecimal fulfilled = resultSet.getBigDecimal(4);
-				BigDecimal price = resultSet.getBigDecimal(5);
-				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long amount = resultSet.getLong(3);
+				long fulfilled = resultSet.getLong(4);
+				long price = resultSet.getLong(5);
+				long timestamp = getZonedTimestampMilli(resultSet, 6);
 				boolean isClosed = false;
 				boolean isFulfilled = false;
 
@@ -366,11 +365,11 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				return orders;
 
 			do {
-				BigDecimal price = resultSet.getBigDecimal(1);
-				BigDecimal totalUnfulfilled = resultSet.getBigDecimal(2);
+				long price = resultSet.getLong(1);
+				long totalUnfulfilled = resultSet.getLong(2);
 				long timestamp = resultSet.getTimestamp(3).getTime();
 
-				OrderData order = new OrderData(null, null, haveAssetId, wantAssetId, totalUnfulfilled, BigDecimal.ZERO,
+				OrderData order = new OrderData(null, null, haveAssetId, wantAssetId, totalUnfulfilled, 0L,
 						price, timestamp, false, false, haveAssetData.getName(), wantAssetData.getName());
 				orders.add(order);
 			} while (resultSet.next());
@@ -417,10 +416,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				byte[] orderId = resultSet.getBytes(1);
 				long haveAssetId = resultSet.getLong(2);
 				long wantAssetId = resultSet.getLong(3);
-				BigDecimal amount = resultSet.getBigDecimal(4);
-				BigDecimal fulfilled = resultSet.getBigDecimal(5);
-				BigDecimal price = resultSet.getBigDecimal(6);
-				long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long amount = resultSet.getLong(4);
+				long fulfilled = resultSet.getLong(5);
+				long price = resultSet.getLong(6);
+				long timestamp = getZonedTimestampMilli(resultSet, 7);
 				boolean isClosed = resultSet.getBoolean(8);
 				boolean isFulfilled = resultSet.getBoolean(9);
 				String haveAssetName = resultSet.getString(10);
@@ -478,10 +477,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 			do {
 				byte[] orderId = resultSet.getBytes(1);
-				BigDecimal amount = resultSet.getBigDecimal(2);
-				BigDecimal fulfilled = resultSet.getBigDecimal(3);
-				BigDecimal price = resultSet.getBigDecimal(4);
-				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long amount = resultSet.getLong(2);
+				long fulfilled = resultSet.getLong(3);
+				long price = resultSet.getLong(4);
+				long timestamp = getZonedTimestampMilli(resultSet, 5);
 				boolean isClosed = resultSet.getBoolean(6);
 				boolean isFulfilled = resultSet.getBoolean(7);
 
@@ -503,7 +502,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		saveHelper.bind("asset_order_id", orderData.getOrderId()).bind("creator", orderData.getCreatorPublicKey())
 				.bind("have_asset_id", orderData.getHaveAssetId()).bind("want_asset_id", orderData.getWantAssetId())
 				.bind("amount", orderData.getAmount()).bind("fulfilled", orderData.getFulfilled())
-				.bind("price", orderData.getPrice()).bind("ordered", new Timestamp(orderData.getTimestamp()))
+				.bind("price", orderData.getPrice()).bind("ordered", toOffsetDateTime(orderData.getTimestamp()))
 				.bind("is_closed", orderData.getIsClosed()).bind("is_fulfilled", orderData.getIsFulfilled());
 
 		try {
@@ -556,10 +555,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			do {
 				byte[] initiatingOrderId = resultSet.getBytes(1);
 				byte[] targetOrderId = resultSet.getBytes(2);
-				BigDecimal targetAmount = resultSet.getBigDecimal(3);
-				BigDecimal initiatorAmount = resultSet.getBigDecimal(4);
-				BigDecimal initiatorSaving = resultSet.getBigDecimal(5);
-				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long targetAmount = resultSet.getLong(3);
+				long initiatorAmount = resultSet.getLong(4);
+				long initiatorSaving = resultSet.getLong(5);
+				long timestamp = getZonedTimestampMilli(resultSet, 6);
 
 				TradeData trade = new TradeData(initiatingOrderId, targetOrderId, targetAmount, initiatorAmount, initiatorSaving,
 						timestamp, haveAssetId, haveAssetData.getName(), wantAssetId, wantAssetData.getName());
@@ -648,9 +647,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			do {
 				long haveAssetId = resultSet.getLong(1);
 				long wantAssetId = resultSet.getLong(2);
-				BigDecimal otherAmount = resultSet.getBigDecimal(3);
-				BigDecimal amount = resultSet.getBigDecimal(4);
-				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long otherAmount = resultSet.getLong(3);
+				long amount = resultSet.getLong(4);
+				long timestamp = getZonedTimestampMilli(resultSet, 5);
 
 				RecentTradeData recentTrade = new RecentTradeData(haveAssetId, wantAssetId, otherAmount, amount,
 						timestamp);
@@ -689,10 +688,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			do {
 				byte[] initiatingOrderId = resultSet.getBytes(1);
 				byte[] targetOrderId = resultSet.getBytes(2);
-				BigDecimal targetAmount = resultSet.getBigDecimal(3);
-				BigDecimal initiatorAmount = resultSet.getBigDecimal(4);
-				BigDecimal initiatorSaving = resultSet.getBigDecimal(5);
-				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long targetAmount = resultSet.getLong(3);
+				long initiatorAmount = resultSet.getLong(4);
+				long initiatorSaving = resultSet.getLong(5);
+				long timestamp = getZonedTimestampMilli(resultSet, 6);
 
 				long haveAssetId = resultSet.getLong(7);
 				String haveAssetName = resultSet.getString(8);
@@ -716,7 +715,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		saveHelper.bind("initiating_order_id", tradeData.getInitiator()).bind("target_order_id", tradeData.getTarget())
 				.bind("target_amount", tradeData.getTargetAmount()).bind("initiator_amount", tradeData.getInitiatorAmount())
-				.bind("initiator_saving", tradeData.getInitiatorSaving()).bind("traded", new Timestamp(tradeData.getTimestamp()));
+				.bind("initiator_saving", tradeData.getInitiatorSaving()).bind("traded", toOffsetDateTime(tradeData.getTimestamp()));
 
 		try {
 			saveHelper.execute(this.repository);

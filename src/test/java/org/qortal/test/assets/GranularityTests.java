@@ -76,9 +76,10 @@ public class GranularityTests extends Common {
 	}
 
 	private void testGranularity(boolean isAmountAssetDivisible, boolean isReturnAssetDivisible, String dividend, String divisor, String expectedGranularity) {
-		final BigDecimal price = new BigDecimal(dividend).setScale(8).divide(new BigDecimal(divisor).setScale(8), RoundingMode.DOWN);
+		BigDecimal bdPrice = new BigDecimal(dividend).setScale(8).divide(new BigDecimal(divisor).setScale(8), RoundingMode.DOWN);
+		long price = bdPrice.unscaledValue().longValue();
 
-		BigDecimal granularity = Order.calculateAmountGranularity(isAmountAssetDivisible, isReturnAssetDivisible, price);
+		BigDecimal granularity = BigDecimal.valueOf(Order.calculateAmountGranularity(isAmountAssetDivisible, isReturnAssetDivisible, price), 8);
 		assertEqualBigDecimals("Granularity incorrect", new BigDecimal(expectedGranularity), granularity);
 	}
 
