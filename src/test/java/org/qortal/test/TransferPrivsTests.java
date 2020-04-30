@@ -21,6 +21,7 @@ import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.transform.Transformer;
+import org.qortal.utils.Amounts;
 
 import static org.junit.Assert.*;
 
@@ -280,7 +281,7 @@ public class TransferPrivsTests extends Common {
 		byte[] reference = senderAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 		int txGroupId = 0;
-		long fee = 1L;
+		long fee = 1L * Amounts.MULTIPLIER;
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderAccount.getPublicKey(), fee, null);
 		TransactionData transactionData = new TransferPrivsTransactionData(baseTransactionData, recipientAccount.getAddress());

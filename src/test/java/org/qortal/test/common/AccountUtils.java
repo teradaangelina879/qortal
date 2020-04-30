@@ -13,11 +13,12 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Amounts;
 
 public class AccountUtils {
 
 	public static final int txGroupId = Group.NO_GROUP;
-	public static final long fee = 1L;
+	public static final long fee = 1L * Amounts.MULTIPLIER;
 
 	public static void pay(Repository repository, String sender, String recipient, long amount) throws DataException {
 		PrivateKeyAccount sendingAccount = Common.getTestAccount(repository, sender);

@@ -13,6 +13,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.AtTransactionTransformer;
+import org.qortal.utils.Amounts;
 
 import com.google.common.primitives.Bytes;
 
@@ -113,7 +114,7 @@ public class AtTransaction extends Transaction {
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
 		// Check asset amount is integer if asset is not divisible
-		if (!assetData.getIsDivisible() && amount % Asset.MULTIPLIER != 0)
+		if (!assetData.getIsDivisible() && amount % Amounts.MULTIPLIER != 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		Account sender = getATAccount();

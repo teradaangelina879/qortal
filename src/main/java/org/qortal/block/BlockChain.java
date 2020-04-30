@@ -103,10 +103,11 @@ public class BlockChain {
 	BigDecimal qoraHoldersShare;
 	/** Unscaled (* 1e8) share of block reward/fees to legacy QORA coin holders */
 	private long qoraHoldersUnscaledShare; // calculated after unmarshal
+
 	/** How many legacy QORA per 1 QORT of block reward. */
 	BigDecimal qoraPerQortReward;
-	/** How many legacy QORA per 1 QORT of block reward. */
-	private long unscaledQoraPerQortReward;
+	/** How many legacy QORA per 1 QORT of block reward. Unscaled (* 1e8). */
+	private long unscaledQoraPerQortReward;  // calculated after unmarshal
 
 	/**
 	 * Number of minted blocks required to reach next level from previous.
@@ -453,6 +454,9 @@ public class BlockChain {
 
 		// Calculate unscaled long version of Qora-holders block reward share
 		this.qoraHoldersUnscaledShare = this.qoraHoldersShare.setScale(8).unscaledValue().longValue();
+
+		// Calculate unscaled long version of Qora-per-Qort block reward
+		this.unscaledQoraPerQortReward = this.qoraPerQortReward.setScale(8).unscaledValue().longValue();
 
 		// Convert collections to unmodifiable form
 		this.rewardsByHeight = Collections.unmodifiableList(this.rewardsByHeight);

@@ -91,6 +91,9 @@ public interface AccountRepository {
 	/** Delete account from repository. */
 	public void delete(String address) throws DataException;
 
+	/** Generic opportunistic tidy. */
+	public void tidy() throws DataException;
+
 	// Account balances
 
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException;

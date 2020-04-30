@@ -27,13 +27,14 @@ import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.AtTransaction;
+import org.qortal.utils.Amounts;
 
 import com.google.common.primitives.Bytes;
 
 public class QortalATAPI extends API {
 
 	// Useful constants
-	private static final long FEE_PER_STEP = 1 * Asset.MULTIPLIER; // 1 QORT per "step"
+	private static final long FEE_PER_STEP = 1 * Amounts.MULTIPLIER; // 1 QORT per "step"
 	private static final int MAX_STEPS_PER_ROUND = 500;
 	private static final int STEPS_PER_FUNCTION_CALL = 10;
 	private static final int MINUTES_PER_BLOCK = 10;

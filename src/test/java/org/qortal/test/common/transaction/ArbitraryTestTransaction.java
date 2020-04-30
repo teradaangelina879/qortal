@@ -1,6 +1,5 @@
 package org.qortal.test.common.transaction;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,6 +11,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Amounts;
 
 public class ArbitraryTestTransaction extends TestTransaction {
 
@@ -26,7 +26,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 
 		String recipient = account.getAddress();
 		final long assetId = Asset.QORT;
-		BigDecimal amount = BigDecimal.valueOf(123L);
+		long amount = 123L * Amounts.MULTIPLIER;
 
 		List<PaymentData> payments = new ArrayList<>();
 		payments.add(new PaymentData(recipient, assetId, amount));

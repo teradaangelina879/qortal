@@ -5,6 +5,8 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import org.qortal.utils.Amounts;
+
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 public class AccountBalanceData {
@@ -68,6 +70,10 @@ public class AccountBalanceData {
 
 	public String getAssetName() {
 		return this.assetName;
+	}
+
+	public String toString() {
+		return String.format("%s has %s %s [assetId %d]", this.address, Amounts.prettyAmount(this.balance), (assetName != null ? assetName : ""), assetId);
 	}
 
 }

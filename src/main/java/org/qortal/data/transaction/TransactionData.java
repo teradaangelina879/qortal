@@ -1,6 +1,5 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
 
@@ -9,6 +8,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
 import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorNode;
 import org.qortal.crypto.Crypto;
@@ -51,18 +51,24 @@ public abstract class TransactionData {
 	// Properties shared with all transaction types
 	@Schema(accessMode = AccessMode.READ_ONLY, hidden = true)
 	protected TransactionType type;
+
 	@XmlTransient // represented in transaction-specific properties
 	@Schema(hidden = true)
 	protected byte[] creatorPublicKey;
+
 	@Schema(description = "timestamp when transaction created, in milliseconds since unix epoch", example = "__unix_epoch_time_milliseconds__")
 	protected long timestamp;
+
 	@Schema(description = "sender's last transaction ID", example = "real_transaction_reference_in_base58")
 	protected byte[] reference;
-	@XmlTransient
-	@Schema(hidden = true)
+
+	@Schema(description = "fee for processing transaction", example = "0.0001")
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	protected Long fee; // can be null if fee not calculated yet
+
 	@Schema(accessMode = AccessMode.READ_ONLY, description = "signature for transaction's raw bytes, using sender's private key", example = "real_transaction_signature_in_base58")
 	protected byte[] signature;
+
 	@Schema(description = "groupID for this transaction")
 	protected int txGroupId;
 
@@ -183,14 +189,6 @@ public abstract class TransactionData {
 	}
 
 	// JAXB special
-
-	@Schema(name = "fee", description = "fee for processing transaction", example = "0.0001")
-	protected BigDecimal getFeeJaxb() {
-		if (this.fee == null)
-			return null;
-
-		return BigDecimal.valueOf(this.fee, 8);
-	}
 
 	@XmlElement(name = "creatorAddress")
 	protected String getCreatorAddress() {

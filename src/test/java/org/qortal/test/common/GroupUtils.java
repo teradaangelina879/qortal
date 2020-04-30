@@ -11,11 +11,12 @@ import org.qortal.group.Group.ApprovalThreshold;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.Transaction.ApprovalStatus;
+import org.qortal.utils.Amounts;
 
 public class GroupUtils {
 
 	public static final int txGroupId = Group.NO_GROUP;
-	public static final long fee = 1L;
+	public static final long fee = 1L * Amounts.MULTIPLIER;
 
 	public static int createGroup(Repository repository, String creatorAccountName, String groupName, boolean isOpen, ApprovalThreshold approvalThreshold,
 				int minimumBlockDelay, int maximumBlockDelay) throws DataException {

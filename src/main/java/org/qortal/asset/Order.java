@@ -2,6 +2,7 @@ package org.qortal.asset;
 
 import static org.qortal.utils.Amounts.prettyAmount;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
 
@@ -29,6 +30,9 @@ public class Order {
 	// Used quite a bit
 	private final long haveAssetId;
 	private final long wantAssetId;
+	private final boolean isAmountInWantAsset;
+	private final BigInteger orderAmount;
+	private final BigInteger orderPrice;
 
 	/** Cache of price-pair units e.g. QORT/GOLD, but use getPricePair() instead! */
 	private String cachedPricePair;
@@ -46,6 +50,10 @@ public class Order {
 
 		this.haveAssetId = this.orderData.getHaveAssetId();
 		this.wantAssetId = this.orderData.getWantAssetId();
+		this.isAmountInWantAsset = haveAssetId < wantAssetId;
+
+		this.orderAmount = BigInteger.valueOf(this.orderData.getAmount());
+		this.orderPrice = BigInteger.valueOf(this.orderData.getPrice());
 	}
 
 	// Getters/Setters
@@ -84,29 +92,29 @@ public class Order {
 	 */
 	public static long calculateAmountGranularity(boolean isAmountAssetDivisible, boolean isReturnAssetDivisible, long price) {
 		// Calculate the minimum increment for matched-amount using greatest-common-divisor
-		long returnAmount = Asset.MULTIPLIER; // 1 unit * multiplier
-		long matchedAmount = price;
+		BigInteger returnAmount = Amounts.MULTIPLIER_BI; // 1 unit * multiplier
+		BigInteger matchedAmount = BigInteger.valueOf(price);
 
-		long gcd = Amounts.greatestCommonDivisor(returnAmount, matchedAmount);
-		returnAmount /= gcd;
-		matchedAmount /= gcd;
+		BigInteger gcd = returnAmount.gcd(matchedAmount);
+		returnAmount = returnAmount.divide(gcd);
+		matchedAmount = matchedAmount.divide(gcd);
 
 		// Calculate GCD in combination with divisibility
 		if (isAmountAssetDivisible)
-			returnAmount *= Asset.MULTIPLIER;
+			returnAmount = returnAmount.multiply(Amounts.MULTIPLIER_BI);
 
 		if (isReturnAssetDivisible)
-			matchedAmount *= Asset.MULTIPLIER;
+			matchedAmount = matchedAmount.multiply(Amounts.MULTIPLIER_BI);
 
-		gcd = Amounts.greatestCommonDivisor(returnAmount, matchedAmount);
+		gcd = returnAmount.gcd(matchedAmount);
 
 		// Calculate the granularity at which we have to buy
-		long granularity = returnAmount / gcd;
+		BigInteger granularity = returnAmount.multiply(Amounts.MULTIPLIER_BI).divide(gcd);
 		if (isAmountAssetDivisible)
-			granularity /= Asset.MULTIPLIER;
+			granularity = granularity.divide(Amounts.MULTIPLIER_BI);
 
 		// Return
-		return granularity;
+		return granularity.longValue();
 	}
 
 	/**
@@ -142,24 +150,24 @@ public class Order {
 
 	/** Returns amount of have-asset to remove from order's creator's balance on placing this order. */
 	private long calcHaveAssetCommittment() {
-		long committedCost = this.orderData.getAmount();
+		// Simple case: amount is in have asset
+		if (!this.isAmountInWantAsset)
+			return this.orderData.getAmount();
 
-		// If "amount" is in want-asset then we need to convert
-		if (haveAssetId < wantAssetId)
-			committedCost *= this.orderData.getPrice() + 1; // +1 to round up
+		return Amounts.roundUpScaledMultiply(this.orderAmount, this.orderPrice);
+	}
 
-		return committedCost;
+	private long calcHaveAssetRefund(long amount) {
+		// Simple case: amount is in have asset
+		if (!this.isAmountInWantAsset)
+			return amount;
+
+		return Amounts.roundUpScaledMultiply(BigInteger.valueOf(amount), this.orderPrice);
 	}
 
 	/** Returns amount of remaining have-asset to refund to order's creator's balance on cancelling this order. */
 	private long calcHaveAssetRefund() {
-		long refund = getAmountLeft();
-
-		// If "amount" is in want-asset then we need to convert
-		if (haveAssetId < wantAssetId)
-			refund *= this.orderData.getPrice() + 1; // +1 to round up
-
-		return refund;
+		return calcHaveAssetRefund(getAmountLeft());
 	}
 
 	// Navigation
@@ -235,7 +243,7 @@ public class Order {
 				prettyAmount(Order.getAmountLeft(orderData)),
 				amountAssetData.getName()));
 
-		long maxReturnAmount = Order.getAmountLeft(orderData) * (orderData.getPrice() + 1); // +1 to round up
+		long maxReturnAmount = Amounts.roundUpScaledMultiply(Order.getAmountLeft(orderData), orderData.getPrice());
 		String pricePair = getPricePair();
 
 		LOGGER.trace(() -> String.format("%s price: %s %s (%s %s tradable)", ourTheir,
@@ -344,17 +352,17 @@ public class Order {
 			// Trade can go ahead!
 
 			// Calculate the total cost to us, in return-asset, based on their price
-			long returnAmountTraded = matchedAmount * theirOrderData.getPrice();
+			long returnAmountTraded = Amounts.roundDownScaledMultiply(matchedAmount, theirOrderData.getPrice());
 			LOGGER.trace(() -> String.format("returnAmountTraded: %s %s", prettyAmount(returnAmountTraded), returnAssetData.getName()));
 
 			// Safety check
 			checkDivisibility(returnAssetData, returnAmountTraded, this.orderData);
 
-			long tradedWantAmount = (haveAssetId > wantAssetId) ? returnAmountTraded : matchedAmount;
-			long tradedHaveAmount = (haveAssetId > wantAssetId) ? matchedAmount : returnAmountTraded;
+			long tradedWantAmount = this.isAmountInWantAsset ? matchedAmount : returnAmountTraded;
+			long tradedHaveAmount = this.isAmountInWantAsset ? returnAmountTraded : matchedAmount;
 
 			// We also need to know how much have-asset to refund based on price improvement (only one direction applies)
-			long haveAssetRefund = haveAssetId < wantAssetId ? Math.abs(ourPrice -theirPrice) * matchedAmount : 0;
+			long haveAssetRefund = this.isAmountInWantAsset ? Amounts.roundDownScaledMultiply(matchedAmount, Math.abs(ourPrice - theirPrice)) : 0;
 
 			LOGGER.trace(() -> String.format("We traded %s %s (have-asset) for %s %s (want-asset), saving %s %s (have-asset)",
 					prettyAmount(tradedHaveAmount), haveAssetData.getName(),
@@ -364,6 +372,7 @@ public class Order {
 			// Construct trade
 			TradeData tradeData = new TradeData(this.orderData.getOrderId(), theirOrderData.getOrderId(),
 					tradedWantAmount, tradedHaveAmount, haveAssetRefund, this.orderData.getTimestamp());
+
 			// Process trade, updating corresponding orders in repository
 			Trade trade = new Trade(this.repository, tradeData);
 			trade.process();
@@ -386,7 +395,7 @@ public class Order {
 	 * @throws DataException if divisibility check fails
 	 */
 	private void checkDivisibility(AssetData assetData, long amount, OrderData orderData) throws DataException {
-		if (assetData.getIsDivisible() || amount % Asset.MULTIPLIER == 0)
+		if (assetData.getIsDivisible() || amount % Amounts.MULTIPLIER == 0)
 			// Asset is divisible or amount has no fractional part
 			return;
 

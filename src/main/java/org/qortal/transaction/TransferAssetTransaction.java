@@ -64,7 +64,7 @@ public class TransferAssetTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Wrap asset transfer as a payment and delegate processing to Payment class.
-		new Payment(this.repository).process(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), this.transferAssetTransactionData.getSignature());
+		new Payment(this.repository).process(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData());
 	}
 
 	@Override
@@ -77,8 +77,7 @@ public class TransferAssetTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Wrap asset transfer as a payment and delegate processing to Payment class.
-		new Payment(this.repository).orphan(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData(),
-				this.transferAssetTransactionData.getSignature(), this.transferAssetTransactionData.getReference());
+		new Payment(this.repository).orphan(this.transferAssetTransactionData.getSenderPublicKey(), getPaymentData());
 	}
 
 	@Override

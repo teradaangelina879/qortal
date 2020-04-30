@@ -1,11 +1,10 @@
 package org.qortal.data.account;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -24,9 +23,7 @@ public class RewardShareData {
 	private String recipient;
 	private byte[] rewardSharePublicKey;
 
-	// JAXB to use separate getter
-	@XmlTransient
-	@Schema(hidden = true)
+	@XmlJavaTypeAdapter(value = org.qortal.api.RewardSharePercentTypeAdapter.class)
 	private int sharePercent;
 
 	// Constructors
@@ -72,11 +69,6 @@ public class RewardShareData {
 	@XmlElement(name = "mintingAccount")
 	public String getMintingAccount() {
 		return this.minter;
-	}
-
-	@XmlElement(name = "sharePercent")
-	public BigDecimal getSharePercentJaxb() {
-		return BigDecimal.valueOf(this.sharePercent, 2);
 	}
 
 }

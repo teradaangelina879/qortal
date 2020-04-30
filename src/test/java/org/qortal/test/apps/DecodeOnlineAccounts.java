@@ -1,5 +1,6 @@
 package org.qortal.test.apps;
 
+import java.math.BigDecimal;
 import java.security.Security;
 
 import org.bitcoinj.core.Base58;
@@ -88,7 +89,7 @@ public class DecodeOnlineAccounts {
 				System.out.println(String.format("Reward-share public key: %s, minter: %s, recipient: %s, share: %s",
 						Base58.encode(rewardShareData.getRewardSharePublicKey()),
 						rewardShareData.getMintingAccount(), rewardShareData.getRecipient(),
-						rewardShareData.getSharePercent().toPlainString()));
+						BigDecimal.valueOf(rewardShareData.getSharePercent(), 2).toPlainString()));
 			}
 		} catch (DataException e) {
 			e.printStackTrace();

@@ -64,7 +64,7 @@ public class PaymentTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
-		new Payment(this.repository).process(this.paymentTransactionData.getSenderPublicKey(), getPaymentData(), this.paymentTransactionData.getSignature());
+		new Payment(this.repository).process(this.paymentTransactionData.getSenderPublicKey(), getPaymentData());
 	}
 
 	@Override
@@ -77,8 +77,7 @@ public class PaymentTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Wrap and delegate payment processing to Payment class. Only revert recipient's last reference if transferring QORT.
-		new Payment(this.repository).orphan(this.paymentTransactionData.getSenderPublicKey(), getPaymentData(),
-				this.paymentTransactionData.getSignature(), this.paymentTransactionData.getReference());
+		new Payment(this.repository).orphan(this.paymentTransactionData.getSenderPublicKey(), getPaymentData());
 	}
 
 	@Override

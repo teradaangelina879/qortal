@@ -6,6 +6,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.UpdateAssetTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Amounts;
 
 public class Asset {
 
@@ -25,8 +26,7 @@ public class Asset {
 	public static final int MAX_DESCRIPTION_SIZE = 4000;
 	public static final int MAX_DATA_SIZE = 400000;
 
-	public static final long MULTIPLIER = 100000000L;
-	public static final long MAX_QUANTITY = 10_000_000_000L * MULTIPLIER; // but also to 8 decimal places
+	public static final long MAX_QUANTITY = 10_000_000_000L * Amounts.MULTIPLIER; // but also to 8 decimal places
 
 	// Properties
 	private Repository repository;

@@ -10,6 +10,7 @@ import org.qortal.data.transaction.IssueAssetTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Amounts;
 
 import com.google.common.base.Utf8;
 
@@ -77,7 +78,7 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.INVALID_QUANTITY;
 
 		// Check quantity versus indivisibility
-		if (!this.issueAssetTransactionData.getIsDivisible() && this.issueAssetTransactionData.getQuantity() % Asset.MULTIPLIER != 0)
+		if (!this.issueAssetTransactionData.getIsDivisible() && this.issueAssetTransactionData.getQuantity() % Amounts.MULTIPLIER != 0)
 			return ValidationResult.INVALID_QUANTITY;
 
 		Account issuer = getIssuer();

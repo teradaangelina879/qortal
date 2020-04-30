@@ -1,5 +1,6 @@
 package org.qortal.transaction;
 
+import java.math.BigInteger;
 import java.util.Collections;
 import java.util.List;
 
@@ -13,6 +14,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.AssetRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Amounts;
 
 public class CreateAssetOrderTransaction extends Transaction {
 
@@ -79,9 +81,6 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 		Account creator = getCreator();
 
-		long committedCost;
-		long maxOtherAmount;
-
 		/*
 		 * "amount" might be either have-asset or want-asset, whichever has the highest assetID.
 		 * 
@@ -93,34 +92,39 @@ public class CreateAssetOrderTransaction extends Transaction {
 		 * stake 123 GOLD, return 49200 QORT
 		 */
 		boolean isAmountWantAsset = haveAssetId < wantAssetId;
+		BigInteger amount = BigInteger.valueOf(this.createOrderTransactionData.getAmount());
+		BigInteger price = BigInteger.valueOf(this.createOrderTransactionData.getPrice());
+
+		BigInteger committedCost;
+		BigInteger maxOtherAmount;
 
 		if (isAmountWantAsset) {
 			// have/commit 49200 QORT, want/return 123 GOLD
-			committedCost = this.createOrderTransactionData.getAmount() * this.createOrderTransactionData.getPrice();
-			maxOtherAmount = this.createOrderTransactionData.getAmount();
+			committedCost = amount.multiply(price).divide(Amounts.MULTIPLIER_BI);
+			maxOtherAmount = amount;
 		} else {
 			// have/commit 123 GOLD, want/return 49200 QORT
-			committedCost = this.createOrderTransactionData.getAmount();
-			maxOtherAmount = this.createOrderTransactionData.getAmount() * this.createOrderTransactionData.getPrice();
+			committedCost = amount;
+			maxOtherAmount = amount.multiply(price).divide(Amounts.MULTIPLIER_BI);
 		}
 
 		// Check amount is integer if amount's asset is not divisible
-		if (!haveAssetData.getIsDivisible() && committedCost % Asset.MULTIPLIER != 0)
+		if (!haveAssetData.getIsDivisible() && committedCost.mod(Amounts.MULTIPLIER_BI).signum() != 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		// Check total return from fulfilled order would be integer if return's asset is not divisible
-		if (!wantAssetData.getIsDivisible() && maxOtherAmount % Asset.MULTIPLIER != 0)
+		if (!wantAssetData.getIsDivisible() && maxOtherAmount.mod(Amounts.MULTIPLIER_BI).signum() != 0)
 			return ValidationResult.INVALID_RETURN;
 
 		// Check order creator has enough asset balance AFTER removing fee, in case asset is QORT
 		// If asset is QORT then we need to check amount + fee in one go
 		if (haveAssetId == Asset.QORT) {
 			// Check creator has enough funds for amount + fee in QORT
-			if (creator.getConfirmedBalance(Asset.QORT) < committedCost + this.createOrderTransactionData.getFee())
+			if (creator.getConfirmedBalance(Asset.QORT) < committedCost.longValue() + this.createOrderTransactionData.getFee())
 				return ValidationResult.NO_BALANCE;
 		} else {
 			// Check creator has enough funds for amount in whatever asset
-			if (creator.getConfirmedBalance(haveAssetId) < committedCost)
+			if (creator.getConfirmedBalance(haveAssetId) < committedCost.longValue())
 				return ValidationResult.NO_BALANCE;
 
 			// Check creator has enough funds for fee in QORT

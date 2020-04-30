@@ -246,7 +246,7 @@ public class AccountRefCacheTests extends Common {
 	// Test Block support
 	@Test
 	public void testBlockSupport() throws DataException {
-		final long amount = 12345670000L;
+		final long amount = 123_45670000L;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount alice = Common.getTestAccount(repository, "alice");

@@ -1,7 +1,5 @@
 package org.qortal.test.common.transaction;
 
-import java.math.BigDecimal;
-
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.data.transaction.RewardShareTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -13,7 +11,7 @@ public class RewardShareTestTransaction extends TestTransaction {
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, boolean wantValid) throws DataException {
 		String recipient = account.getAddress();
 		byte[] rewardSharePublicKey = account.getRewardSharePrivateKey(account.getPublicKey());
-		BigDecimal sharePercent = BigDecimal.valueOf(50);
+		int sharePercent = 50_00;
 
 		return new RewardShareTransactionData(generateBase(account), recipient, rewardSharePublicKey, sharePercent);
 	}

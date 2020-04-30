@@ -196,7 +196,7 @@ public class Block {
 					this.repository.getAccountRepository().modifyAssetBalance(this.mintingAccount.getAddress(), Asset.QORT, accountAmount);
 			} else {
 				// minter & recipient different - extra work needed
-				long recipientAmount = (accountAmount * this.sharePercent) / 100L / 100L; // because scaled by 2dp and 'percent' means "per 1e2"
+				long recipientAmount = (accountAmount * this.sharePercent) / 100L / 100L; // because scaled by 2dp and 'percent' means "per 100"
 				long minterAmount = accountAmount - recipientAmount;
 
 				LOGGER.trace(() -> String.format("Minter account %s share: %s", this.mintingAccount.getAddress(), Amounts.prettyAmount(minterAmount)));
@@ -1257,6 +1257,8 @@ public class Block {
 		// Link transactions to this block, thus removing them from unconfirmed transactions list.
 		// Also update "transaction participants" in repository for "transactions involving X" support in API
 		linkTransactionsToBlock();
+
+		postBlockTidy();
 	}
 
 	protected void increaseAccountLevels() throws DataException {
@@ -1450,7 +1452,7 @@ public class Block {
 	public void orphan() throws DataException {
 		LOGGER.trace(() -> String.format("Orphaning block %d", this.blockData.getHeight()));
 
-		this.repository.setDebug(false);
+		this.repository.setDebug(true);
 		try {
 			// Return AT fees and delete AT states from repository
 			orphanAtFeesAndStates();
@@ -1478,6 +1480,8 @@ public class Block {
 			// Delete block from blockchain
 			this.repository.getBlockRepository().delete(this.blockData);
 			this.blockData.setHeight(null);
+
+			postBlockTidy();
 		} finally {
 			this.repository.setDebug(false);
 		}
@@ -1794,6 +1798,11 @@ public class Block {
 					founderExpandedAccounts.get(fea).distribute(perFounderRewardShareAmount);
 			}
 		}
+	}
+
+	/** Opportunity to tidy repository, etc. after block process/orphan. */
+	private void postBlockTidy() throws DataException {
+		this.repository.getAccountRepository().tidy();
 	}
 
 }

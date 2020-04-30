@@ -308,6 +308,15 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
+	public void tidy() throws DataException {
+		try {
+			this.repository.delete("AccountBalances", "balance = 0");
+		} catch (SQLException e) {
+			throw new DataException("Unable to tidy zero account balances from repository", e);
+		}
+	}
+
 	// Account balances
 
 	@Override

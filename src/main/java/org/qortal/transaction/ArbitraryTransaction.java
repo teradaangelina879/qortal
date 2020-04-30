@@ -63,8 +63,7 @@ public class ArbitraryTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
-		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
-				arbitraryTransactionData.getSignature());
+		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments());
 	}
 
 	@Override
@@ -77,8 +76,7 @@ public class ArbitraryTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
-		new Payment(this.repository).orphan(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
-				arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference());
+		new Payment(this.repository).orphan(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments());
 	}
 
 	@Override

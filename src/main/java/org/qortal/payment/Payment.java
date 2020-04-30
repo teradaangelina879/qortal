@@ -18,6 +18,7 @@ import org.qortal.repository.AssetRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.Transaction.ValidationResult;
+import org.qortal.utils.Amounts;
 
 public class Payment {
 
@@ -93,7 +94,7 @@ public class Payment {
 				return ValidationResult.ASSET_DOES_NOT_MATCH_AT;
 
 			// Check asset amount is integer if asset is not divisible
-			if (!assetData.getIsDivisible() && paymentData.getAmount() % Asset.MULTIPLIER != 0)
+			if (!assetData.getIsDivisible() && paymentData.getAmount() % Amounts.MULTIPLIER != 0)
 				return ValidationResult.INVALID_AMOUNT;
 
 			// Set or add amount into amounts-by-asset map
@@ -149,7 +150,7 @@ public class Payment {
 	// process
 
 	/** Multiple payment processing */
-	public void process(byte[] senderPublicKey, List<PaymentData> payments, byte[] signature) throws DataException {
+	public void process(byte[] senderPublicKey, List<PaymentData> payments) throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Process all payments
@@ -168,8 +169,8 @@ public class Payment {
 	}
 
 	/** Single payment processing */
-	public void process(byte[] senderPublicKey, PaymentData paymentData, byte[] signature) throws DataException {
-		process(senderPublicKey, Collections.singletonList(paymentData), signature);
+	public void process(byte[] senderPublicKey, PaymentData paymentData) throws DataException {
+		process(senderPublicKey, Collections.singletonList(paymentData));
 	}
 
 	// processReferenceAndFees
@@ -205,7 +206,7 @@ public class Payment {
 
 	// orphan
 
-	public void orphan(byte[] senderPublicKey, List<PaymentData> payments, byte[] signature, byte[] reference) throws DataException {
+	public void orphan(byte[] senderPublicKey, List<PaymentData> payments) throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Orphan all payments
@@ -222,8 +223,8 @@ public class Payment {
 		}
 	}
 
-	public void orphan(byte[] senderPublicKey, PaymentData paymentData, byte[] signature, byte[] reference) throws DataException {
-		orphan(senderPublicKey, Collections.singletonList(paymentData), signature, reference);
+	public void orphan(byte[] senderPublicKey, PaymentData paymentData) throws DataException {
+		orphan(senderPublicKey, Collections.singletonList(paymentData));
 	}
 
 	// orphanReferencesAndFees
@@ -247,10 +248,8 @@ public class Payment {
 			 * For QORT amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own
 			 * (which would have changed their last reference) thus this is their first reference so remove it.
 			 */
-			if ((alwaysUninitializeRecipientReference || assetId == Asset.QORT) && Arrays.equals(recipient.getLastReference(), signature)) {
+			if ((alwaysUninitializeRecipientReference || assetId == Asset.QORT) && Arrays.equals(recipient.getLastReference(), signature))
 				recipient.setLastReference(null);
-				this.repository.getAccountRepository().delete(recipient.getAddress(), assetId);
-			}
 		}
 	}
 

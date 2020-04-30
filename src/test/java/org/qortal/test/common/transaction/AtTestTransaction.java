@@ -1,7 +1,5 @@
 package org.qortal.test.common.transaction;
 
-import java.math.BigDecimal;
-
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
@@ -9,6 +7,7 @@ import org.qortal.data.transaction.ATTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Amounts;
 
 public class AtTestTransaction extends TestTransaction {
 
@@ -17,7 +16,7 @@ public class AtTestTransaction extends TestTransaction {
 		random.nextBytes(signature);
 		String atAddress = Crypto.toATAddress(signature);
 		String recipient = account.getAddress();
-		BigDecimal amount = BigDecimal.valueOf(123);
+		long amount = 123L * Amounts.MULTIPLIER;
 		final long assetId = Asset.QORT;
 		byte[] message = new byte[32];
 		random.nextBytes(message);

@@ -17,6 +17,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transform.Transformer;
+import org.qortal.utils.Amounts;
 
 import com.google.common.base.Utf8;
 
@@ -130,7 +131,7 @@ public class DeployAtTransaction extends Transaction {
 			return ValidationResult.ASSET_NOT_SPENDABLE;
 
 		// Check asset amount is integer if asset is not divisible
-		if (!assetData.getIsDivisible() && this.deployATTransactionData.getAmount() % Asset.MULTIPLIER != 0)
+		if (!assetData.getIsDivisible() && this.deployATTransactionData.getAmount() % Amounts.MULTIPLIER != 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		Account creator = this.getCreator();

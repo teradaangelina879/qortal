@@ -1,13 +1,12 @@
 package org.qortal.test.common.transaction;
 
-import java.math.BigDecimal;
-
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Amounts;
 
 public class MessageTestTransaction extends TestTransaction {
 
@@ -15,7 +14,7 @@ public class MessageTestTransaction extends TestTransaction {
 		final int version = 3;
 		String recipient = account.getAddress();
 		final long assetId = Asset.QORT;
-		BigDecimal amount = BigDecimal.valueOf(123L);
+		long amount = 123L * Amounts.MULTIPLIER;
 		byte[] data = "message contents".getBytes();
 		final boolean isText = true;
 		final boolean isEncrypted = false;

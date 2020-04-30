@@ -1,11 +1,10 @@
 package org.qortal.data.transaction;
 
-import java.math.BigDecimal;
 
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.account.NullAccount;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -23,9 +22,8 @@ public class ATTransactionData extends TransactionData {
 
 	private String recipient;
 
-	@XmlTransient
-	@Schema(hidden = true)
 	// Not always present
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private Long amount;
 
 	// Not always present
@@ -76,16 +74,6 @@ public class ATTransactionData extends TransactionData {
 
 	public byte[] getMessage() {
 		return this.message;
-	}
-
-	// Some JAXB/API-related getters
-
-	@Schema(name = "amount")
-	public BigDecimal getAmountJaxb() {
-		if (this.amount == null)
-			return null;
-
-		return BigDecimal.valueOf(this.amount, 8);
 	}
 
 }

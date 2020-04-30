@@ -191,23 +191,28 @@ public class TransferPrivsTransaction extends Transaction {
 				break;
 			}
 
-		// Restore recipient block minted count/adjustment
-		recipientData.setBlocksMinted(recipientData.getBlocksMinted() - this.transferPrivsTransactionData.getPreviousSenderBlocksMinted());
-		accountRepository.setMintedBlockCount(recipientData);
-		recipientData.setBlocksMintedAdjustment(recipientData.getBlocksMintedAdjustment() - this.transferPrivsTransactionData.getPreviousSenderBlocksMintedAdjustment());
-		accountRepository.setBlocksMintedAdjustment(recipientData);
+		if (previousRecipientFlags != null) {
+			// Restore recipient block minted count/adjustment
+			recipientData.setBlocksMinted(recipientData.getBlocksMinted() - this.transferPrivsTransactionData.getPreviousSenderBlocksMinted());
+			accountRepository.setMintedBlockCount(recipientData);
+			recipientData.setBlocksMintedAdjustment(recipientData.getBlocksMintedAdjustment() - this.transferPrivsTransactionData.getPreviousSenderBlocksMintedAdjustment());
+			accountRepository.setBlocksMintedAdjustment(recipientData);
 
-		// Recalculate recipient's level
-		effectiveBlocksMinted = recipientData.getBlocksMinted() + recipientData.getBlocksMintedAdjustment();
-		for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
-			if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
-				// Account level
-				recipientData.setLevel(newLevel);
-				accountRepository.setLevel(recipientData);
-				LOGGER.trace(() -> String.format("TRANSFER_PRIVS recipient %s reset to level %d", recipientData.getAddress(), recipientData.getLevel()));
+			// Recalculate recipient's level
+			effectiveBlocksMinted = recipientData.getBlocksMinted() + recipientData.getBlocksMintedAdjustment();
+			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
+				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
+					// Account level
+					recipientData.setLevel(newLevel);
+					accountRepository.setLevel(recipientData);
+					LOGGER.trace(() -> String.format("TRANSFER_PRIVS recipient %s reset to level %d", recipientData.getAddress(), recipientData.getLevel()));
 
-				break;
-			}
+					break;
+				}
+		} else {
+			// Recipient didn't exist before now
+			accountRepository.delete(recipient.getAddress());
+		}
 
 		// Clear values in transaction data
 		this.transferPrivsTransactionData.setPreviousSenderBlocksMinted(null);

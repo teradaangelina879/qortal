@@ -70,7 +70,7 @@ public class MultiPaymentTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
-		new Payment(this.repository).process(this.multiPaymentTransactionData.getSenderPublicKey(), this.multiPaymentTransactionData.getPayments(), this.multiPaymentTransactionData.getSignature());
+		new Payment(this.repository).process(this.multiPaymentTransactionData.getSenderPublicKey(), this.multiPaymentTransactionData.getPayments());
 	}
 
 	@Override
@@ -83,8 +83,7 @@ public class MultiPaymentTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
-		new Payment(this.repository).orphan(this.multiPaymentTransactionData.getSenderPublicKey(), this.multiPaymentTransactionData.getPayments(),
-				this.multiPaymentTransactionData.getSignature(), this.multiPaymentTransactionData.getReference());
+		new Payment(this.repository).orphan(this.multiPaymentTransactionData.getSenderPublicKey(), this.multiPaymentTransactionData.getPayments());
 	}
 
 	@Override

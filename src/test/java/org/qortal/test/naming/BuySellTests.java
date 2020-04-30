@@ -2,7 +2,6 @@ package org.qortal.test.naming;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 import java.util.Random;
 
 import org.junit.After;
@@ -21,6 +20,7 @@ import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
+import org.qortal.utils.Amounts;
 
 public class BuySellTests extends Common {
 
@@ -31,7 +31,7 @@ public class BuySellTests extends Common {
 	private PrivateKeyAccount bob;
 
 	private String name;
-	private BigDecimal price;
+	private Long price;
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -42,7 +42,7 @@ public class BuySellTests extends Common {
 		bob = Common.getTestAccount(repository, "bob");
 
 		name = "test name" + " " + random.nextInt(1_000_000);
-		price = new BigDecimal(random.nextInt(1000)).setScale(8);
+		price = random.nextInt(1000) * Amounts.MULTIPLIER;
 	}
 
 	@After
@@ -96,7 +96,7 @@ public class BuySellTests extends Common {
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
-		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
+		assertEquals("price incorrect", price, nameData.getSalePrice());
 
 		// Orphan sell-name
 		BlockUtils.orphanLastBlock(repository);
@@ -112,7 +112,7 @@ public class BuySellTests extends Common {
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
-		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
+		assertEquals("price incorrect", price, nameData.getSalePrice());
 
 		// Orphan sell-name and register-name
 		BlockUtils.orphanBlocks(repository, 2);
@@ -134,7 +134,7 @@ public class BuySellTests extends Common {
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
-		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
+		assertEquals("price incorrect", price, nameData.getSalePrice());
 	}
 
 	@Test
@@ -159,7 +159,7 @@ public class BuySellTests extends Common {
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
-		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
+		assertEquals("price incorrect", price, nameData.getSalePrice());
 	}
 
 	@Test
@@ -186,7 +186,7 @@ public class BuySellTests extends Common {
 		// Check name is for sale (not sold)
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
-		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
+		assertEquals("price incorrect", price, nameData.getSalePrice());
 
 		// Re-process buy-name
 		BlockUtils.mintBlock(repository);
@@ -225,7 +225,7 @@ public class BuySellTests extends Common {
 		testBuyName();
 
 		// Sell-name
-		BigDecimal newPrice = new BigDecimal(random.nextInt(1000)).setScale(8);
+		Long newPrice = random.nextInt(1000) * Amounts.MULTIPLIER;
 		SellNameTransactionData transactionData = new SellNameTransactionData(TestTransaction.generateBase(bob), name, newPrice);
 		TransactionUtils.signAndMint(repository, transactionData, bob);
 
@@ -234,7 +234,7 @@ public class BuySellTests extends Common {
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
-		assertEqualBigDecimals("price incorrect", newPrice, nameData.getSalePrice());
+		assertEquals("price incorrect", newPrice, nameData.getSalePrice());
 
 		// Orphan sell-name
 		BlockUtils.orphanLastBlock(repository);
@@ -250,7 +250,7 @@ public class BuySellTests extends Common {
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
-		assertEqualBigDecimals("price incorrect", newPrice, nameData.getSalePrice());
+		assertEquals("price incorrect", newPrice, nameData.getSalePrice());
 
 		// Orphan sell-name and buy-name
 		BlockUtils.orphanBlocks(repository, 2);
@@ -259,7 +259,7 @@ public class BuySellTests extends Common {
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
 		// Note: original sale price
-		assertEqualBigDecimals("price incorrect", price, nameData.getSalePrice());
+		assertEquals("price incorrect", price, nameData.getSalePrice());
 		assertEquals(alice.getAddress(), nameData.getOwner());
 
 		// Re-process buy-name and sell-name
@@ -274,7 +274,7 @@ public class BuySellTests extends Common {
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
 		assertTrue(nameData.getIsForSale());
-		assertEqualBigDecimals("price incorrect", newPrice, nameData.getSalePrice());
+		assertEquals("price incorrect", newPrice, nameData.getSalePrice());
 		assertEquals(bob.getAddress(), nameData.getOwner());
 	}
 

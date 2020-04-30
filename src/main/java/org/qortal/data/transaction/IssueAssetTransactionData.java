@@ -3,6 +3,7 @@ package org.qortal.data.transaction;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qortal.account.NullAccount;
@@ -20,23 +21,33 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 public class IssueAssetTransactionData extends TransactionData {
 
 	// Properties
+
 	// assetId can be null but assigned during save() or during load from repository
 	@Schema(accessMode = AccessMode.READ_ONLY)
 	private Long assetId = null;
+
 	@Schema(description = "asset issuer's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] issuerPublicKey;
+
 	@Schema(description = "asset owner's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
 	private String owner;
+
 	@Schema(description = "asset name", example = "GOLD")
 	private String assetName;
+
 	@Schema(description = "asset description", example = "Gold asset - 1 unit represents one 1kg of gold")
 	private String description;
+
 	@Schema(description = "total supply of asset in existence (integer)", example = "1000")
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long quantity;
+
 	@Schema(description = "whether asset quantities can be fractional", example = "true")
 	private boolean isDivisible;
+
 	@Schema(description = "non-human-readable asset-related data, typically JSON", example = "{\"logo\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgA==\"}")
 	private String data;
+
 	@Schema(description = "whether non-owner holders of asset are barred from using asset", example = "false")
 	private boolean isUnspendable;
 

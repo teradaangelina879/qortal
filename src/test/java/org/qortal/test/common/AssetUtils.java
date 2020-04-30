@@ -19,6 +19,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.Transaction;
+import org.qortal.utils.Amounts;
 
 import java.util.Map;
 import java.util.Random;
@@ -26,7 +27,7 @@ import java.util.Random;
 public class AssetUtils {
 
 	public static final int txGroupId = Group.NO_GROUP;
-	public static final long fee = 1L;
+	public static final long fee = 1L * Amounts.MULTIPLIER;
 
 	// QORT: 0, LEGACY_QORA: 1, QORT_FROM_QORA: 2
 	public static final long testAssetId = 3L; // Owned by Alice

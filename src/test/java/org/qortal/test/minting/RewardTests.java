@@ -2,8 +2,6 @@ package org.qortal.test.minting;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +23,7 @@ import org.qortal.test.common.AccountUtils;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
+import org.qortal.utils.Amounts;
 
 public class RewardTests extends Common {
 
@@ -94,7 +93,7 @@ public class RewardTests extends Common {
 
 			// We're expecting reward * 12.8% to Bob, the rest to Alice
 
-			long bobShare = (blockReward * share) / 100L;
+			long bobShare = (blockReward * share) / 100L / 100L;
 			AccountUtils.assertBalance(repository, "bob", Asset.QORT, initialBalances.get("bob").get(Asset.QORT) + bobShare);
 
 			long aliceShare = blockReward - bobShare;
@@ -142,7 +141,7 @@ public class RewardTests extends Common {
 			 */
 
 			// Expected reward
-			long qoraHoldersReward = (blockReward * qoraHoldersShare) / Asset.MULTIPLIER;
+			long qoraHoldersReward = (blockReward * qoraHoldersShare) / Amounts.MULTIPLIER;
 			assertTrue("QORA-holders share of block reward should be less than total block reward", qoraHoldersReward < blockReward);
 
 			long ourQoraHeld = initialBalances.get("chloe").get(Asset.LEGACY_QORA);
@@ -162,19 +161,19 @@ public class RewardTests extends Common {
 	public void testMaxLegacyQoraReward() throws DataException {
 		Common.useSettings("test-settings-v2-qora-holder.json");
 
-		BigDecimal qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
+		long qoraPerQort = BlockChain.getInstance().getUnscaledQoraPerQortReward();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
 
 			// Mint lots of blocks
 			for (int i = 0; i < 100; ++i)
 				BlockUtils.mintBlock(repository);
 
 			// Expected balances to be limited by Chloe's legacy QORA amount
-			BigDecimal expectedBalance = initialBalances.get("chloe").get(Asset.LEGACY_QORA).divide(qoraPerQort);
-			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, initialBalances.get("chloe").get(Asset.QORT).add(expectedBalance));
-			AccountUtils.assertBalance(repository, "chloe", Asset.QORT_FROM_QORA, initialBalances.get("chloe").get(Asset.QORT_FROM_QORA).add(expectedBalance));
+			long expectedBalance = initialBalances.get("chloe").get(Asset.LEGACY_QORA) / qoraPerQort;
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, initialBalances.get("chloe").get(Asset.QORT) + expectedBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT_FROM_QORA, initialBalances.get("chloe").get(Asset.QORT_FROM_QORA) + expectedBalance);
 		}
 	}
 
@@ -189,7 +188,7 @@ public class RewardTests extends Common {
 			assertEquals(0, (int) chloe.getLevel());
 
 			// Alice needs to mint block containing REWARD_SHARE BEFORE Alice loses minting privs
-			byte[] aliceChloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "chloe", BigDecimal.ZERO); // Block minted by Alice
+			byte[] aliceChloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "chloe", 0); // Block minted by Alice
 			PrivateKeyAccount aliceChloeRewardShareAccount = new PrivateKeyAccount(repository, aliceChloeRewardSharePrivateKey);
 
 			final int minterBlocksNeeded = cumulativeBlocksByLevel.get(1);
@@ -211,10 +210,8 @@ public class RewardTests extends Common {
 	public void testFounderRewards() throws DataException {
 		Common.useSettings("test-settings-v2-founder-rewards.json");
 
-		BigDecimal perHundred = BigDecimal.valueOf(100L);
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
+			Long blockReward = BlockUtils.getNextBlockReward(repository);
 
 			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
 
@@ -227,14 +224,15 @@ public class RewardTests extends Common {
 			// Chloe self-share and reward-share with Dilbert both online
 			PrivateKeyAccount chloeSelfShare = Common.getTestAccount(repository, "chloe-reward-share");
 			mintingAndOnlineAccounts.add(chloeSelfShare);
+
 			PrivateKeyAccount chloeDilbertRewardShare = new PrivateKeyAccount(repository, Base58.decode("HuiyqLipUN1V9p1HZfLhyEwmEA6BTaT2qEfjgkwPViV4"));
 			mintingAndOnlineAccounts.add(chloeDilbertRewardShare);
 
 			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
 
 			// 3 founders (online or not) so blockReward divided by 3
-			BigDecimal founderCount = BigDecimal.valueOf(3L);
-			BigDecimal perFounderReward = blockReward.divide(founderCount, RoundingMode.DOWN);
+			int founderCount = 3;
+			long perFounderReward = blockReward / founderCount;
 
 			// Alice simple self-share so her reward is perFounderReward
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, perFounderReward);
@@ -243,16 +241,19 @@ public class RewardTests extends Common {
 			AccountUtils.assertBalance(repository, "bob", Asset.QORT, perFounderReward);
 
 			// Chloe has two reward-shares, so her reward is divided by 2
-			BigDecimal chloeSharesCount = BigDecimal.valueOf(2L);
-			BigDecimal chloePerShareReward = perFounderReward.divide(chloeSharesCount, RoundingMode.DOWN);
+			int chloeSharesCount = 2;
+			long chloePerShareReward = perFounderReward / chloeSharesCount;
+
 			// Her self-share gets chloePerShareReward
-			BigDecimal chloeExpectedBalance = chloePerShareReward;
+			long chloeExpectedBalance = chloePerShareReward;
+
 			// Her reward-share with Dilbert: 25% goes to Dilbert
-			BigDecimal dilbertSharePercent = BigDecimal.valueOf(25L);
-			BigDecimal dilbertExpectedBalance = chloePerShareReward.multiply(dilbertSharePercent).divide(perHundred, RoundingMode.DOWN);
+			int dilbertSharePercent = 25;
+			long dilbertExpectedBalance = (chloePerShareReward * dilbertSharePercent) / 100L;
+
 			// The remaining 75% goes to Chloe
-			BigDecimal rewardShareRemaining = chloePerShareReward.subtract(dilbertExpectedBalance);
-			chloeExpectedBalance = chloeExpectedBalance.add(rewardShareRemaining);
+			long rewardShareRemaining = chloePerShareReward - dilbertExpectedBalance;
+			chloeExpectedBalance += rewardShareRemaining;
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeExpectedBalance);
 		}
 	}

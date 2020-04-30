@@ -2,8 +2,6 @@ package org.qortal.test.assets;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Map;
 
 import org.junit.After;
@@ -17,8 +15,15 @@ import org.qortal.test.common.AssetUtils;
 import org.qortal.test.common.Common;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ValidationResult;
+import org.qortal.utils.Amounts;
 
 public class CancellingTests extends Common {
+
+	/*
+	 * Commitments are always rounded up.
+	 * Returns (amounts traded) are always rounded down.
+	 * Thus expected post-cancel refunds should be rounded up too.
+	 */
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -32,11 +37,11 @@ public class CancellingTests extends Common {
 
 	@Test
 	public void testSimpleCancel() throws DataException {
-		BigDecimal amount = new BigDecimal("1234.87654321").setScale(8);
-		BigDecimal price = new BigDecimal("1.35615263").setScale(8);
+		long amount = 1234_87654321L;
+		long price = 1_35615263L;
 
 		try (Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
 
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.testAssetId, AssetUtils.otherAssetId, amount, price);
 			AssetUtils.cancelOrder(repository, "alice", aliceOrderId);
@@ -45,7 +50,7 @@ public class CancellingTests extends Common {
 			AssetUtils.cancelOrder(repository, "bob", bobOrderId);
 
 			// Check asset balances match pre-ordering values
-			BigDecimal expectedBalance;
+			long expectedBalance;
 
 			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId);
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
@@ -57,11 +62,11 @@ public class CancellingTests extends Common {
 
 	@Test
 	public void testRepeatCancel() throws DataException {
-		BigDecimal amount = new BigDecimal("1234.87654321").setScale(8);
-		BigDecimal price = new BigDecimal("1.35615263").setScale(8);
+		long amount = 1234_87654321L;
+		long price = 1_35615263L;
 
 		try (Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
 
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.testAssetId, AssetUtils.otherAssetId, amount, price);
 			AssetUtils.cancelOrder(repository, "alice", aliceOrderId);
@@ -70,7 +75,7 @@ public class CancellingTests extends Common {
 			assertCannotCancelClosedOrder(repository, "alice", aliceOrderId);
 
 			// Check asset balances match pre-ordering values
-			BigDecimal expectedBalance;
+			long expectedBalance;
 
 			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId);
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
@@ -82,125 +87,141 @@ public class CancellingTests extends Common {
 
 	@Test
 	public void testPartialTargetMatchCancel() throws DataException {
-		BigDecimal aliceAmount = new BigDecimal("1234").setScale(8); // OTHER
-		BigDecimal alicePrice = new BigDecimal("1.5").setScale(8); // TEST/OTHER
+		// TEST has a lower assetId than OTHER
 
-		BigDecimal bobAmount = new BigDecimal("500").setScale(8); // OTHER
-		BigDecimal bobPrice = new BigDecimal("1.2").setScale(8); // TEST/OTHER
+		// Alice has TEST, wants OTHER
+		long aliceAmount = 1234_00000000L; // OTHER is 'want' asset
+		long alicePrice = 1_50000000L; // TEST/OTHER
 
-		BigDecimal aliceCommitment = aliceAmount.multiply(alicePrice).setScale(8, RoundingMode.DOWN); // TEST
-		BigDecimal bobCommitment = bobAmount; // OTHER
+		// Bob has OTHER, wants TEST
+		long bobAmount = 500_00000000L; // OTHER is 'have' asset
+		long bobPrice = 1_20000000L; // TEST/OTHER
 
-		BigDecimal matchedAmount = aliceAmount.min(bobAmount); // 500 OTHER
+		long aliceCommitment = Amounts.roundUpScaledMultiply(aliceAmount, alicePrice); // TEST
+		long bobCommitment = bobAmount; // OTHER
 
-		BigDecimal aliceReturn = matchedAmount; // OTHER
-		BigDecimal bobReturn = matchedAmount.multiply(alicePrice).setScale(8, RoundingMode.DOWN); // TEST
+		long matchedAmount = Math.min(aliceAmount, bobAmount); // 500 OTHER
 
-		BigDecimal aliceRefund = aliceAmount.subtract(matchedAmount).multiply(alicePrice).setScale(8, RoundingMode.DOWN); // TEST
-		BigDecimal bobRefund = BigDecimal.ZERO; // because Bob's order is fully matched
+		long aliceReturn = matchedAmount; // OTHER
+		long bobReturn = Amounts.roundDownScaledMultiply(matchedAmount, alicePrice); // TEST
 
-		BigDecimal bobSaving = BigDecimal.ZERO; // not in this direction 
+		long aliceRefund = Amounts.roundUpScaledMultiply(aliceAmount - matchedAmount,  alicePrice); // TEST
+		long bobRefund = 0L; // because Bob's order is fully matched
+
+		long bobSaving = 0L; // not in this direction
 
 		try (Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
 
+			// Place 'target' order
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.testAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice);
+			// Place 'initiating' order: the order that initiates a trade
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.testAssetId, bobAmount, bobPrice);
 
 			AssetUtils.cancelOrder(repository, "alice", aliceOrderId);
-			assertCannotCancelClosedOrder(repository, "bob", bobOrderId);
+			assertCannotCancelClosedOrder(repository, "bob", bobOrderId); // because full matched
 
 			// Check asset balances
-			BigDecimal expectedBalance;
+			long expectedBalance;
 
 			// Alice
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(aliceCommitment).add(aliceRefund);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId) - aliceCommitment + aliceRefund;
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
 
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.otherAssetId).add(aliceReturn);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.otherAssetId) + aliceReturn;
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.otherAssetId, expectedBalance);
 
 			// Bob
-			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId).subtract(bobCommitment).add(bobSaving).add(bobRefund);
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId) - bobCommitment + bobSaving + bobRefund;
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.otherAssetId, expectedBalance);
 
-			expectedBalance = initialBalances.get("bob").get(AssetUtils.testAssetId).add(bobReturn);
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.testAssetId) + bobReturn;
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.testAssetId, expectedBalance);
 		}
 	}
 
 	@Test
 	public void testPartialInitiatorMatchCancel() throws DataException {
-		BigDecimal aliceAmount = new BigDecimal("500").setScale(8); // OTHER
-		BigDecimal alicePrice = new BigDecimal("1.5").setScale(8); // TEST/OTHER
+		// TEST has a lower assetId than OTHER
 
-		BigDecimal bobAmount = new BigDecimal("1234").setScale(8); // OTHER
-		BigDecimal bobPrice = new BigDecimal("1.2").setScale(8); // TEST/OTHER
+		// Alice has TEST, wants OTHER
+		long aliceAmount = 500_00000000L; // OTHER is 'want' asset
+		long alicePrice = 1_50000000L; // TEST/OTHER
 
-		BigDecimal aliceCommitment = aliceAmount.multiply(alicePrice).setScale(8, RoundingMode.DOWN); // TEST
-		BigDecimal bobCommitment = bobAmount; // OTHER
+		// Bob has OTHER, wants TEST
+		long bobAmount = 1234_00000000L; // OTHER is 'have' asset
+		long bobPrice = 1_20000000L; // TEST/OTHER
 
-		BigDecimal matchedAmount = aliceAmount.min(bobAmount); // 500 OTHER
+		long aliceCommitment = Amounts.roundUpScaledMultiply(aliceAmount, alicePrice); // TEST
+		long bobCommitment = bobAmount; // OTHER
 
-		BigDecimal aliceReturn = matchedAmount; // OTHER
-		BigDecimal bobReturn = matchedAmount.multiply(alicePrice).setScale(8, RoundingMode.DOWN); // TEST
+		long matchedAmount = Math.min(aliceAmount, bobAmount); // 500 OTHER
 
-		BigDecimal aliceRefund = BigDecimal.ZERO; // because Alice's order is fully matched
-		BigDecimal bobRefund = bobAmount.subtract(matchedAmount); // OTHER
+		long aliceReturn = matchedAmount; // OTHER
+		long bobReturn = Amounts.roundDownScaledMultiply(matchedAmount, alicePrice); // TEST
 
-		BigDecimal bobSaving = BigDecimal.ZERO; // not in this direction 
+		long aliceRefund = 0L; // because Alice's order is fully matched
+		long bobRefund = bobAmount - matchedAmount; // OTHER
+
+		long bobSaving = 0L; // not in this direction
 
 		try (Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
 
+			// Place 'target' order
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.testAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice);
+			// Place 'initiating' order: the order that initiates a trade
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.testAssetId, bobAmount, bobPrice);
 
-			assertCannotCancelClosedOrder(repository, "alice", aliceOrderId);
+			assertCannotCancelClosedOrder(repository, "alice", aliceOrderId); // because fully matched
 			AssetUtils.cancelOrder(repository, "bob", bobOrderId);
 
 			// Check asset balances
-			BigDecimal expectedBalance;
+			long expectedBalance;
 
 			// Alice
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(aliceCommitment).add(aliceRefund);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId) - aliceCommitment + aliceRefund;
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
 
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.otherAssetId).add(aliceReturn);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.otherAssetId) + aliceReturn;
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.otherAssetId, expectedBalance);
 
 			// Bob
-			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId).subtract(bobCommitment).add(bobSaving).add(bobRefund);
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId) - bobCommitment + bobSaving + bobRefund;
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.otherAssetId, expectedBalance);
 
-			expectedBalance = initialBalances.get("bob").get(AssetUtils.testAssetId).add(bobReturn);
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.testAssetId) + bobReturn;
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.testAssetId, expectedBalance);
 		}
 	}
 
 	@Test
 	public void testPartialTargetMatchCancelInverted() throws DataException {
-		BigDecimal aliceAmount = new BigDecimal("1234").setScale(8); // GOLD
-		BigDecimal alicePrice = new BigDecimal("1.2").setScale(8); // OTHER/GOLD
+		// GOLD has a higher assetId than OTHER, hence "inverted" viz-a-viz have/want assetIds
 
-		BigDecimal bobAmount = new BigDecimal("500").setScale(8); // GOLD
-		BigDecimal bobPrice = new BigDecimal("1.5").setScale(8); // OTHER/GOLD
+		// Alice has GOLD, wants OTHER
+		long aliceAmount = 1234_00000000L; // GOLD is 'have' asset
+		long alicePrice = 1_20000000L; // OTHER/GOLD
 
-		BigDecimal aliceCommitment = aliceAmount; // GOLD
-		BigDecimal bobCommitment = bobAmount.multiply(bobPrice).setScale(8, RoundingMode.DOWN); // OTHER
+		// Bob has OTHER, wants GOLD
+		long bobAmount = 500_00000000L; // GOLD is 'want' asset
+		long bobPrice = 1_50000000L; // OTHER/GOLD
 
-		BigDecimal matchedAmount = aliceAmount.min(bobAmount); // 500 GOLD
+		long aliceCommitment = aliceAmount; // GOLD
+		long bobCommitment = Amounts.roundUpScaledMultiply(bobAmount, bobPrice); // OTHER
 
-		BigDecimal aliceReturn = matchedAmount.multiply(alicePrice).setScale(8, RoundingMode.DOWN); // OTHER
-		BigDecimal bobReturn = matchedAmount; // GOLD
+		long matchedAmount = Math.min(aliceAmount, bobAmount); // 500 GOLD
 
-		BigDecimal aliceRefund = aliceAmount.subtract(matchedAmount); // GOLD
-		BigDecimal bobRefund = BigDecimal.ZERO; // because Bob's order is fully matched
+		long aliceReturn = Amounts.roundDownScaledMultiply(matchedAmount, alicePrice); // OTHER
+		long bobReturn = matchedAmount; // GOLD
 
-		BigDecimal bobSaving = new BigDecimal("150").setScale(8); // (1.5 - 1.2) * 500 = 150 OTHER 
+		long aliceRefund = aliceAmount - matchedAmount; // GOLD
+		long bobRefund = 0L; // because Bob's order is fully matched
+
+		long bobSaving = 150_00000000L; // (1.5 - 1.2) * 500 = 150 OTHER
 
 		try (Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.goldAssetId, AssetUtils.otherAssetId);
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.goldAssetId, AssetUtils.otherAssetId);
 
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.goldAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice);
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.goldAssetId, bobAmount, bobPrice);
@@ -209,47 +230,51 @@ public class CancellingTests extends Common {
 			assertCannotCancelClosedOrder(repository, "bob", bobOrderId);
 
 			// Check asset balances
-			BigDecimal expectedBalance;
+			long expectedBalance;
 
 			// Alice
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.goldAssetId).subtract(aliceCommitment).add(aliceRefund);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.goldAssetId) - aliceCommitment + aliceRefund;
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.goldAssetId, expectedBalance);
 
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.otherAssetId).add(aliceReturn);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.otherAssetId) + aliceReturn;
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.otherAssetId, expectedBalance);
 
 			// Bob
-			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId).subtract(bobCommitment).add(bobSaving).add(bobRefund);
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId) - bobCommitment + bobSaving + bobRefund;
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.otherAssetId, expectedBalance);
 
-			expectedBalance = initialBalances.get("bob").get(AssetUtils.goldAssetId).add(bobReturn);
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.goldAssetId) + bobReturn;
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.goldAssetId, expectedBalance);
 		}
 	}
 
 	@Test
 	public void testPartialInitiatorMatchCancelInverted() throws DataException {
-		BigDecimal aliceAmount = new BigDecimal("500").setScale(8); // GOLD
-		BigDecimal alicePrice = new BigDecimal("1.2").setScale(8); // OTHER/GOLD
+		// GOLD has a higher assetId than OTHER, hence "inverted" viz-a-viz have/want assetIds
 
-		BigDecimal bobAmount = new BigDecimal("1234").setScale(8); // GOLD
-		BigDecimal bobPrice = new BigDecimal("1.5").setScale(8); // OTHER/GOLD
+		// Alice has GOLD, wants OTHER
+		long aliceAmount = 500_00000000L; // GOLD is 'have' asset
+		long alicePrice = 1_20000000L; // OTHER/GOLD
 
-		BigDecimal aliceCommitment = aliceAmount; // GOLD
-		BigDecimal bobCommitment = bobAmount.multiply(bobPrice).setScale(8, RoundingMode.DOWN); // OTHER
+		// Bob has OTHER, wants GOLD
+		long bobAmount = 1234_00000000L; // GOLD is 'want' asset
+		long bobPrice = 1_50000000L; // OTHER/GOLD
 
-		BigDecimal matchedAmount = aliceAmount.min(bobAmount); // 500 GOLD
+		long aliceCommitment = aliceAmount; // GOLD
+		long bobCommitment = Amounts.roundUpScaledMultiply(bobAmount, bobPrice); // OTHER
 
-		BigDecimal aliceReturn = matchedAmount.multiply(alicePrice).setScale(8, RoundingMode.DOWN); // OTHER
-		BigDecimal bobReturn = matchedAmount; // GOLD
+		long matchedAmount = Math.min(aliceAmount, bobAmount); // 500 GOLD
 
-		BigDecimal aliceRefund = BigDecimal.ZERO; // because Alice's order is fully matched
-		BigDecimal bobRefund = bobAmount.subtract(matchedAmount).multiply(bobPrice).setScale(8, RoundingMode.DOWN); // OTHER
+		long aliceReturn = Amounts.roundDownScaledMultiply(matchedAmount, alicePrice); // OTHER
+		long bobReturn = matchedAmount; // GOLD
 
-		BigDecimal bobSaving = new BigDecimal("150").setScale(8); // (1.5 - 1.2) * 500 = 150 OTHER 
+		long aliceRefund = 0L; // because Alice's order is fully matched
+		long bobRefund = Amounts.roundUpScaledMultiply(bobAmount - matchedAmount, bobPrice); // OTHER
+
+		long bobSaving = 150_00000000L; // (1.5 - 1.2) * 500 = 150 OTHER
 
 		try (Repository repository = RepositoryManager.getRepository()) {
-			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.goldAssetId, AssetUtils.otherAssetId);
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.goldAssetId, AssetUtils.otherAssetId);
 
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.goldAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice);
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.goldAssetId, bobAmount, bobPrice);
@@ -258,20 +283,20 @@ public class CancellingTests extends Common {
 			AssetUtils.cancelOrder(repository, "bob", bobOrderId);
 
 			// Check asset balances
-			BigDecimal expectedBalance;
+			long expectedBalance;
 
 			// Alice
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.goldAssetId).subtract(aliceCommitment).add(aliceRefund);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.goldAssetId) - aliceCommitment + aliceRefund;
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.goldAssetId, expectedBalance);
 
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.otherAssetId).add(aliceReturn);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.otherAssetId) + aliceReturn;
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.otherAssetId, expectedBalance);
 
 			// Bob
-			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId).subtract(bobCommitment).add(bobSaving).add(bobRefund);
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId) - bobCommitment + bobSaving + bobRefund;
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.otherAssetId, expectedBalance);
 
-			expectedBalance = initialBalances.get("bob").get(AssetUtils.goldAssetId).add(bobReturn);
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.goldAssetId) + bobReturn;
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.goldAssetId, expectedBalance);
 		}
 	}

@@ -21,16 +21,16 @@ import org.qortal.test.common.TransactionUtils;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.transaction.Transaction.ValidationResult;
+import org.qortal.utils.Amounts;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
 
 public class GroupApprovalTests extends Common {
 
-	private static final BigDecimal amount = BigDecimal.valueOf(5000L).setScale(8);
-	private static final BigDecimal fee = BigDecimal.ONE.setScale(8);
+	private static final long amount = 5000L * Amounts.MULTIPLIER;
+	private static final long fee = 1L * Amounts.MULTIPLIER;
 	private static final int minBlockDelay = 5;
 	private static final int maxBlockDelay = 10;
 
@@ -89,10 +89,10 @@ public class GroupApprovalTests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 			byte[] bobOriginalReference = bobAccount.getLastReference();
 
-			BigDecimal aliceOriginalBalance = aliceAccount.getConfirmedBalance(Asset.QORT);
-			BigDecimal bobOriginalBalance = bobAccount.getConfirmedBalance(Asset.QORT);
+			long aliceOriginalBalance = aliceAccount.getConfirmedBalance(Asset.QORT);
+			long bobOriginalBalance = bobAccount.getConfirmedBalance(Asset.QORT);
 
-			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
+			Long blockReward = BlockUtils.getNextBlockReward(repository);
 			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
 			TransactionUtils.signAndMint(repository, bobAssetTransaction.getTransactionData(), bobAccount);
 
@@ -105,12 +105,12 @@ public class GroupApprovalTests extends Common {
 			assertFalse("reference should have changed", Arrays.equals(bobOriginalReference, bobPostAssetReference));
 
 			// Bob's balance should have the fee removed, even though the transaction itself hasn't been approved yet
-			BigDecimal bobPostAssetBalance = bobAccount.getConfirmedBalance(Asset.QORT);
-			Common.assertEqualBigDecimals("approval-pending transaction creator's balance incorrect", bobOriginalBalance.subtract(fee), bobPostAssetBalance);
+			long bobPostAssetBalance = bobAccount.getConfirmedBalance(Asset.QORT);
+			assertEquals("approval-pending transaction creator's balance incorrect", bobOriginalBalance - fee, bobPostAssetBalance);
 
 			// Transaction fee should have ended up in forging account
-			BigDecimal alicePostAssetBalance = aliceAccount.getConfirmedBalance(Asset.QORT);
-			Common.assertEqualBigDecimals("block minter's balance incorrect", aliceOriginalBalance.add(blockReward).add(fee), alicePostAssetBalance);
+			long alicePostAssetBalance = aliceAccount.getConfirmedBalance(Asset.QORT);
+			assertEquals("block minter's balance incorrect", aliceOriginalBalance + blockReward + fee, alicePostAssetBalance);
 
 			// Have Bob do a non-approval transaction to change his last-reference
 			Transaction bobPaymentTransaction = buildPaymentTransaction(repository, "bob", "chloe", amount, Group.NO_GROUP);
@@ -166,8 +166,8 @@ public class GroupApprovalTests extends Common {
 			assertTrue("reference should be pre-payment", Arrays.equals(bobOriginalReference, bobReference));
 
 			// Also check Bob's balance is back to original value
-			BigDecimal bobBalance = bobAccount.getConfirmedBalance(Asset.QORT);
-			Common.assertEqualBigDecimals("reverted balance doesn't match original", bobOriginalBalance, bobBalance);
+			long bobBalance = bobAccount.getConfirmedBalance(Asset.QORT);
+			assertEquals("reverted balance doesn't match original", bobOriginalBalance, bobBalance);
 		}
 	}
 
@@ -414,7 +414,7 @@ public class GroupApprovalTests extends Common {
 		}
 	}
 
-	private Transaction buildPaymentTransaction(Repository repository, String sender, String recipient, BigDecimal amount, int txGroupId) throws DataException {
+	private Transaction buildPaymentTransaction(Repository repository, String sender, String recipient, long amount, int txGroupId) throws DataException {
 		PrivateKeyAccount sendingAccount = Common.getTestAccount(repository, sender);
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
 
