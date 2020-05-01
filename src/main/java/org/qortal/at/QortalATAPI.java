@@ -3,7 +3,6 @@ package org.qortal.at;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -179,8 +178,7 @@ public class QortalATAPI extends API {
 				Transaction transaction = blockTransactions.get(sequence);
 
 				// Transaction needs to be sent to specified recipient
-				List<Account> recipientAccounts = transaction.getRecipientAccounts();
-				List<String> recipientAddresses = recipientAccounts.stream().map(Account::getAddress).collect(Collectors.toList());
+				List<String> recipientAddresses = transaction.getRecipientAddresses();
 				if (recipientAddresses.contains(atAddress)) {
 					// Found a transaction
 

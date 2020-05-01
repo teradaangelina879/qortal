@@ -396,16 +396,6 @@ public abstract class Transaction {
 	}
 
 	/**
-	 * Returns a list of recipient accounts for this transaction.
-	 * 
-	 * @return list of recipients accounts, or empty list if none
-	 * @throws DataException
-	 */
-	public List<Account> getRecipientAccounts() throws DataException {
-		throw new DataException("Placeholder for new AT code");
-	}
-
-	/**
 	 * Returns a list of recipient addresses for this transaction.
 	 * 
 	 * @return list of recipients addresses, or empty list if none
