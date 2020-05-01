@@ -55,7 +55,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.utils.ExecuteProduceConsume;
-import org.qortal.utils.ExecutorDumper;
+// import org.qortal.utils.ExecutorDumper;
 import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
 import org.qortal.utils.NTP;
 
@@ -77,7 +77,7 @@ public class Network {
 	/** Maximum time since last successful connection before a peer is potentially considered "old", in milliseconds. */
 	private static final long OLD_PEER_CONNECTION_PERIOD = 7 * 24 * 60 * 60 * 1000L; // ms
 	/** Maximum time allowed for handshake to complete, in milliseconds. */
-	private static final long HANDSHAKE_TIMEOUT = 60 * 1000; // ms
+	private static final long HANDSHAKE_TIMEOUT = 60 * 1000L; // ms
 
 	private static final byte[] MAINNET_MESSAGE_MAGIC = new byte[] { 0x51, 0x4f, 0x52, 0x54 }; // QORT
 	private static final byte[] TESTNET_MESSAGE_MAGIC = new byte[] { 0x71, 0x6f, 0x72, 0x54 }; // qorT
