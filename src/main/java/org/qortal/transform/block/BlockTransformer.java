@@ -42,7 +42,7 @@ public class BlockTransformer extends Transformer {
 			+ TRANSACTIONS_SIGNATURE_LENGTH + MINTER_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
 
 	public static final int BLOCK_SIGNATURE_LENGTH = MINTER_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
-	
+
 	protected static final int TRANSACTION_SIZE_LENGTH = INT_LENGTH; // per transaction
 
 	protected static final int AT_BYTES_LENGTH = INT_LENGTH;
