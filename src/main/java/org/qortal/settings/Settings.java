@@ -20,6 +20,7 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.block.BlockChain;
+import org.qortal.crosschain.BTC.BitcoinNet;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -91,7 +92,7 @@ public class Settings {
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
-	private boolean useBitcoinTestNet = false;
+	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
 
 	// Repository related
 	/** Queries that take longer than this are logged. (milliseconds) */
@@ -345,8 +346,8 @@ public class Settings {
 		return this.blockchainConfig;
 	}
 
-	public boolean useBitcoinTestNet() {
-		return this.useBitcoinTestNet;
+	public BitcoinNet getBitcoinNet() {
+		return this.bitcoinNet;
 	}
 
 	public Long getSlowQueryThreshold() {

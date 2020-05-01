@@ -70,11 +70,11 @@ public class BTCACCTTests {
 	// For when we want to re-run
 	private static final byte[] prevSecret = HashCode.fromString("30a13291e350214bea5318f990b77bc11d2cb709f7c39859f248bef396961dcc").asBytes();
 	private static final long prevLockTime = 1539347892L;
-	private static final boolean usePreviousFundingTx = true;
+	private static final boolean usePreviousFundingTx = false;
 
 	private static final boolean doRefundNotRedeem = false;
 
-	public void main(String[] args) throws NoSuchAlgorithmException, InsufficientMoneyException, InterruptedException, ExecutionException, UnknownHostException {
+	public static void main(String[] args) throws NoSuchAlgorithmException, InsufficientMoneyException, InterruptedException, ExecutionException, UnknownHostException {
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
 
 		byte[] secret = new byte[32];
@@ -173,7 +173,7 @@ public class BTCACCTTests {
 	private static final byte[] redeemScript4 = HashCode.fromString("b17576a914").asBytes();
 	private static final byte[] redeemScript5 = HashCode.fromString("88ac68").asBytes();
 
-	private byte[] buildRedeemScript(byte[] secret, byte[] senderPubKey, byte[] recipientPubKey, long lockTime) {
+	private static byte[] buildRedeemScript(byte[] secret, byte[] senderPubKey, byte[] recipientPubKey, long lockTime) {
 		try {
 			MessageDigest sha256Digester = MessageDigest.getInstance("SHA-256");
 
@@ -188,7 +188,7 @@ public class BTCACCTTests {
 		}
 	}
 
-	private byte[] hash160(byte[] input) {
+	private static byte[] hash160(byte[] input) {
 		try {
 			MessageDigest rmd160Digester = MessageDigest.getInstance("RIPEMD160");
 			MessageDigest sha256Digester = MessageDigest.getInstance("SHA-256");
@@ -199,7 +199,7 @@ public class BTCACCTTests {
 		}
 	}
 
-	private Transaction buildFundingTransaction(NetworkParameters params, Sha256Hash prevTxHash, long outputIndex, Coin balance, ECKey sigKey, Coin value,
+	private static Transaction buildFundingTransaction(NetworkParameters params, Sha256Hash prevTxHash, long outputIndex, Coin balance, ECKey sigKey, Coin value,
 			byte[] redeemScriptHash) {
 		Transaction fundingTransaction = new Transaction(params);
 
@@ -218,7 +218,7 @@ public class BTCACCTTests {
 		return fundingTransaction;
 	}
 
-	private Transaction buildRedeemTransaction(NetworkParameters params, TransactionOutPoint fundingOutPoint, ECKey recipientKey, Coin value, byte[] secret,
+	private static Transaction buildRedeemTransaction(NetworkParameters params, TransactionOutPoint fundingOutPoint, ECKey recipientKey, Coin value, byte[] secret,
 			byte[] redeemScriptBytes) {
 		Transaction redeemTransaction = new Transaction(params);
 		redeemTransaction.setVersion(2);
@@ -255,7 +255,7 @@ public class BTCACCTTests {
 		return redeemTransaction;
 	}
 
-	private Transaction buildRefundTransaction(NetworkParameters params, TransactionOutPoint fundingOutPoint, ECKey senderKey, Coin value,
+	private static Transaction buildRefundTransaction(NetworkParameters params, TransactionOutPoint fundingOutPoint, ECKey senderKey, Coin value,
 			byte[] redeemScriptBytes, long lockTime) {
 		Transaction refundTransaction = new Transaction(params);
 		refundTransaction.setVersion(2);
@@ -294,7 +294,7 @@ public class BTCACCTTests {
 		return refundTransaction;
 	}
 
-	private void broadcastWithConfirmation(WalletAppKit kit, Transaction transaction) {
+	private static void broadcastWithConfirmation(WalletAppKit kit, Transaction transaction) {
 		System.out.println("Broadcasting tx: " + transaction.getTxId().toString());
 		System.out.println("TX hex: " + HashCode.fromBytes(transaction.bitcoinSerialize()).toString());
 
@@ -320,7 +320,7 @@ public class BTCACCTTests {
 	}
 
 	/** Convert int to little-endian byte array */
-	private byte[] toLEByteArray(int value) {
+	private static byte[] toLEByteArray(int value) {
 		return new byte[] { (byte) (value), (byte) (value >> 8), (byte) (value >> 16), (byte) (value >> 24) };
 	}
 

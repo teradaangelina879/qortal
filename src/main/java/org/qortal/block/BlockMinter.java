@@ -337,11 +337,9 @@ public class BlockMinter extends Thread {
 		this.interrupt();
 	}
 
-	public static void mintTestingBlock(Repository repository, PrivateKeyAccount... mintingAndOnlineAccounts) throws DataException {
-		if (!BlockChain.getInstance().isTestChain()) {
-			LOGGER.warn("Ignoring attempt to mint testing block for non-test chain!");
-			return;
-		}
+	public static Block mintTestingBlock(Repository repository, PrivateKeyAccount... mintingAndOnlineAccounts) throws DataException {
+		if (!BlockChain.getInstance().isTestChain())
+			throw new DataException("Ignoring attempt to mint testing block for non-test chain!");
 
 		// Ensure mintingAccount is 'online' so blocks can be minted
 		Controller.getInstance().ensureTestingAccountsOnline(mintingAndOnlineAccounts);
@@ -372,6 +370,8 @@ public class BlockMinter extends Thread {
 			LOGGER.info(String.format("Minted new test block: %d", newBlock.getBlockData().getHeight()));
 
 			repository.saveChanges();
+
+			return newBlock;
 		} finally {
 			blockchainLock.unlock();
 		}

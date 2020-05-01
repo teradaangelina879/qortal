@@ -1,5 +1,11 @@
 package org.qortal.data.at;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+// All properties to be converted to JSON via JAXB
+@XmlAccessorType(XmlAccessType.FIELD)
 public class ATData {
 
 	// Properties
@@ -9,29 +15,44 @@ public class ATData {
 	private int version;
 	private long assetId;
 	private byte[] codeBytes;
+	private byte[] codeHash;
 	private boolean isSleeping;
 	private Integer sleepUntilHeight;
 	private boolean isFinished;
 	private boolean hadFatalError;
 	private boolean isFrozen;
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private Long frozenBalance;
 
 	// Constructors
 
-	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, boolean isSleeping,
-			Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
+	// necessary for JAXB serialization
+	protected ATData() {
+	}
+
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, byte[] codeHash,
+			boolean isSleeping, Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
 		this.ATAddress = ATAddress;
 		this.creatorPublicKey = creatorPublicKey;
 		this.creation = creation;
 		this.version = version;
 		this.assetId = assetId;
 		this.codeBytes = codeBytes;
+		this.codeHash = codeHash;
 		this.isSleeping = isSleeping;
 		this.sleepUntilHeight = sleepUntilHeight;
 		this.isFinished = isFinished;
 		this.hadFatalError = hadFatalError;
 		this.isFrozen = isFrozen;
 		this.frozenBalance = frozenBalance;
+	}
+
+	/** For constructing skeleton ATData with bare minimum info. */
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, long assetId) {
+		this.ATAddress = ATAddress;
+		this.creatorPublicKey = creatorPublicKey;
+		this.creation = creation;
+		this.assetId = assetId;
 	}
 
 	// Getters / setters
@@ -58,6 +79,10 @@ public class ATData {
 
 	public byte[] getCodeBytes() {
 		return this.codeBytes;
+	}
+
+	public byte[] getCodeHash() {
+		return this.codeHash;
 	}
 
 	public boolean getIsSleeping() {

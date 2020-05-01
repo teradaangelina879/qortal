@@ -290,6 +290,10 @@ public class GenesisBlock extends Block {
 		for (Transaction transaction : this.getTransactions())
 			this.repository.getTransactionRepository().save(transaction.getTransactionData());
 
+		// No ATs in genesis block
+		this.ourAtStates = Collections.emptyList();
+		this.ourAtFees = 0;
+
 		super.process();
 	}
 

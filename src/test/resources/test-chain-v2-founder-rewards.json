@@ -29,6 +29,12 @@
 	"blockTimingsByHeight": [
 		{ "height": 1, "target": 60000, "deviation": 30000, "power": 0.2 }
 	],
+	"ciyamAtSettings": {
+		"feePerStep": "0.0001",
+		"maxStepsPerRound": 500,
+		"stepsPerFunctionCall": 10,
+		"minutesPerBlock": 1
+	},
 	"featureTriggers": {
 		"messageHeight": 0,
 		"atHeight": 0,

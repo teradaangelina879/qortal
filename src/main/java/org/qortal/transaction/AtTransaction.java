@@ -145,6 +145,8 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public void processReferencesAndFees() throws DataException {
+		getATAccount().setLastReference(this.atTransactionData.getSignature());
+
 		if (this.atTransactionData.getAmount() != null) {
 			Account recipient = getRecipient();
 			long assetId = this.atTransactionData.getAssetId();
@@ -152,7 +154,7 @@ public class AtTransaction extends Transaction {
 			// For QORT amounts only: if recipient has no reference yet, then this is their starting reference
 			if (assetId == Asset.QORT && recipient.getLastReference() == null)
 				// In Qora1 last reference was set to 64-bytes of zero
-				// In Qortal we use AT-Transction's signature, which makes more sense
+				// In Qortal we use AT-Transaction's signature, which makes more sense
 				recipient.setLastReference(this.atTransactionData.getSignature());
 		}
 	}
@@ -179,6 +181,8 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public void orphanReferencesAndFees() throws DataException {
+		getATAccount().setLastReference(this.atTransactionData.getReference());
+
 		if (this.atTransactionData.getAmount() != null) {
 			Account recipient = getRecipient();
 

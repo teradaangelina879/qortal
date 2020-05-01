@@ -21,4 +21,9 @@ public class BitTwiddling {
 		return maxValue;
 	}
 
+	/** Convert int to little-endian byte array */
+	public static byte[] toLEByteArray(int value) {
+		return new byte[] { (byte) (value), (byte) (value >> 8), (byte) (value >> 16), (byte) (value >> 24) };
+	}
+
 }

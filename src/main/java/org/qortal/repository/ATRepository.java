@@ -18,6 +18,9 @@ public interface ATRepository {
 	/** Returns list of executable ATs, empty if none found */
 	public List<ATData> getAllExecutableATs() throws DataException;
 
+	/** Returns list of ATs with matching code hash, optionally executable only. */
+	public List<ATData> getATsByFunctionality(byte[] codeHash, Boolean isExecutable, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
 	/** Returns creation block height given AT's address or null if not found */
 	public Integer getATCreationBlockHeight(String atAddress) throws DataException;
 

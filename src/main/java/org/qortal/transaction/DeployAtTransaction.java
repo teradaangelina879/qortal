@@ -1,23 +1,25 @@
 package org.qortal.transaction;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
 import org.ciyam.at.MachineState;
+import org.ciyam.at.Timestamp;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.at.AT;
+import org.qortal.at.QortalATAPI;
+import org.qortal.at.QortalAtLoggerFactory;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.asset.AssetData;
+import org.qortal.data.at.ATData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
-import org.qortal.transform.Transformer;
+import org.qortal.transform.TransformationException;
 import org.qortal.utils.Amounts;
+import org.qortal.transform.transaction.TransactionTransformer;
 
 import com.google.common.base.Utf8;
 
@@ -51,7 +53,7 @@ public class DeployAtTransaction extends Transaction {
 	/** Returns AT version from the header bytes */
 	private short getVersion() {
 		byte[] creationBytes = deployATTransactionData.getCreationBytes();
-		return (short) ((creationBytes[0] & 0xff) | (creationBytes[1] << 8)); // Little-endian
+		return (short) ((creationBytes[0] << 8) | (creationBytes[1] & 0xff)); // Big-endian
 	}
 
 	/** Make sure deployATTransactionData has an ATAddress */
@@ -59,29 +61,14 @@ public class DeployAtTransaction extends Transaction {
 		if (this.deployATTransactionData.getAtAddress() != null)
 			return;
 
-		int blockHeight = this.getHeight();
-		if (blockHeight == 0)
-			blockHeight = this.repository.getBlockRepository().getBlockchainHeight() + 1;
-
-		byte[] name = this.deployATTransactionData.getName().getBytes(StandardCharsets.UTF_8);
-		byte[] description = this.deployATTransactionData.getDescription().replaceAll("\\s", "").getBytes(StandardCharsets.UTF_8);
-		byte[] creatorPublicKey = this.deployATTransactionData.getCreatorPublicKey();
-		byte[] creationBytes = this.deployATTransactionData.getCreationBytes();
-
-		ByteBuffer byteBuffer = ByteBuffer
-				.allocate(name.length + description.length + creatorPublicKey.length + creationBytes.length + Transformer.INT_LENGTH);
-
-		byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-
-		byteBuffer.put(name);
-		byteBuffer.put(description);
-		byteBuffer.put(creatorPublicKey);
-		byteBuffer.put(creationBytes);
-		byteBuffer.putInt(blockHeight);
-
-		String atAddress = Crypto.toATAddress(byteBuffer.array());
-
-		this.deployATTransactionData.setAtAddress(atAddress);
+		// Use transaction transformer
+		try {
+			String atAddress = Crypto.toATAddress(TransactionTransformer.toBytesForSigning(this.deployATTransactionData));
+			this.deployATTransactionData.setAtAddress(atAddress);
+			return;
+		} catch (TransformationException e) {
+			throw new DataException("Unable to generate AT address");
+		}
 	}
 
 	// Navigation
@@ -154,8 +141,22 @@ public class DeployAtTransaction extends Transaction {
 		// Check creation bytes are valid (for v2+)
 		if (this.getVersion() >= 2) {
 			// Do actual validation
+			ensureATAddress();
+
+			// Just enough AT data to allow API to query initial balances, etc.
+			String atAddress = this.deployATTransactionData.getAtAddress();
+			byte[] creatorPublicKey = this.deployATTransactionData.getCreatorPublicKey();
+			long creation = this.deployATTransactionData.getTimestamp();
+			ATData skeletonAtData = new ATData(atAddress, creatorPublicKey, creation, assetId);
+
+			int height = this.repository.getBlockRepository().getBlockchainHeight() + 1;
+			long blockTimestamp = Timestamp.toLong(height, 0);
+
+			QortalATAPI api = new QortalATAPI(repository, skeletonAtData, blockTimestamp);
+			QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
+
 			try {
-				new MachineState(this.deployATTransactionData.getCreationBytes());
+				new MachineState(api, loggerFactory, this.deployATTransactionData.getCreationBytes());
 			} catch (IllegalArgumentException e) {
 				// Not valid
 				return ValidationResult.INVALID_CREATION_BYTES;

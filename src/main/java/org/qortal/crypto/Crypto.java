@@ -58,6 +58,18 @@ public class Crypto {
 		return Bytes.concat(digest, digest);
 	}
 
+	/** Returns RMD160(SHA256(data)) */
+	public static byte[] hash160(byte[] data) {
+		byte[] interim = digest(data);
+
+		try {
+			MessageDigest md160 = MessageDigest.getInstance("RIPEMD160");
+			return md160.digest(interim);
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("RIPEMD160 message digest not available");
+		}
+	}
+
 	private static String toAddress(byte addressVersion, byte[] input) {
 		// SHA2-256 input to create new data and of known size
 		byte[] inputHash = digest(input);
@@ -100,14 +112,15 @@ public class Crypto {
 		return isValidTypedAddress(address, ADDRESS_VERSION, AT_ADDRESS_VERSION);
 	}
 
+	public static boolean isValidAddress(byte[] addressBytes) {
+		return areValidTypedAddressBytes(addressBytes, ADDRESS_VERSION, AT_ADDRESS_VERSION);
+	}
+
 	public static boolean isValidAtAddress(String address) {
 		return isValidTypedAddress(address, AT_ADDRESS_VERSION);
 	}
 
 	private static boolean isValidTypedAddress(String address, byte...addressVersions) {
-		if (addressVersions == null || addressVersions.length == 0)
-			return false;
-
 		byte[] addressBytes;
 
 		try {
@@ -116,6 +129,13 @@ public class Crypto {
 		} catch (NumberFormatException e) {
 			return false;
 		}
+
+		return areValidTypedAddressBytes(addressBytes, addressVersions);
+	}
+
+	private static boolean areValidTypedAddressBytes(byte[] addressBytes, byte...addressVersions) {
+		if (addressVersions == null || addressVersions.length == 0)
+			return false;
 
 		// Check address length
 		if (addressBytes == null || addressBytes.length != Account.ADDRESS_LENGTH)

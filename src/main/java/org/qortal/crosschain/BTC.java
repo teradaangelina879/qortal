@@ -10,96 +10,193 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
-import java.util.Date;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.BlockChain;
 import org.bitcoinj.core.CheckpointManager;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.Peer;
+import org.bitcoinj.core.PeerAddress;
 import org.bitcoinj.core.PeerGroup;
 import org.bitcoinj.core.Sha256Hash;
 import org.bitcoinj.core.StoredBlock;
 import org.bitcoinj.core.Transaction;
+import org.bitcoinj.core.TransactionBroadcast;
 import org.bitcoinj.core.TransactionOutput;
-import org.bitcoinj.core.VerificationException;
+import org.bitcoinj.core.listeners.BlocksDownloadedEventListener;
 import org.bitcoinj.core.listeners.NewBestBlockListener;
 import org.bitcoinj.net.discovery.DnsDiscovery;
 import org.bitcoinj.params.MainNetParams;
+import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.params.TestNet3Params;
-import org.bitcoinj.script.Script;
+import org.bitcoinj.script.Script.ScriptType;
 import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
-import org.bitcoinj.store.SPVBlockStore;
+import org.bitcoinj.store.MemoryBlockStore;
+import org.bitcoinj.utils.MonetaryFormat;
 import org.bitcoinj.utils.Threading;
-import org.bitcoinj.wallet.KeyChainGroup;
 import org.bitcoinj.wallet.Wallet;
+import org.bitcoinj.wallet.WalletTransaction;
 import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
+import org.bitcoinj.wallet.listeners.WalletCoinsSentEventListener;
 import org.qortal.settings.Settings;
 
 public class BTC {
 
-	private static class RollbackBlockChain extends BlockChain {
+	public static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
+	public static final long NO_LOCKTIME_NO_RBF_SEQUENCE = 0xFFFFFFFFL;
+	public static final long LOCKTIME_NO_RBF_SEQUENCE = NO_LOCKTIME_NO_RBF_SEQUENCE - 1;
+	public static final int HASH160_LENGTH = 20;
 
-		public RollbackBlockChain(NetworkParameters params, BlockStore blockStore) throws BlockStoreException {
-			super(params, blockStore);
+	private static final MessageDigest RIPE_MD160_DIGESTER;
+	private static final MessageDigest SHA256_DIGESTER;
+	static {
+		try {
+			RIPE_MD160_DIGESTER = MessageDigest.getInstance("RIPEMD160");
+			SHA256_DIGESTER = MessageDigest.getInstance("SHA-256");
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException(e);
 		}
+	}
 
-		@Override
-		public void setChainHead(StoredBlock chainHead) throws BlockStoreException {
-			super.setChainHead(chainHead);
-		}
+	protected static final Logger LOGGER = LogManager.getLogger(BTC.class);
 
+	public enum BitcoinNet {
+		MAIN {
+			@Override
+			public NetworkParameters getParams() {
+				return MainNetParams.get();
+			}
+		},
+		TEST3 {
+			@Override
+			public NetworkParameters getParams() {
+				return TestNet3Params.get();
+			}
+		},
+		REGTEST {
+			@Override
+			public NetworkParameters getParams() {
+				return RegTestParams.get();
+			}
+		};
+
+		public abstract NetworkParameters getParams();
 	}
 
 	private static class UpdateableCheckpointManager extends CheckpointManager implements NewBestBlockListener {
+		private static final long CHECKPOINT_THRESHOLD = 7 * 24 * 60 * 60; // seconds
 
-		private static final int checkpointInterval = 500;
+		private static final String MINIMAL_TESTNET3_TEXTFILE = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAAApmwX6UCEnJcYIKTa7HO3pFkqqNhAzJVBMdEuGAAAAAPSAvVCBUypCbBW/OqU0oIF7ISF84h2spOqHrFCWN9Zw6r6/T///AB0E5oOO\n";
+		private static final String MINIMAL_MAINNET_TEXTFILE = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAABjl7tqvU/FIcDT9gcbVlA4nwtFUbxAtOawZzBpAAAAAKzkcK7NqciBjI/ldojNKncrWleVSgDfBCCn3VRrbSxXaw5/Sf//AB0z8Bkv\n";
 
-		private static final String minimalTestNet3TextFile = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAAApmwX6UCEnJcYIKTa7HO3pFkqqNhAzJVBMdEuGAAAAAPSAvVCBUypCbBW/OqU0oIF7ISF84h2spOqHrFCWN9Zw6r6/T///AB0E5oOO\n";
-		private static final String minimalMainNetTextFile = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAABjl7tqvU/FIcDT9gcbVlA4nwtFUbxAtOawZzBpAAAAAKzkcK7NqciBjI/ldojNKncrWleVSgDfBCCn3VRrbSxXaw5/Sf//AB0z8Bkv\n";
-
-		public UpdateableCheckpointManager(NetworkParameters params) throws IOException {
-			super(params, getMinimalTextFileStream(params));
+		public UpdateableCheckpointManager(NetworkParameters params, File checkpointsFile) throws IOException {
+			super(params, getMinimalTextFileStream(params, checkpointsFile));
 		}
 
 		public UpdateableCheckpointManager(NetworkParameters params, InputStream inputStream) throws IOException {
 			super(params, inputStream);
 		}
 
-		private static ByteArrayInputStream getMinimalTextFileStream(NetworkParameters params) {
+		private static ByteArrayInputStream getMinimalTextFileStream(NetworkParameters params, File checkpointsFile) {
 			if (params == MainNetParams.get())
-				return new ByteArrayInputStream(minimalMainNetTextFile.getBytes());
+				return new ByteArrayInputStream(MINIMAL_MAINNET_TEXTFILE.getBytes());
 
 			if (params == TestNet3Params.get())
-				return new ByteArrayInputStream(minimalTestNet3TextFile.getBytes());
+				return new ByteArrayInputStream(MINIMAL_TESTNET3_TEXTFILE.getBytes());
+
+			if (params == RegTestParams.get())
+				return newRegTestCheckpointsStream(checkpointsFile); // We have to build this
 
 			throw new RuntimeException("Failed to construct empty UpdateableCheckpointManageer");
 		}
 
-		@Override
-		public void notifyNewBestBlock(StoredBlock block) throws VerificationException {
-			int height = block.getHeight();
+		private static ByteArrayInputStream newRegTestCheckpointsStream(File checkpointsFile) {
+			try {
+				final NetworkParameters params = RegTestParams.get();
 
-			if (height % checkpointInterval == 0)
-				checkpoints.put(block.getHeader().getTimeSeconds(), block);
+				final BlockStore store = new MemoryBlockStore(params);
+				final BlockChain chain = new BlockChain(params, store);
+				final PeerGroup peerGroup = new PeerGroup(params, chain);
+
+				final InetAddress ipAddress = InetAddress.getLoopbackAddress();
+				final PeerAddress peerAddress = new PeerAddress(params, ipAddress);
+				peerGroup.addAddress(peerAddress);
+				peerGroup.start();
+
+				final TreeMap<Integer, StoredBlock> checkpoints = new TreeMap<>();
+				chain.addNewBestBlockListener((block) -> checkpoints.put(block.getHeight(), block));
+
+				peerGroup.downloadBlockChain();
+				peerGroup.stop();
+
+				saveAsText(checkpointsFile, checkpoints.values());
+
+				return new ByteArrayInputStream(Files.readAllBytes(checkpointsFile.toPath()));
+			} catch (BlockStoreException e) {
+				throw new RuntimeException(e);
+			} catch (UnknownHostException e) {
+				throw new RuntimeException(e);
+			} catch (FileNotFoundException e) {
+				throw new RuntimeException(e);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
-		public void saveAsText(File textFile) throws FileNotFoundException {
+		@Override
+		public void notifyNewBestBlock(StoredBlock block) {
+			final int height = block.getHeight();
+
+			if (height % this.params.getInterval() != 0)
+				return;
+
+			final long blockTimestamp = block.getHeader().getTimeSeconds();
+			final long now = System.currentTimeMillis() / 1000L;
+			if (blockTimestamp > now - CHECKPOINT_THRESHOLD)
+				return; // Too recent
+
+			LOGGER.trace(() -> String.format("Checkpointing at block %d dated %s", height, LocalDateTime.ofInstant(Instant.ofEpochSecond(blockTimestamp), ZoneOffset.UTC)));
+			this.checkpoints.put(blockTimestamp, block);
+
+			try {
+				saveAsText(new File(BTC.getInstance().getDirectory(), BTC.getInstance().getCheckpointsFileName()), this.checkpoints.values());
+			} catch (FileNotFoundException e) {
+				// Save failed - log it but it's not critical
+				LOGGER.warn("Failed to save updated BTC checkpoints: " + e.getMessage());
+			}
+		}
+
+		private static void saveAsText(File textFile, Collection<StoredBlock> checkpointBlocks) throws FileNotFoundException {
 			try (PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(textFile), StandardCharsets.US_ASCII))) {
 				writer.println("TXT CHECKPOINTS 1");
 				writer.println("0"); // Number of signatures to read. Do this later.
-				writer.println(checkpoints.size());
+				writer.println(checkpointBlocks.size());
+
 				ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
-				for (StoredBlock block : checkpoints.values()) {
+
+				for (StoredBlock block : checkpointBlocks) {
 					block.serializeCompact(buffer);
 					writer.println(CheckpointManager.BASE64.encode(buffer.array()));
 					buffer.position(0);
@@ -119,9 +216,11 @@ public class BTC {
 						dataOutputStream.writeBytes("CHECKPOINTS 1");
 						dataOutputStream.writeInt(0); // Number of signatures to read. Do this later.
 						digestOutputStream.on(true);
-						dataOutputStream.writeInt(checkpoints.size());
+						dataOutputStream.writeInt(this.checkpoints.size());
+
 						ByteBuffer buffer = ByteBuffer.allocate(StoredBlock.COMPACT_SERIALIZED_SIZE);
-						for (StoredBlock block : checkpoints.values()) {
+
+						for (StoredBlock block : this.checkpoints.values()) {
 							block.serializeCompact(buffer);
 							dataOutputStream.write(buffer.array());
 							buffer.position(0);
@@ -130,53 +229,65 @@ public class BTC {
 				}
 			}
 		}
+	}
 
+	private static class ResettableBlockChain extends BlockChain {
+		public ResettableBlockChain(NetworkParameters params, BlockStore blockStore) throws BlockStoreException {
+			super(params, blockStore);
+		}
+
+		public void setChainHead(StoredBlock chainHead) throws BlockStoreException {
+			super.setChainHead(chainHead);
+		}
 	}
 
 	private static BTC instance;
-	private static final Object instanceLock = new Object();
 
-	private static File directory;
-	private static String chainFileName;
-	private static String checkpointsFileName;
+	private final NetworkParameters params;
+	private final String checkpointsFileName;
+	private final File directory;
 
-	private static NetworkParameters params;
-	private static PeerGroup peerGroup;
-	private static BlockStore blockStore;
-	private static RollbackBlockChain chain;
-	private static UpdateableCheckpointManager manager;
+	private PeerGroup peerGroup;
+	private BlockStore blockStore;
+	private ResettableBlockChain chain;
+
+	private UpdateableCheckpointManager manager;
+
+	// Constructors and instance
 
 	private BTC() {
-		// Start wallet
-		if (Settings.getInstance().useBitcoinTestNet()) {
-			params = TestNet3Params.get();
-			chainFileName = "bitcoinj-testnet.spvchain";
-			checkpointsFileName = "checkpoints-testnet.txt";
-		} else {
-			params = MainNetParams.get();
-			chainFileName = "bitcoinj.spvchain";
-			checkpointsFileName = "checkpoints.txt";
+		BitcoinNet bitcoinNet = Settings.getInstance().getBitcoinNet();
+		this.params = bitcoinNet.getParams();
+
+		switch (bitcoinNet) {
+			case MAIN:
+				this.checkpointsFileName = "checkpoints.txt";
+				break;
+
+			case TEST3:
+				this.checkpointsFileName = "checkpoints-testnet.txt";
+				break;
+
+			case REGTEST:
+				this.checkpointsFileName = "checkpoints-regtest.txt";
+				break;
+
+			default:
+				throw new IllegalStateException("Unsupported Bitcoin network: " + bitcoinNet.name());
 		}
 
-		directory = new File("Qortal-BTC");
-		if (!directory.exists())
-			directory.mkdirs();
+		this.directory = new File("Qortal-BTC");
 
-		File chainFile = new File(directory, chainFileName);
+		if (!this.directory.exists())
+			this.directory.mkdirs();
 
-		try {
-			blockStore = new SPVBlockStore(params, chainFile);
-		} catch (BlockStoreException e) {
-			throw new RuntimeException("Failed to open/create BTC SPVBlockStore", e);
-		}
-
-		File checkpointsFile = new File(directory, checkpointsFileName);
+		File checkpointsFile = new File(this.directory, this.checkpointsFileName);
 		try (InputStream checkpointsStream = new FileInputStream(checkpointsFile)) {
-			manager = new UpdateableCheckpointManager(params, checkpointsStream);
+			this.manager = new UpdateableCheckpointManager(this.params, checkpointsStream);
 		} catch (FileNotFoundException e) {
 			// Construct with no checkpoints then
 			try {
-				manager = new UpdateableCheckpointManager(params);
+				this.manager = new UpdateableCheckpointManager(this.params, checkpointsFile);
 			} catch (IOException e2) {
 				throw new RuntimeException("Failed to create new BTC checkpoints", e2);
 			}
@@ -185,15 +296,11 @@ public class BTC {
 		}
 
 		try {
-			chain = new RollbackBlockChain(params, blockStore);
+			this.start(System.currentTimeMillis() / 1000L);
+			// this.peerGroup.waitForPeers(this.peerGroup.getMaxConnections()).get();
 		} catch (BlockStoreException e) {
-			throw new RuntimeException("Failed to construct BTC blockchain", e);
+			throw new RuntimeException("Failed to start BTC instance", e);
 		}
-
-		peerGroup = new PeerGroup(params, chain);
-		peerGroup.setUserAgent("qortal", "1.0");
-		peerGroup.addPeerDiscovery(new DnsDiscovery(params));
-		peerGroup.start();
 	}
 
 	public static synchronized BTC getInstance() {
@@ -203,108 +310,259 @@ public class BTC {
 		return instance;
 	}
 
-	public void shutdown() {
-		synchronized (instanceLock) {
-			if (instance == null)
-				return;
+	// Getters & setters
 
-			instance = null;
-		}
-
-		peerGroup.stop();
-
-		try {
-			blockStore.close();
-		} catch (BlockStoreException e) {
-			// What can we do?
-		}
+	/* package */ File getDirectory() {
+		return this.directory;
 	}
+
+	/* package */ String getCheckpointsFileName() {
+		return this.checkpointsFileName;
+	}
+
+	public NetworkParameters getNetworkParameters() {
+		return this.params;
+	}
+
+	// Static utility methods
+
+	public static byte[] hash160(byte[] message) {
+		return RIPE_MD160_DIGESTER.digest(SHA256_DIGESTER.digest(message));
+	}
+
+	// Start-up & shutdown
+	private void start(long startTime) throws BlockStoreException {
+		StoredBlock checkpoint = this.manager.getCheckpointBefore(startTime - 1);
+
+		this.blockStore = new MemoryBlockStore(params);
+		this.blockStore.put(checkpoint);
+		this.blockStore.setChainHead(checkpoint);
+
+		this.chain = new ResettableBlockChain(this.params, this.blockStore);
+
+		this.peerGroup = new PeerGroup(this.params, this.chain);
+		this.peerGroup.setUserAgent("qortal", "1.0");
+		this.peerGroup.setPingIntervalMsec(1000L);
+		this.peerGroup.setMaxConnections(20);
+
+		if (this.params != RegTestParams.get()) {
+			this.peerGroup.addPeerDiscovery(new DnsDiscovery(this.params));
+		} else {
+			peerGroup.addAddress(PeerAddress.localhost(this.params));
+		}
+
+		this.peerGroup.start();
+	}
+
+	public void shutdown() {
+		this.peerGroup.stop();
+	}
+
+	// Utility methods
 
 	protected Wallet createEmptyWallet() {
-		ECKey dummyKey = new ECKey();
-
-		KeyChainGroup keyChainGroup = KeyChainGroup.createBasic(params);
-		keyChainGroup.importKeys(dummyKey);
-
-		Wallet wallet = new Wallet(params, keyChainGroup);
-
-		wallet.removeKey(dummyKey);
-
-		return wallet;
+		return Wallet.createBasic(this.params);
 	}
 
-	public void watch(String base58Address, long startTime) throws InterruptedException, ExecutionException, TimeoutException, BlockStoreException {
-		Wallet wallet = createEmptyWallet();
+	private class ReplayHooks {
+		private Runnable preReplay;
+		private Runnable postReplay;
 
-		WalletCoinsReceivedEventListener coinsReceivedListener = new WalletCoinsReceivedEventListener() {
-			@Override
-			public void onCoinsReceived(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
-				System.out.println("Coins received via transaction " + tx.getTxId().toString());
-			}
-		};
-		wallet.addCoinsReceivedEventListener(coinsReceivedListener);
-
-		Address address = Address.fromString(params, base58Address);
-		wallet.addWatchedAddress(address, startTime);
-
-		StoredBlock checkpoint = manager.getCheckpointBefore(startTime);
-		blockStore.put(checkpoint);
-		blockStore.setChainHead(checkpoint);
-		chain.setChainHead(checkpoint);
-
-		chain.addWallet(wallet);
-		peerGroup.addWallet(wallet);
-		peerGroup.setFastCatchupTimeSecs(startTime);
-
-		peerGroup.addBlocksDownloadedEventListener((peer, block, filteredBlock, blocksLeft) -> {
-			if (blocksLeft % 1000 == 0)
-				System.out.println("Blocks left: " + blocksLeft);
-		});
-
-		System.out.println("Starting download...");
-		peerGroup.downloadBlockChain();
-
-		List<TransactionOutput> outputs = wallet.getWatchedOutputs(true);
-
-		peerGroup.removeWallet(wallet);
-		chain.removeWallet(wallet);
-
-		for (TransactionOutput output : outputs)
-			System.out.println(output.toString());
-	}
-
-	public void watch(Script script) {
-		// wallet.addWatchedScripts(scripts);
-	}
-
-	public void updateCheckpoints() {
-		final long now = new Date().getTime() / 1000 - 86400;
-
-		try {
-			StoredBlock checkpoint = manager.getCheckpointBefore(now);
-			blockStore.put(checkpoint);
-			blockStore.setChainHead(checkpoint);
-			chain.setChainHead(checkpoint);
-		} catch (BlockStoreException e) {
-			throw new RuntimeException("Failed to update BTC checkpoints", e);
+		public ReplayHooks(Runnable preReplay, Runnable postReplay) {
+			this.preReplay = preReplay;
+			this.postReplay = postReplay;
 		}
 
-		peerGroup.setFastCatchupTimeSecs(now);
+		public void preReplay() {
+			this.preReplay.run();
+		}
 
-		chain.addNewBestBlockListener(Threading.SAME_THREAD, manager);
+		public void postReplay() {
+			this.postReplay.run();
+		}
+	}
 
-		peerGroup.addBlocksDownloadedEventListener((peer, block, filteredBlock, blocksLeft) -> {
-			if (blocksLeft % 1000 == 0)
-				System.out.println("Blocks left: " + blocksLeft);
-		});
+	private void replayChain(int startTime, Wallet wallet, ReplayHooks replayHooks) throws BlockStoreException {
+		StoredBlock checkpoint = this.manager.getCheckpointBefore(startTime - 1);
+		this.blockStore.put(checkpoint);
+		this.blockStore.setChainHead(checkpoint);
+		this.chain.setChainHead(checkpoint);
 
-		System.out.println("Starting download...");
-		peerGroup.downloadBlockChain();
+		final WalletCoinsReceivedEventListener coinsReceivedListener = (someWallet, tx, prevBalance, newBalance) -> {
+			LOGGER.debug(String.format("Wallet-related transaction %s", tx.getTxId()));
+		};
+
+		final WalletCoinsSentEventListener coinsSentListener = (someWallet, tx, prevBalance, newBalance) -> {
+			LOGGER.debug(String.format("Wallet-related transaction %s", tx.getTxId()));
+		};
+
+		if (wallet != null) {
+			wallet.addCoinsReceivedEventListener(coinsReceivedListener);
+			wallet.addCoinsSentEventListener(coinsSentListener);
+
+			// Link wallet to chain and peerGroup
+			this.chain.addWallet(wallet);
+			this.peerGroup.addWallet(wallet);
+		}
 
 		try {
-			manager.saveAsText(new File(directory, checkpointsFileName));
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException("Failed to save updated BTC checkpoints", e);
+			if (replayHooks != null)
+				replayHooks.preReplay();
+
+			// Sync blockchain using peerGroup, skipping as much as we can before startTime
+			this.peerGroup.setFastCatchupTimeSecs(startTime);
+			this.chain.addNewBestBlockListener(Threading.SAME_THREAD, this.manager);
+			this.peerGroup.downloadBlockChain();
+		} finally {
+			// Clean up
+			if (replayHooks != null)
+				replayHooks.postReplay();
+
+			if (wallet != null) {
+				wallet.removeCoinsReceivedEventListener(coinsReceivedListener);
+				wallet.removeCoinsSentEventListener(coinsSentListener);
+
+				this.peerGroup.removeWallet(wallet);
+				this.chain.removeWallet(wallet);
+			}
+
+			// For safety, disconnect download peer just in case
+			Peer downloadPeer = this.peerGroup.getDownloadPeer();
+			if (downloadPeer != null)
+				downloadPeer.close();
+		}
+	}
+
+	// Actual useful methods for use by other classes
+
+	/** Returns median timestamp from latest 11 blocks, in seconds. */
+	public Long getMedianBlockTime() {
+		// 11 blocks, at roughly 10 minutes per block, means we should go back at least 110 minutes
+		// but some blocks have been way longer than 10 minutes, so be massively pessimistic
+		int startTime = (int) (System.currentTimeMillis() / 1000L) - 110 * 60; // 110 minutes before now, in seconds
+
+		try {
+			this.replayChain(startTime, null, null);
+
+			List<StoredBlock> latestBlocks = new ArrayList<>(11);
+			StoredBlock block = this.blockStore.getChainHead();
+			for (int i = 0; i < 11; ++i) {
+				latestBlocks.add(block);
+				block = block.getPrev(this.blockStore);
+			}
+
+			// Descending, but order shouldn't matter as we're picking median...
+			latestBlocks.sort((a, b) -> Long.compare(b.getHeader().getTimeSeconds(), a.getHeader().getTimeSeconds()));
+
+			return latestBlocks.get(5).getHeader().getTimeSeconds();
+		} catch (BlockStoreException e) {
+			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			return null;
+		}
+	}
+
+	public Coin getBalance(String base58Address, int startTime) {
+		// Create new wallet containing only the address we're interested in, ignoring anything prior to startTime
+		Wallet wallet = createEmptyWallet();
+		Address address = Address.fromString(this.params, base58Address);
+		wallet.addWatchedAddress(address, startTime);
+
+		try {
+			replayChain(startTime, wallet, null);
+
+			// Now that blockchain is up-to-date, return current balance
+			return wallet.getBalance();
+		} catch (BlockStoreException e) {
+			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			return null;
+		}
+	}
+
+	public List<TransactionOutput> getOutputs(String base58Address, int startTime) {
+		Wallet wallet = createEmptyWallet();
+		Address address = Address.fromString(this.params, base58Address);
+		wallet.addWatchedAddress(address, startTime);
+
+		try {
+			replayChain(startTime, wallet, null);
+
+			// Now that blockchain is up-to-date, return outputs
+			return wallet.getWatchedOutputs(true);
+		} catch (BlockStoreException e) {
+			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			return null;
+		}
+	}
+
+	public Coin getBalanceAndOtherInfo(String base58Address, int startTime, List<TransactionOutput> unspentOutputs, List<WalletTransaction> walletTransactions) {
+		// Create new wallet containing only the address we're interested in, ignoring anything prior to startTime
+		Wallet wallet = createEmptyWallet();
+		Address address = Address.fromString(this.params, base58Address);
+		wallet.addWatchedAddress(address, startTime);
+
+		try {
+			replayChain(startTime, wallet, null);
+
+			if (unspentOutputs != null)
+				unspentOutputs.addAll(wallet.getWatchedOutputs(true));
+
+			if (walletTransactions != null)
+				for (WalletTransaction walletTransaction : wallet.getWalletTransactions())
+					walletTransactions.add(walletTransaction);
+
+			return wallet.getBalance();
+		} catch (BlockStoreException e) {
+			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			return null;
+		}
+	}
+
+	public List<TransactionOutput> getOutputs(byte[] txId, int startTime) {
+		Wallet wallet = createEmptyWallet();
+
+		// Add random address to wallet
+		ECKey fakeKey = new ECKey();
+		wallet.addWatchedAddress(Address.fromKey(this.params, fakeKey, ScriptType.P2PKH), startTime);
+
+		final Sha256Hash txHash = Sha256Hash.wrap(txId);
+
+		final AtomicReference<Transaction> foundTransaction = new AtomicReference<>();
+
+		final BlocksDownloadedEventListener listener = (peer, block, filteredBlock, blocksLeft) -> {
+			List<Transaction> transactions = block.getTransactions();
+
+			if (transactions == null)
+				return;
+
+			for (Transaction transaction : transactions)
+				if (transaction.getTxId().equals(txHash)) {
+					System.out.println(String.format("We downloaded block containing tx!"));
+					foundTransaction.set(transaction);
+				}
+		};
+
+		ReplayHooks replayHooks = new ReplayHooks(() -> this.peerGroup.addBlocksDownloadedEventListener(listener), () -> this.peerGroup.removeBlocksDownloadedEventListener(listener));
+
+		// Replay chain in the hope it will download transactionId as a dependency
+		try {
+			replayChain(startTime, wallet, replayHooks);
+
+			Transaction realTx = foundTransaction.get();
+			return realTx.getOutputs();
+		} catch (BlockStoreException e) {
+			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			return null;
+		}
+	}
+
+	public boolean broadcastTransaction(Transaction transaction) {
+		TransactionBroadcast transactionBroadcast = this.peerGroup.broadcastTransaction(transaction);
+
+		try {
+			transactionBroadcast.future().get();
+			return true;
+		} catch (InterruptedException | ExecutionException e) {
+			return false;
 		}
 	}
 
