@@ -251,11 +251,7 @@ public class Account {
 		if (Account.isFounder(accountData.getFlags()))
 			return BlockChain.getInstance().getFounderEffectiveMintingLevel();
 
-		Integer level = accountData.getLevel();
-		if (level == null)
-			return 0;
-
-		return level;
+		return accountData.getLevel();
 	}
 
 	/**
