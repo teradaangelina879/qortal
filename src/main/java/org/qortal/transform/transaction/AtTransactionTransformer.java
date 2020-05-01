@@ -14,25 +14,18 @@ import com.google.common.primitives.Longs;
 
 public class AtTransactionTransformer extends TransactionTransformer {
 
-	private static final int SENDER_LENGTH = ADDRESS_LENGTH;
-	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
-	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
-
-	private static final int EXTRAS_LENGTH = SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH + DATA_SIZE_LENGTH;
-
 	protected static final TransactionLayout layout = null;
 
 	// Property lengths
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		throw new TransformationException("Serialized AT Transactions should not exist!");
+		throw new TransformationException("Serialized AT transactions should not exist!");
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		ATTransactionData atTransactionData = (ATTransactionData) transactionData;
-
-		return getBaseLength(transactionData) + EXTRAS_LENGTH + atTransactionData.getMessage().length;
+		throw new TransformationException("Serialized AT transactions should not exist!");
 	}
 
+	// Used for generating fake transaction signatures
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
 			ATTransactionData atTransactionData = (ATTransactionData) transactionData;
@@ -47,18 +40,16 @@ public class AtTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeAddress(bytes, atTransactionData.getRecipient());
 
-			// Only emit amount if greater than zero (safer than checking assetId)
-			if (atTransactionData.getAmount() > 0) {
-				bytes.write(Longs.toByteArray(atTransactionData.getAmount()));
-				bytes.write(Longs.toByteArray(atTransactionData.getAssetId()));
-			}
-
 			byte[] message = atTransactionData.getMessage();
-			if (message.length > 0) {
+
+			if (message != null) {
+				// MESSAGE-type
 				bytes.write(Ints.toByteArray(message.length));
 				bytes.write(message);
 			} else {
-				bytes.write(Ints.toByteArray(0));
+				// PAYMENT-type
+				bytes.write(Longs.toByteArray(atTransactionData.getAssetId()));
+				bytes.write(Longs.toByteArray(atTransactionData.getAmount()));
 			}
 
 			bytes.write(Longs.toByteArray(atTransactionData.getFee()));

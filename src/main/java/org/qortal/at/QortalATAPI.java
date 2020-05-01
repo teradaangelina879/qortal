@@ -376,7 +376,7 @@ public class QortalATAPI extends API {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, 0L, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
-				recipient.getAddress(), amount, this.atData.getAssetId(), new byte[0]);
+				recipient.getAddress(), amount, this.atData.getAssetId());
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
@@ -393,7 +393,7 @@ public class QortalATAPI extends API {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, 0L, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
-				recipient.getAddress(), 0L, this.atData.getAssetId(), message);
+				recipient.getAddress(), message);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
@@ -422,7 +422,7 @@ public class QortalATAPI extends API {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, 0L, null);
 		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
-				creator.getAddress(), finalBalance, this.atData.getAssetId(), new byte[0]);
+				creator.getAddress(), finalBalance, this.atData.getAssetId());
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions

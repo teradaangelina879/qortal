@@ -87,27 +87,27 @@ public class AtTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		Long amount = this.atTransactionData.getAmount();
+		Long assetId = this.atTransactionData.getAssetId();
 		byte[] message = this.atTransactionData.getMessage();
 
-		// We can only have either message or amount
-		boolean amountIsNull = amount == null;
-		boolean messageIsEmpty = message == null || message.length == 0;
+		boolean hasPayment = amount != null && assetId != null;
+		boolean hasMessage = message != null; // empty message OK
 
-		if ((messageIsEmpty && amountIsNull) || (!messageIsEmpty && !amountIsNull))
+		// We can only have either message or payment, not both, nor neither
+		if ((hasMessage && hasPayment) || (!hasMessage && !hasPayment))
 			return ValidationResult.INVALID_AT_TRANSACTION;
 
-		if (!messageIsEmpty && message.length > MAX_DATA_SIZE)
+		if (hasMessage && message.length > MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// If we have no payment then we're done
-		if (amountIsNull)
+		if (!hasPayment)
 			return ValidationResult.OK;
 
 		// Check amount is zero or positive
 		if (amount < 0)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
-		long assetId = this.atTransactionData.getAssetId();
 		AssetData assetData = this.repository.getAssetRepository().fromAssetId(assetId);
 		// Check asset even exists
 		if (assetData == null)

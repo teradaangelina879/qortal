@@ -4,12 +4,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import org.qortal.account.NullAccount;
-import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.GenesisTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.group.Group;
-import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
@@ -18,43 +14,17 @@ import com.google.common.primitives.Longs;
 
 public class GenesisTransactionTransformer extends TransactionTransformer {
 
-	// Note that Genesis transactions don't require reference, fee or signature
-
-	// Property lengths
-	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
-
-	private static final int TOTAL_LENGTH = TYPE_LENGTH + TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH;
-
-	protected static final TransactionLayout layout;
-
-	static {
-		layout = new TransactionLayout();
-		layout.add("txType: " + TransactionType.GENESIS.valueString, TransformationType.INT);
-		layout.add("timestamp", TransformationType.TIMESTAMP);
-		layout.add("recipient", TransformationType.ADDRESS);
-		layout.add("amount", TransformationType.AMOUNT);
-		layout.add("asset ID", TransformationType.LONG);
-		layout.add("signature", TransformationType.SIGNATURE);
-	}
+	protected static final TransactionLayout layout = null;
 
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		long timestamp = byteBuffer.getLong();
-
-		String recipient = Serialization.deserializeAddress(byteBuffer);
-
-		long amount = byteBuffer.getLong();
-
-		long assetId = byteBuffer.getLong();
-
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, null, NullAccount.PUBLIC_KEY, 0L, null);
-
-		return new GenesisTransactionData(baseTransactionData, recipient, amount, assetId);
+		throw new TransformationException("Serialized GENESIS transactions should not exist!");
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		return TOTAL_LENGTH;
+		throw new TransformationException("Serialized GENESIS transactions should not exist!");
 	}
 
+	// Used when generating fake signatures for genesis block
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
 			GenesisTransactionData genesisTransactionData = (GenesisTransactionData) transactionData;

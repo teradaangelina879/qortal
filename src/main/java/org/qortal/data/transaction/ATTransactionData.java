@@ -29,6 +29,7 @@ public class ATTransactionData extends TransactionData {
 	// Not always present
 	private Long assetId;
 
+	// Not always present
 	private byte[] message;
 
 	// Constructors
@@ -42,7 +43,7 @@ public class ATTransactionData extends TransactionData {
 		this.creatorPublicKey = NullAccount.PUBLIC_KEY;
 	}
 
-	/** From repository */
+	/** Constructing from repository */
 	public ATTransactionData(BaseTransactionData baseTransactionData, String atAddress, String recipient, Long amount, Long assetId, byte[] message) {
 		super(TransactionType.AT, baseTransactionData);
 
@@ -52,6 +53,16 @@ public class ATTransactionData extends TransactionData {
 		this.amount = amount;
 		this.assetId = assetId;
 		this.message = message;
+	}
+
+	/** Constructing a new MESSAGE-type AT transaction */
+	public ATTransactionData(BaseTransactionData baseTransactionData, String atAddress, String recipient, byte[] message) {
+		this(baseTransactionData, atAddress, recipient, null, null, message);
+	}
+
+	/** Constructing a new PAYMENT-type AT transaction */
+	public ATTransactionData(BaseTransactionData baseTransactionData, String atAddress, String recipient, long amount, long assetId) {
+		this(baseTransactionData, atAddress, recipient, amount, assetId, null);
 	}
 
 	// Getters/Setters
