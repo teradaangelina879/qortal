@@ -1313,10 +1313,10 @@ public class Block {
 	}
 
 	protected void processBlockRewards() throws DataException {
-		Long reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
+		long reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
 
 		// No reward for our height?
-		if (reward == null)
+		if (reward == 0)
 			return;
 
 		distributeBlockReward(reward);
@@ -1548,10 +1548,10 @@ public class Block {
 	}
 
 	protected void orphanBlockRewards() throws DataException {
-		Long reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
+		long reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
 
 		// No reward for our height?
-		if (reward == null)
+		if (reward == 0)
 			return;
 
 		distributeBlockReward(0 - reward);
@@ -1656,7 +1656,7 @@ public class Block {
 		for (int s = 0; s < sharesByLevel.size(); ++s) {
 			final int binIndex = s;
 
-			long binAmount = (totalAmount * sharesByLevel.get(binIndex).unscaledShare) / 100000000L;
+			long binAmount = Amounts.roundDownScaledMultiply(totalAmount, sharesByLevel.get(binIndex).share);
 			LOGGER.trace(() -> String.format("Bin %d share of %s: %s", binIndex, Amounts.prettyAmount(totalAmount), Amounts.prettyAmount(binAmount)));
 
 			// Spread across all accounts in bin. getShareBin() returns -1 for minter accounts that are also founders, so they are effectively filtered out.
@@ -1677,12 +1677,12 @@ public class Block {
 	}
 
 	private long distributeBlockRewardToQoraHolders(long totalAmount) throws DataException {
-		long qoraHoldersAmount = (BlockChain.getInstance().getQoraHoldersUnscaledShare() * totalAmount) / 100000000L;
+		long qoraHoldersAmount = Amounts.roundDownScaledMultiply(totalAmount, BlockChain.getInstance().getQoraHoldersShare());
 		LOGGER.trace(() -> String.format("Legacy QORA holders share of %s: %s", Amounts.prettyAmount(totalAmount), Amounts.prettyAmount(qoraHoldersAmount)));
 
 		final boolean isProcessingNotOrphaning = totalAmount >= 0;
 
-		long qoraPerQortReward = BlockChain.getInstance().getUnscaledQoraPerQortReward();
+		long qoraPerQortReward = BlockChain.getInstance().getQoraPerQortReward();
 		List<AccountBalanceData> qoraHolders = this.repository.getAccountRepository().getEligibleLegacyQoraHolders(isProcessingNotOrphaning ? null : this.blockData.getHeight());
 
 		long totalQoraHeld = 0;

@@ -14,13 +14,13 @@ public abstract class Amounts {
 	public static String prettyAmount(long amount) {
 		StringBuilder stringBuilder = new StringBuilder(20);
 
-		stringBuilder.append(amount / 100000000L);
+		stringBuilder.append(amount / MULTIPLIER);
 
 		stringBuilder.append('.');
 
 		int dpLength = stringBuilder.length();
 
-		stringBuilder.append(Math.abs(amount % 100000000L));
+		stringBuilder.append(Math.abs(amount % MULTIPLIER));
 
 		int paddingRequired = 8 - (stringBuilder.length() - dpLength);
 		if (paddingRequired > 0)
@@ -48,20 +48,20 @@ public abstract class Amounts {
 		return Math.abs(a);
 	}
 
-	public static long roundUpScaledMultiply(BigInteger amount, BigInteger price) {
-		return amount.multiply(price).add(ROUNDING).divide(MULTIPLIER_BI).longValue();
+	public static long roundUpScaledMultiply(BigInteger multiplicand, BigInteger multiplier) {
+		return multiplicand.multiply(multiplier).add(ROUNDING).divide(MULTIPLIER_BI).longValue();
 	}
 
-	public static long roundUpScaledMultiply(long amount, long price) {
-		return roundUpScaledMultiply(BigInteger.valueOf(amount), BigInteger.valueOf(price));
+	public static long roundUpScaledMultiply(long multiplicand, long multiplier) {
+		return roundUpScaledMultiply(BigInteger.valueOf(multiplicand), BigInteger.valueOf(multiplier));
 	}
 
-	public static long roundDownScaledMultiply(BigInteger amount, BigInteger price) {
-		return amount.multiply(price).divide(MULTIPLIER_BI).longValue();
+	public static long roundDownScaledMultiply(BigInteger multiplicand, BigInteger multiplier) {
+		return multiplicand.multiply(multiplier).divide(MULTIPLIER_BI).longValue();
 	}
 
-	public static long roundDownScaledMultiply(long amount, long price) {
-		return roundDownScaledMultiply(BigInteger.valueOf(amount), BigInteger.valueOf(price));
+	public static long roundDownScaledMultiply(long multiplicand, long multiplier) {
+		return roundDownScaledMultiply(BigInteger.valueOf(multiplicand), BigInteger.valueOf(multiplier));
 	}
 
 	public static long scaledDivide(long dividend, long divisor) {

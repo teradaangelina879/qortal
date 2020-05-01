@@ -71,7 +71,7 @@ public class RewardTests extends Common {
 
 				BlockUtils.mintBlock(repository);
 
-				expectedBalance += rewardInfo.unscaledReward;
+				expectedBalance += rewardInfo.reward;
 			}
 
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, expectedBalance);
@@ -106,8 +106,8 @@ public class RewardTests extends Common {
 	public void testLegacyQoraReward() throws DataException {
 		Common.useSettings("test-settings-v2-qora-holder.json");
 
-		long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersUnscaledShare();
-		long qoraPerQort = BlockChain.getInstance().getUnscaledQoraPerQortReward();
+		long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+		long qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
@@ -161,7 +161,7 @@ public class RewardTests extends Common {
 	public void testMaxLegacyQoraReward() throws DataException {
 		Common.useSettings("test-settings-v2-qora-holder.json");
 
-		long qoraPerQort = BlockChain.getInstance().getUnscaledQoraPerQortReward();
+		long qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);

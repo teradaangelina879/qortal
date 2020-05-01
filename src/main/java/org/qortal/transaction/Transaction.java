@@ -320,7 +320,7 @@ public abstract class Transaction {
 
 	/** Returns whether transaction's fee is at least minimum unit fee as specified in blockchain config. */
 	public boolean hasMinimumFee() {
-		return this.transactionData.getFee() >= BlockChain.getInstance().getUnscaledUnitFee();
+		return this.transactionData.getFee() >= BlockChain.getInstance().getUnitFee();
 	}
 
 	public long feePerByte() {
@@ -333,7 +333,7 @@ public abstract class Transaction {
 
 	/** Returns whether transaction's fee is at least amount needed to cover byte-length of transaction. */
 	public boolean hasMinimumFeePerByte() {
-		long unitFee = BlockChain.getInstance().getUnscaledUnitFee();
+		long unitFee = BlockChain.getInstance().getUnitFee();
 		int maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
 
 		return this.feePerByte() >= maxBytePerUnitFee / unitFee;
@@ -351,7 +351,7 @@ public abstract class Transaction {
 
 		int unitFeeCount = ((dataLength - 1) / maxBytePerUnitFee) + 1;
 
-		return BlockChain.getInstance().getUnscaledUnitFee() * unitFeeCount;
+		return BlockChain.getInstance().getUnitFee() * unitFeeCount;
 	}
 
 	/**

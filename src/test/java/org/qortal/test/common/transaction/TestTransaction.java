@@ -13,7 +13,7 @@ public abstract class TestTransaction {
 	protected static final Random random = new Random();
 
 	public static BaseTransactionData generateBase(PrivateKeyAccount account) throws DataException {
-		return new BaseTransactionData(System.currentTimeMillis(), Group.NO_GROUP, account.getLastReference(), account.getPublicKey(), BlockChain.getInstance().getUnscaledUnitFee(), null);
+		return new BaseTransactionData(System.currentTimeMillis(), Group.NO_GROUP, account.getLastReference(), account.getPublicKey(), BlockChain.getInstance().getUnitFee(), null);
 	}
 
 }
