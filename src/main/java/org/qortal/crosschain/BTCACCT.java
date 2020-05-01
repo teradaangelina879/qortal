@@ -544,7 +544,9 @@ public class BTCACCT {
 		tradeData.qortalAtAddress = atAddress;
 		tradeData.qortalCreator = Crypto.toAddress(atData.getCreatorPublicKey());
 		tradeData.creationTimestamp = atData.getCreation();
-		tradeData.qortBalance = repository.getAccountRepository().getBalance(atAddress, Asset.QORT).getBalance();
+
+		Account atAccount = new Account(repository, atAddress);
+		tradeData.qortBalance = atAccount.getConfirmedBalance(Asset.QORT);
 
 		ByteBuffer dataByteBuffer = ByteBuffer.wrap(dataBytes);
 		byte[] addressBytes = new byte[32];
