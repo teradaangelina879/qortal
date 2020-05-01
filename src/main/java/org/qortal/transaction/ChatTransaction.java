@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
+import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.transaction.ChatTransactionData;
@@ -23,7 +24,8 @@ public class ChatTransaction extends Transaction {
 	// Other useful constants
 	public static final int MAX_DATA_SIZE = 256;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	public static final int POW_DIFFICULTY = 12; // leading zero bits
+	public static final int POW_DIFFICULTY_WITH_QORT = 12; // leading zero bits
+	public static final int POW_DIFFICULTY_NO_QORT = 20; // leading zero bits
 
 	// Constructors
 
@@ -60,7 +62,7 @@ public class ChatTransaction extends Transaction {
 
 	// Processing
 
-	public void computeNonce() {
+	public void computeNonce() throws DataException {
 		byte[] transactionBytes;
 
 		try {
@@ -72,8 +74,10 @@ public class ChatTransaction extends Transaction {
 		// Clear nonce from transactionBytes
 		ChatTransactionTransformer.clearNonce(transactionBytes);
 
+		int difficulty = this.getSender().getConfirmedBalance(Asset.QORT) > 0 ? POW_DIFFICULTY_WITH_QORT : POW_DIFFICULTY_NO_QORT;
+
 		// Calculate nonce
-		this.chatTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY));
+		this.chatTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
 	}
 
 	@Override
@@ -132,8 +136,15 @@ public class ChatTransaction extends Transaction {
 		// Clear nonce from transactionBytes
 		ChatTransactionTransformer.clearNonce(transactionBytes);
 
+		int difficulty;
+		try {
+			difficulty = this.getSender().getConfirmedBalance(Asset.QORT) > 0 ? POW_DIFFICULTY_WITH_QORT : POW_DIFFICULTY_NO_QORT;
+		} catch (DataException e) {
+			return false;
+		}
+
 		// Check nonce
-		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
 	}
 
 	@Override
