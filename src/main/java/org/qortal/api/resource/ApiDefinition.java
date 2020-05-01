@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 			@Tag(name = "Assets"),
 			@Tag(name = "Automated Transactions"),
 			@Tag(name = "Blocks"),
+			@Tag(name = "Chat"),
 			@Tag(name = "Cross-Chain"),
 			@Tag(name = "Groups"),
 			@Tag(name = "Names"),

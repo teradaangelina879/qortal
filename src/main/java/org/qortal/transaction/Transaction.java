@@ -59,7 +59,7 @@ public abstract class Transaction {
 		MULTI_PAYMENT(15, false),
 		DEPLOY_AT(16, true),
 		MESSAGE(17, true),
-		DELEGATION(18, false),
+		CHAT(18, false),
 		SUPERNODE(19, false),
 		AIRDROP(20, false),
 		AT(21, false),
@@ -240,6 +240,7 @@ public abstract class Transaction {
 		SELF_SHARE_EXISTS(91),
 		ACCOUNT_ALREADY_EXISTS(92),
 		INVALID_GROUP_BLOCK_DELAY(93),
+		CHAT(999),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
