@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -578,16 +579,16 @@ public abstract class Transaction {
 	private int countUnconfirmedByCreator(PublicKeyAccount creator) throws DataException {
 		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
-		int count = 0;
-		for (TransactionData unconfirmedTransactionData : unconfirmedTransactions) {
-			Transaction transaction = Transaction.fromData(repository, unconfirmedTransactionData);
-			PublicKeyAccount otherCreator = transaction.getCreator();
+		// We exclude CHAT transactions as they never get included into blocks and
+		// have spam/DoS prevention by requiring proof of work
+		Predicate<TransactionData> hasSameCreatorButNotChat = transactionData -> {
+			if (transactionData.getType() == TransactionType.CHAT)
+				return false;
 
-			if (Arrays.equals(creator.getPublicKey(), otherCreator.getPublicKey()))
-				++count;
-		}
+			return Arrays.equals(creator.getPublicKey(), transactionData.getCreatorPublicKey());
+		};
 
-		return count;
+		return (int) unconfirmedTransactions.stream().filter(hasSameCreatorButNotChat).count();
 	}
 
 	/**
