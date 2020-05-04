@@ -514,14 +514,10 @@ public class QortalATAPI extends API {
 		return this.blockTimestamp;
 	}
 
-	/** Returns AT account's lastReference, taking newly generated ATTransactions into account */
+	/** Returns AT account's lastReference */
 	private byte[] getLastReference() {
-		// Use signature from last AT Transaction we generated
-		if (!this.transactions.isEmpty())
-			return this.transactions.get(this.transactions.size() - 1).getTransactionData().getSignature();
-
 		try {
-			// No transactions yet, so look up AT's account's last reference from repository
+			// Look up AT's account's last reference from repository
 			Account atAccount = this.getATAccount();
 
 			return atAccount.getLastReference();
