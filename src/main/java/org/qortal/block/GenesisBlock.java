@@ -143,7 +143,7 @@ public class GenesisBlock extends Block {
 	/**
 	 * Refuse to calculate genesis block's minter signature!
 	 * <p>
-	 * This is not possible as there is no private key for the genesis account and so no way to sign data.
+	 * This is not possible as there is no private key for the null account and so no way to sign data.
 	 * <p>
 	 * <b>Always throws IllegalStateException.</b>
 	 * 
@@ -151,13 +151,13 @@ public class GenesisBlock extends Block {
 	 */
 	@Override
 	public void calcMinterSignature() {
-		throw new IllegalStateException("There is no private key for genesis account");
+		throw new IllegalStateException("There is no private key for null account");
 	}
 
 	/**
 	 * Refuse to calculate genesis block's transactions signature!
 	 * <p>
-	 * This is not possible as there is no private key for the genesis account and so no way to sign data.
+	 * This is not possible as there is no private key for the null account and so no way to sign data.
 	 * <p>
 	 * <b>Always throws IllegalStateException.</b>
 	 * 
@@ -165,13 +165,13 @@ public class GenesisBlock extends Block {
 	 */
 	@Override
 	public void calcTransactionsSignature() {
-		throw new IllegalStateException("There is no private key for genesis account");
+		throw new IllegalStateException("There is no private key for null account");
 	}
 
 	/**
 	 * Generate genesis block minter signature.
 	 * <p>
-	 * This is handled differently as there is no private key for the genesis account and so no way to sign data.
+	 * This is handled differently as there is no private key for the null account and so no way to sign data.
 	 * 
 	 * @return byte[]
 	 */
