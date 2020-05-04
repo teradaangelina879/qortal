@@ -85,6 +85,17 @@ public class Account {
 		LOGGER.trace(() -> String.format("%s balance now %s [assetId %s]", this.address, prettyAmount(balance), assetId));
 	}
 
+	// Convenience method
+	public void modifyAssetBalance(long assetId, long deltaBalance) throws DataException {
+		this.repository.getAccountRepository().modifyAssetBalance(this.getAddress(), assetId, deltaBalance);
+
+		LOGGER.trace(() -> String.format("%s balance %s by %s [assetId %s]",
+				this.address,
+				(deltaBalance >= 0 ? "increased" : "decreased"),
+				prettyAmount(Math.abs(deltaBalance)),
+				assetId));
+	}
+
 	public void deleteBalance(long assetId) throws DataException {
 		this.repository.getAccountRepository().delete(this.address, assetId);
 	}

@@ -158,13 +158,13 @@ public class Name {
 
 		// Update seller's balance
 		Account seller = new Account(this.repository, this.nameData.getOwner());
-		seller.setConfirmedBalance(Asset.QORT, seller.getConfirmedBalance(Asset.QORT) + buyNameTransactionData.getAmount());
+		seller.modifyAssetBalance(Asset.QORT, buyNameTransactionData.getAmount());
 
 		// Set new owner
 		Account buyer = new PublicKeyAccount(this.repository, buyNameTransactionData.getBuyerPublicKey());
 		this.nameData.setOwner(buyer.getAddress());
 		// Update buyer's balance
-		buyer.setConfirmedBalance(Asset.QORT, buyer.getConfirmedBalance(Asset.QORT) - buyNameTransactionData.getAmount());
+		buyer.modifyAssetBalance(Asset.QORT, - buyNameTransactionData.getAmount());
 
 		// Update reference in transaction data
 		buyNameTransactionData.setNameReference(this.nameData.getReference());
@@ -189,14 +189,14 @@ public class Name {
 
 		// Revert buyer's balance
 		Account buyer = new PublicKeyAccount(this.repository, buyNameTransactionData.getBuyerPublicKey());
-		buyer.setConfirmedBalance(Asset.QORT, buyer.getConfirmedBalance(Asset.QORT) + buyNameTransactionData.getAmount());
+		buyer.modifyAssetBalance(Asset.QORT, buyNameTransactionData.getAmount());
 
 		// Previous Name's owner and/or data taken from referenced transaction
 		this.revert();
 
 		// Revert seller's balance
 		Account seller = new Account(this.repository, this.nameData.getOwner());
-		seller.setConfirmedBalance(Asset.QORT, seller.getConfirmedBalance(Asset.QORT) - buyNameTransactionData.getAmount());
+		seller.modifyAssetBalance(Asset.QORT, - buyNameTransactionData.getAmount());
 
 		// Save reverted name data
 		this.repository.getNameRepository().save(this.nameData);

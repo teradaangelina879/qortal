@@ -67,15 +67,15 @@ public class Trade {
 
 		// Actually transfer asset balances
 		Account initiatingCreator = new PublicKeyAccount(this.repository, initiatingOrder.getCreatorPublicKey());
-		initiatingCreator.setConfirmedBalance(initiatingOrder.getWantAssetId(), initiatingCreator.getConfirmedBalance(initiatingOrder.getWantAssetId()) + tradeData.getTargetAmount());
+		initiatingCreator.modifyAssetBalance(initiatingOrder.getWantAssetId(), tradeData.getTargetAmount());
 
 		Account targetCreator = new PublicKeyAccount(this.repository, targetOrder.getCreatorPublicKey());
-		targetCreator.setConfirmedBalance(targetOrder.getWantAssetId(), targetCreator.getConfirmedBalance(targetOrder.getWantAssetId()) + tradeData.getInitiatorAmount());
+		targetCreator.modifyAssetBalance(targetOrder.getWantAssetId(), tradeData.getInitiatorAmount());
 
 		// Possible partial saving to refund to initiator
 		long initiatorSaving = this.tradeData.getInitiatorSaving();
 		if (initiatorSaving > 0)
-			initiatingCreator.setConfirmedBalance(initiatingOrder.getHaveAssetId(), initiatingCreator.getConfirmedBalance(initiatingOrder.getHaveAssetId()) + initiatorSaving);
+			initiatingCreator.modifyAssetBalance(initiatingOrder.getHaveAssetId(), initiatorSaving);
 	}
 
 	public void orphan() throws DataException {
@@ -99,15 +99,15 @@ public class Trade {
 
 		// Reverse asset transfers
 		Account initiatingCreator = new PublicKeyAccount(this.repository, initiatingOrder.getCreatorPublicKey());
-		initiatingCreator.setConfirmedBalance(initiatingOrder.getWantAssetId(), initiatingCreator.getConfirmedBalance(initiatingOrder.getWantAssetId()) - tradeData.getTargetAmount());
+		initiatingCreator.modifyAssetBalance(initiatingOrder.getWantAssetId(), - tradeData.getTargetAmount());
 
 		Account targetCreator = new PublicKeyAccount(this.repository, targetOrder.getCreatorPublicKey());
-		targetCreator.setConfirmedBalance(targetOrder.getWantAssetId(), targetCreator.getConfirmedBalance(targetOrder.getWantAssetId()) - tradeData.getInitiatorAmount());
+		targetCreator.modifyAssetBalance(targetOrder.getWantAssetId(), - tradeData.getInitiatorAmount());
 
 		// Possible partial saving to claw back from  initiator
 		long initiatorSaving = this.tradeData.getInitiatorSaving();
 		if (initiatorSaving > 0)
-			initiatingCreator.setConfirmedBalance(initiatingOrder.getHaveAssetId(), initiatingCreator.getConfirmedBalance(initiatingOrder.getHaveAssetId()) - initiatorSaving);
+			initiatingCreator.modifyAssetBalance(initiatingOrder.getHaveAssetId(), - initiatorSaving);
 
 		// Remove trade from repository
 		assetRepository.delete(tradeData);

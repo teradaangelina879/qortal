@@ -161,10 +161,10 @@ public class Payment {
 			long amount = paymentData.getAmount();
 
 			// Update sender's balance due to amount
-			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId) - amount);
+			sender.modifyAssetBalance(assetId, - amount);
 
 			// Update recipient's balance
-			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId) + amount);
+			recipient.modifyAssetBalance(assetId, amount);
 		}
 	}
 
@@ -181,7 +181,7 @@ public class Payment {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
-		sender.setConfirmedBalance(Asset.QORT, sender.getConfirmedBalance(Asset.QORT) - fee);
+		sender.modifyAssetBalance(Asset.QORT, - fee);
 
 		// Update sender's reference
 		sender.setLastReference(signature);
@@ -216,10 +216,10 @@ public class Payment {
 			long amount = paymentData.getAmount();
 
 			// Update sender's balance due to amount
-			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId) + amount);
+			sender.modifyAssetBalance(assetId, amount);
 
 			// Update recipient's balance
-			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId) - amount);
+			recipient.modifyAssetBalance(assetId, - amount);
 		}
 	}
 
@@ -234,7 +234,7 @@ public class Payment {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
-		sender.setConfirmedBalance(Asset.QORT, sender.getConfirmedBalance(Asset.QORT) + fee);
+		sender.modifyAssetBalance(Asset.QORT, fee);
 
 		// Update sender's reference
 		sender.setLastReference(reference);

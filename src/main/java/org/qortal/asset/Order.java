@@ -256,7 +256,7 @@ public class Order {
 	public void process() throws DataException {
 		// Subtract have-asset from creator
 		Account creator = new PublicKeyAccount(this.repository, this.orderData.getCreatorPublicKey());
-		creator.setConfirmedBalance(haveAssetId, creator.getConfirmedBalance(haveAssetId) - this.calcHaveAssetCommittment());
+		creator.modifyAssetBalance(haveAssetId, - this.calcHaveAssetCommittment());
 
 		// Save this order into repository so it's available for matching, possibly by itself
 		this.repository.getAssetRepository().save(this.orderData);
@@ -418,7 +418,7 @@ public class Order {
 
 		// Return asset to creator
 		Account creator = new PublicKeyAccount(this.repository, this.orderData.getCreatorPublicKey());
-		creator.setConfirmedBalance(haveAssetId, creator.getConfirmedBalance(haveAssetId) + this.calcHaveAssetCommittment());
+		creator.modifyAssetBalance(haveAssetId, this.calcHaveAssetCommittment());
 	}
 
 	// This is called by CancelOrderTransaction so that an Order can no longer trade
@@ -428,14 +428,14 @@ public class Order {
 
 		// Update creator's balance with unfulfilled amount
 		Account creator = new PublicKeyAccount(this.repository, this.orderData.getCreatorPublicKey());
-		creator.setConfirmedBalance(haveAssetId, creator.getConfirmedBalance(haveAssetId) + calcHaveAssetRefund());
+		creator.modifyAssetBalance(haveAssetId, calcHaveAssetRefund());
 	}
 
 	// Opposite of cancel() above for use during orphaning
 	public void reopen() throws DataException {
 		// Update creator's balance with unfulfilled amount
 		Account creator = new PublicKeyAccount(this.repository, this.orderData.getCreatorPublicKey());
-		creator.setConfirmedBalance(haveAssetId, creator.getConfirmedBalance(haveAssetId) - calcHaveAssetRefund());
+		creator.modifyAssetBalance(haveAssetId, - calcHaveAssetRefund());
 
 		this.orderData.setIsClosed(false);
 		this.repository.getAssetRepository().save(this.orderData);

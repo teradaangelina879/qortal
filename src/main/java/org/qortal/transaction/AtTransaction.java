@@ -136,10 +136,10 @@ public class AtTransaction extends Transaction {
 			long assetId = this.atTransactionData.getAssetId();
 
 			// Update sender's balance due to amount
-			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId) - amount);
+			sender.modifyAssetBalance(assetId, - amount);
 
 			// Update recipient's balance
-			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId) + amount);
+			recipient.modifyAssetBalance(assetId, amount);
 		}
 	}
 
@@ -170,10 +170,10 @@ public class AtTransaction extends Transaction {
 			long assetId = this.atTransactionData.getAssetId();
 
 			// Update sender's balance due to amount
-			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId) + amount);
+			sender.modifyAssetBalance(assetId, amount);
 
 			// Update recipient's balance
-			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId) - amount);
+			recipient.modifyAssetBalance(assetId, - amount);
 		}
 
 		// As AT_TRANSACTIONs are really part of a block, the caller (Block) will probably delete this transaction after orphaning

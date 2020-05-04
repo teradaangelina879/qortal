@@ -37,7 +37,7 @@ public class BIP39 {
 				bitShift = BITS_PER_WORD - bitShift;
 			} else {
 				// Leftover spread over next two bytes
-				bitShift = 0 - bitShift;
+				bitShift = - bitShift;
 				entropy[byteIndex++] |= (byte) (wordListIndex >> bitShift);
 
 				entropy[byteIndex] |= (byte) (wordListIndex << (8 - bitShift));

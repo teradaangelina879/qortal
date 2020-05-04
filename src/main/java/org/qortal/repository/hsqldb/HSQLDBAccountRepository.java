@@ -143,37 +143,6 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public void ensureAccount(AccountData accountData) throws DataException {
-		/*
-		 * Why do we need to check/set the public_key?
-		 * Is there something that sets an account's balance which also needs to set the public key?
-
-		byte[] publicKey = accountData.getPublicKey();
-		String sql = "SELECT public_key FROM Accounts WHERE account = ?";
-
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, accountData.getAddress())) {
-			if (resultSet != null) {
-				// We know account record exists at this point.
-				// If accountData has no public key then we're done.
-				// If accountData's public key matches repository's public key then we're done.
-				if (publicKey == null || Arrays.equals(resultSet.getBytes(1), publicKey))
-					return;
-			}
-
-			// No record exists, or we have a public key to set
-			HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
-
-			saveHelper.bind("account", accountData.getAddress());
-
-			if (publicKey != null)
-				saveHelper.bind("public_key", publicKey);
-
-			saveHelper.execute(this.repository);
-		} catch (SQLException e) {
-			throw new DataException("Unable to ensure minimal account in repository", e);
-		}
-
-		 */
-
 		String sql = "INSERT IGNORE INTO Accounts (account) VALUES (?)"; // MySQL syntax
 		try {
 			this.repository.checkedExecuteUpdateCount(sql, accountData.getAddress());

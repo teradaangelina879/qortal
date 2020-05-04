@@ -206,7 +206,7 @@ public class DeployAtTransaction extends Transaction {
 
 		// Update creator's balance regarding initial payment to AT
 		Account creator = getCreator();
-		creator.setConfirmedBalance(assetId, creator.getConfirmedBalance(assetId) - this.deployATTransactionData.getAmount());
+		creator.modifyAssetBalance(assetId, - this.deployATTransactionData.getAmount());
 
 		// Update AT's reference, which also creates AT account
 		Account atAccount = this.getATAccount();
@@ -226,7 +226,7 @@ public class DeployAtTransaction extends Transaction {
 
 		// Update creator's balance regarding initial payment to AT
 		Account creator = getCreator();
-		creator.setConfirmedBalance(assetId, creator.getConfirmedBalance(assetId) + this.deployATTransactionData.getAmount());
+		creator.modifyAssetBalance(assetId, this.deployATTransactionData.getAmount());
 
 		// Delete AT's account (and hence its balance)
 		this.repository.getAccountRepository().delete(this.deployATTransactionData.getAtAddress());

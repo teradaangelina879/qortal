@@ -193,7 +193,7 @@ public class Block {
 				// minter & recipient the same - simpler case
 				LOGGER.trace(() -> String.format("Minter/recipient account %s share: %s", this.mintingAccount.getAddress(), Amounts.prettyAmount(accountAmount)));
 				if (accountAmount != 0)
-					this.repository.getAccountRepository().modifyAssetBalance(this.mintingAccount.getAddress(), Asset.QORT, accountAmount);
+					this.mintingAccount.modifyAssetBalance(Asset.QORT, accountAmount);
 			} else {
 				// minter & recipient different - extra work needed
 				long recipientAmount = (accountAmount * this.sharePercent) / 100L / 100L; // because scaled by 2dp and 'percent' means "per 100"
@@ -201,11 +201,11 @@ public class Block {
 
 				LOGGER.trace(() -> String.format("Minter account %s share: %s", this.mintingAccount.getAddress(), Amounts.prettyAmount(minterAmount)));
 				if (minterAmount != 0)
-					this.repository.getAccountRepository().modifyAssetBalance(this.mintingAccount.getAddress(), Asset.QORT, minterAmount);
+					this.mintingAccount.modifyAssetBalance(Asset.QORT, minterAmount);
 
 				LOGGER.trace(() -> String.format("Recipient account %s share: %s", this.recipientAccount.getAddress(), Amounts.prettyAmount(recipientAmount)));
 				if (recipientAmount != 0)
-					this.repository.getAccountRepository().modifyAssetBalance(this.recipientAccount.getAddress(), Asset.QORT, recipientAmount);
+					this.recipientAccount.modifyAssetBalance(Asset.QORT, recipientAmount);
 			}
 		}
 	}
@@ -1420,7 +1420,7 @@ public class Block {
 			Account atAccount = new Account(this.repository, atStateData.getATAddress());
 
 			// Subtract AT-generated fees from AT accounts
-			atAccount.setConfirmedBalance(Asset.QORT, atAccount.getConfirmedBalance(Asset.QORT) - atStateData.getFees());
+			atAccount.modifyAssetBalance(Asset.QORT, - atStateData.getFees());
 
 			// Update AT info with latest state
 			ATData atData = atRepository.fromATAddress(atStateData.getATAddress());
@@ -1566,7 +1566,7 @@ public class Block {
 		if (reward == 0)
 			return;
 
-		distributeBlockReward(0 - reward);
+		distributeBlockReward(- reward);
 	}
 
 	protected void deductTransactionFees() throws DataException {
@@ -1576,7 +1576,7 @@ public class Block {
 		if (blockFees <= 0)
 			return;
 
-		distributeBlockReward(0 - blockFees);
+		distributeBlockReward(- blockFees);
 	}
 
 	protected void orphanAtFeesAndStates() throws DataException {
@@ -1585,7 +1585,7 @@ public class Block {
 			Account atAccount = new Account(this.repository, atStateData.getATAddress());
 
 			// Return AT-generated fees to AT accounts
-			atAccount.setConfirmedBalance(Asset.QORT, atAccount.getConfirmedBalance(Asset.QORT) + atStateData.getFees());
+			atAccount.modifyAssetBalance(Asset.QORT, atStateData.getFees());
 
 			// Revert AT info to prior values
 			ATData atData = atRepository.fromATAddress(atStateData.getATAddress());
@@ -1766,7 +1766,7 @@ public class Block {
 				}
 			}
 
-			this.repository.getAccountRepository().modifyAssetBalance(qoraHolder.getAddress(), Asset.QORT, holderReward);
+			qoraHolderAccount.modifyAssetBalance(Asset.QORT, holderReward);
 
 			if (newQortFromQoraBalance > 0)
 				qoraHolderAccount.setConfirmedBalance(Asset.QORT_FROM_QORA, newQortFromQoraBalance);
@@ -1804,7 +1804,7 @@ public class Block {
 
 			if (founderExpandedAccounts.isEmpty()) {
 				// Simple case: no founder-as-minter reward-shares online so founder gets whole amount.
-				this.repository.getAccountRepository().modifyAssetBalance(founderAccount.getAddress(), Asset.QORT, perFounderAmount);
+				founderAccount.modifyAssetBalance(Asset.QORT, perFounderAmount);
 			} else {
 				// Distribute over reward-shares
 				long perFounderRewardShareAmount = perFounderAmount / founderExpandedAccounts.size();
