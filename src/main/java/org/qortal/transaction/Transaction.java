@@ -486,9 +486,6 @@ public abstract class Transaction {
 
 	/**
 	 * Returns whether transaction can be added to unconfirmed transactions.
-	 * <p>
-	 * NOTE: temporarily updates accounts' lastReference to check validity.<br>
-	 * To do this, blockchain lock is obtained and pending repository changes are discarded.
 	 * 
 	 * @return transaction validation result, e.g. OK
 	 * @throws DataException
@@ -502,7 +499,7 @@ public abstract class Transaction {
 		if (now >= this.getDeadline())
 			return ValidationResult.TIMESTAMP_TOO_OLD;
 
-		// Transactions with a timestamp prior to latest block's timestamp are too old
+		// Transactions with a expiry prior to latest block's timestamp are too old
 		BlockData latestBlock = repository.getBlockRepository().getLastBlock();
 		if (this.getDeadline() <= latestBlock.getTimestamp())
 			return ValidationResult.TIMESTAMP_TOO_OLD;
@@ -595,9 +592,6 @@ public abstract class Transaction {
 
 	/**
 	 * Returns sorted, unconfirmed transactions, excluding invalid.
-	 * <p>
-	 * NOTE: temporarily updates accounts' lastReference to check validity.<br>
-	 * To do this, blockchain lock is obtained and pending repository changes are discarded.
 	 * 
 	 * @return sorted, unconfirmed transactions
 	 * @throws DataException
@@ -609,35 +603,15 @@ public abstract class Transaction {
 
 		unconfirmedTransactions.sort(getDataComparator());
 
-		/*
-		 * We have to grab the blockchain lock because we're updating
-		 * when we fake the creator's last reference,
-		 * even though we throw away the update when we rollback the
-		 * savepoint.
-		 */
-		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		blockchainLock.lock();
-		try {
-			// Clear repository's "in transaction" state so we don't cause a repository deadlock
-			repository.discardChanges();
+		Iterator<TransactionData> unconfirmedTransactionsIterator = unconfirmedTransactions.iterator();
+		while (unconfirmedTransactionsIterator.hasNext()) {
+			TransactionData transactionData = unconfirmedTransactionsIterator.next();
+			Transaction transaction = Transaction.fromData(repository, transactionData);
 
-			try {
-				Iterator<TransactionData> unconfirmedTransactionsIterator = unconfirmedTransactions.iterator();
-				while (unconfirmedTransactionsIterator.hasNext()) {
-					TransactionData transactionData = unconfirmedTransactionsIterator.next();
+			if (transaction.isStillValidUnconfirmed(latestBlockData.getTimestamp()) != ValidationResult.OK)
+				continue;
 
-					if (isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp()))
-						continue;
-
-					unconfirmedTransactionsIterator.remove();
-				}
-			} finally {
-				// Throw away temporary updates to account lastReference
-				repository.discardChanges();
-			}
-		} finally {
-			// In separate finally block just in case rollback throws
-			blockchainLock.unlock();
+			unconfirmedTransactionsIterator.remove();
 		}
 
 		return unconfirmedTransactions;
@@ -645,9 +619,6 @@ public abstract class Transaction {
 
 	/**
 	 * Returns invalid, unconfirmed transactions.
-	 * <p>
-	 * NOTE: temporarily updates accounts' lastReference to check validity.<br>
-	 * To do this, blockchain lock is obtained and pending repository changes are discarded.
 	 * 
 	 * @return sorted, invalid, unconfirmed transactions
 	 * @throws DataException
@@ -660,36 +631,16 @@ public abstract class Transaction {
 
 		unconfirmedTransactions.sort(getDataComparator());
 
-		/*
-		 * We have to grab the blockchain lock because we're updating
-		 * when we fake the creator's last reference,
-		 * even though we throw away the update when we rollback the
-		 * savepoint.
-		 */
-		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		blockchainLock.lock();
-		try {
-			// Clear repository's "in transaction" state so we don't cause a repository deadlock
-			repository.discardChanges();
+		Iterator<TransactionData> unconfirmedTransactionsIterator = unconfirmedTransactions.iterator();
+		while (unconfirmedTransactionsIterator.hasNext()) {
+			TransactionData transactionData = unconfirmedTransactionsIterator.next();
+			Transaction transaction = Transaction.fromData(repository, transactionData);
 
-			try {
-				Iterator<TransactionData> unconfirmedTransactionsIterator = unconfirmedTransactions.iterator();
-				while (unconfirmedTransactionsIterator.hasNext()) {
-					TransactionData transactionData = unconfirmedTransactionsIterator.next();
+			if (transaction.isStillValidUnconfirmed(latestBlockData.getTimestamp()) != ValidationResult.OK)
+				continue;
 
-					if (isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp()))
-						continue;
-
-					invalidTransactions.add(transactionData);
-					unconfirmedTransactionsIterator.remove();
-				}
-			} finally {
-				// Throw away temporary updates to account lastReference
-				repository.discardChanges();
-			}
-		} finally {
-			// In separate finally block just in case rollback throws
-			blockchainLock.unlock();
+			invalidTransactions.add(transactionData);
+			unconfirmedTransactionsIterator.remove();
 		}
 
 		return invalidTransactions;
@@ -698,50 +649,50 @@ public abstract class Transaction {
 	/**
 	 * Returns whether transaction is still a valid unconfirmed transaction.
 	 * <p>
-	 * NOTE: temporarily updates creator's lastReference to that from
-	 * unconfirmed transactions, and hence caller should use a repository
-	 * savepoint or invoke <tt>repository.discardChanges()</tt>.
-	 * <p>
-	 * Caller should also hold the blockchain lock as we're 'updating'
-	 * when we fake the transaction creator's last reference, even if
-	 * it discarded at rollback.
+	 * This is like {@link #isValidUnconfirmed()} but only needs to perform
+	 * a subset of those checks.
 	 * 
-	 * @return true if transaction can be added to unconfirmed transactions, false otherwise
+	 * @return transaction validation result, e.g. OK
 	 * @throws DataException
 	 */
-	private static boolean isStillValidUnconfirmed(Repository repository, TransactionData transactionData, long blockTimestamp) throws DataException {
+	private ValidationResult isStillValidUnconfirmed(long blockTimestamp) throws DataException {
 		final Long now = NTP.getTime();
 		if (now == null)
-			return false;
+			return ValidationResult.CLOCK_NOT_SYNCED;
 
-		Transaction transaction = Transaction.fromData(repository, transactionData);
+		// Expired already?
+		if (now >= this.getDeadline())
+			return ValidationResult.TIMESTAMP_TOO_OLD;
 
-		// Check transaction has not expired
-		if (transaction.getDeadline() <= blockTimestamp || transaction.getDeadline() < now)
-			return false;
+		// Transactions with a expiry prior to latest block's timestamp are too old
+		if (this.getDeadline() <= blockTimestamp)
+			return ValidationResult.TIMESTAMP_TOO_OLD;
 
-		// Is transaction is past max approval period?
-		if (transaction.needsGroupApproval()) {
-			int txGroupId = transactionData.getTxGroupId();
-			GroupData groupData = repository.getGroupRepository().fromGroupId(txGroupId);
+		// Transactions with a timestamp too far into future are too new
+		// Skipped because this test only applies at instant of submission
 
-			int creationBlockHeight = repository.getBlockRepository().getHeightFromTimestamp(transactionData.getTimestamp());
-			int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();
-			if (currentBlockHeight > creationBlockHeight + groupData.getMaximumBlockDelay())
-				return false;
-		}
+		// Check fee is sufficient
+		// Skipped because this is checked upon submission and the result would be the same now
 
-		// Check transaction is currently valid
-		if (transaction.isValid() != Transaction.ValidationResult.OK)
-			return false;
+		// Reject if unconfirmed pile already has X transactions from same creator
+		// Skipped because this test only applies at instant of submission
 
-		// Good for adding to a block
-		// Temporarily update sender's last reference so that subsequent transactions validations work
-		// These updates should be discarded by some caller further up stack
-		PublicKeyAccount creator = new PublicKeyAccount(repository, transactionData.getCreatorPublicKey());
-		creator.setLastReference(transactionData.getSignature());
+		// Check transaction's txGroupId
+		// Skipped because this is checked upon submission and the result would be the same now
 
-		return true;
+		// Check transaction references
+		if (!this.hasValidReference())
+			return ValidationResult.INVALID_REFERENCE;
+
+		// Check transaction is valid
+		ValidationResult result = this.isValid();
+		if (result != ValidationResult.OK)
+			return result;
+
+		// Check transaction is processable
+		result = this.isProcessable();
+
+		return result;
 	}
 
 	/**
