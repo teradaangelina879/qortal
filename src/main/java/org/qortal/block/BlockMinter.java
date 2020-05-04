@@ -163,10 +163,18 @@ public class BlockMinter extends Thread {
 					// First block does the AT heavy-lifting
 					if (newBlocks.isEmpty()) {
 						Block newBlock = Block.mint(repository, previousBlock.getBlockData(), mintingAccount);
+						if (newBlock == null)
+							// For some reason we can't mint right now
+							continue;
+
 						newBlocks.add(newBlock);
 					} else {
 						// The blocks for other minters require less effort...
 						Block newBlock = newBlocks.get(0);
+						if (newBlock == null)
+							// For some reason we can't mint right now
+							continue;
+
 						newBlocks.add(newBlock.remint(mintingAccount));
 					}
 				}
