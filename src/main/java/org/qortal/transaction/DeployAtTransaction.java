@@ -65,7 +65,6 @@ public class DeployAtTransaction extends Transaction {
 		try {
 			String atAddress = Crypto.toATAddress(TransactionTransformer.toBytesForSigning(this.deployATTransactionData));
 			this.deployATTransactionData.setAtAddress(atAddress);
-			return;
 		} catch (TransformationException e) {
 			throw new DataException("Unable to generate AT address");
 		}
