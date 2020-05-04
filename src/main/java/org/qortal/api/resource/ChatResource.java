@@ -22,6 +22,7 @@ import javax.ws.rs.core.MediaType;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
+import org.qortal.api.Security;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.repository.DataException;
@@ -119,6 +120,8 @@ public class ChatResource {
 	)
 	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	public String buildChat(ChatTransactionData transactionData) {
+		Security.checkApiCallAllowed(request);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ChatTransaction chatTransaction = (ChatTransaction) Transaction.fromData(repository, transactionData);
 
