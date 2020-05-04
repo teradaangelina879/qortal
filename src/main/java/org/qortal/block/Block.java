@@ -128,8 +128,6 @@ public class Block {
 
 	/** Lazy-instantiated expanded info on block's online accounts. */
 	static class ExpandedAccount {
-		private final Repository repository;
-
 		private final RewardShareData rewardShareData;
 		private final int sharePercent;
 		private final boolean isRecipientAlsoMinter;
@@ -143,7 +141,6 @@ public class Block {
 		private final boolean isRecipientFounder;
 
 		ExpandedAccount(Repository repository, int accountIndex) throws DataException {
-			this.repository = repository;
 			this.rewardShareData = repository.getAccountRepository().getRewardShareByIndex(accountIndex);
 			this.sharePercent = this.rewardShareData.getSharePercent();
 
