@@ -304,8 +304,10 @@ public class Block {
 
 		// Fetch our list of online accounts
 		List<OnlineAccountData> onlineAccounts = Controller.getInstance().getOnlineAccounts();
-		if (onlineAccounts.isEmpty())
-			throw new IllegalStateException("No online accounts - not even our own?");
+		if (onlineAccounts.isEmpty()) {
+			LOGGER.error("No online accounts - not even our own?");
+			return null;
+		}
 
 		// Find newest online accounts timestamp
 		long onlineAccountsTimestamp = 0;
@@ -350,8 +352,10 @@ public class Block {
 
 		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
 		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
-		if (minterLevel == 0)
-			throw new IllegalStateException("Minter effective level returned zero?");
+		if (minterLevel == 0) {
+			LOGGER.error("Minter effective level returned zero?");
+			return null;
+		}
 
 		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 
@@ -419,8 +423,10 @@ public class Block {
 
 		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
 		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
-		if (minterLevel == 0)
-			throw new IllegalStateException("Minter effective level returned zero?");
+		if (minterLevel == 0){
+			LOGGER.error("Minter effective level returned zero?");
+			return null;
+		}
 
 		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 
