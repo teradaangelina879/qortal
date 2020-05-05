@@ -139,6 +139,8 @@ public interface AccountRepository {
 	 */
 	public RewardShareData getRewardShareByIndex(int index) throws DataException;
 
+	public boolean rewardShareExists(byte[] rewardSharePublicKey) throws DataException;
+
 	public void save(RewardShareData rewardShareData) throws DataException;
 
 	/** Delete reward-share from repository using passed minting account's public key and recipient's address. */

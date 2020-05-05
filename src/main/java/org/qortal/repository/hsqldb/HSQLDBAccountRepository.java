@@ -689,13 +689,13 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public Integer getRewardShareIndex(byte[] publicKey) throws DataException {
+	public Integer getRewardShareIndex(byte[] rewardSharePublicKey) throws DataException {
+		if (!this.rewardShareExists(rewardSharePublicKey))
+			return null;
+
 		String sql = "SELECT COUNT(*) FROM RewardShares WHERE reward_share_public_key < ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey)) {
-			if (resultSet == null)
-				return null;
-
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, rewardSharePublicKey)) {
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to determine reward-share index in repository", e);
@@ -721,6 +721,15 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return new RewardShareData(minterPublicKey, minter, recipient, rewardSharePublicKey, sharePercent);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch reward-share info from repository", e);
+		}
+	}
+
+	@Override
+	public boolean rewardShareExists(byte[] rewardSharePublicKey) throws DataException {
+		try {
+			return this.repository.exists("RewardShares", "reward_share_public_key = ?", rewardSharePublicKey);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check reward-share exists in repository", e);
 		}
 	}
 

@@ -323,7 +323,11 @@ public class Block {
 			if (onlineAccountData.getTimestamp() != onlineAccountsTimestamp)
 				continue;
 
-			int accountIndex = repository.getAccountRepository().getRewardShareIndex(onlineAccountData.getPublicKey());
+			Integer accountIndex = repository.getAccountRepository().getRewardShareIndex(onlineAccountData.getPublicKey());
+			if (accountIndex == null)
+				// Online account (reward-share) with current timestamp but reward-share cancelled
+				continue;
+
 			indexedOnlineAccounts.put(accountIndex, onlineAccountData);
 		}
 		List<Integer> accountIndexes = new ArrayList<>(indexedOnlineAccounts.keySet());
