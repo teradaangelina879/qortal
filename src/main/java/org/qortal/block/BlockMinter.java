@@ -40,6 +40,8 @@ public class BlockMinter extends Thread {
 
 	// Other properties
 	private static final Logger LOGGER = LogManager.getLogger(BlockMinter.class);
+	private static Long lastLogTimestamp;
+	private static Long logTimeout;
 
 	// Constructors
 
@@ -151,6 +153,9 @@ public class BlockMinter extends Thread {
 				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {
 					previousBlock = new Block(repository, lastBlockData);
 					newBlocks.clear();
+
+					// Reduce log timeout
+					logTimeout = 10 * 1000L;
 				}
 
 				// Discard accounts we have already built blocks with
@@ -163,19 +168,23 @@ public class BlockMinter extends Thread {
 					// First block does the AT heavy-lifting
 					if (newBlocks.isEmpty()) {
 						Block newBlock = Block.mint(repository, previousBlock.getBlockData(), mintingAccount);
-						if (newBlock == null)
+						if (newBlock == null) {
 							// For some reason we can't mint right now
+							moderatedLog(() -> LOGGER.error("Couldn't build a to-be-minted block"));
 							continue;
+						}
 
 						newBlocks.add(newBlock);
 					} else {
 						// The blocks for other minters require less effort...
-						Block newBlock = newBlocks.get(0);
-						if (newBlock == null)
+						Block newBlock = newBlocks.get(0).remint(mintingAccount);
+						if (newBlock == null) {
 							// For some reason we can't mint right now
+							moderatedLog(() -> LOGGER.error("Couldn't rebuild a to-be-minted block"));
 							continue;
+						}
 
-						newBlocks.add(newBlock.remint(mintingAccount));
+						newBlocks.add(newBlock);
 					}
 				}
 
@@ -185,14 +194,21 @@ public class BlockMinter extends Thread {
 
 				// Make sure we're the only thread modifying the blockchain
 				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-				if (!blockchainLock.tryLock(30, TimeUnit.SECONDS))
+				if (!blockchainLock.tryLock(30, TimeUnit.SECONDS)) {
+					LOGGER.warn("Couldn't acquire blockchain lock even after waiting 30 seconds");
 					continue;
+				}
 
 				boolean newBlockMinted = false;
 
 				try {
-					// Clear repository's "in transaction" state so we don't cause a repository deadlock
+					// Clear repository session state so we have latest view of data
 					repository.discardChanges();
+
+					// Now that we have blockchain lock, do final check that chain hasn't changed
+					BlockData latestBlockData = blockRepository.getLastBlock();
+					if (!Arrays.equals(lastBlockData.getSignature(), latestBlockData.getSignature()))
+						continue;
 
 					List<Block> goodBlocks = new ArrayList<>();
 					for (Block testBlock : newBlocks) {
@@ -202,8 +218,12 @@ public class BlockMinter extends Thread {
 							continue;
 
 						// Is new block valid yet? (Before adding unconfirmed transactions)
-						if (testBlock.isValid() != ValidationResult.OK)
+						ValidationResult result = testBlock.isValid();
+						if (result != ValidationResult.OK) {
+							moderatedLog(() -> LOGGER.error(String.format("To-be-minted block invalid '%s' before adding transactions?", result.name())));
+
 							continue;
+						}
 
 						goodBlocks.add(testBlock);
 					}
@@ -352,9 +372,13 @@ public class BlockMinter extends Thread {
 		// Ensure mintingAccount is 'online' so blocks can be minted
 		Controller.getInstance().ensureTestingAccountsOnline(mintingAndOnlineAccounts);
 
-		BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
-
 		PrivateKeyAccount mintingAccount = mintingAndOnlineAccounts[0];
+
+		return mintTestingBlockRetainingTimestamps(repository, mintingAccount);
+	}
+
+	public static Block mintTestingBlockRetainingTimestamps(Repository repository, PrivateKeyAccount mintingAccount) throws DataException {
+		BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
 
 		Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
 
@@ -383,6 +407,17 @@ public class BlockMinter extends Thread {
 		} finally {
 			blockchainLock.unlock();
 		}
+	}
+
+	private static void moderatedLog(Runnable logFunction) {
+		// We only log if logging at TRACE or previous log timeout has expired
+		if (!LOGGER.isTraceEnabled() && lastLogTimestamp != null && lastLogTimestamp + logTimeout > System.currentTimeMillis())
+			return;
+
+		lastLogTimestamp = System.currentTimeMillis();
+		logTimeout = 2 * 60 * 1000L; // initial timeout, can be reduced if new block appears
+
+		logFunction.run();
 	}
 
 }

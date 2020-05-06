@@ -82,7 +82,7 @@ public class Settings {
 	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
 	/** Minimum number of peers to allow block minting / synchronization. */
-	private int minBlockchainPeers = 8;
+	private int minBlockchainPeers = 5;
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 16;
 	/** Maximum number of peer connections we allow. */

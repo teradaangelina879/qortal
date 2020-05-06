@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -138,7 +137,6 @@ public class Block {
 
 		private final Account recipientAccount;
 		private final AccountData recipientAccountData;
-		private final boolean isRecipientFounder;
 
 		ExpandedAccount(Repository repository, int accountIndex) throws DataException {
 			this.rewardShareData = repository.getAccountRepository().getRewardShareByIndex(accountIndex);
@@ -154,12 +152,10 @@ public class Block {
 				// Self-share: minter is also recipient
 				this.recipientAccount = this.mintingAccount;
 				this.recipientAccountData = this.mintingAccountData;
-				this.isRecipientFounder = this.isMinterFounder;
 			} else {
 				// Recipient differs from minter
 				this.recipientAccount = new Account(repository, this.rewardShareData.getRecipient());
 				this.recipientAccountData = repository.getAccountRepository().getAccount(this.recipientAccount.getAddress());
-				this.isRecipientFounder = Account.isFounder(recipientAccountData.getFlags());
 			}
 		}
 
@@ -319,7 +315,11 @@ public class Block {
 			if (onlineAccountData.getTimestamp() != onlineAccountsTimestamp)
 				continue;
 
-			int accountIndex = repository.getAccountRepository().getRewardShareIndex(onlineAccountData.getPublicKey());
+			Integer accountIndex = repository.getAccountRepository().getRewardShareIndex(onlineAccountData.getPublicKey());
+			if (accountIndex == null)
+				// Online account (reward-share) with current timestamp but reward-share cancelled
+				continue;
+
 			indexedOnlineAccounts.put(accountIndex, onlineAccountData);
 		}
 		List<Integer> accountIndexes = new ArrayList<>(indexedOnlineAccounts.keySet());
@@ -1268,14 +1268,13 @@ public class Block {
 
 	protected void increaseAccountLevels() throws DataException {
 		// We need to do this for both minters and recipients
-		this.increaseAccountLevels(expandedAccount -> expandedAccount.isMinterFounder, expandedAccount -> expandedAccount.mintingAccountData);
-		this.increaseAccountLevels(expandedAccount -> expandedAccount.isRecipientFounder, expandedAccount -> expandedAccount.recipientAccountData);
+		this.increaseAccountLevels(false, expandedAccount -> expandedAccount.mintingAccountData);
+		this.increaseAccountLevels(true, expandedAccount -> expandedAccount.recipientAccountData);
 	}
 
-	private void increaseAccountLevels(Predicate<ExpandedAccount> isFounder, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
+	private void increaseAccountLevels(boolean isProcessingRecipients, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
 		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
 		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
-		final boolean isProcessingRecipients = getAccountData.apply(expandedAccounts.get(0)) == expandedAccounts.get(0).recipientAccountData;
 
 		// Increase blocks-minted count for all accounts
 		for (int a = 0; a < expandedAccounts.size(); ++a) {
@@ -1594,14 +1593,13 @@ public class Block {
 
 	protected void decreaseAccountLevels() throws DataException {
 		// We need to do this for both minters and recipients
-		this.decreaseAccountLevels(expandedAccount -> expandedAccount.isMinterFounder, expandedAccount -> expandedAccount.mintingAccountData);
-		this.decreaseAccountLevels(expandedAccount -> expandedAccount.isRecipientFounder, expandedAccount -> expandedAccount.recipientAccountData);
+		this.decreaseAccountLevels(false, expandedAccount -> expandedAccount.mintingAccountData);
+		this.decreaseAccountLevels(true, expandedAccount -> expandedAccount.recipientAccountData);
 	}
 
-	private void decreaseAccountLevels(Predicate<ExpandedAccount> isFounder, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
+	private void decreaseAccountLevels(boolean isProcessingRecipients, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
 		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
 		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
-		final boolean isProcessingRecipients = getAccountData.apply(expandedAccounts.get(0)) == expandedAccounts.get(0).recipientAccountData;
 
 		// Decrease blocks minted count for all accounts
 		for (int a = 0; a < expandedAccounts.size(); ++a) {
