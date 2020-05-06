@@ -129,7 +129,8 @@ public class NTP implements Runnable {
 	}
 
 	public static void shutdownNow() {
-		instanceExecutor.shutdownNow();
+		if (instanceExecutor != null)
+			instanceExecutor.shutdownNow();
 	}
 
 	public static synchronized void setFixedOffset(Long offset) {
