@@ -2,7 +2,6 @@ package org.qortal.test.minting;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 
 import org.junit.After;
 import org.junit.Before;
@@ -32,7 +31,7 @@ public class BlocksMintedCountTests extends Common {
 
 	@Test
 	public void testNonSelfShare() throws DataException {
-		final BigDecimal sharePercent = new BigDecimal("12.8");
+		final int sharePercent = 12_80;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Create reward-share

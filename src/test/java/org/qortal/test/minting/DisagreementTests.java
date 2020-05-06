@@ -2,7 +2,6 @@ package org.qortal.test.minting;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,7 +29,7 @@ import io.druid.extendedset.intset.ConciseSet;
 
 public class DisagreementTests extends Common {
 
-	private static final BigDecimal CANCEL_SHARE_PERCENT = BigDecimal.ONE.negate();
+	private static final int CANCEL_SHARE_PERCENT = -1;
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -59,7 +58,7 @@ public class DisagreementTests extends Common {
 	 */
 	@Test
 	public void testOnlineAccounts() throws DataException {
-		final BigDecimal sharePercent = new BigDecimal("12.8");
+		final int sharePercent = 12_80;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount mintingAccount = Common.getTestAccount(repository, "alice-reward-share");
