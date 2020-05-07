@@ -1,13 +1,8 @@
 package org.qortal.repository.hsqldb;
 
-import static org.qortal.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
-import static org.qortal.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 import org.qortal.data.naming.NameData;
@@ -24,7 +19,7 @@ public class HSQLDBNameRepository implements NameRepository {
 
 	@Override
 	public NameData fromName(String name) throws DataException {
-		String sql = "SELECT owner, data, registered, updated, reference, is_for_sale, sale_price, creation_group_id FROM Names WHERE name = ?";
+		String sql = "SELECT owner, data, registered_when, updated_when, reference, is_for_sale, sale_price, creation_group_id FROM Names WHERE name = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, name)) {
 			if (resultSet == null)
@@ -32,11 +27,12 @@ public class HSQLDBNameRepository implements NameRepository {
 
 			String owner = resultSet.getString(1);
 			String data = resultSet.getString(2);
-			long registered = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			long registered = resultSet.getLong(3);
 
 			// Special handling for possibly-NULL "updated" column
-			Timestamp updatedTimestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC));
-			Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+			Long updated = resultSet.getLong(4);
+			if (updated == 0 && resultSet.wasNull())
+				updated = null;
 
 			byte[] reference = resultSet.getBytes(5);
 			boolean isForSale = resultSet.getBoolean(6);
@@ -65,7 +61,9 @@ public class HSQLDBNameRepository implements NameRepository {
 	@Override
 	public List<NameData> getAllNames(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
-		sql.append("SELECT name, data, owner, registered, updated, reference, is_for_sale, sale_price, creation_group_id FROM Names ORDER BY name");
+
+		sql.append("SELECT name, data, owner, registered_when, updated_when, reference, is_for_sale, sale_price, creation_group_id FROM Names ORDER BY name");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -81,8 +79,13 @@ public class HSQLDBNameRepository implements NameRepository {
 				String name = resultSet.getString(1);
 				String data = resultSet.getString(2);
 				String owner = resultSet.getString(3);
-				long registered = getZonedTimestampMilli(resultSet, 4);
-				Long updated = getZonedTimestampMilli(resultSet, 5); // can be null
+				long registered = resultSet.getLong(4);
+
+				// Special handling for possibly-NULL "updated" column
+				Long updated = resultSet.getLong(5);
+				if (updated == 0 && resultSet.wasNull())
+					updated = null;
+
 				byte[] reference = resultSet.getBytes(6);
 				boolean isForSale = resultSet.getBoolean(7);
 
@@ -104,7 +107,9 @@ public class HSQLDBNameRepository implements NameRepository {
 	@Override
 	public List<NameData> getNamesForSale(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT name, data, owner, registered, updated, reference, sale_price, creation_group_id FROM Names WHERE is_for_sale = TRUE ORDER BY name");
+
+		sql.append("SELECT name, data, owner, registered_when, updated_when, reference, sale_price, creation_group_id FROM Names WHERE is_for_sale = TRUE ORDER BY name");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -120,8 +125,13 @@ public class HSQLDBNameRepository implements NameRepository {
 				String name = resultSet.getString(1);
 				String data = resultSet.getString(2);
 				String owner = resultSet.getString(3);
-				long registered = getZonedTimestampMilli(resultSet, 4);
-				Long updated = getZonedTimestampMilli(resultSet, 5); // can be null
+				long registered = resultSet.getLong(4);
+
+				// Special handling for possibly-NULL "updated" column
+				Long updated = resultSet.getLong(5);
+				if (updated == 0 && resultSet.wasNull())
+					updated = null;
+
 				byte[] reference = resultSet.getBytes(6);
 				boolean isForSale = true;
 
@@ -143,7 +153,9 @@ public class HSQLDBNameRepository implements NameRepository {
 	@Override
 	public List<NameData> getNamesByOwner(String owner, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT name, data, registered, updated, reference, is_for_sale, sale_price, creation_group_id FROM Names WHERE owner = ? ORDER BY name");
+
+		sql.append("SELECT name, data, registered_when, updated_when, reference, is_for_sale, sale_price, creation_group_id FROM Names WHERE owner = ? ORDER BY name");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -158,8 +170,13 @@ public class HSQLDBNameRepository implements NameRepository {
 			do {
 				String name = resultSet.getString(1);
 				String data = resultSet.getString(2);
-				long registered = getZonedTimestampMilli(resultSet, 3);
-				Long updated = getZonedTimestampMilli(resultSet, 4); // can be null
+				long registered = resultSet.getLong(3);
+
+				// Special handling for possibly-NULL "updated" column
+				Long updated = resultSet.getLong(4);
+				if (updated == 0 && resultSet.wasNull())
+					updated = null;
+
 				byte[] reference = resultSet.getBytes(5);
 				boolean isForSale = resultSet.getBoolean(6);
 
@@ -179,14 +196,14 @@ public class HSQLDBNameRepository implements NameRepository {
 	}
 
 	@Override
-	public List<String> getRecentNames(long start) throws DataException {
+	public List<String> getRecentNames(long startTimestamp) throws DataException {
 		String sql = "SELECT name FROM RegisterNameTransactions JOIN Names USING (name) "
 				+ "JOIN Transactions USING (signature) "
-				+ "WHERE creation >= ?";
+				+ "WHERE created_when >= ?";
 
 		List<String> names = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, HSQLDBRepository.toOffsetDateTime(start))) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, startTimestamp)) {
 			if (resultSet == null)
 				return names;
 
@@ -207,7 +224,7 @@ public class HSQLDBNameRepository implements NameRepository {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Names");
 
 		saveHelper.bind("owner", nameData.getOwner()).bind("name", nameData.getName()).bind("data", nameData.getData())
-				.bind("registered", toOffsetDateTime(nameData.getRegistered())).bind("updated", toOffsetDateTime(nameData.getUpdated()))
+				.bind("registered_when", nameData.getRegistered()).bind("updated_when", nameData.getUpdated())
 				.bind("reference", nameData.getReference())
 				.bind("is_for_sale", nameData.getIsForSale()).bind("sale_price", nameData.getSalePrice())
 				.bind("creation_group_id", nameData.getCreationGroupId());

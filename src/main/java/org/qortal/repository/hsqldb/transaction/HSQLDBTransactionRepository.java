@@ -1,8 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import static org.qortal.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
-import static org.qortal.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
-
 import static org.qortal.transaction.Transaction.TransactionType.*;
 
 import java.lang.reflect.Constructor;
@@ -124,7 +121,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromSignature(byte[] signature) throws DataException {
-		String sql = "SELECT type, reference, creator, creation, fee, tx_group_id, block_height, approval_status, approval_height "
+		String sql = "SELECT type, reference, creator, created_when, fee, tx_group_id, block_height, approval_status, approval_height "
 				+ "FROM Transactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
@@ -135,7 +132,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			byte[] reference = resultSet.getBytes(2);
 			byte[] creatorPublicKey = resultSet.getBytes(3);
-			long timestamp = getZonedTimestampMilli(resultSet, 4);
+			long timestamp = resultSet.getLong(4);
 
 			Long fee = resultSet.getLong(5);
 			if (fee == 0 && resultSet.wasNull())
@@ -161,7 +158,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromReference(byte[] reference) throws DataException {
-		String sql = "SELECT type, signature, creator, creation, fee, tx_group_id, block_height, approval_status, approval_height "
+		String sql = "SELECT type, signature, creator, created_when, fee, tx_group_id, block_height, approval_status, approval_height "
 				+ "FROM Transactions WHERE reference = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, reference)) {
@@ -172,7 +169,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			byte[] signature = resultSet.getBytes(2);
 			byte[] creatorPublicKey = resultSet.getBytes(3);
-			long timestamp = getZonedTimestampMilli(resultSet, 4);
+			long timestamp = resultSet.getLong(4);
 
 			Long fee = resultSet.getLong(5);
 			if (fee == 0 && resultSet.wasNull())
@@ -410,7 +407,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		if (hasAddress) {
 			tables.append(" JOIN TransactionParticipants ON TransactionParticipants.signature = Transactions.signature");
-			groupBy = " GROUP BY TransactionParticipants.signature, Transactions.creation";
+			groupBy = " GROUP BY TransactionParticipants.signature, Transactions.created_when";
 			signatureColumn = "TransactionParticipants.signature";
 		}
 
@@ -497,7 +494,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		if (groupBy != null)
 			sql.append(groupBy);
 
-		sql.append(" ORDER BY Transactions.creation");
+		sql.append(" ORDER BY Transactions.created_when");
 		sql.append((reverse == null || !reverse) ? " ASC" : " DESC");
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
@@ -553,7 +550,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		// Enum int value safe to use literally
 		sql.append(ApprovalStatus.APPROVED.value);
 
-		sql.append(" ORDER BY creation DESC LIMIT 1");
+		sql.append(" ORDER BY created_when DESC LIMIT 1");
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
@@ -620,7 +617,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		sql.append(" OR AssetOrders.want_asset_id = ");
 		sql.append(assetId);
 
-		sql.append(") GROUP BY Transactions.signature, Transactions.creation ORDER BY Transactions.creation");
+		sql.append(") GROUP BY Transactions.signature, Transactions.created_when ORDER BY Transactions.created_when");
 		sql.append((reverse == null || !reverse) ? " ASC" : " DESC");
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
@@ -655,7 +652,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		List<Object> bindParams = new ArrayList<>(3);
 
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append("SELECT creation, tx_group_id, reference, fee, signature, sender, block_height, approval_status, approval_height, recipient, amount, asset_name "
+		sql.append("SELECT created_when, tx_group_id, reference, fee, signature, sender, block_height, approval_status, approval_height, recipient, amount, asset_name "
 				+ "FROM TransferAssetTransactions JOIN Transactions USING (signature) ");
 
 		if (address != null)
@@ -669,7 +666,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			bindParams.add(address);
 		}
 
-		sql.append(" ORDER by creation ");
+		sql.append(" ORDER by created_when ");
 		sql.append((reverse == null || !reverse) ? "ASC" : "DESC");
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
@@ -681,7 +678,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				return assetTransfers;
 
 			do {
-				long timestamp = getZonedTimestampMilli(resultSet, 1);
+				long timestamp = resultSet.getLong(1);
 				int txGroupId = resultSet.getInt(2);
 				byte[] reference = resultSet.getBytes(3);
 				long fee = resultSet.getLong(4);
@@ -729,7 +726,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			bindParams = new Object[0];
 		}
 
-		sql.append(" ORDER BY creation");
+		sql.append(" ORDER BY created_when");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -867,7 +864,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		String sql = "SELECT signature FROM GroupApprovalTransactions "
 			+ "NATURAL JOIN Transactions "
 			+ "WHERE pending_signature = ? AND admin = ? AND block_height IS NOT NULL "
-			+ "ORDER BY creation DESC, signature DESC LIMIT 1";
+			+ "ORDER BY created_when DESC, signature DESC LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, pendingSignature, adminPublicKey)) {
 			if (resultSet == null)
@@ -888,7 +885,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		// Also make sure that GROUP_APPROVAL transaction's admin is still an admin of group
 
 		// Sub-query SQL to find latest GroupApprovalTransaction relating to passed pending signature
-		String latestApprovalSql = "SELECT pending_signature, admin, approval, creation, signature FROM GroupApprovalTransactions "
+		String latestApprovalSql = "SELECT pending_signature, admin, approval, created_when, signature FROM GroupApprovalTransactions "
 				+ "NATURAL JOIN Transactions WHERE pending_signature = ? AND block_height IS NOT NULL";
 
 		StringBuilder sql = new StringBuilder(1024);
@@ -896,7 +893,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		sql.append(latestApprovalSql);
 		sql.append(") AS GAT LEFT OUTER JOIN (");
 		sql.append(latestApprovalSql);
-		sql.append(") AS NewerGAT ON NewerGAT.admin = GAT.admin AND (NewerGAT.creation > GAT.creation OR (NewerGAT.creation = GAT.creation AND NewerGat.signature > GAT.signature)) "
+		sql.append(") AS NewerGAT ON NewerGAT.admin = GAT.admin AND (NewerGAT.created_when > GAT.created_when OR (NewerGAT.created_when = GAT.created_when AND NewerGat.signature > GAT.signature)) "
 				+ "JOIN Transactions AS PendingTransactions ON PendingTransactions.signature = GAT.pending_signature "
 				+ "LEFT OUTER JOIN Accounts ON Accounts.public_key = GAT.admin "
 				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.admin = Accounts.account AND GroupAdmins.group_id = PendingTransactions.tx_group_id "
@@ -935,7 +932,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<byte[]> getUnconfirmedTransactionSignatures() throws DataException {
-		String sql = "SELECT signature FROM UnconfirmedTransactions ORDER by creation DESC, signature DESC";
+		String sql = "SELECT signature FROM UnconfirmedTransactions ORDER by created_when DESC, signature DESC";
 
 		List<byte[]> signatures = new ArrayList<>();
 
@@ -961,7 +958,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		StringBuilder sql = new StringBuilder(256);
 		sql.append("SELECT signature FROM UnconfirmedTransactions ");
 
-		sql.append("ORDER BY creation");
+		sql.append("ORDER BY created_when");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -1035,7 +1032,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	public void unconfirmTransaction(TransactionData transactionData) throws DataException {
 		HSQLDBSaver saver = new HSQLDBSaver("UnconfirmedTransactions");
 
-		saver.bind("signature", transactionData.getSignature()).bind("creation", toOffsetDateTime(transactionData.getTimestamp()));
+		saver.bind("signature", transactionData.getSignature()).bind("created_when", transactionData.getTimestamp());
 
 		try {
 			saver.execute(repository);
@@ -1052,8 +1049,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		saver.bind("signature", transactionData.getSignature()).bind("reference", transactionData.getReference())
 			.bind("type", transactionData.getType().value)
-			.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", toOffsetDateTime(transactionData.getTimestamp()))
-			.bind("fee", transactionData.getFee()).bind("milestone_block", null).bind("tx_group_id", transactionData.getTxGroupId())
+			.bind("creator", transactionData.getCreatorPublicKey()).bind("created_when", transactionData.getTimestamp())
+			.bind("fee", transactionData.getFee()).bind("tx_group_id", transactionData.getTxGroupId())
 			.bind("approval_status", transactionData.getApprovalStatus().value);
 
 		try {

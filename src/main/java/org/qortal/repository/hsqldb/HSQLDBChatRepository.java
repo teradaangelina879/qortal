@@ -43,13 +43,13 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 		// Timestamp range
 		if (before != null) {
-			whereClauses.add("Transactions.creation < ?");
-			bindParams.add(HSQLDBRepository.toOffsetDateTime(before));
+			whereClauses.add("Transactions.created_when < ?");
+			bindParams.add(before);
 		}
 
 		if (after != null) {
-			whereClauses.add("Transactions.creation > ?");
-			bindParams.add(HSQLDBRepository.toOffsetDateTime(after));
+			whereClauses.add("Transactions.created_when > ?");
+			bindParams.add(after);
 		}
 
 		if (txGroupId != null)
@@ -83,7 +83,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 			}
 		}
 
-		sql.append(" ORDER BY Transactions.creation");
+		sql.append(" ORDER BY Transactions.created_when");
 		sql.append((reverse == null || !reverse) ? " ASC" : " DESC");
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);

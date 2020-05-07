@@ -290,7 +290,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException {
-		String sql = "SELECT IFNULL(balance, 0) FROM AccountBalances WHERE account = ? AND asset_id = ? LIMIT 1";
+		String sql = "SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ? LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId)) {
 			if (resultSet == null)
@@ -307,7 +307,8 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public List<AccountBalanceData> getAssetBalances(long assetId, Boolean excludeZero) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append("SELECT account, IFNULL(balance, 0) FROM AccountBalances WHERE asset_id = ?");
+
+		sql.append("SELECT account, balance FROM AccountBalances WHERE asset_id = ?");
 
 		if (excludeZero != null && excludeZero)
 			sql.append(" AND balance != 0");
@@ -334,7 +335,8 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Boolean excludeZero,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append("SELECT account, asset_id, IFNULL(balance, 0), asset_name FROM ");
+
+		sql.append("SELECT account, asset_id, balance, asset_name FROM ");
 
 		final boolean haveAddresses = addresses != null && !addresses.isEmpty();
 		final boolean haveAssetIds = assetIds != null && !assetIds.isEmpty();

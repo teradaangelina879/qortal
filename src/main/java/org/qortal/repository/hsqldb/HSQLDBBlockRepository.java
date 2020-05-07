@@ -1,8 +1,5 @@
 package org.qortal.repository.hsqldb;
 
-import static org.qortal.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
-import static org.qortal.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -21,7 +18,7 @@ import org.qortal.repository.TransactionRepository;
 public class HSQLDBBlockRepository implements BlockRepository {
 
 	private static final String BLOCK_DB_COLUMNS = "version, reference, transaction_count, total_fees, "
-			+ "transactions_signature, height, minted, minter, minter_signature, "
+			+ "transactions_signature, height, minted_when, minter, minter_signature, "
 			+ "AT_count, AT_fees, online_accounts, online_accounts_count, online_accounts_timestamp, online_accounts_signatures";
 
 	protected HSQLDBRepository repository;
@@ -41,14 +38,18 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			long totalFees = resultSet.getLong(4);
 			byte[] transactionsSignature = resultSet.getBytes(5);
 			int height = resultSet.getInt(6);
-			long timestamp = getZonedTimestampMilli(resultSet, 7);
+			long timestamp = resultSet.getLong(7);
 			byte[] minterPublicKey = resultSet.getBytes(8);
 			byte[] minterSignature = resultSet.getBytes(9);
 			int atCount = resultSet.getInt(10);
 			long atFees = resultSet.getLong(11);
 			byte[] encodedOnlineAccounts = resultSet.getBytes(12);
 			int onlineAccountsCount = resultSet.getInt(13);
-			Long onlineAccountsTimestamp = getZonedTimestampMilli(resultSet, 14);
+
+			Long onlineAccountsTimestamp = resultSet.getLong(14);
+			if (onlineAccountsTimestamp == 0 && resultSet.wasNull())
+				onlineAccountsTimestamp = null;
+
 			byte[] onlineAccountsSignatures = resultSet.getBytes(15);
 
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp,
@@ -61,7 +62,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData fromSignature(byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ? LIMIT 1", signature)) {
+		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ? LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error fetching block by signature from repository", e);
@@ -70,7 +73,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData fromReference(byte[] reference) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE reference = ? LIMIT 1", reference)) {
+		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE reference = ? LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, reference)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error fetching block by reference from repository", e);
@@ -79,7 +84,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData fromHeight(int height) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ? LIMIT 1", height)) {
+		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ? LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, height)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error fetching block by height from repository", e);
@@ -97,7 +104,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int getHeightFromSignature(byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE signature = ? LIMIT 1", signature)) {
+		String sql = "SELECT height FROM Blocks WHERE signature = ? LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
 				return 0;
 
@@ -109,9 +118,10 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int getHeightFromTimestamp(long timestamp) throws DataException {
-		// Uses (minted, height) index
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE minted <= ? ORDER BY minted DESC LIMIT 1",
-				toOffsetDateTime(timestamp))) {
+		// Uses (minted_when, height) index
+		String sql = "SELECT height FROM Blocks WHERE minted_when <= ? ORDER BY minted_when DESC LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, timestamp)) {
 			if (resultSet == null)
 				return 0;
 
@@ -123,7 +133,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int getBlockchainHeight() throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks ORDER BY height DESC LIMIT 1")) {
+		String sql = "SELECT height FROM Blocks ORDER BY height DESC LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return 0;
 
@@ -135,7 +147,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData getLastBlock() throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks ORDER BY height DESC LIMIT 1")) {
+		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks ORDER BY height DESC LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error fetching last block from repository", e);
@@ -176,7 +190,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	public int countMintedBlocks(byte[] minterPublicKey) throws DataException {
 		String directSql = "SELECT COUNT(*) FROM Blocks WHERE minter = ?";
 
-		String rewardShareSql = "SELECT COUNT(*) FROM RewardShares JOIN Blocks ON minter = reward_share_public_key WHERE minter_public_key = ?";
+		String rewardShareSql = "SELECT COUNT(*) FROM RewardShares "
+		+ "JOIN Blocks ON minter = reward_share_public_key "
+		+ "WHERE minter_public_key = ?";
 
 		int totalCount = 0;
 
@@ -346,10 +362,10 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int trimOldOnlineAccountsSignatures(long timestamp) throws DataException {
-		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE minted < ? AND online_accounts_signatures IS NOT NULL";
+		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE minted_when < ? AND online_accounts_signatures IS NOT NULL";
 
 		try {
-			return this.repository.checkedExecuteUpdateCount(sql, toOffsetDateTime(timestamp));
+			return this.repository.checkedExecuteUpdateCount(sql, timestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to trim old online accounts signatures in repository", e);
 		}
@@ -377,11 +393,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		saveHelper.bind("signature", blockData.getSignature()).bind("version", blockData.getVersion()).bind("reference", blockData.getReference())
 				.bind("transaction_count", blockData.getTransactionCount()).bind("total_fees", blockData.getTotalFees())
 				.bind("transactions_signature", blockData.getTransactionsSignature()).bind("height", blockData.getHeight())
-				.bind("minted", toOffsetDateTime(blockData.getTimestamp()))
+				.bind("minted_when", blockData.getTimestamp())
 				.bind("minter", blockData.getMinterPublicKey()).bind("minter_signature", blockData.getMinterSignature())
 				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees())
 				.bind("online_accounts", blockData.getEncodedOnlineAccounts()).bind("online_accounts_count", blockData.getOnlineAccountsCount())
-				.bind("online_accounts_timestamp", toOffsetDateTime(blockData.getOnlineAccountsTimestamp()))
+				.bind("online_accounts_timestamp", blockData.getOnlineAccountsTimestamp())
 				.bind("online_accounts_signatures", blockData.getOnlineAccountsSignatures());
 
 		try {

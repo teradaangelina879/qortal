@@ -24,6 +24,11 @@ public class AddressesApiTests extends ApiCommon {
 	}
 
 	@Test
+	public void testGetOnlineAccounts() {
+		assertNotNull(this.addressesResource.getOnlineAccounts());
+	}
+
+	@Test
 	public void testGetRewardShares() {
 		assertNotNull(this.addressesResource.getRewardShares(Collections.singletonList(aliceAddress), null, null, null, null, null));
 		assertNotNull(this.addressesResource.getRewardShares(null, Collections.singletonList(aliceAddress), null, null, null, null));

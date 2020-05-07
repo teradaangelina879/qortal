@@ -26,4 +26,9 @@ public class AdminApiTests extends ApiCommon {
 		assertNotNull(this.adminResource.summary());
 	}
 
+	@Test
+	public void testGetMintingAccounts() {
+		assertNotNull(this.adminResource.getMintingAccounts());
+	}
+
 }

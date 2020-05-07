@@ -24,12 +24,14 @@ public class ApiCommon extends Common {
 	private static final FakeRequest FAKE_REQUEST = new FakeRequest();
 
 	public String aliceAddress;
+	public String bobAddress;
 
 	@Before
 	public void beforeTests() throws DataException {
 		Common.useDefaultSettings();
 
 		this.aliceAddress = Common.getTestAccount(null, "alice").getAddress();
+		this.bobAddress = Common.getTestAccount(null, "bob").getAddress();
 	}
 
 	public static Object buildResource(Class<?> resourceClass) {

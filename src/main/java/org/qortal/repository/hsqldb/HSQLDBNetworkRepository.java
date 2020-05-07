@@ -33,13 +33,21 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 				String address = resultSet.getString(1);
 				PeerAddress peerAddress = PeerAddress.fromString(address);
 
-				Long lastConnected = HSQLDBRepository.getZonedTimestampMilli(resultSet, 2);
+				Long lastConnected = resultSet.getLong(2);
+				if (lastConnected == 0 && resultSet.wasNull())
+					lastConnected = null;
 
-				Long lastAttempted = HSQLDBRepository.getZonedTimestampMilli(resultSet, 3);
+				Long lastAttempted = resultSet.getLong(3);
+				if (lastAttempted == 0 && resultSet.wasNull())
+					lastAttempted = null;
 
-				Long lastMisbehaved = HSQLDBRepository.getZonedTimestampMilli(resultSet, 4);
+				Long lastMisbehaved = resultSet.getLong(4);
+				if (lastMisbehaved == 0 && resultSet.wasNull())
+					lastMisbehaved = null;
 
-				Long addedWhen = HSQLDBRepository.getZonedTimestampMilli(resultSet, 5);
+				Long addedWhen = resultSet.getLong(5);
+				if (addedWhen == 0 && resultSet.wasNull())
+					addedWhen = null;
 
 				String addedBy = resultSet.getString(6);
 
@@ -58,11 +66,9 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 	public void save(PeerData peerData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Peers");
 
-		saveHelper.bind("address", peerData.getAddress().toString()).bind("last_connected", HSQLDBRepository.toOffsetDateTime(peerData.getLastConnected()))
-				.bind("last_attempted", HSQLDBRepository.toOffsetDateTime(peerData.getLastAttempted()))
-				.bind("last_misbehaved", HSQLDBRepository.toOffsetDateTime(peerData.getLastMisbehaved()))
-				.bind("added_when", HSQLDBRepository.toOffsetDateTime(peerData.getAddedWhen()))
-				.bind("added_by", peerData.getAddedBy());
+		saveHelper.bind("address", peerData.getAddress().toString()).bind("last_connected", peerData.getLastConnected())
+				.bind("last_attempted", peerData.getLastAttempted()).bind("last_misbehaved", peerData.getLastMisbehaved())
+				.bind("added_when", peerData.getAddedWhen()).bind("added_by", peerData.getAddedBy());
 
 		try {
 			saveHelper.execute(this.repository);

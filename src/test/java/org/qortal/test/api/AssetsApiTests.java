@@ -12,8 +12,12 @@ import org.qortal.api.ApiError;
 import org.qortal.api.ApiException;
 import org.qortal.api.resource.AssetsResource;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
 import org.qortal.repository.AccountRepository.BalanceOrdering;
+import org.qortal.repository.DataException;
 import org.qortal.test.common.ApiCommon;
+import org.qortal.test.common.AssetUtils;
 
 public class AssetsApiTests extends ApiCommon {
 
@@ -22,12 +26,22 @@ public class AssetsApiTests extends ApiCommon {
 	private AssetsResource assetsResource;
 
 	@Before
-	public void buildResource() {
+	public void buildResource() throws DataException {
 		this.assetsResource = (AssetsResource) ApiCommon.buildResource(AssetsResource.class);
+
+		// Create some dummy data
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Matching orders, to create a trade
+			AssetUtils.createOrder(repository, "alice", AssetUtils.goldAssetId, AssetUtils.otherAssetId, 1_00000000L, 1_00000000L);
+			AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.goldAssetId, 1_00000000L, 1_00000000L);
+
+			// Open order
+			AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.testAssetId, 1_00000000L, 1_00000000L);
+		}
 	}
 
 	@Test
-	public void testGet() {
+	public void testResource() {
 		assertNotNull(this.assetsResource);
 	}
 
@@ -70,8 +84,8 @@ public class AssetsApiTests extends ApiCommon {
 
 	@Test
 	public void testGetAssetBalances() {
-		List<String> addresses = Arrays.asList(aliceAddress, aliceAddress);
-		List<Long> assetIds = Arrays.asList(1L, 2L, 3L);
+		List<String> addresses = Arrays.asList(aliceAddress, bobAddress);
+		List<Long> assetIds = Arrays.asList(0L, 1L, 2L, 3L);
 
 		for (BalanceOrdering balanceOrdering : BalanceOrdering.values()) {
 			for (Boolean excludeZero : ALL_BOOLEAN_VALUES) {

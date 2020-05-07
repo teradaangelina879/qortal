@@ -14,22 +14,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
-import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.account.PrivateKeyAccount;
-import org.qortal.crypto.Crypto;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.AccountRepository;
 import org.qortal.repository.ArbitraryRepository;
@@ -50,8 +44,6 @@ import org.qortal.settings.Settings;
 public class HSQLDBRepository implements Repository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
-
-	public static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
 	protected Connection connection;
 	protected Deque<Savepoint> savepoints;
@@ -78,7 +70,7 @@ public class HSQLDBRepository implements Repository {
 
 			try (ResultSet resultSet = stmt.getResultSet()) {
 				if (resultSet == null || !resultSet.next())
-					LOGGER.warn("Unable to fetch session ID from repository");
+					throw new DataException("Unable to fetch session ID from repository");
 
 				this.sessionId = resultSet.getLong(1);
 			}
@@ -442,7 +434,7 @@ public class HSQLDBRepository implements Repository {
 			long queryTime = System.currentTimeMillis() - beforeQuery;
 
 			if (queryTime > this.slowQueryThreshold) {
-				LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+				LOGGER.info(() -> String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
 
 				logStatements();
 			}
@@ -517,7 +509,7 @@ public class HSQLDBRepository implements Repository {
 				long queryTime = System.currentTimeMillis() - beforeQuery;
 
 				if (queryTime > this.slowQueryThreshold) {
-					LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+					LOGGER.info(() -> String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
 
 					logStatements();
 				}
@@ -690,7 +682,7 @@ public class HSQLDBRepository implements Repository {
 		if (this.sqlStatements == null)
 			return;
 
-		LOGGER.info(String.format("HSQLDB SQL statements (session %d) leading up to this were:", this.sessionId));
+		LOGGER.info(() -> String.format("HSQLDB SQL statements (session %d) leading up to this were:", this.sessionId));
 
 		for (String sql : this.sqlStatements)
 			LOGGER.info(sql);
@@ -750,44 +742,6 @@ public class HSQLDBRepository implements Repository {
 		} catch (SQLException e) {
 			throw new DataException("Error checking repository status after " + context, e);
 		}
-	}
-
-	// Utility methods
-
-	public static byte[] ed25519PrivateToPublicKey(byte[] privateKey) {
-		if (privateKey == null)
-			return null;
-
-		return PrivateKeyAccount.toPublicKey(privateKey);
-	}
-
-	public static String ed25519PublicKeyToAddress(byte[] publicKey) {
-		if (publicKey == null)
-			return null;
-
-		return Crypto.toAddress(publicKey);
-	}
-
-	/** Converts milliseconds from epoch to OffsetDateTime needed for TIMESTAMP WITH TIME ZONE columns. */
-	public static OffsetDateTime toOffsetDateTime(Long timestamp) {
-		if (timestamp == null)
-			return null;
-
-		return OffsetDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC);
-	}
-
-	/** Converts OffsetDateTime from TIMESTAMP WITH TIME ZONE column to milliseconds from epoch. */
-	public static long fromOffsetDateTime(OffsetDateTime offsetDateTime) {
-		return offsetDateTime.toInstant().toEpochMilli();
-	}
-
-	/** Returns TIMESTAMP WITH TIME ZONE column value as milliseconds from epoch, or null. */
-	public static Long getZonedTimestampMilli(ResultSet resultSet, int columnIndex) throws SQLException {
-		OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
-		if (offsetDateTime == null)
-			return null;
-
-		return offsetDateTime.toInstant().toEpochMilli();
 	}
 
 }

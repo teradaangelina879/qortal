@@ -2,9 +2,7 @@ package org.qortal.repository.hsqldb;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 import org.qortal.data.voting.PollData;
@@ -25,7 +23,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 
 	@Override
 	public PollData fromPollName(String pollName) throws DataException {
-		String sql = "SELECT description, creator, owner, published FROM Polls WHERE poll_name = ?";
+		String sql = "SELECT description, creator, owner, published_when FROM Polls WHERE poll_name = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, pollName)) {
 			if (resultSet == null)
@@ -34,7 +32,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 			String description = resultSet.getString(1);
 			byte[] creatorPublicKey = resultSet.getBytes(2);
 			String owner = resultSet.getString(3);
-			long published = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			long published = resultSet.getLong(4);
 
 			String optionsSql = "SELECT option_name FROM PollOptions WHERE poll_name = ? ORDER BY option_index ASC";
 			try (ResultSet optionsResultSet = this.repository.checkedExecute(optionsSql, pollName)) {
@@ -71,7 +69,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Polls");
 
 		saveHelper.bind("poll_name", pollData.getPollName()).bind("description", pollData.getDescription()).bind("creator", pollData.getCreatorPublicKey())
-				.bind("owner", pollData.getOwner()).bind("published", new Timestamp(pollData.getPublished()));
+				.bind("owner", pollData.getOwner()).bind("published_when", pollData.getPublished());
 
 		try {
 			saveHelper.execute(this.repository);

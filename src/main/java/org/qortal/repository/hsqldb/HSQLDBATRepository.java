@@ -1,8 +1,5 @@
 package org.qortal.repository.hsqldb;
 
-import static org.qortal.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
-import static org.qortal.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -25,7 +22,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATData fromATAddress(String atAddress) throws DataException {
-		String sql = "SELECT creator, creation, version, asset_id, code_bytes, code_hash, "
+		String sql = "SELECT creator, created_when, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, is_finished, had_fatal_error, "
 				+ "is_frozen, frozen_balance "
 				+ "FROM ATs "
@@ -36,7 +33,7 @@ public class HSQLDBATRepository implements ATRepository {
 				return null;
 
 			byte[] creatorPublicKey = resultSet.getBytes(1);
-			long creation = getZonedTimestampMilli(resultSet, 2);
+			long created = resultSet.getLong(2);
 			int version = resultSet.getInt(3);
 			long assetId = resultSet.getLong(4);
 			byte[] codeBytes = resultSet.getBytes(5); // Actually BLOB
@@ -55,7 +52,7 @@ public class HSQLDBATRepository implements ATRepository {
 			if (frozenBalance == 0 && resultSet.wasNull())
 				frozenBalance = null;
 
-			return new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, codeHash,
+			return new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
 					isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT from repository", e);
@@ -73,12 +70,12 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public List<ATData> getAllExecutableATs() throws DataException {
-		String sql = "SELECT AT_address, creator, creation, version, asset_id, code_bytes, code_hash, "
+		String sql = "SELECT AT_address, creator, created_when, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, had_fatal_error, "
 				+ "is_frozen, frozen_balance "
 				+ "FROM ATs "
 				+ "WHERE is_finished = false "
-				+ "ORDER BY creation ASC";
+				+ "ORDER BY created_when ASC";
 
 		List<ATData> executableATs = new ArrayList<>();
 
@@ -91,7 +88,7 @@ public class HSQLDBATRepository implements ATRepository {
 			do {
 				String atAddress = resultSet.getString(1);
 				byte[] creatorPublicKey = resultSet.getBytes(2);
-				long creation = getZonedTimestampMilli(resultSet, 3);
+				long created = resultSet.getLong(3);
 				int version = resultSet.getInt(4);
 				long assetId = resultSet.getLong(5);
 				byte[] codeBytes = resultSet.getBytes(6); // Actually BLOB
@@ -109,7 +106,7 @@ public class HSQLDBATRepository implements ATRepository {
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
-				ATData atData = new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, codeHash,
+				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
 						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
 
 				executableATs.add(atData);
@@ -124,7 +121,7 @@ public class HSQLDBATRepository implements ATRepository {
 	@Override
 	public List<ATData> getATsByFunctionality(byte[] codeHash, Boolean isExecutable, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT AT_address, creator, creation, version, asset_id, code_bytes, ")
+		sql.append("SELECT AT_address, creator, created_when, version, asset_id, code_bytes, ")
 				.append("is_sleeping, sleep_until_height, is_finished, had_fatal_error, ")
 				.append("is_frozen, frozen_balance ")
 				.append("FROM ATs ")
@@ -133,7 +130,7 @@ public class HSQLDBATRepository implements ATRepository {
 		if (isExecutable != null)
 			sql.append("AND is_finished = ").append(isExecutable ? "false" : "true");
 
-		sql.append(" ORDER BY creation ");
+		sql.append(" ORDER BY created_when ");
 		if (reverse != null && reverse)
 			sql.append("DESC");
 
@@ -148,7 +145,7 @@ public class HSQLDBATRepository implements ATRepository {
 			do {
 				String atAddress = resultSet.getString(1);
 				byte[] creatorPublicKey = resultSet.getBytes(2);
-				long creation = getZonedTimestampMilli(resultSet, 3);
+				long created = resultSet.getLong(3);
 				int version = resultSet.getInt(4);
 				long assetId = resultSet.getLong(5);
 				byte[] codeBytes = resultSet.getBytes(6); // Actually BLOB
@@ -167,7 +164,7 @@ public class HSQLDBATRepository implements ATRepository {
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
-				ATData atData = new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, codeHash,
+				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
 						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
 
 				matchingATs.add(atData);
@@ -202,7 +199,7 @@ public class HSQLDBATRepository implements ATRepository {
 	public void save(ATData atData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ATs");
 
-		saveHelper.bind("AT_address", atData.getATAddress()).bind("creator", atData.getCreatorPublicKey()).bind("creation", toOffsetDateTime(atData.getCreation()))
+		saveHelper.bind("AT_address", atData.getATAddress()).bind("creator", atData.getCreatorPublicKey()).bind("created_when", atData.getCreation())
 				.bind("version", atData.getVersion()).bind("asset_id", atData.getAssetId())
 				.bind("code_bytes", atData.getCodeBytes()).bind("code_hash", atData.getCodeHash())
 				.bind("is_sleeping", atData.getIsSleeping()).bind("sleep_until_height", atData.getSleepUntilHeight())
@@ -230,7 +227,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATStateData getATStateAtHeight(String atAddress, int height) throws DataException {
-		String sql = "SELECT creation, state_data, state_hash, fees, is_initial "
+		String sql = "SELECT created_when, state_data, state_hash, fees, is_initial "
 				+ "FROM ATStates "
 				+ "WHERE AT_address = ? AND height = ? "
 				+ "LIMIT 1";
@@ -239,13 +236,13 @@ public class HSQLDBATRepository implements ATRepository {
 			if (resultSet == null)
 				return null;
 
-			long creation = getZonedTimestampMilli(resultSet, 1);
+			long created = resultSet.getLong(1);
 			byte[] stateData = resultSet.getBytes(2); // Actually BLOB
 			byte[] stateHash = resultSet.getBytes(3);
 			long fees = resultSet.getLong(4);
 			boolean isInitial = resultSet.getBoolean(5);
 
-			return new ATStateData(atAddress, height, creation, stateData, stateHash, fees, isInitial);
+			return new ATStateData(atAddress, height, created, stateData, stateHash, fees, isInitial);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT state from repository", e);
 		}
@@ -253,7 +250,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATStateData getLatestATState(String atAddress) throws DataException {
-		String sql = "SELECT height, creation, state_data, state_hash, fees, is_initial "
+		String sql = "SELECT height, created_when, state_data, state_hash, fees, is_initial "
 				+ "FROM ATStates "
 				+ "WHERE AT_address = ? "
 				+ "ORDER BY height DESC "
@@ -264,13 +261,13 @@ public class HSQLDBATRepository implements ATRepository {
 				return null;
 
 			int height = resultSet.getInt(1);
-			long creation = getZonedTimestampMilli(resultSet, 2);
+			long created = resultSet.getLong(2);
 			byte[] stateData = resultSet.getBytes(3); // Actually BLOB
 			byte[] stateHash = resultSet.getBytes(4);
 			long fees = resultSet.getLong(5);
 			boolean isInitial = resultSet.getBoolean(6);
 
-			return new ATStateData(atAddress, height, creation, stateData, stateHash, fees, isInitial);
+			return new ATStateData(atAddress, height, created, stateData, stateHash, fees, isInitial);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch latest AT state from repository", e);
 		}
@@ -281,7 +278,7 @@ public class HSQLDBATRepository implements ATRepository {
 		String sql = "SELECT AT_address, state_hash, fees, is_initial "
 				+ "FROM ATStates "
 				+ "WHERE height = ? "
-				+ "ORDER BY creation ASC";
+				+ "ORDER BY created_when ASC";
 
 		List<ATStateData> atStates = new ArrayList<>();
 
@@ -315,7 +312,7 @@ public class HSQLDBATRepository implements ATRepository {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ATStates");
 
 		saveHelper.bind("AT_address", atStateData.getATAddress()).bind("height", atStateData.getHeight())
-				.bind("creation", toOffsetDateTime(atStateData.getCreation())).bind("state_data", atStateData.getStateData())
+				.bind("created_when", atStateData.getCreation()).bind("state_data", atStateData.getStateData())
 				.bind("state_hash", atStateData.getStateHash()).bind("fees", atStateData.getFees())
 				.bind("is_initial", atStateData.isInitial());
 

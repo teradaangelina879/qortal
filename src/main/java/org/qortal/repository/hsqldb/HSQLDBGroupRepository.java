@@ -2,9 +2,7 @@ package org.qortal.repository.hsqldb;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 import org.qortal.data.group.GroupAdminData;
@@ -29,7 +27,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupData fromGroupId(int groupId) throws DataException {
-		String sql = "SELECT group_name, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_id = ?";
+		String sql = "SELECT group_name, owner, description, created_when, updated_when, reference, is_open, "
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_id = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
@@ -38,11 +37,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			String groupName = resultSet.getString(1);
 			String owner = resultSet.getString(2);
 			String description = resultSet.getString(3);
-			long created = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			long created = resultSet.getLong(4);
 
 			// Special handling for possibly-NULL "updated" column
-			Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-			Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+			Long updated = resultSet.getLong(5);
+			if (updated == 0 && resultSet.wasNull())
+				updated = null;
 
 			byte[] reference = resultSet.getBytes(6);
 			boolean isOpen = resultSet.getBoolean(7);
@@ -54,7 +54,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 			int creationGroupId = resultSet.getInt(11);
 
-			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
+					approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group info from repository", e);
 		}
@@ -62,7 +63,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupData fromGroupName(String groupName) throws DataException {
-		String sql = "SELECT group_id, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_name = ?";
+		String sql = "SELECT group_id, owner, description, created_when, updated_when, reference, is_open, "
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_name = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupName)) {
 			if (resultSet == null)
@@ -71,11 +73,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			int groupId = resultSet.getInt(1);
 			String owner = resultSet.getString(2);
 			String description = resultSet.getString(3);
-			long created = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			long created = resultSet.getLong(4);
 
 			// Special handling for possibly-NULL "updated" column
-			Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-			Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+			Long updated = resultSet.getLong(5);
+			if (updated == 0 && resultSet.wasNull())
+				updated = null;
 
 			byte[] reference = resultSet.getBytes(6);
 			boolean isOpen = resultSet.getBoolean(7);
@@ -87,7 +90,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 			int creationGroupId = resultSet.getInt(11);
 
-			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
+					approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group info from repository", e);
 		}
@@ -114,8 +118,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupData> getAllGroups(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT group_id, owner, group_name, description, created, updated, reference, is_open, "
+
+		sql.append("SELECT group_id, owner, group_name, description, created_when, updated_when, reference, is_open, "
 				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups ORDER BY group_name");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -132,11 +138,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				String owner = resultSet.getString(2);
 				String groupName = resultSet.getString(3);
 				String description = resultSet.getString(4);
-				long created = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long created = resultSet.getLong(5);
 
 				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+				Long updated = resultSet.getLong(6);
+				if (updated == 0 && resultSet.wasNull())
+					updated = null;
 
 				byte[] reference = resultSet.getBytes(7);
 				boolean isOpen = resultSet.getBoolean(8);
@@ -148,7 +155,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 				int creationGroupId = resultSet.getInt(12);
 
-				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId));
+				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
+						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId));
 			} while (resultSet.next());
 
 			return groups;
@@ -160,8 +168,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupData> getGroupsByOwner(String owner, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT group_id, group_name, description, created, updated, reference, is_open, "
+
+		sql.append("SELECT group_id, group_name, description, created_when, updated_when, reference, is_open, "
 				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE owner = ? ORDER BY group_name");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -177,11 +187,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				int groupId = resultSet.getInt(1);
 				String groupName = resultSet.getString(2);
 				String description = resultSet.getString(3);
-				long created = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long created = resultSet.getLong(4);
 
 				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+				Long updated = resultSet.getLong(5);
+				if (updated == 0 && resultSet.wasNull())
+					updated = null;
 
 				byte[] reference = resultSet.getBytes(6);
 				boolean isOpen = resultSet.getBoolean(7);
@@ -193,7 +204,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 				int creationGroupId = resultSet.getInt(11);
 
-				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId));
+				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
+						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId));
 			} while (resultSet.next());
 
 			return groups;
@@ -205,11 +217,13 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupData> getGroupsWithMember(String member, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT group_id, owner, group_name, description, created, updated, reference, is_open, "
+
+		sql.append("SELECT group_id, owner, group_name, description, created_when, updated_when, reference, is_open, "
 				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id, admin FROM Groups "
 				+ "JOIN GroupMembers USING (group_id) "
 				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.group_id = GroupMembers.group_id AND GroupAdmins.admin = GroupMembers.address "
 				+ "WHERE address = ? ORDER BY group_name");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -226,11 +240,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				String owner = resultSet.getString(2);
 				String groupName = resultSet.getString(3);
 				String description = resultSet.getString(4);
-				long created = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long created = resultSet.getLong(5);
 
 				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+				Long updated = resultSet.getLong(6);
+				if (updated == 0 && resultSet.wasNull())
+					updated = null;
 
 				byte[] reference = resultSet.getBytes(7);
 				boolean isOpen = resultSet.getBoolean(8);
@@ -241,10 +256,13 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				int maxBlockDelay = resultSet.getInt(11);
 
 				int creationGroupId = resultSet.getInt(12);
-				resultSet.getString(13);
+
+				resultSet.getString(13); // 'admin'
 				boolean isAdmin = !resultSet.wasNull();
 
-				GroupData groupData = new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+				GroupData groupData = new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
+						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+
 				groupData.setIsAdmin(isAdmin);
 
 				groups.add(groupData);
@@ -260,12 +278,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	public void save(GroupData groupData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Groups");
 
-		// Special handling for "updated" timestamp
-		Long updated = groupData.getUpdated();
-		Timestamp updatedTimestamp = updated == null ? null : new Timestamp(updated);
-
 		saveHelper.bind("group_id", groupData.getGroupId()).bind("owner", groupData.getOwner()).bind("group_name", groupData.getGroupName())
-				.bind("description", groupData.getDescription()).bind("created", new Timestamp(groupData.getCreated())).bind("updated", updatedTimestamp)
+				.bind("description", groupData.getDescription()).bind("created_when", groupData.getCreated()).bind("updated_when", groupData.getUpdated())
 				.bind("reference", groupData.getReference()).bind("is_open", groupData.getIsOpen()).bind("approval_threshold", groupData.getApprovalThreshold().value)
 				.bind("min_block_delay", groupData.getMinimumBlockDelay()).bind("max_block_delay", groupData.getMaximumBlockDelay())
 				.bind("creation_group_id", groupData.getCreationGroupId());
@@ -350,7 +364,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupAdminData> getGroupAdmins(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
+
 		sql.append("SELECT admin, reference FROM GroupAdmins WHERE group_id = ? ORDER BY admin");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -416,14 +432,14 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupMemberData getMember(int groupId, String address) throws DataException {
-		String sql = "SELECT address, joined, reference FROM GroupMembers WHERE group_id = ?";
+		String sql = "SELECT address, joined_when, reference FROM GroupMembers WHERE group_id = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
 				return null;
 
 			String member = resultSet.getString(1);
-			long joined = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			long joined = resultSet.getLong(2);
 			byte[] reference = resultSet.getBytes(3);
 
 			return new GroupMemberData(groupId, member, joined, reference);
@@ -444,7 +460,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupMemberData> getGroupMembers(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
-		sql.append("SELECT address, joined, reference FROM GroupMembers WHERE group_id = ? ORDER BY address");
+
+		sql.append("SELECT address, joined_when, reference FROM GroupMembers WHERE group_id = ? ORDER BY address");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -458,7 +476,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 			do {
 				String member = resultSet.getString(1);
-				long joined = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long joined = resultSet.getLong(2);
 				byte[] reference = resultSet.getBytes(3);
 
 				members.add(new GroupMemberData(groupId, member, joined, reference));
@@ -490,7 +508,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupMembers");
 
 		saveHelper.bind("group_id", groupMemberData.getGroupId()).bind("address", groupMemberData.getMember())
-				.bind("joined", new Timestamp(groupMemberData.getJoined())).bind("reference", groupMemberData.getReference());
+				.bind("joined_when", groupMemberData.getJoined()).bind("reference", groupMemberData.getReference());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -512,15 +530,17 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupInviteData getInvite(int groupId, String invitee) throws DataException {
-		String sql = "SELECT inviter, expiry, reference FROM GroupInvites WHERE group_id = ? AND invitee = ?";
+		String sql = "SELECT inviter, expires_when, reference FROM GroupInvites WHERE group_id = ? AND invitee = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId, invitee)) {
 			if (resultSet == null)
 				return null;
 
 			String inviter = resultSet.getString(1);
-			Timestamp expiryTimestamp = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC));
-			Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+
+			Long expiry = resultSet.getLong(2);
+			if (expiry == 0 && resultSet.wasNull())
+				expiry = null;
 
 			byte[] reference = resultSet.getBytes(3);
 
@@ -542,7 +562,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupInviteData> getInvitesByGroupId(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
-		sql.append("SELECT inviter, invitee, expiry, reference FROM GroupInvites WHERE group_id = ? ORDER BY invitee");
+
+		sql.append("SELECT inviter, invitee, expires_when, reference FROM GroupInvites WHERE group_id = ? ORDER BY invitee");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -558,8 +580,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				String inviter = resultSet.getString(1);
 				String invitee = resultSet.getString(2);
 
-				Timestamp expiryTimestamp = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+				Long expiry = resultSet.getLong(3);
+				if (expiry == 0 && resultSet.wasNull())
+					expiry = null;
 
 				byte[] reference = resultSet.getBytes(4);
 
@@ -575,7 +598,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupInviteData> getInvitesByInvitee(String invitee, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
-		sql.append("SELECT group_id, inviter, expiry, reference FROM GroupInvites WHERE invitee = ? ORDER BY group_id");
+
+		sql.append("SELECT group_id, inviter, expires_when, reference FROM GroupInvites WHERE invitee = ? ORDER BY group_id");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -591,8 +616,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				int groupId = resultSet.getInt(1);
 				String inviter = resultSet.getString(2);
 
-				Timestamp expiryTimestamp = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+				Long expiry = resultSet.getLong(3);
+				if (expiry == 0 && resultSet.wasNull())
+					expiry = null;
 
 				byte[] reference = resultSet.getBytes(4);
 
@@ -609,12 +635,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	public void save(GroupInviteData groupInviteData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupInvites");
 
-		Timestamp expiryTimestamp = null;
-		if (groupInviteData.getExpiry() != null)
-			expiryTimestamp = new Timestamp(groupInviteData.getExpiry());
-
-		saveHelper.bind("group_id", groupInviteData.getGroupId()).bind("inviter", groupInviteData.getInviter()).bind("invitee", groupInviteData.getInvitee())
-				.bind("expiry", expiryTimestamp).bind("reference", groupInviteData.getReference());
+		saveHelper.bind("group_id", groupInviteData.getGroupId()).bind("inviter", groupInviteData.getInviter())
+				.bind("invitee", groupInviteData.getInvitee()).bind("expires_when", groupInviteData.getExpiry())
+				.bind("reference", groupInviteData.getReference());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -662,7 +685,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupJoinRequestData> getGroupJoinRequests(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
+
 		sql.append("SELECT joiner, reference FROM GroupJoinRequests WHERE group_id = ? ORDER BY joiner");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -691,8 +716,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	public void save(GroupJoinRequestData groupJoinRequestData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupJoinRequests");
 
-		saveHelper.bind("group_id", groupJoinRequestData.getGroupId()).bind("joiner", groupJoinRequestData.getJoiner()).bind("reference",
-				groupJoinRequestData.getReference());
+		saveHelper.bind("group_id", groupJoinRequestData.getGroupId()).bind("joiner", groupJoinRequestData.getJoiner())
+				.bind("reference", groupJoinRequestData.getReference());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -714,15 +739,16 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupBanData getBan(int groupId, String offender) throws DataException {
-		String sql = "SELECT admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ? AND offender = ?";
+		String sql = "SELECT admin, banned_when, reason, expires_when, reference FROM GroupBans WHERE group_id = ? AND offender = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId, offender)) {
 			String admin = resultSet.getString(1);
-			long banned = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			long banned = resultSet.getLong(2);
 			String reason = resultSet.getString(3);
 
-			Timestamp expiryTimestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC));
-			Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+			Long expiry = resultSet.getLong(4);
+			if (expiry == 0 && resultSet.wasNull())
+				expiry = null;
 
 			byte[] reference = resultSet.getBytes(5);
 
@@ -744,7 +770,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public List<GroupBanData> getGroupBans(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
-		sql.append("SELECT offender, admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ? ORDER BY offender");
+
+		sql.append("SELECT offender, admin, banned_when, reason, expires_when, reference FROM GroupBans WHERE group_id = ? ORDER BY offender");
+
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -759,11 +787,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			do {
 				String offender = resultSet.getString(1);
 				String admin = resultSet.getString(2);
-				long banned = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long banned = resultSet.getLong(3);
 				String reason = resultSet.getString(4);
 
-				Timestamp expiryTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+				Long expiry = resultSet.getLong(5);
+				if (expiry == 0 && resultSet.wasNull())
+					expiry = null;
 
 				byte[] reference = resultSet.getBytes(6);
 
@@ -780,12 +809,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	public void save(GroupBanData groupBanData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupBans");
 
-		Timestamp expiryTimestamp = null;
-		if (groupBanData.getExpiry() != null)
-			expiryTimestamp = new Timestamp(groupBanData.getExpiry());
-
 		saveHelper.bind("group_id", groupBanData.getGroupId()).bind("offender", groupBanData.getOffender()).bind("admin", groupBanData.getAdmin())
-				.bind("banned", new Timestamp(groupBanData.getBanned())).bind("reason", groupBanData.getReason()).bind("expiry", expiryTimestamp)
+				.bind("banned", groupBanData.getBanned()).bind("reason", groupBanData.getReason()).bind("expiry", groupBanData.getExpiry())
 				.bind("reference", groupBanData.getReference());
 
 		try {

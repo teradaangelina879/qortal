@@ -7,6 +7,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.TimeZone;
 
 /**
  * Database helper for building, and executing, INSERT INTO ... ON DUPLICATE KEY UPDATE ... statements.
@@ -19,6 +20,8 @@ import java.util.List;
  *
  */
 public class HSQLDBSaver {
+
+	private final Calendar utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 
 	private String table;
 
@@ -137,8 +140,8 @@ public class HSQLDBSaver {
 				preparedStatement.setBigDecimal(i + this.objects.size() + 1, (BigDecimal) object);
 			} else if (object instanceof Timestamp) {
 				// Special treatment for Timestamps so that they are stored as UTC
-				preparedStatement.setTimestamp(i + 1, (Timestamp) object, Calendar.getInstance(HSQLDBRepository.UTC));
-				preparedStatement.setTimestamp(i + this.objects.size() + 1, (Timestamp) object, Calendar.getInstance(HSQLDBRepository.UTC));
+				preparedStatement.setTimestamp(i + 1, (Timestamp) object, utcCalendar);
+				preparedStatement.setTimestamp(i + this.objects.size() + 1, (Timestamp) object, utcCalendar);
 			} else {
 				preparedStatement.setObject(i + 1, object);
 				preparedStatement.setObject(i + this.objects.size() + 1, object);
