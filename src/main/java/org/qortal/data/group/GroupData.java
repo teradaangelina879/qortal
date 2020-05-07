@@ -23,19 +23,19 @@ public class GroupData {
 	private ApprovalThreshold approvalThreshold;
 	private int minimumBlockDelay;
 	private int maximumBlockDelay;
+
 	/** Reference to CREATE_GROUP or UPDATE_GROUP transaction, used to rebuild group during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
 	@Schema(hidden = true)
 	private byte[] reference;
+
 	// For internal use
 	@XmlTransient
-	@Schema(
-		hidden = true
-	)
+	@Schema(hidden = true)
 	private int creationGroupId;
 
-	// We abuse this class for API purposes by adding this unrelated field. Not always present.
+	// We abuse GroupData for API purposes by adding this unrelated field. Not always present.
 	private Boolean isAdmin;
 
 	// Constructors
