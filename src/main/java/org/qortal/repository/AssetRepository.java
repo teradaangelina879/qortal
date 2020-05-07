@@ -25,7 +25,7 @@ public interface AssetRepository {
 		return getAllAssets(null, null, null);
 	}
 
-	public List<Long> getRecentAssetIds(long start) throws DataException;
+	public List<Long> getRecentAssetIds(long startTimestamp) throws DataException;
 
 	// For a list of asset holders, see AccountRepository.getAssetBalances
 

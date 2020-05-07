@@ -82,7 +82,8 @@ public interface AccountRepository {
 	 */
 	public void setMintedBlockCount(AccountData accountData) throws DataException;
 
-	/** Modifies account's minted block count only.
+	/**
+	 * Modifies account's minted block count only.
 	 * <p>
 	 * @return 2 if minted block count updated, 1 if block count set to delta, 0 if address not found.
 	 */
@@ -96,18 +97,32 @@ public interface AccountRepository {
 
 	// Account balances
 
+	/**
+	 * Returns account's balance for specific assetID.
+	 * <p>
+	 * Note: returns <tt>null</tt> if account has no/zero balance for
+	 * <i>that specific assetID</i>. This does not mean
+	 * the account itself does not exist.
+	 */
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException;
 
+	/** How to order results when fetching asset balances. */
 	public enum BalanceOrdering {
+		/** assetID first, then balance, then account address */
 		ASSET_BALANCE_ACCOUNT,
+		/** account address first, then assetID */
 		ACCOUNT_ASSET,
+		/** assetID first, then account address */
 		ASSET_ACCOUNT
 	}
 
+	/** Returns all account balances for given assetID, optionally excluding zero balances. */
 	public List<AccountBalanceData> getAssetBalances(long assetId, Boolean excludeZero) throws DataException;
 
+	/** Returns account balances for matching addresses / assetIDs, optionally excluding zero balances, with pagination, used by API. */
 	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Boolean excludeZero, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
+	/** Modifies account's asset balance by <tt>deltaBalance</tt>. */
 	public void modifyAssetBalance(String address, long assetId, long deltaBalance) throws DataException;
 
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
