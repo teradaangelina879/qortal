@@ -1693,6 +1693,8 @@ public class Block {
 		final boolean isProcessingNotOrphaning = totalAmount >= 0;
 
 		long qoraPerQortReward = BlockChain.getInstance().getQoraPerQortReward();
+		BigInteger qoraPerQortRewardBI = BigInteger.valueOf(qoraPerQortReward);
+
 		List<AccountBalanceData> qoraHolders = this.repository.getAccountRepository().getEligibleLegacyQoraHolders(isProcessingNotOrphaning ? null : this.blockData.getHeight());
 
 		long totalQoraHeld = 0;
@@ -1706,10 +1708,18 @@ public class Block {
 		if (totalQoraHeld <= 0)
 			return sharedAmount;
 
+		// Could do with a faster 128bit integer library, but until then...
+		BigInteger qoraHoldersAmountBI = BigInteger.valueOf(qoraHoldersAmount);
+		BigInteger totalQoraHeldBI = BigInteger.valueOf(totalQoraHeld);
+
 		for (int h = 0; h < qoraHolders.size(); ++h) {
 			AccountBalanceData qoraHolder = qoraHolders.get(h);
+			BigInteger qoraHolderBalanceBI = BigInteger.valueOf(qoraHolder.getBalance());
 
-			long holderReward = (qoraHoldersAmount * qoraHolder.getBalance()) / totalQoraHeld;
+			// This is where a 128bit integer library could help:
+			// long holderReward = (qoraHoldersAmount * qoraHolder.getBalance()) / totalQoraHeld;
+			long holderReward = qoraHoldersAmountBI.multiply(qoraHolderBalanceBI).divide(totalQoraHeldBI).longValue();
+
 			long finalHolderReward = holderReward;
 			LOGGER.trace(() -> String.format("QORA holder %s has %s / %s QORA so share: %s",
 					qoraHolder.getAddress(), Amounts.prettyAmount(qoraHolder.getBalance()), finalTotalQoraHeld, Amounts.prettyAmount(finalHolderReward)));
@@ -1724,7 +1734,7 @@ public class Block {
 
 			// If processing, make sure we don't overpay
 			if (isProcessingNotOrphaning) {
-				long maxQortFromQora = qoraHolder.getBalance() / qoraPerQortReward;
+				long maxQortFromQora = Amounts.scaledDivide(qoraHolderBalanceBI, qoraPerQortRewardBI);
 
 				if (newQortFromQoraBalance >= maxQortFromQora) {
 					// Reduce final QORT-from-QORA payment to match max

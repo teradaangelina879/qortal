@@ -64,8 +64,12 @@ public abstract class Amounts {
 		return roundDownScaledMultiply(BigInteger.valueOf(multiplicand), BigInteger.valueOf(multiplier));
 	}
 
+	public static long scaledDivide(BigInteger dividend, BigInteger divisor) {
+		return dividend.multiply(Amounts.MULTIPLIER_BI).divide(divisor).longValue();
+	}
+
 	public static long scaledDivide(long dividend, long divisor) {
-		return BigInteger.valueOf(dividend).multiply(Amounts.MULTIPLIER_BI).divide(BigInteger.valueOf(divisor)).longValue();
+		return scaledDivide(BigInteger.valueOf(dividend), BigInteger.valueOf(divisor));
 	}
 
 }

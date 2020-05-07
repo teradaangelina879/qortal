@@ -2,6 +2,7 @@ package org.qortal.test.minting;
 
 import static org.junit.Assert.*;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -104,21 +105,26 @@ public class RewardTests extends Common {
 
 	@Test
 	public void testLegacyQoraReward() throws DataException {
-		Common.useSettings("test-settings-v2-qora-holder.json");
+		Common.useSettings("test-settings-v2-qora-holder-extremes.json");
 
 		long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+		BigInteger qoraHoldersShareBI = BigInteger.valueOf(qoraHoldersShare);
+
 		long qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
+		BigInteger qoraPerQortBI = BigInteger.valueOf(qoraPerQort);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
 
 			Long blockReward = BlockUtils.getNextBlockReward(repository);
+			BigInteger blockRewardBI = BigInteger.valueOf(blockReward);
 
 			// Fetch all legacy QORA holder balances
 			List<AccountBalanceData> qoraHolders = repository.getAccountRepository().getAssetBalances(Asset.LEGACY_QORA, true);
 			long totalQoraHeld = 0L;
 			for (AccountBalanceData accountBalanceData : qoraHolders)
 				totalQoraHeld += accountBalanceData.getBalance();
+			BigInteger totalQoraHeldBI = BigInteger.valueOf(totalQoraHeld);
 
 			BlockUtils.mintBlock(repository);
 
@@ -141,14 +147,19 @@ public class RewardTests extends Common {
 			 */
 
 			// Expected reward
-			long qoraHoldersReward = (blockReward * qoraHoldersShare) / Amounts.MULTIPLIER;
+			long qoraHoldersReward = blockRewardBI.multiply(qoraHoldersShareBI).divide(Amounts.MULTIPLIER_BI).longValue();
 			assertTrue("QORA-holders share of block reward should be less than total block reward", qoraHoldersReward < blockReward);
+			assertFalse("QORA-holders share of block reward should not be negative!", qoraHoldersReward < 0);
+			BigInteger qoraHoldersRewardBI = BigInteger.valueOf(qoraHoldersReward);
 
 			long ourQoraHeld = initialBalances.get("chloe").get(Asset.LEGACY_QORA);
-			long ourQoraReward = (qoraHoldersReward * ourQoraHeld) / totalQoraHeld;
+			BigInteger ourQoraHeldBI = BigInteger.valueOf(ourQoraHeld);
+			long ourQoraReward = qoraHoldersRewardBI.multiply(ourQoraHeldBI).divide(totalQoraHeldBI).longValue();
 			assertTrue("Our QORA-related reward should be less than total QORA-holders share of block reward", ourQoraReward < qoraHoldersReward);
+			assertFalse("Our QORA-related reward should not be negative!", ourQoraReward < 0);
 
-			long ourQortFromQoraCap = ourQoraHeld / qoraPerQort;
+			long ourQortFromQoraCap = Amounts.scaledDivide(ourQoraHeldBI, qoraPerQortBI);
+			assertTrue("Our QORT-from-QORA cap should be greater than zero", ourQortFromQoraCap > 0);
 
 			long expectedReward = Math.min(ourQoraReward, ourQortFromQoraCap);
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, initialBalances.get("chloe").get(Asset.QORT) + expectedReward);
@@ -170,10 +181,10 @@ public class RewardTests extends Common {
 			for (int i = 0; i < 100; ++i)
 				BlockUtils.mintBlock(repository);
 
-			// Expected balances to be limited by Chloe's legacy QORA amount
-			long expectedBalance = initialBalances.get("chloe").get(Asset.LEGACY_QORA) / qoraPerQort;
-			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, initialBalances.get("chloe").get(Asset.QORT) + expectedBalance);
-			AccountUtils.assertBalance(repository, "chloe", Asset.QORT_FROM_QORA, initialBalances.get("chloe").get(Asset.QORT_FROM_QORA) + expectedBalance);
+			// Expected balances to be limited by Dilbert's legacy QORA amount
+			long expectedBalance = Amounts.scaledDivide(initialBalances.get("dilbert").get(Asset.LEGACY_QORA), qoraPerQort);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, initialBalances.get("dilbert").get(Asset.QORT) + expectedBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT_FROM_QORA, initialBalances.get("dilbert").get(Asset.QORT_FROM_QORA) + expectedBalance);
 		}
 	}
 
