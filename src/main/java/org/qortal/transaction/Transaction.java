@@ -610,9 +610,7 @@ public abstract class Transaction {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
 			if (transaction.isStillValidUnconfirmed(latestBlockData.getTimestamp()) != ValidationResult.OK)
-				continue;
-
-			unconfirmedTransactionsIterator.remove();
+				unconfirmedTransactionsIterator.remove();
 		}
 
 		return unconfirmedTransactions;
@@ -638,10 +636,7 @@ public abstract class Transaction {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
 			if (transaction.isStillValidUnconfirmed(latestBlockData.getTimestamp()) != ValidationResult.OK)
-				continue;
-
-			invalidTransactions.add(transactionData);
-			unconfirmedTransactionsIterator.remove();
+				invalidTransactions.add(transactionData);
 		}
 
 		return invalidTransactions;
