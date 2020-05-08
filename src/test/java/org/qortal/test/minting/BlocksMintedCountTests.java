@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.block.BlockMinter;
+import org.qortal.controller.Controller;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -59,13 +60,45 @@ public class BlocksMintedCountTests extends Common {
 		}
 	}
 
-	private void testRewardShare(Repository repository, PrivateKeyAccount mintingAccount, int aliceDelta, int bobDelta) throws DataException {
+	@Test
+	public void testMixedShares() throws DataException {
+		final int sharePercent = 12_80;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Fetch usual minting account
+			PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice-reward-share");
+
+			// Create reward-share
+			byte[] testRewardSharePrivateKey = AccountUtils.rewardShare(repository, "alice", "bob", sharePercent);
+			PrivateKeyAccount testRewardShareAccount = new PrivateKeyAccount(repository, testRewardSharePrivateKey);
+
+			// Confirm reward-share info set correctly
+			RewardShareData testRewardShareData = repository.getAccountRepository().getRewardShare(testRewardShareAccount.getPublicKey());
+			assertNotNull(testRewardShareData);
+
+			// Create signed timestamps
+			Controller.getInstance().ensureTestingAccountsOnline(mintingAccount, testRewardShareAccount);
+
+			// Even though Alice features in two online reward-shares, she should only gain +1 blocksMinted
+			// Bob only features in one online reward-share, so should also only gain +1 blocksMinted
+			testRewardShareRetainingTimestamps(repository, testRewardShareAccount, +1, +1);
+		}
+	}
+
+	private void testRewardShare(Repository repository, PrivateKeyAccount testRewardShareAccount, int aliceDelta, int bobDelta) throws DataException {
+		// Create signed timestamps
+		Controller.getInstance().ensureTestingAccountsOnline(testRewardShareAccount);
+
+		testRewardShareRetainingTimestamps(repository, testRewardShareAccount, aliceDelta, bobDelta);
+	}
+
+	private void testRewardShareRetainingTimestamps(Repository repository, PrivateKeyAccount mintingAccount, int aliceDelta, int bobDelta) throws DataException {
 		// Fetch pre-mint blocks minted counts
 		int alicePreMintCount = getBlocksMinted(repository, "alice");
 		int bobPreMintCount = getBlocksMinted(repository, "bob");
 
 		// Mint another block
-		BlockMinter.mintTestingBlock(repository, mintingAccount);
+		BlockMinter.mintTestingBlockRetainingTimestamps(repository, mintingAccount);
 
 		// Fetch post-mint blocks minted counts
 		int alicePostMintCount = getBlocksMinted(repository, "alice");

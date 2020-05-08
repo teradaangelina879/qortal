@@ -9,9 +9,10 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -1267,42 +1268,31 @@ public class Block {
 	}
 
 	protected void increaseAccountLevels() throws DataException {
-		// We need to do this for both minters and recipients
-		this.increaseAccountLevels(false, expandedAccount -> expandedAccount.mintingAccountData);
-		this.increaseAccountLevels(true, expandedAccount -> expandedAccount.recipientAccountData);
-	}
-
-	private void increaseAccountLevels(boolean isProcessingRecipients, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
+		// We are only interested in accounts that are NOT already lowest level
 		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
+
 		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
 
-		// Increase blocks-minted count for all accounts
-		for (int a = 0; a < expandedAccounts.size(); ++a) {
-			ExpandedAccount expandedAccount = expandedAccounts.get(a);
+		Set<AccountData> allUniqueExpandedAccounts = new HashSet<>();
+		for (ExpandedAccount expandedAccount : expandedAccounts) {
+			allUniqueExpandedAccounts.add(expandedAccount.mintingAccountData);
 
-			// Don't increase twice if recipient is also minter.
-			if (isProcessingRecipients && expandedAccount.isRecipientAlsoMinter)
-				continue;
-
-			AccountData accountData = getAccountData.apply(expandedAccount);
-
-			accountData.setBlocksMinted(accountData.getBlocksMinted() + 1);
-			// repository.getAccountRepository().setMintedBlockCount(accountData); int rowCount = 1; // Until HSQLDB rev 6100 is fixed
-			int rowCount = repository.getAccountRepository().modifyMintedBlockCount(accountData.getAddress(), +1);
-			LOGGER.trace(() -> String.format("Block minter %s up to %d minted block%s (rowCount: %d)", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : ""), rowCount));
+			if (!expandedAccount.isRecipientAlsoMinter)
+				allUniqueExpandedAccounts.add(expandedAccount.recipientAccountData);
 		}
 
-		// We are only interested in accounts that are NOT already highest level
-		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
-		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> getAccountData.apply(expandedAccount).getLevel() < maximumLevel).collect(Collectors.toList());
+		// Decrease blocks minted count for all accounts
+		for (AccountData accountData : allUniqueExpandedAccounts) {
+			// Adjust count locally (in Java)
+			accountData.setBlocksMinted(accountData.getBlocksMinted() + 1);
 
-		for (int c = 0; c < candidateAccounts.size(); ++c) {
-			ExpandedAccount expandedAccount = candidateAccounts.get(c);
-			final AccountData accountData = getAccountData.apply(expandedAccount);
+			int rowCount = repository.getAccountRepository().modifyMintedBlockCount(accountData.getAddress(), +1);
+			LOGGER.trace(() -> String.format("Block minter %s up to %d minted block%s (rowCount: %d)", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : ""), rowCount));
 
 			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
 
-			for (int newLevel = maximumLevel; newLevel > 0; --newLevel)
+			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
 					if (newLevel > accountData.getLevel()) {
 						// Account has increased in level!
@@ -1592,38 +1582,27 @@ public class Block {
 	}
 
 	protected void decreaseAccountLevels() throws DataException {
-		// We need to do this for both minters and recipients
-		this.decreaseAccountLevels(false, expandedAccount -> expandedAccount.mintingAccountData);
-		this.decreaseAccountLevels(true, expandedAccount -> expandedAccount.recipientAccountData);
-	}
-
-	private void decreaseAccountLevels(boolean isProcessingRecipients, Function<ExpandedAccount, AccountData> getAccountData) throws DataException {
+		// We are only interested in accounts that are NOT already lowest level
 		final List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
+
 		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
 
-		// Decrease blocks minted count for all accounts
-		for (int a = 0; a < expandedAccounts.size(); ++a) {
-			ExpandedAccount expandedAccount = expandedAccounts.get(a);
+		Set<AccountData> allUniqueExpandedAccounts = new HashSet<>();
+		for (ExpandedAccount expandedAccount : expandedAccounts) {
+			allUniqueExpandedAccounts.add(expandedAccount.mintingAccountData);
 
-			// Don't decrease twice if recipient is also minter.
-			if (isProcessingRecipients && expandedAccount.isRecipientAlsoMinter)
-				continue;
-
-			AccountData accountData = getAccountData.apply(expandedAccount);
-
-			accountData.setBlocksMinted(accountData.getBlocksMinted() - 1);
-			// repository.getAccountRepository().setMintedBlockCount(accountData); int rowCount = 1; // Until HSQLDB rev 6100 is fixed
-			int rowCount = repository.getAccountRepository().modifyMintedBlockCount(accountData.getAddress(), -1);
-			LOGGER.trace(() -> String.format("Block minter %s down to %d minted block%s (rowCount: %d)", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : ""), rowCount));
+			if (!expandedAccount.isRecipientAlsoMinter)
+				allUniqueExpandedAccounts.add(expandedAccount.recipientAccountData);
 		}
 
-		// We are only interested in accounts that are NOT already lowest level
-		final int maximumLevel = cumulativeBlocksByLevel.size() - 1;
-		List<ExpandedAccount> candidateAccounts = expandedAccounts.stream().filter(expandedAccount -> getAccountData.apply(expandedAccount).getLevel() > 0).collect(Collectors.toList());
+		// Decrease blocks minted count for all accounts
+		for (AccountData accountData : allUniqueExpandedAccounts) {
+			// Adjust count locally (in Java)
+			accountData.setBlocksMinted(accountData.getBlocksMinted() - 1);
 
-		for (int c = 0; c < candidateAccounts.size(); ++c) {
-			ExpandedAccount expandedAccount = candidateAccounts.get(c);
-			final AccountData accountData = getAccountData.apply(expandedAccount);
+			int rowCount = repository.getAccountRepository().modifyMintedBlockCount(accountData.getAddress(), -1);
+			LOGGER.trace(() -> String.format("Block minter %s down to %d minted block%s (rowCount: %d)", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : ""), rowCount));
 
 			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
 
