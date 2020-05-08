@@ -1123,11 +1123,11 @@ public class Network {
 		}
 	}
 
-	public void mergePeers(String addedBy, long addedWhen, List<PeerAddress> peerAddresses) throws DataException {
+	public boolean mergePeers(String addedBy, long addedWhen, List<PeerAddress> peerAddresses) throws DataException {
 		mergePeersLock.lock();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			this.mergePeers(repository, addedBy, addedWhen, peerAddresses);
+			return this.mergePeers(repository, addedBy, addedWhen, peerAddresses);
 		} finally {
 			mergePeersLock.unlock();
 		}
@@ -1158,7 +1158,7 @@ public class Network {
 		}
 	}
 
-	private void mergePeers(Repository repository, String addedBy, long addedWhen, List<PeerAddress> peerAddresses) throws DataException {
+	private boolean mergePeers(Repository repository, String addedBy, long addedWhen, List<PeerAddress> peerAddresses) throws DataException {
 		List<PeerData> newPeers;
 		synchronized (this.allKnownPeers) {
 			for (PeerData knownPeerData : this.allKnownPeers) {
@@ -1166,6 +1166,9 @@ public class Network {
 				Predicate<PeerAddress> isKnownAddress = peerAddress -> knownPeerData.getAddress().equals(peerAddress);
 				peerAddresses.removeIf(isKnownAddress);
 			}
+
+			if (peerAddresses.isEmpty())
+				return false;
 
 			// Add leftover peer addresses to known peers list
 			newPeers = peerAddresses.stream().map(peerAddress -> new PeerData(peerAddress, addedWhen, addedBy)).collect(Collectors.toList());
@@ -1184,6 +1187,8 @@ public class Network {
 				LOGGER.error(String.format("Repository issue while merging peers list from %s", addedBy), e);
 				throw e;
 			}
+
+			return true;
 		}
 	}
 

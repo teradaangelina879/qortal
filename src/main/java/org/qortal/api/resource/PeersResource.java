@@ -8,7 +8,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -169,13 +169,14 @@ public class PeersResource {
 		try {
 			PeerAddress peerAddress = PeerAddress.fromString(address);
 
-			Network.getInstance().mergePeers("API", addedWhen, Arrays.asList(peerAddress));
+			List<PeerAddress> newPeerAddresses = new ArrayList<>(1);
+			newPeerAddresses.add(peerAddress);
 
-			return "true";
+			boolean addResult = Network.getInstance().mergePeers("API", addedWhen, newPeerAddresses);
+
+			return addResult ? "true" : "false";
 		} catch (IllegalArgumentException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_NETWORK_ADDRESS);
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
