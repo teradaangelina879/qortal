@@ -468,7 +468,7 @@ public class HSQLDBDatabaseUpdates {
 
 					// Invites
 					stmt.execute("CREATE TABLE GroupInvites (group_id GroupID, inviter QortalAddress, invitee QortalAddress, "
-							+ "expires_when EpochMillis NOT NULL, reference Signature, "
+							+ "expires_when EpochMillis, reference Signature, "
 							+ "PRIMARY KEY (group_id, invitee), FOREIGN KEY (group_id) REFERENCES Groups (group_id) ON DELETE CASCADE)");
 					// For finding invites sent by inviter
 					stmt.execute("CREATE INDEX GroupInviteInviterIndex ON GroupInvites (inviter)");
