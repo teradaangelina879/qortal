@@ -10,7 +10,9 @@ import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.group.Group;
 import org.qortal.repository.DataException;
+import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ChatTransactionTransformer;
@@ -25,7 +27,7 @@ public class ChatTransaction extends Transaction {
 	public static final int MAX_DATA_SIZE = 256;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
 	public static final int POW_DIFFICULTY_WITH_QORT = 12; // leading zero bits
-	public static final int POW_DIFFICULTY_NO_QORT = 20; // leading zero bits
+	public static final int POW_DIFFICULTY_NO_QORT = 16; // leading zero bits
 
 	// Constructors
 
@@ -78,6 +80,45 @@ public class ChatTransaction extends Transaction {
 
 		// Calculate nonce
 		this.chatTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
+	}
+
+	/**
+	 * Returns whether CHAT transaction has valid txGroupId.
+	 * <p>
+	 * For CHAT transactions, a non-NO_GROUP txGroupId represents
+	 * sending to a group, rather than to everyone.
+	 * <p>
+	 * If txGroupId is not NO_GROUP, then the sender needs to be
+	 * a member of that group. The recipient, if supplied, also
+	 * needs to be a member of that group.
+	 */
+	@Override
+	protected boolean isValidTxGroupId() throws DataException {
+		int txGroupId = this.transactionData.getTxGroupId();
+
+		// txGroupId represents recipient group, unless NO_GROUP
+
+		// Anyone can use NO_GROUP
+		if (txGroupId == Group.NO_GROUP)
+			return true;
+
+		// Group even exist?
+		if (!this.repository.getGroupRepository().groupExists(txGroupId))
+			return false;
+
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+
+		// Is transaction's creator is group member?
+		PublicKeyAccount creator = this.getCreator();
+		if (!groupRepository.memberExists(txGroupId, creator.getAddress()))
+			return false;
+
+		// If recipient address present, check they belong to group too.
+		String recipient = this.chatTransactionData.getRecipient();
+		if (recipient != null && !groupRepository.memberExists(txGroupId, recipient))
+			return false;
+
+		return true;
 	}
 
 	@Override
