@@ -550,7 +550,7 @@ public abstract class Transaction {
 		return ValidationResult.OK;
 	}
 
-	private boolean isValidTxGroupId() throws DataException {
+	protected boolean isValidTxGroupId() throws DataException {
 		int txGroupId = this.transactionData.getTxGroupId();
 
 		// If transaction type doesn't need approval then we insist on NO_GROUP
