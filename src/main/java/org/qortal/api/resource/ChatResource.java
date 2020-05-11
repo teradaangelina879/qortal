@@ -25,15 +25,20 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.ChatTransactionData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.ChatTransaction;
 import org.qortal.transaction.Transaction;
+import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ChatTransactionTransformer;
+import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
+
+import com.google.common.primitives.Bytes;
 
 @Path("/chat")
 @Tag(name = "Chat")
@@ -97,6 +102,7 @@ public class ChatResource {
 	@POST
 	@Operation(
 		summary = "Build raw, unsigned, CHAT transaction",
+		description = "Builds a raw, unsigned CHAT transaction but does NOT compute proof-of-work nonce. See POST /chat/compute.",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -123,6 +129,64 @@ public class ChatResource {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			ChatTransaction chatTransaction = (ChatTransaction) Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = chatTransaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = ChatTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/compute")
+	@Operation(
+		summary = "Compute nonce for raw, unsigned CHAT transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string",
+					description = "raw, unsigned CHAT transaction in base58 encoding",
+					example = "raw transaction base58"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, CHAT transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String buildChat(String rawBytes58) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			byte[] rawBytes = Base58.decode(rawBytes58);
+			// We're expecting unsigned transaction, so append empty signature prior to decoding
+			rawBytes = Bytes.concat(rawBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
+
+			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			if (transactionData.getType() != TransactionType.CHAT)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
 			ChatTransaction chatTransaction = (ChatTransaction) Transaction.fromData(repository, transactionData);
 
 			// Quicker validity check first before we compute nonce
