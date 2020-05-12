@@ -598,6 +598,10 @@ public class HSQLDBDatabaseUpdates {
 					// Chat transactions
 					stmt.execute("CREATE TABLE ChatTransactions (signature Signature, sender QortalAddress NOT NULL, nonce INT NOT NULL, recipient QortalAddress, "
 							+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, data MessageData NOT NULL, " + TRANSACTION_KEYS + ")");
+					// For finding chat messages by sender
+					stmt.execute("CREATE INDEX ChatTransactionsSenderIndex ON ChatTransactions (sender)");
+					// For finding chat messages by recipient
+					stmt.execute("CREATE INDEX ChatTransactionsRecipientIndex ON ChatTransactions (recipient, sender)");
 					break;
 
 				default:

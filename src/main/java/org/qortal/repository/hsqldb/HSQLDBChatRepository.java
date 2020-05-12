@@ -5,10 +5,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.qortal.data.transaction.ChatTransactionData;
+import org.qortal.data.chat.ChatMessage;
 import org.qortal.repository.ChatRepository;
 import org.qortal.repository.DataException;
-import org.qortal.transaction.Transaction.TransactionType;
 
 public class HSQLDBChatRepository implements ChatRepository {
 
@@ -19,57 +18,47 @@ public class HSQLDBChatRepository implements ChatRepository {
 	}
 
 	@Override
-	public List<ChatTransactionData> getTransactionsMatchingCriteria(Long before, Long after, Integer txGroupId,
-			String senderAddress, String recipientAddress, Integer limit, Integer offset, Boolean reverse)
+	public List<ChatMessage> getMessagesMatchingCriteria(Long before, Long after, Integer txGroupId,
+			List<String> involving, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
-		boolean hasSenderAddress = senderAddress != null && !senderAddress.isEmpty();
-		boolean hasRecipientAddress = recipientAddress != null && !recipientAddress.isEmpty();
+		// Check args meet expectations
+		if ((txGroupId != null && involving != null && !involving.isEmpty())
+				|| (txGroupId == null && (involving == null || involving.size() != 2)))
+			throw new DataException("Invalid criteria for fetching chat messages from repository");
 
-		String signatureColumn = "Transactions.signature";
+		StringBuilder sql = new StringBuilder(1024);
+
+		sql.append("SELECT created_when, tx_group_id, creator, sender, SenderNames.name, "
+				+ "recipient, RecipientNames.name, data, is_text, is_encrypted "
+				+ "FROM ChatTransactions "
+				+ "JOIN Transactions USING (signature) "
+				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
+				+ "LEFT OUTER JOIN Names AS RecipientNames ON RecipientNames.owner = recipient ");
+
+		// WHERE clauses
+
 		List<String> whereClauses = new ArrayList<>();
 		List<Object> bindParams = new ArrayList<>();
 
-		// Tables, starting with Transactions
-		StringBuilder tables = new StringBuilder(256);
-		tables.append("Transactions");
-
-		if (hasSenderAddress || hasRecipientAddress)
-			tables.append(" JOIN ChatTransactions USING (signature)");
-
-		// WHERE clauses next
-
-		// CHAT transaction type
-		whereClauses.add("Transactions.type = " + TransactionType.CHAT.value);
-
 		// Timestamp range
 		if (before != null) {
-			whereClauses.add("Transactions.created_when < ?");
+			whereClauses.add("created_when < ?");
 			bindParams.add(before);
 		}
 
 		if (after != null) {
-			whereClauses.add("Transactions.created_when > ?");
+			whereClauses.add("created_when > ?");
 			bindParams.add(after);
 		}
 
-		if (txGroupId != null)
-			whereClauses.add("Transactions.tx_group_id = " + txGroupId);
-
-		if (hasSenderAddress) {
-			whereClauses.add("ChatTransactions.sender = ?");
-			bindParams.add(senderAddress);
+		if (txGroupId != null) {
+			whereClauses.add("tx_group_id = " + txGroupId); // int safe to use literally
+			whereClauses.add("recipient IS NULL");
+		} else {
+			whereClauses.add("((sender = ? AND recipient = ?) OR (recipient = ? AND sender = ?))");
+			bindParams.addAll(involving);
+			bindParams.addAll(involving);
 		}
-
-		if (hasRecipientAddress) {
-			whereClauses.add("ChatTransactions.recipient = ?");
-			bindParams.add(recipientAddress);
-		}
-
-		StringBuilder sql = new StringBuilder(1024);
-		sql.append("SELECT ");
-		sql.append(signatureColumn);
-		sql.append(" FROM ");
-		sql.append(tables);
 
 		if (!whereClauses.isEmpty()) {
 			sql.append(" WHERE ");
@@ -88,19 +77,31 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<ChatTransactionData> chatTransactionsData = new ArrayList<>();
+		List<ChatMessage> chatMessages = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
-				return chatTransactionsData;
+				return chatMessages;
 
 			do {
-				byte[] signature = resultSet.getBytes(1);
+				long timestamp = resultSet.getLong(1);
+				int groupId = resultSet.getInt(2);
+				byte[] senderPublicKey = resultSet.getBytes(3);
+				String sender = resultSet.getString(4);
+				String senderName = resultSet.getString(5);
+				String recipient = resultSet.getString(6);
+				String recipientName = resultSet.getString(7);
+				byte[] data = resultSet.getBytes(8);
+				boolean isText = resultSet.getBoolean(9);
+				boolean isEncrypted = resultSet.getBoolean(10);
 
-				chatTransactionsData.add((ChatTransactionData) this.repository.getTransactionRepository().fromSignature(signature));
+				ChatMessage chatMessage = new ChatMessage(timestamp, groupId, senderPublicKey, sender,
+						senderName, recipient, recipientName, data, isText, isEncrypted);
+
+				chatMessages.add(chatMessage);
 			} while (resultSet.next());
 
-			return chatTransactionsData;
+			return chatMessages;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch matching chat transactions from repository", e);
 		}

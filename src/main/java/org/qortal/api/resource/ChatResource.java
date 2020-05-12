@@ -24,6 +24,7 @@ import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.chat.ChatMessage;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
@@ -51,14 +52,14 @@ public class ChatResource {
 	@Path("/search")
 	@Operation(
 		summary = "Find chat messages",
-		description = "Returns CHAT transactions that match criteria.",
+		description = "Returns CHAT messages that match criteria. Must provide EITHER 'txGroupId' OR two 'involving' addresses.",
 		responses = {
 			@ApiResponse(
-				description = "transactions",
+				description = "CHAT messages",
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
-							implementation = ChatTransactionData.class
+							implementation = ChatMessage.class
 						)
 					)
 				)
@@ -66,18 +67,19 @@ public class ChatResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public List<ChatTransactionData> searchChat(@QueryParam("before") Long before, @QueryParam("after") Long after,
+	public List<ChatMessage> searchChat(@QueryParam("before") Long before, @QueryParam("after") Long after,
 			@QueryParam("txGroupId") Integer txGroupId,
-			@QueryParam("sender") String senderAddress,
-			@QueryParam("recipient") String recipientAddress,
+			@QueryParam("involving") List<String> involvingAddresses,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
-		// Check any provided addresses are valid
-		if (senderAddress != null && !Crypto.isValidAddress(senderAddress))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+		// Check args meet expectations
+		if ((txGroupId == null && involvingAddresses.size() != 2)
+				|| (txGroupId != null && !involvingAddresses.isEmpty()))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-		if (recipientAddress != null && !Crypto.isValidAddress(recipientAddress))
+		// Check any provided addresses are valid
+		if (involvingAddresses.stream().anyMatch(address -> !Crypto.isValidAddress(address)))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		if (before != null && before < 1500000000000L)
@@ -87,12 +89,11 @@ public class ChatResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getChatRepository().getTransactionsMatchingCriteria(
+			return repository.getChatRepository().getMessagesMatchingCriteria(
 					before,
 					after,
 					txGroupId,
-					senderAddress,
-					recipientAddress,
+					involvingAddresses,
 					limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
