@@ -289,6 +289,8 @@ public class HSQLDBDatabaseUpdates {
 							+ "registered_when EpochMillis NOT NULL, updated_when EpochMillis, creation_group_id GroupID NOT NULL DEFAULT 0, "
 							+ "reference Signature, is_for_sale BOOLEAN NOT NULL DEFAULT FALSE, sale_price QortalAmount, data NameData NOT NULL, "
 							+ "PRIMARY KEY (name))");
+					// For finding names by owner
+					stmt.execute("CREATE INDEX NamesOwnerIndex ON Names (owner)");
 
 					// Register Name Transactions
 					stmt.execute("CREATE TABLE RegisterNameTransactions (signature Signature, registrant QortalPublicKey NOT NULL, name RegisteredName NOT NULL, "
