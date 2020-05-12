@@ -227,9 +227,13 @@ public class ChatResource {
 
 			chatTransaction.computeNonce();
 
+			// Re-check, but ignores signature
 			result = chatTransaction.isValidUnconfirmed();
 			if (result != ValidationResult.OK)
 				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			// Strip zeroed signature
+			transactionData.setSignature(null);
 
 			byte[] bytes = ChatTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);

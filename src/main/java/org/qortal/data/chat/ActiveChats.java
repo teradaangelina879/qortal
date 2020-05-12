@@ -12,13 +12,14 @@ public class ActiveChats {
 	public static class GroupChat {
 		private int groupId;
 		private String groupName;
-		private long timestamp;
+		// Might not be present for groupId 0
+		private Long timestamp;
 
 		protected GroupChat() {
 			/* JAXB */
 		}
 
-		public GroupChat(int groupId, String groupName, long timestamp) {
+		public GroupChat(int groupId, String groupName, Long timestamp) {
 			this.groupId = groupId;
 			this.groupName = groupName;
 			this.timestamp = timestamp;
@@ -32,7 +33,7 @@ public class ActiveChats {
 			return this.groupName;
 		}
 
-		public long getTimestamp() {
+		public Long getTimestamp() {
 			return this.timestamp;
 		}
 	}

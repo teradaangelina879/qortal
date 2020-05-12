@@ -145,6 +145,28 @@ public class HSQLDBChatRepository implements ChatRepository {
 			throw new DataException("Unable to fetch active group chats from repository", e);
 		}
 
+		// We need different SQL to handle group-less chat
+		String grouplessSql = "SELECT created_when "
+				+ "FROM ChatTransactions "
+				+ "JOIN Transactions USING (signature) "
+				+ "WHERE tx_group_id = 0 "
+				+ "AND recipient IS NULL "
+				+ "ORDER BY created_when DESC "
+				+ "LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(grouplessSql)) {
+			Long timestamp = null;
+
+			if (resultSet != null)
+				// We found a recipient-less, group-less CHAT message, so report its timestamp
+				timestamp = resultSet.getLong(1);
+
+			GroupChat groupChat = new GroupChat(0, null, timestamp);
+			groupChats.add(groupChat);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch active group chats from repository", e);
+		}
+
 		return groupChats;
 	}
 
