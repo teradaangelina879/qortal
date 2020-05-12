@@ -15,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -24,6 +25,7 @@ import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.chat.ActiveChats;
 import org.qortal.data.chat.ChatMessage;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -49,7 +51,7 @@ public class ChatResource {
 	HttpServletRequest request;
 
 	@GET
-	@Path("/search")
+	@Path("/messages")
 	@Operation(
 		summary = "Find chat messages",
 		description = "Returns CHAT messages that match criteria. Must provide EITHER 'txGroupId' OR two 'involving' addresses.",
@@ -95,6 +97,34 @@ public class ChatResource {
 					txGroupId,
 					involvingAddresses,
 					limit, offset, reverse);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/active/{address}")
+	@Operation(
+		summary = "Find active chats (group/direct) involving address",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = ActiveChats.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public ActiveChats getActiveChats(@PathParam("address") String address) {
+		if (address == null || !Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getChatRepository().getActiveChats(address);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

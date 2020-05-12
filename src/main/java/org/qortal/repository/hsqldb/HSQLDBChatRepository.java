@@ -5,9 +5,13 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.qortal.data.chat.ActiveChats;
+import org.qortal.data.chat.ActiveChats.DirectChat;
+import org.qortal.data.chat.ActiveChats.GroupChat;
 import org.qortal.data.chat.ChatMessage;
 import org.qortal.repository.ChatRepository;
 import org.qortal.repository.DataException;
+import org.qortal.transaction.Transaction.TransactionType;
 
 public class HSQLDBChatRepository implements ChatRepository {
 
@@ -28,12 +32,9 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 		StringBuilder sql = new StringBuilder(1024);
 
-		sql.append("SELECT created_when, tx_group_id, creator, sender, SenderNames.name, "
-				+ "recipient, RecipientNames.name, data, is_text, is_encrypted "
+		sql.append("SELECT created_when, tx_group_id, creator, sender, recipient, data, is_text, is_encrypted "
 				+ "FROM ChatTransactions "
-				+ "JOIN Transactions USING (signature) "
-				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
-				+ "LEFT OUTER JOIN Names AS RecipientNames ON RecipientNames.owner = recipient ");
+				+ "JOIN Transactions USING (signature) ");
 
 		// WHERE clauses
 
@@ -88,15 +89,13 @@ public class HSQLDBChatRepository implements ChatRepository {
 				int groupId = resultSet.getInt(2);
 				byte[] senderPublicKey = resultSet.getBytes(3);
 				String sender = resultSet.getString(4);
-				String senderName = resultSet.getString(5);
-				String recipient = resultSet.getString(6);
-				String recipientName = resultSet.getString(7);
-				byte[] data = resultSet.getBytes(8);
-				boolean isText = resultSet.getBoolean(9);
-				boolean isEncrypted = resultSet.getBoolean(10);
+				String recipient = resultSet.getString(5);
+				byte[] data = resultSet.getBytes(6);
+				boolean isText = resultSet.getBoolean(7);
+				boolean isEncrypted = resultSet.getBoolean(8);
 
 				ChatMessage chatMessage = new ChatMessage(timestamp, groupId, senderPublicKey, sender,
-						senderName, recipient, recipientName, data, isText, isEncrypted);
+						recipient, data, isText, isEncrypted);
 
 				chatMessages.add(chatMessage);
 			} while (resultSet.next());
@@ -105,6 +104,90 @@ public class HSQLDBChatRepository implements ChatRepository {
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch matching chat transactions from repository", e);
 		}
+	}
+
+	@Override
+	public ActiveChats getActiveChats(String address) throws DataException {
+		List<GroupChat> groupChats = getActiveGroupChats(address);
+		List<DirectChat> directChats = getActiveDirectChats(address);
+
+		return new ActiveChats(groupChats, directChats);
+	}
+
+	private List<GroupChat> getActiveGroupChats(String address) throws DataException {
+		// Find groups where address is a member and there is a chat
+		String groupsSql = "SELECT group_id, group_name, latest_timestamp "
+				+ "FROM GroupMembers "
+				+ "JOIN Groups USING (group_id) "
+				+ "CROSS JOIN LATERAL("
+					+ "SELECT created_when "
+					+ "FROM Transactions "
+					+ "WHERE tx_group_id = Groups.group_id AND type = " + TransactionType.CHAT.value + " "
+					+ "ORDER BY created_when DESC "
+					+ "LIMIT 1"
+				+ ") AS LatestMessages (latest_timestamp) "
+				+ "WHERE address = ?";
+
+		List<GroupChat> groupChats = new ArrayList<>();
+		try (ResultSet resultSet = this.repository.checkedExecute(groupsSql, address)) {
+			if (resultSet == null)
+				return groupChats;
+
+			do {
+				int groupId = resultSet.getInt(1);
+				String groupName = resultSet.getString(2);
+				long timestamp = resultSet.getLong(3);
+
+				GroupChat groupChat = new GroupChat(groupId, groupName, timestamp);
+				groupChats.add(groupChat);
+			} while (resultSet.next());
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch active group chats from repository", e);
+		}
+
+		return groupChats;
+	}
+
+	private List<DirectChat> getActiveDirectChats(String address) throws DataException {
+		// Find chat messages involving address
+		String directSql = "SELECT other_address, name, latest_timestamp "
+				+ "FROM ("
+					+ "SELECT recipient FROM ChatTransactions "
+					+ "WHERE sender = ? AND recipient IS NOT NULL "
+					+ "UNION "
+					+ "SELECT sender FROM ChatTransactions "
+					+ "WHERE recipient = ?"
+				+ ") AS OtherParties (other_address) "
+				+ "CROSS JOIN LATERAL("
+					+ "SELECT created_when FROM ChatTransactions "
+					+ "NATURAL JOIN Transactions "
+					+ "WHERE (sender = other_address AND recipient = ?) "
+					+ "OR (sender = ? AND recipient = other_address) "
+					+ "ORDER BY created_when DESC "
+					+ "LIMIT 1"
+				+ ") AS LatestMessages (latest_timestamp) "
+				+ "LEFT OUTER JOIN Names ON owner = other_address";
+
+		Object[] bindParams = new Object[] { address, address, address, address };
+
+		List<DirectChat> directChats = new ArrayList<>();
+		try (ResultSet resultSet = this.repository.checkedExecute(directSql, bindParams)) {
+			if (resultSet == null)
+				return directChats;
+
+			do {
+				String otherAddress = resultSet.getString(1);
+				String name = resultSet.getString(2);
+				long timestamp = resultSet.getLong(3);
+
+				DirectChat directChat = new DirectChat(otherAddress, name, timestamp);
+				directChats.add(directChat);
+			} while (resultSet.next());
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch active direct chats from repository", e);
+		}
+
+		return directChats;
 	}
 
 }

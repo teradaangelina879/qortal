@@ -2,6 +2,7 @@ package org.qortal.repository;
 
 import java.util.List;
 
+import org.qortal.data.chat.ActiveChats;
 import org.qortal.data.chat.ChatMessage;
 
 public interface ChatRepository {
@@ -14,5 +15,7 @@ public interface ChatRepository {
 	public List<ChatMessage> getMessagesMatchingCriteria(Long before, Long after,
 			Integer txGroupId, List<String> involving,
 			Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	public ActiveChats getActiveChats(String address) throws DataException;
 
 }
