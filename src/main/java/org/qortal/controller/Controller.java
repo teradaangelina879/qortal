@@ -1028,6 +1028,9 @@ public class Controller extends Thread {
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
 		}
+
+		// Broadcast transaction signature because it's new to us
+		Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(Arrays.asList(transactionData.getSignature())));
 	}
 
 	private void onNetworkGetBlockSummariesMessage(Peer peer, Message message) {
@@ -1149,7 +1152,6 @@ public class Controller extends Thread {
 	private void onNetworkTransactionSignaturesMessage(Peer peer, Message message) {
 		TransactionSignaturesMessage transactionSignaturesMessage = (TransactionSignaturesMessage) message;
 		List<byte[]> signatures = transactionSignaturesMessage.getSignatures();
-		List<byte[]> newSignatures = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			for (byte[] signature : signatures) {
@@ -1165,62 +1167,14 @@ public class Controller extends Thread {
 
 				// Fetch actual transaction data from peer
 				Message getTransactionMessage = new GetTransactionMessage(signature);
-				Message responseMessage = peer.getResponse(getTransactionMessage);
-				if (!(responseMessage instanceof TransactionMessage)) {
-					// Maybe peer no longer has this transaction
-					LOGGER.trace(() -> String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
-					continue;
-				}
-
-				// Check isInterrupted() here and exit fast
-				if (Thread.currentThread().isInterrupted())
+				if (!peer.sendMessage(getTransactionMessage)) {
+					peer.disconnect("failed to request transaction");
 					return;
-
-				TransactionMessage transactionMessage = (TransactionMessage) responseMessage;
-				TransactionData transactionData = transactionMessage.getTransactionData();
-				Transaction transaction = Transaction.fromData(repository, transactionData);
-
-				// Check signature
-				if (!transaction.isSignatureValid()) {
-					LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-					continue;
 				}
-
-				ValidationResult validationResult = transaction.importAsUnconfirmed();
-
-				if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
-					LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-					continue;
-				}
-
-				if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
-					LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-					// Some other thread (e.g. Synchronizer) might have blockchain lock for a while so might as well give up for now
-					break;
-				}
-
-				if (validationResult != ValidationResult.OK) {
-					LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-					continue;
-				}
-
-				LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-
-				// We could collate signatures that are new to us and broadcast them to our peers too
-				newSignatures.add(signature);
 			}
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while processing unconfirmed transactions from peer %s", peer), e);
-		} catch (InterruptedException e) {
-			// Shutdown
-			return;
 		}
-
-		if (newSignatures.isEmpty())
-			return;
-
-		// Broadcast signatures that are new to us
-		Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(newSignatures));
 	}
 
 	private void onNetworkGetArbitraryDataMessage(Peer peer, Message message) {
