@@ -294,11 +294,11 @@ public class HSQLDBDatabaseUpdates {
 
 					// Register Name Transactions
 					stmt.execute("CREATE TABLE RegisterNameTransactions (signature Signature, registrant QortalPublicKey NOT NULL, name RegisteredName NOT NULL, "
-							+ "owner QortalAddress NOT NULL, data NameData NOT NULL, " + TRANSACTION_KEYS + ")");
+							+ "data NameData NOT NULL, " + TRANSACTION_KEYS + ")");
 
 					// Update Name Transactions
 					stmt.execute("CREATE TABLE UpdateNameTransactions (signature Signature, owner QortalPublicKey NOT NULL, name RegisteredName NOT NULL, "
-							+ "new_owner QortalAddress NOT NULL, new_data NameData NOT NULL, name_reference Signature, " + TRANSACTION_KEYS + ")");
+							+ "new_name RegisteredName NOT NULL, new_data NameData NOT NULL, name_reference Signature, " + TRANSACTION_KEYS + ")");
 
 					// Sell Name Transactions
 					stmt.execute("CREATE TABLE SellNameTransactions (signature Signature, owner QortalPublicKey NOT NULL, name RegisteredName NOT NULL, "

@@ -17,10 +17,10 @@ public class UpdateNameTransactionData extends TransactionData {
 	// Properties
 	@Schema(description = "owner's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] ownerPublicKey;
-	@Schema(description = "new owner's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
-	private String newOwner;
 	@Schema(description = "which name to update", example = "my-name")
 	private String name;
+	@Schema(description = "new name", example = "my-new-name")
+	private String newName;
 	@Schema(description = "replacement simple name-related info in JSON format", example = "{ \"age\": 30 }")
 	private String newData;
 	// For internal use when orphaning
@@ -40,19 +40,19 @@ public class UpdateNameTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String newOwner, String name, String newData, byte[] nameReference) {
+	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String name, String newName, String newData, byte[] nameReference) {
 		super(TransactionType.UPDATE_NAME, baseTransactionData);
 
 		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
-		this.newOwner = newOwner;
 		this.name = name;
+		this.newName = newName;
 		this.newData = newData;
 		this.nameReference = nameReference;
 	}
 
 	/** From network/API */
-	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String newOwner, String name, String newData) {
-		this(baseTransactionData, newOwner, name, newData, null);
+	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String name, String newName, String newData) {
+		this(baseTransactionData, name, newName, newData, null);
 	}
 
 	// Getters / setters
@@ -61,12 +61,12 @@ public class UpdateNameTransactionData extends TransactionData {
 		return this.ownerPublicKey;
 	}
 
-	public String getNewOwner() {
-		return this.newOwner;
-	}
-
 	public String getName() {
 		return this.name;
+	}
+
+	public String getNewName() {
+		return this.newName;
 	}
 
 	public String getNewData() {

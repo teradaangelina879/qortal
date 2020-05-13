@@ -29,7 +29,7 @@ public class MiscTests extends Common {
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String name = "test-name";
 
-			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), alice.getAddress(), name, "{}");
+			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			List<String> recentNames = repository.getNameRepository().getRecentNames(0L);

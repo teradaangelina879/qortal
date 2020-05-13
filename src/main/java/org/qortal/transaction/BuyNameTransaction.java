@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
+import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.BuyNameTransactionData;
@@ -54,7 +55,7 @@ public class BuyNameTransaction extends Transaction {
 
 		// Check name size bounds
 		int nameLength = Utf8.encodedLength(name);
-		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
+		if (nameLength < Name.MIN_NAME_SIZE || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check name is lowercase
@@ -76,6 +77,11 @@ public class BuyNameTransaction extends Transaction {
 		if (buyer.getAddress().equals(nameData.getOwner()))
 			return ValidationResult.BUYER_ALREADY_OWNER;
 
+		// If accounts are only allowed one registered name then check for this
+		if (BlockChain.getInstance().oneNamePerAccount()
+				&& !this.repository.getNameRepository().getNamesByOwner(buyer.getAddress()).isEmpty())
+			return ValidationResult.MULTIPLE_NAMES_FORBIDDEN;
+
 		// Check expected seller currently owns name
 		if (!this.buyNameTransactionData.getSeller().equals(nameData.getOwner()))
 			return ValidationResult.INVALID_SELLER;
@@ -84,7 +90,7 @@ public class BuyNameTransaction extends Transaction {
 		if (this.buyNameTransactionData.getAmount() != nameData.getSalePrice())
 			return ValidationResult.INVALID_AMOUNT;
 
-		// Check issuer has enough funds
+		// Check buyer has enough funds
 		if (buyer.getConfirmedBalance(Asset.QORT) < this.buyNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
@@ -93,21 +99,21 @@ public class BuyNameTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// Update Name
+		// Buy Name
 		Name name = new Name(this.repository, this.buyNameTransactionData.getName());
 		name.buy(this.buyNameTransactionData);
 
-		// Save transaction with updated "name reference" pointing to previous transaction that updated name
+		// Save transaction with updated "name reference" pointing to previous transaction that changed name
 		this.repository.getTransactionRepository().save(this.buyNameTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
-		// Revert name
+		// Un-buy name
 		Name name = new Name(this.repository, this.buyNameTransactionData.getName());
 		name.unbuy(this.buyNameTransactionData);
 
-		// Save this transaction, with removed "name reference"
+		// Save this transaction, with previous "name reference"
 		this.repository.getTransactionRepository().save(this.buyNameTransactionData);
 	}
 

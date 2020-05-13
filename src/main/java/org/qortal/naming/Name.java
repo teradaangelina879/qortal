@@ -3,6 +3,7 @@ package org.qortal.naming;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.BuyNameTransactionData;
 import org.qortal.data.transaction.CancelSellNameTransactionData;
@@ -20,6 +21,7 @@ public class Name {
 	private NameData nameData;
 
 	// Useful constants
+	public static final int MIN_NAME_SIZE = 3;
 	public static final int MAX_NAME_SIZE = 400;
 	public static final int MAX_DATA_SIZE = 4000;
 
@@ -33,7 +35,10 @@ public class Name {
 	 */
 	public Name(Repository repository, RegisterNameTransactionData registerNameTransactionData) {
 		this.repository = repository;
-		this.nameData = new NameData(registerNameTransactionData.getOwner(),
+
+		String owner = Crypto.toAddress(registerNameTransactionData.getRegistrantPublicKey());
+
+		this.nameData = new NameData(owner,
 				registerNameTransactionData.getName(), registerNameTransactionData.getData(), registerNameTransactionData.getTimestamp(),
 				registerNameTransactionData.getSignature(), registerNameTransactionData.getTxGroupId());
 	}
@@ -66,23 +71,31 @@ public class Name {
 			throw new DataException("Unable to revert name transaction as referenced transaction not found in repository");
 
 		switch (previousTransactionData.getType()) {
-			case REGISTER_NAME:
+			case REGISTER_NAME: {
 				RegisterNameTransactionData previousRegisterNameTransactionData = (RegisterNameTransactionData) previousTransactionData;
-				this.nameData.setOwner(previousRegisterNameTransactionData.getOwner());
+				this.nameData.setName(previousRegisterNameTransactionData.getName());
 				this.nameData.setData(previousRegisterNameTransactionData.getData());
 				break;
+			}
 
-			case UPDATE_NAME:
+			case UPDATE_NAME: {
 				UpdateNameTransactionData previousUpdateNameTransactionData = (UpdateNameTransactionData) previousTransactionData;
-				this.nameData.setData(previousUpdateNameTransactionData.getNewData());
-				this.nameData.setOwner(previousUpdateNameTransactionData.getNewOwner());
-				break;
 
-			case BUY_NAME:
+				if (!previousUpdateNameTransactionData.getNewName().isBlank())
+					this.nameData.setName(previousUpdateNameTransactionData.getNewName());
+
+				if (!previousUpdateNameTransactionData.getNewData().isEmpty())
+					this.nameData.setData(previousUpdateNameTransactionData.getNewData());
+
+				break;
+			}
+
+			case BUY_NAME: {
 				BuyNameTransactionData previousBuyNameTransactionData = (BuyNameTransactionData) previousTransactionData;
 				Account buyer = new PublicKeyAccount(this.repository, previousBuyNameTransactionData.getBuyerPublicKey());
 				this.nameData.setOwner(buyer.getAddress());
 				break;
+			}
 
 			default:
 				throw new IllegalStateException("Unable to revert name transaction due to unsupported referenced transaction");
@@ -96,9 +109,12 @@ public class Name {
 		// New name reference is this transaction's signature
 		this.nameData.setReference(updateNameTransactionData.getSignature());
 
-		// Update Name's owner and data
-		this.nameData.setOwner(updateNameTransactionData.getNewOwner());
-		this.nameData.setData(updateNameTransactionData.getNewData());
+		// Update name and data where appropriate
+		if (!updateNameTransactionData.getNewName().isEmpty())
+			this.nameData.setOwner(updateNameTransactionData.getNewName());
+
+		if (!updateNameTransactionData.getNewData().isEmpty())
+			this.nameData.setData(updateNameTransactionData.getNewData());
 
 		// Save updated name data
 		this.repository.getNameRepository().save(this.nameData);

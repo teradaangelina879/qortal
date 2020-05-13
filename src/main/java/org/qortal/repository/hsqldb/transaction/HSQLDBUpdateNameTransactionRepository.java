@@ -17,18 +17,18 @@ public class HSQLDBUpdateNameTransactionRepository extends HSQLDBTransactionRepo
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		String sql = "SELECT new_owner, name, new_data, name_reference FROM UpdateNameTransactions WHERE signature = ?";
+		String sql = "SELECT name, new_name, new_data, name_reference FROM UpdateNameTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
-			String newOwner = resultSet.getString(1);
-			String name = resultSet.getString(2);
+			String name = resultSet.getString(1);
+			String newName = resultSet.getString(2);
 			String newData = resultSet.getString(3);
 			byte[] nameReference = resultSet.getBytes(4);
 
-			return new UpdateNameTransactionData(baseTransactionData, newOwner, name, newData, nameReference);
+			return new UpdateNameTransactionData(baseTransactionData, name, newName, newData, nameReference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch update name transaction from repository", e);
 		}
@@ -41,7 +41,7 @@ public class HSQLDBUpdateNameTransactionRepository extends HSQLDBTransactionRepo
 		HSQLDBSaver saveHelper = new HSQLDBSaver("UpdateNameTransactions");
 
 		saveHelper.bind("signature", updateNameTransactionData.getSignature()).bind("owner", updateNameTransactionData.getOwnerPublicKey())
-				.bind("new_owner", updateNameTransactionData.getNewOwner()).bind("name", updateNameTransactionData.getName())
+				.bind("name", updateNameTransactionData.getName()).bind("new_name", updateNameTransactionData.getNewName())
 				.bind("new_data", updateNameTransactionData.getNewData()).bind("name_reference", updateNameTransactionData.getNameReference());
 
 		try {

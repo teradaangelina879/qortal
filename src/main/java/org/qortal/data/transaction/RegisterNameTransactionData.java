@@ -19,8 +19,6 @@ public class RegisterNameTransactionData extends TransactionData {
 	// Properties
 	@Schema(description = "registrant's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] registrantPublicKey;
-	@Schema(description = "new owner's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
-	private String owner;
 	@Schema(description = "requested name", example = "my-name")
 	private String name;
 	@Schema(description = "simple name-related info in JSON format", example = "{ \"age\": 30 }")
@@ -38,11 +36,10 @@ public class RegisterNameTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public RegisterNameTransactionData(BaseTransactionData baseTransactionData, String owner, String name, String data) {
+	public RegisterNameTransactionData(BaseTransactionData baseTransactionData, String name, String data) {
 		super(TransactionType.REGISTER_NAME, baseTransactionData);
 
 		this.registrantPublicKey = baseTransactionData.creatorPublicKey;
-		this.owner = owner;
 		this.name = name;
 		this.data = data;
 	}
@@ -51,10 +48,6 @@ public class RegisterNameTransactionData extends TransactionData {
 
 	public byte[] getRegistrantPublicKey() {
 		return this.registrantPublicKey;
-	}
-
-	public String getOwner() {
-		return this.owner;
 	}
 
 	public String getName() {

@@ -9,14 +9,13 @@ import org.qortal.repository.Repository;
 public class RegisterNameTestTransaction extends TestTransaction {
 
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, boolean wantValid) throws DataException {
-		String owner = account.getAddress();
 		String name = "test name";
 		if (!wantValid)
 			name += " " + random.nextInt(1_000_000);
 
 		String data = "{ \"key\": \"value\" }";
 
-		return new RegisterNameTransactionData(generateBase(account), owner, name, data);
+		return new RegisterNameTransactionData(generateBase(account), name, data);
 	}
 
 }
