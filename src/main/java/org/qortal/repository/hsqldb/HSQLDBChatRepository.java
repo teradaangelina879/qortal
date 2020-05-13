@@ -130,17 +130,16 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 		List<GroupChat> groupChats = new ArrayList<>();
 		try (ResultSet resultSet = this.repository.checkedExecute(groupsSql, address)) {
-			if (resultSet == null)
-				return groupChats;
+			if (resultSet != null) {
+				do {
+					int groupId = resultSet.getInt(1);
+					String groupName = resultSet.getString(2);
+					long timestamp = resultSet.getLong(3);
 
-			do {
-				int groupId = resultSet.getInt(1);
-				String groupName = resultSet.getString(2);
-				long timestamp = resultSet.getLong(3);
-
-				GroupChat groupChat = new GroupChat(groupId, groupName, timestamp);
-				groupChats.add(groupChat);
-			} while (resultSet.next());
+					GroupChat groupChat = new GroupChat(groupId, groupName, timestamp);
+					groupChats.add(groupChat);
+				} while (resultSet.next());
+			}
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch active group chats from repository", e);
 		}
