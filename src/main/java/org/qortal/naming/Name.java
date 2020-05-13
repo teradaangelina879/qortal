@@ -70,11 +70,15 @@ public class Name {
 		if (previousTransactionData == null)
 			throw new DataException("Unable to revert name transaction as referenced transaction not found in repository");
 
+		String previousName = this.nameData.getName();
+
 		switch (previousTransactionData.getType()) {
 			case REGISTER_NAME: {
 				RegisterNameTransactionData previousRegisterNameTransactionData = (RegisterNameTransactionData) previousTransactionData;
+
 				this.nameData.setName(previousRegisterNameTransactionData.getName());
 				this.nameData.setData(previousRegisterNameTransactionData.getData());
+
 				break;
 			}
 
@@ -92,14 +96,22 @@ public class Name {
 
 			case BUY_NAME: {
 				BuyNameTransactionData previousBuyNameTransactionData = (BuyNameTransactionData) previousTransactionData;
+
 				Account buyer = new PublicKeyAccount(this.repository, previousBuyNameTransactionData.getBuyerPublicKey());
 				this.nameData.setOwner(buyer.getAddress());
+
 				break;
 			}
 
 			default:
 				throw new IllegalStateException("Unable to revert name transaction due to unsupported referenced transaction");
 		}
+
+		this.repository.getNameRepository().save(this.nameData);
+
+		if (!this.nameData.getName().equals(previousName))
+			// Name has changed, delete old entry
+			this.repository.getNameRepository().delete(previousName);
 	}
 
 	public void update(UpdateNameTransactionData updateNameTransactionData) throws DataException {
@@ -110,8 +122,12 @@ public class Name {
 		this.nameData.setReference(updateNameTransactionData.getSignature());
 
 		// Update name and data where appropriate
-		if (!updateNameTransactionData.getNewName().isEmpty())
-			this.nameData.setOwner(updateNameTransactionData.getNewName());
+		if (!updateNameTransactionData.getNewName().isEmpty()) {
+			// If we're changing the name, we need to delete old entry
+			this.repository.getNameRepository().delete(nameData.getName());
+
+			this.nameData.setName(updateNameTransactionData.getNewName());
+		}
 
 		if (!updateNameTransactionData.getNewData().isEmpty())
 			this.nameData.setData(updateNameTransactionData.getNewData());
@@ -126,9 +142,6 @@ public class Name {
 
 		// Previous Name's owner and/or data taken from referenced transaction
 		this.revert();
-
-		// Save reverted name data
-		this.repository.getNameRepository().save(this.nameData);
 
 		// Remove reference to previous name-changing transaction
 		updateNameTransactionData.setNameReference(null);
@@ -213,9 +226,6 @@ public class Name {
 		// Revert seller's balance
 		Account seller = new Account(this.repository, this.nameData.getOwner());
 		seller.modifyAssetBalance(Asset.QORT, - buyNameTransactionData.getAmount());
-
-		// Save reverted name data
-		this.repository.getNameRepository().save(this.nameData);
 	}
 
 }

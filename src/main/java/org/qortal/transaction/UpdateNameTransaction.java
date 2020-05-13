@@ -130,7 +130,12 @@ public class UpdateNameTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert name
-		Name name = new Name(this.repository, this.updateNameTransactionData.getName());
+
+		String nameToRevert = this.updateNameTransactionData.getNewName();
+		if (nameToRevert.isEmpty())
+			nameToRevert = this.updateNameTransactionData.getName();
+
+		Name name = new Name(this.repository, nameToRevert);
 		name.revert(this.updateNameTransactionData);
 
 		// Save this transaction, with previous "name reference"
