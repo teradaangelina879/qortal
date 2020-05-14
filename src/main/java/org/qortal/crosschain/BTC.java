@@ -64,7 +64,7 @@ import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
 import org.bitcoinj.wallet.listeners.WalletCoinsSentEventListener;
 import org.qortal.settings.Settings;
 
-public class BTC extends Thread {
+public class BTC {
 
 	public static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
 	public static final long NO_LOCKTIME_NO_RBF_SEQUENCE = 0xFFFFFFFFL;
