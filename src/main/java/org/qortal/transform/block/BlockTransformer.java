@@ -241,8 +241,13 @@ public class BlockTransformer extends Transformer {
 			if (transactions == null || transactions.isEmpty())
 				return blockLength;
 
-			for (Transaction transaction : transactions)
+			for (Transaction transaction : transactions) {
+				// We don't serialize AT transactions
+				if (transaction.getTransactionData().getType() == TransactionType.AT)
+					continue;
+
 				blockLength += TRANSACTION_SIZE_LENGTH + TransactionTransformer.getDataLength(transaction.getTransactionData());
+			}
 		} catch (DataException e) {
 			throw new TransformationException("Unable to determine serialized block length", e);
 		}
