@@ -50,6 +50,7 @@ import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
+import org.qortal.data.crosschain.CrossChainTradeData.Mode;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
@@ -447,6 +448,9 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, null, templateRequest.atAddress); // null to skip creator check
 			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
 
+			if (crossChainTradeData.mode == Mode.OFFER)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
 
@@ -513,6 +517,9 @@ public class CrossChainResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, null, templateRequest.atAddress); // null to skip creator check
 			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+
+			if (crossChainTradeData.mode == Mode.OFFER)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
@@ -615,6 +622,9 @@ public class CrossChainResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, null, refundRequest.atAddress); // null to skip creator check
 			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+
+			if (crossChainTradeData.mode == Mode.OFFER)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
@@ -723,6 +733,9 @@ public class CrossChainResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, null, redeemRequest.atAddress); // null to skip creator check
 			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+
+			if (crossChainTradeData.mode == Mode.OFFER)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemAddress.getHash(), crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
