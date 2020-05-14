@@ -378,9 +378,6 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
-		LOGGER.info(String.format("Starting Bitcoin support using %s", Settings.getInstance().getBitcoinNet().name()));
-		BTC.getInstance();
-
 		// If GUI is enabled, we're no longer starting up but actually running now
 		Gui.getInstance().notifyRunning();
 	}
@@ -682,7 +679,7 @@ public class Controller extends Thread {
 				isStopping = true;
 
 				LOGGER.info("Shutting down Bitcoin support");
-				BTC.getInstance().shutdown();
+				BTC.shutdown();
 
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();

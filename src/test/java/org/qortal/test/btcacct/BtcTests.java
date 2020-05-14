@@ -1,14 +1,18 @@
 package org.qortal.test.btcacct;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.wallet.WalletTransaction;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.crosschain.BTC;
@@ -20,7 +24,46 @@ public class BtcTests extends Common {
 
 	@Before
 	public void beforeTest() throws DataException {
-		Common.useDefaultSettings();
+		Common.useDefaultSettings(); // TestNet3
+	}
+
+	@After
+	public void afterTest() {
+		BTC.resetForTesting();
+	}
+
+	@Test
+	public void testStartupShutdownTestNet3() {
+		BTC btc = BTC.getInstance();
+
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		Future<Long> future = executor.submit(() -> btc.getMedianBlockTime());
+
+		BTC.shutdown();
+
+		try {
+			Long medianBlockTime = future.get();
+			assertNull("Shutdown should occur before we get a result", medianBlockTime);
+		} catch (InterruptedException | ExecutionException e) {
+		}
+	}
+
+	@Test
+	public void testStartupShutdownRegTest() throws DataException {
+		Common.useSettings("test-settings-v2-bitcoin-regtest.json");
+
+		BTC btc = BTC.getInstance();
+
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		Future<Long> future = executor.submit(() -> btc.getMedianBlockTime());
+
+		BTC.shutdown();
+
+		try {
+			Long medianBlockTime = future.get();
+			assertNull("Shutdown should occur before we get a result", medianBlockTime);
+		} catch (InterruptedException | ExecutionException e) {
+		}
 	}
 
 	@Test
@@ -47,9 +90,9 @@ public class BtcTests extends Common {
 
 	@Test
 	public void testFindP2shSecret() {
-		// This actually exists on TEST3
+		// This actually exists on TEST3 but can take a while to fetch
 		String p2shAddress = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
-		int startTime = 1587510000;
+		int startTime = 1587510000; // Tue 21 Apr 2020 23:00:00 UTC
 
 		List<WalletTransaction> walletTransactions = new ArrayList<>();
 

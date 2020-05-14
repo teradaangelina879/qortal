@@ -11,7 +11,6 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,7 +24,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.TreeMap;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.LogManager;
@@ -62,7 +64,7 @@ import org.bitcoinj.wallet.listeners.WalletCoinsReceivedEventListener;
 import org.bitcoinj.wallet.listeners.WalletCoinsSentEventListener;
 import org.qortal.settings.Settings;
 
-public class BTC {
+public class BTC extends Thread {
 
 	public static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
 	public static final long NO_LOCKTIME_NO_RBF_SEQUENCE = 0xFFFFFFFFL;
@@ -111,7 +113,7 @@ public class BTC {
 		private static final String MINIMAL_TESTNET3_TEXTFILE = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAAApmwX6UCEnJcYIKTa7HO3pFkqqNhAzJVBMdEuGAAAAAPSAvVCBUypCbBW/OqU0oIF7ISF84h2spOqHrFCWN9Zw6r6/T///AB0E5oOO\n";
 		private static final String MINIMAL_MAINNET_TEXTFILE = "TXT CHECKPOINTS 1\n0\n1\nAAAAAAAAB+EH4QfhAAAH4AEAAABjl7tqvU/FIcDT9gcbVlA4nwtFUbxAtOawZzBpAAAAAKzkcK7NqciBjI/ldojNKncrWleVSgDfBCCn3VRrbSxXaw5/Sf//AB0z8Bkv\n";
 
-		public UpdateableCheckpointManager(NetworkParameters params, File checkpointsFile) throws IOException {
+		public UpdateableCheckpointManager(NetworkParameters params, File checkpointsFile) throws IOException, InterruptedException {
 			super(params, getMinimalTextFileStream(params, checkpointsFile));
 		}
 
@@ -119,7 +121,7 @@ public class BTC {
 			super(params, inputStream);
 		}
 
-		private static ByteArrayInputStream getMinimalTextFileStream(NetworkParameters params, File checkpointsFile) {
+		private static ByteArrayInputStream getMinimalTextFileStream(NetworkParameters params, File checkpointsFile) throws IOException, InterruptedException {
 			if (params == MainNetParams.get())
 				return new ByteArrayInputStream(MINIMAL_MAINNET_TEXTFILE.getBytes());
 
@@ -129,10 +131,10 @@ public class BTC {
 			if (params == RegTestParams.get())
 				return newRegTestCheckpointsStream(checkpointsFile); // We have to build this
 
-			throw new RuntimeException("Failed to construct empty UpdateableCheckpointManageer");
+			throw new FileNotFoundException("Failed to construct empty UpdateableCheckpointManageer");
 		}
 
-		private static ByteArrayInputStream newRegTestCheckpointsStream(File checkpointsFile) {
+		private static ByteArrayInputStream newRegTestCheckpointsStream(File checkpointsFile) throws IOException, InterruptedException {
 			try {
 				final NetworkParameters params = RegTestParams.get();
 
@@ -143,7 +145,8 @@ public class BTC {
 				final InetAddress ipAddress = InetAddress.getLoopbackAddress();
 				final PeerAddress peerAddress = new PeerAddress(params, ipAddress);
 				peerGroup.addAddress(peerAddress);
-				peerGroup.start();
+				// startAsync().get() to allow interruption
+				peerGroup.startAsync().get();
 
 				final TreeMap<Integer, StoredBlock> checkpoints = new TreeMap<>();
 				chain.addNewBestBlockListener((block) -> checkpoints.put(block.getHeight(), block));
@@ -155,13 +158,10 @@ public class BTC {
 
 				return new ByteArrayInputStream(Files.readAllBytes(checkpointsFile.toPath()));
 			} catch (BlockStoreException e) {
-				throw new RuntimeException(e);
-			} catch (UnknownHostException e) {
-				throw new RuntimeException(e);
-			} catch (FileNotFoundException e) {
-				throw new RuntimeException(e);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
+				throw new IOException(e);
+			} catch (ExecutionException e) {
+				// Couldn't start peerGroup
+				throw new IOException(e);
 			}
 		}
 
@@ -184,7 +184,7 @@ public class BTC {
 				saveAsText(new File(BTC.getInstance().getDirectory(), BTC.getInstance().getCheckpointsFileName()), this.checkpoints.values());
 			} catch (FileNotFoundException e) {
 				// Save failed - log it but it's not critical
-				LOGGER.warn("Failed to save updated BTC checkpoints: " + e.getMessage());
+				LOGGER.warn(() -> String.format("Failed to save updated BTC checkpoints: %s", e.getMessage()));
 			}
 		}
 
@@ -236,12 +236,17 @@ public class BTC {
 			super(params, blockStore);
 		}
 
+		// Overridden to increase visibility to public
+		@Override
 		public void setChainHead(StoredBlock chainHead) throws BlockStoreException {
 			super.setChainHead(chainHead);
 		}
 	}
 
+	private static final Object instanceLock = new Object();
 	private static BTC instance;
+	private enum RunningState { RUNNING, STOPPED };
+	FutureTask<RunningState> startupFuture;
 
 	private final NetworkParameters params;
 	private final String checkpointsFileName;
@@ -278,36 +283,18 @@ public class BTC {
 
 		this.directory = new File("Qortal-BTC");
 
-		if (!this.directory.exists())
-			this.directory.mkdirs();
-
-		File checkpointsFile = new File(this.directory, this.checkpointsFileName);
-		try (InputStream checkpointsStream = new FileInputStream(checkpointsFile)) {
-			this.manager = new UpdateableCheckpointManager(this.params, checkpointsStream);
-		} catch (FileNotFoundException e) {
-			// Construct with no checkpoints then
-			try {
-				this.manager = new UpdateableCheckpointManager(this.params, checkpointsFile);
-			} catch (IOException e2) {
-				throw new RuntimeException("Failed to create new BTC checkpoints", e2);
-			}
-		} catch (IOException e) {
-			throw new RuntimeException("Failed to load BTC checkpoints", e);
-		}
-
-		try {
-			this.start(System.currentTimeMillis() / 1000L);
-			// this.peerGroup.waitForPeers(this.peerGroup.getMaxConnections()).get();
-		} catch (BlockStoreException e) {
-			throw new RuntimeException("Failed to start BTC instance", e);
-		}
+		startupFuture = new FutureTask<>(BTC::startUp);
 	}
 
-	public static synchronized BTC getInstance() {
-		if (instance == null)
-			instance = new BTC();
+	public static BTC getInstance() {
+		synchronized (instanceLock) {
+			if (instance == null) {
+				instance = new BTC();
+				Executors.newSingleThreadExecutor().execute(instance.startupFuture);
+			}
 
-		return instance;
+			return instance;
+		}
 	}
 
 	// Getters & setters
@@ -331,34 +318,112 @@ public class BTC {
 	}
 
 	// Start-up & shutdown
-	private void start(long startTime) throws BlockStoreException {
-		StoredBlock checkpoint = this.manager.getCheckpointBefore(startTime - 1);
 
-		this.blockStore = new MemoryBlockStore(params);
-		this.blockStore.put(checkpoint);
-		this.blockStore.setChainHead(checkpoint);
+	private static RunningState startUp() {
+		Thread.currentThread().setName("Bitcoin support");
 
-		this.chain = new ResettableBlockChain(this.params, this.blockStore);
+		LOGGER.info(() -> String.format("Starting Bitcoin support using %s", Settings.getInstance().getBitcoinNet().name()));
 
-		this.peerGroup = new PeerGroup(this.params, this.chain);
-		this.peerGroup.setUserAgent("qortal", "1.0");
-		this.peerGroup.setPingIntervalMsec(1000L);
-		this.peerGroup.setMaxConnections(20);
+		final long startTime = System.currentTimeMillis() / 1000L;
 
-		if (this.params != RegTestParams.get()) {
-			this.peerGroup.addPeerDiscovery(new DnsDiscovery(this.params));
-		} else {
-			peerGroup.addAddress(PeerAddress.localhost(this.params));
+		if (!instance.directory.exists())
+			if (!instance.directory.mkdirs()) {
+				LOGGER.error(() -> String.format("Stopping Bitcoin support: couldn't create directory '%s'", instance.directory.getName()));
+				return RunningState.STOPPED;
+			}
+
+		File checkpointsFile = new File(instance.directory, instance.checkpointsFileName);
+		try (InputStream checkpointsStream = new FileInputStream(checkpointsFile)) {
+			instance.manager = new UpdateableCheckpointManager(instance.params, checkpointsStream);
+		} catch (FileNotFoundException e) {
+			// Construct with no checkpoints then
+			try {
+				instance.manager = new UpdateableCheckpointManager(instance.params, checkpointsFile);
+			} catch (IOException e2) {
+				LOGGER.error(() -> String.format("Stopping Bitcoin support: couldn't create checkpoints file: %s", e.getMessage()));
+				return RunningState.STOPPED;
+			} catch (InterruptedException e2) {
+				// Probably normal shutdown so quietly return
+				LOGGER.debug("Stopping Bitcoin support due to interrupt");
+				return RunningState.STOPPED;
+			}
+		} catch (IOException e) {
+			LOGGER.error(() -> String.format("Stopping Bitcoin support: couldn't load checkpoints file: %s", e.getMessage()));
+			return RunningState.STOPPED;
 		}
 
-		this.peerGroup.start();
+		try {
+			StoredBlock checkpoint = instance.manager.getCheckpointBefore(startTime - 1);
+
+			instance.blockStore = new MemoryBlockStore(instance.params);
+			instance.blockStore.put(checkpoint);
+			instance.blockStore.setChainHead(checkpoint);
+
+			instance.chain = new ResettableBlockChain(instance.params, instance.blockStore);
+		} catch (BlockStoreException e) {
+			LOGGER.error(() -> String.format("Stopping Bitcoin support: couldn't initialize blockstore: %s", e.getMessage()));
+			return RunningState.STOPPED;
+		}
+
+		instance.peerGroup = new PeerGroup(instance.params, instance.chain);
+		instance.peerGroup.setUserAgent("qortal", "1.0");
+		// instance.peerGroup.setPingIntervalMsec(1000L);
+		// instance.peerGroup.setMaxConnections(20);
+
+		if (instance.params != RegTestParams.get()) {
+			instance.peerGroup.addPeerDiscovery(new DnsDiscovery(instance.params));
+		} else {
+			instance.peerGroup.addAddress(PeerAddress.localhost(instance.params));
+		}
+
+		// final check that we haven't been interrupted
+		if (Thread.currentThread().isInterrupted()) {
+			LOGGER.debug("Stopping Bitcoin support due to interrupt");
+			return RunningState.STOPPED;
+		}
+
+		// startAsync() so we can return
+		instance.peerGroup.startAsync();
+
+		return RunningState.RUNNING;
 	}
 
-	public void shutdown() {
-		this.peerGroup.stop();
+	public static void shutdown() {
+		// This is make sure we don't check instance
+		// while some other thread is in the middle of BTC.getInstance()
+		synchronized (instanceLock) {
+			if (instance == null)
+				return;
+		}
+
+		// If we can't cancel because we've finished start-up with RUNNING state then stop peerGroup.
+		// Has side-effect of cancelling in-progress start-up, which is what we want too.
+		try {
+			if (!instance.startupFuture.cancel(true)
+					&& instance.startupFuture.isDone()
+					&& instance.startupFuture.get() == RunningState.RUNNING)
+				instance.peerGroup.stop();
+		} catch (InterruptedException | ExecutionException | CancellationException e) {
+			// Start-up was in-progress when cancel() called, so this is ok
+		}
+	}
+
+	public static void resetForTesting() {
+		synchronized (instanceLock) {
+			instance = null;
+		}
 	}
 
 	// Utility methods
+
+	/** Returns whether Bitcoin support is running, blocks until RUNNING if STARTING. */
+	private boolean isRunning() {
+		try {
+			return this.startupFuture.get() == RunningState.RUNNING;
+		} catch (InterruptedException | ExecutionException | CancellationException e) {
+			return false;
+		}
+	}
 
 	protected Wallet createEmptyWallet() {
 		return Wallet.createBasic(this.params);
@@ -389,11 +454,11 @@ public class BTC {
 		this.chain.setChainHead(checkpoint);
 
 		final WalletCoinsReceivedEventListener coinsReceivedListener = (someWallet, tx, prevBalance, newBalance) -> {
-			LOGGER.debug(String.format("Wallet-related transaction %s", tx.getTxId()));
+			LOGGER.trace(() -> String.format("Wallet-related transaction %s", tx.getTxId()));
 		};
 
 		final WalletCoinsSentEventListener coinsSentListener = (someWallet, tx, prevBalance, newBalance) -> {
-			LOGGER.debug(String.format("Wallet-related transaction %s", tx.getTxId()));
+			LOGGER.trace(() -> String.format("Wallet-related transaction %s", tx.getTxId()));
 		};
 
 		if (wallet != null) {
@@ -437,6 +502,10 @@ public class BTC {
 
 	/** Returns median timestamp from latest 11 blocks, in seconds. */
 	public Long getMedianBlockTime() {
+		if (!this.isRunning())
+			// Failed to start up, or we're shutting down
+			return null;
+
 		// 11 blocks, at roughly 10 minutes per block, means we should go back at least 110 minutes
 		// but some blocks have been way longer than 10 minutes, so be massively pessimistic
 		int startTime = (int) (System.currentTimeMillis() / 1000L) - 110 * 60; // 110 minutes before now, in seconds
@@ -456,12 +525,16 @@ public class BTC {
 
 			return latestBlocks.get(5).getHeader().getTimeSeconds();
 		} catch (BlockStoreException e) {
-			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			LOGGER.error(String.format("Can't get Bitcoin median block time due to blockstore issue: %s", e.getMessage()));
 			return null;
 		}
 	}
 
 	public Coin getBalance(String base58Address, int startTime) {
+		if (!this.isRunning())
+			// Failed to start up, or we're shutting down
+			return null;
+
 		// Create new wallet containing only the address we're interested in, ignoring anything prior to startTime
 		Wallet wallet = createEmptyWallet();
 		Address address = Address.fromString(this.params, base58Address);
@@ -473,12 +546,16 @@ public class BTC {
 			// Now that blockchain is up-to-date, return current balance
 			return wallet.getBalance();
 		} catch (BlockStoreException e) {
-			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			LOGGER.error(String.format("Can't get Bitcoin balance for %s due to blockstore issue: %s", base58Address, e.getMessage()));
 			return null;
 		}
 	}
 
 	public List<TransactionOutput> getOutputs(String base58Address, int startTime) {
+		if (!this.isRunning())
+			// Failed to start up, or we're shutting down
+			return null;
+
 		Wallet wallet = createEmptyWallet();
 		Address address = Address.fromString(this.params, base58Address);
 		wallet.addWatchedAddress(address, startTime);
@@ -489,12 +566,16 @@ public class BTC {
 			// Now that blockchain is up-to-date, return outputs
 			return wallet.getWatchedOutputs(true);
 		} catch (BlockStoreException e) {
-			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			LOGGER.error(String.format("Can't get Bitcoin outputs for %s due to blockstore issue: %s", base58Address, e.getMessage()));
 			return null;
 		}
 	}
 
 	public Coin getBalanceAndOtherInfo(String base58Address, int startTime, List<TransactionOutput> unspentOutputs, List<WalletTransaction> walletTransactions) {
+		if (!this.isRunning())
+			// Failed to start up, or we're shutting down
+			return null;
+
 		// Create new wallet containing only the address we're interested in, ignoring anything prior to startTime
 		Wallet wallet = createEmptyWallet();
 		Address address = Address.fromString(this.params, base58Address);
@@ -512,12 +593,16 @@ public class BTC {
 
 			return wallet.getBalance();
 		} catch (BlockStoreException e) {
-			LOGGER.error(String.format("BTC blockstore issue: %s", e.getMessage()));
+			LOGGER.error(String.format("Can't get Bitcoin info for %s due to blockstore issue: %s", base58Address, e.getMessage()));
 			return null;
 		}
 	}
 
 	public List<TransactionOutput> getOutputs(byte[] txId, int startTime) {
+		if (!this.isRunning())
+			// Failed to start up, or we're shutting down
+			return null;
+
 		Wallet wallet = createEmptyWallet();
 
 		// Add random address to wallet
@@ -536,7 +621,7 @@ public class BTC {
 
 			for (Transaction transaction : transactions)
 				if (transaction.getTxId().equals(txHash)) {
-					System.out.println(String.format("We downloaded block containing tx!"));
+					LOGGER.trace(() -> String.format("We downloaded block containing tx %s", txHash));
 					foundTransaction.set(transaction);
 				}
 		};
@@ -556,6 +641,10 @@ public class BTC {
 	}
 
 	public boolean broadcastTransaction(Transaction transaction) {
+		if (!this.isRunning())
+			// Failed to start up, or we're shutting down
+			return false;
+
 		TransactionBroadcast transactionBroadcast = this.peerGroup.broadcastTransaction(transaction);
 
 		try {
