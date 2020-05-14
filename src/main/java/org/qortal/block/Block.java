@@ -1135,7 +1135,7 @@ public class Block {
 			if (!Arrays.equals(ourAtState.getStateHash(), theirAtState.getStateHash()))
 				return ValidationResult.AT_STATES_MISMATCH;
 
-			if (ourAtState.getFees() != theirAtState.getFees())
+			if (!ourAtState.getFees().equals(theirAtState.getFees()))
 				return ValidationResult.AT_STATES_MISMATCH;
 		}
 
