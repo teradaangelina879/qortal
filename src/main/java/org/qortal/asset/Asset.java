@@ -1,5 +1,6 @@
 package org.qortal.asset;
 
+import org.qortal.crypto.Crypto;
 import org.qortal.data.asset.AssetData;
 import org.qortal.data.transaction.IssueAssetTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -22,7 +23,7 @@ public class Asset {
 
 	// Other useful constants
 
-	public static final int MAX_NAME_SIZE = 400;
+	public static final int MAX_NAME_SIZE = 40;
 	public static final int MAX_DESCRIPTION_SIZE = 4000;
 	public static final int MAX_DATA_SIZE = 400000;
 
@@ -42,11 +43,13 @@ public class Asset {
 	public Asset(Repository repository, IssueAssetTransactionData issueAssetTransactionData) {
 		this.repository = repository;
 
+		String ownerAddress = Crypto.toAddress(issueAssetTransactionData.getCreatorPublicKey());
+
 		// NOTE: transaction's reference is used to look up newly assigned assetID on creation!
-		this.assetData = new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(),
+		this.assetData = new AssetData(ownerAddress, issueAssetTransactionData.getAssetName(),
 				issueAssetTransactionData.getDescription(), issueAssetTransactionData.getQuantity(),
-				issueAssetTransactionData.getIsDivisible(), issueAssetTransactionData.getData(),
-				issueAssetTransactionData.getIsUnspendable(),
+				issueAssetTransactionData.isDivisible(), issueAssetTransactionData.getData(),
+				issueAssetTransactionData.isUnspendable(),
 				issueAssetTransactionData.getTxGroupId(), issueAssetTransactionData.getSignature());
 	}
 
@@ -118,10 +121,11 @@ public class Asset {
 				throw new IllegalStateException("Missing referenced transaction when orphaning UPDATE_ASSET");
 
 			switch (previousTransactionData.getType()) {
-				case ISSUE_ASSET:
+				case ISSUE_ASSET: {
 					IssueAssetTransactionData previousIssueAssetTransactionData = (IssueAssetTransactionData) previousTransactionData;
 
-					this.assetData.setOwner(previousIssueAssetTransactionData.getOwner());
+					String ownerAddress = Crypto.toAddress(previousIssueAssetTransactionData.getCreatorPublicKey());
+					this.assetData.setOwner(ownerAddress);
 
 					if (needDescription) {
 						this.assetData.setDescription(previousIssueAssetTransactionData.getDescription());
@@ -133,8 +137,9 @@ public class Asset {
 						needData = false;
 					}
 					break;
+				}
 
-				case UPDATE_ASSET:
+				case UPDATE_ASSET: {
 					UpdateAssetTransactionData previousUpdateAssetTransactionData = (UpdateAssetTransactionData) previousTransactionData;
 
 					this.assetData.setOwner(previousUpdateAssetTransactionData.getNewOwner());
@@ -152,7 +157,9 @@ public class Asset {
 					// Get signature for previous transaction in chain, just in case we need it
 					if (needDescription || needData)
 						previousTransactionSignature = previousUpdateAssetTransactionData.getOrphanReference();
+
 					break;
+				}
 
 				default:
 					throw new IllegalStateException("Invalid referenced transaction when orphaning UPDATE_ASSET");

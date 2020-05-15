@@ -86,7 +86,7 @@ public class Payment {
 				return ValidationResult.ASSET_DOES_NOT_EXIST;
 
 			// Do not allow non-owner asset holders to use asset
-			if (assetData.getIsUnspendable() && !assetData.getOwner().equals(sender.getAddress()))
+			if (assetData.isUnspendable() && !assetData.getOwner().equals(sender.getAddress()))
 				return ValidationResult.ASSET_NOT_SPENDABLE;
 
 			// If we're sending to an AT then assetId must match AT's assetId
@@ -94,7 +94,7 @@ public class Payment {
 				return ValidationResult.ASSET_DOES_NOT_MATCH_AT;
 
 			// Check asset amount is integer if asset is not divisible
-			if (!assetData.getIsDivisible() && paymentData.getAmount() % Amounts.MULTIPLIER != 0)
+			if (!assetData.isDivisible() && paymentData.getAmount() % Amounts.MULTIPLIER != 0)
 				return ValidationResult.INVALID_AMOUNT;
 
 			// Set or add amount into amounts-by-asset map

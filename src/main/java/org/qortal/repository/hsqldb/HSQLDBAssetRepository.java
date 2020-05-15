@@ -159,8 +159,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		saveHelper.bind("asset_id", assetData.getAssetId()).bind("owner", assetData.getOwner())
 				.bind("asset_name", assetData.getName()).bind("description", assetData.getDescription())
-				.bind("quantity", assetData.getQuantity()).bind("is_divisible", assetData.getIsDivisible())
-				.bind("data", assetData.getData()).bind("is_unspendable", assetData.getIsUnspendable())
+				.bind("quantity", assetData.getQuantity()).bind("is_divisible", assetData.isDivisible())
+				.bind("data", assetData.getData()).bind("is_unspendable", assetData.isUnspendable())
 				.bind("creation_group_id", assetData.getCreationGroupId()).bind("reference", assetData.getReference());
 
 		try {

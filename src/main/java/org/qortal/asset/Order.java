@@ -335,7 +335,7 @@ public class Order {
 				continue;
 
 			// Calculate amount granularity, based on price and both assets' divisibility, so that return-amount traded is a valid value (integer or to 8 d.p.)
-			long granularity = calculateAmountGranularity(matchingAssetData.getIsDivisible(), returnAssetData.getIsDivisible(), theirOrderData.getPrice());
+			long granularity = calculateAmountGranularity(matchingAssetData.isDivisible(), returnAssetData.isDivisible(), theirOrderData.getPrice());
 			LOGGER.trace(() -> String.format("granularity (amount granularity): %s %s", prettyAmount(granularity), matchingAssetData.getName()));
 
 			// Reduce matched amount (if need be) to fit granularity
@@ -395,7 +395,7 @@ public class Order {
 	 * @throws DataException if divisibility check fails
 	 */
 	private void checkDivisibility(AssetData assetData, long amount, OrderData orderData) throws DataException {
-		if (assetData.getIsDivisible() || amount % Amounts.MULTIPLIER == 0)
+		if (assetData.isDivisible() || amount % Amounts.MULTIPLIER == 0)
 			// Asset is divisible or amount has no fractional part
 			return;
 

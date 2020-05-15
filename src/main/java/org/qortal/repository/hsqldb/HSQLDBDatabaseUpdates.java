@@ -380,8 +380,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX AssetTradeSellOrderIndex on AssetTrades (target_order_id, traded_when)");
 
 					// Issue Asset Transactions
-					stmt.execute("CREATE TABLE IssueAssetTransactions (signature Signature, issuer QortalPublicKey NOT NULL, owner QortalAddress NOT NULL, "
-							+ "asset_name AssetName NOT NULL, "
+					stmt.execute("CREATE TABLE IssueAssetTransactions (signature Signature, issuer QortalPublicKey NOT NULL, asset_name AssetName NOT NULL, "
 							+ "description GenericDescription NOT NULL, quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, asset_id AssetID, "
 							+ "is_unspendable BOOLEAN NOT NULL, data AssetData NOT NULL DEFAULT '', " + TRANSACTION_KEYS + ")");
 

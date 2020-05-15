@@ -14,7 +14,6 @@ public class IssueAssetTestTransaction extends TestTransaction {
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, boolean wantValid) throws DataException {
 		Random random = new Random();
 
-		String owner = account.getAddress();
 		String assetName = "test-asset-" + random.nextInt(1_000_000);
 		String description = "random test asset";
 		final long quantity = 1_000_000L;
@@ -22,7 +21,7 @@ public class IssueAssetTestTransaction extends TestTransaction {
 		String data = AssetUtils.randomData();
 		final boolean isUnspendable = false;
 
-		return new IssueAssetTransactionData(generateBase(account), owner, assetName, description, quantity, isDivisible, data, isUnspendable);
+		return new IssueAssetTransactionData(generateBase(account), assetName, description, quantity, isDivisible, data, isUnspendable);
 	}
 
 }

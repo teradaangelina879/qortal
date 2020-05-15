@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.IssueAssetTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
@@ -19,7 +18,6 @@ public class IssueAssetTransaction extends Transaction {
 	// Properties
 
 	private IssueAssetTransactionData issueAssetTransactionData;
-	private Account ownerAccount = null;
 
 	// Constructors
 
@@ -33,7 +31,7 @@ public class IssueAssetTransaction extends Transaction {
 
 	@Override
 	public List<String> getRecipientAddresses() throws DataException {
-		return Collections.singletonList(this.issueAssetTransactionData.getOwner());
+		return Collections.emptyList();
 	}
 
 	// Navigation
@@ -42,21 +40,10 @@ public class IssueAssetTransaction extends Transaction {
 		return this.getCreator();
 	}
 
-	public Account getOwner() {
-		if (this.ownerAccount == null)
-			this.ownerAccount = new Account(this.repository, this.issueAssetTransactionData.getOwner());
-
-		return this.ownerAccount;
-	}
-
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check owner address is valid
-		if (!Crypto.isValidAddress(this.issueAssetTransactionData.getOwner()))
-			return ValidationResult.INVALID_ADDRESS;
-
 		// Check name size bounds
 		int assetNameLength = Utf8.encodedLength(this.issueAssetTransactionData.getAssetName());
 		if (assetNameLength < 1 || assetNameLength > Asset.MAX_NAME_SIZE)
@@ -78,7 +65,7 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.INVALID_QUANTITY;
 
 		// Check quantity versus indivisibility
-		if (!this.issueAssetTransactionData.getIsDivisible() && this.issueAssetTransactionData.getQuantity() % Amounts.MULTIPLIER != 0)
+		if (!this.issueAssetTransactionData.isDivisible() && this.issueAssetTransactionData.getQuantity() % Amounts.MULTIPLIER != 0)
 			return ValidationResult.INVALID_QUANTITY;
 
 		Account issuer = getIssuer();
@@ -105,9 +92,9 @@ public class IssueAssetTransaction extends Transaction {
 		Asset asset = new Asset(this.repository, this.issueAssetTransactionData);
 		asset.issue();
 
-		// Add asset to owner
-		Account owner = getOwner();
-		owner.setConfirmedBalance(asset.getAssetData().getAssetId(), this.issueAssetTransactionData.getQuantity());
+		// Add asset to issuer
+		Account issuer = this.getIssuer();
+		issuer.setConfirmedBalance(asset.getAssetData().getAssetId(), this.issueAssetTransactionData.getQuantity());
 
 		// Note newly assigned asset ID in our transaction record
 		this.issueAssetTransactionData.setAssetId(asset.getAssetData().getAssetId());
@@ -118,9 +105,9 @@ public class IssueAssetTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Remove asset from owner
-		Account owner = getOwner();
-		owner.deleteBalance(this.issueAssetTransactionData.getAssetId());
+		// Remove asset from issuer
+		Account issuer = this.getIssuer();
+		issuer.deleteBalance(this.issueAssetTransactionData.getAssetId());
 
 		// Deissue asset
 		Asset asset = new Asset(this.repository, this.issueAssetTransactionData.getAssetId());

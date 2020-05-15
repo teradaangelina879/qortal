@@ -84,7 +84,7 @@ public class AssetData {
 		return this.quantity;
 	}
 
-	public boolean getIsDivisible() {
+	public boolean isDivisible() {
 		return this.isDivisible;
 	}
 
@@ -96,7 +96,7 @@ public class AssetData {
 		this.data = data;
 	}
 
-	public boolean getIsUnspendable() {
+	public boolean isUnspendable() {
 		return this.isUnspendable;
 	}
 
