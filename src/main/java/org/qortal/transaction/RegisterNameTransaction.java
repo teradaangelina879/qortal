@@ -11,6 +11,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Unicode;
 
 import com.google.common.base.Utf8;
 
@@ -40,6 +41,15 @@ public class RegisterNameTransaction extends Transaction {
 		return this.getCreator();
 	}
 
+	private synchronized String getReducedName() {
+		if (this.registerNameTransactionData.getReducedName() == null) {
+			String reducedName = Name.reduceName(this.registerNameTransactionData.getName());
+			this.registerNameTransactionData.setReducedName(reducedName);
+		}
+
+		return this.registerNameTransactionData.getReducedName();
+	}
+
 	// Processing
 
 	@Override
@@ -57,13 +67,16 @@ public class RegisterNameTransaction extends Transaction {
 		if (dataLength > Name.MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
-		// Check name is lowercase
-		if (!name.equals(name.toLowerCase()))
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!name.equals(Unicode.normalize(name)))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
 		// Check registrant has enough funds
 		if (registrant.getConfirmedBalance(Asset.QORT) < this.registerNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
+
+		// Fill in missing reduced name. Caller is likely to save this as next step.
+		getReducedName();
 
 		return ValidationResult.OK;
 	}
@@ -71,7 +84,7 @@ public class RegisterNameTransaction extends Transaction {
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Check the name isn't already taken
-		if (this.repository.getNameRepository().nameExists(this.registerNameTransactionData.getName()))
+		if (this.repository.getNameRepository().reducedNameExists(getReducedName()))
 			return ValidationResult.NAME_ALREADY_REGISTERED;
 
 		// If accounts are only allowed one registered name then check for this

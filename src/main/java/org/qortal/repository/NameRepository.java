@@ -10,6 +10,10 @@ public interface NameRepository {
 
 	public boolean nameExists(String name) throws DataException;
 
+	public NameData fromReducedName(String reducedName) throws DataException;
+
+	public boolean reducedNameExists(String reducedName) throws DataException;
+
 	public List<NameData> getAllNames(Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public default List<NameData> getAllNames() throws DataException {

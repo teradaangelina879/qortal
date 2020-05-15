@@ -19,31 +19,33 @@ public class HSQLDBNameRepository implements NameRepository {
 
 	@Override
 	public NameData fromName(String name) throws DataException {
-		String sql = "SELECT owner, data, registered_when, updated_when, reference, is_for_sale, sale_price, creation_group_id FROM Names WHERE name = ?";
+		String sql = "SELECT reduced_name, owner, data, registered_when, updated_when, "
+				+ "is_for_sale, sale_price, reference, creation_group_id FROM Names WHERE name = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, name)) {
 			if (resultSet == null)
 				return null;
 
-			String owner = resultSet.getString(1);
-			String data = resultSet.getString(2);
-			long registered = resultSet.getLong(3);
+			String reducedName = resultSet.getString(1);
+			String owner = resultSet.getString(2);
+			String data = resultSet.getString(3);
+			long registered = resultSet.getLong(4);
 
 			// Special handling for possibly-NULL "updated" column
-			Long updated = resultSet.getLong(4);
+			Long updated = resultSet.getLong(5);
 			if (updated == 0 && resultSet.wasNull())
 				updated = null;
 
-			byte[] reference = resultSet.getBytes(5);
 			boolean isForSale = resultSet.getBoolean(6);
 
 			Long salePrice = resultSet.getLong(7);
 			if (salePrice == 0 && resultSet.wasNull())
 				salePrice = null;
 
-			int creationGroupId = resultSet.getInt(8);
+			byte[] reference = resultSet.getBytes(8);
+			int creationGroupId = resultSet.getInt(9);
 
-			return new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId);
+			return new NameData(name, reducedName, owner, data, registered, updated, isForSale, salePrice, reference, creationGroupId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch name info from repository", e);
 		}
@@ -59,10 +61,54 @@ public class HSQLDBNameRepository implements NameRepository {
 	}
 
 	@Override
+	public NameData fromReducedName(String reducedName) throws DataException {
+		String sql = "SELECT name, owner, data, registered_when, updated_when, "
+				+ "is_for_sale, sale_price, reference, creation_group_id FROM Names WHERE reduced_name = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, reducedName)) {
+			if (resultSet == null)
+				return null;
+
+			String name = resultSet.getString(1);
+			String owner = resultSet.getString(2);
+			String data = resultSet.getString(3);
+			long registered = resultSet.getLong(4);
+
+			// Special handling for possibly-NULL "updated" column
+			Long updated = resultSet.getLong(5);
+			if (updated == 0 && resultSet.wasNull())
+				updated = null;
+
+			boolean isForSale = resultSet.getBoolean(6);
+
+			Long salePrice = resultSet.getLong(7);
+			if (salePrice == 0 && resultSet.wasNull())
+				salePrice = null;
+
+			byte[] reference = resultSet.getBytes(8);
+			int creationGroupId = resultSet.getInt(9);
+
+			return new NameData(name, reducedName, owner, data, registered, updated, isForSale, salePrice, reference, creationGroupId);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch name info from repository", e);
+		}
+	}
+
+	@Override
+	public boolean reducedNameExists(String reducedName) throws DataException {
+		try {
+			return this.repository.exists("Names", "reduced_name = ?", reducedName);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for reduced name in repository", e);
+		}
+	}
+
+	@Override
 	public List<NameData> getAllNames(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
 
-		sql.append("SELECT name, data, owner, registered_when, updated_when, reference, is_for_sale, sale_price, creation_group_id FROM Names ORDER BY name");
+		sql.append("SELECT name, reduced_name, owner, data, registered_when, updated_when, "
+				+ "is_for_sale, sale_price, reference, creation_group_id FROM Names ORDER BY name");
 
 		if (reverse != null && reverse)
 			sql.append(" DESC");
@@ -77,25 +123,26 @@ public class HSQLDBNameRepository implements NameRepository {
 
 			do {
 				String name = resultSet.getString(1);
-				String data = resultSet.getString(2);
+				String reducedName = resultSet.getString(2);
 				String owner = resultSet.getString(3);
-				long registered = resultSet.getLong(4);
+				String data = resultSet.getString(4);
+				long registered = resultSet.getLong(5);
 
 				// Special handling for possibly-NULL "updated" column
-				Long updated = resultSet.getLong(5);
+				Long updated = resultSet.getLong(6);
 				if (updated == 0 && resultSet.wasNull())
 					updated = null;
 
-				byte[] reference = resultSet.getBytes(6);
 				boolean isForSale = resultSet.getBoolean(7);
 
 				Long salePrice = resultSet.getLong(8);
 				if (salePrice == 0 && resultSet.wasNull())
 					salePrice = null;
 
-				int creationGroupId = resultSet.getInt(9);
+				byte[] reference = resultSet.getBytes(9);
+				int creationGroupId = resultSet.getInt(10);
 
-				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
+				names.add(new NameData(name, reducedName, owner, data, registered, updated, isForSale, salePrice, reference, creationGroupId));
 			} while (resultSet.next());
 
 			return names;
@@ -108,7 +155,8 @@ public class HSQLDBNameRepository implements NameRepository {
 	public List<NameData> getNamesForSale(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 
-		sql.append("SELECT name, data, owner, registered_when, updated_when, reference, sale_price, creation_group_id FROM Names WHERE is_for_sale = TRUE ORDER BY name");
+		sql.append("SELECT name, reduced_name, owner, data, registered_when, updated_when, "
+				+ "sale_price, reference, creation_group_id  FROM Names WHERE is_for_sale = TRUE ORDER BY name");
 
 		if (reverse != null && reverse)
 			sql.append(" DESC");
@@ -123,25 +171,26 @@ public class HSQLDBNameRepository implements NameRepository {
 
 			do {
 				String name = resultSet.getString(1);
-				String data = resultSet.getString(2);
+				String reducedName = resultSet.getString(2);
 				String owner = resultSet.getString(3);
-				long registered = resultSet.getLong(4);
+				String data = resultSet.getString(4);
+				long registered = resultSet.getLong(5);
 
 				// Special handling for possibly-NULL "updated" column
-				Long updated = resultSet.getLong(5);
+				Long updated = resultSet.getLong(6);
 				if (updated == 0 && resultSet.wasNull())
 					updated = null;
 
-				byte[] reference = resultSet.getBytes(6);
 				boolean isForSale = true;
 
 				Long salePrice = resultSet.getLong(7);
 				if (salePrice == 0 && resultSet.wasNull())
 					salePrice = null;
 
-				int creationGroupId = resultSet.getInt(8);
+				byte[] reference = resultSet.getBytes(8);
+				int creationGroupId = resultSet.getInt(9);
 
-				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
+				names.add(new NameData(name, reducedName, owner, data, registered, updated, isForSale, salePrice, reference, creationGroupId));
 			} while (resultSet.next());
 
 			return names;
@@ -154,7 +203,8 @@ public class HSQLDBNameRepository implements NameRepository {
 	public List<NameData> getNamesByOwner(String owner, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 
-		sql.append("SELECT name, data, registered_when, updated_when, reference, is_for_sale, sale_price, creation_group_id FROM Names WHERE owner = ? ORDER BY name");
+		sql.append("SELECT name, reduced_name, data, registered_when, updated_when, "
+				+ "is_for_sale, sale_price, reference, creation_group_id FROM Names WHERE owner = ? ORDER BY name");
 
 		if (reverse != null && reverse)
 			sql.append(" DESC");
@@ -169,24 +219,25 @@ public class HSQLDBNameRepository implements NameRepository {
 
 			do {
 				String name = resultSet.getString(1);
-				String data = resultSet.getString(2);
-				long registered = resultSet.getLong(3);
+				String reducedName = resultSet.getString(2);
+				String data = resultSet.getString(3);
+				long registered = resultSet.getLong(4);
 
 				// Special handling for possibly-NULL "updated" column
-				Long updated = resultSet.getLong(4);
+				Long updated = resultSet.getLong(5);
 				if (updated == 0 && resultSet.wasNull())
 					updated = null;
 
-				byte[] reference = resultSet.getBytes(5);
 				boolean isForSale = resultSet.getBoolean(6);
 
 				Long salePrice = resultSet.getLong(7);
 				if (salePrice == 0 && resultSet.wasNull())
 					salePrice = null;
 
-				int creationGroupId = resultSet.getInt(8);
+				byte[] reference = resultSet.getBytes(8);
+				int creationGroupId = resultSet.getInt(9);
 
-				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
+				names.add(new NameData(name, reducedName, owner, data, registered, updated, isForSale, salePrice, reference, creationGroupId));
 			} while (resultSet.next());
 
 			return names;
@@ -223,11 +274,11 @@ public class HSQLDBNameRepository implements NameRepository {
 	public void save(NameData nameData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Names");
 
-		saveHelper.bind("owner", nameData.getOwner()).bind("name", nameData.getName()).bind("data", nameData.getData())
+		saveHelper.bind("name", nameData.getName()).bind("reduced_name", nameData.getReducedName())
+				.bind("owner", nameData.getOwner()).bind("data", nameData.getData())
 				.bind("registered_when", nameData.getRegistered()).bind("updated_when", nameData.getUpdated())
-				.bind("reference", nameData.getReference())
-				.bind("is_for_sale", nameData.getIsForSale()).bind("sale_price", nameData.getSalePrice())
-				.bind("creation_group_id", nameData.getCreationGroupId());
+				.bind("is_for_sale", nameData.isForSale()).bind("sale_price", nameData.getSalePrice())
+				.bind("reference", nameData.getReference()).bind("creation_group_id", nameData.getCreationGroupId());
 
 		try {
 			saveHelper.execute(this.repository);

@@ -11,6 +11,7 @@ import org.qortal.data.transaction.UpdateNameTransactionData;
 import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Unicode;
 
 import com.google.common.base.Utf8;
 
@@ -40,6 +41,15 @@ public class UpdateNameTransaction extends Transaction {
 		return this.getCreator();
 	}
 
+	private synchronized String getReducedNewName() {
+		if (this.updateNameTransactionData.getReducedNewName() == null) {
+			String reducedNewName = Name.reduceName(this.updateNameTransactionData.getNewName());
+			this.updateNameTransactionData.setReducedNewName(reducedNewName);
+		}
+
+		return this.updateNameTransactionData.getReducedNewName();
+	}
+
 	// Processing
 
 	@Override
@@ -51,8 +61,8 @@ public class UpdateNameTransaction extends Transaction {
 		if (nameLength < Name.MIN_NAME_SIZE || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
-		// Check name is lowercase
-		if (!name.equals(name.toLowerCase()))
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!name.equals(Unicode.normalize(name)))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
 		NameData nameData = this.repository.getNameRepository().fromName(name);
@@ -73,8 +83,8 @@ public class UpdateNameTransaction extends Transaction {
 			if (newNameLength < Name.MIN_NAME_SIZE || newNameLength > Name.MAX_NAME_SIZE)
 				return ValidationResult.INVALID_NAME_LENGTH;
 
-			// Check new name is lowercase
-			if (!newName.equals(newName.toLowerCase()))
+			// Check new name is in normalized form (no leading/trailing whitespace, etc.)
+			if (!newName.equals(Unicode.normalize(newName)))
 				return ValidationResult.NAME_NOT_LOWER_CASE;
 		}
 
@@ -89,6 +99,9 @@ public class UpdateNameTransaction extends Transaction {
 		if (owner.getConfirmedBalance(Asset.QORT) < this.updateNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
+		// Fill in missing reduced new name. Caller is likely to save this as next step.
+		getReducedNewName();
+
 		return ValidationResult.OK;
 	}
 
@@ -101,7 +114,7 @@ public class UpdateNameTransaction extends Transaction {
 			return ValidationResult.NAME_DOES_NOT_EXIST;
 
 		// Check name isn't currently for sale
-		if (nameData.getIsForSale())
+		if (nameData.isForSale())
 			return ValidationResult.NAME_ALREADY_FOR_SALE;
 
 		Account owner = getOwner();
@@ -110,8 +123,9 @@ public class UpdateNameTransaction extends Transaction {
 		if (!owner.getAddress().equals(nameData.getOwner()))
 			return ValidationResult.INVALID_NAME_OWNER;
 
-		// Check new name isn't already taken
-		if (this.repository.getNameRepository().nameExists(this.updateNameTransactionData.getNewName()))
+		// Check new name isn't already taken, unless it is the same name (this allows for case-adjusting renames)
+		NameData newNameData = this.repository.getNameRepository().fromReducedName(getReducedNewName());
+		if (newNameData != null && !newNameData.getName().equals(nameData.getName()))
 			return ValidationResult.NAME_ALREADY_REGISTERED;
 
 		return ValidationResult.OK;
@@ -129,7 +143,7 @@ public class UpdateNameTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Revert name
+		// Revert update
 
 		String nameToRevert = this.updateNameTransactionData.getNewName();
 		if (nameToRevert.isEmpty())

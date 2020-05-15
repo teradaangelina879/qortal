@@ -5,6 +5,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qortal.naming.Name;
 import org.qortal.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -15,14 +16,24 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class UpdateNameTransactionData extends TransactionData {
 
 	// Properties
+
 	@Schema(description = "owner's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] ownerPublicKey;
+
 	@Schema(description = "which name to update", example = "my-name")
 	private String name;
+
 	@Schema(description = "new name", example = "my-new-name")
 	private String newName;
+
 	@Schema(description = "replacement simple name-related info in JSON format", example = "{ \"age\": 30 }")
 	private String newData;
+
+	// For internal use
+	@XmlTransient
+	@Schema(hidden = true)
+	private String reducedNewName;
+
 	// For internal use when orphaning
 	@XmlTransient
 	@Schema(hidden = true)
@@ -40,19 +51,20 @@ public class UpdateNameTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String name, String newName, String newData, byte[] nameReference) {
+	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String name, String newName, String newData, String reducedNewName, byte[] nameReference) {
 		super(TransactionType.UPDATE_NAME, baseTransactionData);
 
 		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
 		this.name = name;
 		this.newName = newName;
 		this.newData = newData;
+		this.reducedNewName = reducedNewName;
 		this.nameReference = nameReference;
 	}
 
 	/** From network/API */
 	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String name, String newName, String newData) {
-		this(baseTransactionData, name, newName, newData, null);
+		this(baseTransactionData, name, newName, newData, Name.reduceName(newName), null);
 	}
 
 	// Getters / setters
@@ -71,6 +83,14 @@ public class UpdateNameTransactionData extends TransactionData {
 
 	public String getNewData() {
 		return this.newData;
+	}
+
+	public String getReducedNewName() {
+		return this.reducedNewName;
+	}
+
+	public void setReducedNewName(String reducedNewName) {
+		this.reducedNewName = reducedNewName;
 	}
 
 	public byte[] getNameReference() {

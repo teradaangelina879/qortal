@@ -62,7 +62,7 @@ public class CancelSellNameTransaction extends Transaction {
 			return ValidationResult.NAME_DOES_NOT_EXIST;
 
 		// Check name is currently for sale
-		if (!nameData.getIsForSale())
+		if (!nameData.isForSale())
 			return ValidationResult.NAME_NOT_FOR_SALE;
 
 		// Check transaction creator matches name's current owner

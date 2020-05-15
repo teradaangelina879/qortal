@@ -17,16 +17,17 @@ public class HSQLDBRegisterNameTransactionRepository extends HSQLDBTransactionRe
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		String sql = "SELECT name, data FROM RegisterNameTransactions WHERE signature = ?";
+		String sql = "SELECT name, reduced_name, data FROM RegisterNameTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
 			String name = resultSet.getString(1);
-			String data = resultSet.getString(2);
+			String reducedName = resultSet.getString(2);
+			String data = resultSet.getString(3);
 
-			return new RegisterNameTransactionData(baseTransactionData, name, data);
+			return new RegisterNameTransactionData(baseTransactionData, name, data, reducedName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch register name transaction from repository", e);
 		}
@@ -39,7 +40,8 @@ public class HSQLDBRegisterNameTransactionRepository extends HSQLDBTransactionRe
 		HSQLDBSaver saveHelper = new HSQLDBSaver("RegisterNameTransactions");
 
 		saveHelper.bind("signature", registerNameTransactionData.getSignature()).bind("registrant", registerNameTransactionData.getRegistrantPublicKey())
-				.bind("name", registerNameTransactionData.getName()).bind("data", registerNameTransactionData.getData());
+				.bind("name", registerNameTransactionData.getName()).bind("data", registerNameTransactionData.getData())
+				.bind("reduced_name", registerNameTransactionData.getReducedName());
 
 		try {
 			saveHelper.execute(this.repository);

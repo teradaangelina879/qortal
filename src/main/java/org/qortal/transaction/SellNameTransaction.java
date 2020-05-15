@@ -65,7 +65,7 @@ public class SellNameTransaction extends Transaction {
 			return ValidationResult.NAME_DOES_NOT_EXIST;
 
 		// Check name isn't currently for sale
-		if (nameData.getIsForSale())
+		if (nameData.isForSale())
 			return ValidationResult.NAME_ALREADY_FOR_SALE;
 
 		// Check transaction's public key matches name's current owner

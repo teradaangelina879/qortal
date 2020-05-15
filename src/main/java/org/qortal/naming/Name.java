@@ -13,6 +13,8 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.UpdateNameTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.Unicode;
 
 public class Name {
 
@@ -22,7 +24,7 @@ public class Name {
 
 	// Useful constants
 	public static final int MIN_NAME_SIZE = 3;
-	public static final int MAX_NAME_SIZE = 400;
+	public static final int MAX_NAME_SIZE = 40;
 	public static final int MAX_DATA_SIZE = 4000;
 
 	// Constructors
@@ -37,9 +39,10 @@ public class Name {
 		this.repository = repository;
 
 		String owner = Crypto.toAddress(registerNameTransactionData.getRegistrantPublicKey());
+		String reducedName = Unicode.sanitize(registerNameTransactionData.getName());
 
-		this.nameData = new NameData(owner,
-				registerNameTransactionData.getName(), registerNameTransactionData.getData(), registerNameTransactionData.getTimestamp(),
+		this.nameData = new NameData(registerNameTransactionData.getName(), reducedName, owner,
+				registerNameTransactionData.getData(), registerNameTransactionData.getTimestamp(),
 				registerNameTransactionData.getSignature(), registerNameTransactionData.getTxGroupId());
 	}
 
@@ -57,61 +60,16 @@ public class Name {
 
 	// Processing
 
+	public static String reduceName(String name) {
+		return Unicode.sanitize(name);
+	}
+
 	public void register() throws DataException {
 		this.repository.getNameRepository().save(this.nameData);
 	}
 
 	public void unregister() throws DataException {
 		this.repository.getNameRepository().delete(this.nameData.getName());
-	}
-
-	private void revert() throws DataException {
-		TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(this.nameData.getReference());
-		if (previousTransactionData == null)
-			throw new DataException("Unable to revert name transaction as referenced transaction not found in repository");
-
-		String previousName = this.nameData.getName();
-
-		switch (previousTransactionData.getType()) {
-			case REGISTER_NAME: {
-				RegisterNameTransactionData previousRegisterNameTransactionData = (RegisterNameTransactionData) previousTransactionData;
-
-				this.nameData.setName(previousRegisterNameTransactionData.getName());
-				this.nameData.setData(previousRegisterNameTransactionData.getData());
-
-				break;
-			}
-
-			case UPDATE_NAME: {
-				UpdateNameTransactionData previousUpdateNameTransactionData = (UpdateNameTransactionData) previousTransactionData;
-
-				if (!previousUpdateNameTransactionData.getNewName().isBlank())
-					this.nameData.setName(previousUpdateNameTransactionData.getNewName());
-
-				if (!previousUpdateNameTransactionData.getNewData().isEmpty())
-					this.nameData.setData(previousUpdateNameTransactionData.getNewData());
-
-				break;
-			}
-
-			case BUY_NAME: {
-				BuyNameTransactionData previousBuyNameTransactionData = (BuyNameTransactionData) previousTransactionData;
-
-				Account buyer = new PublicKeyAccount(this.repository, previousBuyNameTransactionData.getBuyerPublicKey());
-				this.nameData.setOwner(buyer.getAddress());
-
-				break;
-			}
-
-			default:
-				throw new IllegalStateException("Unable to revert name transaction due to unsupported referenced transaction");
-		}
-
-		this.repository.getNameRepository().save(this.nameData);
-
-		if (!this.nameData.getName().equals(previousName))
-			// Name has changed, delete old entry
-			this.repository.getNameRepository().delete(previousName);
 	}
 
 	public void update(UpdateNameTransactionData updateNameTransactionData) throws DataException {
@@ -121,12 +79,15 @@ public class Name {
 		// New name reference is this transaction's signature
 		this.nameData.setReference(updateNameTransactionData.getSignature());
 
+		// Set name's last-updated timestamp
+		this.nameData.setUpdated(updateNameTransactionData.getTimestamp());
+
 		// Update name and data where appropriate
 		if (!updateNameTransactionData.getNewName().isEmpty()) {
-			// If we're changing the name, we need to delete old entry
-			this.repository.getNameRepository().delete(nameData.getName());
-
 			this.nameData.setName(updateNameTransactionData.getNewName());
+
+			// If we're changing the name, we need to delete old entry
+			this.repository.getNameRepository().delete(updateNameTransactionData.getName());
 		}
 
 		if (!updateNameTransactionData.getNewData().isEmpty())
@@ -138,13 +99,66 @@ public class Name {
 
 	public void revert(UpdateNameTransactionData updateNameTransactionData) throws DataException {
 		// Previous name reference is taken from this transaction's cached copy
-		this.nameData.setReference(updateNameTransactionData.getNameReference());
+		byte[] nameReference = updateNameTransactionData.getNameReference();
 
-		// Previous Name's owner and/or data taken from referenced transaction
-		this.revert();
+		// Revert name's name-changing transaction reference
+		this.nameData.setReference(nameReference);
+
+		// Revert name's last-updated timestamp
+		this.nameData.setUpdated(fetchPreviousUpdateTimestamp(nameReference));
+
+		// We can find previous 'name' from update transaction
+		this.nameData.setName(updateNameTransactionData.getName());
+
+		// We might need to hunt for previous data value
+		if (!updateNameTransactionData.getNewData().isEmpty())
+			this.nameData.setData(findPreviousData(nameReference));
+
+		this.repository.getNameRepository().save(this.nameData);
+
+		if (!updateNameTransactionData.getNewName().isEmpty())
+			// Name has changed, delete old entry
+			this.repository.getNameRepository().delete(updateNameTransactionData.getNewName());
 
 		// Remove reference to previous name-changing transaction
 		updateNameTransactionData.setNameReference(null);
+	}
+
+	private String findPreviousData(byte[] nameReference) throws DataException {
+		// Follow back through name-references until we hit the data we need
+		while (true) {
+			TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(nameReference);
+			if (previousTransactionData == null)
+				throw new DataException("Unable to revert name transaction as referenced transaction not found in repository");
+
+			switch (previousTransactionData.getType()) {
+				case REGISTER_NAME: {
+					RegisterNameTransactionData previousRegisterNameTransactionData = (RegisterNameTransactionData) previousTransactionData;
+
+					return previousRegisterNameTransactionData.getData();
+				}
+
+				case UPDATE_NAME: {
+					UpdateNameTransactionData previousUpdateNameTransactionData = (UpdateNameTransactionData) previousTransactionData;
+
+					if (!previousUpdateNameTransactionData.getNewData().isEmpty())
+						return previousUpdateNameTransactionData.getNewData();
+
+					nameReference = previousUpdateNameTransactionData.getNameReference();
+
+					break;
+				}
+
+				case BUY_NAME: {
+					BuyNameTransactionData previousBuyNameTransactionData = (BuyNameTransactionData) previousTransactionData;
+					nameReference = previousBuyNameTransactionData.getNameReference();
+					break;
+				}
+
+				default:
+					throw new IllegalStateException("Unable to revert name transaction due to unsupported referenced transaction");
+			}
+		}
 	}
 
 	public void sell(SellNameTransactionData sellNameTransactionData) throws DataException {
@@ -182,6 +196,10 @@ public class Name {
 	}
 
 	public void buy(BuyNameTransactionData buyNameTransactionData) throws DataException {
+		// Save previous name-changing reference in this transaction's data
+		// Caller is expected to save
+		buyNameTransactionData.setNameReference(this.nameData.getReference());
+
 		// Mark not for-sale but leave price in case we want to orphan
 		this.nameData.setIsForSale(false);
 
@@ -195,11 +213,11 @@ public class Name {
 		// Update buyer's balance
 		buyer.modifyAssetBalance(Asset.QORT, - buyNameTransactionData.getAmount());
 
-		// Update reference in transaction data
-		buyNameTransactionData.setNameReference(this.nameData.getReference());
-
-		// New name reference is this transaction's signature
+		// Set name-changing reference to this transaction
 		this.nameData.setReference(buyNameTransactionData.getSignature());
+
+		// Set name's last-updated timestamp
+		this.nameData.setUpdated(buyNameTransactionData.getTimestamp());
 
 		// Save updated name data
 		this.repository.getNameRepository().save(this.nameData);
@@ -210,22 +228,41 @@ public class Name {
 		this.nameData.setIsForSale(true);
 		this.nameData.setSalePrice(buyNameTransactionData.getAmount());
 
-		// Previous name reference is taken from this transaction's cached copy
+		// Previous name-changing reference is taken from this transaction's cached copy
 		this.nameData.setReference(buyNameTransactionData.getNameReference());
 
-		// Remove reference in transaction data
-		buyNameTransactionData.setNameReference(null);
+		// Revert name's last-updated timestamp
+		this.nameData.setUpdated(fetchPreviousUpdateTimestamp(buyNameTransactionData.getNameReference()));
+
+		// Revert to previous owner
+		this.nameData.setOwner(buyNameTransactionData.getSeller());
+
+		// Save updated name data
+		this.repository.getNameRepository().save(this.nameData);
 
 		// Revert buyer's balance
 		Account buyer = new PublicKeyAccount(this.repository, buyNameTransactionData.getBuyerPublicKey());
 		buyer.modifyAssetBalance(Asset.QORT, buyNameTransactionData.getAmount());
 
-		// Previous Name's owner and/or data taken from referenced transaction
-		this.revert();
-
 		// Revert seller's balance
-		Account seller = new Account(this.repository, this.nameData.getOwner());
+		Account seller = new Account(this.repository, buyNameTransactionData.getSeller());
 		seller.modifyAssetBalance(Asset.QORT, - buyNameTransactionData.getAmount());
+
+		// Clean previous name-changing reference from this transaction's data
+		// Caller is expected to save
+		buyNameTransactionData.setNameReference(null);
+	}
+
+	private Long fetchPreviousUpdateTimestamp(byte[] nameReference) throws DataException {
+		TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(nameReference);
+		if (previousTransactionData == null)
+			throw new DataException("Unable to revert name transaction as referenced transaction not found in repository");
+
+		// If we've hit REGISTER_NAME then we've run out of updates
+		if (previousTransactionData.getType() == TransactionType.REGISTER_NAME)
+			return null;
+
+		return previousTransactionData.getTimestamp();
 	}
 
 }

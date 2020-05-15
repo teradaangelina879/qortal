@@ -69,7 +69,7 @@ public class BuyNameTransaction extends Transaction {
 			return ValidationResult.NAME_DOES_NOT_EXIST;
 
 		// Check name is currently for sale
-		if (!nameData.getIsForSale())
+		if (!nameData.isForSale())
 			return ValidationResult.NAME_NOT_FOR_SALE;
 
 		// Check buyer isn't trying to buy own name
