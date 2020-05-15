@@ -508,7 +508,7 @@ public class BTC {
 
 		// 11 blocks, at roughly 10 minutes per block, means we should go back at least 110 minutes
 		// but some blocks have been way longer than 10 minutes, so be massively pessimistic
-		int startTime = (int) (System.currentTimeMillis() / 1000L) - 110 * 60; // 110 minutes before now, in seconds
+		int startTime = (int) (System.currentTimeMillis() / 1000L) - 11 * 60 * 60; // 11 hours before now, in seconds
 
 		try {
 			this.replayChain(startTime, null, null);
@@ -518,6 +518,10 @@ public class BTC {
 			for (int i = 0; i < 11; ++i) {
 				latestBlocks.add(block);
 				block = block.getPrev(this.blockStore);
+
+				// If previous block is null then chain replay didn't fetch any recent blocks (REGTEST)
+				if (block == null)
+					return null;
 			}
 
 			// Descending, but order shouldn't matter as we're picking median...

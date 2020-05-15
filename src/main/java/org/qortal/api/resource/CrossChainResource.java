@@ -526,7 +526,10 @@ public class CrossChainResource {
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
-			long medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			Long medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			if (medianBlockTime == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
+
 			long now = NTP.getTime();
 
 			// Check P2SH is funded
@@ -742,7 +745,10 @@ public class CrossChainResource {
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
-			long medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			Long medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			if (medianBlockTime == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
+
 			long now = NTP.getTime();
 
 			// Check P2SH is funded
