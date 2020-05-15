@@ -292,6 +292,8 @@ public class HSQLDBDatabaseUpdates {
 							+ "PRIMARY KEY (name))");
 					// For finding names by owner
 					stmt.execute("CREATE INDEX NamesOwnerIndex ON Names (owner)");
+					// For finding names by 'reduced' form
+					stmt.execute("CREATE INDEX NamesReducedNameIndex ON Names (reduced_name)");
 
 					// Register Name Transactions
 					stmt.execute("CREATE TABLE RegisterNameTransactions (signature Signature, registrant QortalPublicKey NOT NULL, name RegisteredName NOT NULL, "
