@@ -6,12 +6,12 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Unicode;
 
 import com.google.common.base.Utf8;
 
@@ -32,7 +32,7 @@ public class RegisterNameTransaction extends Transaction {
 
 	@Override
 	public List<String> getRecipientAddresses() throws DataException {
-		return Collections.singletonList(this.registerNameTransactionData.getOwner());
+		return Collections.emptyList();
 	}
 
 	// Navigation
@@ -41,33 +41,42 @@ public class RegisterNameTransaction extends Transaction {
 		return this.getCreator();
 	}
 
+	private synchronized String getReducedName() {
+		if (this.registerNameTransactionData.getReducedName() == null) {
+			String reducedName = Name.reduceName(this.registerNameTransactionData.getName());
+			this.registerNameTransactionData.setReducedName(reducedName);
+		}
+
+		return this.registerNameTransactionData.getReducedName();
+	}
+
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
 		Account registrant = getRegistrant();
-
-		// Check owner address is valid
-		if (!Crypto.isValidAddress(this.registerNameTransactionData.getOwner()))
-			return ValidationResult.INVALID_ADDRESS;
+		String name = this.registerNameTransactionData.getName();
 
 		// Check name size bounds
-		int nameLength = Utf8.encodedLength(this.registerNameTransactionData.getName());
-		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
+		int nameLength = Utf8.encodedLength(name);
+		if (nameLength < Name.MIN_NAME_SIZE || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check data size bounds
 		int dataLength = Utf8.encodedLength(this.registerNameTransactionData.getData());
-		if (dataLength < 1 || dataLength > Name.MAX_DATA_SIZE)
+		if (dataLength > Name.MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
-		// Check name is lowercase
-		if (!this.registerNameTransactionData.getName().equals(this.registerNameTransactionData.getName().toLowerCase()))
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!name.equals(Unicode.normalize(name)))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
 		// Check registrant has enough funds
 		if (registrant.getConfirmedBalance(Asset.QORT) < this.registerNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
+
+		// Fill in missing reduced name. Caller is likely to save this as next step.
+		getReducedName();
 
 		return ValidationResult.OK;
 	}
@@ -75,13 +84,12 @@ public class RegisterNameTransaction extends Transaction {
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Check the name isn't already taken
-		if (this.repository.getNameRepository().nameExists(this.registerNameTransactionData.getName()))
+		if (this.repository.getNameRepository().reducedNameExists(getReducedName()))
 			return ValidationResult.NAME_ALREADY_REGISTERED;
 
-		Account registrant = getRegistrant();
-
 		// If accounts are only allowed one registered name then check for this
-		if (BlockChain.getInstance().oneNamePerAccount() && !this.repository.getNameRepository().getNamesByOwner(registrant.getAddress()).isEmpty())
+		if (BlockChain.getInstance().oneNamePerAccount()
+				&& !this.repository.getNameRepository().getNamesByOwner(getRegistrant().getAddress()).isEmpty())
 			return ValidationResult.MULTIPLE_NAMES_FORBIDDEN;
 
 		return ValidationResult.OK;

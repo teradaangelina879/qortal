@@ -33,7 +33,6 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("name registrant's public key", TransformationType.PUBLIC_KEY);
-		layout.add("name owner", TransformationType.ADDRESS);
 		layout.add("name length", TransformationType.INT);
 		layout.add("name", TransformationType.STRING);
 		layout.add("data length", TransformationType.INT);
@@ -52,8 +51,6 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 
 		byte[] registrantPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String owner = Serialization.deserializeAddress(byteBuffer);
-
 		String name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
 
 		String data = Serialization.deserializeSizedString(byteBuffer, Name.MAX_DATA_SIZE);
@@ -65,7 +62,7 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, registrantPublicKey, fee, signature);
 
-		return new RegisterNameTransactionData(baseTransactionData, owner, name, data);
+		return new RegisterNameTransactionData(baseTransactionData, name, data);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -82,8 +79,6 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
 			transformCommonBytes(transactionData, bytes);
-
-			Serialization.serializeAddress(bytes, registerNameTransactionData.getOwner());
 
 			Serialization.serializeSizedString(bytes, registerNameTransactionData.getName());
 

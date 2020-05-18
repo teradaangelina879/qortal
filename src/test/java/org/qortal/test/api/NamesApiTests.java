@@ -46,7 +46,7 @@ public class NamesApiTests extends ApiCommon {
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String name = "test-name";
 
-			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), alice.getAddress(), name, "{}");
+			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			assertNotNull(this.namesResource.getNamesByAddress(alice.getAddress(), null, null, null));
@@ -61,7 +61,7 @@ public class NamesApiTests extends ApiCommon {
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String name = "test-name";
 
-			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), alice.getAddress(), name, "{}");
+			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			assertNotNull(this.namesResource.getName(name));
@@ -76,7 +76,7 @@ public class NamesApiTests extends ApiCommon {
 			String name = "test-name";
 			long price = 1_23456789L;
 
-			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), alice.getAddress(), name, "{}");
+			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Sell-name

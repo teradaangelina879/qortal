@@ -12,18 +12,29 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class NameData {
 
 	// Properties
-	private String owner;
+
 	private String name;
+
+	private String reducedName;
+
+	private String owner;
+
 	private String data;
+
 	private long registered;
-	private Long updated;
-	// No need to expose this via API
+
+	private Long updated; // Not always present
+
+	private boolean isForSale;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private Long salePrice;
+
+	// For internal use - no need to expose this via API
 	@XmlTransient
 	@Schema(hidden = true)
 	private byte[] reference;
-	private boolean isForSale;
-	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	private Long salePrice;
+
 	// For internal use
 	@XmlTransient
 	@Schema(hidden = true)
@@ -31,14 +42,17 @@ public class NameData {
 
 	// Constructors
 
-	// necessary for JAX-RS serialization
+	// necessary for JAXB
 	protected NameData() {
 	}
 
-	public NameData(String owner, String name, String data, long registered, Long updated, byte[] reference, boolean isForSale, Long salePrice,
-			int creationGroupId) {
-		this.owner = owner;
+	// Typically used when fetching from repository
+	public NameData(String name, String reducedName, String owner, String data, long registered,
+			Long updated, boolean isForSale, Long salePrice,
+			byte[] reference, int creationGroupId) {
 		this.name = name;
+		this.reducedName = reducedName;
+		this.owner = owner;
 		this.data = data;
 		this.registered = registered;
 		this.updated = updated;
@@ -48,11 +62,28 @@ public class NameData {
 		this.creationGroupId = creationGroupId;
 	}
 
-	public NameData(String owner, String name, String data, long registered, byte[] reference, int creationGroupId) {
-		this(owner, name, data, registered, null, reference, false, null, creationGroupId);
+	// Typically used when registering a new name
+	public NameData(String name, String reducedName, String owner, String data, long registered, byte[] reference, int creationGroupId) {
+		this(name, reducedName, owner, data, registered, null, false, null, reference, creationGroupId);
 	}
 
 	// Getters / setters
+
+	public String getName() {
+		return this.name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getReducedName() {
+		return this.reducedName;
+	}
+
+	public void setReducedName(String reducedName) {
+		this.reducedName = reducedName;
+	}
 
 	public String getOwner() {
 		return this.owner;
@@ -60,10 +91,6 @@ public class NameData {
 
 	public void setOwner(String owner) {
 		this.owner = owner;
-	}
-
-	public String getName() {
-		return this.name;
 	}
 
 	public String getData() {
@@ -86,15 +113,7 @@ public class NameData {
 		this.updated = updated;
 	}
 
-	public byte[] getReference() {
-		return this.reference;
-	}
-
-	public void setReference(byte[] reference) {
-		this.reference = reference;
-	}
-
-	public boolean getIsForSale() {
+	public boolean isForSale() {
 		return this.isForSale;
 	}
 
@@ -108,6 +127,14 @@ public class NameData {
 
 	public void setSalePrice(Long salePrice) {
 		this.salePrice = salePrice;
+	}
+
+	public byte[] getReference() {
+		return this.reference;
+	}
+
+	public void setReference(byte[] reference) {
+		this.reference = reference;
 	}
 
 	public int getCreationGroupId() {

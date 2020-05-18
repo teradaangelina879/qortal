@@ -5,13 +5,13 @@ import java.util.List;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.UpdateNameTransactionData;
 import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Unicode;
 
 import com.google.common.base.Utf8;
 
@@ -32,7 +32,7 @@ public class UpdateNameTransaction extends Transaction {
 
 	@Override
 	public List<String> getRecipientAddresses() throws DataException {
-		return Collections.singletonList(this.updateNameTransactionData.getNewOwner());
+		return Collections.emptyList();
 	}
 
 	// Navigation
@@ -41,8 +41,13 @@ public class UpdateNameTransaction extends Transaction {
 		return this.getCreator();
 	}
 
-	public Account getNewOwner() {
-		return new Account(this.repository, this.updateNameTransactionData.getNewOwner());
+	private synchronized String getReducedNewName() {
+		if (this.updateNameTransactionData.getReducedNewName() == null) {
+			String reducedNewName = Name.reduceName(this.updateNameTransactionData.getNewName());
+			this.updateNameTransactionData.setReducedNewName(reducedNewName);
+		}
+
+		return this.updateNameTransactionData.getReducedNewName();
 	}
 
 	// Processing
@@ -51,22 +56,13 @@ public class UpdateNameTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		String name = this.updateNameTransactionData.getName();
 
-		// Check new owner address is valid
-		if (!Crypto.isValidAddress(this.updateNameTransactionData.getNewOwner()))
-			return ValidationResult.INVALID_ADDRESS;
-
 		// Check name size bounds
 		int nameLength = Utf8.encodedLength(name);
-		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
+		if (nameLength < Name.MIN_NAME_SIZE || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
-		// Check new data size bounds
-		int newDataLength = Utf8.encodedLength(this.updateNameTransactionData.getNewData());
-		if (newDataLength < 1 || newDataLength > Name.MAX_DATA_SIZE)
-			return ValidationResult.INVALID_DATA_LENGTH;
-
-		// Check name is lowercase
-		if (!name.equals(name.toLowerCase()))
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!name.equals(Unicode.normalize(name)))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
 		NameData nameData = this.repository.getNameRepository().fromName(name);
@@ -79,11 +75,32 @@ public class UpdateNameTransaction extends Transaction {
 		if (nameData.getCreationGroupId() != this.updateNameTransactionData.getTxGroupId())
 			return ValidationResult.TX_GROUP_ID_MISMATCH;
 
+		// Check new name (0 length means don't update name)
+		String newName = this.updateNameTransactionData.getNewName();
+		int newNameLength = Utf8.encodedLength(newName);
+		if (newNameLength != 0) {
+			// Check new name size bounds
+			if (newNameLength < Name.MIN_NAME_SIZE || newNameLength > Name.MAX_NAME_SIZE)
+				return ValidationResult.INVALID_NAME_LENGTH;
+
+			// Check new name is in normalized form (no leading/trailing whitespace, etc.)
+			if (!newName.equals(Unicode.normalize(newName)))
+				return ValidationResult.NAME_NOT_LOWER_CASE;
+		}
+
+		// Check new data size bounds (0 length means don't update data)
+		int newDataLength = Utf8.encodedLength(this.updateNameTransactionData.getNewData());
+		if (newDataLength > Name.MAX_DATA_SIZE)
+			return ValidationResult.INVALID_DATA_LENGTH;
+
 		Account owner = getOwner();
 
 		// Check owner has enough funds
 		if (owner.getConfirmedBalance(Asset.QORT) < this.updateNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
+
+		// Fill in missing reduced new name. Caller is likely to save this as next step.
+		getReducedNewName();
 
 		return ValidationResult.OK;
 	}
@@ -92,8 +109,12 @@ public class UpdateNameTransaction extends Transaction {
 	public ValidationResult isProcessable() throws DataException {
 		NameData nameData = this.repository.getNameRepository().fromName(this.updateNameTransactionData.getName());
 
+		// Check name still exists
+		if (nameData == null)
+			return ValidationResult.NAME_DOES_NOT_EXIST;
+
 		// Check name isn't currently for sale
-		if (nameData.getIsForSale())
+		if (nameData.isForSale())
 			return ValidationResult.NAME_ALREADY_FOR_SALE;
 
 		Account owner = getOwner();
@@ -101,6 +122,11 @@ public class UpdateNameTransaction extends Transaction {
 		// Check transaction's public key matches name's current owner
 		if (!owner.getAddress().equals(nameData.getOwner()))
 			return ValidationResult.INVALID_NAME_OWNER;
+
+		// Check new name isn't already taken, unless it is the same name (this allows for case-adjusting renames)
+		NameData newNameData = this.repository.getNameRepository().fromReducedName(getReducedNewName());
+		if (newNameData != null && !newNameData.getName().equals(nameData.getName()))
+			return ValidationResult.NAME_ALREADY_REGISTERED;
 
 		return ValidationResult.OK;
 	}
@@ -111,17 +137,22 @@ public class UpdateNameTransaction extends Transaction {
 		Name name = new Name(this.repository, this.updateNameTransactionData.getName());
 		name.update(this.updateNameTransactionData);
 
-		// Save this transaction, now with updated "name reference" to previous transaction that updated name
+		// Save this transaction, now with updated "name reference" to previous transaction that changed name
 		this.repository.getTransactionRepository().save(this.updateNameTransactionData);
 	}
 
 	@Override
 	public void orphan() throws DataException {
-		// Revert name
-		Name name = new Name(this.repository, this.updateNameTransactionData.getName());
+		// Revert update
+
+		String nameToRevert = this.updateNameTransactionData.getNewName();
+		if (nameToRevert.isEmpty())
+			nameToRevert = this.updateNameTransactionData.getName();
+
+		Name name = new Name(this.repository, nameToRevert);
 		name.revert(this.updateNameTransactionData);
 
-		// Save this transaction, now with removed "name reference"
+		// Save this transaction, with previous "name reference"
 		this.repository.getTransactionRepository().save(this.updateNameTransactionData);
 	}
 

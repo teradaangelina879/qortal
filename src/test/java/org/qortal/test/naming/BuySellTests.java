@@ -61,7 +61,7 @@ public class BuySellTests extends Common {
 	@Test
 	public void testRegisterName() throws DataException {
 		// Register-name
-		RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), alice.getAddress(), name, "{}");
+		RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
 		TransactionUtils.signAndMint(repository, transactionData, alice);
 
 		String name = transactionData.getName();
@@ -95,7 +95,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		assertEquals("price incorrect", price, nameData.getSalePrice());
 
 		// Orphan sell-name
@@ -103,7 +103,7 @@ public class BuySellTests extends Common {
 
 		// Check name no longer for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertFalse(nameData.getIsForSale());
+		assertFalse(nameData.isForSale());
 		// Not concerned about price
 
 		// Re-process sell-name
@@ -111,7 +111,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		assertEquals("price incorrect", price, nameData.getSalePrice());
 
 		// Orphan sell-name and register-name
@@ -133,7 +133,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		assertEquals("price incorrect", price, nameData.getSalePrice());
 	}
 
@@ -150,7 +150,7 @@ public class BuySellTests extends Common {
 
 		// Check name is no longer for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertFalse(nameData.getIsForSale());
+		assertFalse(nameData.isForSale());
 		// Not concerned about price
 
 		// Orphan cancel sell-name
@@ -158,7 +158,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		assertEquals("price incorrect", price, nameData.getSalePrice());
 	}
 
@@ -177,7 +177,7 @@ public class BuySellTests extends Common {
 
 		// Check name is sold
 		nameData = repository.getNameRepository().fromName(name);
-		assertFalse(nameData.getIsForSale());
+		assertFalse(nameData.isForSale());
 		// Not concerned about price
 
 		// Orphan buy-name
@@ -185,7 +185,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale (not sold)
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		assertEquals("price incorrect", price, nameData.getSalePrice());
 
 		// Re-process buy-name
@@ -193,7 +193,7 @@ public class BuySellTests extends Common {
 
 		// Check name is sold
 		nameData = repository.getNameRepository().fromName(name);
-		assertFalse(nameData.getIsForSale());
+		assertFalse(nameData.isForSale());
 		// Not concerned about price
 		assertEquals(bob.getAddress(), nameData.getOwner());
 
@@ -202,7 +202,7 @@ public class BuySellTests extends Common {
 
 		// Check name no longer for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertFalse(nameData.getIsForSale());
+		assertFalse(nameData.isForSale());
 		// Not concerned about price
 		assertEquals(alice.getAddress(), nameData.getOwner());
 
@@ -214,7 +214,7 @@ public class BuySellTests extends Common {
 
 		// Check name is sold
 		nameData = repository.getNameRepository().fromName(name);
-		assertFalse(nameData.getIsForSale());
+		assertFalse(nameData.isForSale());
 		// Not concerned about price
 		assertEquals(bob.getAddress(), nameData.getOwner());
 	}
@@ -233,7 +233,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		assertEquals("price incorrect", newPrice, nameData.getSalePrice());
 
 		// Orphan sell-name
@@ -241,7 +241,7 @@ public class BuySellTests extends Common {
 
 		// Check name no longer for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertFalse(nameData.getIsForSale());
+		assertFalse(nameData.isForSale());
 		// Not concerned about price
 
 		// Re-process sell-name
@@ -249,7 +249,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		assertEquals("price incorrect", newPrice, nameData.getSalePrice());
 
 		// Orphan sell-name and buy-name
@@ -257,7 +257,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		// Note: original sale price
 		assertEquals("price incorrect", price, nameData.getSalePrice());
 		assertEquals(alice.getAddress(), nameData.getOwner());
@@ -273,7 +273,7 @@ public class BuySellTests extends Common {
 
 		// Check name is for sale
 		nameData = repository.getNameRepository().fromName(name);
-		assertTrue(nameData.getIsForSale());
+		assertTrue(nameData.isForSale());
 		assertEquals("price incorrect", newPrice, nameData.getSalePrice());
 		assertEquals(bob.getAddress(), nameData.getOwner());
 	}
