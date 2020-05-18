@@ -36,7 +36,7 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 
 			byte[] data = resultSet.getBytes(7);
 
-			return new MessageTransactionData(baseTransactionData, version, recipient, assetId, amount, data, isText, isEncrypted);
+			return new MessageTransactionData(baseTransactionData, version, recipient, amount, assetId, data, isText, isEncrypted);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch message transaction from repository", e);
 		}
@@ -50,7 +50,7 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 
 		saveHelper.bind("signature", messageTransactionData.getSignature()).bind("version", messageTransactionData.getVersion())
 				.bind("sender", messageTransactionData.getSenderPublicKey()).bind("recipient", messageTransactionData.getRecipient())
-				.bind("is_text", messageTransactionData.getIsText()).bind("is_encrypted", messageTransactionData.getIsEncrypted())
+				.bind("is_text", messageTransactionData.isText()).bind("is_encrypted", messageTransactionData.isEncrypted())
 				.bind("amount", messageTransactionData.getAmount()).bind("asset_id", messageTransactionData.getAssetId())
 				.bind("data", messageTransactionData.getData());
 

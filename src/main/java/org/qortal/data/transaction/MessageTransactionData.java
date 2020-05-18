@@ -5,7 +5,6 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import org.qortal.asset.Asset;
 import org.qortal.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,14 +15,24 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class MessageTransactionData extends TransactionData {
 
 	// Properties
+
 	private byte[] senderPublicKey;
+
 	private int version;
+
+	// Not always present
 	private String recipient;
-	private Long assetId;
+
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long amount;
+
+	// Not present if amount is zero
+	private Long assetId;
+
 	private byte[] data;
+
 	private boolean isText;
+
 	private boolean isEncrypted;
 
 	// Constructors
@@ -38,19 +47,14 @@ public class MessageTransactionData extends TransactionData {
 	}
 
 	public MessageTransactionData(BaseTransactionData baseTransactionData,
-			int version, String recipient, Long assetId, long amount, byte[] data, boolean isText, boolean isEncrypted) {
+			int version, String recipient, long amount, Long assetId, byte[] data, boolean isText, boolean isEncrypted) {
 		super(TransactionType.MESSAGE, baseTransactionData);
 
 		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.version = version;
 		this.recipient = recipient;
-
-		if (assetId != null)
-			this.assetId = assetId;
-		else
-			this.assetId = Asset.QORT;
-
 		this.amount = amount;
+		this.assetId = assetId;
 		this.data = data;
 		this.isText = isText;
 		this.isEncrypted = isEncrypted;
@@ -70,23 +74,23 @@ public class MessageTransactionData extends TransactionData {
 		return this.recipient;
 	}
 
-	public Long getAssetId() {
-		return this.assetId;
-	}
-
 	public long getAmount() {
 		return this.amount;
+	}
+
+	public Long getAssetId() {
+		return this.assetId;
 	}
 
 	public byte[] getData() {
 		return this.data;
 	}
 
-	public boolean getIsText() {
+	public boolean isText() {
 		return this.isText;
 	}
 
-	public boolean getIsEncrypted() {
+	public boolean isEncrypted() {
 		return this.isEncrypted;
 	}
 
