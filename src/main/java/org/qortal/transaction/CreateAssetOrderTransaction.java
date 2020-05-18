@@ -76,7 +76,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
 		// Unspendable assets are not tradable
-		if (haveAssetData.getIsUnspendable() || wantAssetData.getIsUnspendable())
+		if (haveAssetData.isUnspendable() || wantAssetData.isUnspendable())
 			return ValidationResult.ASSET_NOT_SPENDABLE;
 
 		Account creator = getCreator();
@@ -109,11 +109,11 @@ public class CreateAssetOrderTransaction extends Transaction {
 		}
 
 		// Check amount is integer if amount's asset is not divisible
-		if (!haveAssetData.getIsDivisible() && committedCost.mod(Amounts.MULTIPLIER_BI).signum() != 0)
+		if (!haveAssetData.isDivisible() && committedCost.mod(Amounts.MULTIPLIER_BI).signum() != 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		// Check total return from fulfilled order would be integer if return's asset is not divisible
-		if (!wantAssetData.getIsDivisible() && maxOtherAmount.mod(Amounts.MULTIPLIER_BI).signum() != 0)
+		if (!wantAssetData.isDivisible() && maxOtherAmount.mod(Amounts.MULTIPLIER_BI).signum() != 0)
 			return ValidationResult.INVALID_RETURN;
 
 		// Check order creator has enough asset balance AFTER removing fee, in case asset is QORT

@@ -50,9 +50,9 @@
 		"version": 4,
 		"timestamp": 0,
 		"transactions": [
-			{ "type": "ISSUE_ASSET", "owner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "assetName": "QORT", "description": "QORT native coin", "data": "", "quantity": 0, "isDivisible": true, "fee": 0 },
-			{ "type": "ISSUE_ASSET", "owner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "assetName": "Legacy-QORA", "description": "Representative legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
-			{ "type": "ISSUE_ASSET", "owner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "assetName": "QORT-from-QORA", "description": "QORT gained from holding legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
+			{ "type": "ISSUE_ASSET", "assetName": "QORT", "description": "QORT native coin", "data": "", "quantity": 0, "isDivisible": true, "fee": 0 },
+			{ "type": "ISSUE_ASSET", "assetName": "Legacy-QORA", "description": "Representative legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
+			{ "type": "ISSUE_ASSET", "assetName": "QORT-from-QORA", "description": "QORT gained from holding legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
 
 			{ "type": "ACCOUNT_FLAGS", "target": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "andMask": -1, "orMask": 1, "xorMask": 0 },
 			{ "type": "REWARD_SHARE", "minterPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "recipient": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "rewardSharePublicKey": "7PpfnvLSG7y4HPh8hE7KoqAjLCkv7Ui6xw4mKAkbZtox", "sharePercent": 100 },

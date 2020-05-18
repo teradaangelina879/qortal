@@ -18,7 +18,6 @@ import com.google.common.primitives.Longs;
 public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int OWNER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int QUANTITY_LENGTH = AMOUNT_LENGTH;
@@ -26,7 +25,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 	private static final int IS_UNSPENDABLE_LENGTH = BOOLEAN_LENGTH;
 
-	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + QUANTITY_LENGTH
+	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + QUANTITY_LENGTH
 			+ IS_DIVISIBLE_LENGTH + DATA_SIZE_LENGTH + IS_UNSPENDABLE_LENGTH;
 
 	protected static final TransactionLayout layout;
@@ -38,7 +37,6 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("asset issuer's public key", TransformationType.PUBLIC_KEY);
-		layout.add("asset owner", TransformationType.ADDRESS);
 		layout.add("asset name length", TransformationType.INT);
 		layout.add("asset name", TransformationType.STRING);
 		layout.add("asset description length", TransformationType.INT);
@@ -62,8 +60,6 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 		byte[] issuerPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String owner = Serialization.deserializeAddress(byteBuffer);
-
 		String assetName = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_NAME_SIZE);
 
 		String description = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_DESCRIPTION_SIZE);
@@ -83,7 +79,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, issuerPublicKey, fee, signature);
 
-		return new IssueAssetTransactionData(baseTransactionData, owner, assetName, description, quantity, isDivisible, data, isUnspendable);
+		return new IssueAssetTransactionData(baseTransactionData, assetName, description, quantity, isDivisible, data, isUnspendable);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -103,18 +99,16 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 			transformCommonBytes(transactionData, bytes);
 
-			Serialization.serializeAddress(bytes, issueAssetTransactionData.getOwner());
-
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getAssetName());
 
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getDescription());
 
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getQuantity()));
-			bytes.write((byte) (issueAssetTransactionData.getIsDivisible() ? 1 : 0));
+			bytes.write((byte) (issueAssetTransactionData.isDivisible() ? 1 : 0));
 
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getData());
 
-			bytes.write((byte) (issueAssetTransactionData.getIsUnspendable() ? 1 : 0));
+			bytes.write((byte) (issueAssetTransactionData.isUnspendable() ? 1 : 0));
 
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getFee()));
 

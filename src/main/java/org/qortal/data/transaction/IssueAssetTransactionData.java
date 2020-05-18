@@ -29,9 +29,6 @@ public class IssueAssetTransactionData extends TransactionData {
 	@Schema(description = "asset issuer's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] issuerPublicKey;
 
-	@Schema(description = "asset owner's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
-	private String owner;
-
 	@Schema(description = "asset name", example = "GOLD")
 	private String assetName;
 
@@ -72,12 +69,11 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	/** From repository */
 	public IssueAssetTransactionData(BaseTransactionData baseTransactionData,
-			Long assetId, String owner, String assetName, String description, long quantity, boolean isDivisible, String data, boolean isUnspendable) {
+			Long assetId, String assetName, String description, long quantity, boolean isDivisible, String data, boolean isUnspendable) {
 		super(TransactionType.ISSUE_ASSET, baseTransactionData);
 
 		this.assetId = assetId;
 		this.issuerPublicKey = baseTransactionData.creatorPublicKey;
-		this.owner = owner;
 		this.assetName = assetName;
 		this.description = description;
 		this.quantity = quantity;
@@ -87,9 +83,9 @@ public class IssueAssetTransactionData extends TransactionData {
 	}
 
 	/** From network/API */
-	public IssueAssetTransactionData(BaseTransactionData baseTransactionData, String owner, String assetName, String description,
+	public IssueAssetTransactionData(BaseTransactionData baseTransactionData, String assetName, String description,
 			long quantity, boolean isDivisible, String data, boolean isUnspendable) {
-		this(baseTransactionData, null, owner, assetName, description, quantity, isDivisible, data, isUnspendable);
+		this(baseTransactionData, null, assetName, description, quantity, isDivisible, data, isUnspendable);
 	}
 
 	// Getters/Setters
@@ -106,14 +102,6 @@ public class IssueAssetTransactionData extends TransactionData {
 		return this.issuerPublicKey;
 	}
 
-	public String getOwner() {
-		return this.owner;
-	}
-
-	public void setOwner(String owner) {
-		this.owner = owner;
-	}
-
 	public String getAssetName() {
 		return this.assetName;
 	}
@@ -126,7 +114,7 @@ public class IssueAssetTransactionData extends TransactionData {
 		return this.quantity;
 	}
 
-	public boolean getIsDivisible() {
+	public boolean isDivisible() {
 		return this.isDivisible;
 	}
 
@@ -134,7 +122,7 @@ public class IssueAssetTransactionData extends TransactionData {
 		return this.data;
 	}
 
-	public boolean getIsUnspendable() {
+	public boolean isUnspendable() {
 		return this.isUnspendable;
 	}
 

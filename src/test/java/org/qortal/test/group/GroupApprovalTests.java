@@ -434,7 +434,7 @@ public class GroupApprovalTests extends Common {
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, account.getPublicKey(), fee, null);
-		TransactionData transactionData = new IssueAssetTransactionData(baseTransactionData, account.getAddress(), "test asset", "test asset desc", 1000L, true, "{}", false);
+		TransactionData transactionData = new IssueAssetTransactionData(baseTransactionData, "test asset", "test asset desc", 1000L, true, "{}", false);
 
 		return Transaction.fromData(repository, transactionData);
 	}

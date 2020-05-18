@@ -114,7 +114,7 @@ public class AtTransaction extends Transaction {
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
 		// Check asset amount is integer if asset is not divisible
-		if (!assetData.getIsDivisible() && amount % Amounts.MULTIPLIER != 0)
+		if (!assetData.isDivisible() && amount % Amounts.MULTIPLIER != 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		Account sender = getATAccount();

@@ -113,11 +113,11 @@ public class DeployAtTransaction extends Transaction {
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
 		// Unspendable assets are not valid
-		if (assetData.getIsUnspendable())
+		if (assetData.isUnspendable())
 			return ValidationResult.ASSET_NOT_SPENDABLE;
 
 		// Check asset amount is integer if asset is not divisible
-		if (!assetData.getIsDivisible() && this.deployATTransactionData.getAmount() % Amounts.MULTIPLIER != 0)
+		if (!assetData.isDivisible() && this.deployATTransactionData.getAmount() % Amounts.MULTIPLIER != 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		Account creator = this.getCreator();
