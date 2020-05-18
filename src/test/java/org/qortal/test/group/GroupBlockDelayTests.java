@@ -60,13 +60,12 @@ public class GroupBlockDelayTests extends Common {
 	}
 
 	private CreateGroupTransaction buildCreateGroupWithDelays(Repository repository, PrivateKeyAccount account, int minimumBlockDelay, int maximumBlockDelay) throws DataException {
-		String owner = account.getAddress();
 		String groupName = "test group";
 		String description = "random test group";
 		final boolean isOpen = false;
 		ApprovalThreshold approvalThreshold = ApprovalThreshold.PCT40;
 
-		CreateGroupTransactionData transactionData = new CreateGroupTransactionData(TestTransaction.generateBase(account), owner, groupName, description, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay);
+		CreateGroupTransactionData transactionData = new CreateGroupTransactionData(TestTransaction.generateBase(account), groupName, description, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay);
 		return new CreateGroupTransaction(repository, transactionData);
 	}
 

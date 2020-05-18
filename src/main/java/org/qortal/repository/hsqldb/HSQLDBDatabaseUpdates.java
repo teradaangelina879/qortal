@@ -444,12 +444,15 @@ public class HSQLDBDatabaseUpdates {
 
 				case 12:
 					// Groups
-					stmt.execute("CREATE TABLE Groups (group_id GroupID, owner QortalAddress NOT NULL, group_name GroupName, "
+					stmt.execute("CREATE TABLE Groups (group_id GroupID, owner QortalAddress NOT NULL, group_name GroupName NOT NULL, "
 							+ "created_when EpochMillis NOT NULL, updated_when EpochMillis, is_open BOOLEAN NOT NULL, "
 							+ "approval_threshold TINYINT NOT NULL, min_block_delay INTEGER NOT NULL, max_block_delay INTEGER NOT NULL, "
-							+ "reference Signature, creation_group_id GroupID, description GenericDescription NOT NULL, PRIMARY KEY (group_id))");
-					// For when a user wants to lookup an group by name
+							+ "reference Signature, creation_group_id GroupID, reduced_group_name GroupName NOT NULL, "
+							+ "description GenericDescription NOT NULL, PRIMARY KEY (group_id))");
+					// For finding groups by name
 					stmt.execute("CREATE INDEX GroupNameIndex on Groups (group_name)");
+					// For finding groups by reduced name
+					stmt.execute("CREATE INDEX GroupReducedNameIndex on Groups (reduced_group_name)");
 					// For finding groups by owner
 					stmt.execute("CREATE INDEX GroupOwnerIndex ON Groups (owner)");
 
@@ -499,7 +502,7 @@ public class HSQLDBDatabaseUpdates {
 					// Group transactions
 					// Create group
 					stmt.execute("CREATE TABLE CreateGroupTransactions (signature Signature, creator QortalPublicKey NOT NULL, group_name GroupName NOT NULL, "
-							+ "owner QortalAddress NOT NULL, is_open BOOLEAN NOT NULL, approval_threshold TINYINT NOT NULL, "
+							+ "is_open BOOLEAN NOT NULL, approval_threshold TINYINT NOT NULL, reduced_group_name GroupName NOT NULL, "
 							+ "min_block_delay INTEGER NOT NULL, max_block_delay INTEGER NOT NULL, group_id GroupID, description GenericDescription NOT NULL, "
 							+ TRANSACTION_KEYS + ")");
 

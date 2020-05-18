@@ -1,10 +1,14 @@
 package org.qortal.data.transaction;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
+import org.qortal.block.GenesisBlock;
+import org.qortal.group.Group;
 import org.qortal.group.Group.ApprovalThreshold;
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -24,39 +28,31 @@ public class CreateGroupTransactionData extends TransactionData {
 
 	// Properties
 	// groupId can be null but assigned during save() or during load from repository
-	@Schema(
-		accessMode = AccessMode.READ_ONLY,
-		description = "assigned group ID"
-	)
+	@Schema(accessMode = AccessMode.READ_ONLY, description = "assigned group ID")
 	private Integer groupId = null;
-	@Schema(
-		description = "group owner's address",
-		example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v"
-	)
-	private String owner;
-	@Schema(
-		description = "group name",
-		example = "miner-group"
-	)
+
+	@Schema(description = "group name", example = "miner-group")
 	private String groupName;
-	@Schema(
-		description = "short description of group",
-		example = "this group is for block miners"
-	)
+
+	@Schema(description = "short description of group", example = "this group is for block miners")
 	private String description;
-	@Schema(
-		description = "whether anyone can join group (open) or group is invite-only (closed)",
-		example = "true"
-	)
+
+	@Schema(description = "whether anyone can join group (open) or group is invite-only (closed)", example = "true")
 	private boolean isOpen;
-	@Schema(
-		description = "how many group admins are required to approve group member transactions"
-	)
+
+	@Schema(description = "how many group admins are required to approve group member transactions")
 	private ApprovalThreshold approvalThreshold;
+
 	@Schema(description = "minimum block delay before approval takes effect")
 	private int minimumBlockDelay;
+
 	@Schema(description = "maximum block delay before which transaction approval must be reached")
 	private int maximumBlockDelay;
+
+	// For internal use
+	@XmlTransient
+	@Schema(hidden = true)
+	private String reducedGroupName;
 
 	// Constructors
 
@@ -65,13 +61,22 @@ public class CreateGroupTransactionData extends TransactionData {
 		super(TransactionType.CREATE_GROUP);
 	}
 
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		/*
+		 *  If we're being constructed as part of the genesis block info inside blockchain config
+		 *  then we need to construct 'reduced' group name.
+		 */
+		if (parent instanceof GenesisBlock.GenesisInfo && this.reducedGroupName == null)
+			this.reducedGroupName = Group.reduceName(this.groupName);
+	}
+
 	/** From repository */
 	public CreateGroupTransactionData(BaseTransactionData baseTransactionData,
-			String owner, String groupName, String description, boolean isOpen,
-			ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, Integer groupId) {
+			String groupName, String description, boolean isOpen,
+			ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay,
+			Integer groupId, String reducedGroupName) {
 		super(TransactionType.CREATE_GROUP, baseTransactionData);
 
-		this.owner = owner;
 		this.groupName = groupName;
 		this.description = description;
 		this.isOpen = isOpen;
@@ -79,20 +84,17 @@ public class CreateGroupTransactionData extends TransactionData {
 		this.minimumBlockDelay = minimumBlockDelay;
 		this.maximumBlockDelay = maximumBlockDelay;
 		this.groupId = groupId;
+		this.reducedGroupName = reducedGroupName;
 	}
 
 	/** From network/API */
 	public CreateGroupTransactionData(BaseTransactionData baseTransactionData,
-			String owner, String groupName, String description, boolean isOpen,
+			String groupName, String description, boolean isOpen,
 			ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay) {
-		this(baseTransactionData, owner, groupName, description, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, null);
+		this(baseTransactionData, groupName, description, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, null, null);
 	}
 
 	// Getters / setters
-
-	public String getOwner() {
-		return this.owner;
-	}
 
 	public String getGroupName() {
 		return this.groupName;
@@ -102,7 +104,7 @@ public class CreateGroupTransactionData extends TransactionData {
 		return this.description;
 	}
 
-	public boolean getIsOpen() {
+	public boolean isOpen() {
 		return this.isOpen;
 	}
 
@@ -126,27 +128,23 @@ public class CreateGroupTransactionData extends TransactionData {
 		this.groupId = groupId;
 	}
 
+	public String getReducedGroupName() {
+		return this.reducedGroupName;
+	}
+
+	public void setReducedGroupName(String reducedGroupName) {
+		this.reducedGroupName = reducedGroupName;
+	}
+
 	// Re-expose creatorPublicKey for this transaction type for JAXB
-	@XmlElement(
-		name = "creatorPublicKey"
-	)
-	@Schema(
-		name = "creatorPublicKey",
-		description = "group creator's public key",
-		example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP"
-	)
+	@XmlElement(name = "creatorPublicKey")
+	@Schema(name = "creatorPublicKey", description = "group creator's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	public byte[] getGroupCreatorPublicKey() {
 		return this.creatorPublicKey;
 	}
 
-	@XmlElement(
-		name = "creatorPublicKey"
-	)
-	@Schema(
-		name = "creatorPublicKey",
-		description = "group creator's public key",
-		example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP"
-	)
+	@XmlElement(name = "creatorPublicKey")
+	@Schema(name = "creatorPublicKey", description = "group creator's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	public void setGroupCreatorPublicKey(byte[] creatorPublicKey) {
 		this.creatorPublicKey = creatorPublicKey;
 	}

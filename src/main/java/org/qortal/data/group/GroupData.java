@@ -35,6 +35,11 @@ public class GroupData {
 	@Schema(hidden = true)
 	private int creationGroupId;
 
+	// For internal use
+	@XmlTransient
+	@Schema(hidden = true)
+	private String reducedGroupName;
+
 	// We abuse GroupData for API purposes by adding this unrelated field. Not always present.
 	private Boolean isAdmin;
 
@@ -45,10 +50,12 @@ public class GroupData {
 	}
 
 	/** Constructs new GroupData with nullable groupId and nullable updated [timestamp] */
-	public GroupData(Integer groupId, String owner, String name, String description, long created, Long updated, boolean isOpen, ApprovalThreshold approvalThreshold, int minBlockDelay, int maxBlockDelay, byte[] reference, int creationGroupId) {
+	public GroupData(Integer groupId, String owner, String groupName, String description, long created, Long updated,
+			boolean isOpen, ApprovalThreshold approvalThreshold, int minBlockDelay, int maxBlockDelay, byte[] reference,
+			int creationGroupId, String reducedGroupName) {
 		this.groupId = groupId;
 		this.owner = owner;
-		this.groupName = name;
+		this.groupName = groupName;
 		this.description = description;
 		this.created = created;
 		this.updated = updated;
@@ -58,11 +65,15 @@ public class GroupData {
 		this.minimumBlockDelay = minBlockDelay;
 		this.maximumBlockDelay = maxBlockDelay;
 		this.creationGroupId = creationGroupId;
+		this.reducedGroupName = reducedGroupName;
 	}
 
 	/** Constructs new GroupData with unassigned groupId */
-	public GroupData(String owner, String name, String description, long created, boolean isOpen, ApprovalThreshold approvalThreshold, int minBlockDelay, int maxBlockDelay, byte[] reference, int creationGroupId) {
-		this(null, owner, name, description, created, null, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+	public GroupData(String owner, String groupName, String description, long created, boolean isOpen,
+			ApprovalThreshold approvalThreshold, int minBlockDelay, int maxBlockDelay, byte[] reference,
+			int creationGroupId, String reducedGroupName) {
+		this(null, owner, groupName, description, created, null, isOpen, approvalThreshold, minBlockDelay,
+				maxBlockDelay, reference, creationGroupId, reducedGroupName);
 	}
 
 	// Getters / setters
@@ -115,7 +126,7 @@ public class GroupData {
 		this.reference = reference;
 	}
 
-	public boolean getIsOpen() {
+	public boolean isOpen() {
 		return this.isOpen;
 	}
 
@@ -141,6 +152,14 @@ public class GroupData {
 
 	public int getCreationGroupId() {
 		return this.creationGroupId;
+	}
+
+	public String getReducedGroupName() {
+		return this.reducedGroupName;
+	}
+
+	public void setReducedGroupName(String reducedGroupName) {
+		this.reducedGroupName = reducedGroupName;
 	}
 
 	// This is for API call GET /groups/member/{address}

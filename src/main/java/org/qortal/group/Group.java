@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.group.GroupAdminData;
 import org.qortal.data.group.GroupBanData;
 import org.qortal.data.group.GroupData;
@@ -29,6 +30,7 @@ import org.qortal.data.transaction.UpdateGroupTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Unicode;
 
 public class Group {
 
@@ -78,6 +80,7 @@ public class Group {
 	// Useful constants
 	public static final int NO_GROUP = 0;
 
+	public static final int MIN_NAME_SIZE = 3;
 	public static final int MAX_NAME_SIZE = 32;
 	public static final int MAX_DESCRIPTION_SIZE = 128;
 	/** Max size of kick/ban reason */
@@ -95,10 +98,14 @@ public class Group {
 		this.repository = repository;
 		this.groupRepository = repository.getGroupRepository();
 
-		this.groupData = new GroupData(createGroupTransactionData.getOwner(), createGroupTransactionData.getGroupName(),
-				createGroupTransactionData.getDescription(), createGroupTransactionData.getTimestamp(), createGroupTransactionData.getIsOpen(),
-				createGroupTransactionData.getApprovalThreshold(), createGroupTransactionData.getMinimumBlockDelay(),
-				createGroupTransactionData.getMaximumBlockDelay(), createGroupTransactionData.getSignature(), createGroupTransactionData.getTxGroupId());
+		String owner = Crypto.toAddress(createGroupTransactionData.getCreatorPublicKey());
+
+		this.groupData = new GroupData(owner, createGroupTransactionData.getGroupName(),
+				createGroupTransactionData.getDescription(), createGroupTransactionData.getTimestamp(),
+				createGroupTransactionData.isOpen(), createGroupTransactionData.getApprovalThreshold(),
+				createGroupTransactionData.getMinimumBlockDelay(), createGroupTransactionData.getMaximumBlockDelay(),
+				createGroupTransactionData.getSignature(), createGroupTransactionData.getTxGroupId(),
+				createGroupTransactionData.getReducedGroupName());
 	}
 
 	/**
@@ -122,6 +129,10 @@ public class Group {
 	}
 
 	// Shortcuts to aid code clarity
+
+	public static String reduceName(String name) {
+		return Unicode.sanitize(name);
+	}
 
 	// Membership
 
@@ -355,16 +366,20 @@ public class Group {
 			throw new DataException("Unable to revert group transaction as referenced transaction not found in repository");
 
 		switch (previousTransactionData.getType()) {
-			case CREATE_GROUP:
+			case CREATE_GROUP: {
 				CreateGroupTransactionData previousCreateGroupTransactionData = (CreateGroupTransactionData) previousTransactionData;
-				this.groupData.setOwner(previousCreateGroupTransactionData.getOwner());
+
+				String owner = Crypto.toAddress(previousCreateGroupTransactionData.getCreatorPublicKey());
+
+				this.groupData.setOwner(owner);
 				this.groupData.setDescription(previousCreateGroupTransactionData.getDescription());
-				this.groupData.setIsOpen(previousCreateGroupTransactionData.getIsOpen());
+				this.groupData.setIsOpen(previousCreateGroupTransactionData.isOpen());
 				this.groupData.setApprovalThreshold(previousCreateGroupTransactionData.getApprovalThreshold());
 				this.groupData.setUpdated(null);
 				break;
+			}
 
-			case UPDATE_GROUP:
+			case UPDATE_GROUP: {
 				UpdateGroupTransactionData previousUpdateGroupTransactionData = (UpdateGroupTransactionData) previousTransactionData;
 				this.groupData.setOwner(previousUpdateGroupTransactionData.getNewOwner());
 				this.groupData.setDescription(previousUpdateGroupTransactionData.getNewDescription());
@@ -372,6 +387,7 @@ public class Group {
 				this.groupData.setApprovalThreshold(previousUpdateGroupTransactionData.getNewApprovalThreshold());
 				this.groupData.setUpdated(previousUpdateGroupTransactionData.getTimestamp());
 				break;
+			}
 
 			default:
 				throw new IllegalStateException("Unable to revert group transaction due to unsupported referenced transaction");
@@ -722,7 +738,7 @@ public class Group {
 
 		// If there is no invites and this group is "closed" (i.e. invite-only) then
 		// this is now a pending "join request"
-		if (groupInviteData == null && !groupData.getIsOpen()) {
+		if (groupInviteData == null && !groupData.isOpen()) {
 			// Save join request
 			this.addJoinRequest(joiner.getAddress(), joinGroupTransactionData.getSignature());
 
@@ -761,7 +777,7 @@ public class Group {
 		byte[] inviteReference = joinGroupTransactionData.getInviteReference();
 
 		// Was this a join-request only?
-		if (inviteReference == null && !groupData.getIsOpen()) {
+		if (inviteReference == null && !groupData.isOpen()) {
 			// Delete join request
 			this.deleteJoinRequest(joiner.getAddress());
 		} else {

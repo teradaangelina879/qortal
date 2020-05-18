@@ -20,14 +20,13 @@ import com.google.common.primitives.Longs;
 public class CreateGroupTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int OWNER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int IS_OPEN_LENGTH = BOOLEAN_LENGTH;
 	private static final int APPROVAL_THRESHOLD_LENGTH = BYTE_LENGTH;
 	private static final int BLOCK_DELAY_LENGTH = INT_LENGTH;
 
-	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + IS_OPEN_LENGTH
+	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + IS_OPEN_LENGTH
 			+ APPROVAL_THRESHOLD_LENGTH + BLOCK_DELAY_LENGTH + BLOCK_DELAY_LENGTH;
 
 	protected static final TransactionLayout layout;
@@ -39,7 +38,6 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("group creator's public key", TransformationType.PUBLIC_KEY);
-		layout.add("group owner's address", TransformationType.ADDRESS);
 		layout.add("group's name length", TransformationType.INT);
 		layout.add("group's name", TransformationType.STRING);
 		layout.add("group's description length", TransformationType.INT);
@@ -62,8 +60,6 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 
 		byte[] creatorPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String owner = Serialization.deserializeAddress(byteBuffer);
-
 		String groupName = Serialization.deserializeSizedString(byteBuffer, Group.MAX_NAME_SIZE);
 
 		String description = Serialization.deserializeSizedString(byteBuffer, Group.MAX_DESCRIPTION_SIZE);
@@ -83,7 +79,7 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
-		return new CreateGroupTransactionData(baseTransactionData, owner, groupName, description, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay);
+		return new CreateGroupTransactionData(baseTransactionData, groupName, description, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -101,13 +97,11 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 
 			transformCommonBytes(transactionData, bytes);
 
-			Serialization.serializeAddress(bytes, createGroupTransactionData.getOwner());
-
 			Serialization.serializeSizedString(bytes, createGroupTransactionData.getGroupName());
 
 			Serialization.serializeSizedString(bytes, createGroupTransactionData.getDescription());
 
-			bytes.write((byte) (createGroupTransactionData.getIsOpen() ? 1 : 0));
+			bytes.write((byte) (createGroupTransactionData.isOpen() ? 1 : 0));
 
 			bytes.write((byte) createGroupTransactionData.getApprovalThreshold().value);
 

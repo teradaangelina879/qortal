@@ -28,7 +28,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public GroupData fromGroupId(int groupId) throws DataException {
 		String sql = "SELECT group_name, owner, description, created_when, updated_when, reference, is_open, "
-				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_id = ?";
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id, reduced_group_name "
+				+ "FROM Groups WHERE group_id = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
@@ -53,9 +54,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			int maxBlockDelay = resultSet.getInt(10);
 
 			int creationGroupId = resultSet.getInt(11);
+			String reducedGroupName = resultSet.getString(12);
 
 			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
-					approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+					approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId, reducedGroupName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group info from repository", e);
 		}
@@ -64,7 +66,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public GroupData fromGroupName(String groupName) throws DataException {
 		String sql = "SELECT group_id, owner, description, created_when, updated_when, reference, is_open, "
-				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_name = ?";
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id, reduced_group_name "
+				+ "FROM Groups WHERE group_name = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupName)) {
 			if (resultSet == null)
@@ -89,9 +92,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			int maxBlockDelay = resultSet.getInt(10);
 
 			int creationGroupId = resultSet.getInt(11);
+			String reducedGroupName = resultSet.getString(12);
 
 			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
-					approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+					approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId, reducedGroupName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group info from repository", e);
 		}
@@ -116,11 +120,21 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
+	public boolean reducedGroupNameExists(String reducedGroupName) throws DataException {
+		try {
+			return this.repository.exists("Groups", "reduced_group_name = ?", reducedGroupName);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for reduced group name in repository", e);
+		}
+	}
+
+	@Override
 	public List<GroupData> getAllGroups(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 
 		sql.append("SELECT group_id, owner, group_name, description, created_when, updated_when, reference, is_open, "
-				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups ORDER BY group_name");
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id, reduced_group_name "
+				+ "FROM Groups ORDER BY group_name");
 
 		if (reverse != null && reverse)
 			sql.append(" DESC");
@@ -154,9 +168,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				int maxBlockDelay = resultSet.getInt(11);
 
 				int creationGroupId = resultSet.getInt(12);
+				String reducedGroupName = resultSet.getString(13);
 
 				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
-						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId));
+						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId, reducedGroupName));
 			} while (resultSet.next());
 
 			return groups;
@@ -170,7 +185,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 		StringBuilder sql = new StringBuilder(512);
 
 		sql.append("SELECT group_id, group_name, description, created_when, updated_when, reference, is_open, "
-				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE owner = ? ORDER BY group_name");
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id, reduced_group_name "
+				+ "FROM Groups WHERE owner = ? ORDER BY group_name");
 
 		if (reverse != null && reverse)
 			sql.append(" DESC");
@@ -203,9 +219,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				int maxBlockDelay = resultSet.getInt(10);
 
 				int creationGroupId = resultSet.getInt(11);
+				String reducedGroupName = resultSet.getString(12);
 
 				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
-						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId));
+						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId, reducedGroupName));
 			} while (resultSet.next());
 
 			return groups;
@@ -219,7 +236,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 		StringBuilder sql = new StringBuilder(512);
 
 		sql.append("SELECT group_id, owner, group_name, description, created_when, updated_when, reference, is_open, "
-				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id, admin FROM Groups "
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id, reduced_group_name, admin FROM Groups "
 				+ "JOIN GroupMembers USING (group_id) "
 				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.group_id = GroupMembers.group_id AND GroupAdmins.admin = GroupMembers.address "
 				+ "WHERE address = ? ORDER BY group_name");
@@ -256,12 +273,13 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				int maxBlockDelay = resultSet.getInt(11);
 
 				int creationGroupId = resultSet.getInt(12);
+				String reducedGroupName = resultSet.getString(13);
 
-				resultSet.getString(13); // 'admin'
+				resultSet.getString(14); // 'admin'
 				boolean isAdmin = !resultSet.wasNull();
 
 				GroupData groupData = new GroupData(groupId, owner, groupName, description, created, updated, isOpen,
-						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId);
+						approvalThreshold, minBlockDelay, maxBlockDelay, reference, creationGroupId, reducedGroupName);
 
 				groupData.setIsAdmin(isAdmin);
 
@@ -280,9 +298,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 		saveHelper.bind("group_id", groupData.getGroupId()).bind("owner", groupData.getOwner()).bind("group_name", groupData.getGroupName())
 				.bind("description", groupData.getDescription()).bind("created_when", groupData.getCreated()).bind("updated_when", groupData.getUpdated())
-				.bind("reference", groupData.getReference()).bind("is_open", groupData.getIsOpen()).bind("approval_threshold", groupData.getApprovalThreshold().value)
+				.bind("reference", groupData.getReference()).bind("is_open", groupData.isOpen()).bind("approval_threshold", groupData.getApprovalThreshold().value)
 				.bind("min_block_delay", groupData.getMinimumBlockDelay()).bind("max_block_delay", groupData.getMaximumBlockDelay())
-				.bind("creation_group_id", groupData.getCreationGroupId());
+				.bind("creation_group_id", groupData.getCreationGroupId()).bind("reduced_group_name", groupData.getReducedGroupName());
 
 		try {
 			saveHelper.execute(this.repository);

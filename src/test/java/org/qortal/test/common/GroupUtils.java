@@ -27,7 +27,7 @@ public class GroupUtils {
 		String groupDescription = groupName + " (test group)";
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, account.getPublicKey(), GroupUtils.fee, null);
-		TransactionData transactionData = new CreateGroupTransactionData(baseTransactionData, account.getAddress(), groupName, groupDescription, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay);
+		TransactionData transactionData = new CreateGroupTransactionData(baseTransactionData, groupName, groupDescription, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay);
 
 		TransactionUtils.signAndMint(repository, transactionData, account);
 

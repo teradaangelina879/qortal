@@ -5,12 +5,12 @@ import java.util.List;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.CreateGroupTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Unicode;
 
 import com.google.common.base.Utf8;
 
@@ -31,7 +31,7 @@ public class CreateGroupTransaction extends Transaction {
 
 	@Override
 	public List<String> getRecipientAddresses() throws DataException {
-		return Collections.singletonList(this.createGroupTransactionData.getOwner());
+		return Collections.emptyList();
 	}
 
 	// Navigation
@@ -40,14 +40,19 @@ public class CreateGroupTransaction extends Transaction {
 		return this.getCreator();
 	}
 
+	private synchronized String getReducedGroupName() {
+		if (this.createGroupTransactionData.getReducedGroupName() == null) {
+			String reducedGroupName = Group.reduceName(this.createGroupTransactionData.getGroupName());
+			this.createGroupTransactionData.setReducedGroupName(reducedGroupName);
+		}
+
+		return this.createGroupTransactionData.getReducedGroupName();
+	}
+
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check owner address is valid
-		if (!Crypto.isValidAddress(this.createGroupTransactionData.getOwner()))
-			return ValidationResult.INVALID_ADDRESS;
-
 		// Check approval threshold is valid
 		if (this.createGroupTransactionData.getApprovalThreshold() == null)
 			return ValidationResult.INVALID_GROUP_APPROVAL_THRESHOLD;
@@ -62,9 +67,11 @@ public class CreateGroupTransaction extends Transaction {
 		if (this.createGroupTransactionData.getMaximumBlockDelay() < this.createGroupTransactionData.getMinimumBlockDelay())
 			return ValidationResult.INVALID_GROUP_BLOCK_DELAY;
 
+		String groupName = this.createGroupTransactionData.getGroupName();
+
 		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(this.createGroupTransactionData.getGroupName());
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
+		int groupNameLength = Utf8.encodedLength(groupName);
+		if (groupNameLength < Group.MIN_NAME_SIZE || groupNameLength > Group.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check description size bounds
@@ -72,8 +79,8 @@ public class CreateGroupTransaction extends Transaction {
 		if (descriptionLength < 1 || descriptionLength > Group.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
-		// Check group name is lowercase
-		if (!this.createGroupTransactionData.getGroupName().equals(this.createGroupTransactionData.getGroupName().toLowerCase()))
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!groupName.equals(Unicode.normalize(groupName)))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
 		Account creator = getCreator();
@@ -82,13 +89,16 @@ public class CreateGroupTransaction extends Transaction {
 		if (creator.getConfirmedBalance(Asset.QORT) < this.createGroupTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
+		// Fill in missing reduced name. Caller is likely to save this as next step.
+		getReducedGroupName();
+
 		return ValidationResult.OK;
 	}
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Check the group name isn't already taken
-		if (this.repository.getGroupRepository().groupExists(this.createGroupTransactionData.getGroupName()))
+		if (this.repository.getGroupRepository().reducedGroupNameExists(getReducedGroupName()))
 			return ValidationResult.GROUP_ALREADY_EXISTS;
 
 		return ValidationResult.OK;
