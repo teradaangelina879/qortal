@@ -19,12 +19,13 @@ import com.google.common.primitives.Longs;
 public class MessageTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
+	private static final int HAS_RECIPIENT_LENGTH = BOOLEAN_LENGTH;
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 	private static final int IS_TEXT_LENGTH = BOOLEAN_LENGTH;
 	private static final int IS_ENCRYPTED_LENGTH = BOOLEAN_LENGTH;
 
-	private static final int EXTRAS_LENGTH = RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH + DATA_SIZE_LENGTH + IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH;
+	private static final int EXTRAS_LENGTH = HAS_RECIPIENT_LENGTH + AMOUNT_LENGTH + DATA_SIZE_LENGTH + IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -35,9 +36,10 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
-		layout.add("recipient", TransformationType.ADDRESS);
-		layout.add("asset ID of payment", TransformationType.LONG);
+		layout.add("has recipient?", TransformationType.BOOLEAN);
+		layout.add("? recipient", TransformationType.ADDRESS);
 		layout.add("payment (can be zero)", TransformationType.AMOUNT);
+		layout.add("asset ID of payment (if payment not zero)", TransformationType.LONG);
 		layout.add("message length", TransformationType.INT);
 		layout.add("message", TransformationType.DATA);
 		layout.add("is message encrypted?", TransformationType.BOOLEAN);
@@ -58,11 +60,12 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String recipient = Serialization.deserializeAddress(byteBuffer);
-
-		long assetId = byteBuffer.getLong();
+		boolean hasRecipient = byteBuffer.get() != 0;
+		String recipient = hasRecipient ? Serialization.deserializeAddress(byteBuffer) : null;
 
 		long amount = byteBuffer.getLong();
+
+		Long assetId = amount != 0 ? byteBuffer.getLong() : null;
 
 		int dataSize = byteBuffer.getInt();
 		// Don't allow invalid dataSize here to avoid run-time issues
@@ -83,13 +86,21 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
-		return new MessageTransactionData(baseTransactionData, version, recipient, assetId, amount, data, isText, isEncrypted);
+		return new MessageTransactionData(baseTransactionData, version, recipient, amount, assetId, data, isText, isEncrypted);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		MessageTransactionData messageTransactionData = (MessageTransactionData) transactionData;
 
-		return getBaseLength(transactionData) + EXTRAS_LENGTH + messageTransactionData.getData().length;
+		int dataLength =  getBaseLength(transactionData) + EXTRAS_LENGTH + messageTransactionData.getData().length;
+
+		if (messageTransactionData.getRecipient() != null)
+			dataLength += RECIPIENT_LENGTH;
+
+		if (messageTransactionData.getAmount() != 0)
+			dataLength += ASSET_ID_LENGTH;
+
+		return dataLength;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -100,19 +111,25 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 			transformCommonBytes(transactionData, bytes);
 
-			Serialization.serializeAddress(bytes, messageTransactionData.getRecipient());
-
-			bytes.write(Longs.toByteArray(messageTransactionData.getAssetId()));
+			if (messageTransactionData.getRecipient() != null) {
+				bytes.write((byte) 1);
+				Serialization.serializeAddress(bytes, messageTransactionData.getRecipient());
+			} else {
+				bytes.write((byte) 0);
+			}
 
 			bytes.write(Longs.toByteArray(messageTransactionData.getAmount()));
+
+			if (messageTransactionData.getAmount() != 0)
+				bytes.write(Longs.toByteArray(messageTransactionData.getAssetId()));
 
 			bytes.write(Ints.toByteArray(messageTransactionData.getData().length));
 
 			bytes.write(messageTransactionData.getData());
 
-			bytes.write((byte) (messageTransactionData.getIsEncrypted() ? 1 : 0));
+			bytes.write((byte) (messageTransactionData.isEncrypted() ? 1 : 0));
 
-			bytes.write((byte) (messageTransactionData.getIsText() ? 1 : 0));
+			bytes.write((byte) (messageTransactionData.isText() ? 1 : 0));
 
 			bytes.write(Longs.toByteArray(messageTransactionData.getFee()));
 

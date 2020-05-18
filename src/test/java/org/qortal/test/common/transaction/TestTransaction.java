@@ -12,8 +12,12 @@ public abstract class TestTransaction {
 
 	protected static final Random random = new Random();
 
+	public static BaseTransactionData generateBase(PrivateKeyAccount account, int txGroupId) throws DataException {
+		return new BaseTransactionData(System.currentTimeMillis(), txGroupId, account.getLastReference(), account.getPublicKey(), BlockChain.getInstance().getUnitFee(), null);
+	}
+
 	public static BaseTransactionData generateBase(PrivateKeyAccount account) throws DataException {
-		return new BaseTransactionData(System.currentTimeMillis(), Group.NO_GROUP, account.getLastReference(), account.getPublicKey(), BlockChain.getInstance().getUnitFee(), null);
+		return generateBase(account, Group.NO_GROUP);
 	}
 
 }

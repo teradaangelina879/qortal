@@ -19,7 +19,7 @@ public class MessageTestTransaction extends TestTransaction {
 		final boolean isText = true;
 		final boolean isEncrypted = false;
 
-		return new MessageTransactionData(generateBase(account), version, recipient, assetId, amount, data, isText, isEncrypted);
+		return new MessageTransactionData(generateBase(account), version, recipient, amount, assetId, data, isText, isEncrypted);
 	}
 
 }
