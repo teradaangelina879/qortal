@@ -120,17 +120,17 @@ public class HSQLDBChatRepository implements ChatRepository {
 	}
 
 	private List<GroupChat> getActiveGroupChats(String address) throws DataException {
-		// Find groups where address is a member and there is a chat
-		String groupsSql = "SELECT group_id, group_name, latest_timestamp "
-				+ "FROM GroupMembers "
-				+ "JOIN Groups USING (group_id) "
-				+ "CROSS JOIN LATERAL("
+		// Find groups where address is a member and potential latest timestamp
+		String groupsSql = "SELECT group_id, group_name, ("
 					+ "SELECT created_when "
 					+ "FROM Transactions "
+					// NOTE: We need to qualify "Groups.group_id" here to avoid "General error" bug in HSQLDB v2.5.0
 					+ "WHERE tx_group_id = Groups.group_id AND type = " + TransactionType.CHAT.value + " "
 					+ "ORDER BY created_when DESC "
 					+ "LIMIT 1"
-				+ ") AS LatestMessages (latest_timestamp) "
+				+ ") AS latest_timestamp "
+				+ "FROM GroupMembers "
+				+ "JOIN Groups USING (group_id) "
 				+ "WHERE address = ?";
 
 		List<GroupChat> groupChats = new ArrayList<>();
@@ -139,7 +139,10 @@ public class HSQLDBChatRepository implements ChatRepository {
 				do {
 					int groupId = resultSet.getInt(1);
 					String groupName = resultSet.getString(2);
-					long timestamp = resultSet.getLong(3);
+
+					Long timestamp = resultSet.getLong(3);
+					if (timestamp == 0 && resultSet.wasNull())
+						timestamp = null;
 
 					GroupChat groupChat = new GroupChat(groupId, groupName, timestamp);
 					groupChats.add(groupChat);
