@@ -20,10 +20,16 @@ public class AssetData {
 	private String data;
 	private boolean isUnspendable;
 	private int creationGroupId;
+
 	// No need to expose this via API
 	@XmlTransient
 	@Schema(hidden = true)
 	private byte[] reference;
+
+	// For internal use only
+	@XmlTransient
+	@Schema(hidden = true)
+	private String reducedAssetName;
 
 	// Constructors
 
@@ -32,7 +38,8 @@ public class AssetData {
 	}
 
 	// NOTE: key is Long, not long, because it can be null if asset ID/key not yet assigned.
-	public AssetData(Long assetId, String owner, String name, String description, long quantity, boolean isDivisible, String data, boolean isUnspendable, int creationGroupId, byte[] reference) {
+	public AssetData(Long assetId, String owner, String name, String description, long quantity, boolean isDivisible,
+			String data, boolean isUnspendable, int creationGroupId, byte[] reference, String reducedAssetName) {
 		this.assetId = assetId;
 		this.owner = owner;
 		this.name = name;
@@ -43,11 +50,13 @@ public class AssetData {
 		this.isUnspendable = isUnspendable;
 		this.creationGroupId = creationGroupId;
 		this.reference = reference;
+		this.reducedAssetName = reducedAssetName;
 	}
 
 	// New asset with unassigned assetId
-	public AssetData(String owner, String name, String description, long quantity, boolean isDivisible, String data, boolean isUnspendable, int creationGroupId, byte[] reference) {
-		this(null, owner, name, description, quantity, isDivisible, data, isUnspendable, creationGroupId, reference);
+	public AssetData(String owner, String name, String description, long quantity, boolean isDivisible, String data,
+			boolean isUnspendable, int creationGroupId, byte[] reference, String reducedAssetName) {
+		this(null, owner, name, description, quantity, isDivisible, data, isUnspendable, creationGroupId, reference, reducedAssetName);
 	}
 
 	// Getters/Setters
@@ -110,6 +119,14 @@ public class AssetData {
 
 	public void setReference(byte[] reference) {
 		this.reference = reference;
+	}
+
+	public String getReducedAssetName() {
+		return this.reducedAssetName;
+	}
+
+	public void setReducedAssetName(String reducedAssetName) {
+		this.reducedAssetName = reducedAssetName;
 	}
 
 }

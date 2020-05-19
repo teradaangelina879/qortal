@@ -7,9 +7,11 @@ import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.data.transaction.IssueAssetTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.utils.Amounts;
+import org.qortal.utils.Unicode;
 
 import com.google.common.base.Utf8;
 
@@ -40,14 +42,28 @@ public class IssueAssetTransaction extends Transaction {
 		return this.getCreator();
 	}
 
+	private String getReducedAssetName() {
+		if (this.issueAssetTransactionData.getReducedAssetName() == null) {
+			String reducedAssetName = Name.reduceName(this.issueAssetTransactionData.getAssetName());
+			this.issueAssetTransactionData.setReducedAssetName(reducedAssetName);
+		}
+
+		return this.issueAssetTransactionData.getReducedAssetName();
+	}
+
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Check name size bounds
-		int assetNameLength = Utf8.encodedLength(this.issueAssetTransactionData.getAssetName());
-		if (assetNameLength < 1 || assetNameLength > Asset.MAX_NAME_SIZE)
+		String assetName = this.issueAssetTransactionData.getAssetName();
+		int assetNameLength = Utf8.encodedLength(assetName);
+		if (assetNameLength < Asset.MIN_NAME_SIZE || assetNameLength > Asset.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
+
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!assetName.equals(Unicode.normalize(assetName)))
+			return ValidationResult.NAME_NOT_LOWER_CASE;
 
 		// Check description size bounds
 		int assetDescriptionlength = Utf8.encodedLength(this.issueAssetTransactionData.getDescription());
@@ -74,13 +90,16 @@ public class IssueAssetTransaction extends Transaction {
 		if (issuer.getConfirmedBalance(Asset.QORT) < this.issueAssetTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
+		// Fill in missing reduced name. Caller is likely to save this as next step.
+		getReducedAssetName();
+
 		return ValidationResult.OK;
 	}
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
-		// Check the asset name isn't already taken.
-		if (this.repository.getAssetRepository().assetExists(this.issueAssetTransactionData.getAssetName()))
+		// Check the name isn't already taken
+		if (this.repository.getAssetRepository().reducedAssetNameExists(getReducedAssetName()))
 			return ValidationResult.ASSET_ALREADY_EXISTS;
 
 		return ValidationResult.OK;

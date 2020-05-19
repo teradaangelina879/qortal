@@ -1,12 +1,21 @@
 package org.qortal.test.assets;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.qortal.data.transaction.IssueAssetTransactionData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
 import org.qortal.test.common.Common;
+import org.qortal.test.common.TestAccount;
+import org.qortal.test.common.TransactionUtils;
+import org.qortal.test.common.transaction.TestTransaction;
+import org.qortal.transaction.Transaction;
+import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.utils.Amounts;
 
 public class MiscTests extends Common {
@@ -19,6 +28,32 @@ public class MiscTests extends Common {
 	@After
 	public void afterTest() throws DataException {
 		Common.orphanCheck();
+	}
+
+	@Test
+	public void testCreateAssetWithExistingName() throws DataException {
+		try (Repository repository = RepositoryManager.getRepository()) {
+			TestAccount alice = Common.getTestAccount(repository, "alice");
+
+			String assetName = "test-asset";
+			String description = "description";
+			long quantity = 12345678L;
+			boolean isDivisible = true;
+			String data = "{}";
+			boolean isUnspendable = false;
+
+			TransactionData transactionData = new IssueAssetTransactionData(TestTransaction.generateBase(alice), assetName, description, quantity, isDivisible, data, isUnspendable);
+			TransactionUtils.signAndMint(repository, transactionData, alice);
+
+			String duplicateAssetName = "TEST-Ásset";
+			transactionData = new IssueAssetTransactionData(TestTransaction.generateBase(alice), duplicateAssetName, description, quantity, isDivisible, data, isUnspendable);
+
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			transaction.sign(alice);
+
+			ValidationResult result = transaction.importAsUnconfirmed();
+			assertTrue("Transaction should be invalid", ValidationResult.OK != result);
+		}
 	}
 
 	@Test

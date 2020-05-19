@@ -3,10 +3,12 @@ package org.qortal.data.transaction;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qortal.account.NullAccount;
+import org.qortal.asset.Asset;
 import org.qortal.block.GenesisBlock;
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -48,6 +50,11 @@ public class IssueAssetTransactionData extends TransactionData {
 	@Schema(description = "whether non-owner holders of asset are barred from using asset", example = "false")
 	private boolean isUnspendable;
 
+	// For internal use
+	@Schema(hidden = true)
+	@XmlTransient
+	private String reducedAssetName;
+
 	// Constructors
 
 	// For JAXB
@@ -64,12 +71,20 @@ public class IssueAssetTransactionData extends TransactionData {
 		if (parent instanceof GenesisBlock.GenesisInfo && this.issuerPublicKey == null)
 			this.issuerPublicKey = NullAccount.PUBLIC_KEY;
 
+		/*
+		 *  If we're being constructed as part of the genesis block info inside blockchain config
+		 *  then we need to construct 'reduced' form of asset name.
+		 */
+		if (parent instanceof GenesisBlock.GenesisInfo && this.reducedAssetName == null)
+			this.reducedAssetName = Asset.reduceName(this.assetName);
+
 		this.creatorPublicKey = this.issuerPublicKey;
 	}
 
 	/** From repository */
-	public IssueAssetTransactionData(BaseTransactionData baseTransactionData,
-			Long assetId, String assetName, String description, long quantity, boolean isDivisible, String data, boolean isUnspendable) {
+	public IssueAssetTransactionData(BaseTransactionData baseTransactionData, Long assetId, String assetName,
+			String description, long quantity, boolean isDivisible, String data, boolean isUnspendable,
+			String reducedAssetName) {
 		super(TransactionType.ISSUE_ASSET, baseTransactionData);
 
 		this.assetId = assetId;
@@ -80,12 +95,13 @@ public class IssueAssetTransactionData extends TransactionData {
 		this.isDivisible = isDivisible;
 		this.data = data;
 		this.isUnspendable = isUnspendable;
+		this.reducedAssetName = reducedAssetName;
 	}
 
 	/** From network/API */
 	public IssueAssetTransactionData(BaseTransactionData baseTransactionData, String assetName, String description,
 			long quantity, boolean isDivisible, String data, boolean isUnspendable) {
-		this(baseTransactionData, null, assetName, description, quantity, isDivisible, data, isUnspendable);
+		this(baseTransactionData, null, assetName, description, quantity, isDivisible, data, isUnspendable, null);
 	}
 
 	// Getters/Setters
@@ -124,6 +140,14 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	public boolean isUnspendable() {
 		return this.isUnspendable;
+	}
+
+	public String getReducedAssetName() {
+		return this.reducedAssetName;
+	}
+
+	public void setReducedAssetName(String reducedAssetName) {
+		this.reducedAssetName = reducedAssetName;
 	}
 
 }

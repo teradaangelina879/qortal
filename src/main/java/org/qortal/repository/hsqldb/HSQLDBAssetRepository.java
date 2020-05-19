@@ -25,7 +25,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public AssetData fromAssetId(long assetId) throws DataException {
-		String sql = "SELECT owner, asset_name, description, quantity, is_divisible, data, is_unspendable, creation_group_id, reference FROM Assets WHERE asset_id = ?";
+		String sql = "SELECT owner, asset_name, description, quantity, is_divisible, data, "
+				+ "is_unspendable, creation_group_id, reference, reduced_asset_name "
+				+ "FROM Assets WHERE asset_id = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetId)) {
 			if (resultSet == null)
@@ -40,9 +42,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			boolean isUnspendable = resultSet.getBoolean(7);
 			int creationGroupId = resultSet.getInt(8);
 			byte[] reference = resultSet.getBytes(9);
+			String reducedAssetName = resultSet.getString(10);
 
 			return new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data, isUnspendable,
-					creationGroupId, reference);
+					creationGroupId, reference, reducedAssetName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset from repository", e);
 		}
@@ -50,7 +53,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public AssetData fromAssetName(String assetName) throws DataException {
-		String sql = "SELECT owner, asset_id, description, quantity, is_divisible, data, is_unspendable, creation_group_id, reference FROM Assets WHERE asset_name = ?";
+		String sql = "SELECT owner, asset_id, description, quantity, is_divisible, data, "
+				+ "is_unspendable, creation_group_id, reference, reduced_asset_name "
+				+ "FROM Assets WHERE asset_name = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetName)) {
 			if (resultSet == null)
@@ -65,9 +70,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			boolean isUnspendable = resultSet.getBoolean(7);
 			int creationGroupId = resultSet.getInt(8);
 			byte[] reference = resultSet.getBytes(9);
+			String reducedAssetName = resultSet.getString(10);
 
 			return new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data, isUnspendable,
-					creationGroupId, reference);
+					creationGroupId, reference, reducedAssetName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset from repository", e);
 		}
@@ -92,9 +98,19 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
+	public boolean reducedAssetNameExists(String reducedAssetName) throws DataException {
+		try {
+			return this.repository.exists("Assets", "reduced_asset_name = ?", reducedAssetName);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for asset in repository", e);
+		}
+	}
+
+	@Override
 	public List<AssetData> getAllAssets(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
-		sql.append("SELECT asset_id, owner, asset_name, description, quantity, is_divisible, data, is_unspendable, creation_group_id, reference "
+		sql.append("SELECT asset_id, owner, asset_name, description, quantity, is_divisible, data, "
+				+ "is_unspendable, creation_group_id, reference, reduced_asset_name "
 				+ "FROM Assets ORDER BY asset_id");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
@@ -118,9 +134,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				boolean isUnspendable = resultSet.getBoolean(8);
 				int creationGroupId = resultSet.getInt(9);
 				byte[] reference = resultSet.getBytes(10);
+				String reducedAssetName = resultSet.getString(11);
 
 				assets.add(new AssetData(assetId, owner, assetName, description, quantity, isDivisible, data,
-						isUnspendable,creationGroupId, reference));
+						isUnspendable,creationGroupId, reference, reducedAssetName));
 			} while (resultSet.next());
 
 			return assets;
@@ -161,7 +178,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				.bind("asset_name", assetData.getName()).bind("description", assetData.getDescription())
 				.bind("quantity", assetData.getQuantity()).bind("is_divisible", assetData.isDivisible())
 				.bind("data", assetData.getData()).bind("is_unspendable", assetData.isUnspendable())
-				.bind("creation_group_id", assetData.getCreationGroupId()).bind("reference", assetData.getReference());
+				.bind("creation_group_id", assetData.getCreationGroupId()).bind("reference", assetData.getReference())
+				.bind("reduced_asset_name", assetData.getReducedAssetName());
 
 		try {
 			saveHelper.execute(this.repository);
