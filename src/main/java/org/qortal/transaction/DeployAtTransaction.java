@@ -137,31 +137,30 @@ public class DeployAtTransaction extends Transaction {
 				return ValidationResult.NO_BALANCE;
 		}
 
+		// Check version from creation bytes
+		if (this.getVersion() < 2)
+			return ValidationResult.INVALID_CREATION_BYTES;
+
 		// Check creation bytes are valid (for v2+)
-		if (this.getVersion() >= 2) {
-			// Do actual validation
-			ensureATAddress();
+		this.ensureATAddress();
 
-			// Just enough AT data to allow API to query initial balances, etc.
-			String atAddress = this.deployATTransactionData.getAtAddress();
-			byte[] creatorPublicKey = this.deployATTransactionData.getCreatorPublicKey();
-			long creation = this.deployATTransactionData.getTimestamp();
-			ATData skeletonAtData = new ATData(atAddress, creatorPublicKey, creation, assetId);
+		// Just enough AT data to allow API to query initial balances, etc.
+		String atAddress = this.deployATTransactionData.getAtAddress();
+		byte[] creatorPublicKey = this.deployATTransactionData.getCreatorPublicKey();
+		long creation = this.deployATTransactionData.getTimestamp();
+		ATData skeletonAtData = new ATData(atAddress, creatorPublicKey, creation, assetId);
 
-			int height = this.repository.getBlockRepository().getBlockchainHeight() + 1;
-			long blockTimestamp = Timestamp.toLong(height, 0);
+		int height = this.repository.getBlockRepository().getBlockchainHeight() + 1;
+		long blockTimestamp = Timestamp.toLong(height, 0);
 
-			QortalATAPI api = new QortalATAPI(repository, skeletonAtData, blockTimestamp);
-			QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
+		QortalATAPI api = new QortalATAPI(repository, skeletonAtData, blockTimestamp);
+		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
 
-			try {
-				new MachineState(api, loggerFactory, this.deployATTransactionData.getCreationBytes());
-			} catch (IllegalArgumentException e) {
-				// Not valid
-				return ValidationResult.INVALID_CREATION_BYTES;
-			}
-		} else {
-			// Skip validation for old, dead ATs
+		try {
+			new MachineState(api, loggerFactory, this.deployATTransactionData.getCreationBytes());
+		} catch (IllegalArgumentException e) {
+			// Not valid
+			return ValidationResult.INVALID_CREATION_BYTES;
 		}
 
 		return ValidationResult.OK;
