@@ -12,21 +12,7 @@ public abstract class Amounts {
 	public static final BigInteger ROUNDING = MULTIPLIER_BI.subtract(BigInteger.ONE);
 
 	public static String prettyAmount(long amount) {
-		StringBuilder stringBuilder = new StringBuilder(20);
-
-		stringBuilder.append(amount / MULTIPLIER);
-
-		stringBuilder.append('.');
-
-		int dpLength = stringBuilder.length();
-
-		stringBuilder.append(Math.abs(amount % MULTIPLIER));
-
-		int paddingRequired = 8 - (stringBuilder.length() - dpLength);
-		if (paddingRequired > 0)
-			stringBuilder.append("00000000", 0, paddingRequired);
-
-		return stringBuilder.toString();
+		return String.format("%d.%08d", amount / MULTIPLIER, amount % MULTIPLIER);
 	}
 
 	public static BigDecimal toBigDecimal(long amount) {
