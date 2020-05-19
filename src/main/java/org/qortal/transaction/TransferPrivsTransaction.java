@@ -7,6 +7,7 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
+import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
@@ -59,6 +60,10 @@ public class TransferPrivsTransaction extends Transaction {
 		// Check recipient is new account
 		if (this.repository.getAccountRepository().accountExists(this.transferPrivsTransactionData.getRecipient()))
 			return ValidationResult.ACCOUNT_ALREADY_EXISTS;
+
+		// Check sender has funds for fee
+		if (getSender().getConfirmedBalance(Asset.QORT) < this.transferPrivsTransactionData.getFee())
+			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
 	}

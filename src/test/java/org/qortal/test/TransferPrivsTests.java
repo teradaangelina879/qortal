@@ -10,6 +10,7 @@ import org.qortal.block.BlockChain;
 import org.qortal.block.BlockMinter;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.transaction.BaseTransactionData;
+import org.qortal.data.transaction.PaymentTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.TransferPrivsTransactionData;
 import org.qortal.repository.DataException;
@@ -20,6 +21,7 @@ import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
 import org.qortal.test.common.TransactionUtils;
+import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Amounts;
 
@@ -43,6 +45,31 @@ public class TransferPrivsTests extends Common {
 	@After
 	public void afterTest() throws DataException {
 		Common.orphanCheck();
+	}
+
+	@Test
+	public void testNewAccountsTransferPrivs() throws DataException {
+		Random random = new Random();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			TestAccount alice = Common.getTestAccount(repository, "alice");
+
+			PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice-reward-share");
+
+			byte[] randomPrivateKey = new byte[Transformer.PRIVATE_KEY_LENGTH];
+			random.nextBytes(randomPrivateKey);
+			PrivateKeyAccount randomAccount = new PrivateKeyAccount(repository, randomPrivateKey);
+
+			// Alice sends random account an amount less than fee
+			TransactionData transactionData = new PaymentTransactionData(TestTransaction.generateBase(alice), randomAccount.getAddress(), 1L);
+			TransactionUtils.signAndMint(repository, transactionData, alice);
+
+			byte[] recipientPublicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+			random.nextBytes(recipientPublicKey);
+			PublicKeyAccount recipientAccount = new PublicKeyAccount(repository, recipientPublicKey);
+
+			combineAccounts(repository, randomAccount, recipientAccount, mintingAccount);
+		}
 	}
 
 	@Test
