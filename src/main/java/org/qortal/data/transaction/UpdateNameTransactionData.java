@@ -5,8 +5,8 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qortal.naming.Name;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.Unicode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -64,7 +64,7 @@ public class UpdateNameTransactionData extends TransactionData {
 
 	/** From network/API */
 	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String name, String newName, String newData) {
-		this(baseTransactionData, name, newName, newData, Name.reduceName(newName), null);
+		this(baseTransactionData, name, newName, newData, Unicode.sanitize(newName), null);
 	}
 
 	// Getters / setters
@@ -87,10 +87,6 @@ public class UpdateNameTransactionData extends TransactionData {
 
 	public String getReducedNewName() {
 		return this.reducedNewName;
-	}
-
-	public void setReducedNewName(String reducedNewName) {
-		this.reducedNewName = reducedNewName;
 	}
 
 	public byte[] getNameReference() {

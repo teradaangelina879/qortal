@@ -41,15 +41,6 @@ public class RegisterNameTransaction extends Transaction {
 		return this.getCreator();
 	}
 
-	private synchronized String getReducedName() {
-		if (this.registerNameTransactionData.getReducedName() == null) {
-			String reducedName = Name.reduceName(this.registerNameTransactionData.getName());
-			this.registerNameTransactionData.setReducedName(reducedName);
-		}
-
-		return this.registerNameTransactionData.getReducedName();
-	}
-
 	// Processing
 
 	@Override
@@ -75,16 +66,13 @@ public class RegisterNameTransaction extends Transaction {
 		if (registrant.getConfirmedBalance(Asset.QORT) < this.registerNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
-		// Fill in missing reduced name. Caller is likely to save this as next step.
-		getReducedName();
-
 		return ValidationResult.OK;
 	}
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Check the name isn't already taken
-		if (this.repository.getNameRepository().reducedNameExists(getReducedName()))
+		if (this.repository.getNameRepository().reducedNameExists(this.registerNameTransactionData.getReducedName()))
 			return ValidationResult.NAME_ALREADY_REGISTERED;
 
 		// If accounts are only allowed one registered name then check for this

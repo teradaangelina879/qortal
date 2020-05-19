@@ -41,15 +41,6 @@ public class UpdateNameTransaction extends Transaction {
 		return this.getCreator();
 	}
 
-	private synchronized String getReducedNewName() {
-		if (this.updateNameTransactionData.getReducedNewName() == null) {
-			String reducedNewName = Name.reduceName(this.updateNameTransactionData.getNewName());
-			this.updateNameTransactionData.setReducedNewName(reducedNewName);
-		}
-
-		return this.updateNameTransactionData.getReducedNewName();
-	}
-
 	// Processing
 
 	@Override
@@ -99,9 +90,6 @@ public class UpdateNameTransaction extends Transaction {
 		if (owner.getConfirmedBalance(Asset.QORT) < this.updateNameTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
-		// Fill in missing reduced new name. Caller is likely to save this as next step.
-		getReducedNewName();
-
 		return ValidationResult.OK;
 	}
 
@@ -124,7 +112,7 @@ public class UpdateNameTransaction extends Transaction {
 			return ValidationResult.INVALID_NAME_OWNER;
 
 		// Check new name isn't already taken, unless it is the same name (this allows for case-adjusting renames)
-		NameData newNameData = this.repository.getNameRepository().fromReducedName(getReducedNewName());
+		NameData newNameData = this.repository.getNameRepository().fromReducedName(this.updateNameTransactionData.getReducedNewName());
 		if (newNameData != null && !newNameData.getName().equals(nameData.getName()))
 			return ValidationResult.NAME_ALREADY_REGISTERED;
 

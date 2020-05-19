@@ -30,7 +30,6 @@ import org.qortal.data.transaction.UpdateGroupTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
-import org.qortal.utils.Unicode;
 
 public class Group {
 
@@ -126,12 +125,6 @@ public class Group {
 
 	public GroupData getGroupData() {
 		return this.groupData;
-	}
-
-	// Shortcuts to aid code clarity
-
-	public static String reduceName(String name) {
-		return Unicode.sanitize(name);
 	}
 
 	// Membership

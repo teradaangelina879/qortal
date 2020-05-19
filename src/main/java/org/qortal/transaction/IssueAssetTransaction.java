@@ -7,7 +7,6 @@ import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.data.transaction.IssueAssetTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.utils.Amounts;
@@ -40,15 +39,6 @@ public class IssueAssetTransaction extends Transaction {
 
 	public Account getIssuer() {
 		return this.getCreator();
-	}
-
-	private String getReducedAssetName() {
-		if (this.issueAssetTransactionData.getReducedAssetName() == null) {
-			String reducedAssetName = Name.reduceName(this.issueAssetTransactionData.getAssetName());
-			this.issueAssetTransactionData.setReducedAssetName(reducedAssetName);
-		}
-
-		return this.issueAssetTransactionData.getReducedAssetName();
 	}
 
 	// Processing
@@ -90,16 +80,13 @@ public class IssueAssetTransaction extends Transaction {
 		if (issuer.getConfirmedBalance(Asset.QORT) < this.issueAssetTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
-		// Fill in missing reduced name. Caller is likely to save this as next step.
-		getReducedAssetName();
-
 		return ValidationResult.OK;
 	}
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Check the name isn't already taken
-		if (this.repository.getAssetRepository().reducedAssetNameExists(getReducedAssetName()))
+		if (this.repository.getAssetRepository().reducedAssetNameExists(this.issueAssetTransactionData.getReducedAssetName()))
 			return ValidationResult.ASSET_ALREADY_EXISTS;
 
 		return ValidationResult.OK;

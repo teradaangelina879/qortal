@@ -40,15 +40,6 @@ public class CreateGroupTransaction extends Transaction {
 		return this.getCreator();
 	}
 
-	private synchronized String getReducedGroupName() {
-		if (this.createGroupTransactionData.getReducedGroupName() == null) {
-			String reducedGroupName = Group.reduceName(this.createGroupTransactionData.getGroupName());
-			this.createGroupTransactionData.setReducedGroupName(reducedGroupName);
-		}
-
-		return this.createGroupTransactionData.getReducedGroupName();
-	}
-
 	// Processing
 
 	@Override
@@ -89,16 +80,13 @@ public class CreateGroupTransaction extends Transaction {
 		if (creator.getConfirmedBalance(Asset.QORT) < this.createGroupTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
-		// Fill in missing reduced name. Caller is likely to save this as next step.
-		getReducedGroupName();
-
 		return ValidationResult.OK;
 	}
 
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Check the group name isn't already taken
-		if (this.repository.getGroupRepository().reducedGroupNameExists(getReducedGroupName()))
+		if (this.repository.getGroupRepository().reducedGroupNameExists(this.createGroupTransactionData.getReducedGroupName()))
 			return ValidationResult.GROUP_ALREADY_EXISTS;
 
 		return ValidationResult.OK;

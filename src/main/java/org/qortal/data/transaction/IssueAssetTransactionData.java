@@ -8,9 +8,9 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qortal.account.NullAccount;
-import org.qortal.asset.Asset;
 import org.qortal.block.GenesisBlock;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.Unicode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
@@ -76,7 +76,7 @@ public class IssueAssetTransactionData extends TransactionData {
 		 *  then we need to construct 'reduced' form of asset name.
 		 */
 		if (parent instanceof GenesisBlock.GenesisInfo && this.reducedAssetName == null)
-			this.reducedAssetName = Asset.reduceName(this.assetName);
+			this.reducedAssetName = Unicode.sanitize(this.assetName);
 
 		this.creatorPublicKey = this.issuerPublicKey;
 	}
@@ -101,7 +101,8 @@ public class IssueAssetTransactionData extends TransactionData {
 	/** From network/API */
 	public IssueAssetTransactionData(BaseTransactionData baseTransactionData, String assetName, String description,
 			long quantity, boolean isDivisible, String data, boolean isUnspendable) {
-		this(baseTransactionData, null, assetName, description, quantity, isDivisible, data, isUnspendable, null);
+		this(baseTransactionData, null, assetName, description, quantity, isDivisible, data, isUnspendable,
+				Unicode.sanitize(assetName));
 	}
 
 	// Getters/Setters
@@ -144,10 +145,6 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	public String getReducedAssetName() {
 		return this.reducedAssetName;
-	}
-
-	public void setReducedAssetName(String reducedAssetName) {
-		this.reducedAssetName = reducedAssetName;
 	}
 
 }

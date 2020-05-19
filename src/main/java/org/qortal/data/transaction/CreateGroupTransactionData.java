@@ -8,9 +8,9 @@ import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qortal.block.GenesisBlock;
-import org.qortal.group.Group;
 import org.qortal.group.Group.ApprovalThreshold;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.Unicode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
@@ -67,7 +67,7 @@ public class CreateGroupTransactionData extends TransactionData {
 		 *  then we need to construct 'reduced' group name.
 		 */
 		if (parent instanceof GenesisBlock.GenesisInfo && this.reducedGroupName == null)
-			this.reducedGroupName = Group.reduceName(this.groupName);
+			this.reducedGroupName = Unicode.sanitize(this.groupName);
 	}
 
 	/** From repository */
@@ -91,7 +91,8 @@ public class CreateGroupTransactionData extends TransactionData {
 	public CreateGroupTransactionData(BaseTransactionData baseTransactionData,
 			String groupName, String description, boolean isOpen,
 			ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay) {
-		this(baseTransactionData, groupName, description, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, null, null);
+		this(baseTransactionData, groupName, description, isOpen, approvalThreshold, minimumBlockDelay,
+				maximumBlockDelay, null, Unicode.sanitize(groupName));
 	}
 
 	// Getters / setters
@@ -130,10 +131,6 @@ public class CreateGroupTransactionData extends TransactionData {
 
 	public String getReducedGroupName() {
 		return this.reducedGroupName;
-	}
-
-	public void setReducedGroupName(String reducedGroupName) {
-		this.reducedGroupName = reducedGroupName;
 	}
 
 	// Re-expose creatorPublicKey for this transaction type for JAXB

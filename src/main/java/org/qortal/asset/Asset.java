@@ -8,7 +8,6 @@ import org.qortal.data.transaction.UpdateAssetTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.utils.Amounts;
-import org.qortal.utils.Unicode;
 
 public class Asset {
 
@@ -67,10 +66,6 @@ public class Asset {
 	}
 
 	// Processing
-
-	public static String reduceName(String assetName) {
-		return Unicode.sanitize(assetName);
-	}
 
 	public void issue() throws DataException {
 		this.repository.getAssetRepository().save(this.assetData);

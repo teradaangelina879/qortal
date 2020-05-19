@@ -6,8 +6,8 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
-import org.qortal.naming.Name;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.Unicode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -57,7 +57,7 @@ public class RegisterNameTransactionData extends TransactionData {
 
 	/** From network */
 	public RegisterNameTransactionData(BaseTransactionData baseTransactionData, String name, String data) {
-		this(baseTransactionData, name, data, Name.reduceName(name));
+		this(baseTransactionData, name, data, Unicode.sanitize(name));
 	}
 
 	// Getters / setters
@@ -76,10 +76,6 @@ public class RegisterNameTransactionData extends TransactionData {
 
 	public String getReducedName() {
 		return this.reducedName;
-	}
-
-	public void setReducedName(String reducedName) {
-		this.reducedName = reducedName;
 	}
 
 }

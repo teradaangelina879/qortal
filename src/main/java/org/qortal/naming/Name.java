@@ -60,10 +60,6 @@ public class Name {
 
 	// Processing
 
-	public static String reduceName(String name) {
-		return Unicode.sanitize(name);
-	}
-
 	public void register() throws DataException {
 		this.repository.getNameRepository().save(this.nameData);
 	}
