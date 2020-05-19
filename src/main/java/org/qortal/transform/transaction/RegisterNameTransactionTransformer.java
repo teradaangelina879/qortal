@@ -18,11 +18,10 @@ import com.google.common.primitives.Longs;
 public class RegisterNameTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int OWNER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 
-	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DATA_SIZE_LENGTH;
+	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + DATA_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
