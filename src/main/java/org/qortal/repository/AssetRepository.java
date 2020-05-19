@@ -19,6 +19,8 @@ public interface AssetRepository {
 
 	public boolean assetExists(String assetName) throws DataException;
 
+	public boolean reducedAssetNameExists(String reducedAssetName) throws DataException;
+
 	public List<AssetData> getAllAssets(Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public default List<AssetData> getAllAssets() throws DataException {

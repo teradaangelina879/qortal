@@ -8,6 +8,7 @@ import org.qortal.data.transaction.UpdateAssetTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.utils.Amounts;
+import org.qortal.utils.Unicode;
 
 public class Asset {
 
@@ -23,6 +24,7 @@ public class Asset {
 
 	// Other useful constants
 
+	public static final int MIN_NAME_SIZE = 3;
 	public static final int MAX_NAME_SIZE = 40;
 	public static final int MAX_DESCRIPTION_SIZE = 4000;
 	public static final int MAX_DATA_SIZE = 400000;
@@ -49,8 +51,8 @@ public class Asset {
 		this.assetData = new AssetData(ownerAddress, issueAssetTransactionData.getAssetName(),
 				issueAssetTransactionData.getDescription(), issueAssetTransactionData.getQuantity(),
 				issueAssetTransactionData.isDivisible(), issueAssetTransactionData.getData(),
-				issueAssetTransactionData.isUnspendable(),
-				issueAssetTransactionData.getTxGroupId(), issueAssetTransactionData.getSignature());
+				issueAssetTransactionData.isUnspendable(), issueAssetTransactionData.getTxGroupId(),
+				issueAssetTransactionData.getSignature(), issueAssetTransactionData.getReducedAssetName());
 	}
 
 	public Asset(Repository repository, long assetId) throws DataException {
@@ -65,6 +67,10 @@ public class Asset {
 	}
 
 	// Processing
+
+	public static String reduceName(String assetName) {
+		return Unicode.sanitize(assetName);
+	}
 
 	public void issue() throws DataException {
 		this.repository.getAssetRepository().save(this.assetData);

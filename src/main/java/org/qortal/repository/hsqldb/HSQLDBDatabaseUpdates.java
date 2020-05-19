@@ -355,9 +355,11 @@ public class HSQLDBDatabaseUpdates {
 							+ "quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, "
 							+ "is_unspendable BOOLEAN NOT NULL DEFAULT FALSE, creation_group_id GroupID NOT NULL DEFAULT 0, "
 							+ "reference Signature NOT NULL, data AssetData NOT NULL DEFAULT '', "
-							+ "PRIMARY KEY (asset_id))");
+							+ "reduced_asset_name AssetName NOT NULL, PRIMARY KEY (asset_id))");
 					// For when a user wants to lookup an asset by name
 					stmt.execute("CREATE INDEX AssetNameIndex on Assets (asset_name)");
+					// For looking up assets by 'reduced' name
+					stmt.execute("CREATE INDEX AssetReducedNameIndex on Assets (reduced_asset_name)");
 
 					// We need a corresponding trigger to make sure new asset_id values are assigned sequentially start from 0
 					stmt.execute("CREATE TRIGGER Asset_ID_Trigger BEFORE INSERT ON Assets "
@@ -386,7 +388,8 @@ public class HSQLDBDatabaseUpdates {
 					// Issue Asset Transactions
 					stmt.execute("CREATE TABLE IssueAssetTransactions (signature Signature, issuer QortalPublicKey NOT NULL, asset_name AssetName NOT NULL, "
 							+ "description GenericDescription NOT NULL, quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, asset_id AssetID, "
-							+ "is_unspendable BOOLEAN NOT NULL, data AssetData NOT NULL DEFAULT '', " + TRANSACTION_KEYS + ")");
+							+ "is_unspendable BOOLEAN NOT NULL, data AssetData NOT NULL DEFAULT '', reduced_asset_name AssetName NOT NULL, "
+							+ TRANSACTION_KEYS + ")");
 
 					// Transfer Asset Transactions
 					stmt.execute("CREATE TABLE TransferAssetTransactions (signature Signature, sender QortalPublicKey NOT NULL, recipient QortalAddress NOT NULL, "
