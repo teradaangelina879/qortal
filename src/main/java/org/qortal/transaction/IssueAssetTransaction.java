@@ -53,7 +53,7 @@ public class IssueAssetTransaction extends Transaction {
 
 		// Check name is in normalized form (no leading/trailing whitespace, etc.)
 		if (!assetName.equals(Unicode.normalize(assetName)))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
+			return ValidationResult.NAME_NOT_NORMALIZED;
 
 		// Check description size bounds
 		int assetDescriptionlength = Utf8.encodedLength(this.issueAssetTransactionData.getDescription());

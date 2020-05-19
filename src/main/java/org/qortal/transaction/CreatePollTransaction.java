@@ -12,6 +12,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.voting.PollOptionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Unicode;
 import org.qortal.voting.Poll;
 
 import com.google.common.base.Utf8;
@@ -51,8 +52,9 @@ public class CreatePollTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
-		int pollNameLength = Utf8.encodedLength(this.createPollTransactionData.getPollName());
-		if (pollNameLength < 1 || pollNameLength > Poll.MAX_NAME_SIZE)
+		String pollName = this.createPollTransactionData.getPollName();
+		int pollNameLength = Utf8.encodedLength(pollName);
+		if (pollNameLength < Poll.MIN_NAME_SIZE || pollNameLength > Poll.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check description size bounds
@@ -60,9 +62,9 @@ public class CreatePollTransaction extends Transaction {
 		if (pollDescriptionLength < 1 || pollDescriptionLength > Poll.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
-		// Check poll name is lowercase
-		if (!this.createPollTransactionData.getPollName().equals(this.createPollTransactionData.getPollName().toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!pollName.equals(Unicode.normalize(pollName)))
+			return ValidationResult.NAME_NOT_NORMALIZED;
 
 		// Check number of options
 		List<PollOptionData> pollOptions = this.createPollTransactionData.getPollOptions();

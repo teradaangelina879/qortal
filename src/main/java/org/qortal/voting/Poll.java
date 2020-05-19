@@ -12,6 +12,7 @@ public class Poll {
 	private PollData pollData;
 
 	// Other useful constants
+	public static final int MIN_NAME_SIZE = 3;
 	public static final int MAX_NAME_SIZE = 400;
 	public static final int MAX_DESCRIPTION_SIZE = 4000;
 	public static final int MAX_OPTIONS = 100;

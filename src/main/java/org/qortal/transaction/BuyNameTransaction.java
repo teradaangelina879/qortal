@@ -13,6 +13,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.utils.Unicode;
 
 import com.google.common.base.Utf8;
 
@@ -58,9 +59,9 @@ public class BuyNameTransaction extends Transaction {
 		if (nameLength < Name.MIN_NAME_SIZE || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
-		// Check name is lowercase
-		if (!name.equals(name.toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!name.equals(Unicode.normalize(name)))
+			return ValidationResult.NAME_NOT_NORMALIZED;
 
 		NameData nameData = this.repository.getNameRepository().fromName(name);
 

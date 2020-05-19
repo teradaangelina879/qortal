@@ -72,7 +72,7 @@ public class CreateGroupTransaction extends Transaction {
 
 		// Check name is in normalized form (no leading/trailing whitespace, etc.)
 		if (!groupName.equals(Unicode.normalize(groupName)))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
+			return ValidationResult.NAME_NOT_NORMALIZED;
 
 		Account creator = getCreator();
 

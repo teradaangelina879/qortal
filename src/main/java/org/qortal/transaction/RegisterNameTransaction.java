@@ -60,7 +60,7 @@ public class RegisterNameTransaction extends Transaction {
 
 		// Check name is in normalized form (no leading/trailing whitespace, etc.)
 		if (!name.equals(Unicode.normalize(name)))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
+			return ValidationResult.NAME_NOT_NORMALIZED;
 
 		// Check registrant has enough funds
 		if (registrant.getConfirmedBalance(Asset.QORT) < this.registerNameTransactionData.getFee())

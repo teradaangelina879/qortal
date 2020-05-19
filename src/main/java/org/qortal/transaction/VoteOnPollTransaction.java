@@ -15,6 +15,7 @@ import org.qortal.data.voting.VoteOnPollData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.VotingRepository;
+import org.qortal.utils.Unicode;
 import org.qortal.voting.Poll;
 
 import com.google.common.base.Utf8;
@@ -58,9 +59,9 @@ public class VoteOnPollTransaction extends Transaction {
 		if (pollNameLength < 1 || pollNameLength > Poll.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
-		// Check poll name is lowercase
-		if (!pollName.equals(pollName.toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
+		// Check name is in normalized form (no leading/trailing whitespace, etc.)
+		if (!pollName.equals(Unicode.normalize(pollName)))
+			return ValidationResult.NAME_NOT_NORMALIZED;
 
 		VotingRepository votingRepository = this.repository.getVotingRepository();
 

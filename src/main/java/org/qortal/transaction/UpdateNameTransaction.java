@@ -54,7 +54,7 @@ public class UpdateNameTransaction extends Transaction {
 
 		// Check name is in normalized form (no leading/trailing whitespace, etc.)
 		if (!name.equals(Unicode.normalize(name)))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
+			return ValidationResult.NAME_NOT_NORMALIZED;
 
 		NameData nameData = this.repository.getNameRepository().fromName(name);
 
@@ -76,7 +76,7 @@ public class UpdateNameTransaction extends Transaction {
 
 			// Check new name is in normalized form (no leading/trailing whitespace, etc.)
 			if (!newName.equals(Unicode.normalize(newName)))
-				return ValidationResult.NAME_NOT_LOWER_CASE;
+				return ValidationResult.NAME_NOT_NORMALIZED;
 		}
 
 		// Check new data size bounds (0 length means don't update data)
