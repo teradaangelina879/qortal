@@ -794,6 +794,15 @@ public abstract class Transaction {
 
 			repository.getTransactionRepository().save(transactionData);
 			repository.getTransactionRepository().unconfirmTransaction(transactionData);
+
+			/*
+			 * If CHAT transaction then ensure there's at least a skeleton account so people
+			 * can retrieve sender's public key using address, even if all their messages
+			 * expire.
+			 */
+			if (transactionData.getType() == TransactionType.CHAT)
+				this.getCreator().ensureAccount();
+
 			repository.saveChanges();
 
 			return ValidationResult.OK;

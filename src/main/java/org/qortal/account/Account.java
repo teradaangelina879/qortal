@@ -52,6 +52,10 @@ public class Account {
 		return new AccountData(this.address);
 	}
 
+	public void ensureAccount() throws DataException {
+		this.repository.getAccountRepository().ensureAccount(this.buildAccountData());
+	}
+
 	// Balance manipulations - assetId is 0 for QORT
 
 	public long getConfirmedBalance(long assetId) throws DataException {
@@ -77,7 +81,7 @@ public class Account {
 		}
 
 		// Can't have a balance without an account - make sure it exists!
-		this.repository.getAccountRepository().ensureAccount(this.buildAccountData());
+		this.ensureAccount();
 
 		AccountBalanceData accountBalanceData = new AccountBalanceData(this.address, assetId, balance);
 		this.repository.getAccountRepository().save(accountBalanceData);

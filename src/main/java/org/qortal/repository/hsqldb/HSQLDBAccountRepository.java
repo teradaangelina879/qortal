@@ -143,9 +143,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public void ensureAccount(AccountData accountData) throws DataException {
-		String sql = "INSERT IGNORE INTO Accounts (account) VALUES (?)"; // MySQL syntax
+		String sql = "INSERT IGNORE INTO Accounts (account, public_key) VALUES (?, ?)"; // MySQL syntax
 		try {
-			this.repository.checkedExecuteUpdateCount(sql, accountData.getAddress());
+			this.repository.checkedExecuteUpdateCount(sql, accountData.getAddress(), accountData.getPublicKey());
 		} catch (SQLException e) {
 			throw new DataException("Unable to ensure minimal account in repository", e);
 		}
