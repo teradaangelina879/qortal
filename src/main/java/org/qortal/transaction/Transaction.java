@@ -782,6 +782,16 @@ public abstract class Transaction {
 			if (validationResult != ValidationResult.OK)
 				return validationResult;
 
+			/*
+			 * We call discardChanges() to restart repository 'transaction', discarding any
+			 * transactional table locks, hence reducing possibility of deadlock or
+			 * "serialization failure" with HSQLDB due to reads.
+			 * 
+			 * We should be OK to proceed after validation check as we're protected by
+			 * BLOCKCHAIN_LOCK so no other thread will be writing the same transaction.
+			 */
+			repository.discardChanges();
+
 			repository.getTransactionRepository().save(transactionData);
 			repository.getTransactionRepository().unconfirmTransaction(transactionData);
 			repository.saveChanges();
