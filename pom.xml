@@ -451,6 +451,10 @@
 					<groupId>org.asynchttpclient</groupId>
 					<artifactId>async-http-client</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>io.druid</groupId>
+					<artifactId>java-util</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<!-- For NTP -->
