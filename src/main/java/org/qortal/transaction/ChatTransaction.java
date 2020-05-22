@@ -169,7 +169,7 @@ public class ChatTransaction extends Transaction {
 			throw new RuntimeException("Unable to transform transaction to byte array for verification", e);
 		}
 
-		if (!PublicKeyAccount.verify(this.transactionData.getCreatorPublicKey(), signature, transactionBytes))
+		if (!Crypto.verify(this.transactionData.getCreatorPublicKey(), signature, transactionBytes))
 			return false;
 
 		int nonce = this.chatTransactionData.getNonce();

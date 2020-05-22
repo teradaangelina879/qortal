@@ -18,6 +18,7 @@ import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.group.GroupApprovalData;
 import org.qortal.data.group.GroupData;
@@ -479,7 +480,7 @@ public abstract class Transaction {
 			return false;
 
 		try {
-			return PublicKeyAccount.verify(this.transactionData.getCreatorPublicKey(), signature, TransactionTransformer.toBytesForSigning(transactionData));
+			return Crypto.verify(this.transactionData.getCreatorPublicKey(), signature, TransactionTransformer.toBytesForSigning(transactionData));
 		} catch (TransformationException e) {
 			throw new RuntimeException("Unable to transform transaction to byte array for verification", e);
 		}

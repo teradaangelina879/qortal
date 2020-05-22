@@ -945,7 +945,7 @@ public class Block {
 			if (onlineAccounts.remove(onlineAccountData)) // remove() is like contains() but also reduces the number to check next time
 				continue;
 
-			if (!PublicKeyAccount.verify(publicKey, signature, onlineTimestampBytes))
+			if (!Crypto.verify(publicKey, signature, onlineTimestampBytes))
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
 		}
 
