@@ -24,9 +24,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
+import org.qortal.network.message.ChallengeMessage;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.PingMessage;
-import org.qortal.network.message.VersionMessage;
 import org.qortal.network.message.Message.MessageException;
 import org.qortal.network.message.Message.MessageType;
 import org.qortal.settings.Settings;
@@ -42,7 +42,7 @@ public class Peer {
 	private static final Logger LOGGER = LogManager.getLogger(Peer.class);
 
 	/** Maximum time to allow <tt>connect()</tt> to remote peer to complete. (ms) */
-	private static final int CONNECT_TIMEOUT = 1000; // ms
+	private static final int CONNECT_TIMEOUT = 2000; // ms
 
 	/** Maximum time to wait for a message reply to arrive from peer. (ms) */
 	private static final int RESPONSE_TIMEOUT = 2000; // ms
@@ -54,9 +54,6 @@ public class Peer {
 	 */
 	private static final int PING_INTERVAL = 20_000; // ms
 
-	/** Threshold for buildTimestamp in VERSION messages where we consider peer to be using v2 protocol. */
-	private static final long V2_PROTOCOL_TIMESTAMP_THRESHOLD = 1546300800L; // midnight starting 1st Jan 2019
-
 	private volatile boolean isStopping = false;
 
 	private SocketChannel socketChannel = null;
@@ -65,41 +62,48 @@ public class Peer {
 	private boolean isLocal;
 
 	private final Object byteBufferLock = new Object();
-	private volatile ByteBuffer byteBuffer;
+	private ByteBuffer byteBuffer;
+
 	private Map<Integer, BlockingQueue<Message>> replyQueues;
 	private LinkedBlockingQueue<Message> pendingMessages;
 
 	/** True if we created connection to peer, false if we accepted incoming connection from peer. */
 	private final boolean isOutbound;
-	/** Numeric protocol version, typically 1 or 2. */
-	private volatile Integer version;
-	private volatile byte[] peerId;
 
-	private volatile Handshake handshakeStatus = Handshake.STARTED;
+	private final Object handshakingLock = new Object();
+	private Handshake handshakeStatus = Handshake.STARTED;
 	private volatile boolean handshakeMessagePending = false;
 
-	private volatile byte[] pendingPeerId;
-	private volatile byte[] verificationCodeSent;
-	private volatile byte[] verificationCodeExpected;
-
-	private volatile PeerData peerData = null;
-
 	/** Timestamp of when socket was accepted, or connected. */
-	private volatile Long connectionTimestamp = null;
-
-	/** Peer's value of connectionTimestamp. */
-	private volatile Long peersConnectionTimestamp = null;
-
-	/** Version info as reported by peer. */
-	private volatile VersionMessage versionMessage = null;
+	private Long connectionTimestamp = null;
 
 	/** Last PING message round-trip time (ms). */
-	private volatile Long lastPing = null;
+	private Long lastPing = null;
 	/** When last PING message was sent, or null if pings not started yet. */
-	private volatile Long lastPingSent;
+	private Long lastPingSent;
+
+	byte[] ourChallenge;
+
+	// Peer info
+
+	private final Object peerInfoLock = new Object();
+
+	private String peersNodeId;
+	private byte[] peersPublicKey;
+	private byte[] peersChallenge;
+
+	private PeerData peerData = null;
+
+	/** Peer's value of connectionTimestamp. */
+	private Long peersConnectionTimestamp = null;
+
+	/** Version string as reported by peer. */
+	private String peersVersionString = null;
+	/** Numeric version of peer. */
+	private Long peersVersion = null;
 
 	/** Latest block info as reported by peer. */
-	private volatile PeerChainTipData chainTipData;
+	private PeerChainTipData peersChainTipData;
 
 	// Constructors
 
@@ -124,16 +128,20 @@ public class Peer {
 
 	// Getters / setters
 
-	public SocketChannel getSocketChannel() {
-		return this.socketChannel;
-	}
-
 	public boolean isStopping() {
 		return this.isStopping;
 	}
 
-	public PeerData getPeerData() {
-		return this.peerData;
+	public SocketChannel getSocketChannel() {
+		return this.socketChannel;
+	}
+
+	public InetSocketAddress getResolvedAddress() {
+		return this.resolvedAddress;
+	}
+
+	public boolean isLocal() {
+		return this.isLocal;
 	}
 
 	public boolean isOutbound() {
@@ -141,103 +149,131 @@ public class Peer {
 	}
 
 	public Handshake getHandshakeStatus() {
-		return this.handshakeStatus;
-	}
-
-	public void setHandshakeStatus(Handshake handshakeStatus) {
-		this.handshakeStatus = handshakeStatus;
-	}
-
-	public void resetHandshakeMessagePending() {
-		this.handshakeMessagePending = false;
-	}
-
-	public VersionMessage getVersionMessage() {
-		return this.versionMessage;
-	}
-
-	public void setVersionMessage(VersionMessage versionMessage) {
-		this.versionMessage = versionMessage;
-
-		if (this.versionMessage.getBuildTimestamp() >= V2_PROTOCOL_TIMESTAMP_THRESHOLD) {
-			this.version = 2; // enhanced protocol
-		} else {
-			this.version = 1; // legacy protocol
+		synchronized (this.handshakingLock) {
+			return this.handshakeStatus;
 		}
 	}
 
-	public Integer getVersion() {
-		return this.version;
+	/*package*/ void setHandshakeStatus(Handshake handshakeStatus) {
+		synchronized (this.handshakingLock) {
+			this.handshakeStatus = handshakeStatus;
+		}
+	}
+
+	/*package*/ void resetHandshakeMessagePending() {
+		this.handshakeMessagePending = false;
+	}
+
+	public PeerData getPeerData() {
+		synchronized (this.peerInfoLock) {
+			return this.peerData;
+		}
 	}
 
 	public Long getConnectionTimestamp() {
-		return this.connectionTimestamp;
+		synchronized (this.peerInfoLock) {
+			return this.connectionTimestamp;
+		}
+	}
+
+	public String getPeersVersionString() {
+		synchronized (this.peerInfoLock) {
+			return this.peersVersionString;
+		}
+	}
+
+	public Long getPeersVersion() {
+		synchronized (this.peerInfoLock) {
+			return this.peersVersion;
+		}
+	}
+
+	/*package*/ void setPeersVersion(String versionString, long version) {
+		synchronized (this.peerInfoLock) {
+			this.peersVersionString = versionString;
+			this.peersVersion = version;
+		}
 	}
 
 	public Long getPeersConnectionTimestamp() {
-		return this.peersConnectionTimestamp;
+		synchronized (this.peerInfoLock) {
+			return this.peersConnectionTimestamp;
+		}
 	}
 
-	/* package */ void setPeersConnectionTimestamp(Long peersConnectionTimestamp) {
-		this.peersConnectionTimestamp = peersConnectionTimestamp;
+	/*package*/ void setPeersConnectionTimestamp(Long peersConnectionTimestamp) {
+		synchronized (this.peerInfoLock) {
+			this.peersConnectionTimestamp = peersConnectionTimestamp;
+		}
 	}
 
 	public Long getLastPing() {
-		return this.lastPing;
+		synchronized (this.peerInfoLock) {
+			return this.lastPing;
+		}
 	}
 
-	public void setLastPing(long lastPing) {
-		this.lastPing = lastPing;
+	/*package*/ void setLastPing(long lastPing) {
+		synchronized (this.peerInfoLock) {
+			this.lastPing = lastPing;
+		}
 	}
 
-	public InetSocketAddress getResolvedAddress() {
-		return this.resolvedAddress;
+	/*package*/ byte[] getOurChallenge() {
+		return this.ourChallenge;
 	}
 
-	public boolean getIsLocal() {
-		return this.isLocal;
+	public String getPeersNodeId() {
+		synchronized (this.peerInfoLock) {
+			return this.peersNodeId;
+		}
 	}
 
-	public byte[] getPeerId() {
-		return this.peerId;
+	/*package*/ void setPeersNodeId(String peersNodeId) {
+		synchronized (this.peerInfoLock) {
+			this.peersNodeId = peersNodeId;
+		}
 	}
 
-	public void setPeerId(byte[] peerId) {
-		this.peerId = peerId;
+	public byte[] getPeersPublicKey() {
+		synchronized (this.peerInfoLock) {
+			return this.peersPublicKey;
+		}
 	}
 
-	public byte[] getPendingPeerId() {
-		return this.pendingPeerId;
+	/*package*/ void setPeersPublicKey(byte[] peerPublicKey) {
+		synchronized (this.peerInfoLock) {
+			this.peersPublicKey = peerPublicKey;
+		}
 	}
 
-	public void setPendingPeerId(byte[] peerId) {
-		this.pendingPeerId = peerId;
+	public byte[] getPeersChallenge() {
+		synchronized (this.peerInfoLock) {
+			return this.peersChallenge;
+		}
 	}
 
-	public byte[] getVerificationCodeSent() {
-		return this.verificationCodeSent;
-	}
-
-	public byte[] getVerificationCodeExpected() {
-		return this.verificationCodeExpected;
-	}
-
-	public void setVerificationCodes(byte[] sent, byte[] expected) {
-		this.verificationCodeSent = sent;
-		this.verificationCodeExpected = expected;
+	/*package*/ void setPeersChallenge(byte[] peersChallenge) {
+		synchronized (this.peerInfoLock) {
+			this.peersChallenge = peersChallenge;
+		}
 	}
 
 	public PeerChainTipData getChainTipData() {
-		return this.chainTipData;
+		synchronized (this.peerInfoLock) {
+			return this.peersChainTipData;
+		}
 	}
 
 	public void setChainTipData(PeerChainTipData chainTipData) {
-		this.chainTipData = chainTipData;
+		synchronized (this.peerInfoLock) {
+			this.peersChainTipData = chainTipData;
+		}
 	}
 
-	/* package */ void queueMessage(Message message) {
+	/*package*/ void queueMessage(Message message) {
 		if (!this.pendingMessages.offer(message))
-			LOGGER.info(String.format("No room to queue message from peer %s - discarding", this));
+			LOGGER.info(() -> String.format("No room to queue message from peer %s - discarding", this));
 	}
 
 	@Override
@@ -248,14 +284,6 @@ public class Peer {
 
 	// Processing
 
-	public void generateVerificationCodes() {
-		verificationCodeSent = new byte[Network.PEER_ID_LENGTH];
-		new SecureRandom().nextBytes(verificationCodeSent);
-
-		verificationCodeExpected = new byte[Network.PEER_ID_LENGTH];
-		new SecureRandom().nextBytes(verificationCodeExpected);
-	}
-
 	private void sharedSetup(Selector channelSelector) throws IOException {
 		this.connectionTimestamp = NTP.getTime();
 		this.socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
@@ -264,6 +292,10 @@ public class Peer {
 		this.byteBuffer = null; // Defer allocation to when we need it, to save memory. Sorry GC!
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
 		this.pendingMessages = new LinkedBlockingQueue<>();
+
+		Random random = new SecureRandom();
+		this.ourChallenge = new byte[ChallengeMessage.CHALLENGE_LENGTH];
+		random.nextBytes(this.ourChallenge);
 	}
 
 	public SocketChannel connect(Selector channelSelector) {
@@ -378,9 +410,11 @@ public class Peer {
 	}
 
 	/* package */ ExecuteProduceConsume.Task getMessageTask() {
-		// If we are still handshaking and there is a message yet to be processed
-		// then don't produce another message task.
-		// This allows us to process handshake messages sequentially.
+		/*
+		 * If we are still handshaking and there is a message yet to be processed then
+		 * don't produce another message task. This allows us to process handshake
+		 * messages sequentially.
+		 */
 		if (this.handshakeMessagePending)
 			return null;
 
@@ -454,9 +488,10 @@ public class Peer {
 		BlockingQueue<Message> blockingQueue = new ArrayBlockingQueue<>(1);
 
 		// Assign random ID to this message
+		Random random = new Random();
 		int id;
 		do {
-			id = new Random().nextInt(Integer.MAX_VALUE - 1) + 1;
+			id = random.nextInt(Integer.MAX_VALUE - 1) + 1;
 
 			// Put queue into map (keyed by message ID) so we can poll for a response
 			// If putIfAbsent() doesn't return null, then this ID is already taken

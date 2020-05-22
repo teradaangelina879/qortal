@@ -1,7 +1,6 @@
 package org.qortal.network;
 
 import java.io.IOException;
-import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -32,28 +31,26 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
+import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.message.GetPeersMessage;
 import org.qortal.network.message.GetUnconfirmedTransactionsMessage;
-import org.qortal.network.message.HeightMessage;
 import org.qortal.network.message.HeightV2Message;
 import org.qortal.network.message.Message;
-import org.qortal.network.message.PeerVerifyMessage;
-import org.qortal.network.message.PeersMessage;
 import org.qortal.network.message.PeersV2Message;
 import org.qortal.network.message.PingMessage;
-import org.qortal.network.message.TransactionMessage;
 import org.qortal.network.message.TransactionSignaturesMessage;
-import org.qortal.network.message.VerificationCodesMessage;
-import org.qortal.network.message.Message.MessageType;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.transform.Transformer;
 import org.qortal.utils.ExecuteProduceConsume;
 // import org.qortal.utils.ExecutorDumper;
 import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
@@ -99,10 +96,11 @@ public class Network {
 
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
 	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
-	public static final int PEER_ID_LENGTH = 128;
-	public static final byte[] ZERO_PEER_ID = new byte[PEER_ID_LENGTH];
 
-	private final byte[] ourPeerId;
+	private final Ed25519PrivateKeyParameters edPrivateKeyParams;
+	private final Ed25519PublicKeyParameters edPublicKeyParams;
+	private final String ourNodeId;
+
 	private final int maxMessageSize;
 
 	private List<PeerData> allKnownPeers;
@@ -129,10 +127,13 @@ public class Network {
 		connectedPeers = new ArrayList<>();
 		selfPeers = new ArrayList<>();
 
-		ourPeerId = new byte[PEER_ID_LENGTH];
-		new SecureRandom().nextBytes(ourPeerId);
-		// Set bit to make sure our peer ID is not 0
-		ourPeerId[ourPeerId.length - 1] |= 0x01;
+		// Generate our ID
+		byte[] seed = new byte[Transformer.PRIVATE_KEY_LENGTH];
+		new SecureRandom().nextBytes(seed);
+
+		edPrivateKeyParams = new Ed25519PrivateKeyParameters(seed, 0);
+		edPublicKeyParams = edPrivateKeyParams.generatePublicKey();
+		ourNodeId = Crypto.toNodeAddress(edPublicKeyParams.getEncoded());
 
 		maxMessageSize = 4 + 1 + 4 + BlockChain.getInstance().getMaxBlockSize();
 
@@ -201,8 +202,12 @@ public class Network {
 		return Settings.getInstance().isTestNet() ? TESTNET_MESSAGE_MAGIC : MAINNET_MESSAGE_MAGIC;
 	}
 
-	public byte[] getOurPeerId() {
-		return this.ourPeerId;
+	public String getOurNodeId() {
+		return this.ourNodeId;
+	}
+
+	/*package*/ byte[] getOurPublicKey() {
+		return this.edPublicKeyParams.getEncoded();
 	}
 
 	/** Maximum message size (bytes). Needs to be at least maximum block size + MAGIC + message type, etc. */
@@ -241,25 +246,6 @@ public class Network {
 		}
 	}
 
-	/** Returns list of connected peers that have completed handshaking, with inbound duplicates removed. */
-	public List<Peer> getUniqueHandshakedPeers() {
-		List<Peer> peers = getHandshakedPeers();
-
-		// Returns true if this peer is inbound and has corresponding outbound peer with same ID
-		Predicate<Peer> hasOutboundWithSameId = peer -> {
-			// Peer is outbound so return fast
-			if (peer.isOutbound())
-				return false;
-
-			return peers.stream().anyMatch(otherPeer -> otherPeer.isOutbound() && Arrays.equals(otherPeer.getPeerId(), peer.getPeerId()));
-		};
-
-		// Filter out inbound peers that have corresponding outbound peer with the same ID
-		peers.removeIf(hasOutboundWithSameId);
-
-		return peers;
-	}
-
 	/** Returns list of peers we connected to that have completed handshaking. */
 	public List<Peer> getOutboundHandshakedPeers() {
 		synchronized (this.connectedPeers) {
@@ -267,20 +253,12 @@ public class Network {
 		}
 	}
 
-	/** Returns Peer with inbound connection and matching ID, or null if none found. */
-	public Peer getInboundPeerWithId(byte[] peerId) {
+	/** Returns first peer that has completed handshaking and has matching public key. */
+	public Peer getHandshakedPeerWithPublicKey(byte[] publicKey) {
 		synchronized (this.connectedPeers) {
-			return this.connectedPeers.stream().filter(peer -> !peer.isOutbound() && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
+			return this.connectedPeers.stream().filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED && Arrays.equals(peer.getPeersPublicKey(), publicKey)).findFirst().orElse(null);
 		}
 	}
-
-	/** Returns handshake-completed Peer with outbound connection and matching ID, or null if none found. */
-	public Peer getOutboundHandshakedPeerWithId(byte[] peerId) {
-		synchronized (this.connectedPeers) {
-			return this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
-		}
-	}
-
 
 	// Peer list filters
 
@@ -639,8 +617,20 @@ public class Network {
 
 	// Peer callbacks
 
-	/* package */ void wakeupChannelSelector() {
+	/*package*/ void wakeupChannelSelector() {
 		this.channelSelector.wakeup();
+	}
+
+	/*package*/ boolean verify(byte[] signature, byte[] message) {
+		return Crypto.verify(this.edPublicKeyParams.getEncoded(), signature, message);
+	}
+
+	/*package*/ byte[] sign(byte[] message) {
+		return Crypto.sign(this.edPrivateKeyParams, message);
+	}
+
+	/*package*/ byte[] getSharedSecret(byte[] publicKey) {
+		return Crypto.getSharedSecret(this.edPrivateKeyParams.getEncoded(), publicKey);
 	}
 
 	/** Called when Peer's thread has setup and is ready to process messages */
@@ -692,31 +682,19 @@ public class Network {
 				onGetPeersMessage(peer, message);
 				break;
 
-			case PEERS:
-				onPeersMessage(peer, message);
-				break;
-
 			case PING:
 				onPingMessage(peer, message);
 				break;
 
-			case VERSION:
-			case PEER_ID:
-			case PROOF:
+			case HELLO:
+			case CHALLENGE:
+			case RESPONSE:
 				LOGGER.debug(() -> String.format("Unexpected handshaking message %s from peer %s", message.getType().name(), peer));
 				peer.disconnect("unexpected handshaking message");
 				return;
 
 			case PEERS_V2:
 				onPeersV2Message(peer, message);
-				break;
-
-			case PEER_VERIFY:
-				onPeerVerifyMessage(peer, message);
-				break;
-
-			case VERIFICATION_CODES:
-				onVerificationCodesMessage(peer, message);
 				break;
 
 			default:
@@ -730,12 +708,6 @@ public class Network {
 		try {
 			// Still handshaking
 			LOGGER.trace(() -> String.format("Handshake status %s, message %s from peer %s", handshakeStatus.name(), (message != null ? message.getType().name() : "null"), peer));
-
-			// v1 nodes are keen on sending PINGs early. Send to back of queue so we'll process right after handshake
-			if (message != null && message.getType() == MessageType.PING) {
-				peer.queueMessage(message);
-				return;
-			}
 
 			// Check message type is as expected
 			if (handshakeStatus.expectedMessageType != null && message.getType() != handshakeStatus.expectedMessageType) {
@@ -775,22 +747,6 @@ public class Network {
 			peer.disconnect("failed to send peers list");
 	}
 
-	private void onPeersMessage(Peer peer, Message message) {
-		PeersMessage peersMessage = (PeersMessage) message;
-
-		List<PeerAddress> peerAddresses = new ArrayList<>();
-
-		// v1 PEERS message doesn't support port numbers so we have to add default port
-		for (InetAddress peerAddress : peersMessage.getPeerAddresses())
-			// This is always IPv4 so we don't have to worry about bracketing IPv6.
-			peerAddresses.add(PeerAddress.fromString(peerAddress.getHostAddress()));
-
-		// Also add peer's details
-		peerAddresses.add(PeerAddress.fromString(peer.getPeerData().getAddress().getHost()));
-
-		opportunisticMergePeers(peer.toString(), peerAddresses);
-	}
-
 	private void onPingMessage(Peer peer, Message message) {
 		PingMessage pingMessage = (PingMessage) message;
 
@@ -821,45 +777,7 @@ public class Network {
 		opportunisticMergePeers(peer.toString(), peerV2Addresses);
 	}
 
-	private void onPeerVerifyMessage(Peer peer, Message message) {
-		// Remote peer wants extra verification
-		possibleVerificationResponse(peer);
-	}
-
-	private void onVerificationCodesMessage(Peer peer, Message message) {
-		VerificationCodesMessage verificationCodesMessage = (VerificationCodesMessage) message;
-
-		// Remote peer is sending the code it wants to receive back via our outbound connection to it
-		Peer ourUnverifiedPeer = Network.getInstance().getInboundPeerWithId(Network.getInstance().getOurPeerId());
-		ourUnverifiedPeer.setVerificationCodes(verificationCodesMessage.getVerificationCodeSent(), verificationCodesMessage.getVerificationCodeExpected());
-
-		possibleVerificationResponse(ourUnverifiedPeer);
-	}
-
-	private void possibleVerificationResponse(Peer peer) {
-		// Can't respond if we don't have the codes (yet?)
-		if (peer.getVerificationCodeExpected() == null)
-			return;
-
-		PeerVerifyMessage peerVerifyMessage = new PeerVerifyMessage(peer.getVerificationCodeExpected());
-		if (!peer.sendMessage(peerVerifyMessage)) {
-			peer.disconnect("failed to send verification code");
-			return;
-		}
-
-		peer.setVerificationCodes(null, null);
-		peer.setHandshakeStatus(Handshake.COMPLETED);
-		this.onHandshakeCompleted(peer);
-	}
-
 	private void onHandshakeCompleted(Peer peer) {
-		// Do we need extra handshaking because of peer doppelgangers?
-		if (peer.getPendingPeerId() != null) {
-			peer.setHandshakeStatus(Handshake.PEER_VERIFY);
-			peer.getHandshakeStatus().action(peer);
-			return;
-		}
-
 		LOGGER.debug(String.format("Handshake completed with peer %s", peer));
 
 		// Make a note that we've successfully completed handshake (and when)
@@ -930,86 +848,44 @@ public class Network {
 		};
 		knownPeers.removeIf(notRecentlyConnected);
 
-		if (peer.getVersion() >= 2) {
-			List<PeerAddress> peerAddresses = new ArrayList<>();
+		List<PeerAddress> peerAddresses = new ArrayList<>();
 
-			for (PeerData peerData : knownPeers) {
-				try {
-					InetAddress address = InetAddress.getByName(peerData.getAddress().getHost());
+		for (PeerData peerData : knownPeers) {
+			try {
+				InetAddress address = InetAddress.getByName(peerData.getAddress().getHost());
 
-					// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9084 to node4.qortal.org
-					if (!peer.getIsLocal() && Peer.isAddressLocal(address))
-						continue;
+				// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9084 to node4.qortal.org
+				if (!peer.isLocal() && Peer.isAddressLocal(address))
+					continue;
 
-					peerAddresses.add(peerData.getAddress());
-				} catch (UnknownHostException e) {
-					// Couldn't resolve hostname to IP address so discard
-				}
+				peerAddresses.add(peerData.getAddress());
+			} catch (UnknownHostException e) {
+				// Couldn't resolve hostname to IP address so discard
 			}
-
-			// New format PEERS_V2 message that supports hostnames, IPv6 and ports
-			return new PeersV2Message(peerAddresses);
-		} else {
-			// Map to socket addresses
-			List<InetAddress> peerAddresses = new ArrayList<>();
-
-			for (PeerData peerData : knownPeers) {
-				try {
-					// We have to resolve to literal IP address to check for IPv4-ness.
-					// This isn't great if hostnames have both IPv6 and IPv4 DNS entries.
-					InetAddress address = InetAddress.getByName(peerData.getAddress().getHost());
-
-					// Legacy PEERS message doesn't support IPv6
-					if (address instanceof Inet6Address)
-						continue;
-
-					// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9084 to node4.qortal.org
-					if (!peer.getIsLocal() && !Peer.isAddressLocal(address))
-						continue;
-
-					peerAddresses.add(address);
-				} catch (UnknownHostException e) {
-					// Couldn't resolve hostname to IP address so discard
-				}
-			}
-
-			// Legacy PEERS message that only sends IPv4 addresses
-			return new PeersMessage(peerAddresses);
 		}
+
+		// New format PEERS_V2 message that supports hostnames, IPv6 and ports
+		return new PeersV2Message(peerAddresses);
 	}
 
 	public Message buildHeightMessage(Peer peer, BlockData blockData) {
-		if (peer.getVersion() < 2) {
-			// Legacy height message
-			return new HeightMessage(blockData.getHeight());
-		}
-
 		// HEIGHT_V2 contains way more useful info
 		return new HeightV2Message(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getMinterPublicKey());
 	}
 
 	public Message buildNewTransactionMessage(Peer peer, TransactionData transactionData) {
-		if (peer.getVersion() < 2) {
-			// Legacy TRANSACTION message
-			return new TransactionMessage(transactionData);
-		}
-
 		// In V2 we send out transaction signature only and peers can decide whether to request the full transaction
 		return new TransactionSignaturesMessage(Collections.singletonList(transactionData.getSignature()));
 	}
 
 	public Message buildGetUnconfirmedTransactionsMessage(Peer peer) {
-		// V2 only
-		if (peer.getVersion() < 2)
-			return null;
-
 		return new GetUnconfirmedTransactionsMessage();
 	}
 
 	// Peer-management calls
 
 	public void noteToSelf(Peer peer) {
-		LOGGER.info(String.format("No longer considering peer address %s as it connects to self", peer));
+		LOGGER.info(() -> String.format("No longer considering peer address %s as it connects to self", peer));
 
 		synchronized (this.selfPeers) {
 			this.selfPeers.add(peer.getPeerData().getAddress());
@@ -1230,7 +1106,7 @@ public class Network {
 		}
 
 		try {
-			broadcastExecutor.execute(new Broadcaster(this.getUniqueHandshakedPeers(), peerMessageBuilder));
+			broadcastExecutor.execute(new Broadcaster(this.getHandshakedPeers(), peerMessageBuilder));
 		} catch (RejectedExecutionException e) {
 			// Can't execute - probably because we're shutting down, so ignore
 		}

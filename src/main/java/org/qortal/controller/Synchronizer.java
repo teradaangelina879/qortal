@@ -22,7 +22,6 @@ import org.qortal.network.message.BlockMessage;
 import org.qortal.network.message.BlockSummariesMessage;
 import org.qortal.network.message.GetBlockMessage;
 import org.qortal.network.message.GetBlockSummariesMessage;
-import org.qortal.network.message.GetSignaturesMessage;
 import org.qortal.network.message.GetSignaturesV2Message;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.SignaturesMessage;
@@ -372,12 +371,7 @@ public class Synchronizer {
 				return SynchronizationResult.TOO_DIVERGENT;
 			}
 
-			if (peer.getVersion() >= 2) {
-				step <<= 1;
-			} else {
-				// Old v1 peers are hard-coded to return 500 signatures so we might as well go backward by 500 too
-				step = 500;
-			}
+			step <<= 1;
 			step = Math.min(step, MAXIMUM_BLOCK_STEP);
 
 			testHeight = Math.max(testHeight - step, 1);
@@ -415,8 +409,7 @@ public class Synchronizer {
 	}
 
 	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
-		// numberRequested is v2+ feature
-		Message getSignaturesMessage = peer.getVersion() >= 2 ? new GetSignaturesV2Message(parentSignature, numberRequested) : new GetSignaturesMessage(parentSignature);
+		Message getSignaturesMessage = new GetSignaturesV2Message(parentSignature, numberRequested);
 
 		Message message = peer.getResponse(getSignaturesMessage);
 		if (message == null || message.getType() != MessageType.SIGNATURES)

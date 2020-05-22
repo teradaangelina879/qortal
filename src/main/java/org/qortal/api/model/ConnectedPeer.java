@@ -25,7 +25,8 @@ public class ConnectedPeer {
 
 	public String address;
 	public String version;
-	public Long buildTimestamp;
+
+	public String nodeId;
 
 	public Integer lastHeight;
 	@Schema(example = "base58")
@@ -45,10 +46,9 @@ public class ConnectedPeer {
 		this.peersConnectedWhen = peer.getPeersConnectionTimestamp();
 
 		this.address = peerData.getAddress().toString();
-		if (peer.getVersionMessage() != null) {
-			this.version = peer.getVersionMessage().getVersionString();
-			this.buildTimestamp = peer.getVersionMessage().getBuildTimestamp();
-		}
+
+		this.version = peer.getPeersVersionString();
+		this.nodeId = peer.getPeersNodeId();
 
 		PeerChainTipData peerChainTipData = peer.getChainTipData();
 		if (peerChainTipData != null) {

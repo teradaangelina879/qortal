@@ -1,158 +1,193 @@
 package org.qortal.network;
 
 import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
+import org.qortal.crypto.Crypto;
+import org.qortal.crypto.MemoryPoW;
+import org.qortal.network.message.ChallengeMessage;
+import org.qortal.network.message.HelloMessage;
 import org.qortal.network.message.Message;
-import org.qortal.network.message.PeerIdMessage;
-import org.qortal.network.message.PeerVerifyMessage;
-import org.qortal.network.message.ProofMessage;
-import org.qortal.network.message.VerificationCodesMessage;
-import org.qortal.network.message.VersionMessage;
 import org.qortal.network.message.Message.MessageType;
+import org.qortal.network.message.ResponseMessage;
+import org.qortal.utils.NTP;
+
+import com.google.common.primitives.Bytes;
 
 public enum Handshake {
 	STARTED(null) {
 		@Override
 		public Handshake onMessage(Peer peer, Message message) {
-			return SELF_CHECK;
+			return HELLO;
 		}
 
 		@Override
 		public void action(Peer peer) {
 		}
 	},
-	SELF_CHECK(MessageType.PEER_ID) {
+	HELLO(MessageType.HELLO) {
 		@Override
 		public Handshake onMessage(Peer peer, Message message) {
-			PeerIdMessage peerIdMessage = (PeerIdMessage) message;
-			byte[] peerId = peerIdMessage.getPeerId();
+			HelloMessage helloMessage = (HelloMessage) message;
 
-			if (Arrays.equals(peerId, Network.ZERO_PEER_ID)) {
-				if (peer.isOutbound()) {
-					// Peer has indicated they already have an outbound connection to us
-					LOGGER.trace(String.format("Peer %s already connected to us - discarding this connection", peer));
-				} else {
-					// Not sure this should occur so log it
-					LOGGER.info(String.format("Inbound peer %s claims we also have outbound connection to them?", peer));
-				}
+			long peersConnectionTimestamp = helloMessage.getTimestamp();
+			long now = NTP.getTime();
 
+			long timestampDelta = Math.abs(peersConnectionTimestamp - now);
+			if (timestampDelta > MAX_TIMESTAMP_DELTA) {
+				LOGGER.debug(() -> String.format("Peer %s HELLO timestamp %d too divergent (± %d > %d) from ours %d",
+						peer, peersConnectionTimestamp, timestampDelta, MAX_TIMESTAMP_DELTA, now));
 				return null;
 			}
 
-			if (Arrays.equals(peerId, Network.getInstance().getOurPeerId())) {
-				// Connected to self!
+			String versionString = helloMessage.getVersionString();
+
+			Matcher matcher = VERSION_PATTERN.matcher(versionString);
+			if (!matcher.lookingAt()) {
+				LOGGER.debug(() -> String.format("Peer %s sent invalid HELLO version string '%s'", peer, versionString));
+				return null;
+			}
+
+			// We're expecting 3 positive shorts, so we can convert 1.2.3 into 0x0100020003
+			long version = 0;
+			for (int g = 1; g <= 3; ++g) {
+				long value = Long.parseLong(matcher.group(g));
+
+				if (value < 0 || value > Short.MAX_VALUE)
+					return null;
+
+				version <<= 16;
+				version |= value;
+			}
+
+			peer.setPeersConnectionTimestamp(peersConnectionTimestamp);
+			peer.setPeersVersion(versionString, version);
+
+			return CHALLENGE;
+		}
+
+		@Override
+		public void action(Peer peer) {
+			String versionString = Controller.getInstance().getVersionString();
+			long timestamp = NTP.getTime();
+
+			Message helloMessage = new HelloMessage(timestamp, versionString);
+			if (!peer.sendMessage(helloMessage))
+				peer.disconnect("failed to send HELLO");
+		}
+	},
+	CHALLENGE(MessageType.CHALLENGE) {
+		@Override
+		public Handshake onMessage(Peer peer, Message message) {
+			ChallengeMessage challengeMessage = (ChallengeMessage) message;
+
+			byte[] peersPublicKey = challengeMessage.getPublicKey();
+			byte[] peersChallenge = challengeMessage.getChallenge();
+
+			// If public key matches our public key then we've connected to self
+			byte[] ourPublicKey = Network.getInstance().getOurPublicKey();
+			if (Arrays.equals(ourPublicKey, peersPublicKey)) {
 				// If outgoing connection then record destination as self so we don't try again
 				if (peer.isOutbound()) {
 					Network.getInstance().noteToSelf(peer);
-					// Handshake failure - caller will deal with disconnect
+					// Handshake failure, caller will handle disconnect
 					return null;
 				} else {
 					// We still need to send our ID so our outbound connection can mark their address as 'self'
-					sendMyId(peer);
-					// We return SELF_CHECK here to prevent us from closing connection, which currently preempts
-					// remote end from reading any pending messages, specifically the PEER_ID message we just sent above.
-					// When our 'remote' outbound counterpart reads our message, they will close both connections.
-					// Failing that, our connection will timeout or a future handshake error will occur.
-					return SELF_CHECK;
+					challengeMessage = new ChallengeMessage(ourPublicKey, ZERO_CHALLENGE);
+					if (!peer.sendMessage(challengeMessage))
+						peer.disconnect("failed to send CHALLENGE to self");
+
+					/*
+					 * We return CHALLENGE here to prevent us from closing connection. Closing
+					 * connection currently preempts remote end from reading any pending messages,
+					 * specifically the CHALLENGE message we just sent above. When our 'remote'
+					 * outbound counterpart reads our message, they will close both connections.
+					 * Failing that, our connection will timeout or a future handshake error will
+					 * occur.
+					 */
+					return CHALLENGE;
 				}
 			}
 
-			// Is this ID already connected inbound or outbound?
-			Peer otherInboundPeer = Network.getInstance().getInboundPeerWithId(peerId);
-			Peer otherOutboundPeer = Network.getInstance().getOutboundHandshakedPeerWithId(peerId);
-
-			// Extra checks on inbound peers with known IDs, to prevent ID stealing
-			if (!peer.isOutbound() && otherInboundPeer != null) {
-				if (otherOutboundPeer == null) {
-					// We already have an inbound peer with this ID, but no outgoing peer with which to request verification
-					LOGGER.trace(String.format("Discarding inbound peer %s with existing ID", peer));
-
-					// Let peer know by sending special zero peer ID. This avoids peer keeping connection open until timeout.
-					peerIdMessage = new PeerIdMessage(Network.ZERO_PEER_ID);
-					peer.sendMessage(peerIdMessage);
-
-					return null;
-				} else {
-					// Use corresponding outbound peer to verify inbound
-					LOGGER.trace(String.format("We will be using outbound peer %s to verify inbound peer %s with same ID", otherOutboundPeer, peer));
-
-					// Discard peer's ID
-					// peer.setPeerId(peerId);
-
-					// Generate verification codes for later
-					peer.generateVerificationCodes();
-				}
-			} else if (peer.isOutbound() && otherOutboundPeer != null) {
-				// We already have an outbound connection to this peer?
-				LOGGER.info(String.format("We already have another outbound connection to peer %s - discarding", peer));
+			// Are we already connected to this peer?
+			Peer existingPeer = Network.getInstance().getHandshakedPeerWithPublicKey(peersPublicKey);
+			if (existingPeer != null) {
+				LOGGER.info(() -> String.format("We already have a connection with peer %s - discarding", peer));
 				// Handshake failure - caller will deal with disconnect
 				return null;
-			} else {
-				// Set peer's ID
-				peer.setPeerId(peerId);
 			}
 
-			return VERSION;
+			peer.setPeersPublicKey(peersPublicKey);
+			peer.setPeersChallenge(peersChallenge);
+
+			return RESPONSE;
 		}
 
 		@Override
 		public void action(Peer peer) {
-			sendMyId(peer);
+			// Send challenge
+			byte[] publicKey = Network.getInstance().getOurPublicKey();
+			byte[] challenge = peer.getOurChallenge();
+
+			Message challengeMessage = new ChallengeMessage(publicKey, challenge);
+			if (!peer.sendMessage(challengeMessage))
+				peer.disconnect("failed to send CHALLENGE");
 		}
 	},
-	VERSION(MessageType.VERSION) {
+	RESPONSE(MessageType.RESPONSE) {
 		@Override
 		public Handshake onMessage(Peer peer, Message message) {
-			peer.setVersionMessage((VersionMessage) message);
+			ResponseMessage responseMessage = (ResponseMessage) message;
 
-			// If we're both version 2 peers then next stage is proof
-			if (peer.getVersion() >= 2)
-				return PROOF;
+			byte[] peersPublicKey = peer.getPeersPublicKey();
+			byte[] ourChallenge = peer.getOurChallenge();
 
-			// Fall-back for older clients (for now)
+			byte[] sharedSecret = Network.getInstance().getSharedSecret(peersPublicKey);
+			final byte[] expectedData = Crypto.digest(Bytes.concat(sharedSecret, ourChallenge));
+
+			byte[] data = responseMessage.getData();
+			if (!Arrays.equals(expectedData, data)) {
+				LOGGER.debug(() -> String.format("Peer %s sent incorrect RESPONSE data", peer));
+				return null;
+			}
+
+			int nonce = responseMessage.getNonce();
+			if (!MemoryPoW.verify2(data, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce)) {
+				LOGGER.debug(() -> String.format("Peer %s sent incorrect RESPONSE nonce", peer));
+				return null;
+			}
+
+			peer.setPeersNodeId(Crypto.toNodeAddress(peersPublicKey));
+
 			return COMPLETED;
 		}
 
 		@Override
 		public void action(Peer peer) {
-			sendVersion(peer);
-		}
-	},
-	PROOF(MessageType.PROOF) {
-		@Override
-		public Handshake onMessage(Peer peer, Message message) {
-			ProofMessage proofMessage = (ProofMessage) message;
+			// Send response
 
-			// Check peer's timestamp is within acceptable bounds
-			if (Math.abs(proofMessage.getTimestamp() - peer.getConnectionTimestamp()) > MAX_TIMESTAMP_DELTA) {
-				LOGGER.debug(String.format("Rejecting PROOF from %s as timestamp delta %d greater than max %d", peer, Math.abs(proofMessage.getTimestamp() - peer.getConnectionTimestamp()), MAX_TIMESTAMP_DELTA));
-				return null;
-			}
+			byte[] peersPublicKey = peer.getPeersPublicKey();
+			byte[] peersChallenge = peer.getPeersChallenge();
 
-			// Save peer's value for connectionTimestamp
-			peer.setPeersConnectionTimestamp(proofMessage.getTimestamp());
+			byte[] sharedSecret = Network.getInstance().getSharedSecret(peersPublicKey);
+			final byte[] data = Crypto.digest(Bytes.concat(sharedSecret, peersChallenge));
 
-			// If we connected outbound to peer, then this is a faked confirmation response, so we're good
-			if (peer.isOutbound())
-				return COMPLETED;
+			// We do this in a new thread as it can take a while...
+			Thread responseThread = new Thread(() -> {
+				Integer nonce = MemoryPoW.compute2(data, POW_BUFFER_SIZE, POW_DIFFICULTY);
 
-			// Check salt hasn't been seen before - this stops multiple peers reusing same nonce in a Sybil-like attack
-			if (Proof.seenSalt(proofMessage.getSalt()))
-				return null;
+				Message responseMessage = new ResponseMessage(nonce, data);
+				if (!peer.sendMessage(responseMessage))
+					peer.disconnect("failed to send RESPONSE");
+			});
 
-			if (!Proof.check(proofMessage.getTimestamp(), proofMessage.getSalt(), proofMessage.getNonce()))
-				return null;
-
-			// Proof valid
-			return COMPLETED;
-		}
-
-		@Override
-		public void action(Peer peer) {
-			sendProof(peer);
+			responseThread.setDaemon(true);
+			responseThread.start();
 		}
 	},
 	COMPLETED(null) {
@@ -166,46 +201,19 @@ public enum Handshake {
 		public void action(Peer peer) {
 			// Note: this is only called when we've made outbound connection
 		}
-	},
-	PEER_VERIFY(null) {
-		@Override
-		public Handshake onMessage(Peer peer, Message message) {
-			// We only accept PEER_VERIFY messages
-			if (message.getType() != Message.MessageType.PEER_VERIFY)
-				return PEER_VERIFY;
-
-			// Check returned code against expected
-			PeerVerifyMessage peerVerifyMessage = (PeerVerifyMessage) message;
-
-			if (!Arrays.equals(peerVerifyMessage.getVerificationCode(), peer.getVerificationCodeExpected()))
-				return null;
-
-			// Drop other inbound peers with the same ID
-			for (Peer otherPeer : Network.getInstance().getConnectedPeers())
-				if (!otherPeer.isOutbound() && otherPeer.getPeerId() != null && Arrays.equals(otherPeer.getPeerId(), peer.getPendingPeerId()))
-					otherPeer.disconnect("doppelganger");
-
-			// Tidy up
-			peer.setVerificationCodes(null, null);
-			peer.setPeerId(peer.getPendingPeerId());
-			peer.setPendingPeerId(null);
-
-			// Completed for real this time
-			return COMPLETED;
-		}
-
-		@Override
-		public void action(Peer peer) {
-			// Send VERIFICATION_CODE to other peer (that we connected to)
-			// Send PEER_VERIFY to peer
-			sendVerificationCodes(peer);
-		}
 	};
 
 	private static final Logger LOGGER = LogManager.getLogger(Handshake.class);
 
 	/** Maximum allowed difference between peer's reported timestamp and when they connected, in milliseconds. */
 	private static final long MAX_TIMESTAMP_DELTA = 30 * 1000L; // ms
+
+	private static final Pattern VERSION_PATTERN = Pattern.compile(Controller.VERSION_PREFIX + "(\\d{1,3})\\.(\\d{1,5})\\.(\\d{1,5})");
+
+	private static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
+	private static final int POW_DIFFICULTY = 12; // leading zero bits
+
+	private static final byte[] ZERO_CHALLENGE = new byte[ChallengeMessage.CHALLENGE_LENGTH];
 
 	public final MessageType expectedMessageType;
 
@@ -216,48 +224,5 @@ public enum Handshake {
 	public abstract Handshake onMessage(Peer peer, Message message);
 
 	public abstract void action(Peer peer);
-
-	private static void sendVersion(Peer peer) {
-		long buildTimestamp = Controller.getInstance().getBuildTimestamp();
-		String versionString = Controller.getInstance().getVersionString();
-
-		Message versionMessage = new VersionMessage(buildTimestamp, versionString);
-		if (!peer.sendMessage(versionMessage))
-			peer.disconnect("failed to send version");
-	}
-
-	private static void sendMyId(Peer peer) {
-		Message peerIdMessage = new PeerIdMessage(Network.getInstance().getOurPeerId());
-		if (!peer.sendMessage(peerIdMessage))
-			peer.disconnect("failed to send peer ID");
-	}
-
-	private static void sendProof(Peer peer) {
-		if (peer.isOutbound()) {
-			// For outbound connections we need to generate real proof
-			new Proof(peer).start(); // Calculate & send in a new thread to free up networking processing
-		} else {
-			// For incoming connections we only need to send a fake proof message as confirmation
-			Message proofMessage = new ProofMessage(peer.getConnectionTimestamp(), 0, 0);
-			if (!peer.sendMessage(proofMessage))
-				peer.disconnect("failed to send proof");
-		}
-	}
-
-	private static void sendVerificationCodes(Peer peer) {
-		Peer otherOutboundPeer = Network.getInstance().getOutboundHandshakedPeerWithId(peer.getPendingPeerId());
-
-		// Send VERIFICATION_CODES to peer
-		Message verificationCodesMessage = new VerificationCodesMessage(peer.getVerificationCodeSent(), peer.getVerificationCodeExpected());
-		if (!otherOutboundPeer.sendMessage(verificationCodesMessage)) {
-			peer.disconnect("failed to send verification codes"); // give up with this peer instead
-			return;
-		}
-
-		// Send PEER_VERIFY to peer
-		Message peerVerifyMessage = new PeerVerifyMessage(peer.getVerificationCodeSent());
-		if (!peer.sendMessage(peerVerifyMessage))
-			peer.disconnect("failed to send verification code");
-	}
 
 }

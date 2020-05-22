@@ -60,11 +60,9 @@ import org.qortal.network.message.GetBlockMessage;
 import org.qortal.network.message.GetBlockSummariesMessage;
 import org.qortal.network.message.GetOnlineAccountsMessage;
 import org.qortal.network.message.GetPeersMessage;
-import org.qortal.network.message.GetSignaturesMessage;
 import org.qortal.network.message.GetSignaturesV2Message;
 import org.qortal.network.message.GetTransactionMessage;
 import org.qortal.network.message.GetUnconfirmedTransactionsMessage;
-import org.qortal.network.message.HeightMessage;
 import org.qortal.network.message.HeightV2Message;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.OnlineAccountsMessage;
@@ -501,7 +499,7 @@ public class Controller extends Thread {
 	};
 
 	private void potentiallySynchronize() throws InterruptedException {
-		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+		List<Peer> peers = Network.getInstance().getHandshakedPeers();
 
 		// Disregard peers that have "misbehaved" recently
 		peers.removeIf(hasMisbehaved);
@@ -626,7 +624,7 @@ public class Controller extends Thread {
 			return;
 		}
 
-		final int numberOfPeers = Network.getInstance().getUniqueHandshakedPeers().size();
+		final int numberOfPeers = Network.getInstance().getHandshakedPeers().size();
 
 		final int height = getChainHeight();
 
@@ -782,32 +780,11 @@ public class Controller extends Thread {
 	public void onPeerHandshakeCompleted(Peer peer) {
 		// Only send if outbound
 		if (peer.isOutbound()) {
-			if (peer.getVersion() < 2) {
-				// Legacy mode
-
-				// Send our unconfirmed transactions
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
-
-					for (TransactionData transactionData : transactions) {
-						Message transactionMessage = new TransactionMessage(transactionData);
-						if (!peer.sendMessage(transactionMessage)) {
-							peer.disconnect("failed to send unconfirmed transaction");
-							return;
-						}
-					}
-				} catch (DataException e) {
-					LOGGER.error("Repository issue while sending unconfirmed transactions", e);
-				}
-			} else {
-				// V2 protocol
-
-				// Request peer's unconfirmed transactions
-				Message message = new GetUnconfirmedTransactionsMessage();
-				if (!peer.sendMessage(message)) {
-					peer.disconnect("failed to send request for unconfirmed transactions");
-					return;
-				}
+			// Request peer's unconfirmed transactions
+			Message message = new GetUnconfirmedTransactionsMessage();
+			if (!peer.sendMessage(message)) {
+				peer.disconnect("failed to send request for unconfirmed transactions");
+				return;
 			}
 		}
 
@@ -823,20 +800,8 @@ public class Controller extends Thread {
 
 		// Ordered by message type value
 		switch (message.getType()) {
-			case HEIGHT:
-				onNetworkHeightMessage(peer, message);
-				break;
-
-			case GET_SIGNATURES:
-				onNetworkGetSignaturesMessage(peer, message);
-				break;
-
 			case GET_BLOCK:
 				onNetworkGetBlockMessage(peer, message);
-				break;
-
-			case BLOCK:
-				onNetworkBlockMessage(peer, message);
 				break;
 
 			case TRANSACTION:
@@ -884,53 +849,8 @@ public class Controller extends Thread {
 				break;
 
 			default:
-				LOGGER.debug(String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
+				LOGGER.debug(() -> String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
-		}
-	}
-
-	private void onNetworkHeightMessage(Peer peer, Message message) {
-		HeightMessage heightMessage = (HeightMessage) message;
-
-		// Update all peers with same ID
-
-		List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
-		for (Peer connectedPeer : connectedPeers) {
-			if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
-				continue;
-
-			// Update peer chain tip data
-			PeerChainTipData newChainTipData = new PeerChainTipData(heightMessage.getHeight(), null, null, null);
-			connectedPeer.setChainTipData(newChainTipData);
-		}
-
-		// Potentially synchronize
-		requestSync = true;
-	}
-
-	private void onNetworkGetSignaturesMessage(Peer peer, Message message) {
-		GetSignaturesMessage getSignaturesMessage = (GetSignaturesMessage) message;
-		byte[] parentSignature = getSignaturesMessage.getParentSignature();
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<byte[]> signatures = new ArrayList<>();
-
-			do {
-				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
-
-				if (blockData == null)
-					break;
-
-				parentSignature = blockData.getSignature();
-				signatures.add(parentSignature);
-			} while (signatures.size() < Network.MAX_SIGNATURES_PER_REPLY);
-
-			Message signaturesMessage = new SignaturesMessage(signatures);
-			signaturesMessage.setId(message.getId());
-			if (!peer.sendMessage(signaturesMessage))
-				peer.disconnect("failed to send signatures");
-		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while sending signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);
 		}
 	}
 
@@ -955,40 +875,6 @@ public class Controller extends Thread {
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);
 		}
-	}
-
-	private void onNetworkBlockMessage(Peer peer, Message message) {
-		// From a v1 peer, with no message ID, this is a broadcast of peer's latest block
-		// v2 peers announce new blocks using HEIGHT_V2
-
-		// Not version 1?
-		if (peer.getVersion() == null || peer.getVersion() > 1)
-			return;
-
-		// Message ID present?
-		// XXX Why is this test here? If BLOCK had an ID then surely it would be a response to GET_BLOCK
-		// and hence captured by Peer's reply queue?
-		if (message.hasId())
-			return;
-
-		BlockMessage blockMessage = (BlockMessage) message;
-		BlockData blockData = blockMessage.getBlockData();
-
-		// Update all peers with same ID
-
-		List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
-		for (Peer connectedPeer : connectedPeers) {
-			// Skip connectedPeer if they have no ID or their ID doesn't match sender's ID
-			if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
-				continue;
-
-			// Update peer chain tip data
-			PeerChainTipData newChainTipData = new PeerChainTipData(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getMinterPublicKey());
-			connectedPeer.setChainTipData(newChainTipData);
-		}
-
-		// Potentially synchronize
-		requestSync = true;
 	}
 
 	private void onNetworkTransactionMessage(Peer peer, Message message) {
@@ -1096,18 +982,9 @@ public class Controller extends Thread {
 		if (!peer.isOutbound() && (peer.getChainTipData() == null || peer.getChainTipData().getLastHeight() == null))
 			peer.sendMessage(Network.getInstance().buildHeightMessage(peer, getChainTip()));
 
-		// Update all peers with same ID
-
-		List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
-		for (Peer connectedPeer : connectedPeers) {
-			// Skip connectedPeer if they have no ID or their ID doesn't match sender's ID
-			if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
-				continue;
-
-			// Update peer chain tip data
-			PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getMinterPublicKey());
-			connectedPeer.setChainTipData(newChainTipData);
-		}
+		// Update peer chain tip data
+		PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getMinterPublicKey());
+		peer.setChainTipData(newChainTipData);
 
 		// Potentially synchronize
 		requestSync = true;
@@ -1561,7 +1438,7 @@ public class Controller extends Thread {
 		getArbitraryDataMessage.setId(id);
 
 		// Broadcast request
-		Network.getInstance().broadcast(peer -> peer.getVersion() < 2 ? null : getArbitraryDataMessage);
+		Network.getInstance().broadcast(peer -> getArbitraryDataMessage);
 
 		// Poll to see if data has arrived
 		final long singleWait = 100;
@@ -1593,7 +1470,7 @@ public class Controller extends Thread {
 		if (minLatestBlockTimestamp == null)
 			return null;
 
-		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+		List<Peer> peers = Network.getInstance().getHandshakedPeers();
 
 		// Filter out unsuitable peers
 		Iterator<Peer> iterator = peers.iterator();
@@ -1639,7 +1516,7 @@ public class Controller extends Thread {
 		if (latestBlockData == null || latestBlockData.getTimestamp() < minLatestBlockTimestamp)
 			return false;
 
-		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+		List<Peer> peers = Network.getInstance().getHandshakedPeers();
 		if (peers == null)
 			return false;
 

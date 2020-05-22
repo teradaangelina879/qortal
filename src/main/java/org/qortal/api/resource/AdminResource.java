@@ -117,6 +117,7 @@ public class AdminResource {
 		nodeInfo.uptime = System.currentTimeMillis() - Controller.startTime;
 		nodeInfo.buildVersion = Controller.getInstance().getVersionString();
 		nodeInfo.buildTimestamp = Controller.getInstance().getBuildTimestamp();
+		nodeInfo.nodeId = Network.getInstance().getOurNodeId();
 
 		return nodeInfo;
 	}

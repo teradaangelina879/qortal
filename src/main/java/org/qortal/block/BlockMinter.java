@@ -128,7 +128,7 @@ public class BlockMinter extends Thread {
 					}
 				}
 
-				List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+				List<Peer> peers = Network.getInstance().getHandshakedPeers();
 				BlockData lastBlockData = blockRepository.getLastBlock();
 
 				// Disregard peers that have "misbehaved" recently

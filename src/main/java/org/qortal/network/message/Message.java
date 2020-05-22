@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.qortal.crypto.Crypto;
 import org.qortal.network.Network;
+import org.qortal.transform.TransformationException;
 
 import com.google.common.primitives.Ints;
 
@@ -45,32 +46,41 @@ public abstract class Message {
 	}
 
 	public enum MessageType {
-		GET_PEERS(1),
-		PEERS(2),
-		HEIGHT(3),
-		GET_SIGNATURES(4),
-		SIGNATURES(5),
-		GET_BLOCK(6),
-		BLOCK(7),
-		TRANSACTION(8),
-		PING(9),
-		VERSION(10),
-		PEER_ID(11),
-		PROOF(12),
-		PEERS_V2(13),
-		GET_BLOCK_SUMMARIES(14),
-		BLOCK_SUMMARIES(15),
-		GET_SIGNATURES_V2(16),
-		PEER_VERIFY(17),
-		VERIFICATION_CODES(18),
-		HEIGHT_V2(19),
-		GET_TRANSACTION(20),
-		GET_UNCONFIRMED_TRANSACTIONS(21),
-		TRANSACTION_SIGNATURES(22),
-		GET_ARBITRARY_DATA(23),
-		ARBITRARY_DATA(24),
-		GET_ONLINE_ACCOUNTS(25),
-		ONLINE_ACCOUNTS(26);
+		// Handshaking
+		HELLO(0),
+		GOODBYE(1),
+		CHALLENGE(2),
+		RESPONSE(3),
+
+		// Status / notifications
+		HEIGHT_V2(10),
+		PING(11),
+		PONG(12),
+
+		// Requesting data
+		PEERS_V2(20),
+		GET_PEERS(21),
+
+		TRANSACTION(30),
+		GET_TRANSACTION(31),
+
+		TRANSACTION_SIGNATURES(40),
+		GET_UNCONFIRMED_TRANSACTIONS(41),
+
+		BLOCK(50),
+		GET_BLOCK(51),
+
+		SIGNATURES(60),
+		GET_SIGNATURES_V2(61),
+
+		BLOCK_SUMMARIES(70),
+		GET_BLOCK_SUMMARIES(71),
+
+		ONLINE_ACCOUNTS(80),
+		GET_ONLINE_ACCOUNTS(81),
+
+		ARBITRARY_DATA(90),
+		GET_ARBITRARY_DATA(91);
 
 		public final int value;
 		public final Method fromByteBufferMethod;
@@ -263,11 +273,11 @@ public abstract class Message {
 				throw new MessageException(String.format("About to send message with length %d larger than allowed %d", bytes.size(), MAX_DATA_SIZE));
 
 			return bytes.toByteArray();
-		} catch (IOException e) {
+		} catch (IOException | TransformationException e) {
 			throw new MessageException("Failed to serialize message", e);
 		}
 	}
 
-	protected abstract byte[] toData();
+	protected abstract byte[] toData() throws IOException, TransformationException;
 
 }
