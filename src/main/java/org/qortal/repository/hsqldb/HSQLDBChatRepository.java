@@ -32,8 +32,9 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 		StringBuilder sql = new StringBuilder(1024);
 
-		sql.append("SELECT created_when, tx_group_id, creator, sender, SenderNames.name, "
-				+ "recipient, RecipientNames.name, data, is_text, is_encrypted "
+		sql.append("SELECT created_when, tx_group_id, Transactions.reference, creator, "
+				+ "sender, SenderNames.name, recipient, RecipientNames.name, "
+				+ "data, is_text, is_encrypted "
 				+ "FROM ChatTransactions "
 				+ "JOIN Transactions USING (signature) "
 				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
@@ -90,17 +91,18 @@ public class HSQLDBChatRepository implements ChatRepository {
 			do {
 				long timestamp = resultSet.getLong(1);
 				int groupId = resultSet.getInt(2);
-				byte[] senderPublicKey = resultSet.getBytes(3);
-				String sender = resultSet.getString(4);
-				String senderName = resultSet.getString(5);
-				String recipient = resultSet.getString(6);
-				String recipientName = resultSet.getString(7);
-				byte[] data = resultSet.getBytes(8);
-				boolean isText = resultSet.getBoolean(9);
-				boolean isEncrypted = resultSet.getBoolean(10);
+				byte[] reference = resultSet.getBytes(3);
+				byte[] senderPublicKey = resultSet.getBytes(4);
+				String sender = resultSet.getString(5);
+				String senderName = resultSet.getString(6);
+				String recipient = resultSet.getString(7);
+				String recipientName = resultSet.getString(8);
+				byte[] data = resultSet.getBytes(9);
+				boolean isText = resultSet.getBoolean(10);
+				boolean isEncrypted = resultSet.getBoolean(11);
 
-				ChatMessage chatMessage = new ChatMessage(timestamp, groupId, senderPublicKey, sender, senderName,
-						recipient, recipientName, data, isText, isEncrypted);
+				ChatMessage chatMessage = new ChatMessage(timestamp, groupId, reference, senderPublicKey, sender,
+						senderName, recipient, recipientName, data, isText, isEncrypted);
 
 				chatMessages.add(chatMessage);
 			} while (resultSet.next());

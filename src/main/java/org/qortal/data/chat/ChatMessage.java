@@ -12,6 +12,8 @@ public class ChatMessage {
 
 	private int txGroupId;
 
+	private byte[] reference;
+
 	private byte[] senderPublicKey;
 
 	/* Address of sender */
@@ -37,10 +39,12 @@ public class ChatMessage {
 	}
 
 	// For repository use
-	public ChatMessage(long timestamp, int txGroupId, byte[] senderPublicKey, String sender, String senderName,
-			String recipient, String recipientName, byte[] data, boolean isText, boolean isEncrypted) {
+	public ChatMessage(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String sender,
+			String senderName, String recipient, String recipientName, byte[] data, boolean isText,
+			boolean isEncrypted) {
 		this.timestamp = timestamp;
 		this.txGroupId = txGroupId;
+		this.reference = reference;
 		this.senderPublicKey = senderPublicKey;
 		this.sender = sender;
 		this.senderName = senderName;
@@ -57,6 +61,10 @@ public class ChatMessage {
 
 	public int getTxGroupId() {
 		return this.txGroupId;
+	}
+
+	public byte[] getReference() {
+		return this.reference;
 	}
 
 	public byte[] getSenderPublicKey() {
