@@ -4,15 +4,23 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
+import org.bouncycastle.crypto.params.X25519PrivateKeyParameters;
+import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
+import org.bouncycastle.math.ec.rfc8032.Ed25519;
 import org.qortal.account.Account;
 import org.qortal.utils.Base58;
 
 import com.google.common.primitives.Bytes;
 
-public class Crypto {
+public abstract class Crypto {
 
-	public static final byte ADDRESS_VERSION = 58;
-	public static final byte AT_ADDRESS_VERSION = 23;
+	public static final int SIGNATURE_LENGTH = 64;
+	public static final int SHARED_SECRET_LENGTH = 32;
+
+	public static final byte ADDRESS_VERSION = 58; // Q
+	public static final byte AT_ADDRESS_VERSION = 23; // A
+	public static final byte NODE_ADDRESS_VERSION = 53; // N
 
 	/**
 	 * Returns 32-byte SHA-256 digest of message passed in input.
@@ -108,6 +116,10 @@ public class Crypto {
 		return toAddress(AT_ADDRESS_VERSION, signature);
 	}
 
+	public static String toNodeAddress(byte[] publicKey) {
+		return toAddress(NODE_ADDRESS_VERSION, publicKey);
+	}
+
 	public static boolean isValidAddress(String address) {
 		return isValidTypedAddress(address, ADDRESS_VERSION, AT_ADDRESS_VERSION);
 	}
@@ -152,6 +164,35 @@ public class Crypto {
 			}
 
 		return false;
+	}
+
+	public static boolean verify(byte[] publicKey, byte[] signature, byte[] message) {
+		try {
+			return Ed25519.verify(signature, 0, publicKey, 0, message, 0, message.length);
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	public static byte[] sign(Ed25519PrivateKeyParameters edPrivateKeyParams, byte[] message) {
+		byte[] signature = new byte[SIGNATURE_LENGTH];
+
+		edPrivateKeyParams.sign(Ed25519.Algorithm.Ed25519, edPrivateKeyParams.generatePublicKey(), null, message, 0, message.length, signature, 0);
+
+		return signature;
+	}
+
+	public static byte[] getSharedSecret(byte[] privateKey, byte[] publicKey) {
+		byte[] x25519PrivateKey = BouncyCastle25519.toX25519PrivateKey(privateKey);
+		X25519PrivateKeyParameters xPrivateKeyParams = new X25519PrivateKeyParameters(x25519PrivateKey, 0);
+
+		byte[] x25519PublicKey = BouncyCastle25519.toX25519PublicKey(publicKey);
+		X25519PublicKeyParameters xPublicKeyParams = new X25519PublicKeyParameters(x25519PublicKey, 0);
+
+		byte[] sharedSecret = new byte[SHARED_SECRET_LENGTH];
+		xPrivateKeyParams.generateSecret(xPublicKeyParams, sharedSecret, 0);
+
+		return sharedSecret;
 	}
 
 }

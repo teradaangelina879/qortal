@@ -1,7 +1,6 @@
 package org.qortal.account;
 
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
-import org.bouncycastle.math.ec.rfc8032.Ed25519;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.repository.Repository;
@@ -46,15 +45,7 @@ public class PublicKeyAccount extends Account {
 	}
 
 	public boolean verify(byte[] signature, byte[] message) {
-		return PublicKeyAccount.verify(this.publicKey, signature, message);
-	}
-
-	public static boolean verify(byte[] publicKey, byte[] signature, byte[] message) {
-		try {
-			return Ed25519.verify(signature, 0, publicKey, 0, message, 0, message.length);
-		} catch (Exception e) {
-			return false;
-		}
+		return Crypto.verify(this.publicKey, signature, message);
 	}
 
 	public static String getAddress(byte[] publicKey) {
