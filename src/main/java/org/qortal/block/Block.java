@@ -1450,39 +1450,34 @@ public class Block {
 	public void orphan() throws DataException {
 		LOGGER.trace(() -> String.format("Orphaning block %d", this.blockData.getHeight()));
 
-		this.repository.setDebug(true);
-		try {
-			// Return AT fees and delete AT states from repository
-			orphanAtFeesAndStates();
+		// Return AT fees and delete AT states from repository
+		orphanAtFeesAndStates();
 
-			// Orphan, and unlink, transactions from this block
-			orphanTransactionsFromBlock();
+		// Orphan, and unlink, transactions from this block
+		orphanTransactionsFromBlock();
 
-			// Undo any group-approval decisions that happen at this block
-			orphanGroupApprovalTransactions();
+		// Undo any group-approval decisions that happen at this block
+		orphanGroupApprovalTransactions();
 
-			if (this.blockData.getHeight() > 1) {
-				// Invalidate expandedAccounts as they may have changed due to orphaning TRANSFER_PRIVS transactions, etc.
-				this.cachedExpandedAccounts = null;
+		if (this.blockData.getHeight() > 1) {
+			// Invalidate expandedAccounts as they may have changed due to orphaning TRANSFER_PRIVS transactions, etc.
+			this.cachedExpandedAccounts = null;
 
-				// Deduct any transaction fees from minter/reward-share account(s)
-				deductTransactionFees();
+			// Deduct any transaction fees from minter/reward-share account(s)
+			deductTransactionFees();
 
-				// Block rewards removed after transactions undone
-				orphanBlockRewards();
+			// Block rewards removed after transactions undone
+			orphanBlockRewards();
 
-				// Decrease account levels
-				decreaseAccountLevels();
-			}
-
-			// Delete block from blockchain
-			this.repository.getBlockRepository().delete(this.blockData);
-			this.blockData.setHeight(null);
-
-			postBlockTidy();
-		} finally {
-			this.repository.setDebug(false);
+			// Decrease account levels
+			decreaseAccountLevels();
 		}
+
+		// Delete block from blockchain
+		this.repository.getBlockRepository().delete(this.blockData);
+		this.blockData.setHeight(null);
+
+		postBlockTidy();
 	}
 
 	protected void orphanTransactionsFromBlock() throws DataException {
