@@ -780,6 +780,15 @@ public class Network {
 	private void onHandshakeCompleted(Peer peer) {
 		LOGGER.debug(String.format("Handshake completed with peer %s", peer));
 
+		// Are we already connected to this peer?
+		Peer existingPeer = getHandshakedPeerWithPublicKey(peer.getPeersPublicKey());
+		// NOTE: actual object reference compare, not Peer.equals()
+		if (existingPeer != peer) {
+			LOGGER.info(() -> String.format("We already have a connection with peer %s - discarding", peer));
+			peer.disconnect("existing connection");
+			return;
+		}
+
 		// Make a note that we've successfully completed handshake (and when)
 		peer.getPeerData().setLastConnected(NTP.getTime());
 
