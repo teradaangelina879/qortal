@@ -8,7 +8,7 @@ import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.transaction.MessageTransaction;
+import org.qortal.transaction.ChatTransaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
@@ -65,8 +65,8 @@ public class ChatTransactionTransformer extends TransactionTransformer {
 
 		int dataSize = byteBuffer.getInt();
 		// Don't allow invalid dataSize here to avoid run-time issues
-		if (dataSize > MessageTransaction.MAX_DATA_SIZE)
-			throw new TransformationException("MessageTransaction data size too large");
+		if (dataSize > ChatTransaction.MAX_DATA_SIZE)
+			throw new TransformationException("ChatTransaction data size too large");
 
 		byte[] data = new byte[dataSize];
 		byteBuffer.get(data);
@@ -86,7 +86,7 @@ public class ChatTransactionTransformer extends TransactionTransformer {
 		return new ChatTransactionData(baseTransactionData, sender, nonce, recipient, data, isText, isEncrypted);
 	}
 
-	public static int getDataLength(TransactionData transactionData) throws TransformationException {
+	public static int getDataLength(TransactionData transactionData) {
 		ChatTransactionData chatTransactionData = (ChatTransactionData) transactionData;
 
 		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH + chatTransactionData.getData().length;
