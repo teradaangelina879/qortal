@@ -499,7 +499,75 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		LOGGER.trace(String.format("Transaction search SQL: %s", sql));
+		LOGGER.trace(() -> String.format("Transaction search SQL: %s", sql));
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return signatures;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				signatures.add(signature);
+			} while (resultSet.next());
+
+			return signatures;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching transaction signatures from repository", e);
+		}
+	}
+
+	public List<byte[]> getSignaturesMatchingCriteria(TransactionType txType, byte[] publicKey,
+			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		List<byte[]> signatures = new ArrayList<>();
+
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT signature FROM Transactions ");
+
+		List<String> whereClauses = new ArrayList<>();
+		List<Object> bindParams = new ArrayList<>();
+
+		if (txType != null) {
+			whereClauses.add("type = ?");
+			bindParams.add(txType.value);
+		}
+
+		if (publicKey != null) {
+			whereClauses.add("creator = ?");
+			bindParams.add(publicKey);
+		}
+
+		switch (confirmationStatus) {
+			case BOTH:
+				break;
+
+			case CONFIRMED:
+				whereClauses.add("Transactions.block_height IS NOT NULL");
+				break;
+
+			case UNCONFIRMED:
+				whereClauses.add("Transactions.block_height IS NULL");
+				break;
+		}
+
+		if (!whereClauses.isEmpty()) {
+			sql.append(" WHERE ");
+
+			final int whereClausesSize = whereClauses.size();
+			for (int wci = 0; wci < whereClausesSize; ++wci) {
+				if (wci != 0)
+					sql.append(" AND ");
+
+				sql.append(whereClauses.get(wci));
+			}
+		}
+
+		sql.append(" ORDER BY Transactions.created_when");
+		sql.append((reverse == null || !reverse) ? " ASC" : " DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
+
+		LOGGER.trace(() -> String.format("Transaction search SQL: %s", sql));
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)

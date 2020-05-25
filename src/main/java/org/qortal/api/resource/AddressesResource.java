@@ -28,6 +28,7 @@ import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
+import org.qortal.api.Security;
 import org.qortal.api.model.ApiOnlineAccount;
 import org.qortal.api.model.RewardShareKeyRequest;
 import org.qortal.asset.Asset;
@@ -36,18 +37,26 @@ import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.network.OnlineAccountData;
+import org.qortal.data.transaction.PublicizeTransactionData;
 import org.qortal.data.transaction.RewardShareTransactionData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.transaction.PublicizeTransaction;
 import org.qortal.transaction.Transaction;
+import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
+import org.qortal.transform.transaction.PublicizeTransactionTransformer;
 import org.qortal.transform.transaction.RewardShareTransactionTransformer;
+import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
+
+import com.google.common.primitives.Bytes;
 
 @Path("/addresses")
 @Tag(name = "Addresses")
@@ -382,6 +391,121 @@ public class AddressesResource {
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
 			byte[] bytes = RewardShareTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/publicize")
+	@Operation(
+		summary = "Build raw, unsigned, PUBLICIZE transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = PublicizeTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, PUBLICIZE transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String publicize(PublicizeTransactionData transactionData) {
+		if (Settings.getInstance().isApiRestricted())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK && result != ValidationResult.INCORRECT_NONCE)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = PublicizeTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/publicize/compute")
+	@Operation(
+		summary = "Compute nonce for raw, unsigned PUBLICIZE transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string",
+					description = "raw, unsigned PUBLICIZE transaction in base58 encoding",
+					example = "raw transaction base58"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, PUBLICIZE transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String computePublicize(String rawBytes58) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			byte[] rawBytes = Base58.decode(rawBytes58);
+			// We're expecting unsigned transaction, so append empty signature prior to decoding
+			rawBytes = Bytes.concat(rawBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
+
+			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			if (transactionData.getType() != TransactionType.PUBLICIZE)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			PublicizeTransaction publicizeTransaction = (PublicizeTransaction) Transaction.fromData(repository, transactionData);
+
+			// Quicker validity check first before we compute nonce
+			ValidationResult result = publicizeTransaction.isValid();
+			if (result != ValidationResult.OK && result != ValidationResult.INCORRECT_NONCE)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			publicizeTransaction.computeNonce();
+
+			// Re-check, but ignores signature
+			result = publicizeTransaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			// Strip zeroed signature
+			transactionData.setSignature(null);
+
+			byte[] bytes = PublicizeTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);

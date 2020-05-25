@@ -73,6 +73,24 @@ public interface TransactionRepository {
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
+	 * Returns signatures for transactions that match search criteria.
+	 * <p>
+	 * Simpler version that only checks accepts one (optional) transaction type,
+	 * and one (optional) public key.
+	 * 
+	 * @param txType
+	 * @param publicKey
+	 * @param confirmationStatus
+	 * @param limit
+	 * @param offset
+	 * @param reverse
+	 * @return
+	 * @throws DataException
+	 */
+	public List<byte[]> getSignaturesMatchingCriteria(TransactionType txType, byte[] publicKey,
+			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
 	 * Returns signature for latest auto-update transaction.
 	 * <p>
 	 * Transaction must be <tt>CONFIRMED</tt> and <tt>APPROVED</tt>

@@ -613,6 +613,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX ChatTransactionsRecipientIndex ON ChatTransactions (recipient, sender)");
 					break;
 
+				case 19:
+					// PUBLICIZE transactions
+					stmt.execute("CREATE TABLE PublicizeTransactions (signature Signature, nonce INT NOT NULL, " + TRANSACTION_KEYS + ")");
+					break;
+
 				default:
 					// nothing to do
 					return false;

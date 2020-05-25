@@ -363,6 +363,60 @@ public class TransactionsResource {
 		}
 	}
 
+	@GET
+	@Path("/creator/{publickey}")
+	@Operation(
+		summary = "Find matching transactions created by account with given public key",
+		responses = {
+			@ApiResponse(
+				description = "transactions",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = TransactionData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransactionData> findCreatorsTransactions(@PathParam("publickey") String publicKey58,
+			@Parameter(
+				description = "whether to include confirmed, unconfirmed or both",
+				required = true
+			) @QueryParam("confirmationStatus") ConfirmationStatus confirmationStatus, @Parameter(
+				ref = "limit"
+			) @QueryParam("limit") Integer limit, @Parameter(
+				ref = "offset"
+			) @QueryParam("offset") Integer offset, @Parameter(
+				ref = "reverse"
+			) @QueryParam("reverse") Boolean reverse) {
+		// Decode public key
+		byte[] publicKey;
+		try {
+			publicKey = Base58.decode(publicKey58);
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY, e);
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null,
+					publicKey, confirmationStatus, limit, offset, reverse);
+
+			// Expand signatures to transactions
+			List<TransactionData> transactions = new ArrayList<>(signatures.size());
+			for (byte[] signature : signatures)
+				transactions.add(repository.getTransactionRepository().fromSignature(signature));
+
+			return transactions;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 	@POST
 	@Path("/sign")
 	@Operation(
