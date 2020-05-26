@@ -19,6 +19,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
+import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryFactory;
@@ -111,7 +112,7 @@ public class Redeem {
 
 			// New/derived info
 
-			byte[] secretHash = BTC.hash160(secret);
+			byte[] secretHash = Crypto.hash160(secret);
 			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
 			ECKey redeemKey = ECKey.fromPrivate(redeemPrivateKey);
@@ -123,7 +124,7 @@ public class Redeem {
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), lockTime, redeemAddress.getHash(), secretHash);
 			System.out.println(String.format("Redeem script: %s", HashCode.fromBytes(redeemScriptBytes)));
 
-			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 			Address derivedP2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
 			if (!derivedP2shAddress.equals(p2shAddress)) {
@@ -146,9 +147,7 @@ public class Redeem {
 			}
 
 			// Check P2SH is funded
-			final int startTime = ((int) (System.currentTimeMillis() / 1000L)) - 86400;
-
-			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString(), startTime);
+			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
 			if (p2shBalance == null) {
 				System.err.println(String.format("Unable to check P2SH address %s balance", p2shAddress));
 				System.exit(2);
@@ -156,7 +155,7 @@ public class Redeem {
 			System.out.println(String.format("P2SH address %s balance: %s BTC", p2shAddress, p2shBalance.toPlainString()));
 
 			// Grab all P2SH funding transactions (just in case there are more than one)
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getOutputs(p2shAddress.toString(), startTime);
+			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
 			if (fundingOutputs == null) {
 				System.err.println(String.format("Can't find outputs for P2SH"));
 				System.exit(2);

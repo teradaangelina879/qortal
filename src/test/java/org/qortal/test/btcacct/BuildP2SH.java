@@ -14,6 +14,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
+import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryFactory;
@@ -105,7 +106,7 @@ public class BuildP2SH {
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
 			System.out.println(String.format("Redeem script: %s", HashCode.fromBytes(redeemScriptBytes)));
 
-			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 			System.out.println(String.format("P2SH address: %s", p2shAddress));

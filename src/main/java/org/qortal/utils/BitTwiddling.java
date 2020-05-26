@@ -26,4 +26,9 @@ public class BitTwiddling {
 		return new byte[] { (byte) (value), (byte) (value >> 8), (byte) (value >> 16), (byte) (value >> 24) };
 	}
 
+	/** Convert little-endian bytes to int */
+	public static int fromLEBytes(byte[] bytes, int offset) {
+		return (bytes[offset] & 0xff) | (bytes[offset + 1] & 0xff) << 8 | (bytes[offset + 2] & 0xff) << 16 | (bytes[offset + 3] & 0xff) << 24;
+	}
+
 }

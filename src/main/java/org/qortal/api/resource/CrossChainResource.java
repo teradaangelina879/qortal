@@ -30,7 +30,6 @@ import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.TransactionOutput;
 import org.bitcoinj.script.Script.ScriptType;
-import org.bitcoinj.wallet.WalletTransaction;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
@@ -452,7 +451,7 @@ public class CrossChainResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
-			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 			return p2shAddress.toString();
@@ -522,28 +521,27 @@ public class CrossChainResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
-			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
-			Long medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			Integer medianBlockTime = BTC.getInstance().getMedianBlockTime();
 			if (medianBlockTime == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
 
 			long now = NTP.getTime();
 
 			// Check P2SH is funded
-			final int startTime = (int) (crossChainTradeData.tradeModeTimestamp / 1000L);
-			List<TransactionOutput> fundingOutputs = new ArrayList<>();
-			List<WalletTransaction> walletTransactions = new ArrayList<>();
 
-			Coin p2shBalance = BTC.getInstance().getBalanceAndOtherInfo(p2shAddress.toString(), startTime, fundingOutputs, walletTransactions);
+			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
 			if (p2shBalance == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
 			CrossChainBitcoinP2SHStatus p2shStatus = new CrossChainBitcoinP2SHStatus();
 			p2shStatus.bitcoinP2shAddress = p2shAddress.toString();
 			p2shStatus.bitcoinP2shBalance = BigDecimal.valueOf(p2shBalance.value, 8);
+
+			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
 
 			if (p2shBalance.value >= crossChainTradeData.expectedBitcoin && fundingOutputs.size() == 1) {
 				p2shStatus.canRedeem = now >= medianBlockTime * 1000L;
@@ -552,7 +550,8 @@ public class CrossChainResource {
 
 			if (now >= medianBlockTime * 1000L) {
 				// See if we can extract secret
-				p2shStatus.secret = BTCACCT.findP2shSecret(p2shStatus.bitcoinP2shAddress, walletTransactions);
+				List<byte[]> rawTransactions = BTC.getInstance().getAddressTransactions(p2shStatus.bitcoinP2shAddress);
+				p2shStatus.secret = BTCACCT.findP2shSecret(p2shStatus.bitcoinP2shAddress, rawTransactions);
 			}
 
 			return p2shStatus;
@@ -630,20 +629,19 @@ public class CrossChainResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
-			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
 			long now = NTP.getTime();
 
 			// Check P2SH is funded
-			final int startTime = (int) (crossChainTradeData.tradeModeTimestamp / 1000L);
-			List<TransactionOutput> fundingOutputs = new ArrayList<>();
 
-			Coin p2shBalance = BTC.getInstance().getBalanceAndOtherInfo(p2shAddress.toString(), startTime, fundingOutputs, null);
+			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
 			if (p2shBalance == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
+			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
 			if (fundingOutputs.size() != 1)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
@@ -741,24 +739,22 @@ public class CrossChainResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemAddress.getHash(), crossChainTradeData.secretHash);
-			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
-			Long medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			Integer medianBlockTime = BTC.getInstance().getMedianBlockTime();
 			if (medianBlockTime == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
 
 			long now = NTP.getTime();
 
 			// Check P2SH is funded
-			final int startTime = (int) (crossChainTradeData.tradeModeTimestamp / 1000L);
-			List<TransactionOutput> fundingOutputs = new ArrayList<>();
-
-			Coin p2shBalance = BTC.getInstance().getBalanceAndOtherInfo(p2shAddress.toString(), startTime, fundingOutputs, null);
+			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
 			if (p2shBalance == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
+			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
 			if (fundingOutputs.size() != 1)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 

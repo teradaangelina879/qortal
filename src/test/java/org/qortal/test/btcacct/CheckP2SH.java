@@ -16,6 +16,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
+import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryFactory;
@@ -115,7 +116,7 @@ public class CheckP2SH {
 			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
 			System.out.println(String.format("Redeem script: %s", HashCode.fromBytes(redeemScriptBytes)));
 
-			byte[] redeemScriptHash = BTC.hash160(redeemScriptBytes);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 			Address derivedP2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
 			if (!derivedP2shAddress.equals(p2shAddress)) {
@@ -134,9 +135,7 @@ public class CheckP2SH {
 				System.out.println(String.format("Too soon (%s) to redeem based on median block time %s", LocalDateTime.ofInstant(Instant.ofEpochMilli(now), ZoneOffset.UTC), LocalDateTime.ofInstant(Instant.ofEpochSecond(medianBlockTime), ZoneOffset.UTC)));
 
 			// Check P2SH is funded
-			final int startTime = lockTime - 86400;
-
-			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString(), startTime);
+			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
 			if (p2shBalance == null) {
 				System.err.println(String.format("Unable to check P2SH address %s balance", p2shAddress));
 				System.exit(2);
@@ -144,7 +143,7 @@ public class CheckP2SH {
 			System.out.println(String.format("P2SH address %s balance: %s", p2shAddress, BTC.FORMAT.format(p2shBalance)));
 
 			// Grab all P2SH funding transactions (just in case there are more than one)
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getOutputs(p2shAddress.toString(), startTime);
+			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
 			if (fundingOutputs == null) {
 				System.err.println(String.format("Can't find outputs for P2SH"));
 				System.exit(2);

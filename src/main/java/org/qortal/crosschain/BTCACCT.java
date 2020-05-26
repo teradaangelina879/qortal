@@ -21,7 +21,6 @@ import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
 import org.bitcoinj.script.Script.ScriptType;
-import org.bitcoinj.wallet.WalletTransaction;
 import org.ciyam.at.API;
 import org.ciyam.at.CompilationException;
 import org.ciyam.at.FunctionCode;
@@ -619,11 +618,11 @@ public class BTCACCT {
 		return tradeData;
 	}
 
-	public static byte[] findP2shSecret(String p2shAddress, List<WalletTransaction> walletTransactions) {
+	public static byte[] findP2shSecret(String p2shAddress, List<byte[]> rawTransactions) {
 		NetworkParameters params = BTC.getInstance().getNetworkParameters();
 
-		for (WalletTransaction walletTransaction : walletTransactions) {
-			Transaction transaction = walletTransaction.getTransaction();
+		for (byte[] rawTransaction : rawTransactions) {
+			Transaction transaction = new Transaction(params, rawTransaction);
 
 			// Cycle through inputs, looking for one that spends our P2SH
 			for (TransactionInput input : transaction.getInputs()) {

@@ -2,7 +2,6 @@ package org.qortal.test.btcacct;
 
 import static org.junit.Assert.*;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -11,7 +10,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.bitcoinj.store.BlockStoreException;
-import org.bitcoinj.wallet.WalletTransaction;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -37,12 +35,10 @@ public class BtcTests extends Common {
 		BTC btc = BTC.getInstance();
 
 		ExecutorService executor = Executors.newSingleThreadExecutor();
-		Future<Long> future = executor.submit(() -> btc.getMedianBlockTime());
-
-		BTC.shutdown();
+		Future<Integer> future = executor.submit(() -> btc.getMedianBlockTime());
 
 		try {
-			Long medianBlockTime = future.get();
+			Integer medianBlockTime = future.get();
 			assertNull("Shutdown should occur before we get a result", medianBlockTime);
 		} catch (InterruptedException | ExecutionException e) {
 		}
@@ -55,12 +51,10 @@ public class BtcTests extends Common {
 		BTC btc = BTC.getInstance();
 
 		ExecutorService executor = Executors.newSingleThreadExecutor();
-		Future<Long> future = executor.submit(() -> btc.getMedianBlockTime());
-
-		BTC.shutdown();
+		Future<Integer> future = executor.submit(() -> btc.getMedianBlockTime());
 
 		try {
-			Long medianBlockTime = future.get();
+			Integer medianBlockTime = future.get();
 			assertNull("Shutdown should occur before we get a result", medianBlockTime);
 		} catch (InterruptedException | ExecutionException e) {
 		}
@@ -92,14 +86,11 @@ public class BtcTests extends Common {
 	public void testFindP2shSecret() {
 		// This actually exists on TEST3 but can take a while to fetch
 		String p2shAddress = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
-		int startTime = 1587510000; // Tue 21 Apr 2020 23:00:00 UTC
 
-		List<WalletTransaction> walletTransactions = new ArrayList<>();
-
-		BTC.getInstance().getBalanceAndOtherInfo(p2shAddress, startTime, null, walletTransactions);
+		List<byte[]> rawTransactions = BTC.getInstance().getAddressTransactions(p2shAddress);
 
 		byte[] expectedSecret = AtTests.secret;
-		byte[] secret = BTCACCT.findP2shSecret(p2shAddress, walletTransactions);
+		byte[] secret = BTCACCT.findP2shSecret(p2shAddress, rawTransactions);
 
 		assertNotNull(secret);
 		assertTrue("secret incorrect", Arrays.equals(expectedSecret, secret));

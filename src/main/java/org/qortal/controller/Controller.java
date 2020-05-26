@@ -35,7 +35,6 @@ import org.qortal.block.BlockChain;
 import org.qortal.block.BlockMinter;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
-import org.qortal.crosschain.BTC;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
@@ -675,9 +674,6 @@ public class Controller extends Thread {
 		synchronized (shutdownLock) {
 			if (!isStopping) {
 				isStopping = true;
-
-				LOGGER.info("Shutting down Bitcoin support");
-				BTC.shutdown();
 
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();
