@@ -10,6 +10,7 @@ import java.util.function.Function;
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
+import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.Transaction.SigHash;
@@ -20,7 +21,6 @@ import org.bitcoinj.script.Script;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
-import org.bitcoinj.script.Script.ScriptType;
 import org.ciyam.at.API;
 import org.ciyam.at.CompilationException;
 import org.ciyam.at.FunctionCode;
@@ -626,28 +626,27 @@ public class BTCACCT {
 
 			// Cycle through inputs, looking for one that spends our P2SH
 			for (TransactionInput input : transaction.getInputs()) {
-				TransactionOutput connectedOutput = input.getConnectedOutput();
-				if (connectedOutput == null)
-					// We don't know about this transaction that this input is spending, so won't be our P2SH
-					continue;
-
-				Script scriptPubKey = connectedOutput.getScriptPubKey();
-				ScriptType scriptType = scriptPubKey.getScriptType();
-				if (scriptType != ScriptType.P2SH)
-					// Input isn't spending our P2SH
-					continue;
-
-				Address inputAddress = scriptPubKey.getToAddress(params);
-				if (!inputAddress.toString().equals(p2shAddress))
-					// Input isn't spending our P2SH
-					continue;
-
 				Script scriptSig = input.getScriptSig();
 				List<ScriptChunk> scriptChunks = scriptSig.getChunks();
 
-				// Expected number of script chunks
-				int expectedChunkCount = 1 /* secret */ + 1 /* sig */ + 1 /* pubkey */ + 1 /* redeemScript */;
+				// Expected number of script chunks for redeem. Refund might not have the same number.
+				int expectedChunkCount = 1 /*secret*/ + 1 /*sig*/ + 1 /*pubkey*/ + 1 /*redeemScript*/;
 				if (scriptChunks.size() != expectedChunkCount)
+					continue;
+
+				// We're expecting last chunk to contain the actual redeemScript
+				ScriptChunk lastChunk = scriptChunks.get(scriptChunks.size() - 1);
+				byte[] redeemScriptBytes = lastChunk.data;
+
+				// If non-push scripts, redeemScript will be null
+				if (redeemScriptBytes == null)
+					continue;
+
+				byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
+				Address inputAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
+
+				if (!inputAddress.toString().equals(p2shAddress))
+					// Input isn't spending our P2SH
 					continue;
 
 				byte[] secret = scriptChunks.get(0).data;
