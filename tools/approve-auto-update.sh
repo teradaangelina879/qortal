@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 
+port=12391
+if [ $# -gt 0 -a "$1" = "-t" ]; then
+	port=62391
+fi
+
 printf "Searching for auto-update transactions to approve...\n";
 
-tx=$( curl --silent --url "http://localhost:12391/arbitrary/search?txGroupId=1&service=1&confirmationStatus=CONFIRMED&limit=1&reverse=true" );
+tx=$( curl --silent --url "http://localhost:${port}/arbitrary/search?txGroupId=1&service=1&confirmationStatus=CONFIRMED&limit=1&reverse=true" );
 if fgrep --silent '"approvalStatus":"PENDING"' <<< "${tx}"; then
 	true
 else
@@ -24,7 +29,7 @@ read -s privkey
 printf "\n"
 
 # Convert to public key
-pubkey=$( curl --silent --url "http://localhost:12391/utils/publickey" --data @- <<< "${privkey}" );
+pubkey=$( curl --silent --url "http://localhost:${port}/utils/publickey" --data @- <<< "${privkey}" );
 if egrep -v --silent '^\w{44,46}$' <<< "${pubkey}"; then
 	printf "Invalid response from API - was your private key correct?\n%s\n" "${pubkey}"
 	exit
@@ -32,11 +37,11 @@ fi
 printf "Your public key: %s\n" ${pubkey}
 
 # Convert to address
-address=$( curl --silent --url "http://localhost:12391/addresses/convert/${pubkey}" );
+address=$( curl --silent --url "http://localhost:${port}/addresses/convert/${pubkey}" );
 printf "Your address: %s\n" ${address}
 
 # Grab last reference
-lastref=$( curl --silent --url "http://localhost:12391/addresses/lastreference/{$address}" );
+lastref=$( curl --silent --url "http://localhost:${port}/addresses/lastreference/{$address}" );
 printf "Your last reference: %s\n" ${lastref}
 
 # Build GROUP_APPROVAL transaction
@@ -54,7 +59,7 @@ tx_json=$( cat <<TX_END
 TX_END
 )
 
-raw_tx=$( curl --silent --header "Content-Type: application/json" --url "http://localhost:12391/groups/approval" --data @- <<< "${tx_json}" )
+raw_tx=$( curl --silent --header "Content-Type: application/json" --url "http://localhost:${port}/groups/approval" --data @- <<< "${tx_json}" )
 if egrep -v --silent '^\w{100,}' <<< "${raw_tx}"; then
 	printf "Building GROUP_APPROVAL transaction failed:\n%s\n" "${raw_tx}"
 	exit
@@ -69,7 +74,7 @@ sign_json=$( cat <<SIGN_END
 }
 SIGN_END
 )
-signed_tx=$( curl --silent --header "Content-Type: application/json" --url "http://localhost:12391/transactions/sign" --data @- <<< "${sign_json}" )
+signed_tx=$( curl --silent --header "Content-Type: application/json" --url "http://localhost:${port}/transactions/sign" --data @- <<< "${sign_json}" )
 printf "\nSigned tx:\n%s\n" ${signed_tx}
 if egrep -v --silent '^\w{100,}' <<< "${signed_tx}"; then
 	printf "Signing GROUP_APPROVAL transaction failed:\n%s\n" "${signed_tx}"
@@ -88,5 +93,5 @@ for ((seconds = 5; seconds > 0; seconds--)); do
 done
 
 printf "\rBroadcasting signed GROUP_APPROVAL transaction...      \n"
-result=$( curl --silent --url "http://localhost:12391/transactions/process" --data @- <<< "${signed_tx}" )
+result=$( curl --silent --url "http://localhost:${port}/transactions/process" --data @- <<< "${signed_tx}" )
 printf "API response:\n%s\n" "${result}"

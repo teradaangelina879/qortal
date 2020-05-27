@@ -33,13 +33,17 @@ while (<POM>) {
 }
 close(POM);
 
-# short-form commit hash on 'master' branch
+# determine git branch
+my $branch_name = ` git symbolic-ref -q HEAD `
+$branch_name =~ s|^refs/heads/||; # ${branch_name##refs/heads/}
+
+# short-form commit hash on base branch (non-auto-update)
 my $commit_hash = `git show --no-patch --format=%h`;
 die("Can't find commit hash\n") if ! defined $commit_hash;
 chomp $commit_hash;
-printf "Commit hash on 'master' branch: %s\n", $commit_hash;
+printf "Commit hash on '%s' branch: %s\n", $branch_name, $commit_hash;
 
-# build timestamp / commit timestamp on 'master' branch
+# build timestamp / commit timestamp on base branch
 my $timestamp = `git show --no-patch --format=%ct`;
 die("Can't determine commit timestamp\n") if ! defined $timestamp;
 $timestamp *= 1000; # Convert to milliseconds
