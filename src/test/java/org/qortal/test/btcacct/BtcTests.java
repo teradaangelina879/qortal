@@ -4,10 +4,6 @@ import static org.junit.Assert.*;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.bitcoinj.store.BlockStoreException;
 import org.junit.After;
@@ -28,36 +24,6 @@ public class BtcTests extends Common {
 	@After
 	public void afterTest() {
 		BTC.resetForTesting();
-	}
-
-	@Test
-	public void testStartupShutdownTestNet3() {
-		BTC btc = BTC.getInstance();
-
-		ExecutorService executor = Executors.newSingleThreadExecutor();
-		Future<Integer> future = executor.submit(() -> btc.getMedianBlockTime());
-
-		try {
-			Integer medianBlockTime = future.get();
-			assertNull("Shutdown should occur before we get a result", medianBlockTime);
-		} catch (InterruptedException | ExecutionException e) {
-		}
-	}
-
-	@Test
-	public void testStartupShutdownRegTest() throws DataException {
-		Common.useSettings("test-settings-v2-bitcoin-regtest.json");
-
-		BTC btc = BTC.getInstance();
-
-		ExecutorService executor = Executors.newSingleThreadExecutor();
-		Future<Integer> future = executor.submit(() -> btc.getMedianBlockTime());
-
-		try {
-			Integer medianBlockTime = future.get();
-			assertNull("Shutdown should occur before we get a result", medianBlockTime);
-		} catch (InterruptedException | ExecutionException e) {
-		}
 	}
 
 	@Test

@@ -95,7 +95,7 @@ public class BTC {
 			return null;
 
 		// Grab latest 11 blocks
-		List<byte[]> blockHeaders = this.electrumX.getBlockHeaders(height, 11);
+		List<byte[]> blockHeaders = this.electrumX.getBlockHeaders(height - 11, 11);
 		if (blockHeaders == null || blockHeaders.size() < 11)
 			return null;
 
