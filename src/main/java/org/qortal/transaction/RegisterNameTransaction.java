@@ -6,6 +6,7 @@ import java.util.List;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.naming.Name;
@@ -61,6 +62,10 @@ public class RegisterNameTransaction extends Transaction {
 		// Check name is in normalized form (no leading/trailing whitespace, etc.)
 		if (!name.equals(Unicode.normalize(name)))
 			return ValidationResult.NAME_NOT_NORMALIZED;
+
+		// Check name doesn't look like an address
+		if (Crypto.isValidAddress(name))
+			return ValidationResult.INVALID_ADDRESS;
 
 		// Check registrant has enough funds
 		if (registrant.getConfirmedBalance(Asset.QORT) < this.registerNameTransactionData.getFee())

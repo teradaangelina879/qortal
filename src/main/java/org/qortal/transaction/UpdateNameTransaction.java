@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.UpdateNameTransactionData;
@@ -77,6 +78,10 @@ public class UpdateNameTransaction extends Transaction {
 			// Check new name is in normalized form (no leading/trailing whitespace, etc.)
 			if (!newName.equals(Unicode.normalize(newName)))
 				return ValidationResult.NAME_NOT_NORMALIZED;
+
+			// Check name doesn't look like an address
+			if (Crypto.isValidAddress(newName))
+				return ValidationResult.INVALID_ADDRESS;
 		}
 
 		// Check new data size bounds (0 length means don't update data)

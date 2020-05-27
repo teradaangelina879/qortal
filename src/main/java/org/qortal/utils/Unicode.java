@@ -41,7 +41,7 @@ public abstract class Unicode {
 		buildHomoglyphCodePointArrays();
 	}
 
-	/** Returns string in Unicode canonical normalized form (NFC),<br>
+	/** Returns string in Unicode canonical normalized form (NFKC),<br>
 	 * with zero-width spaces/joiners removed,<br>
 	 * leading/trailing whitespace trimmed<br>
 	 * and all other whitespace blocks collapsed into a single space character.

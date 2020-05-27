@@ -96,4 +96,46 @@ public class MiscTests extends Common {
 		}
 	}
 
+	// test trying to register a name that looks like an address
+	@Test
+	public void testRegisterAddressAsName() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Register-name
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			String name = alice.getAddress();
+			String data = "{}";
+
+			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			transaction.sign(alice);
+
+			ValidationResult result = transaction.importAsUnconfirmed();
+			assertTrue("Transaction should be invalid", ValidationResult.OK != result);
+		}
+	}
+
+	// test register then trying to update to a name that looks like an address
+	@Test
+	public void testUpdateToAddressAsName() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Register-name
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			String name = "test-name";
+			String data = "{}";
+
+			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			TransactionUtils.signAndMint(repository, transactionData, alice);
+
+			// we shouldn't be able to update name to an address
+			String newName = alice.getAddress();
+			String newData = "";
+			transactionData = new UpdateNameTransactionData(TestTransaction.generateBase(alice), name, newName, newData);
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			transaction.sign(alice);
+
+			ValidationResult result = transaction.importAsUnconfirmed();
+			assertTrue("Transaction should be invalid", ValidationResult.OK != result);
+		}
+	}
+
 }
