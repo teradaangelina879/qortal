@@ -62,7 +62,7 @@ public abstract class Transaction {
 		DEPLOY_AT(16, true),
 		MESSAGE(17, true),
 		CHAT(18, false),
-		SUPERNODE(19, false),
+		PUBLICIZE(19, false),
 		AIRDROP(20, false),
 		AT(21, false),
 		CREATE_GROUP(22, true),
@@ -242,6 +242,7 @@ public abstract class Transaction {
 		SELF_SHARE_EXISTS(91),
 		ACCOUNT_ALREADY_EXISTS(92),
 		INVALID_GROUP_BLOCK_DELAY(93),
+		INCORRECT_NONCE(94),
 		CHAT(999),
 		NOT_YET_RELEASED(1000);
 

@@ -48,7 +48,7 @@ public class SerializationTests extends Common {
 					case ACCOUNT_FLAGS:
 					case AT:
 					case CHAT:
-					case SUPERNODE:
+					case PUBLICIZE:
 					case AIRDROP:
 					case ENABLE_FORGING:
 						continue;
