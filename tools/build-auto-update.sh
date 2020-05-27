@@ -18,7 +18,8 @@ branch_name=${branch_name##refs/heads/}
 echo "Current git branch: ${branch_name}"
 if [ "${branch_name}" != "master" ]; then
 	echo "Unexpected current branch '${branch_name}' - expecting 'master'"
-	exit 1
+	echo "CTRL-C within 5 seconds to abort"
+	sleep 5
 fi
 
 # Extract short-form commit hash
@@ -77,5 +78,5 @@ git add ${project}.update
 git commit --message "XORed, auto-update JAR based on commit ${short_hash}"
 git push --set-upstream origin --force-with-lease ${update_branch}
 
-echo "Changing back to 'master' branch"
-git checkout --force master
+echo "Changing back to '${branch_name}' branch"
+git checkout --force ${branch_name}
