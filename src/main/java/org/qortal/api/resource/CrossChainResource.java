@@ -754,6 +754,9 @@ public class CrossChainResource {
 			if (p2shBalance == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
+			if (p2shBalance.value < crossChainTradeData.expectedBitcoin)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_BALANCE_ISSUE);
+
 			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
 			if (fundingOutputs.size() != 1)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
@@ -762,9 +765,6 @@ public class CrossChainResource {
 			boolean canRedeem = now >= medianBlockTime * 1000L;
 			if (!canRedeem)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_TOO_SOON);
-
-			if (p2shBalance.value < crossChainTradeData.expectedBitcoin)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_BALANCE_ISSUE);
 
 			Coin redeemAmount = p2shBalance.subtract(Coin.valueOf(redeemRequest.bitcoinMinerFee.unscaledValue().longValue()));
 
