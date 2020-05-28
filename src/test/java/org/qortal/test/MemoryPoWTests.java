@@ -67,4 +67,15 @@ public class MemoryPoWTests {
 		System.out.println(String.format("Max nonce: %d", maxNonce));
 	}
 
+	@Test
+	public void testKnownCompute2() {
+		byte[] data = new byte[] { (byte) 0xaa, (byte) 0xbb, (byte) 0xcc };
+
+		int expectedNonce = 4013;
+		int nonce = MemoryPoW.compute2(data, 8 * 1024 * 1024, 12);
+
+		System.out.println(String.format("Nonce: %d", nonce));
+		assertEquals(expectedNonce, nonce);
+	}
+
 }
