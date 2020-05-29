@@ -224,13 +224,13 @@ public class ElectrumX {
 	}
 
 	public boolean broadcastTransaction(byte[] transactionBytes) {
-		JSONObject broadcastJson = (JSONObject) this.rpc("blockchain.transaction.broadcast", HashCode.fromBytes(transactionBytes).toString());
-		if (broadcastJson == null)
+		Object rawBroadcastResult = this.rpc("blockchain.transaction.broadcast", HashCode.fromBytes(transactionBytes).toString());
+		if (rawBroadcastResult == null)
 			return false;
 
-		// If JSON contains "result", then it went through ok.
-		// Otherwise JSON would contain "error" instead.
-		return broadcastJson.containsKey("result");
+		// If result is a String, then it is simply transaction hash.
+		// Otherwise result is JSON and probably contains error info instead.
+		return rawBroadcastResult instanceof String;
 	}
 
 	// Class-private utility methods
