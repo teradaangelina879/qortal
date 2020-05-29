@@ -543,7 +543,7 @@ public class CrossChainResource {
 
 			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
 
-			if (p2shBalance.value >= crossChainTradeData.expectedBitcoin && fundingOutputs.size() == 1) {
+			if (p2shBalance.value >= crossChainTradeData.expectedBitcoin && !fundingOutputs.isEmpty()) {
 				p2shStatus.canRedeem = now >= medianBlockTime * 1000L;
 				p2shStatus.canRefund = now >= crossChainTradeData.lockTime * 1000L;
 			}
@@ -642,10 +642,9 @@ public class CrossChainResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
 			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
-			if (fundingOutputs.size() != 1)
+			if (fundingOutputs.isEmpty())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-			TransactionOutput fundingOutput = fundingOutputs.get(0);
 			boolean canRefund = now >= crossChainTradeData.lockTime * 1000L;
 			if (!canRefund)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_TOO_SOON);
@@ -655,7 +654,7 @@ public class CrossChainResource {
 
 			Coin refundAmount = p2shBalance.subtract(Coin.valueOf(refundRequest.bitcoinMinerFee.unscaledValue().longValue()));
 
-			org.bitcoinj.core.Transaction refundTransaction = BTCACCT.buildRefundTransaction(refundAmount, refundKey, fundingOutput, redeemScriptBytes, crossChainTradeData.lockTime);
+			org.bitcoinj.core.Transaction refundTransaction = BTCACCT.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, crossChainTradeData.lockTime);
 			boolean wasBroadcast = BTC.getInstance().broadcastTransaction(refundTransaction);
 
 			if (!wasBroadcast)
@@ -758,17 +757,16 @@ public class CrossChainResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_BALANCE_ISSUE);
 
 			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
-			if (fundingOutputs.size() != 1)
+			if (fundingOutputs.isEmpty())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-			TransactionOutput fundingOutput = fundingOutputs.get(0);
 			boolean canRedeem = now >= medianBlockTime * 1000L;
 			if (!canRedeem)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_TOO_SOON);
 
 			Coin redeemAmount = p2shBalance.subtract(Coin.valueOf(redeemRequest.bitcoinMinerFee.unscaledValue().longValue()));
 
-			org.bitcoinj.core.Transaction redeemTransaction = BTCACCT.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutput, redeemScriptBytes, redeemRequest.secret);
+			org.bitcoinj.core.Transaction redeemTransaction = BTCACCT.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, redeemRequest.secret);
 			boolean wasBroadcast = BTC.getInstance().broadcastTransaction(redeemTransaction);
 
 			if (!wasBroadcast)

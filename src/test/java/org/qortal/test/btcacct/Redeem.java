@@ -173,16 +173,16 @@ public class Redeem {
 
 			if (fundingOutputs.size() != 1) {
 				System.err.println(String.format("Expecting only one unspent output for P2SH"));
-				System.exit(2);
+				// No longer fatal
 			}
 
-			TransactionOutput fundingOutput = fundingOutputs.get(0);
-			System.out.println(String.format("Using output %s:%d for redeem", HashCode.fromBytes(fundingOutput.getParentTransactionHash().getBytes()), fundingOutput.getIndex()));
+			for (TransactionOutput fundingOutput : fundingOutputs)
+				System.out.println(String.format("Using output %s:%d for redeem", HashCode.fromBytes(fundingOutput.getParentTransactionHash().getBytes()), fundingOutput.getIndex()));
 
 			Coin redeemAmount = p2shBalance.subtract(bitcoinFee);
 			System.out.println(String.format("Spending %s of output, with %s as mining fee", BTC.FORMAT.format(redeemAmount), BTC.FORMAT.format(bitcoinFee)));
 
-			Transaction redeemTransaction = BTCACCT.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutput, redeemScriptBytes, secret);
+			Transaction redeemTransaction = BTCACCT.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secret);
 
 			byte[] redeemBytes = redeemTransaction.bitcoinSerialize();
 

@@ -122,7 +122,7 @@ public class BTCACCT {
 	 * @param scriptSigBuilder function for building scriptSig using transaction input signature
 	 * @return Signed Bitcoin transaction for spending P2SH
 	 */
-	public static Transaction buildP2shTransaction(Coin amount, ECKey spendKey, TransactionOutput fundingOutput, byte[] redeemScriptBytes, Long lockTime, Function<byte[], Script> scriptSigBuilder) {
+	public static Transaction buildP2shTransaction(Coin amount, ECKey spendKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, Long lockTime, Function<byte[], Script> scriptSigBuilder) {
 		NetworkParameters params = BTC.getInstance().getNetworkParameters();
 
 		Transaction transaction = new Transaction(params);
@@ -131,30 +131,36 @@ public class BTCACCT {
 		// Output is back to P2SH funder
 		transaction.addOutput(amount, ScriptBuilder.createP2PKHOutputScript(spendKey.getPubKeyHash()));
 
-		// Input (without scriptSig prior to signing)
-		TransactionInput input = new TransactionInput(params, null, redeemScriptBytes, fundingOutput.getOutPointFor());
-		if (lockTime != null)
-			input.setSequenceNumber(BTC.LOCKTIME_NO_RBF_SEQUENCE); // Use max-value, so no lockTime and no RBF
-		else
-			input.setSequenceNumber(BTC.NO_LOCKTIME_NO_RBF_SEQUENCE); // Use max-value - 1, so lockTime can be used but not RBF
-		transaction.addInput(input);
+		for (int inputIndex = 0; inputIndex < fundingOutputs.size(); ++inputIndex) {
+			TransactionOutput fundingOutput = fundingOutputs.get(inputIndex);
+
+			// Input (without scriptSig prior to signing)
+			TransactionInput input = new TransactionInput(params, null, redeemScriptBytes, fundingOutput.getOutPointFor());
+			if (lockTime != null)
+				input.setSequenceNumber(BTC.LOCKTIME_NO_RBF_SEQUENCE); // Use max-value, so no lockTime and no RBF
+			else
+				input.setSequenceNumber(BTC.NO_LOCKTIME_NO_RBF_SEQUENCE); // Use max-value - 1, so lockTime can be used but not RBF
+			transaction.addInput(input);
+		}
 
 		// Set locktime after inputs added but before input signatures are generated
 		if (lockTime != null)
 			transaction.setLockTime(lockTime);
 
-		// Generate transaction signature for input
-		final boolean anyoneCanPay = false;
-		TransactionSignature txSig = transaction.calculateSignature(0, spendKey, redeemScriptBytes, SigHash.ALL, anyoneCanPay);
+		for (int inputIndex = 0; inputIndex < fundingOutputs.size(); ++inputIndex) {
+			// Generate transaction signature for input
+			final boolean anyoneCanPay = false;
+			TransactionSignature txSig = transaction.calculateSignature(inputIndex, spendKey, redeemScriptBytes, SigHash.ALL, anyoneCanPay);
 
-		// Calculate transaction signature
-		byte[] txSigBytes = txSig.encodeToBitcoin();
+			// Calculate transaction signature
+			byte[] txSigBytes = txSig.encodeToBitcoin();
 
-		// Build scriptSig using lambda and tx signature
-		Script scriptSig = scriptSigBuilder.apply(txSigBytes);
+			// Build scriptSig using lambda and tx signature
+			Script scriptSig = scriptSigBuilder.apply(txSigBytes);
 
-		// Set input scriptSig
-		transaction.getInput(0).setScriptSig(scriptSig);
+			// Set input scriptSig
+			transaction.getInput(inputIndex).setScriptSig(scriptSig);
+		}
 
 		return transaction;
 	}
@@ -169,7 +175,7 @@ public class BTCACCT {
 	 * @param lockTime transaction nLockTime - must be at least locktime used in redeemScript
 	 * @return Signed Bitcoin transaction for refunding P2SH
 	 */
-	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey refundKey, TransactionOutput fundingOutput, byte[] redeemScriptBytes, long lockTime) {
+	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey refundKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, long lockTime) {
 		Function<byte[], Script> refundSigScriptBuilder = (txSigBytes) -> {
 			// Build scriptSig with...
 			ScriptBuilder scriptBuilder = new ScriptBuilder();
@@ -187,7 +193,7 @@ public class BTCACCT {
 			return scriptBuilder.build();
 		};
 
-		return buildP2shTransaction(refundAmount, refundKey, fundingOutput, redeemScriptBytes, lockTime, refundSigScriptBuilder);
+		return buildP2shTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundSigScriptBuilder);
 	}
 
 	/**
@@ -200,7 +206,7 @@ public class BTCACCT {
 	 * @param secret actual 32-byte secret used when building redeemScript
 	 * @return Signed Bitcoin transaction for redeeming P2SH
 	 */
-	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey redeemKey, TransactionOutput fundingOutput, byte[] redeemScriptBytes, byte[] secret) {
+	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey redeemKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, byte[] secret) {
 		Function<byte[], Script> redeemSigScriptBuilder = (txSigBytes) -> {
 			// Build scriptSig with...
 			ScriptBuilder scriptBuilder = new ScriptBuilder();
@@ -221,7 +227,7 @@ public class BTCACCT {
 			return scriptBuilder.build();
 		};
 
-		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutput, redeemScriptBytes, null, redeemSigScriptBuilder);
+		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder);
 	}
 
 	/**
