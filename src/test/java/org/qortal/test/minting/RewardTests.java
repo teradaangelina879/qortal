@@ -241,15 +241,15 @@ public class RewardTests extends Common {
 
 			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
 
-			// 3 founders (online or not) so blockReward divided by 3
-			int founderCount = 3;
+			// 2 founders online so blockReward divided by 2
+			int founderCount = 2;
 			long perFounderReward = blockReward / founderCount;
 
 			// Alice simple self-share so her reward is perFounderReward
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, perFounderReward);
 
-			// Bob not online so his reward is simply perFounderReward
-			AccountUtils.assertBalance(repository, "bob", Asset.QORT, perFounderReward);
+			// Bob not online so his reward is zero
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, 0L);
 
 			// Chloe has two reward-shares, so her reward is divided by 2
 			int chloeSharesCount = 2;
