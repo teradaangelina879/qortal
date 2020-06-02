@@ -1620,14 +1620,91 @@ public class Block {
 		}
 	}
 
-	protected void distributeBlockReward(final long totalAmount) throws DataException {
-		LOGGER.trace(() -> String.format("Distributing: %s", Amounts.prettyAmount(totalAmount)));
+	protected void distributeBlockReward(long totalAmount) throws DataException {
+		final long totalAmountForLogging = totalAmount;
+		LOGGER.trace(() -> String.format("Distributing: %s", Amounts.prettyAmount(totalAmountForLogging)));
+
+		final boolean isProcessingNotOrphaning = totalAmount >= 0;
+
+		// How to distribute reward among groups, with ratio, IN ORDER
+		List<BlockRewardCandidate> rewardCandidates = determineBlockRewardCandidates(isProcessingNotOrphaning);
+
+		// Now distribute to candidates
+
+		// Collate all balance changes and then apply in one final step
+		Map<Account, Long> balanceChanges = new HashMap<>();
+
+		long remainingAmount = totalAmount;
+		for (int r = 0; r < rewardCandidates.size(); ++r) {
+			BlockRewardCandidate rewardCandidate = rewardCandidates.get(r);
+
+			// Distribute to these reward candidate accounts
+			final long distributionAmount = Amounts.roundDownScaledMultiply(totalAmount, rewardCandidate.share);
+
+			long sharedAmount = rewardCandidate.distribute(distributionAmount, balanceChanges);
+			remainingAmount -= sharedAmount;
+
+			// Reallocate any amount we didn't distribute, e.g. from maxxed legacy QORA holders
+			if (sharedAmount != distributionAmount)
+				totalAmount += Amounts.scaledDivide(distributionAmount - sharedAmount, 1_00000000 - rewardCandidate.share);
+
+			final long remainingAmountForLogging = remainingAmount;
+			LOGGER.trace(() -> String.format("%s share: %s. Actually shared: %s. Remaining: %s",
+					rewardCandidate.description,
+					Amounts.prettyAmount(distributionAmount),
+					Amounts.prettyAmount(sharedAmount),
+					Amounts.prettyAmount(remainingAmountForLogging)));
+		}
+
+		// Apply balance changes
+		for (Map.Entry<Account, Long> balanceChange : balanceChanges.entrySet())
+			balanceChange.getKey().modifyAssetBalance(Asset.QORT, balanceChange.getValue());
+	}
+
+	protected List<BlockRewardCandidate> determineBlockRewardCandidates(boolean isProcessingNotOrphaning) throws DataException {
+		// How to distribute reward among groups, with ratio, IN ORDER
+		List<BlockRewardCandidate> rewardCandidates = new ArrayList<>();
 
 		// All online accounts
 		final List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
 
-		// How to distribute reward among groups, with ratio, IN ORDER
-		List<BlockRewardCandidate> rewardCandidates = new ArrayList<>();
+		/*
+		 * Distribution rules:
+		 * 
+		 * Distribution is based on the minting account of 'online' reward-shares.
+		 * 
+		 * If ANY founders are online, then they receive the leftover non-distributed reward.
+		 * If NO founders are online, then account-level-based rewards are scaled up so 100% of reward is allocated.
+		 * 
+		 * If ANY non-maxxed legacy QORA holders exist then they are always allocated their fixed share (e.g. 20%).
+		 * 
+		 * There has to be either at least one 'online' account for blocks to be minted
+		 * so there is always either one account-level-based or founder reward candidate.
+		 * 
+		 * Examples:
+		 * 
+		 * With at least one founder online:
+		 * Level 1/2 accounts: 5%
+		 * Legacy QORA holders: 20%
+		 * Founders: ~75%
+		 * 
+		 * No online founders:
+		 * Level 1/2 accounts: 5%
+		 * Level 5/6 accounts: 15%
+		 * Legacy QORA holders: 20%
+		 * Total: 40%
+		 * 
+		 * After scaling account-level-based shares to fill 100%:
+		 * Level 1/2 accounts: 20%
+		 * Level 5/6 accounts: 60%
+		 * Legacy QORA holders: 20%
+		 * Total: 100%
+		 */
+		long totalShares = 0;
+
+		// Determine whether we have any online founders
+		final List<ExpandedAccount> onlineFounderAccounts = expandedAccounts.stream().filter(expandedAccount -> expandedAccount.isMinterFounder).collect(Collectors.toList());
+		final boolean haveFounders = !onlineFounderAccounts.isEmpty();
 
 		// Determine reward candidates based on account level
 		List<AccountLevelShareBin> accountLevelShareBins = BlockChain.getInstance().getAccountLevelShareBins();
@@ -1644,86 +1721,64 @@ public class Block {
 			String description = String.format("Bin %d", binIndex);
 			BlockRewardDistributor accountLevelBinDistributor = (distributionAmount, balanceChanges) -> distributeBlockRewardShare(distributionAmount, binnedAccounts, balanceChanges);
 
-			BlockRewardCandidate rewardCandidate = new BlockRewardCandidate(description, accountLevelShareBins.get(binIndex).share, accountLevelBinDistributor);
+			BlockRewardCandidate rewardCandidate = new BlockRewardCandidate(description, accountLevelShareBin.share, accountLevelBinDistributor);
 			rewardCandidates.add(rewardCandidate);
+
+			totalShares += rewardCandidate.share;
 		}
 
-		// Determine reward candidates based on legacy QORA held
 		// Fetch list of legacy QORA holders who haven't reached their cap of QORT reward.
-		final boolean isProcessingNotOrphaning = totalAmount >= 0;
 		List<AccountBalanceData> qoraHolders = this.repository.getAccountRepository().getEligibleLegacyQoraHolders(isProcessingNotOrphaning ? null : this.blockData.getHeight());
+		final boolean haveQoraHolders = !qoraHolders.isEmpty();
+		final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
 
-		// Any eligible legacy QORA holders?
-		if (!qoraHolders.isEmpty()) {
+		// Perform account-level-based reward scaling if appropriate
+		if (!haveFounders) {
+			// Recalculate distribution ratios based on candidates
+
+			// Nothing shared? This shouldn't happen
+			if (totalShares == 0)
+				throw new DataException("Unexpected lack of block reward candidates?");
+
+			// Re-scale individual reward candidate's share as if total shared was 100% - legacy QORA holders' share
+			long scalingFactor;
+			if (haveQoraHolders)
+				scalingFactor = Amounts.scaledDivide(totalShares, 1_00000000 - qoraHoldersShare);
+			else
+				scalingFactor = totalShares;
+
+			for (BlockRewardCandidate rewardCandidate : rewardCandidates)
+				rewardCandidate.share = Amounts.scaledDivide(rewardCandidate.share, scalingFactor);
+		}
+
+		// Add legacy QORA holders as reward candidate with fixed share (if appropriate)
+		if (haveQoraHolders) {
 			// Yes: add to reward candidates list
 			BlockRewardDistributor legacyQoraHoldersDistributor = (distributionAmount, balanceChanges) -> distributeBlockRewardToQoraHolders(distributionAmount, qoraHolders, balanceChanges, this);
 
-			BlockRewardCandidate rewardCandidate = new BlockRewardCandidate("Legacy QORA holders", BlockChain.getInstance().getQoraHoldersShare(), legacyQoraHoldersDistributor);
-			rewardCandidates.add(rewardCandidate);
+			BlockRewardCandidate rewardCandidate = new BlockRewardCandidate("Legacy QORA holders", qoraHoldersShare, legacyQoraHoldersDistributor);
+
+			if (haveFounders)
+				// We have founders, so distribute legacy QORA holders just before founders so founders get any non-distributed
+				rewardCandidates.add(rewardCandidate);
+			else
+				// No founder, so distribute legacy QORA holders first, so all account-level-based rewards get share of any non-distributed
+				rewardCandidates.add(0, rewardCandidate);
+
+			totalShares += rewardCandidate.share;
 		}
 
-		// Determine whether we reward founders
-		final List<ExpandedAccount> onlineFounderAccounts = expandedAccounts.stream().filter(expandedAccount -> expandedAccount.isMinterFounder).collect(Collectors.toList());
-		if (!onlineFounderAccounts.isEmpty()) {
+		// Add founders as reward candidate if appropriate
+		if (haveFounders) {
 			// Yes: add to reward candidates list
 			BlockRewardDistributor founderDistributor = (distributionAmount, balanceChanges) -> distributeBlockRewardShare(distributionAmount, onlineFounderAccounts, balanceChanges);
 
-			BlockRewardCandidate rewardCandidate = new BlockRewardCandidate("Founders", BlockChain.getInstance().getFoundersShare(), founderDistributor);
+			final long foundersShare = 1_00000000 - totalShares;
+			BlockRewardCandidate rewardCandidate = new BlockRewardCandidate("Founders", foundersShare, founderDistributor);
 			rewardCandidates.add(rewardCandidate);
 		}
 
-		// Recalculate distribution ratios based on candidates
-		long totalShared = 0;
-		for (BlockRewardCandidate rewardCandidate : rewardCandidates)
-			totalShared += rewardCandidate.share;
-
-		// No eligible candidates?
-		// Example scenario: the only online accounts are legacy QORA holders and they've already reached their max capped QORT-from-QORA.
-		if (totalShared == 0)
-			return;
-
-		// Re-scale individual reward candidate's share as if total shared was 100%
-		for (BlockRewardCandidate rewardCandidate : rewardCandidates)
-			rewardCandidate.share = Amounts.scaledDivide(rewardCandidate.share, totalShared);
-
-		// Now distribute to candidates
-
-		// Collate all balance changes and then apply in one final step
-		Map<Account, Long> balanceChanges = new HashMap<>();
-
-		long remainingAmount = totalAmount;
-		for (int r = 0; r < rewardCandidates.size(); ++r) {
-			BlockRewardCandidate rewardCandidate = rewardCandidates.get(r);
-
-			long distributionAmount;
-			if (r < rewardCandidates.size() - 1)
-				// Distribute according to sharePercent
-				distributionAmount = Amounts.roundDownScaledMultiply(totalAmount, rewardCandidate.share);
-			else
-				/*
-				 * Last reward candidate gets full remaining amount. Typically this will be online founders.
-				 * 
-				 * The only time the amount would differ from above sharePercent calculation is
-				 * if the *previous* rewardCandidate was "legacy QORA holders" and not all of their
-				 * allotment was distributed.
-				 */
-				distributionAmount = remainingAmount;
-
-			// Distribute to these reward candidate accounts, reducing remainingAmount by how much was actually distributed
-			long sharedAmount = rewardCandidate.distribute(distributionAmount, balanceChanges);
-			remainingAmount -= sharedAmount;
-
-			final long remainingAmountForLogging = remainingAmount;
-			LOGGER.trace(() -> String.format("%s share: %s. Actually shared: %s. Remaining: %s",
-					rewardCandidate.description,
-					Amounts.prettyAmount(distributionAmount),
-					Amounts.prettyAmount(sharedAmount),
-					Amounts.prettyAmount(remainingAmountForLogging)));
-		}
-
-		// Apply balance changes
-		for (Map.Entry<Account, Long> balanceChange : balanceChanges.entrySet())
-			balanceChange.getKey().modifyAssetBalance(Asset.QORT, balanceChange.getValue());
+		return rewardCandidates;
 	}
 
 	private static long distributeBlockRewardShare(long distributionAmount, List<ExpandedAccount> accounts, Map<Account, Long> balanceChanges) {
@@ -1768,14 +1823,14 @@ public class Block {
 		long finalTotalQoraHeld = totalQoraHeld;
 		LOGGER.trace(() -> String.format("Total legacy QORA held: %s", Amounts.prettyAmount(finalTotalQoraHeld)));
 
-		long sharedAmount = 0;
 		if (totalQoraHeld <= 0)
-			return sharedAmount;
+			return 0;
 
 		// Could do with a faster 128bit integer library, but until then...
 		BigInteger qoraHoldersAmountBI = BigInteger.valueOf(qoraHoldersAmount);
 		BigInteger totalQoraHeldBI = BigInteger.valueOf(totalQoraHeld);
 
+		long sharedAmount = 0;
 		for (int h = 0; h < qoraHolders.size(); ++h) {
 			AccountBalanceData qoraHolder = qoraHolders.get(h);
 			BigInteger qoraHolderBalanceBI = BigInteger.valueOf(qoraHolder.getBalance());

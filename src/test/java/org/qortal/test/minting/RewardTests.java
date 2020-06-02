@@ -269,4 +269,71 @@ public class RewardTests extends Common {
 		}
 	}
 
+	/** Check account-level-based reward scaling when no founders are online. */
+	@Test
+	public void testNoFounderRewardScaling() throws DataException {
+		Common.useSettings("test-settings-v2-reward-scaling.json");
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Dilbert needs to create a self-share
+			byte[] dilbertSelfSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", 0); // Block minted by Alice
+			PrivateKeyAccount dilbertSelfShareAccount = new PrivateKeyAccount(repository, dilbertSelfSharePrivateKey);
+
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+
+			long blockReward = BlockUtils.getNextBlockReward(repository);
+
+			BlockMinter.mintTestingBlock(repository, dilbertSelfShareAccount);
+
+			/*
+			 * Dilbert is only account 'online'.
+			 * No founders online.
+			 * Some legacy QORA holders.
+			 * 
+			 * So Dilbert should receive 100% - legacy QORA holder's share.
+			 */
+
+			final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+			final long remainingShare = 1_00000000 - qoraHoldersShare;
+
+			long dilbertExpectedBalance = initialBalances.get("dilbert").get(Asset.QORT);
+			dilbertExpectedBalance += Amounts.roundDownScaledMultiply(blockReward, remainingShare);
+
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertExpectedBalance);
+
+			// After several blocks, the legacy QORA holder should be maxxed out
+			for (int i = 0; i < 10; ++i)
+				BlockUtils.mintBlock(repository);
+
+			// Now Dilbert should be receiving 100% of block reward
+			blockReward = BlockUtils.getNextBlockReward(repository);
+
+			BlockMinter.mintTestingBlock(repository, dilbertSelfShareAccount);
+
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertExpectedBalance + blockReward);
+		}
+	}
+
+	/** Check leftover legacy QORA reward goes to online founders. */
+	@Test
+	public void testLeftoverReward() throws DataException {
+		Common.useSettings("test-settings-v2-leftover-reward.json");
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+
+			long blockReward = BlockUtils.getNextBlockReward(repository);
+
+			BlockUtils.mintBlock(repository); // Block minted by Alice self-share
+
+			// Chloe maxxes out her legacy QORA reward so some is leftover to reward to Alice.
+
+			TestAccount chloe = Common.getTestAccount(repository, "chloe");
+			final long chloeQortFromQora = chloe.getConfirmedBalance(Asset.QORT_FROM_QORA);
+
+			long expectedBalance = initialBalances.get("alice").get(Asset.QORT) + blockReward - chloeQortFromQora;
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, expectedBalance);
+		}
+	}
+
 }

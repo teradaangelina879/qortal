@@ -109,9 +109,6 @@ public class BlockChain {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private Long qoraPerQortReward;
 
-	/** Share of block reward/fees to founders. CALCULATED */
-	private long foundersShare;
-
 	/**
 	 * Number of minted blocks required to reach next level from previous.
 	 * <p>
@@ -345,10 +342,6 @@ public class BlockChain {
 		return this.qoraPerQortReward;
 	}
 
-	public long getFoundersShare() {
-		return this.foundersShare;
-	}
-
 	public int getMinAccountLevelToMint() {
 		return this.minAccountLevelToMint;
 	}
@@ -446,6 +439,15 @@ public class BlockChain {
 		for (FeatureTrigger featureTrigger : FeatureTrigger.values())
 			if (!this.featureTriggers.containsKey(featureTrigger.name()))
 				Settings.throwValidationError(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
+
+		// Check block reward share bounds
+		long totalShare = this.qoraHoldersShare;
+		// Add share percents for account-level-based rewards
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevel)
+			totalShare += accountLevelShareBin.share;
+
+		if (totalShare < 0 || totalShare > 1_00000000L)
+			Settings.throwValidationError("Total non-founder share out of bounds (0<x<1e8)");
 	}
 
 	/** Minor normalization, cached value generation, etc. */
@@ -459,17 +461,6 @@ public class BlockChain {
 			if (level < this.blocksNeededByLevel.size())
 				cumulativeBlocks += this.blocksNeededByLevel.get(level);
 		}
-
-		// Calculate founders' share
-		long totalShare = this.qoraHoldersShare;
-		// Add share percents for account-level-based rewards
-		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevel)
-			totalShare += accountLevelShareBin.share;
-
-		if (totalShare < 0 || totalShare > 1_00000000L)
-			Settings.throwValidationError("Total non-founder share out of bounds (0<x<1e8)");
-
-		this.foundersShare = 1_00000000L - totalShare;
 
 		// Generate lookup-array for account-level share bins
 		AccountLevelShareBin lastAccountLevelShareBin = this.sharesByLevel.get(this.sharesByLevel.size() - 1);
