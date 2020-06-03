@@ -6,16 +6,17 @@ use POSIX;
 use Getopt::Std;
 
 sub usage() {
-	die("usage: $0 [-p api-port] dev-private-key\n");
+	die("usage: $0 [-p api-port] dev-private-key [short-commit-hash]\n");
 }
 
 my %opt;
 getopts('p:', \%opt);
 
-usage() unless @ARGV == 1;
+usage() if @ARGV < 1 || @ARGV > 2;
 
 my $port = $opt{p} || 12391;
 my $privkey = shift @ARGV;
+my $commit_hash = shift @ARGV;
 
 my $git_dir = `git rev-parse --show-toplevel`;
 die("Cannot determine git top level dir\n") unless $git_dir;
@@ -33,18 +34,24 @@ while (<POM>) {
 }
 close(POM);
 
-# determine git branch
-my $branch_name = ` git symbolic-ref -q HEAD `
-$branch_name =~ s|^refs/heads/||; # ${branch_name##refs/heads/}
+# Do we need to determine commit hash?
+unless ($commit_hash) {
+	# determine git branch
+	my $branch_name = ` git symbolic-ref -q HEAD `;
+	chomp $branch_name;
+	$branch_name =~ s|^refs/heads/||; # ${branch_name##refs/heads/}
 
-# short-form commit hash on base branch (non-auto-update)
-my $commit_hash = `git show --no-patch --format=%h`;
-die("Can't find commit hash\n") if ! defined $commit_hash;
-chomp $commit_hash;
-printf "Commit hash on '%s' branch: %s\n", $branch_name, $commit_hash;
+	# short-form commit hash on base branch (non-auto-update)
+	$commit_hash ||= `git show --no-patch --format=%h`;
+	die("Can't find commit hash\n") if ! defined $commit_hash;
+	chomp $commit_hash;
+	printf "Commit hash on '%s' branch: %s\n", $branch_name, $commit_hash;
+} else {
+	printf "Using given commit hash: %s\n", $commit_hash;
+}
 
 # build timestamp / commit timestamp on base branch
-my $timestamp = `git show --no-patch --format=%ct`;
+my $timestamp = `git show --no-patch --format=%ct ${commit_hash}`;
 die("Can't determine commit timestamp\n") if ! defined $timestamp;
 $timestamp *= 1000; # Convert to milliseconds
 
