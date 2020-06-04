@@ -29,7 +29,6 @@ import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.TransactionOutput;
-import org.bitcoinj.script.Script.ScriptType;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
