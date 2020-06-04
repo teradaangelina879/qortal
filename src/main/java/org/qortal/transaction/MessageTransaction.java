@@ -4,19 +4,30 @@ import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
+import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.crypto.Crypto;
+import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.group.Group;
 import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
+import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
+import org.qortal.transform.TransformationException;
+import org.qortal.transform.transaction.ChatTransactionTransformer;
+import org.qortal.transform.transaction.MessageTransactionTransformer;
+import org.qortal.transform.transaction.TransactionTransformer;
 
 public class MessageTransaction extends Transaction {
 
 	// Useful constants
 
 	public static final int MAX_DATA_SIZE = 4000;
+	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
+	public static final int POW_DIFFICULTY = 14; // leading zero bits
 
 	// Properties
 
@@ -63,8 +74,76 @@ public class MessageTransaction extends Transaction {
 		return this.paymentData;
 	}
 
+	public void computeNonce() throws DataException {
+		byte[] transactionBytes;
+
+		try {
+			transactionBytes = TransactionTransformer.toBytesForSigning(this.transactionData);
+		} catch (TransformationException e) {
+			throw new RuntimeException("Unable to transform transaction to byte array for verification", e);
+		}
+
+		// Clear nonce from transactionBytes
+		MessageTransactionTransformer.clearNonce(transactionBytes);
+
+		// Calculate nonce
+		this.messageTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY));
+	}
+
+	/**
+	 * Returns whether MESSAGE transaction has valid txGroupId.
+	 * <p>
+	 * For MESSAGE transactions, a non-NO_GROUP txGroupId represents
+	 * sending to a group, rather than to everyone.
+	 * <p>
+	 * If txGroupId is not NO_GROUP, then the sender needs to be
+	 * a member of that group. The recipient, if supplied, also
+	 * needs to be a member of that group.
+	 */
+	@Override
+	protected boolean isValidTxGroupId() throws DataException {
+		int txGroupId = this.transactionData.getTxGroupId();
+
+		// txGroupId represents recipient group, unless NO_GROUP
+
+		// Anyone can use NO_GROUP
+		if (txGroupId == Group.NO_GROUP)
+			return true;
+
+		// Group even exist?
+		if (!this.repository.getGroupRepository().groupExists(txGroupId))
+			return false;
+
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+
+		// Is transaction's creator is group member?
+		PublicKeyAccount creator = this.getCreator();
+		if (!groupRepository.memberExists(txGroupId, creator.getAddress()))
+			return false;
+
+		// If recipient address present, check they belong to group too.
+		String recipient = this.messageTransactionData.getRecipient();
+		if (recipient != null && !groupRepository.memberExists(txGroupId, recipient))
+			return false;
+
+		return true;
+	}
+
+	@Override
+	public ValidationResult isFeeValid() throws DataException {
+		// Allow zero or positive fee.
+		// Actual enforcement of fee vs nonce is done in isSignatureValid().
+
+		if (this.transactionData.getFee() < 0)
+			return ValidationResult.NEGATIVE_FEE;
+
+		return ValidationResult.OK;
+	}
+
 	@Override
 	public ValidationResult isValid() throws DataException {
+		// Nonce checking is done via isSignatureValid() as that method is only called once per import
+
 		// Check data length
 		if (this.messageTransactionData.getData().length < 1 || this.messageTransactionData.getData().length > MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
@@ -84,6 +163,36 @@ public class MessageTransaction extends Transaction {
 		// Wrap and delegate final payment checks to Payment class
 		return new Payment(this.repository).isValid(this.messageTransactionData.getSenderPublicKey(), getPaymentData(),
 				this.messageTransactionData.getFee(), true);
+	}
+
+	@Override
+	public boolean isSignatureValid() {
+		byte[] signature = this.transactionData.getSignature();
+		if (signature == null)
+			return false;
+
+		byte[] transactionBytes;
+
+		try {
+			transactionBytes = ChatTransactionTransformer.toBytesForSigning(this.transactionData);
+		} catch (TransformationException e) {
+			throw new RuntimeException("Unable to transform transaction to byte array for verification", e);
+		}
+
+		if (!Crypto.verify(this.transactionData.getCreatorPublicKey(), signature, transactionBytes))
+			return false;
+
+		// If feee is non-zero then we don't check nonce
+		if (this.messageTransactionData.getFee() > 0)
+			return true;
+
+		int nonce = this.messageTransactionData.getNonce();
+
+		// Clear nonce from transactionBytes
+		MessageTransactionTransformer.clearNonce(transactionBytes);
+
+		// Check nonce
+		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
 	}
 
 	@Override

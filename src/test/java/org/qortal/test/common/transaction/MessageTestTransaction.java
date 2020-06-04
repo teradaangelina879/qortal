@@ -11,7 +11,8 @@ import org.qortal.utils.Amounts;
 public class MessageTestTransaction extends TestTransaction {
 
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, boolean wantValid) throws DataException {
-		final int version = 3;
+		final int version = 4;
+		final int nonce = 0;
 		String recipient = account.getAddress();
 		final long assetId = Asset.QORT;
 		long amount = 123L * Amounts.MULTIPLIER;
@@ -19,7 +20,7 @@ public class MessageTestTransaction extends TestTransaction {
 		final boolean isText = true;
 		final boolean isEncrypted = false;
 
-		return new MessageTransactionData(generateBase(account), version, recipient, amount, assetId, data, isText, isEncrypted);
+		return new MessageTransactionData(generateBase(account), version, nonce, recipient, amount, assetId, data, isText, isEncrypted);
 	}
 
 }

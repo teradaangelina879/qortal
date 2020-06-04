@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import org.qortal.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -19,6 +20,9 @@ public class MessageTransactionData extends TransactionData {
 	private byte[] senderPublicKey;
 
 	private int version;
+
+	@Schema(accessMode = AccessMode.READ_ONLY)
+	private int nonce;
 
 	// Not always present
 	private String recipient;
@@ -47,11 +51,12 @@ public class MessageTransactionData extends TransactionData {
 	}
 
 	public MessageTransactionData(BaseTransactionData baseTransactionData,
-			int version, String recipient, long amount, Long assetId, byte[] data, boolean isText, boolean isEncrypted) {
+			int version, int nonce, String recipient, long amount, Long assetId, byte[] data, boolean isText, boolean isEncrypted) {
 		super(TransactionType.MESSAGE, baseTransactionData);
 
 		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.version = version;
+		this.nonce = nonce;
 		this.recipient = recipient;
 		this.amount = amount;
 		this.assetId = assetId;
@@ -68,6 +73,14 @@ public class MessageTransactionData extends TransactionData {
 
 	public int getVersion() {
 		return this.version;
+	}
+
+	public int getNonce() {
+		return this.nonce;
+	}
+
+	public void setNonce(int nonce) {
+		this.nonce = nonce;
 	}
 
 	public String getRecipient() {
