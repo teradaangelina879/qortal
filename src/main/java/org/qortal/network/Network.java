@@ -1001,6 +1001,9 @@ public class Network {
 				for (PeerData peerData : peers) {
 					LOGGER.debug(() -> String.format("Deleting old peer %s from repository", peerData.getAddress().toString()));
 					repository.getNetworkRepository().delete(peerData.getAddress());
+
+					// Delete from known peer cache too
+					this.allKnownPeers.remove(peerData);
 				}
 
 				repository.saveChanges();
