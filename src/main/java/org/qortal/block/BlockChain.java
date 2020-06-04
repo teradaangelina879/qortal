@@ -89,15 +89,17 @@ public class BlockChain {
 		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 		public long reward;
 	}
-	List<RewardByHeight> rewardsByHeight;
+	private List<RewardByHeight> rewardsByHeight;
 
 	/** Share of block reward/fees by account level */
-	public static class ShareByLevel {
+	public static class AccountLevelShareBin {
 		public List<Integer> levels;
 		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 		public long share;
 	}
-	List<ShareByLevel> sharesByLevel;
+	private List<AccountLevelShareBin> sharesByLevel;
+	/** Generated lookup of share-bin by account level */
+	private AccountLevelShareBin[] shareBinsByLevel;
 
 	/** Share of block reward/fees to legacy QORA coin holders */
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
@@ -116,7 +118,7 @@ public class BlockChain {
 	 * Example: if <tt>blocksNeededByLevel[3]</tt> is 200,<br>
 	 * then level 3 accounts need to mint 200 blocks to reach level 4.
 	 */
-	List<Integer> blocksNeededByLevel;
+	private List<Integer> blocksNeededByLevel;
 
 	/**
 	 * Cumulative number of minted blocks required to reach next level from scratch.
@@ -130,7 +132,7 @@ public class BlockChain {
 	 * <p>
 	 * Should NOT be present in blockchain config file!
 	 */
-	List<Integer> cumulativeBlocksByLevel;
+	private List<Integer> cumulativeBlocksByLevel;
 
 	/** Block times by block height */
 	public static class BlockTimingByHeight {
@@ -139,7 +141,7 @@ public class BlockChain {
 		public long deviation; // ms
 		public double power;
 	}
-	List<BlockTimingByHeight> blockTimingsByHeight;
+	private List<BlockTimingByHeight> blockTimingsByHeight;
 
 	private int minAccountLevelToMint = 1;
 	private int minAccountLevelToRewardShare;
@@ -316,8 +318,12 @@ public class BlockChain {
 		return this.rewardsByHeight;
 	}
 
-	public List<ShareByLevel> getBlockSharesByLevel() {
+	public List<AccountLevelShareBin> getAccountLevelShareBins() {
 		return this.sharesByLevel;
+	}
+
+	public AccountLevelShareBin[] getShareBinsByAccountLevel() {
+		return this.shareBinsByLevel;
 	}
 
 	public List<Integer> getBlocksNeededByLevel() {
@@ -433,6 +439,15 @@ public class BlockChain {
 		for (FeatureTrigger featureTrigger : FeatureTrigger.values())
 			if (!this.featureTriggers.containsKey(featureTrigger.name()))
 				Settings.throwValidationError(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
+
+		// Check block reward share bounds
+		long totalShare = this.qoraHoldersShare;
+		// Add share percents for account-level-based rewards
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevel)
+			totalShare += accountLevelShareBin.share;
+
+		if (totalShare < 0 || totalShare > 1_00000000L)
+			Settings.throwValidationError("Total non-founder share out of bounds (0<x<1e8)");
 	}
 
 	/** Minor normalization, cached value generation, etc. */
@@ -446,6 +461,17 @@ public class BlockChain {
 			if (level < this.blocksNeededByLevel.size())
 				cumulativeBlocks += this.blocksNeededByLevel.get(level);
 		}
+
+		// Generate lookup-array for account-level share bins
+		AccountLevelShareBin lastAccountLevelShareBin = this.sharesByLevel.get(this.sharesByLevel.size() - 1);
+		final int lastLevel = lastAccountLevelShareBin.levels.get(lastAccountLevelShareBin.levels.size() - 1);
+		this.shareBinsByLevel = new AccountLevelShareBin[lastLevel];
+
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevel)
+			for (int level : accountLevelShareBin.levels)
+				// level 1 stored at index 0, level 2 stored at index 1, etc.
+				// level 0 not allowed
+				this.shareBinsByLevel[level - 1] = accountLevelShareBin;
 
 		// Convert collections to unmodifiable form
 		this.rewardsByHeight = Collections.unmodifiableList(this.rewardsByHeight);
