@@ -10,10 +10,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class CrossChainBitcoinRedeemRequest {
 
-	@Schema(description = "Bitcoin P2PKH address for refund", example = "1BwG6aG2GapFX5b4JT4ohbsYvj1xZ8d2EJ (mainnet), mrTDPdM15cFWJC4g223BXX5snicfVJBx6M (testnet)")
-	public String refundAddress;
+	@Schema(description = "Bitcoin HASH160(public key) for refund", example = "2nGDBPPPFS1c9w1h33YwFk4KUJU2")
+	public byte[] refundPublicKeyHash;
 
-	@Schema(description = "Bitcoin PRIVATE KEY for redeem", example = "cSP3zTb6bfm8GATtAcEJ8LqYtNQmzZ9jE2wQUVnZGiBzojDdrwKV")
+	@Schema(description = "Bitcoin PRIVATE KEY for redeem", example = "cUvGNSnu14q6Hr1X7TESjYVTqBpFjj8GGLGjGdpJwD9NhSQKeYUk")
 	public byte[] redeemPrivateKey;
 
 	@Schema(description = "Qortal AT address")

@@ -414,30 +414,11 @@ public class CrossChainResource {
 		BTC btc = BTC.getInstance();
 		NetworkParameters params = btc.getNetworkParameters();
 
-		Address refundBitcoinAddress = null;
-		Address redeemBitcoinAddress = null;
+		if (templateRequest.refundPublicKeyHash == null || templateRequest.refundPublicKeyHash.length != 20)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
-		try {
-			if (templateRequest.refundAddress == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
-
-			refundBitcoinAddress = Address.fromString(params, templateRequest.refundAddress);
-			if (refundBitcoinAddress.getOutputScriptType() != ScriptType.P2PKH)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		}
-
-		try {
-			if (templateRequest.redeemAddress == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
-
-			redeemBitcoinAddress = Address.fromString(params, templateRequest.redeemAddress);
-			if (redeemBitcoinAddress.getOutputScriptType() != ScriptType.P2PKH)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		}
+		if (templateRequest.redeemPublicKeyHash == null || templateRequest.redeemPublicKeyHash.length != 20)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
 		if (templateRequest.atAddress == null || !Crypto.isValidAtAddress(templateRequest.atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
@@ -450,7 +431,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCACCT.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -484,30 +465,11 @@ public class CrossChainResource {
 		BTC btc = BTC.getInstance();
 		NetworkParameters params = btc.getNetworkParameters();
 
-		Address refundBitcoinAddress = null;
-		Address redeemBitcoinAddress = null;
+		if (templateRequest.refundPublicKeyHash == null || templateRequest.refundPublicKeyHash.length != 20)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
-		try {
-			if (templateRequest.refundAddress == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
-
-			refundBitcoinAddress = Address.fromString(params, templateRequest.refundAddress);
-			if (refundBitcoinAddress.getOutputScriptType() != ScriptType.P2PKH)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		}
-
-		try {
-			if (templateRequest.redeemAddress == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
-
-			redeemBitcoinAddress = Address.fromString(params, templateRequest.redeemAddress);
-			if (redeemBitcoinAddress.getOutputScriptType() != ScriptType.P2PKH)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		}
+		if (templateRequest.redeemPublicKeyHash == null || templateRequest.redeemPublicKeyHash.length != 20)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
 		if (templateRequest.atAddress == null || !Crypto.isValidAtAddress(templateRequest.atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
@@ -520,7 +482,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCACCT.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -590,7 +552,6 @@ public class CrossChainResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 		ECKey refundKey = null;
-		Address redeemBitcoinAddress = null;
 
 		try {
 			// Auto-trim
@@ -601,24 +562,14 @@ public class CrossChainResource {
 
 			refundKey = ECKey.fromPrivate(refundPrivateKey);
 		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 		}
 
-		try {
-			if (refundRequest.redeemAddress == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
-
-			redeemBitcoinAddress = Address.fromString(params, refundRequest.redeemAddress);
-			if (redeemBitcoinAddress.getOutputScriptType() != ScriptType.P2PKH)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		}
+		if (refundRequest.redeemPublicKeyHash == null || refundRequest.redeemPublicKeyHash.length != 20)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
 		if (refundRequest.atAddress == null || !Crypto.isValidAtAddress(refundRequest.atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-
-		Address refundAddress = Address.fromKey(params, refundKey, ScriptType.P2PKH);
 
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -628,7 +579,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundAddress.getHash(), crossChainTradeData.lockTime, redeemBitcoinAddress.getHash(), crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCACCT.buildScript(refundKey.getPubKeyHash(), crossChainTradeData.lockTime, refundRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -696,7 +647,6 @@ public class CrossChainResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 		ECKey redeemKey = null;
-		Address refundBitcoinAddress = null;
 
 		try {
 			// Auto-trim
@@ -707,27 +657,17 @@ public class CrossChainResource {
 
 			redeemKey = ECKey.fromPrivate(redeemPrivateKey);
 		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 		}
 
-		try {
-			if (redeemRequest.refundAddress == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
-
-			refundBitcoinAddress = Address.fromString(params, redeemRequest.refundAddress);
-			if (refundBitcoinAddress.getOutputScriptType() != ScriptType.P2PKH)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-		}
+		if (redeemRequest.refundPublicKeyHash == null || redeemRequest.refundPublicKeyHash.length != 20)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
 		if (redeemRequest.atAddress == null || !Crypto.isValidAtAddress(redeemRequest.atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		if (redeemRequest.secret == null || redeemRequest.secret.length != BTCACCT.SECRET_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-
-		Address redeemAddress = Address.fromKey(params, redeemKey, ScriptType.P2PKH);
 
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -737,7 +677,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), crossChainTradeData.lockTime, redeemAddress.getHash(), crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCACCT.buildScript(redeemRequest.refundPublicKeyHash, crossChainTradeData.lockTime, redeemKey.getPubKeyHash(), crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);

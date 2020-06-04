@@ -8,11 +8,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class CrossChainBitcoinTemplateRequest {
 
-	@Schema(description = "Bitcoin P2PKH address for refund", example = "1BwG6aG2GapFX5b4JT4ohbsYvj1xZ8d2EJ (mainnet), mrTDPdM15cFWJC4g223BXX5snicfVJBx6M (testnet)")
-	public String refundAddress;
+	@Schema(description = "Bitcoin HASH160(public key) for refund", example = "2nGDBPPPFS1c9w1h33YwFk4KUJU2")
+	public byte[] refundPublicKeyHash;
 
-	@Schema(description = "Bitcoin P2PKH address for redeem", example = "1BwG6aG2GapFX5b4JT4ohbsYvj1xZ8d2EJ (mainnet), mrTDPdM15cFWJC4g223BXX5snicfVJBx6M (testnet)")
-	public String redeemAddress;
+	@Schema(description = "Bitcoin HASH160(public key) for redeem", example = "2daMveGc5pdjRyFacbxBzMksCbyC")
+	public byte[] redeemPublicKeyHash;
 
 	@Schema(description = "Qortal AT address")
 	public String atAddress;
