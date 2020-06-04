@@ -473,11 +473,13 @@ public class AtTests extends Common {
 		}
 
 		Long fee = null;
+		int version = 4;
+		int nonce = 0;
 		long amount = 0;
 		Long assetId = null; // because amount is zero
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, sender.getPublicKey(), fee, null);
-		TransactionData messageTransactionData = new MessageTransactionData(baseTransactionData, 4, recipient, amount, assetId, data, false, false);
+		TransactionData messageTransactionData = new MessageTransactionData(baseTransactionData, version, nonce, recipient, amount, assetId, data, false, false);
 
 		MessageTransaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
 

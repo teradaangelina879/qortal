@@ -136,8 +136,10 @@ public class ChatTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		// Nonce checking is done via isSignatureValid() as that method is only called once per import
+
 		// If we exist in the repository then we've been imported as unconfirmed,
-		// but we don't want to make it into a block, so return false.
+		// but we don't want to make it into a block, so return fake non-OK result.
 		if (this.repository.getTransactionRepository().exists(this.chatTransactionData.getSignature()))
 			return ValidationResult.CHAT;
 
@@ -149,8 +151,6 @@ public class ChatTransaction extends Transaction {
 		// Check data length
 		if (chatTransactionData.getData().length < 1 || chatTransactionData.getData().length > MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
-
-		// Nonce checking is done via isSignatureValid() as that method is only called once per import
 
 		return ValidationResult.OK;
 	}

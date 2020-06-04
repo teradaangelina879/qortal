@@ -807,12 +807,14 @@ public class CrossChainResource {
 		if (lastReference == null)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_REFERENCE);
 
-		Long fee = null;
+		int version = 4;
+		int nonce = 0;
 		long amount = 0L;
 		Long assetId = null; // no assetId as amount is zero
+		Long fee = null;
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, senderPublicKey, fee, null);
-		TransactionData messageTransactionData = new MessageTransactionData(baseTransactionData, 4, atAddress, amount, assetId, messageData, false, false);
+		TransactionData messageTransactionData = new MessageTransactionData(baseTransactionData, version, nonce, atAddress, amount, assetId, messageData, false, false);
 
 		MessageTransaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
 

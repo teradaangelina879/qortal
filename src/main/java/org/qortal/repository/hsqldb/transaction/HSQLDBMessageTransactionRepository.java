@@ -17,26 +17,27 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		String sql = "SELECT version, recipient, is_text, is_encrypted, amount, asset_id, data FROM MessageTransactions WHERE signature = ?";
+		String sql = "SELECT version, nonce, recipient, is_text, is_encrypted, amount, asset_id, data FROM MessageTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
 			int version = resultSet.getInt(1);
-			String recipient = resultSet.getString(2);
-			boolean isText = resultSet.getBoolean(3);
-			boolean isEncrypted = resultSet.getBoolean(4);
-			long amount = resultSet.getLong(5);
+			int nonce = resultSet.getInt(2);
+			String recipient = resultSet.getString(3);
+			boolean isText = resultSet.getBoolean(4);
+			boolean isEncrypted = resultSet.getBoolean(5);
+			long amount = resultSet.getLong(6);
 
 			// Special null-checking for asset ID
-			Long assetId = resultSet.getLong(6);
+			Long assetId = resultSet.getLong(7);
 			if (assetId == 0 && resultSet.wasNull())
 				assetId = null;
 
-			byte[] data = resultSet.getBytes(7);
+			byte[] data = resultSet.getBytes(8);
 
-			return new MessageTransactionData(baseTransactionData, version, recipient, amount, assetId, data, isText, isEncrypted);
+			return new MessageTransactionData(baseTransactionData, version, nonce, recipient, amount, assetId, data, isText, isEncrypted);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch message transaction from repository", e);
 		}
@@ -52,7 +53,7 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 				.bind("sender", messageTransactionData.getSenderPublicKey()).bind("recipient", messageTransactionData.getRecipient())
 				.bind("is_text", messageTransactionData.isText()).bind("is_encrypted", messageTransactionData.isEncrypted())
 				.bind("amount", messageTransactionData.getAmount()).bind("asset_id", messageTransactionData.getAssetId())
-				.bind("data", messageTransactionData.getData());
+				.bind("nonce", messageTransactionData.getNonce()).bind("data", messageTransactionData.getData());
 
 		try {
 			saveHelper.execute(this.repository);

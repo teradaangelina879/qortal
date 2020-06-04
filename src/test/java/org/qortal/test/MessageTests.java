@@ -29,7 +29,7 @@ import static org.junit.Assert.*;
 
 public class MessageTests extends Common {
 
-	private static final int version = 3;
+	private static final int version = 4;
 	private static final String recipient = Common.getTestAccount(null, "bob").getAddress();
 
 
@@ -70,6 +70,26 @@ public class MessageTests extends Common {
 	}
 
 	@Test
+	public void noFeeNoNonce() throws DataException {
+		testFeeNonce(false, false, false);
+	}
+
+	@Test
+	public void withFeeNoNonce() throws DataException {
+		testFeeNonce(true, false, true);
+	}
+
+	@Test
+	public void noFeeWithNonce() throws DataException {
+		testFeeNonce(false, true, true);
+	}
+
+	@Test
+	public void withFeeWithNonce() throws DataException {
+		testFeeNonce(true, true, true);
+	}
+
+	@Test
 	public void withRecipentNoAmount() throws DataException {
 		testMessage(Group.NO_GROUP, recipient, 0L, null);
 	}
@@ -105,8 +125,13 @@ public class MessageTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount alice = Common.getTestAccount(repository, "alice");
 
+			int nonce = 0;
+			byte[] data = new byte[1];
+			boolean isText = false;
+			boolean isEncrypted = false;
+
 			MessageTransactionData transactionData = new MessageTransactionData(TestTransaction.generateBase(alice, txGroupId),
-					version, recipient, amount, assetId, new byte[1], false, false);
+					version, nonce, recipient, amount, assetId, data, isText, isEncrypted);
 
 			Transaction transaction = new MessageTransaction(repository, transactionData);
 
@@ -114,12 +139,51 @@ public class MessageTests extends Common {
 		}
 	}
 
+	private void testFeeNonce(boolean withFee, boolean withNonce, boolean isValid) throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			TestAccount alice = Common.getTestAccount(repository, "alice");
+
+			int txGroupId = 0;
+			int nonce = 0;
+			long amount = 0;
+			long assetId = Asset.QORT;
+			byte[] data = new byte[1];
+			boolean isText = false;
+			boolean isEncrypted = false;
+
+			MessageTransactionData transactionData = new MessageTransactionData(TestTransaction.generateBase(alice, txGroupId),
+					version, nonce, recipient, amount, assetId, data, isText, isEncrypted);
+
+			MessageTransaction transaction = new MessageTransaction(repository, transactionData);
+
+			if (withFee)
+				transactionData.setFee(transaction.calcRecommendedFee());
+			else
+				transactionData.setFee(0L);
+
+			if (withNonce) {
+				transaction.computeNonce();
+			} else {
+				transactionData.setNonce(-1);
+			}
+
+			transaction.sign(alice);
+
+			assertEquals(isValid, transaction.isSignatureValid());
+		}
+	}
+
 	private void testMessage(int txGroupId, String recipient, long amount, Long assetId) throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount alice = Common.getTestAccount(repository, "alice");
 
+			int nonce = 0;
+			byte[] data = new byte[1];
+			boolean isText = false;
+			boolean isEncrypted = false;
+
 			MessageTransactionData transactionData = new MessageTransactionData(TestTransaction.generateBase(alice, txGroupId),
-					version, recipient, amount, assetId, new byte[1], false, false);
+					version, nonce, recipient, amount, assetId, data, isText, isEncrypted);
 
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
@@ -131,8 +195,13 @@ public class MessageTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TestAccount alice = Common.getTestAccount(repository, "alice");
 
+			int nonce = 0;
+			byte[] data = new byte[1];
+			boolean isText = false;
+			boolean isEncrypted = false;
+
 			MessageTransactionData expectedTransactionData = new MessageTransactionData(TestTransaction.generateBase(alice),
-					version, recipient, amount, assetId, new byte[1], false, false);
+					version, nonce, recipient, amount, assetId, data, isText, isEncrypted);
 
 			Transaction transaction = new MessageTransaction(repository, expectedTransactionData);
 			transaction.sign(alice);

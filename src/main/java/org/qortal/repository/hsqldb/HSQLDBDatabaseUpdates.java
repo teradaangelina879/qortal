@@ -268,7 +268,7 @@ public class HSQLDBDatabaseUpdates {
 
 				case 6:
 					// Message Transactions
-					stmt.execute("CREATE TABLE MessageTransactions (signature Signature, version TINYINT NOT NULL, "
+					stmt.execute("CREATE TABLE MessageTransactions (signature Signature, version TINYINT NOT NULL, nonce INT NOT NULL, "
 							+ "sender QortalPublicKey NOT NULL, recipient QortalAddress, amount QortalAmount NOT NULL, asset_id AssetID, "
 							+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, data MessageData NOT NULL, "
 							+ TRANSACTION_KEYS + ")");
