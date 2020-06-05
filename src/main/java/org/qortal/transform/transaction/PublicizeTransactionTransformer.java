@@ -25,7 +25,7 @@ public class PublicizeTransactionTransformer extends TransactionTransformer {
 
 	static {
 		layout = new TransactionLayout();
-		layout.add("txType: " + TransactionType.CHAT.valueString, TransformationType.INT);
+		layout.add("txType: " + TransactionType.PUBLICIZE.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
 		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
