@@ -238,9 +238,11 @@ public class Controller extends Thread {
 		return this.chainTip;
 	}
 
-	/** Cache new blockchain tip. */
+	/** Cache new blockchain tip, maybe call trade-bot. */
 	public void setChainTip(BlockData blockData) {
 		this.chainTip = blockData;
+
+		TradeBot.getInstance().onChainTipChange();
 	}
 
 	public ReentrantLock getBlockchainLock() {

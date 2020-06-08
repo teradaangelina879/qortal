@@ -618,6 +618,13 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TABLE PublicizeTransactions (signature Signature, nonce INT NOT NULL, " + TRANSACTION_KEYS + ")");
 					break;
 
+				case 20:
+					// Trade bot
+					stmt.execute("CREATE TABLE TradeBotStates (trade_private_key QortalPrivateKey NOT NULL, trade_state TINYINT NOT NULL, "
+							+ "secret VARBINARY(32) NOT NULL, at_address QortalAddress, "
+							+ "last_transaction_signature Signature, PRIMARY KEY (trade_private_key)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
