@@ -76,6 +76,11 @@ public class PublicizeTransaction extends Transaction {
 	}
 
 	@Override
+	public boolean hasValidReference() throws DataException {
+		return true;
+	}
+
+	@Override
 	public ValidationResult isValid() throws DataException {
 		// There can be only one
 		List<byte[]> signatures = this.repository.getTransactionRepository().getSignaturesMatchingCriteria(
