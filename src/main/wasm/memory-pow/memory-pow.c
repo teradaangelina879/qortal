@@ -4,7 +4,6 @@
 	typedef unsigned long long uint64_t;
 #endif
 
-#define WORKBUFFER_LENGTH (longBufferLength / 8)
 #define INTEGER_MAX_VALUE 0x7fffffffULL
 
 uint64_t xoshiro256p(uint64_t state[]) {
@@ -71,13 +70,13 @@ uint32_t compute2(uint8_t *hash, uint64_t *workBuffer, uint32_t workBufferLength
 		state[3] = longHash[3] ^ seed;
 
 		// Fill work buffer with random
-		for (uint32_t i = 0; i < WORKBUFFER_LENGTH; ++i)
+		for (uint32_t i = 0; i < longBufferLength; ++i)
 			workBuffer[i] = xoshiro256p(state);
 
 		// Random bounce through whole buffer
 		result = workBuffer[0];
 		for (uint32_t i = 0; i < 1024; ++i) {
-			uint32_t index = (uint32_t) (xoshiro256p(state) & INTEGER_MAX_VALUE) % WORKBUFFER_LENGTH;
+			uint32_t index = (uint32_t) (xoshiro256p(state) & INTEGER_MAX_VALUE) % longBufferLength;
 			result ^= workBuffer[index];
 		}
 
