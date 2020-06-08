@@ -38,24 +38,37 @@ public class TradeBotData {
 	@Schema(hidden = true)
 	private byte[] tradePrivateKey;
 
+	private byte[] tradeNativePublicKey;
+	private byte[] tradeNativePublicKeyHash;
+
 	private byte[] secret;
+	private byte[] secretHash;
+
+	private byte[] tradeForeignPublicKey;
+	private byte[] tradeForeignPublicKeyHash;
 
 	private String atAddress;
 
 	private byte[] lastTransactionSignature;
 
-	public TradeBotData(byte[] tradePrivateKey, State tradeState, byte[] secret, String atAddress,
+	public TradeBotData(byte[] tradePrivateKey, State tradeState,
+			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, byte[] secret, byte[] secretHash, 
+			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash, String atAddress,
 			byte[] lastTransactionSignature) {
 		this.tradePrivateKey = tradePrivateKey;
 		this.tradeState = tradeState;
+		this.tradeNativePublicKey = tradeNativePublicKey;
+		this.tradeNativePublicKeyHash = tradeNativePublicKeyHash;
 		this.secret = secret;
+		this.secretHash = secretHash;
+		this.tradeForeignPublicKey = tradeForeignPublicKey;
+		this.tradeForeignPublicKeyHash = tradeForeignPublicKeyHash;
 		this.atAddress = atAddress;
 		this.lastTransactionSignature = lastTransactionSignature;
 	}
 
-	public TradeBotData(byte[] tradePrivateKey, State tradeState) {
-		this.tradePrivateKey = tradePrivateKey;
-		this.tradeState = tradeState;
+	public byte[] getTradePrivateKey() {
+		return this.tradePrivateKey;
 	}
 
 	public State getState() {
@@ -66,16 +79,28 @@ public class TradeBotData {
 		this.tradeState = state;
 	}
 
+	public byte[] getTradeNativePublicKey() {
+		return this.tradeNativePublicKey;
+	}
+
+	public byte[] getTradeNativePublicKeyHash() {
+		return this.tradeNativePublicKeyHash;
+	}
+
 	public byte[] getSecret() {
 		return this.secret;
 	}
 
-	public void setSecret(byte[] secret) {
-		this.secret = secret;
+	public byte[] getSecretHash() {
+		return this.secretHash;
 	}
 
-	public byte[] getTradePrivateKey() {
-		return this.tradePrivateKey;
+	public byte[] getTradeForeignPublicKey() {
+		return this.tradeForeignPublicKey;
+	}
+
+	public byte[] getTradeForeignPublicKeyHash() {
+		return this.tradeForeignPublicKeyHash;
 	}
 
 	public String getAtAddress() {

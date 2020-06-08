@@ -19,7 +19,8 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 
 	@Override
 	public List<TradeBotData> getAllTradeBotData() throws DataException {
-		String sql = "SELECT trade_private_key, trade_state, secret, at_address, last_transaction_signature "
+		String sql = "SELECT trade_private_key, trade_state, trade_native_public_key, trade_native_public_key_hash, "
+				+ "secret, secret_hash, trade_foreign_public_key, trade_foreign_public_key_hash, at_address, last_transaction_signature "
 				+ "FROM TradeBotStates";
 
 		List<TradeBotData> allTradeBotData = new ArrayList<>();
@@ -35,17 +36,45 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 				if (tradeState == null)
 					throw new DataException("Illegal trade-bot trade-state fetched from repository");
 
-				byte[] secret = resultSet.getBytes(3);
-				String atAddress = resultSet.getString(4);
-				byte[] lastTransactionSignature = resultSet.getBytes(5);
+				byte[] tradeNativePublicKey = resultSet.getBytes(3);
+				byte[] tradeNativePublicKeyHash = resultSet.getBytes(4);
+				byte[] secret = resultSet.getBytes(5);
+				byte[] secretHash = resultSet.getBytes(6);
+				byte[] tradeForeignPublicKey = resultSet.getBytes(7);
+				byte[] tradeForeignPublicKeyHash = resultSet.getBytes(8);
+				String atAddress = resultSet.getString(9);
+				byte[] lastTransactionSignature = resultSet.getBytes(10);
 
-				TradeBotData tradeBotData = new TradeBotData(tradePrivateKey, tradeState, secret, atAddress, lastTransactionSignature);
+				TradeBotData tradeBotData = new TradeBotData(tradePrivateKey, tradeState,
+						tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash, 
+						tradeForeignPublicKey, tradeForeignPublicKeyHash, atAddress, lastTransactionSignature);
 				allTradeBotData.add(tradeBotData);
 			} while (resultSet.next());
 
 			return allTradeBotData;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch trade-bot trading states from repository", e);
+		}
+	}
+
+	@Override
+	public void save(TradeBotData tradeBotData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("TradeBotStates");
+
+		saveHelper.bind("trade_private_key", tradeBotData.getTradePrivateKey())
+				.bind("trade_state", tradeBotData.getState().value)
+				.bind("trade_native_public_key", tradeBotData.getTradeNativePublicKey())
+				.bind("trade_native_public_key_hash", tradeBotData.getTradeNativePublicKeyHash())
+				.bind("secret", tradeBotData.getSecret()).bind("secret_hash", tradeBotData.getSecretHash())
+				.bind("trade_foreign_public_key", tradeBotData.getTradeForeignPublicKey())
+				.bind("trade_foreign_public_key_hash", tradeBotData.getTradeForeignPublicKeyHash())
+				.bind("at_address", tradeBotData.getAtAddress())
+				.bind("last_transaction_signature", tradeBotData.getLastTransactionSignature());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save trade bot data into repository", e);
 		}
 	}
 

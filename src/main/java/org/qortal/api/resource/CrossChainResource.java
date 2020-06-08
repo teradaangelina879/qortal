@@ -19,6 +19,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -43,6 +44,7 @@ import org.qortal.api.model.CrossChainBitcoinRefundRequest;
 import org.qortal.api.model.CrossChainBitcoinTemplateRequest;
 import org.qortal.api.model.CrossChainBuildRequest;
 import org.qortal.asset.Asset;
+import org.qortal.controller.TradeBot;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
@@ -712,6 +714,39 @@ public class CrossChainResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
 
 			return redeemTransaction.getTxId().toString();
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/tradebot/{ataddress}")
+	@Operation(
+		summary = "Respond to a trade offer",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public String tradeBotResponder(@PathParam("ataddress") String atAddress) {
+		if (atAddress == null || !Crypto.isValidAtAddress(atAddress))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		// Extract data from cross-chain trading AT
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ATData atData = fetchAtDataWithChecking(repository, null, atAddress); // null to skip creator check
+			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+
+			if (crossChainTradeData.mode != Mode.OFFER)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			String p2shAddress = TradeBot.startResponse(repository, crossChainTradeData);
+			if (p2shAddress == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
+
+			return p2shAddress;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

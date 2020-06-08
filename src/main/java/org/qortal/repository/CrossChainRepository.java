@@ -8,4 +8,6 @@ public interface CrossChainRepository {
 
 	public List<TradeBotData> getAllTradeBotData() throws DataException;
 
+	public void save(TradeBotData tradeBotData) throws DataException;
+
 }
