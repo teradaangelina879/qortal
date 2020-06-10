@@ -10,9 +10,6 @@ import java.util.Random;
 public class MemoryPoWTests {
 
 	private static final int workBufferLength = 8 * 1024 * 1024;
-	private static final int start = 0;
-	private static final int range = 1000000;
-	private static final int difficulty = 11;
 
 	@Test
 	public void testCompute() {
@@ -21,69 +18,95 @@ public class MemoryPoWTests {
 		byte[] data = new byte[256];
 		random.nextBytes(data);
 
+		final int difficulty = 8;
+
 		long startTime = System.currentTimeMillis();
 
-		// Integer nonce = MemoryPoW.compute(data, workBufferLength, start, range, difficulty);
 		int nonce = MemoryPoW.compute2(data, workBufferLength, difficulty);
 
 		long finishTime = System.currentTimeMillis();
 
-		System.out.println(String.format("Memory-hard PoW (buffer size: %dKB, range: %d, leading zeros: %d) took %dms", workBufferLength / 1024, range, difficulty, finishTime - startTime));
-
 		assertNotNull(nonce);
 
-		System.out.println(String.format("nonce: %d", nonce));
+		System.out.println(String.format("Memory-hard PoW (buffer size: %dKB, leading zeros: %d) took %dms, nonce: %d", workBufferLength / 1024,
+				difficulty,
+				finishTime - startTime,
+				nonce));
+
+		assertTrue(MemoryPoW.verify2(data, workBufferLength, difficulty, nonce));
 	}
 
 	@Test
 	public void testMultipleComputes() {
 		Random random = new Random();
 
-		byte[] data = new byte[256];
-		int[] times = new int[100];
+		final int sampleSize = 20;
+		final long stddevDivisor = sampleSize * (sampleSize - 1);
 
-		int timesS1 = 0;
-		int timesS2 = 0;
+		for (int difficulty = 8; difficulty < 16; difficulty += 2) {
+			byte[] data = new byte[256];
+			long[] times = new long[sampleSize];
 
-		int maxNonce = 0;
+			long timesS1 = 0;
+			long timesS2 = 0;
 
-		for (int i = 0; i < times.length; ++i) {
-			random.nextBytes(data);
+			int maxNonce = 0;
 
-			long startTime = System.currentTimeMillis();
-			int nonce = MemoryPoW.compute2(data, workBufferLength, difficulty);
-			times[i] = (int) (System.currentTimeMillis() - startTime);
+			for (int i = 0; i < sampleSize; ++i) {
+				random.nextBytes(data);
 
-			timesS1 += times[i];
-			timesS2 += (times[i] * times[i]);
+				final long startTime = System.currentTimeMillis();
+				int nonce = MemoryPoW.compute2(data, workBufferLength, difficulty);
+				times[i] = System.currentTimeMillis() - startTime;
 
-			if (nonce > maxNonce)
-				maxNonce = nonce;
+				timesS1 += times[i];
+				timesS2 += times[i] * times[i];
+
+				if (nonce > maxNonce)
+					maxNonce = nonce;
+			}
+
+			double stddev = (double) Math.sqrt( (sampleSize * timesS2 - timesS1 * timesS1) / stddevDivisor );
+
+			System.out.println(String.format("Difficulty: %d, %d timings, mean: %d ms, stddev: %.2f ms, max nonce: %d",
+					difficulty,
+					sampleSize,
+					timesS1 / sampleSize,
+					stddev,
+					maxNonce));
 		}
-
-		double stddev = Math.sqrt( ((double) times.length * timesS2 - timesS1 * timesS1) / ((double) times.length * (times.length - 1)) );
-		System.out.println(String.format("%d timings, mean: %d ms, stddev: %.2f ms", times.length, timesS1 / times.length, stddev));
-
-		System.out.println(String.format("Max nonce: %d", maxNonce));
 	}
 
 	@Test
 	public void testKnownCompute2() {
 		byte[] data = new byte[] { (byte) 0xaa, (byte) 0xbb, (byte) 0xcc };
 
-		int difficulty = 12;
-		int expectedNonce = 4013;
-		int nonce = MemoryPoW.compute2(data, 8 * 1024 * 1024, difficulty);
+		int difficulty = 8;
+		int expectedNonce = 326;
+		int nonce = MemoryPoW.compute2(data, workBufferLength, difficulty);
 
 		System.out.println(String.format("Difficulty %d, nonce: %d", difficulty, nonce));
 		assertEquals(expectedNonce, nonce);
 
-		difficulty = 16;
-		expectedNonce = 41029;
-		nonce = MemoryPoW.compute2(data, 8 * 1024 * 1024, difficulty);
+		difficulty = 14;
+		expectedNonce = 11032;
+		nonce = MemoryPoW.compute2(data, workBufferLength, difficulty);
 
 		System.out.println(String.format("Difficulty %d, nonce: %d", difficulty, nonce));
 		assertEquals(expectedNonce, nonce);
+	}
+
+	@Test
+	public void testKnownVerify() {
+		byte[] data = new byte[] { (byte) 0xaa, (byte) 0xbb, (byte) 0xcc };
+
+		int difficulty = 8;
+		int expectedNonce = 326;
+		assertTrue(MemoryPoW.verify2(data, workBufferLength, difficulty, expectedNonce));
+
+		difficulty = 14;
+		expectedNonce = 11032;
+		assertTrue(MemoryPoW.verify2(data, workBufferLength, difficulty, expectedNonce));
 	}
 
 }

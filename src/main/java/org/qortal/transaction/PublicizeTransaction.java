@@ -26,7 +26,7 @@ public class PublicizeTransaction extends Transaction {
 	/** If time difference between transaction and now is greater than this then we don't verify proof-of-work. */
 	public static final long HISTORIC_THRESHOLD = 2 * 7 * 24 * 60 * 60 * 1000L;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	public static final int POW_DIFFICULTY = 18; // leading zero bits
+	public static final int POW_DIFFICULTY = 15; // leading zero bits
 
 	// Constructors
 

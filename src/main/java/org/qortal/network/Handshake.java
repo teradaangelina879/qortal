@@ -211,7 +211,7 @@ public enum Handshake {
 	private static final Pattern VERSION_PATTERN = Pattern.compile(Controller.VERSION_PREFIX + "(\\d{1,3})\\.(\\d{1,5})\\.(\\d{1,5})");
 
 	private static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	private static final int POW_DIFFICULTY = 12; // leading zero bits
+	private static final int POW_DIFFICULTY = 8; // leading zero bits
 
 	private static final byte[] ZERO_CHALLENGE = new byte[ChallengeMessage.CHALLENGE_LENGTH];
 

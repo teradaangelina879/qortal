@@ -66,7 +66,7 @@ public class MemoryPoW {
 		byteBuffer = null;
 
 		int longBufferLength = workBufferLength / 8;
-		long[] workBuffer = new long[longBufferLength / 8];
+		long[] workBuffer = new long[longBufferLength];
 		long[] state = new long[4];
 
 		long seed = 8682522807148012L;
