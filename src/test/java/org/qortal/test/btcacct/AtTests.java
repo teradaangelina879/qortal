@@ -44,6 +44,7 @@ import com.google.common.primitives.Bytes;
 public class AtTests extends Common {
 
 	public static final byte[] secret = "This string is exactly 32 bytes!".getBytes();
+	public static final byte[] bitcoinPublicKeyHash = new byte[20]; // not used in tests
 	public static final byte[] secretHash = Crypto.hash160(secret); // daf59884b4d1aec8c1b17102530909ee43c0151a
 	public static final int refundTimeout = 10; // blocks
 	public static final long initialPayout = 100000L;
@@ -60,7 +61,7 @@ public class AtTests extends Common {
 	public void testCompile() {
 		Account deployer = Common.getTestAccount(null, "chloe");
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), secretHash, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, secretHash, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
 		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
@@ -434,7 +435,7 @@ public class AtTests extends Common {
 	}
 
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), secretHash, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, secretHash, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();

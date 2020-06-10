@@ -59,6 +59,8 @@ public class CrossChainTradeData {
 	@Schema(description = "Suggested Bitcoin P2SH nLockTime based on trade timeout")
 	public Integer lockTime;
 
+	public byte[] foreignPublicKeyHash;
+
 	// Constructors
 
 	// Necessary for JAXB

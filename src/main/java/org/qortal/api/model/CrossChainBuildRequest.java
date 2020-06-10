@@ -24,6 +24,9 @@ public class CrossChainBuildRequest {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	public long fundingQortAmount;
 
+	@Schema(description = "HASH160 of creator's Bitcoin public key", example = "2daMveGc5pdjRyFacbxBzMksCbyC")
+	public byte[] bitcoinPublicKeyHash;
+
 	@Schema(description = "HASH160 of secret", example = "43vnftqkjxrhb5kJdkU1ZFQLEnWV")
 	public byte[] secretHash;
 

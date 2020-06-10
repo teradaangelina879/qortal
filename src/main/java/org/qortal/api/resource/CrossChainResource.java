@@ -180,7 +180,8 @@ public class CrossChainResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PublicKeyAccount creatorAccount = new PublicKeyAccount(repository, creatorPublicKey);
 
-			byte[] creationBytes = BTCACCT.buildQortalAT(creatorAccount.getAddress(), tradeRequest.secretHash, tradeRequest.tradeTimeout, tradeRequest.initialQortAmount, tradeRequest.finalQortAmount, tradeRequest.bitcoinAmount);
+			byte[] creationBytes = BTCACCT.buildQortalAT(creatorAccount.getAddress(), tradeRequest.bitcoinPublicKeyHash, tradeRequest.secretHash,
+					tradeRequest.tradeTimeout, tradeRequest.initialQortAmount, tradeRequest.finalQortAmount, tradeRequest.bitcoinAmount);
 
 			long txTimestamp = NTP.getTime();
 			byte[] lastReference = creatorAccount.getLastReference();

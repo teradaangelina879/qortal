@@ -237,6 +237,7 @@ public class BTCACCT {
 	 * 32-byte secret to the AT, before the AT automatically refunds the AT's creator.
 	 * 
 	 * @param qortalCreator Qortal address for AT creator, also used for refunds
+	 * @param bitcoinPublicKeyHash 20-byte HASH160 of creator's bitcoin public key
 	 * @param secretHash 20-byte HASH160 of 32-byte secret
 	 * @param tradeTimeout how many minutes, from start of 'trade mode' until AT auto-refunds AT creator
 	 * @param initialPayout how much QORT to pay trade partner upon switch to 'trade mode'
@@ -244,7 +245,7 @@ public class BTCACCT {
 	 * @param bitcoinAmount how much BTC the AT creator is expecting to trade
 	 * @return
 	 */
-	public static byte[] buildQortalAT(String qortalCreator, byte[] secretHash, int tradeTimeout, long initialPayout, long redeemPayout, long bitcoinAmount) {
+	public static byte[] buildQortalAT(String qortalCreator, byte[] bitcoinPublicKeyHash, byte[] secretHash, int tradeTimeout, long initialPayout, long redeemPayout, long bitcoinAmount) {
 		// Labels for data segment addresses
 		int addrCounter = 0;
 
@@ -254,6 +255,9 @@ public class BTCACCT {
 		final int addrQortalCreator2 = addrCounter++;
 		final int addrQortalCreator3 = addrCounter++;
 		final int addrQortalCreator4 = addrCounter++;
+
+		final int addrBitcoinPublickeyHash = addrCounter;
+		addrCounter += 4;
 
 		final int addrSecretHash = addrCounter;
 		addrCounter += 4;
@@ -302,6 +306,10 @@ public class BTCACCT {
 		assert dataByteBuffer.position() == addrQortalCreator1 * MachineState.VALUE_SIZE : "addrQortalCreator1 incorrect";
 		byte[] qortalCreatorBytes = Base58.decode(qortalCreator);
 		dataByteBuffer.put(Bytes.ensureCapacity(qortalCreatorBytes, 32, 0));
+
+		// Bitcoin public key hash
+		assert dataByteBuffer.position() == addrBitcoinPublickeyHash * MachineState.VALUE_SIZE : "addrBitcoinPublicKeyHash incorrect";
+		dataByteBuffer.put(Bytes.ensureCapacity(bitcoinPublicKeyHash, 32, 0));
 
 		// Hash of secret
 		assert dataByteBuffer.position() == addrSecretHash * MachineState.VALUE_SIZE : "addrSecretHash incorrect";
@@ -558,6 +566,11 @@ public class BTCACCT {
 
 		// Skip AT creator address
 		dataByteBuffer.position(dataByteBuffer.position() + 32);
+
+		// Bitcoin/foreign public key hash
+		tradeData.foreignPublicKeyHash = new byte[20];
+		dataByteBuffer.get(tradeData.foreignPublicKeyHash);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - 20); // skip to 32 bytes
 
 		// Hash of secret
 		tradeData.secretHash = new byte[20];

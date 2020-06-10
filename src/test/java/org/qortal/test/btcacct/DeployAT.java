@@ -34,11 +34,12 @@ public class DeployAT {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <HASH160-of-secret> <initial QORT payout> <AT funding amount> <AT trade timeout>"));
+		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <your Bitcoin PKH> <HASH160-of-secret> <initial QORT payout> <AT funding amount> <AT trade timeout>"));
 		System.err.println(String.format("example: DeployAT "
 				+ "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot \\\n"
 				+ "\t80.4020 \\\n"
 				+ "\t0.00864200 \\\n"
+				+ "\t750b06757a2448b8a4abebaa6e4662833fd5ddbb \\\n"
 				+ "\tdaf59884b4d1aec8c1b17102530909ee43c0151a \\\n"
 				+ "\t0.0001 \\\n"
 				+ "\t123.456 \\\n"
@@ -56,6 +57,7 @@ public class DeployAT {
 		byte[] refundPrivateKey = null;
 		long redeemAmount = 0;
 		long expectedBitcoin = 0;
+		byte[] bitcoinPublicKeyHash = null;
 		byte[] secretHash = null;
 		long initialPayout = 0;
 		long fundingAmount = 0;
@@ -74,6 +76,10 @@ public class DeployAT {
 			expectedBitcoin = Long.parseLong(args[argIndex++]);
 			if (expectedBitcoin <= 0)
 				usage("Expected BTC amount must be positive");
+
+			bitcoinPublicKeyHash = HashCode.fromString(args[argIndex++]).asBytes();
+			if (bitcoinPublicKeyHash.length != 20)
+				usage("Bitcoin PKH must be 20 bytes");
 
 			secretHash = HashCode.fromString(args[argIndex++]).asBytes();
 			if (secretHash.length != 20)
@@ -114,7 +120,7 @@ public class DeployAT {
 			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
 			// Deploy AT
-			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), secretHash, tradeTimeout, initialPayout, redeemAmount, expectedBitcoin);
+			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, secretHash, tradeTimeout, initialPayout, redeemAmount, expectedBitcoin);
 			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			long txTimestamp = System.currentTimeMillis();
