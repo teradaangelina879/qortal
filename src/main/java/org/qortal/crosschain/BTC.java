@@ -99,7 +99,7 @@ public class BTC {
 		if (blockHeaders == null || blockHeaders.size() < 11)
 			return null;
 
-		List<Integer> blockTimestamps = blockHeaders.stream().map(blockHeader -> BitTwiddling.fromLEBytes(blockHeader, TIMESTAMP_OFFSET)).collect(Collectors.toList());
+		List<Integer> blockTimestamps = blockHeaders.stream().map(blockHeader -> BitTwiddling.intFromLEBytes(blockHeader, TIMESTAMP_OFFSET)).collect(Collectors.toList());
 
 		// Descending, but order shouldn't matter as we're picking median...
 		blockTimestamps.sort((a, b) -> Integer.compare(b, a));

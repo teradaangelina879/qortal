@@ -61,7 +61,7 @@ public class ElectrumXTests {
 
 			// Timestamp(int) is at 4 + 32 + 32 = 68 bytes offset
 			int offset = 4 + 32 + 32;
-			int timestamp = BitTwiddling.fromLEBytes(blockHeader, offset);
+			int timestamp = BitTwiddling.intFromLEBytes(blockHeader, offset);
 			System.out.println(String.format("Block %d timestamp: %d", height + i, timestamp));
 		}
 	}

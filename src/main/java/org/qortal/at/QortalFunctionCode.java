@@ -12,6 +12,7 @@ import org.ciyam.at.IllegalFunctionCodeException;
 import org.ciyam.at.MachineState;
 import org.qortal.crosschain.BTC;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.settings.Settings;
 
 /**
@@ -22,8 +23,70 @@ import org.qortal.settings.Settings;
  */
 public enum QortalFunctionCode {
 	/**
-	 * <tt>0x0510</tt><br>
-	 * Convert address in B to 20-byte value in LSB of B1, and all of B2 & B3.
+	 * Returns length of message data from transaction in A.<br>
+	 * <tt>0x0501</tt><br>
+	 * If transaction has no 'message', returns -1.
+	 */
+	GET_MESSAGE_LENGTH_FROM_TX_IN_A(0x0501, 0, true) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			QortalATAPI api = (QortalATAPI) state.getAPI();
+
+			TransactionData transactionData = api.getTransactionFromA(state);
+
+			byte[] messageData = api.getMessageFromTransaction(transactionData);
+
+			if (messageData == null)
+				functionData.returnValue = -1L;
+			else
+				functionData.returnValue = (long) messageData.length;
+		}
+	},
+	/**
+	 * Put offset 'message' from transaction in A into B<br>
+	 * <tt>0x0502 start-offset</tt><br>
+	 * Copies up to 32 bytes of message data, starting at <tt>start-offset</tt> into B.<br>
+	 * If transaction has no 'message', or <tt>start-offset</tt> out of bounds, then zero B<br>
+	 * Example 'message' could be 256-bit shared secret
+	 */
+	PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B(0x0502, 1, false) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			QortalATAPI api = (QortalATAPI) state.getAPI();
+
+			// In case something goes wrong, or we don't have enough message data.
+			api.zeroB(state);
+
+			if (functionData.value1 < 0 || functionData.value1 > Integer.MAX_VALUE)
+				return;
+
+			int startOffset = functionData.value1.intValue();
+
+			TransactionData transactionData = api.getTransactionFromA(state);
+
+			byte[] messageData = api.getMessageFromTransaction(transactionData);
+
+			if (messageData == null || startOffset > messageData.length)
+				return;
+
+			/*
+			 * Copy up to 32 bytes of message data into B,
+			 * retain order but pad with zeros in lower bytes.
+			 * 
+			 * So a 4-byte message "a b c d" would copy thusly:
+			 * a b c d 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+			 */
+			int byteCount = Math.min(32, messageData.length - startOffset);
+			byte[] bBytes = new byte[32];
+
+			System.arraycopy(messageData, startOffset, bBytes, 0, byteCount);
+
+			api.setB(state, bBytes);
+		}
+	},
+	/**
+	 * Convert address in B to 20-byte value in LSB of B1, and all of B2 & B3.<br>
+	 * <tt>0x0510</tt>
 	 */
 	CONVERT_B_TO_PKH(0x0510, 0, false) {
 		@Override
@@ -38,8 +101,8 @@ public enum QortalFunctionCode {
 		}
 	},
 	/**
-	 * <tt>0x0511</tt><br>
 	 * Convert 20-byte value in LSB of B1, and all of B2 & B3 to P2SH.<br>
+	 * <tt>0x0511</tt><br>
 	 * P2SH stored in lower 25 bytes of B.
 	 */
 	CONVERT_B_TO_P2SH(0x0511, 0, false) {
@@ -51,8 +114,8 @@ public enum QortalFunctionCode {
 		}
 	},
 	/**
-	 * <tt>0x0512</tt><br>
 	 * Convert 20-byte value in LSB of B1, and all of B2 & B3 to Qortal address.<br>
+	 * <tt>0x0512</tt><br>
 	 * Qortal address stored in lower 25 bytes of B.
 	 */
 	CONVERT_B_TO_QORTAL(0x0512, 0, false) {

@@ -37,6 +37,7 @@ import org.qortal.transaction.AtTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
+import org.qortal.utils.BitTwiddling;
 
 import com.google.common.primitives.Bytes;
 
@@ -133,9 +134,9 @@ public class QortalATAPI extends API {
 
 			byte[] signature = blockSummaries.get(0).getSignature();
 			// Save some of minter's signature and transactions signature, so middle 24 bytes of the full 128 byte signature.
-			this.setA2(state, fromBytes(signature, 52));
-			this.setA3(state, fromBytes(signature, 60));
-			this.setA4(state, fromBytes(signature, 68));
+			this.setA2(state, BitTwiddling.longFromBEBytes(signature, 52));
+			this.setA3(state, BitTwiddling.longFromBEBytes(signature, 60));
+			this.setA4(state, BitTwiddling.longFromBEBytes(signature, 68));
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch previous block?", e);
 		}
@@ -186,9 +187,9 @@ public class QortalATAPI extends API {
 
 					// Copy transaction's partial signature into the other three A fields for future verification that it's the same transaction
 					byte[] signature = transaction.getTransactionData().getSignature();
-					this.setA2(state, fromBytes(signature, 8));
-					this.setA3(state, fromBytes(signature, 16));
-					this.setA4(state, fromBytes(signature, 24));
+					this.setA2(state, BitTwiddling.longFromBEBytes(signature, 8));
+					this.setA3(state, BitTwiddling.longFromBEBytes(signature, 16));
+					this.setA4(state, BitTwiddling.longFromBEBytes(signature, 24));
 
 					return;
 				}
@@ -282,7 +283,7 @@ public class QortalATAPI extends API {
 
 				byte[] hash = Crypto.digest(input);
 
-				return fromBytes(hash, 0);
+				return BitTwiddling.longFromBEBytes(hash, 0);
 			} catch (DataException e) {
 				throw new RuntimeException("AT API unable to fetch latest block from repository?", e);
 			}
@@ -296,20 +297,7 @@ public class QortalATAPI extends API {
 
 		TransactionData transactionData = this.getTransactionFromA(state);
 
-		byte[] messageData = null;
-
-		switch (transactionData.getType()) {
-			case MESSAGE:
-				messageData = ((MessageTransactionData) transactionData).getData();
-				break;
-
-			case AT:
-				messageData = ((ATTransactionData) transactionData).getMessage();
-				break;
-
-			default:
-				return;
-		}
+		byte[] messageData = this.getMessageFromTransaction(transactionData);
 
 		// Check data length is appropriate, i.e. not larger than B
 		if (messageData.length > 4 * 8)
@@ -457,12 +445,6 @@ public class QortalATAPI extends API {
 
 	// Utility methods
 
-	/** Convert part of little-endian byte[] to long */
-	/* package */ static long fromBytes(byte[] bytes, int start) {
-		return (bytes[start] & 0xffL) | (bytes[start + 1] & 0xffL) << 8 | (bytes[start + 2] & 0xffL) << 16 | (bytes[start + 3] & 0xffL) << 24
-				| (bytes[start + 4] & 0xffL) << 32 | (bytes[start + 5] & 0xffL) << 40 | (bytes[start + 6] & 0xffL) << 48 | (bytes[start + 7] & 0xffL) << 56;
-	}
-
 	/** Returns partial transaction signature, used to verify we're operating on the same transaction and not naively using block height & sequence. */
 	public static byte[] partialSignature(byte[] fullSignature) {
 		return Arrays.copyOfRange(fullSignature, 8, 32);
@@ -473,7 +455,7 @@ public class QortalATAPI extends API {
 		// Compare end of transaction's signature against A2 thru A4
 		byte[] sig = transactionData.getSignature();
 
-		if (this.getA2(state) != fromBytes(sig, 8) || this.getA3(state) != fromBytes(sig, 16) || this.getA4(state) != fromBytes(sig, 24))
+		if (this.getA2(state) != BitTwiddling.longFromBEBytes(sig, 8) || this.getA3(state) != BitTwiddling.longFromBEBytes(sig, 16) || this.getA4(state) != BitTwiddling.longFromBEBytes(sig, 24))
 			throw new IllegalStateException("Transaction signature in A no longer matches signature from repository");
 	}
 
@@ -494,6 +476,20 @@ public class QortalATAPI extends API {
 			return transactionData;
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch transaction type?", e);
+		}
+	}
+
+	/** Returns message data from transaction. */
+	/*package*/ byte[] getMessageFromTransaction(TransactionData transactionData) {
+		switch (transactionData.getType()) {
+			case MESSAGE:
+				return ((MessageTransactionData) transactionData).getData();
+
+			case AT:
+				return ((ATTransactionData) transactionData).getMessage();
+
+			default:
+				return null;
 		}
 	}
 
@@ -561,6 +557,10 @@ public class QortalATAPI extends API {
 
 	protected void setB(MachineState state, byte[] bBytes) {
 		super.setB(state, bBytes);
+	}
+
+	protected void zeroB(MachineState state) {
+		super.zeroB(state);
 	}
 
 }
