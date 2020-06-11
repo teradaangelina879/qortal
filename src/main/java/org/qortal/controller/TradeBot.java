@@ -1,31 +1,39 @@
 package org.qortal.controller;
 
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.Address;
+import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.model.TradeBotCreateRequest;
+import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.asset.Asset;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
+import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.DeployAtTransaction;
+import org.qortal.transaction.MessageTransaction;
+import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 import org.qortal.utils.NTP;
 
@@ -141,20 +149,112 @@ public class TradeBot {
 		// Get repo for trade situations
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
-			
+
 			for (TradeBotData tradeBotData : allTradeBotData)
 				switch (tradeBotData.getState()) {
+					case BOB_WAITING_FOR_AT_CONFIRM:
+						handleBobWaitingForAtConfirm(repository, tradeBotData);
+						break;
+
 					case BOB_WAITING_FOR_MESSAGE:
 						handleBobWaitingForMessage(repository, tradeBotData);
 						break;
+
+					default:
+						LOGGER.warn(() -> String.format("Unhandled trade-bot state %s", tradeBotData.getState().name()));
 				}
 		} catch (DataException e) {
 			LOGGER.error("Couldn't run trade bot due to repository issue", e);
 		}
 	}
 
+	private void handleBobWaitingForAtConfirm(Repository repository, TradeBotData tradeBotData) throws DataException {
+		if (!repository.getATRepository().exists(tradeBotData.getAtAddress()))
+			return;
+
+		tradeBotData.setState(TradeBotData.State.BOB_WAITING_FOR_MESSAGE);
+		repository.getCrossChainRepository().save(tradeBotData);
+	}
+
 	private void handleBobWaitingForMessage(Repository repository, TradeBotData tradeBotData) {
-		
+		// Fetch AT so we can determine trade start timestamp
+		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
+		if (atData == null) {
+			LOGGER.error(String.format("Unable to fetch trade AT '%s' from repository", tradeBotData.getAtAddress()));
+			return;
+		}
+
+		long tradeStartTimestamp = atData.getCreation();
+
+		String address = Crypto.toAddress(tradeBotData.getTradeNativePublicKey());
+		List<MessageTransactionData> messageTransactionsData = repository.getTransactionRepository().getMessagesByRecipient(address, null, null, null);
+
+		// Skip past previously processed messages
+		if (tradeBotData.getLastTransactionSignature() != null)
+			for (int i = 0; i < messageTransactionsData.size(); ++i)
+				if (Arrays.equals(messageTransactionsData.get(i).getSignature(), tradeBotData.getLastTransactionSignature())) {
+					messageTransactionsData.subList(0, i + 1).clear();
+					break;
+				}
+
+		while (!messageTransactionsData.isEmpty()) {
+			MessageTransactionData messageTransactionData = messageTransactionsData.remove(0);
+			tradeBotData.setLastTransactionSignature(messageTransactionData.getSignature());
+
+			if (messageTransactionData.isText())
+				continue;
+
+			// Could enforce encryption here
+
+			// We're expecting: HASH160(secret) + Alice's Bitcoin pubkeyhash
+			byte[] messageData = messageTransactionData.getData();
+
+			if (messageData.length != 40)
+				continue;
+
+			byte[] aliceSecretHash = new byte[20];
+			System.arraycopy(messageData, 0, aliceSecretHash, 0, 20);
+
+			byte[] aliceForeignPublicKeyHash = new byte[20];
+			System.arraycopy(messageData, 20, aliceForeignPublicKeyHash, 0, 20);
+
+			// Determine P2SH address and confirm funded
+			int lockTime = (int) (tradeStartTimestamp / 1000L + tradeBotData.getTradeTimeout() / 4 * 60); // First P2SH locktime is ¼ of timeout period
+			byte[] redeemScript = BTCACCT.buildScript(aliceForeignPublicKeyHash, lockTime, tradeBotData.getTradeForeignPublicKeyHash(), aliceSecretHash);
+			String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScript);
+
+			Long balance = BTC.getInstance().getBalance(p2shAddress);
+			if (balance == null || balance < tradeBotData.getBitcoinAmount())
+				continue;
+
+			// Good to go - send MESSAGE to AT
+
+			byte[] aliceNativePublicKeyHash = Crypto.hash160(messageTransactionData.getCreatorPublicKey());
+
+			// Build outgoing message, padding each part to 32 bytes to make it easier for AT to consume
+			byte[] outgoingMessageData = new byte[96];
+			System.arraycopy(aliceSecretHash, 0, outgoingMessageData, 0, 20);
+			System.arraycopy(aliceForeignPublicKeyHash, 0, outgoingMessageData, 32, 20);
+			System.arraycopy(aliceNativePublicKeyHash, 0, outgoingMessageData, 64, 20);
+
+			PrivateKeyAccount sender = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
+			MessageTransaction outgoingMessageTransaction = MessageTransaction.build(repository, sender, Group.NO_GROUP, tradeBotData.getAtAddress(), outgoingMessageData, false, false);
+
+			outgoingMessageTransaction.computeNonce();
+			outgoingMessageTransaction.sign(sender);
+
+			ValidationResult result = outgoingMessageTransaction.importAsUnconfirmed();
+
+			if (result != ValidationResult.OK) {
+				LOGGER.error(String.format("Unable to send MESSAGE to AT '%s': %s", tradeBotData.getAtAddress(), result.name()));
+				return;
+			}
+
+			tradeBotData.setState(TradeBotData.State.BOB_WAITING_FOR_P2SH_B);
+			break;
+		}
+
+		repository.getCrossChainRepository().save(tradeBotData);
 	}
 
 }
