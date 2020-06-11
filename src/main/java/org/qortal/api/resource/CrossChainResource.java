@@ -38,6 +38,7 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.model.CrossChainCancelRequest;
 import org.qortal.api.model.CrossChainSecretRequest;
 import org.qortal.api.model.CrossChainTradeRequest;
+import org.qortal.api.model.TradeBotCreateRequest;
 import org.qortal.api.model.CrossChainBitcoinP2SHStatus;
 import org.qortal.api.model.CrossChainBitcoinRedeemRequest;
 import org.qortal.api.model.CrossChainBitcoinRefundRequest;
@@ -715,6 +716,36 @@ public class CrossChainResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
 
 			return redeemTransaction.getTxId().toString();
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/tradebot")
+	@Operation(
+		summary = "Create a trade offer",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = TradeBotCreateRequest.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			byte[] unsignedBytes = TradeBot.createTrade(repository, tradeBotCreateRequest);
+
+			return Base58.encode(unsignedBytes);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

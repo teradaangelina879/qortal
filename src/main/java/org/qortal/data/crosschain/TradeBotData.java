@@ -16,8 +16,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class TradeBotData {
 
 	public enum State {
-		BOB_START(0), BOB_WAITING_FOR_P2SH_A(10), BOB_WAITING_FOR_P2SH_B(20), BOB_WAITING_FOR_AT_REDEEM(30),
-		ALICE_START(100), ALICE_WAITING_FOR_P2SH_A(110), ALICE_WAITING_FOR_AT_LOCK(120), ALICE_WATCH_P2SH_B(130);
+		BOB_WAITING_FOR_AT_CONFIRM(10), BOB_WAITING_FOR_MESSAGE(20), BOB_WAITING_FOR_P2SH_A(30), BOB_WAITING_FOR_P2SH_B(40), BOB_WAITING_FOR_AT_REDEEM(50),
+		ALICE_WAITING_FOR_P2SH_A(110), ALICE_WAITING_FOR_AT_LOCK(120), ALICE_WATCH_P2SH_B(130);
 
 		public final int value;
 		private static final Map<Integer, State> map = stream(State.values()).collect(toMap(state -> state.value, state -> state));

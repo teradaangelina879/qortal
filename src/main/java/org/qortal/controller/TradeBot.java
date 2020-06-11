@@ -11,14 +11,23 @@ import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.account.PublicKeyAccount;
+import org.qortal.api.model.TradeBotCreateRequest;
+import org.qortal.asset.Asset;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
+import org.qortal.data.transaction.BaseTransactionData;
+import org.qortal.data.transaction.DeployAtTransactionData;
+import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.transaction.DeployAtTransaction;
+import org.qortal.transform.transaction.DeployAtTransactionTransformer;
+import org.qortal.utils.NTP;
 
 public class TradeBot {
 
@@ -38,6 +47,49 @@ public class TradeBot {
 		return instance;
 	}
 
+	public static byte[] createTrade(Repository repository, TradeBotCreateRequest tradeBotCreateRequest) {
+		BTC btc = BTC.getInstance();
+		NetworkParameters params = btc.getNetworkParameters();
+
+		byte[] tradePrivateKey = generateTradePrivateKey();
+		byte[] secret = generateSecret();
+		byte[] secretHash = Crypto.digest(secret);
+
+		byte[] tradeNativePublicKey = deriveTradeNativePublicKey(tradePrivateKey);
+		byte[] tradeNativePublicKeyHash = Crypto.hash160(tradeNativePublicKey);
+
+		byte[] tradeForeignPublicKey = deriveTradeForeignPublicKey(tradePrivateKey);
+		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
+
+		PublicKeyAccount creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);
+
+		// Deploy AT
+		long timestamp = NTP.getTime();
+		byte[] reference = creator.getLastReference();
+		long fee = 0L;
+		byte[] signature = null;
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, creator.getPublicKey(), fee, signature);
+
+		String name = "QORT/BTC ACCT";
+		String description = "QORT/BTC cross-chain trade";
+		String aTType = "ACCT";
+		String tags = "ACCT QORT BTC";
+		byte[] creationBytes = BTCACCT.buildQortalAT(creator.getAddress(), tradeNativePublicKeyHash, secretHash, tradeBotCreateRequest.tradeTimeout, tradeBotCreateRequest.qortAmount, tradeBotCreateRequest.bitcoinAmount);
+		long amount = tradeBotCreateRequest.fundingQortAmount;
+
+		DeployAtTransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, aTType, tags, creationBytes, amount, Asset.QORT);
+		DeployAtTransaction.ensureATAddress(deployAtTransactionData);
+		String atAddress = deployAtTransactionData.getAtAddress();
+
+		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.BOB_WAITING_FOR_MESSAGE,
+				tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash,
+				tradeForeignPublicKey, tradeForeignPublicKeyHash, atAddress, null);
+		repository.getCrossChainRepository().save(tradeBotData);
+
+		// Return to user for signing and broadcast as we don't have their Qortal private key
+		return DeployAtTransactionTransformer.toBytes(deployAtTransactionData);
+	}
+
 	public static String startResponse(Repository repository, CrossChainTradeData crossChainTradeData) throws DataException {
 		BTC btc = BTC.getInstance();
 		NetworkParameters params = btc.getNetworkParameters();
@@ -53,7 +105,7 @@ public class TradeBot {
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.ALICE_WAITING_FOR_P2SH_A,
-				tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash, 
+				tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash, crossChainTradeData.qortalAtAddress, null);
 		repository.getCrossChainRepository().save(tradeBotData);
 
@@ -92,8 +144,8 @@ public class TradeBot {
 			
 			for (TradeBotData tradeBotData : allTradeBotData)
 				switch (tradeBotData.getState()) {
-					case ALICE_START:
-						handleAliceStart(repository, tradeBotData);
+					case BOB_WAITING_FOR_MESSAGE:
+						handleBobWaitingForMessage(repository, tradeBotData);
 						break;
 				}
 		} catch (DataException e) {
@@ -101,7 +153,7 @@ public class TradeBot {
 		}
 	}
 
-	private void handleAliceStart(Repository repository, TradeBotData tradeBotData) {
+	private void handleBobWaitingForMessage(Repository repository, TradeBotData tradeBotData) {
 		
 	}
 
