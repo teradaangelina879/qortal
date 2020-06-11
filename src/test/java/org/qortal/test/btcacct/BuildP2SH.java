@@ -98,7 +98,7 @@ public class BuildP2SH {
 			System.out.println(String.format("Bitcoin redeem amount: %s", bitcoinAmount.toPlainString()));
 
 			System.out.println(String.format("Redeem Bitcoin address: %s", redeemBitcoinAddress));
-			System.out.println(String.format("Redeem miner's fee: %s", BTC.FORMAT.format(bitcoinFee)));
+			System.out.println(String.format("Redeem miner's fee: %s", BTC.format(bitcoinFee)));
 
 			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneOffset.UTC), lockTime));
 			System.out.println(String.format("Hash of secret: %s", HashCode.fromBytes(secretHash)));
@@ -115,7 +115,7 @@ public class BuildP2SH {
 
 			// Fund P2SH
 			System.out.println(String.format("\nYou need to fund %s with %s (includes redeem/refund fee of %s)",
-					p2shAddress.toString(), BTC.FORMAT.format(bitcoinAmount), BTC.FORMAT.format(bitcoinFee)));
+					p2shAddress.toString(), BTC.format(bitcoinAmount), BTC.format(bitcoinFee)));
 
 			System.out.println("Once this is done, responder should run Respond to check P2SH funding and create AT");
 		} catch (DataException e) {

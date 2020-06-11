@@ -8,6 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
+import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionOutput;
@@ -16,13 +17,13 @@ import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.utils.MonetaryFormat;
+import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.utils.BitTwiddling;
 import org.qortal.utils.Pair;
 
 public class BTC {
 
-	public static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
 	public static final long NO_LOCKTIME_NO_RBF_SEQUENCE = 0xFFFFFFFFL;
 	public static final long LOCKTIME_NO_RBF_SEQUENCE = NO_LOCKTIME_NO_RBF_SEQUENCE - 1;
 	public static final int HASH160_LENGTH = 20;
@@ -30,6 +31,7 @@ public class BTC {
 	protected static final Logger LOGGER = LogManager.getLogger(BTC.class);
 
 	private static final int TIMESTAMP_OFFSET = 4 + 32 + 32;
+	private static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
 
 	public enum BitcoinNet {
 		MAIN {
@@ -88,6 +90,20 @@ public class BTC {
 
 	// Actual useful methods for use by other classes
 
+	public static String format(Coin amount) {
+		return BTC.FORMAT.format(amount).toString();
+	}
+
+	public static String format(long amount) {
+		return format(Coin.valueOf(amount));
+	}
+
+	public String deriveP2shAddress(byte[] redeemScriptBytes) {
+		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
+		Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
+		return p2shAddress.toString();
+	}
+
 	/** Returns median timestamp from latest 11 blocks, in seconds. */
 	public Integer getMedianBlockTime() {
 		Integer height = this.electrumX.getCurrentHeight();
@@ -107,12 +123,8 @@ public class BTC {
 		return blockTimestamps.get(5);
 	}
 
-	public Coin getBalance(String base58Address) {
-		Long balance = this.electrumX.getBalance(addressToScript(base58Address));
-		if (balance == null)
-			return null;
-
-		return Coin.valueOf(balance);
+	public Long getBalance(String base58Address) {
+		return this.electrumX.getBalance(addressToScript(base58Address));
 	}
 
 	public List<TransactionOutput> getUnspentOutputs(String base58Address) {

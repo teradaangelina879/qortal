@@ -107,7 +107,7 @@ public class Redeem {
 			System.out.println("Confirm the following is correct based on the info you've given:");
 
 			System.out.println(String.format("Redeem PRIVATE key: %s", HashCode.fromBytes(redeemPrivateKey)));
-			System.out.println(String.format("Redeem miner's fee: %s", BTC.FORMAT.format(bitcoinFee)));
+			System.out.println(String.format("Redeem miner's fee: %s", BTC.format(bitcoinFee)));
 			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneOffset.UTC), lockTime));
 
 			// New/derived info
@@ -147,12 +147,12 @@ public class Redeem {
 			}
 
 			// Check P2SH is funded
-			Coin p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
+			Long p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
 			if (p2shBalance == null) {
 				System.err.println(String.format("Unable to check P2SH address %s balance", p2shAddress));
 				System.exit(2);
 			}
-			System.out.println(String.format("P2SH address %s balance: %s BTC", p2shAddress, p2shBalance.toPlainString()));
+			System.out.println(String.format("P2SH address %s balance: %s", p2shAddress, BTC.format(p2shBalance)));
 
 			// Grab all P2SH funding transactions (just in case there are more than one)
 			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
@@ -164,7 +164,7 @@ public class Redeem {
 			System.out.println(String.format("Found %d output%s for P2SH", fundingOutputs.size(), (fundingOutputs.size() != 1 ? "s" : "")));
 
 			for (TransactionOutput fundingOutput : fundingOutputs)
-				System.out.println(String.format("Output %s:%d amount %s", HashCode.fromBytes(fundingOutput.getParentTransactionHash().getBytes()), fundingOutput.getIndex(), BTC.FORMAT.format(fundingOutput.getValue())));
+				System.out.println(String.format("Output %s:%d amount %s", HashCode.fromBytes(fundingOutput.getParentTransactionHash().getBytes()), fundingOutput.getIndex(), BTC.format(fundingOutput.getValue())));
 
 			if (fundingOutputs.isEmpty()) {
 				System.err.println(String.format("Can't redeem spent/unfunded P2SH"));
@@ -179,8 +179,8 @@ public class Redeem {
 			for (TransactionOutput fundingOutput : fundingOutputs)
 				System.out.println(String.format("Using output %s:%d for redeem", HashCode.fromBytes(fundingOutput.getParentTransactionHash().getBytes()), fundingOutput.getIndex()));
 
-			Coin redeemAmount = p2shBalance.subtract(bitcoinFee);
-			System.out.println(String.format("Spending %s of output, with %s as mining fee", BTC.FORMAT.format(redeemAmount), BTC.FORMAT.format(bitcoinFee)));
+			Coin redeemAmount = Coin.valueOf(p2shBalance).subtract(bitcoinFee);
+			System.out.println(String.format("Spending %s of output, with %s as mining fee", BTC.format(redeemAmount), BTC.format(bitcoinFee)));
 
 			Transaction redeemTransaction = BTCACCT.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secret);
 
