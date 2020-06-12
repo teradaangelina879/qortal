@@ -531,14 +531,14 @@ public class TransactionsResource {
 				ValidationResult result = transaction.importAsUnconfirmed();
 				if (result != ValidationResult.OK)
 					throw createTransactionInvalidException(request, result);
-
-				// Notify controller of new transaction
-				Controller.getInstance().onNewTransaction(transactionData);
-
-				return "true";
 			} finally {
 				blockchainLock.unlock();
 			}
+
+			// Notify controller of new transaction
+			Controller.getInstance().onNewTransaction(transactionData, null);
+
+			return "true";
 		} catch (NumberFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		} catch (TransformationException e) {

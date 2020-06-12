@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -46,6 +48,7 @@ import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
+import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.globalization.Translator;
 import org.qortal.gui.Gui;
 import org.qortal.gui.SysTray;
@@ -121,6 +124,8 @@ public class Controller extends Thread {
 	private final String buildVersion;
 	private final long buildTimestamp; // seconds
 	private final String[] savedArgs;
+
+	private ExecutorService newTransactionExecutor = Executors.newSingleThreadExecutor();
 
 	private volatile BlockData chainTip = null;
 
@@ -767,10 +772,16 @@ public class Controller extends Thread {
 		requestSysTrayUpdate = true;
 	}
 
-	public void onNewTransaction(TransactionData transactionData) {
-		// Send round to all peers
-		Network network = Network.getInstance();
-		network.broadcast(peer -> network.buildNewTransactionMessage(peer, transactionData));
+	/** Callback for when we've received a new transaction via API or peer. */
+	public void onNewTransaction(TransactionData transactionData, Peer peer) {
+		this.newTransactionExecutor.execute(() -> {
+			// Notify all peers (except maybe peer that sent it to us if applicable)
+			Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(Arrays.asList(transactionData.getSignature())));
+
+			// If this is a CHAT transaction, there may be extra listeners to notify
+			if (transactionData.getType() == TransactionType.CHAT)
+				ChatNotifier.getInstance().onNewChatTransaction((ChatTransactionData) transactionData);
+		});
 	}
 
 	public void onPeerHandshakeCompleted(Peer peer) {
@@ -908,8 +919,8 @@ public class Controller extends Thread {
 			LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
 		}
 
-		// Broadcast transaction signature because it's new to us
-		Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(Arrays.asList(transactionData.getSignature())));
+		// Notify controller so it can notify other peers, etc.
+		Controller.getInstance().onNewTransaction(transactionData, peer);
 	}
 
 	private void onNetworkGetBlockSummariesMessage(Peer peer, Message message) {
