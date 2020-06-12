@@ -2,8 +2,8 @@ package org.qortal.api.websocket;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
@@ -15,23 +15,23 @@ import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.controller.ChatNotifier;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.chat.ActiveChats;
+import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 
 @WebSocket
 @SuppressWarnings("serial")
-public class ChatWebSocket extends WebSocketServlet implements ApiWebSocket {
+public class ActiveChatsWebSocket extends WebSocketServlet implements ApiWebSocket {
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
-		factory.register(ChatWebSocket.class);
+		factory.register(ActiveChatsWebSocket.class);
 	}
 
 	@OnWebSocketConnect
 	public void onWebSocketConnect(Session session) {
 		Map<String, String> pathParams = this.getPathParams(session, "/{address}");
-		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
 
 		String address = pathParams.get("address");
 		if (address == null || !Crypto.isValidAddress(address)) {
@@ -39,33 +39,46 @@ public class ChatWebSocket extends WebSocketServlet implements ApiWebSocket {
 			return;
 		}
 
-		ChatNotifier.Listener listener = matchingAddress -> onNotify(session, matchingAddress);
-		ChatNotifier.getInstance().register(address, listener);
+		AtomicReference<String> previousOutput = new AtomicReference<>(null);
 
-		this.onNotify(session, address);
+		ChatNotifier.Listener listener = chatTransactionData -> onNotify(session, chatTransactionData, address, previousOutput);
+		ChatNotifier.getInstance().register(session, listener);
+
+		this.onNotify(session, null, address, previousOutput);
 	}
 
 	@OnWebSocketClose
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
-		Map<String, String> pathParams = this.getPathParams(session, "/{address}");
-		String address = pathParams.get("address");
-		ChatNotifier.getInstance().deregister(address);
+		ChatNotifier.getInstance().deregister(session);
 	}
 
 	@OnWebSocketMessage
 	public void onWebSocketMessage(Session session, String message) {
 	}
 
-	@Override
-	public void onNotify(Session session, String address) {
+	private void onNotify(Session session, ChatTransactionData chatTransactionData, String ourAddress, AtomicReference<String> previousOutput) {
+		// If CHAT has a recipient (i.e. direct message, not group-based) and we're neither sender nor recipient, then it's of no interest
+		if (chatTransactionData != null) {
+			String recipient = chatTransactionData.getRecipient();
+
+			if (recipient != null && (!recipient.equals(ourAddress) && !chatTransactionData.getSender().equals(ourAddress)))
+				return;
+		}
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			ActiveChats activeChats = repository.getChatRepository().getActiveChats(address);
+			ActiveChats activeChats = repository.getChatRepository().getActiveChats(ourAddress);
 
 			StringWriter stringWriter = new StringWriter();
 
 			this.marshall(stringWriter, activeChats);
 
-			session.getRemote().sendString(stringWriter.toString());
+			// Only output if something has changed
+			String output = stringWriter.toString();
+			if (output.equals(previousOutput.get()))
+				return;
+
+			previousOutput.set(output);
+			session.getRemote().sendString(output);
 		} catch (DataException | IOException e) {
 			// No output this time?
 		}

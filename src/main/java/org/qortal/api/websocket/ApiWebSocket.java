@@ -1,6 +1,8 @@
 package org.qortal.api.websocket;
 
+import java.io.IOException;
 import java.io.Writer;
+import java.util.Collection;
 import java.util.Map;
 
 import javax.xml.bind.JAXBContext;
@@ -15,8 +17,6 @@ import org.eclipse.persistence.jaxb.MarshallerProperties;
 
 interface ApiWebSocket {
 
-	void onNotify(Session session, String address);
-
 	default String getPathInfo(Session session) {
 		ServletUpgradeRequest upgradeRequest = (ServletUpgradeRequest) session.getUpgradeRequest();
 		return upgradeRequest.getHttpServletRequest().getPathInfo();
@@ -27,13 +27,32 @@ interface ApiWebSocket {
 		return uriTemplatePathSpec.getPathParams(this.getPathInfo(session));
 	}
 
-	default void marshall(Writer writer, Object object) {
+	default void marshall(Writer writer, Object object) throws IOException {
 		Marshaller marshaller = createMarshaller(object.getClass());
 
 		try {
 			marshaller.marshal(object, writer);
 		} catch (JAXBException e) {
-			throw new RuntimeException("Unable to create marshall object for websocket", e);
+			throw new IOException("Unable to create marshall object for websocket", e);
+		}
+	}
+
+	default void marshall(Writer writer, Collection<?> collection) throws IOException {
+		// If collection is empty then we're returning "[]" anyway
+		if (collection.isEmpty()) {
+			writer.append("[]");
+			return;
+		}
+
+		// Grab an entry from collection so we can determine type
+		Object entry = collection.iterator().next();
+
+		Marshaller marshaller = createMarshaller(entry.getClass());
+
+		try {
+			marshaller.marshal(collection, writer);
+		} catch (JAXBException e) {
+			throw new IOException("Unable to create marshall object for websocket", e);
 		}
 	}
 

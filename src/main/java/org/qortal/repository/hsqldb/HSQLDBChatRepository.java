@@ -9,6 +9,7 @@ import org.qortal.data.chat.ActiveChats;
 import org.qortal.data.chat.ActiveChats.DirectChat;
 import org.qortal.data.chat.ActiveChats.GroupChat;
 import org.qortal.data.chat.ChatMessage;
+import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.repository.ChatRepository;
 import org.qortal.repository.DataException;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -34,7 +35,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 		sql.append("SELECT created_when, tx_group_id, Transactions.reference, creator, "
 				+ "sender, SenderNames.name, recipient, RecipientNames.name, "
-				+ "data, is_text, is_encrypted "
+				+ "data, is_text, is_encrypted, signature "
 				+ "FROM ChatTransactions "
 				+ "JOIN Transactions USING (signature) "
 				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
@@ -100,9 +101,10 @@ public class HSQLDBChatRepository implements ChatRepository {
 				byte[] data = resultSet.getBytes(9);
 				boolean isText = resultSet.getBoolean(10);
 				boolean isEncrypted = resultSet.getBoolean(11);
+				byte[] signature = resultSet.getBytes(12);
 
 				ChatMessage chatMessage = new ChatMessage(timestamp, groupId, reference, senderPublicKey, sender,
-						senderName, recipient, recipientName, data, isText, isEncrypted);
+						senderName, recipient, recipientName, data, isText, isEncrypted, signature);
 
 				chatMessages.add(chatMessage);
 			} while (resultSet.next());
@@ -110,6 +112,39 @@ public class HSQLDBChatRepository implements ChatRepository {
 			return chatMessages;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch matching chat transactions from repository", e);
+		}
+	}
+
+	@Override
+	public ChatMessage toChatMessage(ChatTransactionData chatTransactionData) throws DataException {
+		String sql = "SELECT SenderNames.name, RecipientNames.name "
+				+ "FROM ChatTransactions "
+				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
+				+ "LEFT OUTER JOIN Names AS RecipientNames ON RecipientNames.owner = recipient "
+				+ "WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, chatTransactionData.getSignature())) {
+			if (resultSet == null)
+				return null;
+
+			String senderName = resultSet.getString(1);
+			String recipientName = resultSet.getString(2);
+
+			long timestamp = chatTransactionData.getTimestamp();
+			int groupId = chatTransactionData.getTxGroupId();
+			byte[] reference = chatTransactionData.getReference();
+			byte[] senderPublicKey = chatTransactionData.getSenderPublicKey();
+			String sender = chatTransactionData.getSender();
+			String recipient = chatTransactionData.getRecipient();
+			byte[] data = chatTransactionData.getData();
+			boolean isText = chatTransactionData.getIsText();
+			boolean isEncrypted = chatTransactionData.getIsEncrypted();
+			byte[] signature = chatTransactionData.getSignature();
+
+			return new ChatMessage(timestamp, groupId, reference, senderPublicKey, sender,
+					senderName, recipient, recipientName, data, isText, isEncrypted, signature);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch convert chat transaction from repository", e);
 		}
 	}
 

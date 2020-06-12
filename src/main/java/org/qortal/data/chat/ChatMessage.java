@@ -32,6 +32,8 @@ public class ChatMessage {
 	private boolean isText;
 	private boolean isEncrypted;
 
+	private byte[] signature;
+
 	// Constructors
 
 	protected ChatMessage() {
@@ -41,7 +43,7 @@ public class ChatMessage {
 	// For repository use
 	public ChatMessage(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String sender,
 			String senderName, String recipient, String recipientName, byte[] data, boolean isText,
-			boolean isEncrypted) {
+			boolean isEncrypted, byte[] signature) {
 		this.timestamp = timestamp;
 		this.txGroupId = txGroupId;
 		this.reference = reference;
@@ -53,6 +55,7 @@ public class ChatMessage {
 		this.data = data;
 		this.isText = isText;
 		this.isEncrypted = isEncrypted;
+		this.signature = signature;
 	}
 
 	public long getTimestamp() {
@@ -97,6 +100,10 @@ public class ChatMessage {
 
 	public boolean isEncrypted() {
 		return this.isEncrypted;
+	}
+
+	public byte[] getSignature() {
+		return this.signature;
 	}
 
 }
