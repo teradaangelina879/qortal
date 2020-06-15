@@ -22,7 +22,6 @@ import javax.ws.rs.core.MediaType;
 
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
-import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.model.BlockMinterSummary;
 import org.qortal.crypto.Crypto;
@@ -71,9 +70,11 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().fromSignature(signature);
-		} catch (ApiException e) {
-			throw e;
+			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
+			if (blockData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+
+			return blockData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -120,8 +121,6 @@ public class BlocksResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return repository.getBlockRepository().getTransactionsFromSignature(signature, limit, offset, reverse);
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -223,8 +222,6 @@ public class BlocksResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return childBlockData;
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -253,8 +250,6 @@ public class BlocksResource {
 	public int getHeight() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getBlockRepository().getBlockchainHeight();
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -297,8 +292,6 @@ public class BlocksResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return blockData.getHeight();
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -330,8 +323,6 @@ public class BlocksResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return blockData;
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -366,8 +357,6 @@ public class BlocksResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return blockData;
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -450,8 +439,6 @@ public class BlocksResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.PUBLIC_KEY_NOT_FOUND);
 
 			return repository.getBlockRepository().getBlockSummariesByMinter(accountData.getPublicKey(), limit, offset, reverse);
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
