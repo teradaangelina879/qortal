@@ -128,6 +128,7 @@ public class Controller extends Thread {
 	private ExecutorService newTransactionExecutor = Executors.newSingleThreadExecutor();
 
 	private volatile BlockData chainTip = null;
+	private ExecutorService newBlockExecutor = Executors.newSingleThreadExecutor();
 
 	private long repositoryBackupTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
@@ -237,7 +238,7 @@ public class Controller extends Thread {
 		return this.chainTip;
 	}
 
-	/** Cache new blockchain tip, and also wipe cache of online accounts. */
+	/** Cache new blockchain tip. */
 	public void setChainTip(BlockData blockData) {
 		this.chainTip = blockData;
 	}
@@ -601,18 +602,17 @@ public class Controller extends Thread {
 
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				newChainTip = repository.getBlockRepository().getLastBlock();
-				this.setChainTip(newChainTip);
 			} catch (DataException e) {
 				LOGGER.warn(String.format("Repository issue when trying to fetch post-synchronization chain tip: %s", e.getMessage()));
 				return syncResult;
 			}
 
 			if (!Arrays.equals(newChainTip.getSignature(), priorChainTip.getSignature())) {
-				// Broadcast our new chain tip
-				Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newChainTip));
-
 				// Reset our cache of inferior chains
 				inferiorChainSignatures.clear();
+
+				// Update chain-tip, notify peers, websockets, etc.
+				this.onNewBlock(newChainTip);
 			}
 
 			return syncResult;
@@ -754,22 +754,17 @@ public class Controller extends Thread {
 		requestSysTrayUpdate = true;
 	}
 
-	public void onBlockMinted() {
-		// Broadcast our new height info
-		BlockData latestBlockData;
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			latestBlockData = repository.getBlockRepository().getLastBlock();
-			this.setChainTip(latestBlockData);
-		} catch (DataException e) {
-			LOGGER.warn(String.format("Repository issue when trying to fetch post-mint chain tip: %s", e.getMessage()));
-			return;
-		}
-
-		Network network = Network.getInstance();
-		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
-
+	public void onNewBlock(BlockData latestBlockData) {
+		this.setChainTip(latestBlockData);
 		requestSysTrayUpdate = true;
+
+		// Broadcast our new height info and notify websocket listeners
+		this.newBlockExecutor.execute(() -> {
+			Network network = Network.getInstance();
+			network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
+
+			BlockNotifier.getInstance().onNewBlock(latestBlockData);
+		});
 	}
 
 	/** Callback for when we've received a new transaction via API or peer. */

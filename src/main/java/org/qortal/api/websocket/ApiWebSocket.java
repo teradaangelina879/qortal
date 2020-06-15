@@ -1,6 +1,7 @@
 package org.qortal.api.websocket;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Collection;
 import java.util.Map;
@@ -14,6 +15,8 @@ import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.servlet.ServletUpgradeRequest;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.MarshallerProperties;
+import org.qortal.api.ApiError;
+import org.qortal.api.ApiErrorRoot;
 
 interface ApiWebSocket {
 
@@ -25,6 +28,19 @@ interface ApiWebSocket {
 	default Map<String, String> getPathParams(Session session, String pathSpec) {
 		UriTemplatePathSpec uriTemplatePathSpec = new UriTemplatePathSpec(pathSpec);
 		return uriTemplatePathSpec.getPathParams(this.getPathInfo(session));
+	}
+
+	default void sendError(Session session, ApiError apiError) {
+		ApiErrorRoot apiErrorRoot = new ApiErrorRoot();
+		apiErrorRoot.setApiError(apiError);
+
+		StringWriter stringWriter = new StringWriter();
+		try {
+			marshall(stringWriter, apiErrorRoot);
+			session.getRemote().sendString(stringWriter.toString());
+		} catch (IOException e) {
+			// Remote end probably closed
+		}
 	}
 
 	default void marshall(Writer writer, Object object) throws IOException {

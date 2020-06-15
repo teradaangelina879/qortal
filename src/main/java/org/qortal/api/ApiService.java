@@ -23,6 +23,7 @@ import org.glassfish.jersey.servlet.ServletContainer;
 import org.qortal.api.resource.AnnotationPostProcessor;
 import org.qortal.api.resource.ApiDefinition;
 import org.qortal.api.websocket.ActiveChatsWebSocket;
+import org.qortal.api.websocket.BlocksWebSocket;
 import org.qortal.api.websocket.ChatMessagesWebSocket;
 import org.qortal.settings.Settings;
 
@@ -125,6 +126,7 @@ public class ApiService {
 				rewriteHandler.addRule(new RedirectPatternRule("/api-documentation", "/api-documentation/")); // redirect to add trailing slash if missing
 			}
 
+			context.addServlet(BlocksWebSocket.class, "/websockets/blocks");
 			context.addServlet(ActiveChatsWebSocket.class, "/websockets/chat/active/*");
 			context.addServlet(ChatMessagesWebSocket.class, "/websockets/chat/messages");
 

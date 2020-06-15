@@ -200,6 +200,7 @@ public class BlockMinter extends Thread {
 				}
 
 				boolean newBlockMinted = false;
+				Block newBlock = null;
 
 				try {
 					// Clear repository session state so we have latest view of data
@@ -235,7 +236,6 @@ public class BlockMinter extends Thread {
 					final int parentHeight = previousBlock.getBlockData().getHeight();
 					final byte[] parentBlockSignature = previousBlock.getSignature();
 
-					Block newBlock = null;
 					BigInteger bestWeight = null;
 
 					for (int bi = 0; bi < goodBlocks.size(); ++bi) {
@@ -306,7 +306,7 @@ public class BlockMinter extends Thread {
 				}
 
 				if (newBlockMinted)
-					Controller.getInstance().onBlockMinted();
+					Controller.getInstance().onNewBlock(newBlock.getBlockData());
 			}
 		} catch (DataException e) {
 			LOGGER.warn("Repository issue while running block minter", e);
