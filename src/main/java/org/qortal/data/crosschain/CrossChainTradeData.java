@@ -30,13 +30,9 @@ public class CrossChainTradeData {
 	@Schema(description = "HASH160 of 32-byte secret")
 	public byte[] secretHash;
 
-	@Schema(description = "Initial QORT payment that will be sent to Qortal trade partner")
-	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	public long initialPayout;
-
 	@Schema(description = "Final QORT payment that will be sent to Qortal trade partner")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	public long redeemPayout;
+	public long qortAmount;
 
 	@Schema(description = "Trade partner's Qortal address (trade begins when this is set)")
 	public String qortalRecipient;
@@ -45,7 +41,7 @@ public class CrossChainTradeData {
 	public Long tradeModeTimestamp;
 
 	@Schema(description = "How long from beginning trade until AT triggers automatic refund to AT creator (minutes)")
-	public long tradeRefundTimeout;
+	public int tradeTimeout;
 
 	@Schema(description = "Actual Qortal block height when AT will automatically refund to AT creator (after trade begins)")
 	public Integer tradeRefundHeight;

@@ -18,7 +18,7 @@ import org.bitcoinj.script.Script.ScriptType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BTCP2SH;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -120,7 +120,7 @@ public class Refund {
 			Address refundAddress = Address.fromKey(params, refundKey, ScriptType.P2PKH);
 			System.out.println(String.format("Refund recipient (PKH): %s (%s)", refundAddress, HashCode.fromBytes(refundAddress.getHash())));
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
 			System.out.println(String.format("Redeem script: %s", HashCode.fromBytes(redeemScriptBytes)));
 
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
@@ -186,7 +186,7 @@ public class Refund {
 			Coin refundAmount = Coin.valueOf(p2shBalance).subtract(bitcoinFee);
 			System.out.println(String.format("Spending %s of output, with %s as mining fee", BTC.format(refundAmount), BTC.format(bitcoinFee)));
 
-			Transaction redeemTransaction = BTCACCT.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime);
+			Transaction redeemTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime);
 
 			byte[] redeemBytes = redeemTransaction.bitcoinSerialize();
 

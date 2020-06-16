@@ -10,7 +10,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BTCP2SH;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
@@ -56,7 +56,7 @@ public class BtcTests extends Common {
 		List<byte[]> rawTransactions = BTC.getInstance().getAddressTransactions(p2shAddress);
 
 		byte[] expectedSecret = AtTests.secret;
-		byte[] secret = BTCACCT.findP2shSecret(p2shAddress, rawTransactions);
+		byte[] secret = BTCP2SH.findP2shSecret(p2shAddress, rawTransactions);
 
 		assertNotNull(secret);
 		assertTrue("secret incorrect", Arrays.equals(expectedSecret, secret));

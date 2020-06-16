@@ -15,6 +15,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class TradeBotData {
 
+	// Never expose this
+	@XmlTransient
+	@Schema(hidden = true)
+	private byte[] tradePrivateKey;
+
 	public enum State {
 		BOB_WAITING_FOR_AT_CONFIRM(10), BOB_WAITING_FOR_MESSAGE(20), BOB_SENDING_MESSAGE_TO_AT(30), BOB_WAITING_FOR_P2SH_B(40), BOB_WAITING_FOR_AT_REDEEM(50),
 		ALICE_WAITING_FOR_P2SH_A(110), ALICE_WAITING_FOR_AT_LOCK(120), ALICE_WATCH_P2SH_B(130);
@@ -30,13 +35,10 @@ public class TradeBotData {
 			return map.get(value);
 		}
 	}
-
 	private State tradeState;
 
-	// Never expose this
-	@XmlTransient
-	@Schema(hidden = true)
-	private byte[] tradePrivateKey;
+	private String atAddress;
+	private int tradeTimeout;
 
 	private byte[] tradeNativePublicKey;
 	private byte[] tradeNativePublicKeyHash;
@@ -47,23 +49,25 @@ public class TradeBotData {
 	private byte[] tradeForeignPublicKey;
 	private byte[] tradeForeignPublicKeyHash;
 
-	private String atAddress;
+	private long bitcoinAmount;
 
 	private byte[] lastTransactionSignature;
 
-	public TradeBotData(byte[] tradePrivateKey, State tradeState,
-			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, byte[] secret, byte[] secretHash, 
-			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash, String atAddress,
-			byte[] lastTransactionSignature) {
+	public TradeBotData(byte[] tradePrivateKey, State tradeState, String atAddress, int tradeTimeout,
+			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, byte[] secret, byte[] secretHash,
+			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash,
+			long bitcoinAmount, byte[] lastTransactionSignature) {
 		this.tradePrivateKey = tradePrivateKey;
 		this.tradeState = tradeState;
+		this.atAddress = atAddress;
+		this.tradeTimeout = tradeTimeout;
 		this.tradeNativePublicKey = tradeNativePublicKey;
 		this.tradeNativePublicKeyHash = tradeNativePublicKeyHash;
 		this.secret = secret;
 		this.secretHash = secretHash;
 		this.tradeForeignPublicKey = tradeForeignPublicKey;
 		this.tradeForeignPublicKeyHash = tradeForeignPublicKeyHash;
-		this.atAddress = atAddress;
+		this.bitcoinAmount = bitcoinAmount;
 		this.lastTransactionSignature = lastTransactionSignature;
 	}
 
@@ -77,6 +81,18 @@ public class TradeBotData {
 
 	public void setState(State state) {
 		this.tradeState = state;
+	}
+
+	public String getAtAddress() {
+		return this.atAddress;
+	}
+
+	public void setAtAddress(String atAddress) {
+		this.atAddress = atAddress;
+	}
+
+	public int getTradeTimeout() {
+		return this.tradeTimeout;
 	}
 
 	public byte[] getTradeNativePublicKey() {
@@ -103,12 +119,8 @@ public class TradeBotData {
 		return this.tradeForeignPublicKeyHash;
 	}
 
-	public String getAtAddress() {
-		return this.atAddress;
-	}
-
-	public void setAtAddress(String atAddress) {
-		this.atAddress = atAddress;
+	public long getBitcoinAmount() {
+		return this.bitcoinAmount;
 	}
 
 	public byte[] getLastTransactionSignature() {

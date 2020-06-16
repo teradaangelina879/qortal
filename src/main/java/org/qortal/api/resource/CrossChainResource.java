@@ -48,6 +48,7 @@ import org.qortal.asset.Asset;
 import org.qortal.controller.TradeBot;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BTCP2SH;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
@@ -162,17 +163,14 @@ public class CrossChainResource {
 			if (tradeRequest.tradeTimeout < 10 || tradeRequest.tradeTimeout > 50000)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
-		if (tradeRequest.initialQortAmount < 0)
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-
-		if (tradeRequest.finalQortAmount <= 0)
+		if (tradeRequest.qortAmount <= 0)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		if (tradeRequest.fundingQortAmount <= 0)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		// funding amount must exceed initial + final
-		if (tradeRequest.fundingQortAmount <= tradeRequest.initialQortAmount + tradeRequest.finalQortAmount)
+		if (tradeRequest.fundingQortAmount <= tradeRequest.qortAmount)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		if (tradeRequest.bitcoinAmount <= 0)
@@ -182,7 +180,7 @@ public class CrossChainResource {
 			PublicKeyAccount creatorAccount = new PublicKeyAccount(repository, creatorPublicKey);
 
 			byte[] creationBytes = BTCACCT.buildQortalAT(creatorAccount.getAddress(), tradeRequest.bitcoinPublicKeyHash, tradeRequest.secretHash,
-					tradeRequest.tradeTimeout, tradeRequest.initialQortAmount, tradeRequest.finalQortAmount, tradeRequest.bitcoinAmount);
+					tradeRequest.tradeTimeout, tradeRequest.qortAmount, tradeRequest.bitcoinAmount);
 
 			long txTimestamp = NTP.getTime();
 			byte[] lastReference = creatorAccount.getLastReference();
@@ -434,7 +432,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -485,7 +483,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -516,7 +514,7 @@ public class CrossChainResource {
 			if (now >= medianBlockTime * 1000L) {
 				// See if we can extract secret
 				List<byte[]> rawTransactions = BTC.getInstance().getAddressTransactions(p2shStatus.bitcoinP2shAddress);
-				p2shStatus.secret = BTCACCT.findP2shSecret(p2shStatus.bitcoinP2shAddress, rawTransactions);
+				p2shStatus.secret = BTCP2SH.findP2shSecret(p2shStatus.bitcoinP2shAddress, rawTransactions);
 			}
 
 			return p2shStatus;
@@ -582,7 +580,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundKey.getPubKeyHash(), crossChainTradeData.lockTime, refundRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundKey.getPubKeyHash(), crossChainTradeData.lockTime, refundRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -608,7 +606,7 @@ public class CrossChainResource {
 
 			Coin refundAmount = Coin.valueOf(p2shBalance - refundRequest.bitcoinMinerFee.unscaledValue().longValue());
 
-			org.bitcoinj.core.Transaction refundTransaction = BTCACCT.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, crossChainTradeData.lockTime);
+			org.bitcoinj.core.Transaction refundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, crossChainTradeData.lockTime);
 			boolean wasBroadcast = BTC.getInstance().broadcastTransaction(refundTransaction);
 
 			if (!wasBroadcast)
@@ -680,7 +678,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(redeemRequest.refundPublicKeyHash, crossChainTradeData.lockTime, redeemKey.getPubKeyHash(), crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(redeemRequest.refundPublicKeyHash, crossChainTradeData.lockTime, redeemKey.getPubKeyHash(), crossChainTradeData.secretHash);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -709,7 +707,7 @@ public class CrossChainResource {
 
 			Coin redeemAmount = Coin.valueOf(p2shBalance - redeemRequest.bitcoinMinerFee.unscaledValue().longValue());
 
-			org.bitcoinj.core.Transaction redeemTransaction = BTCACCT.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, redeemRequest.secret);
+			org.bitcoinj.core.Transaction redeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, redeemRequest.secret);
 			boolean wasBroadcast = BTC.getInstance().broadcastTransaction(redeemTransaction);
 
 			if (!wasBroadcast)

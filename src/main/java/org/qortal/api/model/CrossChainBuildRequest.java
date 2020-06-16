@@ -12,13 +12,9 @@ public class CrossChainBuildRequest {
 	@Schema(description = "AT creator's public key", example = "C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry")
 	public byte[] creatorPublicKey;
 
-	@Schema(description = "Initial QORT amount paid when trade agreed", example = "0.00100000")
-	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	public long initialQortAmount;
-
 	@Schema(description = "Final QORT amount paid out on successful trade", example = "80.40200000")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	public long finalQortAmount;
+	public long qortAmount;
 
 	@Schema(description = "QORT amount funding AT, including covering AT execution fees", example = "123.45670000")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)

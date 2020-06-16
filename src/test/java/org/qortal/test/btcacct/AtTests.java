@@ -47,7 +47,6 @@ public class AtTests extends Common {
 	public static final byte[] bitcoinPublicKeyHash = new byte[20]; // not used in tests
 	public static final byte[] secretHash = Crypto.hash160(secret); // daf59884b4d1aec8c1b17102530909ee43c0151a
 	public static final int refundTimeout = 10; // blocks
-	public static final long initialPayout = 100000L;
 	public static final long redeemAmount = 80_40200000L;
 	public static final long fundingAmount = 123_45600000L;
 	public static final long bitcoinAmount = 864200L;
@@ -61,7 +60,7 @@ public class AtTests extends Common {
 	public void testCompile() {
 		Account deployer = Common.getTestAccount(null, "chloe");
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, secretHash, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, secretHash, refundTimeout, redeemAmount, bitcoinAmount);
 		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
@@ -153,44 +152,6 @@ public class AtTests extends Common {
 			actualBalance = deployer.getConfirmedBalance(Asset.QORT);
 
 			assertEquals("Deployer's post-orphan/pre-refund balance incorrect", expectedBalance, actualBalance);
-		}
-	}
-
-	@SuppressWarnings("unused")
-	@Test
-	public void testInitialPayment() throws DataException {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
-
-			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
-
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
-			Account at = deployAtTransaction.getATAccount();
-			String atAddress = at.getAddress();
-
-			// Send recipient's address to AT
-			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(recipient.getAddress()), 32, 0);
-			MessageTransaction messageTransaction = sendMessage(repository, deployer, recipientAddressBytes, atAddress);
-
-			// Initial payment should happen 1st block after receiving recipient address
-			BlockUtils.mintBlock(repository);
-
-			long expectedBalance = recipientsInitialBalance + initialPayout;
-			long actualBalance = recipient.getConfirmedBalance(Asset.QORT);
-
-			assertEquals("Recipient's post-initial-payout balance incorrect", expectedBalance, actualBalance);
-
-			describeAt(repository, atAddress);
-
-			// Test orphaning
-			BlockUtils.orphanLastBlock(repository);
-
-			expectedBalance = recipientsInitialBalance;
-			actualBalance = recipient.getConfirmedBalance(Asset.QORT);
-
-			assertEquals("Recipient's pre-initial-payout balance incorrect", expectedBalance, actualBalance);
 		}
 	}
 
@@ -294,7 +255,7 @@ public class AtTests extends Common {
 			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
 			BlockUtils.mintBlock(repository);
 
-			long expectedBalance = recipientsInitialBalance + initialPayout - messageTransaction.getTransactionData().getFee() + redeemAmount;
+			long expectedBalance = recipientsInitialBalance - messageTransaction.getTransactionData().getFee() + redeemAmount;
 			long actualBalance = recipient.getConfirmedBalance(Asset.QORT);
 
 			assertEquals("Recipent's post-redeem balance incorrect", expectedBalance, actualBalance);
@@ -304,7 +265,7 @@ public class AtTests extends Common {
 			// Orphan redeem
 			BlockUtils.orphanLastBlock(repository);
 
-			expectedBalance = recipientsInitialBalance + initialPayout - messageTransaction.getTransactionData().getFee();
+			expectedBalance = recipientsInitialBalance - messageTransaction.getTransactionData().getFee();
 			actualBalance = recipient.getConfirmedBalance(Asset.QORT);
 
 			assertEquals("Recipent's post-orphan/pre-redeem balance incorrect", expectedBalance, actualBalance);
@@ -347,7 +308,7 @@ public class AtTests extends Common {
 			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
 			BlockUtils.mintBlock(repository);
 
-			long expectedBalance = recipientsInitialBalance + initialPayout;
+			long expectedBalance = recipientsInitialBalance;
 			long actualBalance = recipient.getConfirmedBalance(Asset.QORT);
 
 			assertEquals("Recipent's balance incorrect", expectedBalance, actualBalance);
@@ -389,7 +350,7 @@ public class AtTests extends Common {
 			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
 			BlockUtils.mintBlock(repository);
 
-			long expectedBalance = recipientsInitialBalance + initialPayout - messageTransaction.getTransactionData().getFee();
+			long expectedBalance = recipientsInitialBalance - messageTransaction.getTransactionData().getFee();
 			long actualBalance = recipient.getConfirmedBalance(Asset.QORT);
 
 			assertEquals("Recipent's balance incorrect", expectedBalance, actualBalance);
@@ -435,7 +396,7 @@ public class AtTests extends Common {
 	}
 
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, secretHash, refundTimeout, initialPayout, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, secretHash, refundTimeout, redeemAmount, bitcoinAmount);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();
@@ -501,7 +462,7 @@ public class AtTests extends Common {
 
 		// We don't bother to exactly calculate QORT spent running AT for several blocks, but we do know the expected range
 		long expectedMinimumBalance = deployersPostDeploymentBalance;
-		long expectedMaximumBalance = deployersInitialBalance - deployAtFee - initialPayout;
+		long expectedMaximumBalance = deployersInitialBalance - deployAtFee;
 
 		long actualBalance = deployer.getConfirmedBalance(Asset.QORT);
 
@@ -521,7 +482,6 @@ public class AtTests extends Common {
 				+ "\tcreation timestamp: %s,\n"
 				+ "\tcurrent balance: %s QORT,\n"
 				+ "\tHASH160 of secret: %s,\n"
-				+ "\tinitial payout: %s QORT,\n"
 				+ "\tredeem payout: %s QORT,\n"
 				+ "\texpected bitcoin: %s BTC,\n"
 				+ "\ttrade timeout: %d minutes (from trade start),\n"
@@ -531,10 +491,9 @@ public class AtTests extends Common {
 				epochMilliFormatter.apply(tradeData.creationTimestamp),
 				Amounts.prettyAmount(tradeData.qortBalance),
 				HashCode.fromBytes(tradeData.secretHash).toString().substring(0, 40),
-				Amounts.prettyAmount(tradeData.initialPayout),
-				Amounts.prettyAmount(tradeData.redeemPayout),
+				Amounts.prettyAmount(tradeData.qortAmount),
 				Amounts.prettyAmount(tradeData.expectedBitcoin),
-				tradeData.tradeRefundTimeout,
+				tradeData.tradeTimeout,
 				currentBlockHeight));
 
 		// Are we in 'offer' or 'trade' stage?

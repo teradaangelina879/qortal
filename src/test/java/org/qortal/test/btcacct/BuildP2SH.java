@@ -13,7 +13,7 @@ import org.bitcoinj.script.Script.ScriptType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BTCP2SH;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -103,7 +103,7 @@ public class BuildP2SH {
 			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneOffset.UTC), lockTime));
 			System.out.println(String.format("Hash of secret: %s", HashCode.fromBytes(secretHash)));
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundBitcoinAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
 			System.out.println(String.format("Redeem script: %s", HashCode.fromBytes(redeemScriptBytes)));
 
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);

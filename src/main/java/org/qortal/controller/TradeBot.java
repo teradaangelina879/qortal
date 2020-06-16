@@ -8,17 +8,16 @@ import java.util.Random;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.Address;
-import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.model.TradeBotCreateRequest;
-import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.asset.Asset;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BTCP2SH;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
@@ -32,8 +31,8 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.MessageTransaction;
-import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
+import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 import org.qortal.utils.NTP;
 
@@ -55,7 +54,7 @@ public class TradeBot {
 		return instance;
 	}
 
-	public static byte[] createTrade(Repository repository, TradeBotCreateRequest tradeBotCreateRequest) {
+	public static byte[] createTrade(Repository repository, TradeBotCreateRequest tradeBotCreateRequest) throws DataException {
 		BTC btc = BTC.getInstance();
 		NetworkParameters params = btc.getNetworkParameters();
 
@@ -90,12 +89,18 @@ public class TradeBot {
 		String atAddress = deployAtTransactionData.getAtAddress();
 
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.BOB_WAITING_FOR_MESSAGE,
+				atAddress, tradeBotCreateRequest.tradeTimeout,
 				tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash,
-				tradeForeignPublicKey, tradeForeignPublicKeyHash, atAddress, null);
+				tradeForeignPublicKey, tradeForeignPublicKeyHash,
+				tradeBotCreateRequest.bitcoinAmount, null);
 		repository.getCrossChainRepository().save(tradeBotData);
 
 		// Return to user for signing and broadcast as we don't have their Qortal private key
-		return DeployAtTransactionTransformer.toBytes(deployAtTransactionData);
+		try {
+			return DeployAtTransactionTransformer.toBytes(deployAtTransactionData);
+		} catch (TransformationException e) {
+			throw new DataException("Failed to transform DEPLOY_AT transaction?", e);
+		}
 	}
 
 	public static String startResponse(Repository repository, CrossChainTradeData crossChainTradeData) throws DataException {
@@ -113,12 +118,14 @@ public class TradeBot {
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.ALICE_WAITING_FOR_P2SH_A,
+				crossChainTradeData.qortalAtAddress, crossChainTradeData.tradeTimeout,
 				tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash,
-				tradeForeignPublicKey, tradeForeignPublicKeyHash, crossChainTradeData.qortalAtAddress, null);
+				tradeForeignPublicKey, tradeForeignPublicKeyHash,
+				crossChainTradeData.expectedBitcoin, null);
 		repository.getCrossChainRepository().save(tradeBotData);
 
 		// P2SH_a to be funded
-		byte[] redeemScriptBytes = BTCACCT.buildScript(tradeForeignPublicKeyHash, crossChainTradeData.lockTime, crossChainTradeData.foreignPublicKeyHash, secretHash);
+		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeForeignPublicKeyHash, crossChainTradeData.lockTime, crossChainTradeData.foreignPublicKeyHash, secretHash);
 		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 		Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -176,7 +183,7 @@ public class TradeBot {
 		repository.getCrossChainRepository().save(tradeBotData);
 	}
 
-	private void handleBobWaitingForMessage(Repository repository, TradeBotData tradeBotData) {
+	private void handleBobWaitingForMessage(Repository repository, TradeBotData tradeBotData) throws DataException {
 		// Fetch AT so we can determine trade start timestamp
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
@@ -220,7 +227,7 @@ public class TradeBot {
 
 			// Determine P2SH address and confirm funded
 			int lockTime = (int) (tradeStartTimestamp / 1000L + tradeBotData.getTradeTimeout() / 4 * 60); // First P2SH locktime is ¼ of timeout period
-			byte[] redeemScript = BTCACCT.buildScript(aliceForeignPublicKeyHash, lockTime, tradeBotData.getTradeForeignPublicKeyHash(), aliceSecretHash);
+			byte[] redeemScript = BTCP2SH.buildScript(aliceForeignPublicKeyHash, lockTime, tradeBotData.getTradeForeignPublicKeyHash(), aliceSecretHash);
 			String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScript);
 
 			Long balance = BTC.getInstance().getBalance(p2shAddress);
