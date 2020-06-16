@@ -85,27 +85,27 @@ public class BlockApiTests extends ApiCommon {
 	}
 
 	@Test
-	public void testGetBlockMinters() throws DataException {
+	public void testGetBlockSigners() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, "alice-reward-share");
 			BlockUtils.mintBlock(repository);
 
 			List<String> addresses = Arrays.asList(aliceAddress, mintingAccount.getAddress(), bobAddress);
 
-			assertNotNull(this.blocksResource.getBlockMinters(Collections.emptyList(), null, null, null));
-			assertNotNull(this.blocksResource.getBlockMinters(addresses, null, null, null));
-			assertNotNull(this.blocksResource.getBlockMinters(Collections.emptyList(), 1, 1, true));
-			assertNotNull(this.blocksResource.getBlockMinters(addresses, 1, 1, true));
+			assertNotNull(this.blocksResource.getBlockSigners(Collections.emptyList(), null, null, null));
+			assertNotNull(this.blocksResource.getBlockSigners(addresses, null, null, null));
+			assertNotNull(this.blocksResource.getBlockSigners(Collections.emptyList(), 1, 1, true));
+			assertNotNull(this.blocksResource.getBlockSigners(addresses, 1, 1, true));
 		}
 	}
 
 	@Test
-	public void testGetBlockSummariesByMinter() throws DataException {
+	public void testGetBlockSummariesBySigner() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockUtils.mintBlock(repository);
 
-			assertNotNull(this.blocksResource.getBlockSummariesByMinter(aliceAddress, null, null, null));
-			assertNotNull(this.blocksResource.getBlockSummariesByMinter(aliceAddress, 1, 1, true));
+			assertNotNull(this.blocksResource.getBlockSummariesBySigner(aliceAddress, null, null, null));
+			assertNotNull(this.blocksResource.getBlockSummariesBySigner(aliceAddress, 1, 1, true));
 		}
 	}
 

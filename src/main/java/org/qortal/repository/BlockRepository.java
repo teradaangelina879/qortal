@@ -2,7 +2,7 @@ package org.qortal.repository;
 
 import java.util.List;
 
-import org.qortal.api.model.BlockMinterSummary;
+import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.BlockTransactionData;
@@ -100,23 +100,23 @@ public interface BlockRepository {
 	}
 
 	/**
-	 * Returns number of blocks minted by account/reward-share with given public key.
+	 * Returns number of blocks signed by account/reward-share with given public key.
 	 * 
 	 * @param publicKey
 	 * @return number of blocks
 	 * @throws DataException
 	 */
-	public int countMintedBlocks(byte[] publicKey) throws DataException;
+	public int countSignedBlocks(byte[] publicKey) throws DataException;
 
 	/**
-	 * Returns summaries of block minters, optionally limited to passed addresses.
+	 * Returns summaries of block signers, optionally limited to passed addresses.
 	 */
-	public List<BlockMinterSummary> getBlockMinters(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<BlockSignerSummary> getBlockSigners(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
-	 * Returns block summaries for blocks minted by passed public key, or reward-share with minter with passed public key.
+	 * Returns block summaries for blocks signed by passed public key, or reward-share with minter with passed public key.
 	 */
-	public List<BlockSummaryData> getBlockSummariesByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<BlockSummaryData> getBlockSummariesBySigner(byte[] signerPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns blocks within height range.

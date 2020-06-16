@@ -23,7 +23,7 @@ import javax.ws.rs.core.MediaType;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
-import org.qortal.api.model.BlockMinterSummary;
+import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
@@ -405,9 +405,9 @@ public class BlocksResource {
 	}
 
 	@GET
-	@Path("/minter/{address}")
+	@Path("/signer/{address}")
 	@Operation(
-		summary = "Fetch block summaries for blocks minted by address",
+		summary = "Fetch block summaries for blocks signed by address",
 		responses = {
 			@ApiResponse(
 				description = "block summaries",
@@ -422,7 +422,7 @@ public class BlocksResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.PUBLIC_KEY_NOT_FOUND, ApiError.REPOSITORY_ISSUE})
-	public List<BlockSummaryData> getBlockSummariesByMinter(@PathParam("address") String address, @Parameter(
+	public List<BlockSummaryData> getBlockSummariesBySigner(@PathParam("address") String address, @Parameter(
 			ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
 				ref = "offset"
@@ -438,30 +438,30 @@ public class BlocksResource {
 			if (accountData == null || accountData.getPublicKey() == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.PUBLIC_KEY_NOT_FOUND);
 
-			return repository.getBlockRepository().getBlockSummariesByMinter(accountData.getPublicKey(), limit, offset, reverse);
+			return repository.getBlockRepository().getBlockSummariesBySigner(accountData.getPublicKey(), limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@GET
-	@Path("/minters")
+	@Path("/signers")
 	@Operation(
-		summary = "Show summary of block minters",
-		description = "Returns count of blocks minted, optionally limited to minters/recipients in passed address(es).",
+		summary = "Show summary of block signers",
+		description = "Returns count of blocks signed, optionally limited to minters/recipients in passed address(es).",
 		responses = {
 			@ApiResponse(
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
-							implementation = BlockMinterSummary.class
+							implementation = BlockSignerSummary.class
 						)
 					)
 				)
 			)
 		}
 	)
-	public List<BlockMinterSummary> getBlockMinters(@QueryParam("address") List<String> addresses,
+	public List<BlockSignerSummary> getBlockSigners(@QueryParam("address") List<String> addresses,
 			@Parameter(
 				ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
@@ -474,7 +474,7 @@ public class BlocksResource {
 				if (!Crypto.isValidAddress(address))
 					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-			return repository.getBlockRepository().getBlockMinters(addresses, limit, offset, reverse);
+			return repository.getBlockRepository().getBlockSigners(addresses, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

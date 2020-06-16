@@ -6,7 +6,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import org.qortal.crypto.Crypto;
 
 @XmlAccessorType(XmlAccessType.FIELD)
-public class BlockMinterSummary {
+public class BlockSignerSummary {
 
 	// Properties
 
@@ -20,19 +20,19 @@ public class BlockMinterSummary {
 
 	// Constructors
 
-	protected BlockMinterSummary() {
+	protected BlockSignerSummary() {
 	}
 
-	/** Constructs BlockMinterSummary in non-reward-share context. */
-	public BlockMinterSummary(byte[] blockMinterPublicKey, int blockCount) {
+	/** Constructs BlockSignerSummary in non-reward-share context. */
+	public BlockSignerSummary(byte[] blockMinterPublicKey, int blockCount) {
 		this.blockCount = blockCount;
 
 		this.mintingAccountPublicKey = blockMinterPublicKey;
 		this.mintingAccount = Crypto.toAddress(this.mintingAccountPublicKey);
 	}
 
-	/** Constructs BlockMinterSummary in reward-share context. */
-	public BlockMinterSummary(byte[] rewardSharePublicKey, int blockCount, byte[] mintingAccountPublicKey, String minterAccount, String recipientAccount) {
+	/** Constructs BlockSignerSummary in reward-share context. */
+	public BlockSignerSummary(byte[] rewardSharePublicKey, int blockCount, byte[] mintingAccountPublicKey, String minterAccount, String recipientAccount) {
 		this.rewardSharePublicKey = rewardSharePublicKey;
 		this.blockCount = blockCount;
 

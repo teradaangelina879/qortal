@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.qortal.api.model.BlockMinterSummary;
+import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.BlockTransactionData;
@@ -187,7 +187,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public int countMintedBlocks(byte[] minterPublicKey) throws DataException {
+	public int countSignedBlocks(byte[] signerPublicKey) throws DataException {
 		String directSql = "SELECT COUNT(*) FROM Blocks WHERE minter = ?";
 
 		String rewardShareSql = "SELECT COUNT(*) FROM RewardShares "
@@ -196,13 +196,13 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 		int totalCount = 0;
 
-		try (ResultSet resultSet = this.repository.checkedExecute(directSql, minterPublicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(directSql, signerPublicKey)) {
 			totalCount += resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to count minted blocks in repository", e);
 		}
 
-		try (ResultSet resultSet = this.repository.checkedExecute(rewardShareSql, minterPublicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(rewardShareSql, signerPublicKey)) {
 			totalCount += resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to count reward-share minted blocks in repository", e);
@@ -212,7 +212,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public List<BlockMinterSummary> getBlockMinters(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<BlockSignerSummary> getBlockSigners(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		String subquerySql = "SELECT minter, COUNT(signature) FROM Blocks GROUP BY minter";
 
 		StringBuilder sql = new StringBuilder(1024);
@@ -245,7 +245,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<BlockMinterSummary> summaries = new ArrayList<>();
+		List<BlockSignerSummary> summaries = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), addresses.toArray())) {
 			if (resultSet == null)
@@ -260,13 +260,13 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				String minterAccount = resultSet.getString(4);
 				String recipientAccount = resultSet.getString(5);
 
-				BlockMinterSummary blockMinterSummary;
+				BlockSignerSummary blockSignerSummary;
 				if (recipientAccount == null)
-					blockMinterSummary = new BlockMinterSummary(blockMinterPublicKey, nBlocks);
+					blockSignerSummary = new BlockSignerSummary(blockMinterPublicKey, nBlocks);
 				else
-					blockMinterSummary = new BlockMinterSummary(blockMinterPublicKey, nBlocks, mintingAccountPublicKey, minterAccount, recipientAccount);
+					blockSignerSummary = new BlockSignerSummary(blockMinterPublicKey, nBlocks, mintingAccountPublicKey, minterAccount, recipientAccount);
 
-				summaries.add(blockMinterSummary);
+				summaries.add(blockSignerSummary);
 			} while (resultSet.next());
 
 			return summaries;
@@ -276,7 +276,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public List<BlockSummaryData> getBlockSummariesByMinter(byte[] minterPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<BlockSummaryData> getBlockSummariesBySigner(byte[] signerPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		sql.append("SELECT signature, height, Blocks.minter, online_accounts_count FROM ");
 
@@ -294,7 +294,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), minterPublicKey, minterPublicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), signerPublicKey, signerPublicKey)) {
 			if (resultSet == null)
 				return blockSummaries;
 
