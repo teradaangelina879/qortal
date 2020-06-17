@@ -481,7 +481,7 @@ public class AtTests extends Common {
 				+ "\tcreator: %s,\n"
 				+ "\tcreation timestamp: %s,\n"
 				+ "\tcurrent balance: %s QORT,\n"
-				+ "\tHASH160 of secret: %s,\n"
+				+ "\tHASH160 of secret-B: %s,\n"
 				+ "\tredeem payout: %s QORT,\n"
 				+ "\texpected bitcoin: %s BTC,\n"
 				+ "\ttrade timeout: %d minutes (from trade start),\n"
@@ -490,7 +490,7 @@ public class AtTests extends Common {
 				tradeData.qortalCreator,
 				epochMilliFormatter.apply(tradeData.creationTimestamp),
 				Amounts.prettyAmount(tradeData.qortBalance),
-				HashCode.fromBytes(tradeData.secretHash).toString().substring(0, 40),
+				HashCode.fromBytes(tradeData.hashOfSecretB).toString().substring(0, 40),
 				Amounts.prettyAmount(tradeData.qortAmount),
 				Amounts.prettyAmount(tradeData.expectedBitcoin),
 				tradeData.tradeTimeout,
@@ -504,9 +504,11 @@ public class AtTests extends Common {
 			// Trade
 			System.out.println(String.format("\tstatus: 'trade mode',\n"
 					+ "\ttrade timeout: block %d,\n"
+					+ "\tHASH160 of secret-A: %s,\n"
 					+ "\tBitcoin P2SH nLockTime: %d (%s),\n"
 					+ "\ttrade recipient: %s",
 					tradeData.tradeRefundHeight,
+					HashCode.fromBytes(tradeData.hashOfSecretA).toString().substring(0, 40),
 					tradeData.lockTime, epochMilliFormatter.apply(tradeData.lockTime * 1000L),
 					tradeData.qortalRecipient));
 		}

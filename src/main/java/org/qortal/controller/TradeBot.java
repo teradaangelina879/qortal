@@ -34,6 +34,7 @@ import org.qortal.transaction.MessageTransaction;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
+import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
 public class TradeBot {
@@ -55,9 +56,6 @@ public class TradeBot {
 	}
 
 	public static byte[] createTrade(Repository repository, TradeBotCreateRequest tradeBotCreateRequest) throws DataException {
-		BTC btc = BTC.getInstance();
-		NetworkParameters params = btc.getNetworkParameters();
-
 		byte[] tradePrivateKey = generateTradePrivateKey();
 		byte[] secret = generateSecret();
 		byte[] secretHash = Crypto.digest(secret);
@@ -125,7 +123,7 @@ public class TradeBot {
 		repository.getCrossChainRepository().save(tradeBotData);
 
 		// P2SH_a to be funded
-		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeForeignPublicKeyHash, crossChainTradeData.lockTime, crossChainTradeData.foreignPublicKeyHash, secretHash);
+		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeForeignPublicKeyHash, crossChainTradeData.lockTime, crossChainTradeData.creatorBitcoinPKH, secretHash);
 		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 		Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -187,7 +185,7 @@ public class TradeBot {
 		// Fetch AT so we can determine trade start timestamp
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
-			LOGGER.error(String.format("Unable to fetch trade AT '%s' from repository", tradeBotData.getAtAddress()));
+			LOGGER.warn(() -> String.format("Unable to fetch trade AT '%s' from repository", tradeBotData.getAtAddress()));
 			return;
 		}
 
@@ -226,7 +224,8 @@ public class TradeBot {
 			System.arraycopy(messageData, 20, aliceForeignPublicKeyHash, 0, 20);
 
 			// Determine P2SH address and confirm funded
-			int lockTime = (int) (tradeStartTimestamp / 1000L + tradeBotData.getTradeTimeout() / 4 * 60); // First P2SH locktime is ¼ of timeout period
+			// First P2SH refund timeout is last in chain, so add all of tradeTimeout
+			int lockTime = (int) (tradeStartTimestamp / 1000L + tradeBotData.getTradeTimeout() * 60);
 			byte[] redeemScript = BTCP2SH.buildScript(aliceForeignPublicKeyHash, lockTime, tradeBotData.getTradeForeignPublicKeyHash(), aliceSecretHash);
 			String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScript);
 
@@ -236,13 +235,13 @@ public class TradeBot {
 
 			// Good to go - send MESSAGE to AT
 
-			byte[] aliceNativePublicKeyHash = Crypto.hash160(messageTransactionData.getCreatorPublicKey());
+			byte[] aliceNativeAddress = Base58.decode(Crypto.toAddress(messageTransactionData.getCreatorPublicKey()));
 
 			// Build outgoing message, padding each part to 32 bytes to make it easier for AT to consume
 			byte[] outgoingMessageData = new byte[96];
-			System.arraycopy(aliceSecretHash, 0, outgoingMessageData, 0, 20);
+			System.arraycopy(aliceNativeAddress, 0, outgoingMessageData, 0, aliceNativeAddress.length);
 			System.arraycopy(aliceForeignPublicKeyHash, 0, outgoingMessageData, 32, 20);
-			System.arraycopy(aliceNativePublicKeyHash, 0, outgoingMessageData, 64, 20);
+			System.arraycopy(aliceSecretHash, 0, outgoingMessageData, 64, 20);
 
 			PrivateKeyAccount sender = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
 			MessageTransaction outgoingMessageTransaction = MessageTransaction.build(repository, sender, Group.NO_GROUP, tradeBotData.getAtAddress(), outgoingMessageData, false, false);
@@ -253,7 +252,7 @@ public class TradeBot {
 			ValidationResult result = outgoingMessageTransaction.importAsUnconfirmed();
 
 			if (result != ValidationResult.OK) {
-				LOGGER.error(String.format("Unable to send MESSAGE to AT '%s': %s", tradeBotData.getAtAddress(), result.name()));
+				LOGGER.warn(() -> String.format("Unable to send MESSAGE to AT '%s': %s", tradeBotData.getAtAddress(), result.name()));
 				return;
 			}
 

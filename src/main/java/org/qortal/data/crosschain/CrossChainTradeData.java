@@ -20,6 +20,12 @@ public class CrossChainTradeData {
 	@Schema(description = "AT creator's Qortal address")
 	public String qortalCreator;
 
+	@Schema(description = "AT creator's Qortal trade address")
+	public String qortalCreatorTradeAddress;
+
+	@Schema(description = "AT creator's Bitcoin public-key-hash (PKH)")
+	public byte[] creatorBitcoinPKH;
+
 	@Schema(description = "Timestamp when AT was created (milliseconds since epoch)")
 	public long creationTimestamp;
 
@@ -27,8 +33,11 @@ public class CrossChainTradeData {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	public long qortBalance;
 
-	@Schema(description = "HASH160 of 32-byte secret")
-	public byte[] secretHash;
+	@Schema(description = "HASH160 of 32-byte secret-A")
+	public byte[] hashOfSecretA;
+
+	@Schema(description = "HASH160 of 32-byte secret-B")
+	public byte[] hashOfSecretB;
 
 	@Schema(description = "Final QORT payment that will be sent to Qortal trade partner")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
@@ -40,8 +49,11 @@ public class CrossChainTradeData {
 	@Schema(description = "Timestamp when AT switched to trade mode")
 	public Long tradeModeTimestamp;
 
-	@Schema(description = "How long from beginning trade until AT triggers automatic refund to AT creator (minutes)")
+	@Schema(description = "General trade timeout (minutes) used to derive P2SH locktimes and AT refund timeout")
 	public int tradeTimeout;
+
+	@Schema(description = "How long from AT creation until AT triggers automatic refund to AT creator (minutes)")
+	public int refundTimeout;
 
 	@Schema(description = "Actual Qortal block height when AT will automatically refund to AT creator (after trade begins)")
 	public Integer tradeRefundHeight;
@@ -55,7 +67,8 @@ public class CrossChainTradeData {
 	@Schema(description = "Suggested Bitcoin P2SH nLockTime based on trade timeout")
 	public Integer lockTime;
 
-	public byte[] foreignPublicKeyHash;
+	@Schema(description = "Trade partner's Bitcoin public-key-hash (PKH)")
+	public byte[] recipientBitcoinPKH;
 
 	// Constructors
 

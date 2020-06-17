@@ -432,7 +432,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.hashOfSecretB);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -483,7 +483,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.hashOfSecretB);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -580,7 +580,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundKey.getPubKeyHash(), crossChainTradeData.lockTime, refundRequest.redeemPublicKeyHash, crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundKey.getPubKeyHash(), crossChainTradeData.lockTime, refundRequest.redeemPublicKeyHash, crossChainTradeData.hashOfSecretB);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -678,7 +678,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(redeemRequest.refundPublicKeyHash, crossChainTradeData.lockTime, redeemKey.getPubKeyHash(), crossChainTradeData.secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(redeemRequest.refundPublicKeyHash, crossChainTradeData.lockTime, redeemKey.getPubKeyHash(), crossChainTradeData.hashOfSecretB);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
