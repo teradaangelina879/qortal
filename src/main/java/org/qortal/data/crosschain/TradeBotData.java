@@ -38,7 +38,6 @@ public class TradeBotData {
 	private State tradeState;
 
 	private String atAddress;
-	private int tradeTimeout;
 
 	private byte[] tradeNativePublicKey;
 	private byte[] tradeNativePublicKeyHash;
@@ -53,14 +52,13 @@ public class TradeBotData {
 
 	private byte[] lastTransactionSignature;
 
-	public TradeBotData(byte[] tradePrivateKey, State tradeState, String atAddress, int tradeTimeout,
+	public TradeBotData(byte[] tradePrivateKey, State tradeState, String atAddress,
 			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, byte[] secret, byte[] secretHash,
 			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash,
 			long bitcoinAmount, byte[] lastTransactionSignature) {
 		this.tradePrivateKey = tradePrivateKey;
 		this.tradeState = tradeState;
 		this.atAddress = atAddress;
-		this.tradeTimeout = tradeTimeout;
 		this.tradeNativePublicKey = tradeNativePublicKey;
 		this.tradeNativePublicKeyHash = tradeNativePublicKeyHash;
 		this.secret = secret;
@@ -89,10 +87,6 @@ public class TradeBotData {
 
 	public void setAtAddress(String atAddress) {
 		this.atAddress = atAddress;
-	}
-
-	public int getTradeTimeout() {
-		return this.tradeTimeout;
 	}
 
 	public byte[] getTradeNativePublicKey() {

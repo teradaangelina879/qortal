@@ -19,7 +19,7 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 
 	@Override
 	public List<TradeBotData> getAllTradeBotData() throws DataException {
-		String sql = "SELECT trade_private_key, trade_state, at_address, trade_timeout, "
+		String sql = "SELECT trade_private_key, trade_state, at_address, "
 				+ "trade_native_public_key, trade_native_public_key_hash, "
 				+ "secret, secret_hash, "
 				+ "trade_foreign_public_key, trade_foreign_public_key_hash, "
@@ -40,18 +40,17 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 					throw new DataException("Illegal trade-bot trade-state fetched from repository");
 
 				String atAddress = resultSet.getString(3);
-				int tradeTimeout = resultSet.getInt(4);
-				byte[] tradeNativePublicKey = resultSet.getBytes(5);
-				byte[] tradeNativePublicKeyHash = resultSet.getBytes(6);
-				byte[] secret = resultSet.getBytes(7);
-				byte[] secretHash = resultSet.getBytes(8);
-				byte[] tradeForeignPublicKey = resultSet.getBytes(9);
-				byte[] tradeForeignPublicKeyHash = resultSet.getBytes(10);
-				long bitcoinAmount = resultSet.getLong(11);
-				byte[] lastTransactionSignature = resultSet.getBytes(12);
+				byte[] tradeNativePublicKey = resultSet.getBytes(4);
+				byte[] tradeNativePublicKeyHash = resultSet.getBytes(5);
+				byte[] secret = resultSet.getBytes(6);
+				byte[] secretHash = resultSet.getBytes(7);
+				byte[] tradeForeignPublicKey = resultSet.getBytes(8);
+				byte[] tradeForeignPublicKeyHash = resultSet.getBytes(9);
+				long bitcoinAmount = resultSet.getLong(10);
+				byte[] lastTransactionSignature = resultSet.getBytes(11);
 
 				TradeBotData tradeBotData = new TradeBotData(tradePrivateKey, tradeState,
-						atAddress, tradeTimeout,
+						atAddress,
 						tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash, 
 						tradeForeignPublicKey, tradeForeignPublicKeyHash,
 						bitcoinAmount, lastTransactionSignature);
@@ -71,7 +70,6 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 		saveHelper.bind("trade_private_key", tradeBotData.getTradePrivateKey())
 				.bind("trade_state", tradeBotData.getState().value)
 				.bind("at_address", tradeBotData.getAtAddress())
-				.bind("trade_timeout", tradeBotData.getTradeTimeout())
 				.bind("trade_native_public_key", tradeBotData.getTradeNativePublicKey())
 				.bind("trade_native_public_key_hash", tradeBotData.getTradeNativePublicKeyHash())
 				.bind("secret", tradeBotData.getSecret()).bind("secret_hash", tradeBotData.getSecretHash())

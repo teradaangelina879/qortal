@@ -49,9 +49,6 @@ public class CrossChainTradeData {
 	@Schema(description = "Timestamp when AT switched to trade mode")
 	public Long tradeModeTimestamp;
 
-	@Schema(description = "General trade timeout (minutes) used to derive P2SH locktimes and AT refund timeout")
-	public int tradeTimeout;
-
 	@Schema(description = "How long from AT creation until AT triggers automatic refund to AT creator (minutes)")
 	public int refundTimeout;
 

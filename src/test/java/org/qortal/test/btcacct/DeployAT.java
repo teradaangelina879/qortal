@@ -34,20 +34,19 @@ public class DeployAT {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <your Bitcoin PKH> <HASH160-of-secret> <AT funding amount> <AT trade timeout>"));
+		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <your Bitcoin PKH> <HASH160-of-secret> <AT funding amount>"));
 		System.err.println(String.format("example: DeployAT "
 				+ "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot \\\n"
 				+ "\t80.4020 \\\n"
 				+ "\t0.00864200 \\\n"
 				+ "\t750b06757a2448b8a4abebaa6e4662833fd5ddbb \\\n"
 				+ "\tdaf59884b4d1aec8c1b17102530909ee43c0151a \\\n"
-				+ "\t123.456 \\\n"
-				+ "\t10"));
+				+ "\t123.456"));
 		System.exit(1);
 	}
 
 	public static void main(String[] args) {
-		if (args.length != 7)
+		if (args.length != 6)
 			usage(null);
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
@@ -59,7 +58,6 @@ public class DeployAT {
 		byte[] bitcoinPublicKeyHash = null;
 		byte[] secretHash = null;
 		long fundingAmount = 0;
-		int tradeTimeout = 0;
 
 		int argIndex = 0;
 		try {
@@ -86,10 +84,6 @@ public class DeployAT {
 			fundingAmount = Long.parseLong(args[argIndex++]);
 			if (fundingAmount <= redeemAmount)
 				usage("AT funding amount must be greater than QORT redeem amount");
-
-			tradeTimeout = Integer.parseInt(args[argIndex++]);
-			if (tradeTimeout < 10 || tradeTimeout > 50000)
-				usage("AT trade timeout should be between 10 and 50,000 minutes");
 		} catch (IllegalArgumentException e) {
 			usage(String.format("Invalid argument %d: %s", argIndex, e.getMessage()));
 		}
@@ -114,7 +108,7 @@ public class DeployAT {
 			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
 			// Deploy AT
-			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, secretHash, tradeTimeout, redeemAmount, expectedBitcoin);
+			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, secretHash, redeemAmount, expectedBitcoin);
 			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			long txTimestamp = System.currentTimeMillis();

@@ -49,7 +49,7 @@ public class AtTests extends Common {
 	public static final byte[] secretB = "This string is roughly 32 bytes?".getBytes();
 	public static final byte[] hashOfSecretB = Crypto.hash160(secretB); // 31f0dd71decf59bbc8ef0661f4030479255cfa58
 	public static final byte[] bitcoinPublicKeyHash = HashCode.fromString("bb00bb11bb22bb33bb44bb55bb66bb77bb88bb99").asBytes();
-	public static final int tradeTimeout = 12; // blocks
+	public static final int tradeTimeout = 20; // blocks
 	public static final long redeemAmount = 80_40200000L;
 	public static final long fundingAmount = 123_45600000L;
 	public static final long bitcoinAmount = 864200L;
@@ -63,7 +63,7 @@ public class AtTests extends Common {
 	public void testCompile() {
 		Account deployer = Common.getTestAccount(null, "chloe");
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, tradeTimeout, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount);
 		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
@@ -176,8 +176,12 @@ public class AtTests extends Common {
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildOfferMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA);
+			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			Block postDeploymentBlock = BlockUtils.mintBlock(repository);
@@ -230,8 +234,12 @@ public class AtTests extends Common {
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+
 			// Send trade info to AT BUT NOT FROM AT CREATOR
-			byte[] messageData = BTCACCT.buildOfferMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA);
+			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, bystander, messageData, atAddress);
 
 			BlockUtils.mintBlock(repository);
@@ -265,8 +273,12 @@ public class AtTests extends Common {
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildOfferMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA);
+			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			Block postDeploymentBlock = BlockUtils.mintBlock(repository);
@@ -308,15 +320,19 @@ public class AtTests extends Common {
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildOfferMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA);
+			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
 			// Send correct secrets to AT, from correct account
-			messageData = BTCACCT.buildTradeMessage(secretA, secretB);
+			messageData = BTCACCT.buildRedeemMessage(secretA, secretB);
 			messageTransaction = sendMessage(repository, recipient, messageData, atAddress);
 
 			// AT should send funds in the next block
@@ -366,15 +382,19 @@ public class AtTests extends Common {
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildOfferMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA);
+			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
 			// Send correct secrets to AT, but from wrong account
-			messageData = BTCACCT.buildTradeMessage(secretA, secretB);
+			messageData = BTCACCT.buildRedeemMessage(secretA, secretB);
 			messageTransaction = sendMessage(repository, bystander, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -412,8 +432,12 @@ public class AtTests extends Common {
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
+			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildOfferMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA);
+			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			// Give AT time to process message
@@ -423,7 +447,7 @@ public class AtTests extends Common {
 			byte[] wrongSecret = new byte[32];
 			Random random = new Random();
 			random.nextBytes(wrongSecret);
-			messageData = BTCACCT.buildTradeMessage(wrongSecret, secretB);
+			messageData = BTCACCT.buildRedeemMessage(wrongSecret, secretB);
 			messageTransaction = sendMessage(repository, recipient, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -442,7 +466,7 @@ public class AtTests extends Common {
 			assertEquals("Recipent's balance incorrect", expectedBalance, actualBalance);
 
 			// Send incorrect secrets to AT, from correct account
-			messageData = BTCACCT.buildTradeMessage(secretA, wrongSecret);
+			messageData = BTCACCT.buildRedeemMessage(secretA, wrongSecret);
 			messageTransaction = sendMessage(repository, recipient, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -497,8 +521,12 @@ public class AtTests extends Common {
 		}
 	}
 
+	private int calcTestLockTimeA(long messageTimestamp) {
+		return (int) (messageTimestamp / 1000L + tradeTimeout * 60);
+	}
+
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, tradeTimeout, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();
@@ -557,7 +585,7 @@ public class AtTests extends Common {
 
 	private void checkTradeRefund(Repository repository, Account deployer, long deployersInitialBalance, long deployAtFee) throws DataException {
 		long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
-		int refundTimeout = BTCACCT.calcRefundTimeout(tradeTimeout);
+		int refundTimeout = tradeTimeout * 3 / 4 + 1; // close enough
 
 		// AT should automatically refund deployer after 'refundTimeout' blocks
 		for (int blockCount = 0; blockCount <= refundTimeout; ++blockCount)
@@ -588,7 +616,6 @@ public class AtTests extends Common {
 				+ "\tHASH160 of secret-B: %s,\n"
 				+ "\tredeem payout: %s QORT,\n"
 				+ "\texpected bitcoin: %s BTC,\n"
-				+ "\ttrade timeout: %d minutes (from AT creation),\n"
 				+ "\tcurrent block height: %d,\n",
 				tradeData.qortalAtAddress,
 				tradeData.qortalCreator,
@@ -598,7 +625,6 @@ public class AtTests extends Common {
 				HashCode.fromBytes(tradeData.hashOfSecretB).toString().substring(0, 40),
 				Amounts.prettyAmount(tradeData.qortAmount),
 				Amounts.prettyAmount(tradeData.expectedBitcoin),
-				tradeData.tradeTimeout,
 				currentBlockHeight));
 
 		// Are we in 'offer' or 'trade' stage?

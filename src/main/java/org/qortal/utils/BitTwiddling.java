@@ -26,6 +26,17 @@ public class BitTwiddling {
 		return new byte[] { (byte) (value), (byte) (value >> 8), (byte) (value >> 16), (byte) (value >> 24) };
 	}
 
+	/** Convert int to big-endian byte array */
+	public static byte[] toBEByteArray(int value) {
+		return new byte[] { (byte) (value >> 24), (byte) (value >> 16), (byte) (value >> 8), (byte) (value) };
+	}
+
+	/** Convert long to big-endian byte array */
+	public static byte[] toBEByteArray(long value) {
+		return new byte[] { (byte) (value >> 56), (byte) (value >> 48), (byte) (value >> 40), (byte) (value >> 32),
+				(byte) (value >> 24), (byte) (value >> 16), (byte) (value >> 8), (byte) (value) };
+	}
+
 	/** Convert little-endian bytes to int */
 	public static int intFromLEBytes(byte[] bytes, int offset) {
 		return (bytes[offset] & 0xff) | (bytes[offset + 1] & 0xff) << 8 | (bytes[offset + 2] & 0xff) << 16 | (bytes[offset + 3] & 0xff) << 24;

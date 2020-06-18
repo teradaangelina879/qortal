@@ -156,7 +156,7 @@ public class CrossChainResource {
 		if (creatorPublicKey == null || creatorPublicKey.length != Transformer.PUBLIC_KEY_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
-		if (tradeRequest.secretHash == null || tradeRequest.secretHash.length != BTC.HASH160_LENGTH)
+		if (tradeRequest.hashOfSecretB == null || tradeRequest.hashOfSecretB.length != BTC.HASH160_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		if (tradeRequest.tradeTimeout == null)
@@ -181,8 +181,8 @@ public class CrossChainResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PublicKeyAccount creatorAccount = new PublicKeyAccount(repository, creatorPublicKey);
 
-			byte[] creationBytes = BTCACCT.buildQortalAT(creatorAccount.getAddress(), tradeRequest.bitcoinPublicKeyHash, tradeRequest.secretHash,
-					tradeRequest.tradeTimeout, tradeRequest.qortAmount, tradeRequest.bitcoinAmount);
+			byte[] creationBytes = BTCACCT.buildQortalAT(creatorAccount.getAddress(), tradeRequest.bitcoinPublicKeyHash, tradeRequest.hashOfSecretB,
+					tradeRequest.qortAmount, tradeRequest.bitcoinAmount);
 
 			long txTimestamp = NTP.getTime();
 			byte[] lastReference = creatorAccount.getLastReference();

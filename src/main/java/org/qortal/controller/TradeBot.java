@@ -56,11 +56,12 @@ public class TradeBot {
 
 	public static byte[] createTrade(Repository repository, TradeBotCreateRequest tradeBotCreateRequest) throws DataException {
 		byte[] tradePrivateKey = generateTradePrivateKey();
-		byte[] secret = generateSecret();
-		byte[] secretHash = Crypto.digest(secret);
+		byte[] secretB = generateSecret();
+		byte[] hashOfSecretB = Crypto.digest(secretB);
 
 		byte[] tradeNativePublicKey = deriveTradeNativePublicKey(tradePrivateKey);
 		byte[] tradeNativePublicKeyHash = Crypto.hash160(tradeNativePublicKey);
+		String tradeAddress = Crypto.toAddress(tradeNativePublicKey);
 
 		byte[] tradeForeignPublicKey = deriveTradeForeignPublicKey(tradePrivateKey);
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
@@ -78,7 +79,7 @@ public class TradeBot {
 		String description = "QORT/BTC cross-chain trade";
 		String aTType = "ACCT";
 		String tags = "ACCT QORT BTC";
-		byte[] creationBytes = BTCACCT.buildQortalAT(creator.getAddress(), tradeNativePublicKeyHash, secretHash, tradeBotCreateRequest.tradeTimeout, tradeBotCreateRequest.qortAmount, tradeBotCreateRequest.bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(tradeAddress, tradeForeignPublicKeyHash, hashOfSecretB, tradeBotCreateRequest.qortAmount, tradeBotCreateRequest.bitcoinAmount);
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
 		DeployAtTransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, aTType, tags, creationBytes, amount, Asset.QORT);
@@ -86,8 +87,8 @@ public class TradeBot {
 		String atAddress = deployAtTransactionData.getAtAddress();
 
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.BOB_WAITING_FOR_MESSAGE,
-				atAddress, tradeBotCreateRequest.tradeTimeout,
-				tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash,
+				atAddress,
+				tradeNativePublicKey, tradeNativePublicKeyHash, secretB, hashOfSecretB,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				tradeBotCreateRequest.bitcoinAmount, null);
 		repository.getCrossChainRepository().save(tradeBotData);
@@ -115,7 +116,7 @@ public class TradeBot {
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.ALICE_WAITING_FOR_P2SH_A,
-				crossChainTradeData.qortalAtAddress, crossChainTradeData.tradeTimeout,
+				crossChainTradeData.qortalAtAddress,
 				tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				crossChainTradeData.expectedBitcoin, null);
@@ -188,8 +189,6 @@ public class TradeBot {
 			return;
 		}
 
-		long atCreationTimestamp = atData.getCreation();
-
 		String address = Crypto.toAddress(tradeBotData.getTradeNativePublicKey());
 		List<MessageTransactionData> messageTransactionsData = repository.getTransactionRepository().getMessagesByRecipient(address, null, null, null);
 
@@ -212,20 +211,15 @@ public class TradeBot {
 
 			// We're expecting: HASH160(secret) + Alice's Bitcoin pubkeyhash
 			byte[] messageData = messageTransactionData.getData();
-
-			if (messageData.length != 40)
+			BTCACCT.OfferMessageData offerMessageData = BTCACCT.extractOfferMessageData(messageData);
+			if (offerMessageData == null)
 				continue;
 
-			byte[] aliceSecretHash = new byte[20];
-			System.arraycopy(messageData, 0, aliceSecretHash, 0, 20);
-
-			byte[] aliceForeignPublicKeyHash = new byte[20];
-			System.arraycopy(messageData, 20, aliceForeignPublicKeyHash, 0, 20);
-
+			byte[] aliceForeignPublicKeyHash = offerMessageData.recipientBitcoinPKH;
+			byte[] hashOfSecretA = offerMessageData.hashOfSecretA;
+			int lockTimeA = (int) offerMessageData.lockTimeA;
 			// Determine P2SH-A address and confirm funded
-			// First P2SH-A refund timeout is last in chain, so add all of tradeTimeout
-			int lockTimeA = BTCACCT.calcLockTimeA(atCreationTimestamp, tradeBotData.getTradeTimeout());
-			byte[] redeemScript = BTCP2SH.buildScript(aliceForeignPublicKeyHash, lockTimeA, tradeBotData.getTradeForeignPublicKeyHash(), aliceSecretHash);
+			byte[] redeemScript = BTCP2SH.buildScript(aliceForeignPublicKeyHash, lockTimeA, tradeBotData.getTradeForeignPublicKeyHash(), hashOfSecretA);
 			String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScript);
 
 			Long balance = BTC.getInstance().getBalance(p2shAddress);
@@ -235,9 +229,10 @@ public class TradeBot {
 			// Good to go - send MESSAGE to AT
 
 			String aliceNativeAddress = Crypto.toAddress(messageTransactionData.getCreatorPublicKey());
+			int lockTimeB = BTCACCT.calcLockTimeB(messageTransactionData.getTimestamp(), lockTimeA);
 
 			// Build outgoing message, padding each part to 32 bytes to make it easier for AT to consume
-			byte[] outgoingMessageData = BTCACCT.buildOfferMessage(aliceNativeAddress, aliceForeignPublicKeyHash, aliceSecretHash);
+			byte[] outgoingMessageData = BTCACCT.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 
 			PrivateKeyAccount sender = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
 			MessageTransaction outgoingMessageTransaction = MessageTransaction.build(repository, sender, Group.NO_GROUP, tradeBotData.getAtAddress(), outgoingMessageData, false, false);

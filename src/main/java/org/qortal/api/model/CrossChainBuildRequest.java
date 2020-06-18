@@ -24,7 +24,7 @@ public class CrossChainBuildRequest {
 	public byte[] bitcoinPublicKeyHash;
 
 	@Schema(description = "HASH160 of secret", example = "43vnftqkjxrhb5kJdkU1ZFQLEnWV")
-	public byte[] secretHash;
+	public byte[] hashOfSecretB;
 
 	@Schema(description = "Bitcoin P2SH BTC balance for release of secret", example = "0.00864200")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
