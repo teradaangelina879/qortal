@@ -64,8 +64,11 @@ public class CrossChainTradeData {
 
 	public Mode mode;
 
-	@Schema(description = "Suggested Bitcoin P2SH nLockTime based on trade timeout")
-	public Integer lockTime;
+	@Schema(description = "Suggested Bitcoin P2SH-A nLockTime based on trade timeout")
+	public Integer lockTimeA;
+
+	@Schema(description = "Suggested Bitcoin P2SH-B nLockTime based on trade timeout")
+	public Integer lockTimeB;
 
 	@Schema(description = "Trade partner's Bitcoin public-key-hash (PKH)")
 	public byte[] recipientBitcoinPKH;

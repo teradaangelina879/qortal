@@ -55,7 +55,7 @@ public class BtcTests extends Common {
 
 		List<byte[]> rawTransactions = BTC.getInstance().getAddressTransactions(p2shAddress);
 
-		byte[] expectedSecret = AtTests.secret;
+		byte[] expectedSecret = "This string is exactly 32 bytes!".getBytes();
 		byte[] secret = BTCP2SH.findP2shSecret(p2shAddress, rawTransactions);
 
 		assertNotNull(secret);

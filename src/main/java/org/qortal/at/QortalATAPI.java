@@ -299,15 +299,12 @@ public class QortalATAPI extends API {
 
 		byte[] messageData = this.getMessageFromTransaction(transactionData);
 
-		// Check data length is appropriate, i.e. not larger than B
-		if (messageData.length > 4 * 8)
-			return;
-
 		// Pad messageData to fit B
-		byte[] paddedMessageData = Bytes.ensureCapacity(messageData, 4 * 8, 0);
+		if (messageData.length < 4 * 8)
+			messageData = Bytes.ensureCapacity(messageData, 4 * 8, 0);
 
 		// Endian must be correct here so that (for example) a SHA256 message can be compared to one generated locally
-		this.setB(state, paddedMessageData);
+		this.setB(state, messageData);
 	}
 
 	@Override

@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
+import java.util.function.ToIntFunction;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
@@ -392,9 +394,9 @@ public class CrossChainResource {
 	}
 
 	@POST
-	@Path("/p2sh")
+	@Path("/p2sh/a")
 	@Operation(
-		summary = "Returns Bitcoin P2SH address based on trade info",
+		summary = "Returns Bitcoin P2SH-A address based on trade info",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -411,7 +413,35 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public String deriveP2sh(CrossChainBitcoinTemplateRequest templateRequest) {
+	public String deriveP2shA(CrossChainBitcoinTemplateRequest templateRequest) {
+		return deriveP2sh(templateRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeA, (crossChainTradeData) -> crossChainTradeData.hashOfSecretA);
+	}
+
+	@POST
+	@Path("/p2sh/b")
+	@Operation(
+		summary = "Returns Bitcoin P2SH-B address based on trade info",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = CrossChainBitcoinTemplateRequest.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public String deriveP2shB(CrossChainBitcoinTemplateRequest templateRequest) {
+		return deriveP2sh(templateRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeB, (crossChainTradeData) -> crossChainTradeData.hashOfSecretB);
+	}
+
+	private String deriveP2sh(CrossChainBitcoinTemplateRequest templateRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
 		BTC btc = BTC.getInstance();
 		NetworkParameters params = btc.getNetworkParameters();
 
@@ -432,7 +462,7 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.hashOfSecretB);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, lockTimeFn.applyAsInt(crossChainTradeData), templateRequest.redeemPublicKeyHash, hashOfSecretFn.apply(crossChainTradeData));
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -443,9 +473,9 @@ public class CrossChainResource {
 	}
 
 	@POST
-	@Path("/p2sh/check")
+	@Path("/p2sh/a/check")
 	@Operation(
-		summary = "Checks Bitcoin P2SH address based on trade info",
+		summary = "Checks Bitcoin P2SH-A address based on trade info",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -462,7 +492,35 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public CrossChainBitcoinP2SHStatus checkP2sh(CrossChainBitcoinTemplateRequest templateRequest) {
+	public CrossChainBitcoinP2SHStatus checkP2shA(CrossChainBitcoinTemplateRequest templateRequest) {
+		return checkP2sh(templateRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeA, (crossChainTradeData) -> crossChainTradeData.hashOfSecretA);
+	}
+
+	@POST
+	@Path("/p2sh/b/check")
+	@Operation(
+		summary = "Checks Bitcoin P2SH-B address based on trade info",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = CrossChainBitcoinTemplateRequest.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = CrossChainBitcoinP2SHStatus.class))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
+	public CrossChainBitcoinP2SHStatus checkP2shB(CrossChainBitcoinTemplateRequest templateRequest) {
+		return checkP2sh(templateRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeB, (crossChainTradeData) -> crossChainTradeData.hashOfSecretB);
+	}
+
+	private CrossChainBitcoinP2SHStatus checkP2sh(CrossChainBitcoinTemplateRequest templateRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
 		BTC btc = BTC.getInstance();
 		NetworkParameters params = btc.getNetworkParameters();
 
@@ -483,7 +541,10 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, crossChainTradeData.lockTime, templateRequest.redeemPublicKeyHash, crossChainTradeData.hashOfSecretB);
+			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
+			byte[] hashOfSecret = hashOfSecretFn.apply(crossChainTradeData);
+
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, lockTime, templateRequest.redeemPublicKeyHash, hashOfSecret);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -508,7 +569,7 @@ public class CrossChainResource {
 
 			if (p2shBalance >= crossChainTradeData.expectedBitcoin && !fundingOutputs.isEmpty()) {
 				p2shStatus.canRedeem = now >= medianBlockTime * 1000L;
-				p2shStatus.canRefund = now >= crossChainTradeData.lockTime * 1000L;
+				p2shStatus.canRefund = now >= lockTime * 1000L;
 			}
 
 			if (now >= medianBlockTime * 1000L) {
@@ -524,9 +585,9 @@ public class CrossChainResource {
 	}
 
 	@POST
-	@Path("/p2sh/refund")
+	@Path("/p2sh/a/refund")
 	@Operation(
-		summary = "Returns serialized Bitcoin transaction attempting refund from P2SH address",
+		summary = "Returns serialized Bitcoin transaction attempting refund from P2SH-A address",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -544,7 +605,36 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN,
 		ApiError.BTC_TOO_SOON, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
-	public String refundP2sh(CrossChainBitcoinRefundRequest refundRequest) {
+	public String refundP2shA(CrossChainBitcoinRefundRequest refundRequest) {
+		return refundP2sh(refundRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeA, (crossChainTradeData) -> crossChainTradeData.hashOfSecretA);
+	}
+
+	@POST
+	@Path("/p2sh/b/refund")
+	@Operation(
+		summary = "Returns serialized Bitcoin transaction attempting refund from P2SH-B address",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = CrossChainBitcoinRefundRequest.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN,
+		ApiError.BTC_TOO_SOON, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
+	public String refundP2shB(CrossChainBitcoinRefundRequest refundRequest) {
+		return refundP2sh(refundRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeB, (crossChainTradeData) -> crossChainTradeData.hashOfSecretB);
+	}
+
+	private String refundP2sh(CrossChainBitcoinRefundRequest refundRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
 		BTC btc = BTC.getInstance();
 		NetworkParameters params = btc.getNetworkParameters();
 
@@ -580,7 +670,10 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundKey.getPubKeyHash(), crossChainTradeData.lockTime, refundRequest.redeemPublicKeyHash, crossChainTradeData.hashOfSecretB);
+			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
+			byte[] hashOfSecret = hashOfSecretFn.apply(crossChainTradeData);
+
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundKey.getPubKeyHash(), lockTime, refundRequest.redeemPublicKeyHash, hashOfSecret);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -597,7 +690,7 @@ public class CrossChainResource {
 			if (fundingOutputs.isEmpty())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-			boolean canRefund = now >= crossChainTradeData.lockTime * 1000L;
+			boolean canRefund = now >= lockTime * 1000L;
 			if (!canRefund)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_TOO_SOON);
 
@@ -606,7 +699,7 @@ public class CrossChainResource {
 
 			Coin refundAmount = Coin.valueOf(p2shBalance - refundRequest.bitcoinMinerFee.unscaledValue().longValue());
 
-			org.bitcoinj.core.Transaction refundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, crossChainTradeData.lockTime);
+			org.bitcoinj.core.Transaction refundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime);
 			boolean wasBroadcast = BTC.getInstance().broadcastTransaction(refundTransaction);
 
 			if (!wasBroadcast)
@@ -619,9 +712,9 @@ public class CrossChainResource {
 	}
 
 	@POST
-	@Path("/p2sh/redeem")
+	@Path("/p2sh/a/redeem")
 	@Operation(
-		summary = "Returns serialized Bitcoin transaction attempting redeem from P2SH address",
+		summary = "Returns serialized Bitcoin transaction attempting redeem from P2SH-A address",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -639,7 +732,36 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN,
 		ApiError.BTC_TOO_SOON, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
-	public String redeemP2sh(CrossChainBitcoinRedeemRequest redeemRequest) {
+	public String redeemP2shA(CrossChainBitcoinRedeemRequest redeemRequest) {
+		return redeemP2sh(redeemRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeA, (crossChainTradeData) -> crossChainTradeData.hashOfSecretA);
+	}
+
+	@POST
+	@Path("/p2sh/b/redeem")
+	@Operation(
+		summary = "Returns serialized Bitcoin transaction attempting redeem from P2SH-B address",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = CrossChainBitcoinRedeemRequest.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN,
+		ApiError.BTC_TOO_SOON, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
+	public String redeemP2shB(CrossChainBitcoinRedeemRequest redeemRequest) {
+		return redeemP2sh(redeemRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeB, (crossChainTradeData) -> crossChainTradeData.hashOfSecretB);
+	}
+
+	private String redeemP2sh(CrossChainBitcoinRedeemRequest redeemRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
 		BTC btc = BTC.getInstance();
 		NetworkParameters params = btc.getNetworkParameters();
 
@@ -678,7 +800,10 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode == Mode.OFFER)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(redeemRequest.refundPublicKeyHash, crossChainTradeData.lockTime, redeemKey.getPubKeyHash(), crossChainTradeData.hashOfSecretB);
+			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
+			byte[] hashOfSecret = hashOfSecretFn.apply(crossChainTradeData);
+
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(redeemRequest.refundPublicKeyHash, lockTime, redeemKey.getPubKeyHash(), hashOfSecret);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);

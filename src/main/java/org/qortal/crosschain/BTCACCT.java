@@ -107,6 +107,8 @@ public class BTCACCT {
 	 * @return
 	 */
 	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] bitcoinPublicKeyHash, byte[] hashOfSecretB, int tradeTimeout, long qortAmount, long bitcoinAmount) {
+		int refundTimeout = calcRefundTimeout(tradeTimeout);
+
 		// Labels for data segment addresses
 		int addrCounter = 0;
 
@@ -207,7 +209,7 @@ public class BTCACCT {
 
 		// Refund timeout in minutes (¾ of trade-timeout)
 		assert dataByteBuffer.position() == addrRefundTimeout * MachineState.VALUE_SIZE : "addrRefundTimeout incorrect";
-		dataByteBuffer.putLong(tradeTimeout * 3 / 4);
+		dataByteBuffer.putLong(refundTimeout);
 
 		// Redeem Qort amount
 		assert dataByteBuffer.position() == addrQortAmount * MachineState.VALUE_SIZE : "addrQortAmount incorrect";
@@ -263,7 +265,7 @@ public class BTCACCT {
 
 		// Offset into TRADE MESSAGE data payload for extracting secret-B
 		assert dataByteBuffer.position() == addrTradeMessageSecretBOffset * MachineState.VALUE_SIZE : "addrTradeMessageSecretBOffset incorrect";
-		dataByteBuffer.putLong(64L);
+		dataByteBuffer.putLong(32L);
 
 		// Source location and length for hashing any passed secret
 		assert dataByteBuffer.position() == addrMessageDataPointer * MachineState.VALUE_SIZE : "addrMessageDataPointer incorrect";
@@ -634,9 +636,10 @@ public class BTCACCT {
 		// Skip temporary message data
 		dataByteBuffer.position(dataByteBuffer.position() + 8 * 4);
 
-		// Potential hash of secret A
-		byte[] hashOfSecretA = new byte[32];
+		// Potential hash160 of secret A
+		byte[] hashOfSecretA = new byte[20];
 		dataByteBuffer.get(hashOfSecretA);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - hashOfSecretA.length); // skip to 32 bytes
 
 		// Potential recipient's Bitcoin PKH
 		byte[] recipientBitcoinPKH = new byte[20];
@@ -651,11 +654,60 @@ public class BTCACCT {
 			tradeData.qortalRecipient = qortalRecipient;
 			tradeData.hashOfSecretA = hashOfSecretA;
 			tradeData.recipientBitcoinPKH = recipientBitcoinPKH;
+			tradeData.lockTimeA = calcLockTimeA(tradeData.creationTimestamp, tradeData.tradeTimeout);
+			tradeData.lockTimeB = calcLockTimeB(tradeData.creationTimestamp, tradeData.tradeTimeout);
 		} else {
 			tradeData.mode = CrossChainTradeData.Mode.OFFER;
 		}
 
 		return tradeData;
+	}
+
+	/** Returns trade-info MESSAGE payload for AT creator to send to AT. */
+	public static byte[] buildOfferMessage(String recipientQortalAddress, byte[] recipientBitcoinPKH, byte[] hashOfSecretA) {
+		byte[] data = new byte[32 + 32 + 32];
+		byte[] recipientQortalAddressBytes = Base58.decode(recipientQortalAddress);
+
+		System.arraycopy(recipientQortalAddressBytes, 0, data, 0, recipientQortalAddressBytes.length);
+		System.arraycopy(recipientBitcoinPKH, 0, data, 32, recipientBitcoinPKH.length);
+		System.arraycopy(hashOfSecretA, 0, data, 64, hashOfSecretA.length);
+
+		return data;
+	}
+
+	/** Returns refund MESSAGE payload for AT creator to cancel trade AT. */
+	public static byte[] buildRefundMessage(String creatorQortalAddress) {
+		byte[] data = new byte[32];
+		byte[] creatorQortalAddressBytes = Base58.decode(creatorQortalAddress);
+
+		System.arraycopy(creatorQortalAddressBytes, 0, data, 0, creatorQortalAddressBytes.length);
+
+		return data;
+	}
+
+	/** Returns redeem MESSAGE payload for trade partner/recipient to send to AT. */
+	public static byte[] buildTradeMessage(byte[] secretA, byte[] secretB) {
+		byte[] data = new byte[32 + 32];
+
+		System.arraycopy(secretA, 0, data, 0, secretA.length);
+		System.arraycopy(secretB, 0, data, 32, secretB.length);
+
+		return data;
+	}
+
+	/** Returns AT refundTimeout (minutes) based on tradeTimeout. */
+	public static int calcRefundTimeout(int tradeTimeout) {
+		return tradeTimeout * 3 / 4;
+	}
+
+	/** Returns P2SH-A lockTime (epoch seconds). */
+	public static int calcLockTimeA(long atCreationTimestamp, int tradeTimeout) {
+		return (int) (atCreationTimestamp / 1000L + tradeTimeout * 60);
+	}
+
+	/** Returns P2SH-B lockTime (epoch seconds). */
+	public static int calcLockTimeB(long atCreationTimestamp, int tradeTimeout) {
+		return (int) (atCreationTimestamp / 1000L + tradeTimeout / 2 * 60);
 	}
 
 }
