@@ -157,17 +157,20 @@ public class HSQLDBChatRepository implements ChatRepository {
 	}
 
 	private List<GroupChat> getActiveGroupChats(String address) throws DataException {
-		// Find groups where address is a member and potential latest timestamp
-		String groupsSql = "SELECT group_id, group_name, ("
-					+ "SELECT created_when "
-					+ "FROM Transactions "
+		// Find groups where address is a member and potential latest message details
+		String groupsSql = "SELECT group_id, group_name, latest_timestamp, sender, sender_name "
+				+ "FROM GroupMembers "
+				+ "JOIN Groups USING (group_id) "
+				+ "CROSS JOIN LATERAL("
+					+ "SELECT created_when AS latest_timestamp, sender, name AS sender_name "
+					+ "FROM ChatTransactions "
+					+ "JOIN Transactions USING (signature) "
+					+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
 					// NOTE: We need to qualify "Groups.group_id" here to avoid "General error" bug in HSQLDB v2.5.0
 					+ "WHERE tx_group_id = Groups.group_id AND type = " + TransactionType.CHAT.value + " "
 					+ "ORDER BY created_when DESC "
 					+ "LIMIT 1"
-				+ ") AS latest_timestamp "
-				+ "FROM GroupMembers "
-				+ "JOIN Groups USING (group_id) "
+				+ ") AS LatestMessages "
 				+ "WHERE address = ?";
 
 		List<GroupChat> groupChats = new ArrayList<>();
@@ -181,7 +184,10 @@ public class HSQLDBChatRepository implements ChatRepository {
 					if (timestamp == 0 && resultSet.wasNull())
 						timestamp = null;
 
-					GroupChat groupChat = new GroupChat(groupId, groupName, timestamp);
+					String sender = resultSet.getString(4);
+					String senderName = resultSet.getString(5);
+
+					GroupChat groupChat = new GroupChat(groupId, groupName, timestamp, sender, senderName);
 					groupChats.add(groupChat);
 				} while (resultSet.next());
 			}
@@ -190,9 +196,10 @@ public class HSQLDBChatRepository implements ChatRepository {
 		}
 
 		// We need different SQL to handle group-less chat
-		String grouplessSql = "SELECT created_when "
+		String grouplessSql = "SELECT created_when, sender, SenderNames.name "
 				+ "FROM ChatTransactions "
 				+ "JOIN Transactions USING (signature) "
+				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
 				+ "WHERE tx_group_id = 0 "
 				+ "AND recipient IS NULL "
 				+ "ORDER BY created_when DESC "
@@ -200,12 +207,17 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 		try (ResultSet resultSet = this.repository.checkedExecute(grouplessSql)) {
 			Long timestamp = null;
+			String sender = null;
+			String senderName = null;
 
-			if (resultSet != null)
-				// We found a recipient-less, group-less CHAT message, so report its timestamp
+			if (resultSet != null) {
+				// We found a recipient-less, group-less CHAT message, so report its details
 				timestamp = resultSet.getLong(1);
+				sender = resultSet.getString(2);
+				senderName = resultSet.getString(3);
+			}
 
-			GroupChat groupChat = new GroupChat(0, null, timestamp);
+			GroupChat groupChat = new GroupChat(0, null, timestamp, sender, senderName);
 			groupChats.add(groupChat);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch active group chats from repository", e);
@@ -216,7 +228,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 	private List<DirectChat> getActiveDirectChats(String address) throws DataException {
 		// Find chat messages involving address
-		String directSql = "SELECT other_address, name, latest_timestamp "
+		String directSql = "SELECT other_address, name, latest_timestamp, sender, sender_name "
 				+ "FROM ("
 					+ "SELECT recipient FROM ChatTransactions "
 					+ "WHERE sender = ? AND recipient IS NOT NULL "
@@ -225,13 +237,15 @@ public class HSQLDBChatRepository implements ChatRepository {
 					+ "WHERE recipient = ?"
 				+ ") AS OtherParties (other_address) "
 				+ "CROSS JOIN LATERAL("
-					+ "SELECT created_when FROM ChatTransactions "
+					+ "SELECT created_when AS latest_timestamp, sender, name AS sender_name "
+					+ "FROM ChatTransactions "
 					+ "NATURAL JOIN Transactions "
+					+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
 					+ "WHERE (sender = other_address AND recipient = ?) "
 					+ "OR (sender = ? AND recipient = other_address) "
 					+ "ORDER BY created_when DESC "
 					+ "LIMIT 1"
-				+ ") AS LatestMessages (latest_timestamp) "
+				+ ") AS LatestMessages "
 				+ "LEFT OUTER JOIN Names ON owner = other_address";
 
 		Object[] bindParams = new Object[] { address, address, address, address };
@@ -245,8 +259,10 @@ public class HSQLDBChatRepository implements ChatRepository {
 				String otherAddress = resultSet.getString(1);
 				String name = resultSet.getString(2);
 				long timestamp = resultSet.getLong(3);
+				String sender = resultSet.getString(4);
+				String senderName = resultSet.getString(5);
 
-				DirectChat directChat = new DirectChat(otherAddress, name, timestamp);
+				DirectChat directChat = new DirectChat(otherAddress, name, timestamp, sender, senderName);
 				directChats.add(directChat);
 			} while (resultSet.next());
 		} catch (SQLException e) {

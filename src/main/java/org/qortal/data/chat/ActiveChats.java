@@ -12,17 +12,22 @@ public class ActiveChats {
 	public static class GroupChat {
 		private int groupId;
 		private String groupName;
-		// Might not be present for groupId 0
+
+		// The following fields might not be present for groupId 0
 		private Long timestamp;
+		private String sender;
+		private String senderName;
 
 		protected GroupChat() {
 			/* JAXB */
 		}
 
-		public GroupChat(int groupId, String groupName, Long timestamp) {
+		public GroupChat(int groupId, String groupName, Long timestamp, String sender, String senderName) {
 			this.groupId = groupId;
 			this.groupName = groupName;
 			this.timestamp = timestamp;
+			this.sender = sender;
+			this.senderName = senderName;
 		}
 
 		public int getGroupId() {
@@ -36,6 +41,14 @@ public class ActiveChats {
 		public Long getTimestamp() {
 			return this.timestamp;
 		}
+
+		public String getSender() {
+			return this.sender;
+		}
+
+		public String getSenderName() {
+			return this.senderName;
+		}
 	}
 
 	@XmlAccessorType(XmlAccessType.FIELD)
@@ -43,15 +56,19 @@ public class ActiveChats {
 		private String address;
 		private String name;
 		private long timestamp;
+		private String sender;
+		private String senderName;
 
 		protected DirectChat() {
 			/* JAXB */
 		}
 
-		public DirectChat(String address, String name, long timestamp) {
+		public DirectChat(String address, String name, long timestamp, String sender, String senderName) {
 			this.address = address;
 			this.name = name;
 			this.timestamp = timestamp;
+			this.sender = sender;
+			this.senderName = senderName;
 		}
 
 		public String getAddress() {
@@ -64,6 +81,14 @@ public class ActiveChats {
 
 		public long getTimestamp() {
 			return this.timestamp;
+		}
+
+		public String getSender() {
+			return this.sender;
+		}
+
+		public String getSenderName() {
+			return this.senderName;
 		}
 	}
 
