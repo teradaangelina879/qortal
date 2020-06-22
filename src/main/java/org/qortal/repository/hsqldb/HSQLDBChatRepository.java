@@ -161,7 +161,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 		String groupsSql = "SELECT group_id, group_name, latest_timestamp, sender, sender_name "
 				+ "FROM GroupMembers "
 				+ "JOIN Groups USING (group_id) "
-				+ "CROSS JOIN LATERAL("
+				+ "LEFT OUTER JOIN LATERAL("
 					+ "SELECT created_when AS latest_timestamp, sender, name AS sender_name "
 					+ "FROM ChatTransactions "
 					+ "JOIN Transactions USING (signature) "
@@ -170,7 +170,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 					+ "WHERE tx_group_id = Groups.group_id AND type = " + TransactionType.CHAT.value + " "
 					+ "ORDER BY created_when DESC "
 					+ "LIMIT 1"
-				+ ") AS LatestMessages "
+				+ ") AS LatestMessages ON TRUE "
 				+ "WHERE address = ?";
 
 		List<GroupChat> groupChats = new ArrayList<>();
