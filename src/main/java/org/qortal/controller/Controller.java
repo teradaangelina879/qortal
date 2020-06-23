@@ -238,11 +238,9 @@ public class Controller extends Thread {
 		return this.chainTip;
 	}
 
-	/** Cache new blockchain tip, maybe call trade-bot. */
+	/** Cache new blockchain tip. */
 	public void setChainTip(BlockData blockData) {
 		this.chainTip = blockData;
-
-		TradeBot.getInstance().onChainTipChange();
 	}
 
 	public ReentrantLock getBlockchainLock() {
@@ -793,6 +791,9 @@ public class Controller extends Thread {
 				this.notifyGroupMembershipChange = false;
 				ChatNotifier.getInstance().onGroupMembershipChange();
 			}
+
+			// Trade-bot might want to perform some actions too
+			TradeBot.getInstance().onChainTipChange();
 		});
 	}
 

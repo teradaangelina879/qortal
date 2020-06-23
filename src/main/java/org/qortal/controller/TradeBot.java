@@ -57,7 +57,7 @@ public class TradeBot {
 	public static byte[] createTrade(Repository repository, TradeBotCreateRequest tradeBotCreateRequest) throws DataException {
 		byte[] tradePrivateKey = generateTradePrivateKey();
 		byte[] secretB = generateSecret();
-		byte[] hashOfSecretB = Crypto.digest(secretB);
+		byte[] hashOfSecretB = Crypto.hash160(secretB);
 
 		byte[] tradeNativePublicKey = deriveTradeNativePublicKey(tradePrivateKey);
 		byte[] tradeNativePublicKeyHash = Crypto.hash160(tradeNativePublicKey);
@@ -83,15 +83,21 @@ public class TradeBot {
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
 		DeployAtTransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, aTType, tags, creationBytes, amount, Asset.QORT);
+
+		DeployAtTransaction deployAtTransaction = new DeployAtTransaction(repository, deployAtTransactionData);
+		fee = deployAtTransaction.calcRecommendedFee();
+		deployAtTransactionData.setFee(fee);
+
 		DeployAtTransaction.ensureATAddress(deployAtTransactionData);
 		String atAddress = deployAtTransactionData.getAtAddress();
 
-		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.BOB_WAITING_FOR_MESSAGE,
+		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.BOB_WAITING_FOR_AT_CONFIRM,
 				atAddress,
 				tradeNativePublicKey, tradeNativePublicKeyHash, secretB, hashOfSecretB,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				tradeBotCreateRequest.bitcoinAmount, null);
 		repository.getCrossChainRepository().save(tradeBotData);
+		repository.saveChanges();
 
 		// Return to user for signing and broadcast as we don't have their Qortal private key
 		try {
@@ -121,6 +127,7 @@ public class TradeBot {
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				crossChainTradeData.expectedBitcoin, null);
 		repository.getCrossChainRepository().save(tradeBotData);
+		repository.saveChanges();
 
 		// P2SH_a to be funded
 		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeForeignPublicKeyHash, crossChainTradeData.lockTimeA, crossChainTradeData.creatorBitcoinPKH, secretHash);
@@ -179,6 +186,7 @@ public class TradeBot {
 
 		tradeBotData.setState(TradeBotData.State.BOB_WAITING_FOR_MESSAGE);
 		repository.getCrossChainRepository().save(tradeBotData);
+		repository.saveChanges();
 	}
 
 	private void handleBobWaitingForMessage(Repository repository, TradeBotData tradeBotData) throws DataException {
@@ -252,6 +260,7 @@ public class TradeBot {
 		}
 
 		repository.getCrossChainRepository().save(tradeBotData);
+		repository.saveChanges();
 	}
 
 }

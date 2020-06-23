@@ -32,6 +32,7 @@ import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.TransactionOutput;
+import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
@@ -866,6 +867,11 @@ public class CrossChainResource {
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
 	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Do some simple checking first
+			Account creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);
+			if (creator.getConfirmedBalance(Asset.QORT) < tradeBotCreateRequest.fundingQortAmount)
+				throw TransactionsResource.createTransactionInvalidException(request, ValidationResult.NO_BALANCE);
+
 			byte[] unsignedBytes = TradeBot.createTrade(repository, tradeBotCreateRequest);
 
 			return Base58.encode(unsignedBytes);
