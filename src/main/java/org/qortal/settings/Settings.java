@@ -63,6 +63,9 @@ public class Settings {
 	private Boolean apiRestricted;
 	private boolean apiLoggingEnabled = false;
 	private boolean apiDocumentationEnabled = false;
+	// Both of these need to be set for API to use SSL
+	private String sslKeystorePathname = null;
+	private String sslKeystorePassword = null;
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -293,6 +296,14 @@ public class Settings {
 
 	public boolean isApiDocumentationEnabled() {
 		return this.apiDocumentationEnabled;
+	}
+
+	public String getSslKeystorePathname() {
+		return this.sslKeystorePathname;
+	}
+
+	public String getSslKeystorePassword() {
+		return this.sslKeystorePassword;
 	}
 
 	public boolean getWipeUnconfirmedOnStart() {
