@@ -125,10 +125,10 @@ public class Controller extends Thread {
 	private final long buildTimestamp; // seconds
 	private final String[] savedArgs;
 
-	private ExecutorService newTransactionExecutor = Executors.newSingleThreadExecutor();
+	private ExecutorService callbackExecutor = Executors.newFixedThreadPool(3);
+	private volatile boolean notifyGroupMembershipChange = false;
 
 	private volatile BlockData chainTip = null;
-	private ExecutorService newBlockExecutor = Executors.newSingleThreadExecutor();
 
 	private long repositoryBackupTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
@@ -733,6 +733,22 @@ public class Controller extends Thread {
 		System.exit(0);
 	}
 
+	// Callbacks
+
+	public void onGroupMembershipChange(int groupId) {
+		/*
+		 * We've likely been called in the middle of block processing,
+		 * so set a flag for now as other repository sessions won't 'see'
+		 * the group membership change until a call to repository.saveChanges().
+		 * 
+		 * Eventually, onNewBlock() will be executed and queue a callback task.
+		 * This callback task will check the flag and notify websocket listeners, etc.
+		 * and those listeners will be post-saveChanges() and hence see the new
+		 * group membership state.
+		 */
+		this.notifyGroupMembershipChange = true;
+	}
+
 	// Callbacks for/from network
 
 	public void doNetworkBroadcast() {
@@ -759,17 +775,22 @@ public class Controller extends Thread {
 		requestSysTrayUpdate = true;
 
 		// Broadcast our new height info and notify websocket listeners
-		this.newBlockExecutor.execute(() -> {
+		this.callbackExecutor.execute(() -> {
 			Network network = Network.getInstance();
 			network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
 
 			BlockNotifier.getInstance().onNewBlock(latestBlockData);
+
+			if (this.notifyGroupMembershipChange) {
+				this.notifyGroupMembershipChange = false;
+				ChatNotifier.getInstance().onGroupMembershipChange();
+			}
 		});
 	}
 
 	/** Callback for when we've received a new transaction via API or peer. */
 	public void onNewTransaction(TransactionData transactionData, Peer peer) {
-		this.newTransactionExecutor.execute(() -> {
+		this.callbackExecutor.execute(() -> {
 			// Notify all peers (except maybe peer that sent it to us if applicable)
 			Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(Arrays.asList(transactionData.getSignature())));
 

@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
+import org.qortal.controller.Controller;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.group.GroupAdminData;
 import org.qortal.data.group.GroupBanData;
@@ -140,6 +141,8 @@ public class Group {
 	private void addMember(String member, long joined, byte[] reference) throws DataException {
 		GroupMemberData groupMemberData = new GroupMemberData(this.groupData.getGroupId(), member, joined, reference);
 		groupRepository.save(groupMemberData);
+
+		Controller.getInstance().onGroupMembershipChange(this.groupData.getGroupId());
 	}
 
 	private void addMember(String member, TransactionData transactionData) throws DataException {
@@ -153,6 +156,8 @@ public class Group {
 
 	private void deleteMember(String member) throws DataException {
 		groupRepository.deleteMember(this.groupData.getGroupId(), member);
+
+		Controller.getInstance().onGroupMembershipChange(this.groupData.getGroupId());
 	}
 
 	// Adminship

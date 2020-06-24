@@ -40,4 +40,9 @@ public class ChatNotifier {
 			listener.notify(chatTransactionData);
 	}
 
+	public synchronized void onGroupMembershipChange() {
+		for (Listener listener : this.listenersBySession.values())
+			listener.notify(null);
+	}
+
 }
