@@ -530,7 +530,7 @@ public class HSQLDBDatabaseUpdates {
 
 					// Leave group
 					stmt.execute("CREATE TABLE LeaveGroupTransactions (signature Signature, leaver QortalPublicKey NOT NULL, group_id GroupID NOT NULL, "
-							+ "member_reference Signature, admin_reference Signature, " + TRANSACTION_KEYS + ")");
+							+ "member_reference Signature, admin_reference Signature, previous_group_id GroupID, " + TRANSACTION_KEYS + ")");
 
 					// Kick from group
 					stmt.execute("CREATE TABLE GroupKickTransactions (signature Signature, admin QortalPublicKey NOT NULL, "
@@ -616,6 +616,11 @@ public class HSQLDBDatabaseUpdates {
 				case 19:
 					// PUBLICIZE transactions
 					stmt.execute("CREATE TABLE PublicizeTransactions (signature Signature, nonce INT NOT NULL, " + TRANSACTION_KEYS + ")");
+					break;
+
+				case 20:
+					// XXX Bug-fix, but remove when we build new genesis
+					stmt.execute("ALTER TABLE LeaveGroupTransactions ADD COLUMN IF NOT EXISTS previous_group_id GroupID");
 					break;
 
 				default:

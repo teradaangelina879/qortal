@@ -313,7 +313,7 @@ public class TransferPrivsTests extends Common {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderAccount.getPublicKey(), fee, null);
 		TransactionData transactionData = new TransferPrivsTransactionData(baseTransactionData, recipientAccount.getAddress());
 
-		TransactionUtils.signAsUnconfirmed(repository, transactionData, senderAccount);
+		TransactionUtils.signAndImportValid(repository, transactionData, senderAccount);
 		BlockMinter.mintTestingBlock(repository, mintingAccount);
 	}
 

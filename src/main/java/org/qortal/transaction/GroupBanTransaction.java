@@ -72,7 +72,11 @@ public class GroupBanTransaction extends Transaction {
 
 		Account offender = getOffender();
 
-		// Can't ban another admin unless the group owner
+		// Can't ban group owner
+		if (offender.getAddress().equals(groupData.getOwner()))
+			return ValidationResult.INVALID_GROUP_OWNER;
+
+		// Can't ban another admin unless admin is the group owner
 		if (!admin.getAddress().equals(groupData.getOwner()) && this.repository.getGroupRepository().adminExists(groupId, offender.getAddress()))
 			return ValidationResult.INVALID_GROUP_OWNER;
 

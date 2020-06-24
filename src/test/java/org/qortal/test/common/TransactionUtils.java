@@ -5,6 +5,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.List;
 
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.data.transaction.TransactionData;
@@ -17,8 +18,25 @@ import org.qortal.transaction.Transaction.ValidationResult;
 
 public class TransactionUtils {
 
-	/** Signs transaction using given account and imports into unconfirmed pile. */
-	public static void signAsUnconfirmed(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
+	/** Signs transaction using given account and attempts to import into unconfirmed pile, returning validation result. */
+	public static ValidationResult signAndImport(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
+		Transaction transaction = Transaction.fromData(repository, transactionData);
+		transaction.sign(signingAccount);
+
+		// Add to unconfirmed
+		assertTrue("Transaction's signature should be valid", transaction.isSignatureValid());
+
+		// We might need to wait until transaction's timestamp is valid for the block we're about to mint
+		try {
+			Thread.sleep(1L);
+		} catch (InterruptedException e) {
+		}
+
+		return transaction.importAsUnconfirmed();
+	}
+
+	/** Signs transaction using given account and imports into unconfirmed pile, checking transaction is valid. */
+	public static void signAndImportValid(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
 		Transaction transaction = Transaction.fromData(repository, transactionData);
 		transaction.sign(signingAccount);
 
@@ -37,7 +55,7 @@ public class TransactionUtils {
 
 	/** Signs transaction using given account and mints a new block.<br> See {@link BlockUtils#mintBlock(Repository)} */
 	public static void signAndMint(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
-		signAsUnconfirmed(repository, transactionData, signingAccount);
+		signAndImportValid(repository, transactionData, signingAccount);
 
 		// Mint block
 		BlockUtils.mintBlock(repository);
@@ -56,6 +74,15 @@ public class TransactionUtils {
 		} catch (ClassNotFoundException e) {
 			throw new RuntimeException(String.format("Transaction subclass not found for transaction type \"%s\"", txType.name()), e);
 		}
+	}
+
+	public static void deleteUnconfirmedTransactions(Repository repository) throws DataException {
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+
+		for (TransactionData transactionData : unconfirmedTransactions)
+			repository.getTransactionRepository().delete(transactionData);
+
+		repository.saveChanges();
 	}
 
 }

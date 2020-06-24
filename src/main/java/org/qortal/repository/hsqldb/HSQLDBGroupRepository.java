@@ -828,7 +828,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupBans");
 
 		saveHelper.bind("group_id", groupBanData.getGroupId()).bind("offender", groupBanData.getOffender()).bind("admin", groupBanData.getAdmin())
-				.bind("banned", groupBanData.getBanned()).bind("reason", groupBanData.getReason()).bind("expiry", groupBanData.getExpiry())
+				.bind("banned_when", groupBanData.getBanned()).bind("reason", groupBanData.getReason()).bind("expires_when", groupBanData.getExpiry())
 				.bind("reference", groupBanData.getReference());
 
 		try {

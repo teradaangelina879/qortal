@@ -74,7 +74,11 @@ public class GroupKickTransaction extends Transaction {
 		if (!groupRepository.joinRequestExists(groupId, member.getAddress()) && !groupRepository.memberExists(groupId, member.getAddress()))
 			return ValidationResult.NOT_GROUP_MEMBER;
 
-		// Can't kick another admin unless the group owner
+		// Can't kick group owner
+		if (member.getAddress().equals(groupData.getOwner()))
+			return ValidationResult.INVALID_GROUP_OWNER;
+
+		// Can't kick another admin unless kicker is the group owner
 		if (!admin.getAddress().equals(groupData.getOwner()) && groupRepository.adminExists(groupId, member.getAddress()))
 			return ValidationResult.INVALID_GROUP_OWNER;
 

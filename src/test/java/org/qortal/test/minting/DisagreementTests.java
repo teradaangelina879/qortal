@@ -86,7 +86,7 @@ public class DisagreementTests extends Common {
 
 			// Cancel reward-share
 			TransactionData cancelRewardShareTransactionData = AccountUtils.createRewardShare(repository, "alice", "bob", CANCEL_SHARE_PERCENT);
-			TransactionUtils.signAsUnconfirmed(repository, cancelRewardShareTransactionData, signingAccount);
+			TransactionUtils.signAndImportValid(repository, cancelRewardShareTransactionData, signingAccount);
 			BlockMinter.mintTestingBlockRetainingTimestamps(repository, mintingAccount);
 
 			// Confirm reward-share no longer exists in repository

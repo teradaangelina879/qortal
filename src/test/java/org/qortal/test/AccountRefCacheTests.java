@@ -257,11 +257,11 @@ public class AccountRefCacheTests extends Common {
 
 			// generate new payment from Alice to new account
 			TransactionData paymentData1 = new PaymentTransactionData(TestTransaction.generateBase(alice), newbie.getAddress(), amount);
-			TransactionUtils.signAsUnconfirmed(repository, paymentData1, alice); // updates paymentData1's signature
+			TransactionUtils.signAndImportValid(repository, paymentData1, alice); // updates paymentData1's signature
 
 			// generate another payment from Alice to new account
 			TransactionData paymentData2 = new PaymentTransactionData(TestTransaction.generateBase(alice), newbie.getAddress(), amount);
-			TransactionUtils.signAsUnconfirmed(repository, paymentData2, alice); // updates paymentData2's signature
+			TransactionUtils.signAndImportValid(repository, paymentData2, alice); // updates paymentData2's signature
 
 			// mint block containing payments (uses cache)
 			BlockUtils.mintBlock(repository);

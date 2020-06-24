@@ -76,6 +76,10 @@ public class RemoveGroupAdminTransaction extends Transaction {
 		if (!this.repository.getGroupRepository().adminExists(groupId, admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
+		// Check admin is not group owner
+		if (admin.getAddress().equals(groupData.getOwner()))
+			return ValidationResult.INVALID_GROUP_OWNER;
+
 		// Check creator has enough funds
 		if (owner.getConfirmedBalance(Asset.QORT) < this.removeGroupAdminTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
