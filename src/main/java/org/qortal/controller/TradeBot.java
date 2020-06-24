@@ -155,6 +155,10 @@ public class TradeBot {
 	}
 
 	public void onChainTipChange() {
+		// No point doing anything on old/stale data
+		if (!Controller.getInstance().isUpToDate())
+			return;
+
 		if (!activeFlag.compareAndSet(false, true))
 			// Trade bot already active on another thread
 			return;
