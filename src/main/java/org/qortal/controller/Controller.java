@@ -647,6 +647,10 @@ public class Controller extends Thread {
 
 		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height);
 		SysTray.getInstance().setToolTipText(tooltip);
+
+		this.callbackExecutor.execute(() -> {
+			StatusNotifier.getInstance().onStatusChange(NTP.getTime());
+		});
 	}
 
 	public void deleteExpiredTransactions() {
