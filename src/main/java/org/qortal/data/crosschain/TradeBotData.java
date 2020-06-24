@@ -22,7 +22,7 @@ public class TradeBotData {
 
 	public enum State {
 		BOB_WAITING_FOR_AT_CONFIRM(10), BOB_WAITING_FOR_MESSAGE(20), BOB_SENDING_MESSAGE_TO_AT(30), BOB_WAITING_FOR_P2SH_B(40), BOB_WAITING_FOR_AT_REDEEM(50),
-		ALICE_WAITING_FOR_P2SH_A(110), ALICE_WAITING_FOR_AT_LOCK(120), ALICE_WATCH_P2SH_B(130);
+		ALICE_WAITING_FOR_P2SH_A(80), ALICE_WAITING_FOR_AT_LOCK(90), ALICE_WATCH_P2SH_B(100);
 
 		public final int value;
 		private static final Map<Integer, State> map = stream(State.values()).collect(toMap(state -> state.value, state -> state));
@@ -43,7 +43,7 @@ public class TradeBotData {
 	private byte[] tradeNativePublicKeyHash;
 
 	private byte[] secret;
-	private byte[] secretHash;
+	private byte[] hashOfSecret;
 
 	private byte[] tradeForeignPublicKey;
 	private byte[] tradeForeignPublicKeyHash;
@@ -52,21 +52,24 @@ public class TradeBotData {
 
 	private byte[] lastTransactionSignature;
 
+	private Integer lockTimeA;
+
 	public TradeBotData(byte[] tradePrivateKey, State tradeState, String atAddress,
-			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, byte[] secret, byte[] secretHash,
+			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, byte[] secret, byte[] hashOfSecret,
 			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash,
-			long bitcoinAmount, byte[] lastTransactionSignature) {
+			long bitcoinAmount, byte[] lastTransactionSignature, Integer lockTimeA) {
 		this.tradePrivateKey = tradePrivateKey;
 		this.tradeState = tradeState;
 		this.atAddress = atAddress;
 		this.tradeNativePublicKey = tradeNativePublicKey;
 		this.tradeNativePublicKeyHash = tradeNativePublicKeyHash;
 		this.secret = secret;
-		this.secretHash = secretHash;
+		this.hashOfSecret = hashOfSecret;
 		this.tradeForeignPublicKey = tradeForeignPublicKey;
 		this.tradeForeignPublicKeyHash = tradeForeignPublicKeyHash;
 		this.bitcoinAmount = bitcoinAmount;
 		this.lastTransactionSignature = lastTransactionSignature;
+		this.lockTimeA = lockTimeA;
 	}
 
 	public byte[] getTradePrivateKey() {
@@ -101,8 +104,8 @@ public class TradeBotData {
 		return this.secret;
 	}
 
-	public byte[] getSecretHash() {
-		return this.secretHash;
+	public byte[] getHashOfSecret() {
+		return this.hashOfSecret;
 	}
 
 	public byte[] getTradeForeignPublicKey() {
@@ -123,6 +126,14 @@ public class TradeBotData {
 
 	public void setLastTransactionSignature(byte[] lastTransactionSignature) {
 		this.lastTransactionSignature = lastTransactionSignature;
+	}
+
+	public Integer getLockTimeA() {
+		return this.lockTimeA;
+	}
+
+	public void setLockTimeA(Integer lockTimeA) {
+		this.lockTimeA = lockTimeA;
 	}
 
 }

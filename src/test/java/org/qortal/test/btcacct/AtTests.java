@@ -63,7 +63,7 @@ public class AtTests extends Common {
 	public void testCompile() {
 		Account deployer = Common.getTestAccount(null, "chloe");
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
 		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
@@ -526,7 +526,7 @@ public class AtTests extends Common {
 	}
 
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();

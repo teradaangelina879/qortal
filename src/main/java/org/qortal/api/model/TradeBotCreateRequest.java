@@ -24,6 +24,9 @@ public class TradeBotCreateRequest {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	public long bitcoinAmount;
 
+	@Schema(description = "Suggested trade timeout (minutes)", example = "10080")
+	public int tradeTimeout;
+
 	public TradeBotCreateRequest() {
 	}
 

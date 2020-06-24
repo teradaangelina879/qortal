@@ -98,6 +98,10 @@ public class BTC {
 		return format(Coin.valueOf(amount));
 	}
 
+	public String pkhToAddress(byte[] publicKeyHash) {
+		return LegacyAddress.fromPubKeyHash(this.params, publicKeyHash).toString();
+	}
+
 	public String deriveP2shAddress(byte[] redeemScriptBytes) {
 		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 		Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);

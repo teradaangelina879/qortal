@@ -4,13 +4,11 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bitcoinj.core.Address;
 import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.LegacyAddress;
-import org.bitcoinj.core.NetworkParameters;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.model.TradeBotCreateRequest;
@@ -43,8 +41,10 @@ public class TradeBot {
 	
 	private static TradeBot instance;
 
+	/** To help ensure only TradeBot is only active on one thread. */
+	private AtomicBoolean activeFlag = new AtomicBoolean(false);
+
 	private TradeBot() {
-		
 	}
 
 	public static synchronized TradeBot getInstance() {
@@ -79,7 +79,7 @@ public class TradeBot {
 		String description = "QORT/BTC cross-chain trade";
 		String aTType = "ACCT";
 		String tags = "ACCT QORT BTC";
-		byte[] creationBytes = BTCACCT.buildQortalAT(tradeAddress, tradeForeignPublicKeyHash, hashOfSecretB, tradeBotCreateRequest.qortAmount, tradeBotCreateRequest.bitcoinAmount);
+		byte[] creationBytes = BTCACCT.buildQortalAT(tradeAddress, tradeForeignPublicKeyHash, hashOfSecretB, tradeBotCreateRequest.qortAmount, tradeBotCreateRequest.bitcoinAmount, tradeBotCreateRequest.tradeTimeout);
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
 		DeployAtTransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, aTType, tags, creationBytes, amount, Asset.QORT);
@@ -95,7 +95,7 @@ public class TradeBot {
 				atAddress,
 				tradeNativePublicKey, tradeNativePublicKeyHash, secretB, hashOfSecretB,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
-				tradeBotCreateRequest.bitcoinAmount, null);
+				tradeBotCreateRequest.bitcoinAmount, null, null);
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -108,12 +108,9 @@ public class TradeBot {
 	}
 
 	public static String startResponse(Repository repository, CrossChainTradeData crossChainTradeData) throws DataException {
-		BTC btc = BTC.getInstance();
-		NetworkParameters params = btc.getNetworkParameters();
-
 		byte[] tradePrivateKey = generateTradePrivateKey();
-		byte[] secret = generateSecret();
-		byte[] secretHash = Crypto.digest(secret);
+		byte[] secretA = generateSecret();
+		byte[] hashOfSecretA = Crypto.hash160(secretA);
 
 		byte[] tradeNativePublicKey = deriveTradeNativePublicKey(tradePrivateKey);
 		byte[] tradeNativePublicKeyHash = Crypto.hash160(tradeNativePublicKey);
@@ -121,20 +118,20 @@ public class TradeBot {
 		byte[] tradeForeignPublicKey = deriveTradeForeignPublicKey(tradePrivateKey);
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 
+		// We need to generate lockTimeA: halfway of refundTimeout from now
+		int lockTimeA = crossChainTradeData.tradeTimeout * 60 + (int) (NTP.getTime() / 1000L);
+
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.ALICE_WAITING_FOR_P2SH_A,
 				crossChainTradeData.qortalAtAddress,
-				tradeNativePublicKey, tradeNativePublicKeyHash, secret, secretHash,
+				tradeNativePublicKey, tradeNativePublicKeyHash, secretA, hashOfSecretA,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
-				crossChainTradeData.expectedBitcoin, null);
+				crossChainTradeData.expectedBitcoin, null, lockTimeA);
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
 		// P2SH_a to be funded
-		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeForeignPublicKeyHash, crossChainTradeData.lockTimeA, crossChainTradeData.creatorBitcoinPKH, secretHash);
-		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
-
-		Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
-		return p2shAddress.toString();
+		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeForeignPublicKeyHash, lockTimeA, crossChainTradeData.creatorBitcoinPKH, hashOfSecretA);
+		return BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 	}
 
 	private static byte[] generateTradePrivateKey() {
@@ -158,11 +155,17 @@ public class TradeBot {
 	}
 
 	public void onChainTipChange() {
+		if (!activeFlag.compareAndSet(false, true))
+			// Trade bot already active on another thread
+			return;
+
 		// Get repo for trade situations
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
 
-			for (TradeBotData tradeBotData : allTradeBotData)
+			for (TradeBotData tradeBotData : allTradeBotData) {
+				repository.discardChanges();
+
 				switch (tradeBotData.getState()) {
 					case BOB_WAITING_FOR_AT_CONFIRM:
 						handleBobWaitingForAtConfirm(repository, tradeBotData);
@@ -172,11 +175,18 @@ public class TradeBot {
 						handleBobWaitingForMessage(repository, tradeBotData);
 						break;
 
+					case ALICE_WAITING_FOR_P2SH_A:
+						handleAliceWaitingForP2shA(repository, tradeBotData);
+						break;
+
 					default:
 						LOGGER.warn(() -> String.format("Unhandled trade-bot state %s", tradeBotData.getState().name()));
 				}
+			}
 		} catch (DataException e) {
 			LOGGER.error("Couldn't run trade bot due to repository issue", e);
+		} finally {
+			activeFlag.set(false);
 		}
 	}
 
@@ -200,10 +210,12 @@ public class TradeBot {
 		String address = Crypto.toAddress(tradeBotData.getTradeNativePublicKey());
 		List<MessageTransactionData> messageTransactionsData = repository.getTransactionRepository().getMessagesByRecipient(address, null, null, null);
 
+		final byte[] originalLastTransactionSignature = tradeBotData.getLastTransactionSignature();
+
 		// Skip past previously processed messages
-		if (tradeBotData.getLastTransactionSignature() != null)
+		if (originalLastTransactionSignature != null)
 			for (int i = 0; i < messageTransactionsData.size(); ++i)
-				if (Arrays.equals(messageTransactionsData.get(i).getSignature(), tradeBotData.getLastTransactionSignature())) {
+				if (Arrays.equals(messageTransactionsData.get(i).getSignature(), originalLastTransactionSignature)) {
 					messageTransactionsData.subList(0, i + 1).clear();
 					break;
 				}
@@ -248,17 +260,62 @@ public class TradeBot {
 			outgoingMessageTransaction.computeNonce();
 			outgoingMessageTransaction.sign(sender);
 
+			// reset repository state to prevent deadlock
+			repository.discardChanges();
 			ValidationResult result = outgoingMessageTransaction.importAsUnconfirmed();
 
 			if (result != ValidationResult.OK) {
-				LOGGER.warn(() -> String.format("Unable to send MESSAGE to AT '%s': %s", tradeBotData.getAtAddress(), result.name()));
+				LOGGER.warn(() -> String.format("Unable to send MESSAGE to AT '%s': %s", outgoingMessageTransaction.getRecipient(), result.name()));
 				return;
 			}
 
 			tradeBotData.setState(TradeBotData.State.BOB_WAITING_FOR_P2SH_B);
-			break;
+			repository.getCrossChainRepository().save(tradeBotData);
+			repository.saveChanges();
+			return;
 		}
 
+		// Don't resave if we don't need to
+		if (tradeBotData.getLastTransactionSignature() != originalLastTransactionSignature) {
+			repository.getCrossChainRepository().save(tradeBotData);
+			repository.saveChanges();
+		}
+	}
+
+	private void handleAliceWaitingForP2shA(Repository repository, TradeBotData tradeBotData) throws DataException {
+		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
+		if (atData == null) {
+			LOGGER.warn(() -> String.format("Unable to fetch trade AT '%s' from repository", tradeBotData.getAtAddress()));
+			return;
+		}
+		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+
+		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
+		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
+
+		Long balance = BTC.getInstance().getBalance(p2shAddress);
+		if (balance == null || balance < crossChainTradeData.expectedBitcoin)
+			return;
+
+		// Attempt to send MESSAGE to Bob's Qortal trade address
+		byte[] messageData = BTCACCT.buildOfferMessage(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
+
+		PrivateKeyAccount sender = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
+		MessageTransaction messageTransaction = MessageTransaction.build(repository, sender, Group.NO_GROUP, crossChainTradeData.qortalCreatorTradeAddress, messageData, false, false);
+
+		messageTransaction.computeNonce();
+		messageTransaction.sign(sender);
+
+		// reset repository state to prevent deadlock
+		repository.discardChanges();
+		ValidationResult result = messageTransaction.importAsUnconfirmed();
+
+		if (result != ValidationResult.OK) {
+			LOGGER.warn(() -> String.format("Unable to send MESSAGE to AT '%s': %s", messageTransaction.getRecipient(), result.name()));
+			return;
+		}
+
+		tradeBotData.setState(TradeBotData.State.ALICE_WAITING_FOR_AT_LOCK);
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 	}

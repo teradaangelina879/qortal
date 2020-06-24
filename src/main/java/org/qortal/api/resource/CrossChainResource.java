@@ -183,7 +183,7 @@ public class CrossChainResource {
 			PublicKeyAccount creatorAccount = new PublicKeyAccount(repository, creatorPublicKey);
 
 			byte[] creationBytes = BTCACCT.buildQortalAT(creatorAccount.getAddress(), tradeRequest.bitcoinPublicKeyHash, tradeRequest.hashOfSecretB,
-					tradeRequest.qortAmount, tradeRequest.bitcoinAmount);
+					tradeRequest.qortAmount, tradeRequest.bitcoinAmount, tradeRequest.tradeTimeout);
 
 			long txTimestamp = NTP.getTime();
 			byte[] lastReference = creatorAccount.getLastReference();
@@ -866,6 +866,9 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
 	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
+		if (tradeBotCreateRequest.tradeTimeout < 600)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Do some simple checking first
 			Account creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);

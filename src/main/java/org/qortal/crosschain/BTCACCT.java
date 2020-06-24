@@ -88,7 +88,7 @@ public class BTCACCT {
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("ca0dc643fdaba4d12cd5550800a8353746f40a0d9824d8c10d8b4bd0324eac0d").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("14ee2cb9899f582037901c384bab9ccdd41e48d8c98bf7df5cf79f4e8c236286").asBytes(); // SHA256 of AT code bytes
 
 	public static class OfferMessageData {
 		public byte[] recipientBitcoinPKH;
@@ -110,9 +110,10 @@ public class BTCACCT {
 	 * @param hashOfSecretB 20-byte HASH160 of 32-byte secret-B
 	 * @param qortAmount how much QORT to pay trade partner if they send correct 32-byte secrets to AT
 	 * @param bitcoinAmount how much BTC the AT creator is expecting to trade
+	 * @param tradeTimeout suggested timeout for entire trade
 	 * @return
 	 */
-	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] bitcoinPublicKeyHash, byte[] hashOfSecretB, long qortAmount, long bitcoinAmount) {
+	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] bitcoinPublicKeyHash, byte[] hashOfSecretB, long qortAmount, long bitcoinAmount, int tradeTimeout) {
 		// Labels for data segment addresses
 		int addrCounter = 0;
 
@@ -131,6 +132,7 @@ public class BTCACCT {
 
 		final int addrQortAmount = addrCounter++;
 		final int addrBitcoinAmount = addrCounter++;
+		final int addrTradeTimeout = addrCounter++;
 
 		final int addrMessageTxType = addrCounter++;
 		final int addrExpectedOfferMessageLength = addrCounter++;
@@ -215,6 +217,10 @@ public class BTCACCT {
 		// Expected Bitcoin amount
 		assert dataByteBuffer.position() == addrBitcoinAmount * MachineState.VALUE_SIZE : "addrBitcoinAmount incorrect";
 		dataByteBuffer.putLong(bitcoinAmount);
+
+		// Suggested trade timeout (minutes)
+		assert dataByteBuffer.position() == addrTradeTimeout * MachineState.VALUE_SIZE : "addrTradeTimeout incorrect";
+		dataByteBuffer.putLong(tradeTimeout);
 
 		// We're only interested in MESSAGE transactions
 		assert dataByteBuffer.position() == addrMessageTxType * MachineState.VALUE_SIZE : "addrMessageTxType incorrect";
@@ -565,6 +571,8 @@ public class BTCACCT {
 		// Expected BTC amount
 		tradeData.expectedBitcoin = dataByteBuffer.getLong();
 
+		tradeData.tradeTimeout = (int) dataByteBuffer.getLong();
+
 		// Skip MESSAGE transaction type
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
@@ -624,7 +632,7 @@ public class BTCACCT {
 		int lockTimeB = (int) dataByteBuffer.getLong();
 
 		// AT refund timeout (probably only useful for debugging)
-		tradeData.refundTimeout = (int) dataByteBuffer.getLong();
+		int refundTimeout = (int) dataByteBuffer.getLong();
 
 		// Trade offer timeout (AT 'timestamp' converted to Qortal block height)
 		long tradeRefundTimestamp = dataByteBuffer.getLong();
@@ -664,6 +672,7 @@ public class BTCACCT {
 
 		if (mode != 0) {
 			tradeData.mode = CrossChainTradeData.Mode.TRADE;
+			tradeData.refundTimeout = refundTimeout;
 			tradeData.tradeRefundHeight = new Timestamp(tradeRefundTimestamp).blockHeight;
 			tradeData.qortalRecipient = qortalRecipient;
 			tradeData.hashOfSecretA = hashOfSecretA;
@@ -685,7 +694,7 @@ public class BTCACCT {
 
 	/** Returns trade-info extracted from MESSAGE payload sent by trade partner/recipient, or null if not valid. */
 	public static OfferMessageData extractOfferMessageData(byte[] messageData) {
-		if (messageData == null || messageData.length != 32 + 32 + 8)
+		if (messageData == null || messageData.length != 20 + 20 + 8)
 			return null;
 
 		OfferMessageData offerMessageData = new OfferMessageData();
