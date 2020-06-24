@@ -3,7 +3,10 @@ package org.qortal.test;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.block.BlockChain;
+import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
@@ -24,8 +27,11 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.MessageTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.NTP;
 
 import static org.junit.Assert.*;
+
+import java.util.Random;
 
 public class MessageTests extends Common {
 
@@ -67,6 +73,44 @@ public class MessageTests extends Common {
 
 		// Alice is not part of new group
 		assertFalse(isValid(newGroupId, null, 0L, null));
+	}
+
+	@Test
+	public void referenceTests() throws DataException {
+		Random random = new Random();
+
+		byte[] randomPrivateKey = new byte[32];
+		random.nextBytes(randomPrivateKey);
+
+		byte[] randomReference = new byte[64];
+		random.nextBytes(randomReference);
+
+		long minimumFee = BlockChain.getInstance().getUnitFee();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			PrivateKeyAccount newbie = new PrivateKeyAccount(repository, randomPrivateKey);
+
+			byte[] aliceReference = alice.getLastReference();
+
+			// real account, correct reference, real fee: OK
+			assertTrue(hasValidReference(repository, alice, aliceReference, minimumFee));
+			// real account, random reference, real fee: INVALID
+			assertFalse(hasValidReference(repository, alice, randomReference, minimumFee));
+			// real account, correct reference, zero fee: OK
+			assertTrue(hasValidReference(repository, alice, aliceReference, 0));
+			// real account, random reference, zero fee: OK
+			assertTrue(hasValidReference(repository, alice, randomReference, 0));
+
+			// new account, null reference, real fee: INVALID: new accounts don't have a reference!
+			assertFalse(hasValidReference(repository, newbie, null, minimumFee));
+			// new account, wrong reference, real fee: INVALID: new accounts don't have a reference!
+			assertFalse(hasValidReference(repository, newbie, randomReference, minimumFee));
+			// new account, null reference, zero fee: INVALID
+			assertFalse(hasValidReference(repository, newbie, null, 0));
+			// new account, random reference, zero fee: OK
+			assertTrue(hasValidReference(repository, newbie, randomReference, 0));
+		}
 	}
 
 	@Test
@@ -137,6 +181,18 @@ public class MessageTests extends Common {
 
 			return transaction.isValidUnconfirmed() == ValidationResult.OK;
 		}
+	}
+
+	private boolean hasValidReference(Repository repository, PrivateKeyAccount sender, byte[] reference, long fee) throws DataException {
+		long timestamp = NTP.getTime();
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		int version = 4;
+		byte[] data = "test".getBytes();
+		boolean isText = true;
+		boolean isEncrypted = false;
+		MessageTransactionData messageTransactionData = new MessageTransactionData(baseTransactionData, version, 0, recipient, 0, null, data, isText, isEncrypted);
+		MessageTransaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
+		return messageTransaction.hasValidReference();
 	}
 
 	private void testFeeNonce(boolean withFee, boolean withNonce, boolean isValid) throws DataException {

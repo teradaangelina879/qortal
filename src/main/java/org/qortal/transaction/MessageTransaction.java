@@ -2,13 +2,16 @@ package org.qortal.transaction;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 import org.qortal.account.Account;
+import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
+import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
@@ -20,6 +23,7 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.MessageTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.NTP;
 
 public class MessageTransaction extends Transaction {
 
@@ -43,6 +47,22 @@ public class MessageTransaction extends Transaction {
 		super(repository, transactionData);
 
 		this.messageTransactionData = (MessageTransactionData) this.transactionData;
+	}
+
+	/** Constructs non-payment MessageTransaction. Caller will need to compute nonce/set fee and then sign. */
+	public static MessageTransaction build(Repository repository, PrivateKeyAccount sender, int txGroupId, String recipient, byte[] data, boolean isText, boolean isEncrypted) throws DataException {
+		long timestamp = NTP.getTime();
+		byte[] reference = sender.getLastReference();
+		if (reference == null) {
+			reference = new byte[64];
+			new Random().nextBytes(reference);
+		}
+
+		long fee = 0L;
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, sender.getPublicKey(), fee, null);
+		int version = 4;
+		MessageTransactionData messageTransactionData = new MessageTransactionData(baseTransactionData, version, 0, recipient, 0, null, data, isText, isEncrypted);
+		return new MessageTransaction(repository, messageTransactionData);
 	}
 
 	// More information
@@ -138,6 +158,19 @@ public class MessageTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		return ValidationResult.OK;
+	}
+
+	@Override
+	public boolean hasValidReference() throws DataException {
+		// We shouldn't really get this far, but just in case:
+		if (this.messageTransactionData.getReference() == null)
+			return false;
+
+		// If zero fee, then we rely on nonce and reference isn't important
+		if (this.messageTransactionData.getFee() == 0)
+			return true;
+
+		return super.hasValidReference();
 	}
 
 	@Override
