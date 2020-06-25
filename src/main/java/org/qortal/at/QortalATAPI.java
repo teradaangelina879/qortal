@@ -449,6 +449,9 @@ public class QortalATAPI extends API {
 	public void platformSpecificPostCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
 		QortalFunctionCode qortalFunctionCode = QortalFunctionCode.valueOf(rawFunctionCode);
 
+		if (qortalFunctionCode == null)
+			throw new IllegalFunctionCodeException("Unknown Qortal function code 0x" + String.format("%04x", rawFunctionCode) + " encountered");
+
 		qortalFunctionCode.execute(functionData, state, rawFunctionCode);
 	}
 

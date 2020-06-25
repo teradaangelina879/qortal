@@ -100,7 +100,11 @@ public class AT {
 
 		// [Re]create AT machine state using AT state data or from scratch as applicable
 		MachineState state = MachineState.fromBytes(api, loggerFactory, latestAtStateData.getStateData(), codeBytes);
-		state.execute();
+		try {
+			state.execute();
+		} catch (Exception e) {
+			throw new DataException(String.format("Uncaught exception while running AT '%s'", atAddress), e);
+		}
 
 		long creation = this.atData.getCreation();
 		byte[] stateData = state.toBytes();
