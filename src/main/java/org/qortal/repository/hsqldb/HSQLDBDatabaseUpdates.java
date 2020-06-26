@@ -618,11 +618,6 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TABLE PublicizeTransactions (signature Signature, nonce INT NOT NULL, " + TRANSACTION_KEYS + ")");
 					break;
 
-				case 20:
-					// XXX Bug-fix, but remove when we build new genesis
-					stmt.execute("ALTER TABLE LeaveGroupTransactions ADD COLUMN IF NOT EXISTS previous_group_id GroupID");
-					break;
-
 				default:
 					// nothing to do
 					return false;

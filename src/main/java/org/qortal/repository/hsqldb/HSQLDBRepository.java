@@ -24,6 +24,8 @@ import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.account.PrivateKeyAccount;
+import org.qortal.crypto.Crypto;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.AccountRepository;
 import org.qortal.repository.ArbitraryRepository;
@@ -742,6 +744,20 @@ public class HSQLDBRepository implements Repository {
 		} catch (SQLException e) {
 			throw new DataException("Error checking repository status after " + context, e);
 		}
+	}
+
+	public static byte[] ed25519PrivateToPublicKey(byte[] privateKey) {
+		if (privateKey == null)
+			return null;
+
+		return PrivateKeyAccount.toPublicKey(privateKey);
+	}
+
+	public static String ed25519PublicKeyToAddress(byte[] publicKey) {
+		if (publicKey == null)
+			return null;
+
+		return Crypto.toAddress(publicKey);
 	}
 
 }

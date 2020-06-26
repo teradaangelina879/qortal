@@ -510,7 +510,7 @@ public class BlockChain {
 		}
 	}
 
-	private static boolean isGenesisBlockValid() throws DataException {
+	private static boolean isGenesisBlockValid() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockRepository blockRepository = repository.getBlockRepository();
 
@@ -523,6 +523,8 @@ public class BlockChain {
 				return false;
 
 			return GenesisBlock.isGenesisBlock(blockData);
+		} catch (DataException e) {
+			return false;
 		}
 	}
 
