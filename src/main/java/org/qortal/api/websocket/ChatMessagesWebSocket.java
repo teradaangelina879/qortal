@@ -94,6 +94,10 @@ public class ChatMessagesWebSocket extends WebSocketServlet implements ApiWebSoc
 	}
 
 	private void onNotify(Session session, ChatTransactionData chatTransactionData, int txGroupId) {
+		if (chatTransactionData == null)
+			// There has been a group-membership change, but we're not interested
+			return;
+
 		// We only want group-based messages with our txGroupId
 		if (chatTransactionData.getRecipient() != null || chatTransactionData.getTxGroupId() != txGroupId)
 			return;
