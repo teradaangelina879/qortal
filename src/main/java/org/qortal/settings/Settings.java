@@ -47,7 +47,7 @@ public class Settings {
 	// UI servers
 	private int uiPort = 12388;
 	private String[] uiLocalServers = new String[] {
-		"localhost", "172.24.1.1", "qor.tal"
+		"localhost", "127.0.0.1", "172.24.1.1", "qor.tal"
 	};
 	private String[] uiRemoteServers = new String[] {
 		"node1.qortal.org", "node2.qortal.org", "node3.qortal.org", "node4.qortal.org", "node5.qortal.org",
@@ -106,7 +106,9 @@ public class Settings {
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
 		"https://github.com/QORT/qortal/raw/%s/qortal.update",
-		"https://raw.githubusercontent.com@151.101.16.133/QORT/qortal/%s/qortal.update"
+		"https://raw.githubusercontent.com@151.101.16.133/QORT/qortal/%s/qortal.update",
+		"https://github.com/Qortal/qortal/raw/%s/qortal.update",
+		"https://raw.githubusercontent.com@151.101.16.133/Qortal/qortal/%s/qortal.update"
 	};
 
 	/** Array of NTP server hostnames. */
