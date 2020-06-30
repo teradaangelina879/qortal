@@ -765,8 +765,10 @@ public class Controller extends Thread {
 		BlockData latestBlockData = getChainTip();
 		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
 
-		// Send (if outbound) / Request unconfirmed transaction signatures
-		network.broadcast(network::buildGetUnconfirmedTransactionsMessage);
+		// Request unconfirmed transaction signatures, but only if we're up-to-date.
+		// If we're NOT up-to-date then priority is synchronizing first
+		if (isUpToDate())
+			network.broadcast(network::buildGetUnconfirmedTransactionsMessage);
 	}
 
 	public void onMintingPossibleChange(boolean isMintingPossible) {
@@ -1040,7 +1042,12 @@ public class Controller extends Thread {
 
 	private void onNetworkGetUnconfirmedTransactionsMessage(Peer peer, Message message) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<byte[]> signatures = repository.getTransactionRepository().getUnconfirmedTransactionSignatures();
+			List<byte[]> signatures = Collections.emptyList();
+
+			// If we're NOT up-to-date then don't send out unconfirmed transactions
+			// as it's possible they are already included in a later block that we don't have.
+			if (isUpToDate())
+				signatures = repository.getTransactionRepository().getUnconfirmedTransactionSignatures();
 
 			Message transactionSignaturesMessage = new TransactionSignaturesMessage(signatures);
 			if (!peer.sendMessage(transactionSignaturesMessage))
