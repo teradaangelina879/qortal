@@ -635,7 +635,7 @@ public class Network {
 
 	/** Called when Peer's thread has setup and is ready to process messages */
 	public void onPeerReady(Peer peer) {
-		this.onMessage(peer, null);
+		onHandshakingMessage(peer, null, Handshake.STARTED);
 	}
 
 	public void onDisconnect(Peer peer) {
@@ -777,7 +777,7 @@ public class Network {
 		opportunisticMergePeers(peer.toString(), peerV2Addresses);
 	}
 
-	private void onHandshakeCompleted(Peer peer) {
+	/*pacakge*/ void onHandshakeCompleted(Peer peer) {
 		LOGGER.debug(String.format("Handshake completed with peer %s", peer));
 
 		// Are we already connected to this peer?

@@ -164,6 +164,11 @@ public enum Handshake {
 
 			peer.setPeersNodeId(Crypto.toNodeAddress(peersPublicKey));
 
+			// For inbound peers, we need to go into interim holding state while we compute RESPONSE
+			if (!peer.isOutbound())
+				return RESPONDING;
+
+			// Handshake completed!
 			return COMPLETED;
 		}
 
@@ -184,22 +189,42 @@ public enum Handshake {
 				Message responseMessage = new ResponseMessage(nonce, data);
 				if (!peer.sendMessage(responseMessage))
 					peer.disconnect("failed to send RESPONSE");
+
+				// For inbound peers, we should actually be in RESPONDING state.
+				// So we need to do the extra work to move to COMPLETED state.
+				if (!peer.isOutbound()) {
+					peer.setHandshakeStatus(COMPLETED);
+					Network.getInstance().onHandshakeCompleted(peer);
+				}
 			});
 
 			responseThread.setDaemon(true);
 			responseThread.start();
 		}
 	},
-	COMPLETED(null) {
+	// Interim holding state while we compute RESPONSE to send to inbound peer
+	RESPONDING(null) {
 		@Override
 		public Handshake onMessage(Peer peer, Message message) {
-			// Handshake completed
+			// Should never be called
 			return null;
 		}
 
 		@Override
 		public void action(Peer peer) {
-			// Note: this is only called when we've made outbound connection
+			// Should never be called
+		}
+	},
+	COMPLETED(null) {
+		@Override
+		public Handshake onMessage(Peer peer, Message message) {
+			// Should never be called
+			return null;
+		}
+
+		@Override
+		public void action(Peer peer) {
+			// Note: this is only called if we've made outbound connection
 		}
 	};
 
