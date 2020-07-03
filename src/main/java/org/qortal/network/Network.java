@@ -55,6 +55,7 @@ import org.qortal.utils.ExecuteProduceConsume;
 // import org.qortal.utils.ExecutorDumper;
 import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
 import org.qortal.utils.NTP;
+import org.qortal.utils.NamedThreadFactory;
 
 // For managing peers
 public class Network {
@@ -151,7 +152,8 @@ public class Network {
 		ExecutorService networkExecutor = new ThreadPoolExecutor(1,
 				Settings.getInstance().getMaxNetworkThreadPoolSize(),
 				NETWORK_EPC_KEEPALIVE, TimeUnit.SECONDS,
-				new SynchronousQueue<Runnable>());
+				new SynchronousQueue<Runnable>(),
+				new NamedThreadFactory("Network-EPC"));
 		networkEPC = new NetworkProcessor(networkExecutor);
 	}
 
@@ -355,7 +357,7 @@ public class Network {
 
 		private Task maybeProducePeerPingTask(Long now) {
 			// Ask connected peers whether they need a ping
-			for (Peer peer : getConnectedPeers()) {
+			for (Peer peer : getHandshakedPeers()) {
 				Task peerTask = peer.getPingTask(now);
 				if (peerTask != null)
 					return peerTask;

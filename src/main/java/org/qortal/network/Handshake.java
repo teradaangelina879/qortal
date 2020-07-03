@@ -1,6 +1,8 @@
 package org.qortal.network;
 
 import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -13,7 +15,9 @@ import org.qortal.network.message.ChallengeMessage;
 import org.qortal.network.message.HelloMessage;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.Message.MessageType;
+import org.qortal.settings.Settings;
 import org.qortal.network.message.ResponseMessage;
+import org.qortal.utils.DaemonThreadFactory;
 import org.qortal.utils.NTP;
 
 import com.google.common.primitives.Bytes;
@@ -27,6 +31,7 @@ public enum Handshake {
 
 		@Override
 		public void action(Peer peer) {
+			/* Never called */
 		}
 	},
 	HELLO(MessageType.HELLO) {
@@ -183,7 +188,12 @@ public enum Handshake {
 			final byte[] data = Crypto.digest(Bytes.concat(sharedSecret, peersChallenge));
 
 			// We do this in a new thread as it can take a while...
-			Thread responseThread = new Thread(() -> {
+			responseExecutor.execute(() -> {
+				// Are we still connected?
+				if (peer.isStopping())
+					// No point computing for dead peer
+					return;
+
 				Integer nonce = MemoryPoW.compute2(data, POW_BUFFER_SIZE, POW_DIFFICULTY);
 
 				Message responseMessage = new ResponseMessage(nonce, data);
@@ -197,9 +207,6 @@ public enum Handshake {
 					Network.getInstance().onHandshakeCompleted(peer);
 				}
 			});
-
-			responseThread.setDaemon(true);
-			responseThread.start();
 		}
 	},
 	// Interim holding state while we compute RESPONSE to send to inbound peer
@@ -237,6 +244,7 @@ public enum Handshake {
 
 	private static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
 	private static final int POW_DIFFICULTY = 8; // leading zero bits
+	private static final ExecutorService responseExecutor = Executors.newFixedThreadPool(Settings.getInstance().getNetworkPoWComputePoolSize(), new DaemonThreadFactory("Network-PoW"));
 
 	private static final byte[] ZERO_CHALLENGE = new byte[ChallengeMessage.CHALLENGE_LENGTH];
 

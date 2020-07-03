@@ -92,6 +92,8 @@ public class Settings {
 	private int maxPeers = 32;
 	/** Maximum number of threads for network engine. */
 	private int maxNetworkThreadPoolSize = 20;
+	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
+	private int networkPoWComputePoolSize = 2;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
@@ -353,6 +355,10 @@ public class Settings {
 
 	public int getMaxNetworkThreadPoolSize() {
 		return this.maxNetworkThreadPoolSize;
+	}
+
+	public int getNetworkPoWComputePoolSize() {
+		return this.networkPoWComputePoolSize;
 	}
 
 	public String getBlockchainConfig() {
