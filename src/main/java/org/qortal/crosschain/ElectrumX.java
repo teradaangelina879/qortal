@@ -25,7 +25,6 @@ import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.TrustlessSSLSocketFactory;
-import org.qortal.utils.Pair;
 
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
@@ -166,7 +165,21 @@ public class ElectrumX {
 		return (Long) balanceJson.get("confirmed");
 	}
 
-	public List<Pair<byte[], Integer>> getUnspentOutputs(byte[] script) {
+	public static class UnspentOutput {
+		public final byte[] hash;
+		public final int index;
+		public final int height;
+		public final long value;
+
+		public UnspentOutput(byte[] hash, int index, int height, long value) {
+			this.hash = hash;
+			this.index = index;
+			this.height = height;
+			this.value = value;
+		}
+	}
+
+	public List<UnspentOutput> getUnspentOutputs(byte[] script) {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
@@ -174,14 +187,16 @@ public class ElectrumX {
 		if (unspentJson == null)
 			return null;
 
-		List<Pair<byte[], Integer>> unspentOutputs = new ArrayList<>();
+		List<UnspentOutput> unspentOutputs = new ArrayList<>();
 		for (Object rawUnspent : unspentJson) {
 			JSONObject unspent = (JSONObject) rawUnspent;
 
 			byte[] txHash = HashCode.fromString((String) unspent.get("tx_hash")).asBytes();
 			int outputIndex = ((Long) unspent.get("tx_pos")).intValue();
+			int height = ((Long) unspent.get("height")).intValue();
+			long value = (Long) unspent.get("value");
 
-			unspentOutputs.add(new Pair<>(txHash, outputIndex));
+			unspentOutputs.add(new UnspentOutput(txHash, outputIndex, height, value));
 		}
 
 		return unspentOutputs;
@@ -195,6 +210,7 @@ public class ElectrumX {
 		return HashCode.fromString(rawTransactionHex).asBytes();
 	}
 
+	/** Returns list of raw transactions. */
 	public List<byte[]> getAddressTransactions(byte[] script) {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);

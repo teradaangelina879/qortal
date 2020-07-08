@@ -4,6 +4,7 @@ import static org.ciyam.at.OpCode.calcOffset;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 
 import org.ciyam.at.API;
 import org.ciyam.at.CompilationException;
@@ -19,6 +20,7 @@ import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.crosschain.CrossChainTradeData;
+import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.utils.Base58;
@@ -745,6 +747,51 @@ public class BTCACCT {
 	public static int calcLockTimeB(long recipientMessageTimestamp, int lockTimeA) {
 		// lockTimeB is halfway between recipientMessageTimesamp and lockTimeA
 		return (int) ((lockTimeA + (recipientMessageTimestamp / 1000L)) / 2L);
+	}
+
+	public static byte[] findSecretA(Repository repository, CrossChainTradeData crossChainTradeData) throws DataException {
+		String atAddress = crossChainTradeData.qortalAtAddress;
+		String redeemerAddress = crossChainTradeData.qortalRecipient;
+
+		List<MessageTransactionData> messageTransactionsData = repository.getTransactionRepository().getMessagesByRecipient(atAddress, null, null, null);
+		if (messageTransactionsData == null)
+			return null;
+
+		// Find redeem message
+		for (MessageTransactionData messageTransactionData : messageTransactionsData) {
+			// Check message payload type/encryption
+			if (messageTransactionData.isText() || messageTransactionData.isEncrypted())
+				continue;
+
+			// Check message payload size
+			byte[] messageData = messageTransactionData.getData();
+			if (messageData.length != 32 + 32)
+				// Wrong payload length
+				continue;
+
+			// Check sender
+			if (!Crypto.toAddress(messageTransactionData.getSenderPublicKey()).equals(redeemerAddress))
+				// Wrong sender;
+				continue;
+
+			// Extract both secretA & secretB
+			byte[] secretA = new byte[32];
+			System.arraycopy(messageData, 0, secretA, 0, secretA.length);
+			byte[] secretB = new byte[32];
+			System.arraycopy(messageData, 32, secretB, 0, secretB.length);
+
+			byte[] hashOfSecretA = Crypto.hash160(secretA);
+			if (!Arrays.equals(hashOfSecretA, crossChainTradeData.hashOfSecretA))
+				continue;
+
+			byte[] hashOfSecretB = Crypto.hash160(secretB);
+			if (!Arrays.equals(hashOfSecretB, crossChainTradeData.hashOfSecretB))
+				continue;
+
+			return secretA;
+		}
+
+		return null;
 	}
 
 }

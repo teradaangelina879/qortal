@@ -62,4 +62,15 @@ public class BtcTests extends Common {
 		assertTrue("secret incorrect", Arrays.equals(expectedSecret, secret));
 	}
 
+	@Test
+	public void testBuildSpend() {
+		BTC btc = BTC.getInstance();
+
+		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+		String recipient = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
+		long amount = 1000L;
+
+		btc.buildSpend(xprv58, recipient, amount);
+	}
+
 }

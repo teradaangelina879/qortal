@@ -14,7 +14,7 @@ public class CrossChainSecretRequest {
 	@Schema(description = "Qortal AT address")
 	public String atAddress;
 
-	@Schema(description = "32-byte secret", example = "6gVbAXCVzJXAWwtAVGAfgAkkXpeXvPUwSciPmCfSfXJG")
+	@Schema(description = "secret-A + secret-B (64 bytes)", example = "2gt2nSVBFknLfdU5buKtScLuTibkt9C3x6PZVqnA3AJ6BdEf3A9RbSj5Hn5QkvavdTTfmttNEaYEVw34TZdz135Q")
 	public byte[] secret;
 
 	public CrossChainSecretRequest() {
