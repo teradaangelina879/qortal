@@ -435,7 +435,7 @@ public class TradeBot {
 		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
 
 		// Refund P2SH-A if AT finished (i.e. Bob cancelled trade) or we've passed lockTime-A
-		if (atData.getIsFinished() || NTP.getTime() >= tradeBotData.getLockTimeA()) {
+		if (atData.getIsFinished() || NTP.getTime() >= tradeBotData.getLockTimeA() * 1000L) {
 			tradeBotData.setState(TradeBotData.State.ALICE_REFUNDING_A);
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
@@ -595,7 +595,7 @@ public class TradeBot {
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
 		// Refund P2SH-B if we've passed lockTime-B
-		if (NTP.getTime() >= crossChainTradeData.lockTimeB) {
+		if (NTP.getTime() >= crossChainTradeData.lockTimeB * 1000L) {
 			tradeBotData.setState(TradeBotData.State.ALICE_REFUNDING_B);
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
@@ -711,7 +711,7 @@ public class TradeBot {
 		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
 
 		// We can't refund P2SH-B until lockTime-B has passed
-		if (NTP.getTime() <= crossChainTradeData.lockTimeB)
+		if (NTP.getTime() <= crossChainTradeData.lockTimeB * 1000L)
 			return;
 
 		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
@@ -721,7 +721,7 @@ public class TradeBot {
 		ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
 
-		Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, tradeBotData.getLockTimeA());
+		Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, crossChainTradeData.lockTimeB);
 		if (!BTC.getInstance().broadcastTransaction(p2shRefundTransaction)) {
 			// We couldn't refund P2SH-B at this time
 			LOGGER.debug(() -> String.format("Couldn't broadcast P2SH-B refund transaction?"));
@@ -745,7 +745,12 @@ public class TradeBot {
 		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
 
 		// We can't refund P2SH-A until lockTime-A has passed
-		if (NTP.getTime() <= tradeBotData.getLockTimeA())
+		if (NTP.getTime() <= tradeBotData.getLockTimeA() * 1000L)
+			return;
+
+		// We can't refund P2SH-A until we've passed median block time
+		Integer medianBlockTime = BTC.getInstance().getMedianBlockTime();
+		if (medianBlockTime == null || NTP.getTime() <= medianBlockTime * 1000L)
 			return;
 
 		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
@@ -754,6 +759,10 @@ public class TradeBot {
 		Coin refundAmount = Coin.valueOf(crossChainTradeData.expectedBitcoin);
 		ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
+		if (fundingOutputs == null) {
+			LOGGER.debug(() -> String.format("Couldn't fetch unspent outputs for %s", p2shAddress));
+			return;
+		}
 
 		Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, tradeBotData.getLockTimeA());
 		if (!BTC.getInstance().broadcastTransaction(p2shRefundTransaction)) {

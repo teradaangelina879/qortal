@@ -93,9 +93,9 @@ public class BTCP2SH {
 			// Input (without scriptSig prior to signing)
 			TransactionInput input = new TransactionInput(params, null, redeemScriptBytes, fundingOutput.getOutPointFor());
 			if (lockTime != null)
-				input.setSequenceNumber(BTC.LOCKTIME_NO_RBF_SEQUENCE); // Use max-value, so no lockTime and no RBF
+				input.setSequenceNumber(BTC.LOCKTIME_NO_RBF_SEQUENCE); // Use max-value - 1, so lockTime can be used but not RBF
 			else
-				input.setSequenceNumber(BTC.NO_LOCKTIME_NO_RBF_SEQUENCE); // Use max-value - 1, so lockTime can be used but not RBF
+				input.setSequenceNumber(BTC.NO_LOCKTIME_NO_RBF_SEQUENCE); // Use max-value, so no lockTime and no RBF
 			transaction.addInput(input);
 		}
 

@@ -128,16 +128,26 @@ public class ElectrumX {
 	// Methods for use by other classes
 
 	public Integer getCurrentHeight() {
-		JSONObject blockJson = (JSONObject) this.rpc("blockchain.headers.subscribe");
-		if (blockJson == null || !blockJson.containsKey("height"))
+		Object blockObj = this.rpc("blockchain.headers.subscribe");
+		if (!(blockObj instanceof JSONObject))
+			return null;
+
+		JSONObject blockJson = (JSONObject) blockObj;
+
+		if (!blockJson.containsKey("height"))
 			return null;
 
 		return ((Long) blockJson.get("height")).intValue();
 	}
 
 	public List<byte[]> getBlockHeaders(int startHeight, long count) {
-		JSONObject blockJson = (JSONObject) this.rpc("blockchain.block.headers", startHeight, count);
-		if (blockJson == null || !blockJson.containsKey("count") || !blockJson.containsKey("hex"))
+		Object blockObj = this.rpc("blockchain.block.headers", startHeight, count);
+		if (!(blockObj instanceof JSONObject))
+			return null;
+
+		JSONObject blockJson = (JSONObject) blockObj;
+
+		if (!blockJson.containsKey("count") || !blockJson.containsKey("hex"))
 			return null;
 
 		Long returnedCount = (Long) blockJson.get("count");
@@ -158,8 +168,13 @@ public class ElectrumX {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
-		JSONObject balanceJson = (JSONObject) this.rpc("blockchain.scripthash.get_balance", HashCode.fromBytes(scriptHash).toString());
-		if (balanceJson == null || !balanceJson.containsKey("confirmed"))
+		Object balanceObj = this.rpc("blockchain.scripthash.get_balance", HashCode.fromBytes(scriptHash).toString());
+		if (!(balanceObj instanceof JSONObject))
+			return null;
+
+		JSONObject balanceJson = (JSONObject) balanceObj;
+
+		if (!balanceJson.containsKey("confirmed"))
 			return null;
 
 		return (Long) balanceJson.get("confirmed");
@@ -183,12 +198,12 @@ public class ElectrumX {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
-		JSONArray unspentJson = (JSONArray) this.rpc("blockchain.scripthash.listunspent", HashCode.fromBytes(scriptHash).toString());
-		if (unspentJson == null)
+		Object unspentJson = this.rpc("blockchain.scripthash.listunspent", HashCode.fromBytes(scriptHash).toString());
+		if (!(unspentJson instanceof JSONArray))
 			return null;
 
 		List<UnspentOutput> unspentOutputs = new ArrayList<>();
-		for (Object rawUnspent : unspentJson) {
+		for (Object rawUnspent : (JSONArray) unspentJson) {
 			JSONObject unspent = (JSONObject) rawUnspent;
 
 			byte[] txHash = HashCode.fromString((String) unspent.get("tx_hash")).asBytes();
@@ -203,11 +218,11 @@ public class ElectrumX {
 	}
 
 	public byte[] getRawTransaction(byte[] txHash) {
-		String rawTransactionHex = (String) this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString());
-		if (rawTransactionHex == null)
+		Object rawTransactionHex = this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString());
+		if (!(rawTransactionHex instanceof String))
 			return null;
 
-		return HashCode.fromString(rawTransactionHex).asBytes();
+		return HashCode.fromString((String) rawTransactionHex).asBytes();
 	}
 
 	/** Returns list of raw transactions. */
@@ -215,13 +230,13 @@ public class ElectrumX {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
-		JSONArray transactionsJson = (JSONArray) this.rpc("blockchain.scripthash.get_history", HashCode.fromBytes(scriptHash).toString());
-		if (transactionsJson == null)
+		Object transactionsJson = this.rpc("blockchain.scripthash.get_history", HashCode.fromBytes(scriptHash).toString());
+		if (!(transactionsJson instanceof JSONArray))
 			return null;
 
 		List<byte[]> rawTransactions = new ArrayList<>();
 
-		for (Object rawTransactionInfo : transactionsJson) {
+		for (Object rawTransactionInfo : (JSONArray) transactionsJson) {
 			JSONObject transactionInfo = (JSONObject) rawTransactionInfo;
 
 			// We only want confirmed transactions
@@ -254,11 +269,11 @@ public class ElectrumX {
 	private Set<Server> serverPeersSubscribe() {
 		Set<Server> newServers = new HashSet<>();
 
-		JSONArray peers = (JSONArray) this.connectedRpc("server.peers.subscribe");
-		if (peers == null)
+		Object peers = this.connectedRpc("server.peers.subscribe");
+		if (!(peers instanceof JSONArray))
 			return newServers;
 
-		for (Object rawPeer : peers) {
+		for (Object rawPeer : (JSONArray) peers) {
 			JSONArray peer = (JSONArray) rawPeer;
 			if (peer.size() < 3)
 				continue;
@@ -393,9 +408,11 @@ public class ElectrumX {
 		if (response.isEmpty())
 			return null;
 
-		JSONObject responseJson = (JSONObject) JSONValue.parse(response);
-		if (responseJson == null)
+		Object responseObj = JSONValue.parse(response);
+		if (!(responseObj instanceof JSONObject))
 			return null;
+
+		JSONObject responseJson = (JSONObject) responseObj;
 
 		return responseJson.get("result");
 	}
