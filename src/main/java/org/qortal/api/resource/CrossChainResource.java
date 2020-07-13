@@ -1029,8 +1029,16 @@ public class CrossChainResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TradeBotData tradeBotData = repository.getCrossChainRepository().getTradeBotData(tradePrivateKey);
 
-			if (tradeBotData.getState() != TradeBotData.State.ALICE_DONE && tradeBotData.getState() != TradeBotData.State.BOB_DONE)
-				return "false";
+			switch (tradeBotData.getState()) {
+				case ALICE_DONE:
+				case BOB_DONE:
+				case ALICE_REFUNDED:
+				case BOB_REFUNDED:
+					break;
+
+				default:
+					return "false";
+			}
 
 			repository.getCrossChainRepository().delete(tradeBotData.getTradePrivateKey());
 			repository.saveChanges();

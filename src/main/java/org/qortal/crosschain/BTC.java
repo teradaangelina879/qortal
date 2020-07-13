@@ -117,6 +117,7 @@ public class BTC {
 		return format(Coin.valueOf(amount));
 	}
 
+	/** Returns P2PKH Bitcoin address using passed public key hash. */
 	public String pkhToAddress(byte[] publicKeyHash) {
 		return LegacyAddress.fromPubKeyHash(this.params, publicKeyHash).toString();
 	}
