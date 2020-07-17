@@ -88,4 +88,28 @@ public interface ATRepository {
 	/** Delete state data for all ATs at this height */
 	public void deleteATStates(int height) throws DataException;
 
+	// Finding transactions for ATs to process
+
+	static class NextTransactionInfo {
+		public final int height;
+		public final int sequence;
+		public final byte[] signature;
+
+		public NextTransactionInfo(int height, int sequence, byte[] signature) {
+			this.height = height;
+			this.sequence = sequence;
+			this.signature = signature;
+		}
+	}
+
+	/**
+	 * Find next transaction for AT to process.
+	 * <p>
+	 * @param recipient AT address
+	 * @param height starting height
+	 * @param sequence starting sequence
+	 * @return next transaction info, or null if none found
+	 */
+	public NextTransactionInfo findNextTransaction(String recipient, int height, int sequence) throws DataException;
+
 }

@@ -17,7 +17,6 @@ import org.qortal.account.Account;
 import org.qortal.account.NullAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.CiyamAtSettings;
 import org.qortal.crypto.Crypto;
@@ -30,11 +29,10 @@ import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.PaymentTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
-import org.qortal.repository.BlockRepository;
+import org.qortal.repository.ATRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.AtTransaction;
-import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
 import org.qortal.utils.BitTwiddling;
@@ -150,59 +148,27 @@ public class QortalATAPI extends API {
 		int height = timestamp.blockHeight;
 		int sequence = timestamp.transactionSequence + 1;
 
-		BlockRepository blockRepository = this.getRepository().getBlockRepository();
-
+		ATRepository.NextTransactionInfo nextTransactionInfo;
 		try {
-			int currentHeight = blockRepository.getBlockchainHeight();
-			List<Transaction> blockTransactions = null;
-
-			while (height <= currentHeight) {
-				if (blockTransactions == null) {
-					BlockData blockData = blockRepository.fromHeight(height);
-
-					if (blockData == null)
-						throw new DataException("Unable to fetch block " + height + " from repository?");
-
-					Block block = new Block(this.getRepository(), blockData);
-
-					blockTransactions = block.getTransactions();
-				}
-
-				// No more transactions in this block? Try next block
-				if (sequence >= blockTransactions.size()) {
-					++height;
-					sequence = 0;
-					blockTransactions = null;
-					continue;
-				}
-
-				Transaction transaction = blockTransactions.get(sequence);
-
-				// Transaction needs to be sent to specified recipient
-				List<String> recipientAddresses = transaction.getRecipientAddresses();
-				if (recipientAddresses.contains(atAddress)) {
-					// Found a transaction
-
-					this.setA1(state, new Timestamp(height, timestamp.blockchainId, sequence).longValue());
-
-					// Copy transaction's partial signature into the other three A fields for future verification that it's the same transaction
-					byte[] signature = transaction.getTransactionData().getSignature();
-					this.setA2(state, BitTwiddling.longFromBEBytes(signature, 8));
-					this.setA3(state, BitTwiddling.longFromBEBytes(signature, 16));
-					this.setA4(state, BitTwiddling.longFromBEBytes(signature, 24));
-
-					return;
-				}
-
-				// Transaction wasn't for us - keep going
-				++sequence;
-			}
-
-			// No more transactions - zero A and exit
-			this.zeroA(state);
+			nextTransactionInfo = this.getRepository().getATRepository().findNextTransaction(atAddress, height, sequence);
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch next transaction?", e);
 		}
+
+		if (nextTransactionInfo == null) {
+			// No more transactions for AT at this time - zero A and exit
+			this.zeroA(state);
+			return;
+		}
+
+		// Found a transaction
+
+		this.setA1(state, new Timestamp(nextTransactionInfo.height, timestamp.blockchainId, nextTransactionInfo.sequence).longValue());
+
+		// Copy transaction's partial signature into the other three A fields for future verification that it's the same transaction
+		this.setA2(state, BitTwiddling.longFromBEBytes(nextTransactionInfo.signature, 8));
+		this.setA3(state, BitTwiddling.longFromBEBytes(nextTransactionInfo.signature, 16));
+		this.setA4(state, BitTwiddling.longFromBEBytes(nextTransactionInfo.signature, 24));
 	}
 
 	@Override
