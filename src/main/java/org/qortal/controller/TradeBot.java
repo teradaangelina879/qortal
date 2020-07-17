@@ -59,6 +59,38 @@ public class TradeBot {
 		return instance;
 	}
 
+	/**
+	 * Creates a new trade-bot entry from the "Bob" viewpoint, i.e. OFFERing QORT in exchange for BTC.
+	 * <p>
+	 * Generates:
+	 * <ul>
+	 * 	<li>new 'trade' private key</li>
+	 * 	<li>secret-B</li>
+	 * </ul>
+	 * Derives:
+	 * <ul>
+	 * 	<li>'native' (as in Qortal) public key, public key hash, address (starting with Q)</li>
+	 * 	<li>'foreign' (as in Bitcoin) public key, public key hash</li>
+	 *	<li>HASH160 of secret-B</li>
+	 * </ul>
+	 * A Qortal AT is then constructed including the following as constants in the 'data segment':
+	 * <ul>
+	 * 	<li>'native'/Qortal 'trade' address - used as a MESSAGE contact</li>
+	 * 	<li>'foreign'/Bitcoin public key hash - used by Alice's P2SH scripts to allow redeem</li>
+	 * 	<li>HASH160 of secret-B - used by AT and P2SH to validate a potential secret-B</li>
+	 * 	<li>QORT amount on offer by Bob</li>
+	 * 	<li>BTC amount expected in return by Bob (from Alice)</li>
+	 * 	<li>trading timeout, in case things go wrong and everyone needs to refund</li>
+	 * </ul>
+	 * Returns a DEPLOY_AT transaction that needs to be signed and broadcast to the Qortal network.
+	 * <p>
+	 * Trade-bot will wait for Bob's AT to be deployed before taking next step.
+	 * <p>
+	 * @param repository
+	 * @param tradeBotCreateRequest
+	 * @return raw, unsigned DEPLOY_AT transaction
+	 * @throws DataException
+	 */
 	public static byte[] createTrade(Repository repository, TradeBotCreateRequest tradeBotCreateRequest) throws DataException {
 		byte[] tradePrivateKey = generateTradePrivateKey();
 		byte[] secretB = generateSecret();
@@ -115,6 +147,44 @@ public class TradeBot {
 		}
 	}
 
+	/**
+	 * Creates a trade-bot entry from the 'Alice' viewpoint, i.e. matching BTC to an existing offer.
+	 * <p>
+	 * Requires a chosen trade offer from Bob, passed by <tt>crossChainTradeData</tt>
+	 * and access to a Bitcoin wallet via <tt>xprv58</tt>.
+	 * <p>
+	 * The <tt>crossChainTradeData</tt> contains the current trade offer state
+	 * as extracted from the AT's data segment.
+	 * <p>
+	 * Access to a funded wallet is via a Bitcoin BIP32 hierarchical deterministic key,
+	 * passed via <tt>xprv58</tt>.
+	 * <b>This key will be stored in your node's database</b>
+	 * to allow trade-bot to create/fund the necessary P2SH transactions!
+	 * However, due to the nature of BIP32 keys, it is possible to give the trade-bot
+	 * only a subset of wallet access (see BIP32 for more details).
+	 * <p>
+	 * As an example, the xprv58 can be extract from a <i>legacy, password-less</i>
+	 * Electrum wallet by going to the console tab and entering:<br>
+	 * <tt>wallet.keystore.xprv</tt><br>
+	 * which should result in a base58 string starting with either 'xprv' (for Bitcoin main-net)
+	 * or 'tprv' for (Bitcoin test-net).
+	 * <p>
+	 * It is envisaged that the value in <tt>xprv58</tt> will actually come from a Qortal-UI-managed wallet.
+	 * <p>
+	 * If sufficient funds are available, <b>this method will actually fund the P2SH-A<b>
+	 * with the Bitcoin amount expected by 'Bob'.
+	 * <p>
+	 * If the Bitcoin transaction is successfully broadcast to the network then the trade-bot entry
+	 * is saved to the repository and the cross-chain trading process commences.
+	 * <p>
+	 * Trade-bot will wait for P2SH-A to confirm before taking next step.
+	 * <p>
+	 * @param repository
+	 * @param crossChainTradeData chosen trade OFFER that Alice wants to match
+	 * @param xprv58 funded wallet xprv in base58
+	 * @return true if P2SH-A funding transaction successfully broadcast to Bitcoin network, false otherwise
+	 * @throws DataException
+	 */
 	public static boolean startResponse(Repository repository, CrossChainTradeData crossChainTradeData, String xprv58) throws DataException {
 		byte[] tradePrivateKey = generateTradePrivateKey();
 		byte[] secretA = generateSecret();
@@ -258,6 +328,11 @@ public class TradeBot {
 		}
 	}
 
+	/**
+	 * Trade-bot is waiting for Bob's AT to deploy.
+	 * <p>
+	 * If AT is deployed, then trade-bot's next step is to wait for MESSAGE from Alice.
+	 */
 	private void handleBobWaitingForAtConfirm(Repository repository, TradeBotData tradeBotData) throws DataException {
 		if (!repository.getATRepository().exists(tradeBotData.getAtAddress()))
 			return;
@@ -269,6 +344,22 @@ public class TradeBot {
 		LOGGER.info(() -> String.format("AT %s confirmed ready. Waiting for trade message", tradeBotData.getAtAddress()));
 	}
 
+	/**
+	 * Trade-bot is waiting for Alice's P2SH-A to confirm.
+	 * <p>
+	 * If P2SH-A is confirmed, then trade-bot's next step is to MESSAGE Bob's trade address with Alice's trade info.
+	 * <p>
+	 * It is possible between broadcast and confirmation of P2SH-A funding transaction, that Bob has cancelled his trade offer.
+	 * If this is detected then trade-bot's next step is to wait until P2SH-A can refund back to Alice.
+	 * <p>
+	 * In normal operation, trade-bot send a zero-fee, PoW MESSAGE on Alice's behalf containing:
+	 * <ul>
+	 * 	<li>Alice's 'foreign'/Bitcoin public key hash - so Bob's trade-bot can derive P2SH-A address and check balance</li>
+	 * 	<li>HASH160 of Alice's secret-A - also used to derive P2SH-A address</li>
+	 * 	<li>lockTime of P2SH-A - also used to derive P2SH-A address, but also for other use later in the trading process</li>
+	 * </ul>
+	 * If MESSAGE transaction is successfully broadcast, trade-bot's next step is to wait until Bob's AT has locked trade to Alice only.
+	 */
 	private void handleAliceWaitingForP2shA(Repository repository, TradeBotData tradeBotData) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
@@ -328,6 +419,24 @@ public class TradeBot {
 				p2shAddress, crossChainTradeData.qortalCreatorTradeAddress, tradeBotData.getAtAddress()));
 	}
 
+	/**
+	 * Trade-bot is waiting for MESSAGE from Alice's trade-bot, containing Alice's trade info.
+	 * <p>
+	 * It's possible Bob has cancelling his trade offer, receiving an automatic QORT refund,
+	 * in which case trade-bot is done with this specific trade and finalizes on refunded state.
+	 * <p>
+	 * Assuming trade is still on offer, trade-bot checks the contents of MESSAGE from Alice's trade-bot.
+	 * <p>
+	 * Details from Alice are used to derive P2SH-A address and this is checked for funding balance.
+	 * <p>
+	 * Assuming P2SH-A has at least expected Bitcoin balance,
+	 * Bob's trade-bot constructs a zero-fee, PoW MESSAGE to send to Bob's AT with more trade details.
+	 * <p>
+	 * On processing this MESSAGE, Bob's AT should switch into 'TRADE' mode and only trade with Alice.
+	 * <p>
+	 * Trade-bot's next step is to wait for P2SH-B, which will allow Bob to reveal his secret-B,
+	 * needed by Alice to progress her side of the trade.
+	 */
 	private void handleBobWaitingForMessage(Repository repository, TradeBotData tradeBotData) throws DataException {
 		// Fetch AT so we can determine trade start timestamp
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
@@ -426,6 +535,20 @@ public class TradeBot {
 		}
 	}
 
+	/**
+	 * Trade-bot is waiting for Bob's AT to switch to TRADE mode and lock trade to Alice only.
+	 * <p>
+	 * It's possible that Bob has cancelled his trade offer in the mean time, or that somehow
+	 * this process has taken so long that we've reached P2SH-A's locktime, or that someone else
+	 * has managed to trade with Bob. In any of these cases, trade-bot switches to begin the refunding process.
+	 * <p>
+	 * Assuming Bob's AT is locked to Alice, trade-bot checks AT's state data to make sure it is correct.
+	 * <p>
+	 * If all is well, trade-bot then uses Bitcoin wallet to (token) fund P2SH-B.
+	 * <p>
+	 * If P2SH-B funding transaction is successfully broadcast to the Bitcoin network, trade-bot's next
+	 * step is to watch for Bob revealing secret-B by redeeming P2SH-B.
+	 */
 	private void handleAliceWaitingForAtLock(Repository repository, TradeBotData tradeBotData) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
@@ -527,6 +650,16 @@ public class TradeBot {
 				tradeBotData.getAtAddress(), tradeBotData.getTradeNativeAddress(), p2shAddress));
 	}
 
+	/**
+	 * Trade-bot is waiting for P2SH-B to funded.
+	 * <p>
+	 * It's possible than Bob's AT has reached it's trading timeout and automatically refunded QORT back to Bob.
+	 * In which case, trade-bot is done with this specific trade and finalizes on refunded state.
+	 * <p>
+	 * Assuming P2SH-B is funded, trade-bot 'redeems' this P2SH using secret-B, thus revealing it to Alice.
+	 * <p>
+	 * Trade-bot's next step is to wait for Alice to use secret-B, and her secret-A, to redeem Bob's AT.
+	 */
 	private void handleBobWaitingForP2shB(Repository repository, TradeBotData tradeBotData) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
@@ -583,6 +716,22 @@ public class TradeBot {
 		LOGGER.info(() -> String.format("P2SH-B %s redeemed (exposing secret-B). Watching AT %s for secret-A", p2shAddress, tradeBotData.getAtAddress()));
 	}
 
+	/**
+	 * Trade-bot is waiting for Bob to redeem P2SH-B thus revealing secret-B to Alice.
+	 * <p>
+	 * It's possible that this process has taken so long that we've reached P2SH-B's locktime.
+	 * In which case, trade-bot switches to begin the refund process.
+	 * <p>
+	 * If trade-bot can extract a valid secret-B from the spend of P2SH-B, then it creates a
+	 * zero-fee, PoW MESSAGE to send to Bob's AT, including both secret-B and also Alice's secret-A.
+	 * <p>
+	 * Both secrets are needed to release the QORT funds from Bob's AT to Alice's 'native'/Qortal
+	 * trade address.
+	 * <p>
+	 * In revealing a valid secret-A, Bob can then redeem the BTC funds from P2SH-A.
+	 * <p>
+	 * If trade-bot successfully broadcasts the MESSAGE transaction, then this specific trade is done.
+	 */
 	private void handleAliceWatchingP2shB(Repository repository, TradeBotData tradeBotData) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
@@ -645,6 +794,19 @@ public class TradeBot {
 				p2shAddress, tradeBotData.getAtAddress(), receiveAddress));
 	}
 
+	/**
+	 * Trade-bot is waiting for Alice to redeem Bob's AT, thus revealing secret-A which is required to spend the BTC funds from P2SH-A.
+	 * <p>
+	 * It's possible that Bob's AT has reached its trading timeout and automatically refunded QORT back to Bob. In which case,
+	 * trade-bot is done with this specific trade and finalizes in refunded state.
+	 * <p>
+	 * Assuming trade-bot can extract a valid secret-A from Alice's MESSAGE then trade-bot uses that to redeem the BTC funds from P2SH-A
+	 * to Bob's 'foreign'/Bitcoin trade legacy-format address, as derived from trade private key.
+	 * <p>
+	 * (This could potentially be 'improved' to send BTC to any address of Bob's choosing by changing the transaction output).
+	 * <p>
+	 * If trade-bot successfully broadcasts the transaction, then this specific trade is done.
+	 */
 	private void handleBobWaitingForAtRedeem(Repository repository, TradeBotData tradeBotData) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
@@ -702,6 +864,13 @@ public class TradeBot {
 		LOGGER.info(() -> String.format("P2SH-A %s redeemed. Funds should arrive at %s", tradeBotData.getAtAddress(), receiveAddress));
 	}
 
+	/**
+	 * Trade-bot is attempting to refund P2SH-B.
+	 * <p>
+	 * We could potentially skip this step as P2SH-B is only funded with a token amount to cover the mining fee should Bob redeem P2SH-B.
+	 * <p>
+	 * Upon successful broadcast of P2SH-B refunding transaction, trade-bot's next step is to begin refunding of P2SH-A.
+	 */
 	private void handleAliceRefundingP2shB(Repository repository, TradeBotData tradeBotData) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
@@ -736,6 +905,7 @@ public class TradeBot {
 		LOGGER.info(() -> String.format("Refunded P2SH-B %s. Waiting for LockTime-A", p2shAddress));
 	}
 
+	/** Trade-bot is attempting to refund P2SH-A. */
 	private void handleAliceRefundingP2shA(Repository repository, TradeBotData tradeBotData) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {

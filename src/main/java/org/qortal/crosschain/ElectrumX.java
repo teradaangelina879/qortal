@@ -29,6 +29,7 @@ import org.qortal.crypto.TrustlessSSLSocketFactory;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
+/** ElectrumX network support for querying Bitcoin-related info like block headers, transaction outputs, etc. */
 public class ElectrumX {
 
 	private static final Logger LOGGER = LogManager.getLogger(ElectrumX.class);
@@ -92,7 +93,22 @@ public class ElectrumX {
 	private ElectrumX(String bitcoinNetwork) {
 		switch (bitcoinNetwork) {
 			case "MAIN":
-				servers.addAll(Arrays.asList());
+				servers.addAll(Arrays.asList(
+						// Servers chosen on NO BASIS WHATSOEVER from various sources!
+						// new Server("tardis.bauerj.eu", Server.ConnectionType.SSL, 50002),
+						// new Server("rbx.curalle.ovh", Server.ConnectionType.SSL, 50002),
+						// new Server("quick.electumx.live", Server.ConnectionType.SSL, 50002),
+						// new Server("enode.duckdns.org", Server.ConnectionType.SSL, 50002),
+						// new Server("electrumx.ddns.net", Server.ConnectionType.SSL, 50002),
+						// new Server("electrumx.ml", Server.ConnectionType.SSL, 50002),
+						// new Server("electrum.eff.ro", Server.ConnectionType.SSL, 50002),
+						// new Server("electrum.bitkoins.nl", Server.ConnectionType.SSL, 50512),
+						// new Server("E-X.not.fyi", Server.ConnectionType.SSL, 50002),
+						// new Server("btc.electroncash.dk", Server.ConnectionType.SSL, 60002),
+						// new Server("electrum.blockstream.info", Server.ConnectionType.TCP, 50001),
+						// new Server("electrum.blockstream.info", Server.ConnectionType.SSL, 50002),
+						// new Server("bitcoin.aranguren.org", Server.ConnectionType.TCP, 50001),
+						));
 				break;
 
 			case "TEST3":
@@ -118,6 +134,7 @@ public class ElectrumX {
 		rpc("server.banner");
 	}
 
+	/** Returns ElectrumX instance linked to passed Bitcoin network, one of "MAIN", "TEST3" or "REGTEST". */
 	public static synchronized ElectrumX getInstance(String bitcoinNetwork) {
 		if (!instances.containsKey(bitcoinNetwork))
 			instances.put(bitcoinNetwork, new ElectrumX(bitcoinNetwork));
@@ -164,6 +181,7 @@ public class ElectrumX {
 		return rawBlockHeaders;
 	}
 
+	/** Returns confirmed balance, based on passed payment script, or null if there was an error or no known balance. */
 	public Long getBalance(byte[] script) {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
@@ -180,6 +198,7 @@ public class ElectrumX {
 		return (Long) balanceJson.get("confirmed");
 	}
 
+	/** Unspent output info as returned by ElectrumX network. */
 	public static class UnspentOutput {
 		public final byte[] hash;
 		public final int index;
@@ -194,6 +213,7 @@ public class ElectrumX {
 		}
 	}
 
+	/** Returns list of unspent outputs pertaining to passed payment script, or null if there was an error. */
 	public List<UnspentOutput> getUnspentOutputs(byte[] script) {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
@@ -217,6 +237,7 @@ public class ElectrumX {
 		return unspentOutputs;
 	}
 
+	/** Returns raw transaction for passed transaction hash, or null if not found. */
 	public byte[] getRawTransaction(byte[] txHash) {
 		Object rawTransactionHex = this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString());
 		if (!(rawTransactionHex instanceof String))
@@ -225,7 +246,7 @@ public class ElectrumX {
 		return HashCode.fromString((String) rawTransactionHex).asBytes();
 	}
 
-	/** Returns list of raw transactions. */
+	/** Returns list of raw transactions, relating to passed payment script, if null if there's an error. */
 	public List<byte[]> getAddressTransactions(byte[] script) {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
@@ -254,6 +275,7 @@ public class ElectrumX {
 		return rawTransactions;
 	}
 
+	/** Returns true if raw transaction successfully broadcast. */
 	public boolean broadcastTransaction(byte[] transactionBytes) {
 		Object rawBroadcastResult = this.rpc("blockchain.transaction.broadcast", HashCode.fromBytes(transactionBytes).toString());
 		if (rawBroadcastResult == null)
@@ -266,6 +288,7 @@ public class ElectrumX {
 
 	// Class-private utility methods
 
+	/** Query current server for its list of peer servers, and return those we can parse. */
 	private Set<Server> serverPeersSubscribe() {
 		Set<Server> newServers = new HashSet<>();
 
@@ -318,6 +341,7 @@ public class ElectrumX {
 		return newServers;
 	}
 
+	/** Return output from RPC call, with automatic reconnection to different server if needed. */
 	private synchronized Object rpc(String method, Object...params) {
 		while (haveConnection()) {
 			Object response = connectedRpc(method, params);
@@ -336,6 +360,7 @@ public class ElectrumX {
 		return null;
 	}
 
+	/** Returns true if we have, or create, a connection to an ElectrumX server. */
 	private boolean haveConnection() {
 		if (this.currentServer != null)
 			return true;

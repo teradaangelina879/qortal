@@ -77,11 +77,13 @@ import com.google.common.primitives.Bytes;
  * <li>Alice scans P2SH-b redeem tx to extract secret-b
  * 		<ul>
  * 			<li>Alice MESSAGEs Qortal AT from her trade address, sending secret-a & secret-b</li>
+ * 			<li>AT's QORT funds end up at Qortal address derived from Alice's trade private key</li>
  * 		</ul>
  * </li>
  * <li>Bob checks AT, extracts secret-a
  * 		<ul>
  * 			<li>Bob redeems P2SH-a using his Bitcoin trade key and secret-a</li>
+ * 			<li>P2SH-a funds end up in at Bitcoin address derived from Bob's trade private key</li>
  * 		</ul>
  * </li>
  * </ul>
