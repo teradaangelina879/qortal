@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.qortal.api.model.BlockInfo;
 import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
@@ -357,6 +358,81 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			return blockSummaries;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch height-ranged block summaries from repository", e);
+		}
+	}
+
+	@Override
+	public List<BlockInfo> getBlockInfos(Integer startHeight, Integer endHeight, Integer count) throws DataException {
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT signature, height, minted_when, transaction_count ");
+
+		/*
+		 * start	end		count		result
+		 * 10		40		null		blocks 10 to 39 (excludes end block, ignore count)
+		 * 
+		 * null		null	null		blocks 1 to 50 (assume count=50, maybe start=1)
+		 * 30		null	null		blocks 30 to 79 (assume count=50)
+		 * 30		null	10			blocks 30 to 39
+		 * 
+		 * null		null	50			last 50 blocks? so if max(blocks.height) is 200, then blocks 151 to 200
+		 * null		200		null		blocks 150 to 199 (excludes end block, assume count=50)
+		 * null		200		10			blocks 190 to 199 (excludes end block)
+		 */
+
+		if (startHeight != null && endHeight != null) {
+			sql.append("FROM Blocks WHERE height BETWEEN ");
+			sql.append(startHeight);
+			sql.append(" AND ");
+			sql.append(endHeight - 1);
+		} else if (endHeight != null || (startHeight == null && count != null)) {
+			// we are going to return blocks from the end of the chain
+			if (count == null)
+				count = 50;
+
+			if (endHeight == null) {
+				sql.append("FROM (SELECT height FROM Blocks ORDER BY height DESC LIMIT 1) AS MaxHeights (max_height) ");
+				sql.append("JOIN Blocks ON height BETWEEN (max_height - ");
+				sql.append(count);
+				sql.append(" + 1) AND max_height");
+			} else {
+				sql.append("FROM Blocks WHERE height BETWEEN ");
+				sql.append(endHeight - count);
+				sql.append(" AND ");
+				sql.append(endHeight - 1);
+			}
+		} else {
+			// we are going to return blocks from the start of the chain
+			if (startHeight == null)
+				startHeight = 1;
+
+			if (count == null)
+				count = 50;
+
+			sql.append("FROM Blocks WHERE height BETWEEN ");
+			sql.append(startHeight);
+			sql.append(" AND ");
+			sql.append(startHeight + count - 1);
+		}
+
+		List<BlockInfo> blockInfos = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+			if (resultSet == null)
+				return blockInfos;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+				int height = resultSet.getInt(2);
+				long timestamp = resultSet.getLong(3);
+				int transactionCount = resultSet.getInt(4);
+
+				BlockInfo blockInfo = new BlockInfo(signature, height, timestamp, transactionCount);
+				blockInfos.add(blockInfo);
+			} while (resultSet.next());
+
+			return blockInfos;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch height-ranged block infos from repository", e);
 		}
 	}
 

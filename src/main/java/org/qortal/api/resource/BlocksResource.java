@@ -23,6 +23,7 @@ import javax.ws.rs.core.MediaType;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
+import org.qortal.api.model.BlockInfo;
 import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
@@ -475,6 +476,46 @@ public class BlocksResource {
 					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 			return repository.getBlockRepository().getBlockSigners(addresses, limit, offset, reverse);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/summaries")
+	@Operation(
+		summary = "Fetch only summary info about a range of blocks",
+		description = "Specify up to 2 out 3 of: start, end and count. If neither start nor end are specified, then end is assumed to be latest block. Where necessary, count is assumed to be 50.",
+		responses = {
+			@ApiResponse(
+				description = "blocks",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = BlockInfo.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.REPOSITORY_ISSUE
+	})
+	public List<BlockInfo> getBlockRange(
+			@QueryParam("start") Integer startHeight,
+			@QueryParam("end") Integer endHeight,
+			@Parameter(ref = "count") @QueryParam("count") Integer count) {
+		// Check up to 2 out of 3 params
+		if (startHeight != null && endHeight != null && count != null)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		// Check values
+		if ((startHeight != null && startHeight < 1) || (endHeight != null && endHeight < 1) || (count != null && count < 1))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getBlockRepository().getBlockInfos(startHeight, endHeight, count);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
