@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketException;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
@@ -125,8 +126,8 @@ public class ChatMessagesWebSocket extends WebSocketServlet implements ApiWebSoc
 		try {
 			this.marshall(stringWriter, chatMessages);
 
-			session.getRemote().sendString(stringWriter.toString());
-		} catch (IOException e) {
+			session.getRemote().sendStringByFuture(stringWriter.toString());
+		} catch (IOException | WebSocketException e) {
 			// No output this time?
 		}
 	}

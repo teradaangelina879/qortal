@@ -5,6 +5,7 @@ import java.io.StringWriter;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketException;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
@@ -59,8 +60,8 @@ public class AdminStatusWebSocket extends WebSocketServlet implements ApiWebSock
 				return;
 
 			previousOutput.set(output);
-			session.getRemote().sendString(output);
-		} catch (DataException | IOException e) {
+			session.getRemote().sendStringByFuture(output);
+		} catch (DataException | IOException | WebSocketException e) {
 			// No output this time?
 		}
 	}

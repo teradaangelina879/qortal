@@ -537,8 +537,11 @@ public class Controller extends Thread {
 
 	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
 		syncPercent = (this.chainTip.getHeight() * 100) / peer.getChainTipData().getLastHeight();
-		isSynchronizing = true;
-		updateSysTray();
+		// Only update SysTray if we're potentially changing height
+		if (syncPercent < 100) {
+			isSynchronizing = true;
+			updateSysTray();
+		}
 
 		BlockData priorChainTip = this.chainTip;
 
@@ -584,7 +587,6 @@ public class Controller extends Thread {
 					break;
 
 				case OK:
-					requestSysTrayUpdate = true;
 					// fall-through...
 				case NOTHING_TO_DO: {
 					// Update our list of inferior chain tips
@@ -611,14 +613,13 @@ public class Controller extends Thread {
 				// Reset our cache of inferior chains
 				inferiorChainSignatures.clear();
 
-				// Update chain-tip, notify peers, websockets, etc.
+				// Update chain-tip, systray, notify peers, websockets, etc.
 				this.onNewBlock(newChainTip);
 			}
 
 			return syncResult;
 		} finally {
 			isSynchronizing = false;
-			requestSysTrayUpdate = true;
 		}
 	}
 

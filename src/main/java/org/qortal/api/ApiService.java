@@ -18,9 +18,9 @@ import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
 import org.eclipse.jetty.server.CustomRequestLog;
+import org.eclipse.jetty.server.DetectorConnectionFactory;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
-import org.eclipse.jetty.server.OptionalSslConnectionFactory;
 import org.eclipse.jetty.server.RequestLog;
 import org.eclipse.jetty.server.RequestLogWriter;
 import org.eclipse.jetty.server.SecureRequestCustomizer;
@@ -113,8 +113,7 @@ public class ApiService {
 				SslConnectionFactory sslConnectionFactory = new SslConnectionFactory(sslContextFactory, HttpVersion.HTTP_1_1.asString());
 
 				ServerConnector portUnifiedConnector = new ServerConnector(this.server,
-						new OptionalSslConnectionFactory(sslConnectionFactory, HttpVersion.HTTP_1_1.asString()),
-						sslConnectionFactory,
+						new DetectorConnectionFactory(sslConnectionFactory),
 						httpConnectionFactory);
 				portUnifiedConnector.setHost(Settings.getInstance().getBindAddress());
 				portUnifiedConnector.setPort(Settings.getInstance().getApiPort());
