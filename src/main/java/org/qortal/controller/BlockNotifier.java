@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.eclipse.jetty.websocket.api.Session;
+import org.qortal.api.model.BlockInfo;
 import org.qortal.data.block.BlockData;
 
 public class BlockNotifier {
@@ -14,7 +15,7 @@ public class BlockNotifier {
 
 	@FunctionalInterface
 	public interface Listener {
-		void notify(BlockData blockData);
+		void notify(BlockInfo blockInfo);
 	}
 
 	private Map<Session, Listener> listenersBySession = new HashMap<>();
@@ -42,8 +43,11 @@ public class BlockNotifier {
 	}
 
 	public void onNewBlock(BlockData blockData) {
+		// Convert BlockData to BlockInfo
+		BlockInfo blockInfo = new BlockInfo(blockData);
+
 		for (Listener listener : getAllListeners())
-			listener.notify(blockData);
+			listener.notify(blockInfo);
 	}
 
 	private Collection<Listener> getAllListeners() {
