@@ -9,6 +9,7 @@ import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketException;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
@@ -51,6 +52,10 @@ public class ActiveChatsWebSocket extends WebSocketServlet implements ApiWebSock
 	@OnWebSocketClose
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
 		ChatNotifier.getInstance().deregister(session);
+	}
+
+	@OnWebSocketError
+	public void onWebSocketError(Session session, Throwable throwable) {
 	}
 
 	@OnWebSocketMessage
