@@ -169,8 +169,8 @@ public interface AccountRepository {
 
 	public void save(MintingAccountData mintingAccountData) throws DataException;
 
-	/** Delete minting account info, used by BlockMinter, from repository using passed private key. */
-	public int delete(byte[] mintingAccountPrivateKey) throws DataException;
+	/** Delete minting account info, used by BlockMinter, from repository using passed public or private key. */
+	public int delete(byte[] mintingAccountKey) throws DataException;
 
 	// Managing QORT from legacy QORA
 

@@ -302,13 +302,13 @@ public class AdminResource {
 	@DELETE
 	@Path("/mintingaccounts")
 	@Operation(
-		summary = "Remove account/reward-share from use by BlockMinter, using private key",
+		summary = "Remove account/reward-share from use by BlockMinter, using public or private key",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
-					type = "string", example = "private key"
+					type = "string", example = "public or private key"
 				)
 			)
 		),
@@ -319,13 +319,13 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
-	public String deleteMintingAccount(String seed58) {
+	public String deleteMintingAccount(String key58) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			byte[] seed = Base58.decode(seed58.trim());
+			byte[] key = Base58.decode(key58.trim());
 
-			if (repository.getAccountRepository().delete(seed) == 0)
+			if (repository.getAccountRepository().delete(key) == 0)
 				return "false";
 
 			repository.saveChanges();

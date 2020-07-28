@@ -774,9 +774,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public int delete(byte[] minterPrivateKey) throws DataException {
+	public int delete(byte[] minterKey) throws DataException {
 		try {
-			return this.repository.delete("MintingAccounts", "minter_private_key = ?", minterPrivateKey);
+			return this.repository.delete("MintingAccounts", "minter_private_key = ? OR minter_public_key = ?", minterKey, minterKey);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete minting account from repository", e);
 		}
