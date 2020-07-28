@@ -26,11 +26,13 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import org.bitcoinj.core.Address;
+import org.bitcoinj.core.AddressFormatException;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.TransactionOutput;
+import org.bitcoinj.script.Script.ScriptType;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiError;
@@ -179,11 +181,23 @@ public class CrossChainResource {
 		if (tradeRequest.bitcoinAmount <= 0)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
+		Address bitcoinReceiveAddress;
+		try {
+			bitcoinReceiveAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeRequest.receiveAddress);
+		} catch (AddressFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+		}
+		byte[] bitcoinReceivePublicKeyHash = bitcoinReceiveAddress.getHash();
+
+		// We only support P2PKH addresses at this time
+		if (bitcoinReceiveAddress.getOutputScriptType() != ScriptType.P2PKH)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PublicKeyAccount creatorAccount = new PublicKeyAccount(repository, creatorPublicKey);
 
 			byte[] creationBytes = BTCACCT.buildQortalAT(creatorAccount.getAddress(), tradeRequest.bitcoinPublicKeyHash, tradeRequest.hashOfSecretB,
-					tradeRequest.qortAmount, tradeRequest.bitcoinAmount, tradeRequest.tradeTimeout);
+					tradeRequest.qortAmount, tradeRequest.bitcoinAmount, tradeRequest.tradeTimeout, bitcoinReceivePublicKeyHash);
 
 			long txTimestamp = NTP.getTime();
 			byte[] lastReference = creatorAccount.getLastReference();
@@ -848,6 +862,12 @@ public class CrossChainResource {
 		if (redeemRequest.secret == null || redeemRequest.secret.length != BTCACCT.SECRET_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
+		if (redeemRequest.receivePublicKeyHash == null)
+			redeemRequest.receivePublicKeyHash = redeemKey.getPubKeyHash();
+
+		if (redeemRequest.receivePublicKeyHash.length != 20)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
+
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, redeemRequest.atAddress);
@@ -888,7 +908,7 @@ public class CrossChainResource {
 
 			Coin redeemAmount = Coin.valueOf(p2shBalance - redeemRequest.bitcoinMinerFee.unscaledValue().longValue());
 
-			org.bitcoinj.core.Transaction redeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, redeemRequest.secret);
+			org.bitcoinj.core.Transaction redeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, redeemRequest.secret, redeemRequest.receivePublicKeyHash);
 			boolean wasBroadcast = BTC.getInstance().broadcastTransaction(redeemTransaction);
 
 			if (!wasBroadcast)
@@ -949,6 +969,17 @@ public class CrossChainResource {
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
 	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
 		Security.checkApiCallAllowed(request);
+
+		Address receiveAddress;
+		try {
+			receiveAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeBotCreateRequest.receiveAddress);
+		} catch (AddressFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+		}
+
+		// We only support P2PKH addresses at this time
+		if (receiveAddress.getOutputScriptType() != ScriptType.P2PKH)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		if (tradeBotCreateRequest.tradeTimeout < 60)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);

@@ -76,16 +76,18 @@ public class BTCP2SH {
 	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
 	 * @param lockTime (optional) transaction nLockTime, used in refund scenario
 	 * @param scriptSigBuilder function for building scriptSig using transaction input signature
+	 * @param outputPublicKeyHash PKH used to create P2PKH output
 	 * @return Signed Bitcoin transaction for spending P2SH
 	 */
-	public static Transaction buildP2shTransaction(Coin amount, ECKey spendKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, Long lockTime, Function<byte[], Script> scriptSigBuilder) {
+	public static Transaction buildP2shTransaction(Coin amount, ECKey spendKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes,
+			Long lockTime, Function<byte[], Script> scriptSigBuilder, byte[] outputPublicKeyHash) {
 		NetworkParameters params = BTC.getInstance().getNetworkParameters();
 
 		Transaction transaction = new Transaction(params);
 		transaction.setVersion(2);
 
 		// Output is back to P2SH funder
-		transaction.addOutput(amount, ScriptBuilder.createP2PKHOutputScript(spendKey.getPubKeyHash()));
+		transaction.addOutput(amount, ScriptBuilder.createP2PKHOutputScript(outputPublicKeyHash));
 
 		for (int inputIndex = 0; inputIndex < fundingOutputs.size(); ++inputIndex) {
 			TransactionOutput fundingOutput = fundingOutputs.get(inputIndex);
@@ -149,7 +151,8 @@ public class BTCP2SH {
 			return scriptBuilder.build();
 		};
 
-		return buildP2shTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundSigScriptBuilder);
+		// Send funds back to funding address
+		return buildP2shTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundSigScriptBuilder, refundKey.getPubKeyHash());
 	}
 
 	/**
@@ -160,9 +163,10 @@ public class BTCP2SH {
 	 * @param fundingOutput output from transaction that funded P2SH address
 	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
 	 * @param secret actual 32-byte secret used when building redeemScript
+	 * @param receivePublicKeyHash PKH used for output
 	 * @return Signed Bitcoin transaction for redeeming P2SH
 	 */
-	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey redeemKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, byte[] secret) {
+	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey redeemKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, byte[] secret, byte[] receivePublicKeyHash) {
 		Function<byte[], Script> redeemSigScriptBuilder = (txSigBytes) -> {
 			// Build scriptSig with...
 			ScriptBuilder scriptBuilder = new ScriptBuilder();
@@ -183,7 +187,7 @@ public class BTCP2SH {
 			return scriptBuilder.build();
 		};
 
-		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder);
+		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder, receivePublicKeyHash);
 	}
 
 	/** Returns 'secret', if any, given list of raw bitcoin transactions. */

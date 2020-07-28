@@ -182,7 +182,7 @@ public class Redeem {
 			Coin redeemAmount = Coin.valueOf(p2shBalance).subtract(bitcoinFee);
 			System.out.println(String.format("Spending %s of output, with %s as mining fee", BTC.format(redeemAmount), BTC.format(bitcoinFee)));
 
-			Transaction redeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secret);
+			Transaction redeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secret, redeemAddress.getHash());
 
 			byte[] redeemBytes = redeemTransaction.bitcoinSerialize();
 

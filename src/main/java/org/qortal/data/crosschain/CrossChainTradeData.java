@@ -26,8 +26,11 @@ public class CrossChainTradeData {
 	@Schema(description = "AT creator's Qortal trade address")
 	public String qortalCreatorTradeAddress;
 
-	@Schema(description = "AT creator's Bitcoin public-key-hash (PKH)")
+	@Schema(description = "AT creator's Bitcoin trade public-key-hash (PKH)")
 	public byte[] creatorBitcoinPKH;
+
+	@Schema(description = "AT creator's Bitcoin receiving public-key-hash (PKH)")
+	public byte[] creatorReceiveBitcoinPKH;
 
 	@Schema(description = "Timestamp when AT was created (milliseconds since epoch)")
 	public long creationTimestamp;
@@ -84,7 +87,7 @@ public class CrossChainTradeData {
 
 	// We can represent BitcoinPKH as an address
 	@XmlElement(name = "creatorBitcoinAddress")
-	@Schema(description = "AT creator's Bitcoin PKH in address form")
+	@Schema(description = "AT creator's trading Bitcoin PKH in address form")
 	public String getCreatorBitcoinAddress() {
 		if (this.creatorBitcoinPKH == null)
 			return null;
@@ -94,12 +97,22 @@ public class CrossChainTradeData {
 
 	// We can represent BitcoinPKH as an address
 	@XmlElement(name = "recipientBitcoinAddress")
-	@Schema(description = "Trade partner's Bitcoin PKH in address form")
+	@Schema(description = "Trade partner's trading Bitcoin PKH in address form")
 	public String getRecipientBitcoinAddress() {
 		if (this.recipientBitcoinPKH == null)
 			return null;
 
 		return BTC.getInstance().pkhToAddress(this.recipientBitcoinPKH);
+	}
+
+	// We can represent BitcoinPKH as an address
+	@XmlElement(name = "creatorBitcoinReceivingAddress")
+	@Schema(description = "AT creator's Bitcoin receiving address")
+	public String getCreatorBitcoinReceivingAddress() {
+		if (this.creatorReceiveBitcoinPKH == null)
+			return null;
+
+		return BTC.getInstance().pkhToAddress(this.creatorReceiveBitcoinPKH);
 	}
 
 }

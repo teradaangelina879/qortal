@@ -19,6 +19,7 @@ import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.block.Block;
+import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
@@ -53,6 +54,7 @@ public class AtTests extends Common {
 	public static final long redeemAmount = 80_40200000L;
 	public static final long fundingAmount = 123_45600000L;
 	public static final long bitcoinAmount = 864200L;
+	public static final byte[] bitcoinReceivePublicKeyHash = HashCode.fromString("00112233445566778899aabbccddeeff").asBytes();
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -63,7 +65,7 @@ public class AtTests extends Common {
 	public void testCompile() {
 		Account deployer = Common.getTestAccount(null, "chloe");
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout, bitcoinReceivePublicKeyHash);
 		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
@@ -526,7 +528,7 @@ public class AtTests extends Common {
 	}
 
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout, bitcoinReceivePublicKeyHash);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();
@@ -616,6 +618,7 @@ public class AtTests extends Common {
 				+ "\tHASH160 of secret-B: %s,\n"
 				+ "\tredeem payout: %s QORT,\n"
 				+ "\texpected bitcoin: %s BTC,\n"
+				+ "\treceiving bitcoin address: %s,\n"
 				+ "\tcurrent block height: %d,\n",
 				tradeData.qortalAtAddress,
 				tradeData.qortalCreator,
@@ -625,6 +628,7 @@ public class AtTests extends Common {
 				HashCode.fromBytes(tradeData.hashOfSecretB).toString().substring(0, 40),
 				Amounts.prettyAmount(tradeData.qortAmount),
 				Amounts.prettyAmount(tradeData.expectedBitcoin),
+				BTC.getInstance().pkhToAddress(tradeData.creatorReceiveBitcoinPKH),
 				currentBlockHeight));
 
 		// Are we in 'offer' or 'trade' stage?

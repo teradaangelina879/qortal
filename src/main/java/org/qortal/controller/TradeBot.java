@@ -8,10 +8,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bitcoinj.core.Address;
+import org.bitcoinj.core.AddressFormatException;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionOutput;
+import org.bitcoinj.script.Script.ScriptType;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.model.TradeBotCreateRequest;
@@ -103,6 +106,18 @@ public class TradeBot {
 		byte[] tradeForeignPublicKey = deriveTradeForeignPublicKey(tradePrivateKey);
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 
+		// Convert Bitcoin receive address into public key hash (we only support P2PKH at this time)
+		Address bitcoinReceiveAddress;
+		try {
+			bitcoinReceiveAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeBotCreateRequest.receiveAddress);
+		} catch (AddressFormatException e) {
+			throw new DataException("Unsupported Bitcoin receive address: " + tradeBotCreateRequest.receiveAddress);
+		}
+		if (bitcoinReceiveAddress.getOutputScriptType() != ScriptType.P2PKH)
+			throw new DataException("Unsupported Bitcoin receive address: " + tradeBotCreateRequest.receiveAddress);
+
+		byte[] bitcoinReceivePublicKeyHash = bitcoinReceiveAddress.getHash();
+
 		PublicKeyAccount creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);
 
 		// Deploy AT
@@ -116,7 +131,8 @@ public class TradeBot {
 		String description = "QORT/BTC cross-chain trade";
 		String aTType = "ACCT";
 		String tags = "ACCT QORT BTC";
-		byte[] creationBytes = BTCACCT.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, hashOfSecretB, tradeBotCreateRequest.qortAmount, tradeBotCreateRequest.bitcoinAmount, tradeBotCreateRequest.tradeTimeout);
+		byte[] creationBytes = BTCACCT.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, hashOfSecretB, tradeBotCreateRequest.qortAmount,
+				tradeBotCreateRequest.bitcoinAmount, tradeBotCreateRequest.tradeTimeout, bitcoinReceivePublicKeyHash);
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
 		DeployAtTransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, aTType, tags, creationBytes, amount, Asset.QORT);
@@ -699,8 +715,9 @@ public class TradeBot {
 		Coin redeemAmount = Coin.ZERO; // The real funds are in P2SH-A
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
+		byte[] receivePublicKeyHash = crossChainTradeData.creatorReceiveBitcoinPKH;
 
-		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, tradeBotData.getSecret());
+		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, tradeBotData.getSecret(), receivePublicKeyHash);
 
 		if (!BTC.getInstance().broadcastTransaction(p2shRedeemTransaction)) {
 			// We couldn't redeem P2SH-B at this time
@@ -846,8 +863,9 @@ public class TradeBot {
 		Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedBitcoin);
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
+		byte[] receivePublicKeyHash = crossChainTradeData.creatorReceiveBitcoinPKH;
 
-		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secretA);
+		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secretA, receivePublicKeyHash);
 
 		if (!BTC.getInstance().broadcastTransaction(p2shRedeemTransaction)) {
 			// We couldn't redeem P2SH-A at this time

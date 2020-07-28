@@ -92,7 +92,7 @@ public class BTCACCT {
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("14ee2cb9899f582037901c384bab9ccdd41e48d8c98bf7df5cf79f4e8c236286").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("58542b1d204d7034280fb85e8053c056353fcc9c3870c062a19b2fc17f764092").asBytes(); // SHA256 of AT code bytes
 
 	public static class OfferMessageData {
 		public byte[] recipientBitcoinPKH;
@@ -117,7 +117,7 @@ public class BTCACCT {
 	 * @param tradeTimeout suggested timeout for entire trade
 	 * @return
 	 */
-	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] bitcoinPublicKeyHash, byte[] hashOfSecretB, long qortAmount, long bitcoinAmount, int tradeTimeout) {
+	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] bitcoinPublicKeyHash, byte[] hashOfSecretB, long qortAmount, long bitcoinAmount, int tradeTimeout, byte[] bitcoinReceivePublicKeyHash) {
 		// Labels for data segment addresses
 		int addrCounter = 0;
 
@@ -156,6 +156,9 @@ public class BTCACCT {
 
 		final int addrMessageDataPointer = addrCounter++;
 		final int addrMessageDataLength = addrCounter++;
+
+		final int addrBitcoinReceivePublicKeyHash = addrCounter;
+		addrCounter += 4;
 
 		final int addrEndOfConstants = addrCounter;
 
@@ -279,6 +282,10 @@ public class BTCACCT {
 		dataByteBuffer.putLong(addrMessageData);
 		assert dataByteBuffer.position() == addrMessageDataLength * MachineState.VALUE_SIZE : "addrMessageDataLength incorrect";
 		dataByteBuffer.putLong(32L);
+
+		// Bitcoin receive public key hash
+		assert dataByteBuffer.position() == addrBitcoinReceivePublicKeyHash * MachineState.VALUE_SIZE : "addrBitcoinReceivePublicKeyHash incorrect";
+		dataByteBuffer.put(Bytes.ensureCapacity(bitcoinReceivePublicKeyHash, 32, 0));
 
 		assert dataByteBuffer.position() == addrEndOfConstants * MachineState.VALUE_SIZE : "dataByteBuffer position not at end of constants";
 
@@ -618,6 +625,11 @@ public class BTCACCT {
 
 		// Skip message data length
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Creator's Bitcoin/foreign receiving public key hash
+		tradeData.creatorReceiveBitcoinPKH = new byte[20];
+		dataByteBuffer.get(tradeData.creatorReceiveBitcoinPKH);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - tradeData.creatorReceiveBitcoinPKH.length); // skip to 32 bytes
 
 		/* End of constants / begin variables */
 

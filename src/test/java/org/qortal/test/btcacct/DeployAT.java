@@ -2,10 +2,13 @@ package org.qortal.test.btcacct;
 
 import java.security.Security;
 
+import org.bitcoinj.core.Address;
+import org.bitcoinj.script.Script.ScriptType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.controller.Controller;
+import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
@@ -34,7 +37,7 @@ public class DeployAT {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <your Bitcoin PKH> <HASH160-of-secret> <AT funding amount> <trade-timeout?"));
+		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <your Bitcoin PKH> <HASH160-of-secret> <AT funding amount> <trade-timeout> <your bitcoin receive address"));
 		System.err.println(String.format("example: DeployAT "
 				+ "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot \\\n"
 				+ "\t80.4020 \\\n"
@@ -42,12 +45,13 @@ public class DeployAT {
 				+ "\t750b06757a2448b8a4abebaa6e4662833fd5ddbb \\\n"
 				+ "\tdaf59884b4d1aec8c1b17102530909ee43c0151a \\\n"
 				+ "\t123.456 \\\n"
-				+ "\t10080"));
+				+ "\t10080 \\\n"
+				+ "\tn2iQZCtKZ5SrFDJENGJkd4RpAuQp3SEoix"));
 		System.exit(1);
 	}
 
 	public static void main(String[] args) {
-		if (args.length != 7)
+		if (args.length != 8)
 			usage(null);
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
@@ -60,6 +64,7 @@ public class DeployAT {
 		byte[] secretHash = null;
 		long fundingAmount = 0;
 		int tradeTimeout = 0;
+		byte[] bitcoinReceivePublicKeyHash = null;
 
 		int argIndex = 0;
 		try {
@@ -90,6 +95,12 @@ public class DeployAT {
 			tradeTimeout = Integer.parseInt(args[argIndex++]);
 			if (tradeTimeout < 60 || tradeTimeout > 50000)
 				usage("Trade timeout (minutes) must be between 60 and 50000");
+
+			Address receiveAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), args[argIndex++]);
+			if (receiveAddress.getOutputScriptType() != ScriptType.P2PKH)
+				usage("Bitcoin receive address must be P2PKH form");
+
+			bitcoinReceivePublicKeyHash = receiveAddress.getHash();
 		} catch (IllegalArgumentException e) {
 			usage(String.format("Invalid argument %d: %s", argIndex, e.getMessage()));
 		}
@@ -114,7 +125,7 @@ public class DeployAT {
 			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
 			// Deploy AT
-			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, secretHash, redeemAmount, expectedBitcoin, tradeTimeout);
+			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, secretHash, redeemAmount, expectedBitcoin, tradeTimeout, bitcoinReceivePublicKeyHash);
 			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			long txTimestamp = System.currentTimeMillis();
