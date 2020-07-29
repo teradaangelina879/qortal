@@ -1083,8 +1083,11 @@ public class CrossChainResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TradeBotData tradeBotData = repository.getCrossChainRepository().getTradeBotData(tradePrivateKey);
+			if (tradeBotData == null)
+				return "false";
 
 			switch (tradeBotData.getState()) {
+				case BOB_WAITING_FOR_AT_CONFIRM:
 				case ALICE_DONE:
 				case BOB_DONE:
 				case ALICE_REFUNDED:
