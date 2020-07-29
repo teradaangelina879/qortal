@@ -226,9 +226,13 @@ public class ElectrumX {
 		for (Object rawUnspent : (JSONArray) unspentJson) {
 			JSONObject unspent = (JSONObject) rawUnspent;
 
+			int height = ((Long) unspent.get("height")).intValue();
+			// We only want unspent outputs from confirmed transactions (and definitely not mempool duplicates with height 0)
+			if (height <= 0)
+				continue;
+
 			byte[] txHash = HashCode.fromString((String) unspent.get("tx_hash")).asBytes();
 			int outputIndex = ((Long) unspent.get("tx_pos")).intValue();
-			int height = ((Long) unspent.get("height")).intValue();
 			long value = (Long) unspent.get("value");
 
 			unspentOutputs.add(new UnspentOutput(txHash, outputIndex, height, value));
