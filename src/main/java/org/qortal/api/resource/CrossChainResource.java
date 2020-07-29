@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
@@ -1127,13 +1128,12 @@ public class CrossChainResource {
 	}
 
 	private byte[] buildAtMessage(Repository repository, byte[] senderPublicKey, String atAddress, byte[] messageData) throws DataException {
-		PublicKeyAccount creatorAccount = new PublicKeyAccount(repository, senderPublicKey);
-
+		// senderPublicKey is actually ephemeral trade public key, so there is no corresponding account and hence no reference
 		long txTimestamp = NTP.getTime();
-		byte[] lastReference = creatorAccount.getLastReference();
 
-		if (lastReference == null)
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_REFERENCE);
+		Random random = new Random();
+		byte[] lastReference = new byte[Transformer.SIGNATURE_LENGTH];
+		random.nextBytes(lastReference);
 
 		int version = 4;
 		int nonce = 0;
