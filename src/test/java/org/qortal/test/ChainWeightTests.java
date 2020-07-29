@@ -3,6 +3,8 @@ package org.qortal.test;
 import static org.junit.Assert.*;
 
 import java.math.BigInteger;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -23,6 +25,7 @@ import org.junit.Test;
 public class ChainWeightTests extends Common {
 
 	private static final Random RANDOM = new Random();
+	private static final NumberFormat FORMATTER = new DecimalFormat("0.###E0");
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -87,6 +90,96 @@ public class ChainWeightTests extends Common {
 
 			assertEquals("block weights are wrong", 1, betterBlockWeight.compareTo(worseBlockWeight));
 		}
+	}
+
+	// Demonstrates that typical key distance ranges from roughly 1E75 to 1E77
+	@Test
+	public void testKeyDistances() {
+		byte[] parentMinterKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+		byte[] testKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+
+		for (int i = 0; i < 50; ++i) {
+			int parentHeight = RANDOM.nextInt(50000);
+			RANDOM.nextBytes(parentMinterKey);
+			RANDOM.nextBytes(testKey);
+			int minterLevel = RANDOM.nextInt(10) + 1;
+
+			BigInteger keyDistance = Block.calcKeyDistance(parentHeight, parentMinterKey, testKey, minterLevel);
+
+			System.out.println(String.format("Parent height: %d, minter level: %d, distance: %s",
+					parentHeight,
+					minterLevel,
+					FORMATTER.format(keyDistance)));
+		}
+	}
+
+	// If typical key distance ranges from 1E75 to 1E77
+	// then we want lots of online accounts to push a 1E75 distance
+	// towards 1E77 so that it competes with a 1E77 key that has hardly any online accounts
+	// 1E75 is approx. 2**249 so maybe that's a good value for Block.ACCOUNTS_COUNT_SHIFT
+	@Test
+	public void testMoreAccountsVersusKeyDistance() throws DataException {
+		BigInteger minimumBetterKeyDistance = BigInteger.TEN.pow(77);
+		BigInteger maximumWorseKeyDistance = BigInteger.TEN.pow(75);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			final byte[] parentMinterKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+
+			TestAccount betterAccount = Common.getTestAccount(repository, "bob-reward-share");
+			byte[] betterKey = betterAccount.getPublicKey();
+			int betterMinterLevel = Account.getRewardShareEffectiveMintingLevel(repository, betterKey);
+
+			TestAccount worseAccount = Common.getTestAccount(repository, "dilbert-reward-share");
+			byte[] worseKey = worseAccount.getPublicKey();
+			int worseMinterLevel = Account.getRewardShareEffectiveMintingLevel(repository, worseKey);
+
+			// This is to check that the hard-coded keys ARE actually better/worse as expected, before moving on testing more online accounts
+			BigInteger betterKeyDistance;
+			BigInteger worseKeyDistance;
+
+			int parentHeight = 0;
+			do {
+				++parentHeight;
+				betterKeyDistance = Block.calcKeyDistance(parentHeight, parentMinterKey, betterKey, betterMinterLevel);
+				worseKeyDistance = Block.calcKeyDistance(parentHeight, parentMinterKey, worseKey, worseMinterLevel);
+			} while (betterKeyDistance.compareTo(minimumBetterKeyDistance) < 0 || worseKeyDistance.compareTo(maximumWorseKeyDistance) > 0);
+
+			System.out.println(String.format("Parent height: %d, better key distance: %s, worse key distance: %s",
+					parentHeight,
+					FORMATTER.format(betterKeyDistance),
+					FORMATTER.format(worseKeyDistance)));
+
+			for (int accountsCountShift = 244; accountsCountShift <= 256; accountsCountShift += 2) {
+				for (int worseAccountsCount = 1; worseAccountsCount <= 101; worseAccountsCount += 25) {
+					for (int betterAccountsCount = 1; betterAccountsCount <= 1001; betterAccountsCount += 250) {
+						BlockSummaryData worseKeyBlockSummary = new BlockSummaryData(parentHeight + 1, null, worseKey, betterAccountsCount);
+						BlockSummaryData betterKeyBlockSummary = new BlockSummaryData(parentHeight + 1, null, betterKey, worseAccountsCount);
+
+						populateBlockSummaryMinterLevel(repository, worseKeyBlockSummary);
+						populateBlockSummaryMinterLevel(repository, betterKeyBlockSummary);
+
+						BigInteger worseKeyBlockWeight = calcBlockWeight(parentHeight, parentMinterKey, worseKeyBlockSummary, accountsCountShift);
+						BigInteger betterKeyBlockWeight = calcBlockWeight(parentHeight, parentMinterKey, betterKeyBlockSummary, accountsCountShift);
+
+						System.out.println(String.format("Shift: %d, worse key: %d accounts, %s diff; better key: %d accounts: %s diff; winner: %s",
+								accountsCountShift,
+								betterAccountsCount, // used with worseKey
+								FORMATTER.format(worseKeyBlockWeight),
+								worseAccountsCount, // used with betterKey
+								FORMATTER.format(betterKeyBlockWeight),
+								worseKeyBlockWeight.compareTo(betterKeyBlockWeight) > 0 ? "worse key/better accounts" : "better key/worse accounts"
+								));
+					}
+				}
+
+				System.out.println();
+			}
+		}
+	}
+
+	private static BigInteger calcBlockWeight(int parentHeight, byte[] parentBlockSignature, BlockSummaryData blockSummaryData, int accountsCountShift) {
+		BigInteger keyDistance = Block.calcKeyDistance(parentHeight, parentBlockSignature, blockSummaryData.getMinterPublicKey(), blockSummaryData.getMinterLevel());
+		return BigInteger.valueOf(blockSummaryData.getOnlineAccountsCount()).shiftLeft(accountsCountShift).add(keyDistance);
 	}
 
 	// Check that a longer chain beats a shorter chain
