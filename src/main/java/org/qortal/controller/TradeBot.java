@@ -877,7 +877,7 @@ public class TradeBot {
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
-		String receiveAddress = BTC.getInstance().pkhToAddress(tradeBotData.getTradeForeignPublicKeyHash());
+		String receiveAddress = BTC.getInstance().pkhToAddress(receivePublicKeyHash);
 
 		LOGGER.info(() -> String.format("P2SH-A %s redeemed. Funds should arrive at %s", tradeBotData.getAtAddress(), receiveAddress));
 	}
