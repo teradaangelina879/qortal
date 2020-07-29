@@ -39,6 +39,7 @@ import org.qortal.transaction.MessageTransaction;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
+import org.qortal.utils.Amounts;
 import org.qortal.utils.NTP;
 
 public class TradeBot {
@@ -837,9 +838,15 @@ public class TradeBot {
 			// Not finished yet
 			return;
 
-		// If AT's balance is zero, then it's auto-refunded so we're done
+		// If AT's balance should be zero
 		AccountBalanceData atBalanceData = repository.getAccountRepository().getBalance(tradeBotData.getAtAddress(), Asset.QORT);
-		if (atBalanceData == null || atBalanceData.getBalance() == 0L) {
+		if (atBalanceData != null && atBalanceData.getBalance() > 0L) {
+			LOGGER.debug(() -> String.format("AT %s should have zero balance, not %s", tradeBotData.getAtAddress(), Amounts.prettyAmount(atBalanceData.getBalance())));
+			return;
+		}
+
+		// We check variable in AT that is set when trade successfully completes
+		if (!crossChainTradeData.hasRedeemed) {
 			tradeBotData.setState(TradeBotData.State.BOB_REFUNDED);
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();

@@ -79,6 +79,9 @@ public class CrossChainTradeData {
 	@Schema(description = "Trade partner's Bitcoin public-key-hash (PKH)")
 	public byte[] recipientBitcoinPKH;
 
+	@Schema(description = "Whether AT has paid out to trade partner")
+	public Boolean hasRedeemed;
+
 	// Constructors
 
 	// Necessary for JAXB

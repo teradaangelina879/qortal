@@ -92,7 +92,7 @@ public class BTCACCT {
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("58542b1d204d7034280fb85e8053c056353fcc9c3870c062a19b2fc17f764092").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("f62e1447e8361703c261c8e8e1973713d29b713716582f491431cb7f6ee99e80").asBytes(); // SHA256 of AT code bytes
 
 	public static class OfferMessageData {
 		public byte[] recipientBitcoinPKH;
@@ -200,6 +200,8 @@ public class BTCACCT {
 		addrCounter += 4;
 
 		final int addrMode = addrCounter++;
+
+		final int addrRedeemFlag = addrCounter++;
 
 		// Data segment
 		ByteBuffer dataByteBuffer = ByteBuffer.allocate(addrCounter * MachineState.VALUE_SIZE);
@@ -500,6 +502,9 @@ public class BTCACCT {
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.SET_B_IND, addrQortalRecipientPointer));
 				// Pay AT's balance to recipient
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PAY_TO_ADDRESS_IN_B, addrQortAmount));
+				// Set redeem flag
+				codeByteBuffer.put(OpCode.INC_DAT.compile(addrRedeemFlag));
+
 				// Fall-through to refunding any remaining balance back to AT creator
 
 				/* Refund balance back to AT creator */
@@ -686,6 +691,8 @@ public class BTCACCT {
 
 		long mode = dataByteBuffer.getLong();
 
+		long redeemFlag = dataByteBuffer.getLong();
+
 		if (mode != 0) {
 			tradeData.mode = CrossChainTradeData.Mode.TRADE;
 			tradeData.refundTimeout = refundTimeout;
@@ -695,6 +702,7 @@ public class BTCACCT {
 			tradeData.recipientBitcoinPKH = recipientBitcoinPKH;
 			tradeData.lockTimeA = lockTimeA;
 			tradeData.lockTimeB = lockTimeB;
+			tradeData.hasRedeemed = redeemFlag != 0;
 		} else {
 			tradeData.mode = CrossChainTradeData.Mode.OFFER;
 		}
