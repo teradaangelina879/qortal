@@ -117,6 +117,15 @@ public class BTC {
 		return format(Coin.valueOf(amount));
 	}
 
+	public boolean isValidXprv(String xprv58) {
+		try {
+			DeterministicKey.deserializeB58(null, xprv58, this.params);
+			return true;
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
+	}
+
 	/** Returns P2PKH Bitcoin address using passed public key hash. */
 	public String pkhToAddress(byte[] publicKeyHash) {
 		return LegacyAddress.fromPubKeyHash(this.params, publicKeyHash).toString();

@@ -1028,15 +1028,8 @@ public class CrossChainResource {
 		if (atAddress == null || !Crypto.isValidAtAddress(atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		final byte[] xprv;
-		try {
-			xprv = Base58.decode(tradeBotRespondRequest.xprv58);
-
-			if (xprv.length != 4 + 1 + 4 + 4 + 32 + 33 + 4)
-				throw  ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
-		} catch (NumberFormatException e) {
+		if (!BTC.getInstance().isValidXprv(tradeBotRespondRequest.xprv58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
-		}
 
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
