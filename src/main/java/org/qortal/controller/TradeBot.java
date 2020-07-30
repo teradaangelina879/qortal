@@ -254,9 +254,9 @@ public class TradeBot {
 	}
 
 	private static byte[] generateTradePrivateKey() {
-		byte[] seed = new byte[32];
-		RANDOM.nextBytes(seed);
-		return seed;
+		// The private key is used for both Curve25519 and secp256k1 so needs to be valid for both.
+		// Curve25519 accepts any seed, so generate a valid secp256k1 key and use that.
+		return new ECKey().getPrivKeyBytes();
 	}
 
 	private static byte[] deriveTradeNativePublicKey(byte[] privateKey) {
