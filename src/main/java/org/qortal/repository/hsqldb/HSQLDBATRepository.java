@@ -288,8 +288,8 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
-	public List<ATStateData> getMatchingFinalATStates(byte[] codeHash,
-			Integer dataByteOffset, Long expectedValue,
+	public List<ATStateData> getMatchingFinalATStates(byte[] codeHash, Boolean isFinished,
+			Integer dataByteOffset, Long expectedValue, Integer minimumFinalHeight,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
 		sql.append("SELECT AT_address, height, created_when, state_data, state_hash, fees, is_initial "
@@ -301,9 +301,15 @@ public class HSQLDBATRepository implements ATRepository {
 					+ "ORDER BY height DESC "
 					+ "LIMIT 1"
 				+ ") AS FinalATStates "
-				+ "WHERE code_hash = ? AND is_finished ");
+				+ "WHERE code_hash = ? ");
 
-		Object[] bindParams;
+		List<Object> bindParams = new ArrayList<>();
+		bindParams.add(codeHash);
+
+		if (isFinished != null) {
+			sql.append("AND is_finished = ?");
+			bindParams.add(isFinished);
+		}
 
 		if (dataByteOffset != null && expectedValue != null) {
 			sql.append("AND RAWTOHEX(SUBSTRING(state_data FROM ? FOR 8)) = ? ");
@@ -312,9 +318,13 @@ public class HSQLDBATRepository implements ATRepository {
 			String expectedHexValue = String.format("%016x", expectedValue); // left-zero-padding and conversion
 
 			// SQL binary data offsets start at 1
-			bindParams = new Object[] { codeHash, dataByteOffset + 1, expectedHexValue };
-		} else {
-			bindParams = new Object[] { codeHash };
+			bindParams.add(dataByteOffset + 1);
+			bindParams.add(expectedHexValue);
+		}
+
+		if (minimumFinalHeight != null) {
+			sql.append("AND height >= ");
+			sql.append(minimumFinalHeight);
 		}
 
 		sql.append(" ORDER BY height ");
@@ -325,7 +335,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 		List<ATStateData> atStates = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return atStates;
 

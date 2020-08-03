@@ -2,10 +2,8 @@ package org.qortal.data.crosschain;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -55,7 +53,7 @@ public class CrossChainTradeData {
 	public Long tradeModeTimestamp;
 
 	@Schema(description = "How long from AT creation until AT triggers automatic refund to AT creator (minutes)")
-	public int refundTimeout;
+	public Integer refundTimeout;
 
 	@Schema(description = "Actual Qortal block height when AT will automatically refund to AT creator (after trade begins)")
 	public Integer tradeRefundHeight;
@@ -79,26 +77,6 @@ public class CrossChainTradeData {
 
 	// Necessary for JAXB
 	public CrossChainTradeData() {
-	}
-
-	// We can represent BitcoinPKH as an address
-	@XmlElement(name = "creatorBitcoinAddress")
-	@Schema(description = "AT creator's trading Bitcoin PKH in address form")
-	public String getCreatorBitcoinAddress() {
-		if (this.creatorBitcoinPKH == null)
-			return null;
-
-		return BTC.getInstance().pkhToAddress(this.creatorBitcoinPKH);
-	}
-
-	// We can represent BitcoinPKH as an address
-	@XmlElement(name = "recipientBitcoinAddress")
-	@Schema(description = "Trade partner's trading Bitcoin PKH in address form")
-	public String getRecipientBitcoinAddress() {
-		if (this.partnerBitcoinPKH == null)
-			return null;
-
-		return BTC.getInstance().pkhToAddress(this.partnerBitcoinPKH);
 	}
 
 }

@@ -1126,10 +1126,15 @@ public class CrossChainResource {
 		if (limit != null && limit > 100)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-		byte[] codeHash = BTCACCT.CODE_BYTES_HASH;
+		final Boolean isFinished = Boolean.TRUE;
+		final Integer minimumFinalHeight = null;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(codeHash, BTCACCT.MODE_BYTE_OFFSET, (long) BTCACCT.Mode.REDEEMED.value, limit, offset, reverse);
+			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
+					isFinished,
+					BTCACCT.MODE_BYTE_OFFSET, (long) BTCACCT.Mode.REDEEMED.value,
+					minimumFinalHeight,
+					limit, offset, reverse);
 
 			List<CrossChainTradeSummary> crossChainTrades = new ArrayList<>();
 			for (ATStateData atState : atStates) {
