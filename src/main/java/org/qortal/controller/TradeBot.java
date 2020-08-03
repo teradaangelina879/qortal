@@ -108,17 +108,17 @@ public class TradeBot {
 		byte[] tradeForeignPublicKey = deriveTradeForeignPublicKey(tradePrivateKey);
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 
-		// Convert Bitcoin receive address into public key hash (we only support P2PKH at this time)
-		Address bitcoinReceiveAddress;
+		// Convert Bitcoin receiving address into public key hash (we only support P2PKH at this time)
+		Address bitcoinReceivingAddress;
 		try {
-			bitcoinReceiveAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeBotCreateRequest.receiveAddress);
+			bitcoinReceivingAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
 		} catch (AddressFormatException e) {
-			throw new DataException("Unsupported Bitcoin receive address: " + tradeBotCreateRequest.receiveAddress);
+			throw new DataException("Unsupported Bitcoin receiving address: " + tradeBotCreateRequest.receivingAddress);
 		}
-		if (bitcoinReceiveAddress.getOutputScriptType() != ScriptType.P2PKH)
-			throw new DataException("Unsupported Bitcoin receive address: " + tradeBotCreateRequest.receiveAddress);
+		if (bitcoinReceivingAddress.getOutputScriptType() != ScriptType.P2PKH)
+			throw new DataException("Unsupported Bitcoin receiving address: " + tradeBotCreateRequest.receivingAddress);
 
-		byte[] bitcoinReceivePublicKeyHash = bitcoinReceiveAddress.getHash();
+		byte[] bitcoinReceivingAccountInfo = bitcoinReceivingAddress.getHash();
 
 		PublicKeyAccount creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);
 
@@ -151,7 +151,7 @@ public class TradeBot {
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				secretB, hashOfSecretB,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
-				tradeBotCreateRequest.bitcoinAmount, null, null, null, bitcoinReceivePublicKeyHash);
+				tradeBotCreateRequest.bitcoinAmount, null, null, null, bitcoinReceivingAccountInfo);
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -718,9 +718,9 @@ public class TradeBot {
 		Coin redeemAmount = Coin.ZERO; // The real funds are in P2SH-A
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
-		byte[] receivePublicKeyHash = tradeBotData.getReceivingAccountInfo();
+		byte[] receivingAccountInfo = tradeBotData.getReceivingAccountInfo();
 
-		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, tradeBotData.getSecret(), receivePublicKeyHash);
+		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, tradeBotData.getSecret(), receivingAccountInfo);
 
 		if (!BTC.getInstance().broadcastTransaction(p2shRedeemTransaction)) {
 			// We couldn't redeem P2SH-B at this time
@@ -787,8 +787,8 @@ public class TradeBot {
 
 		// Send 'redeem' MESSAGE to AT using both secrets
 		byte[] secretA = tradeBotData.getSecret();
-		String qortalReceiveAddress = Base58.encode(tradeBotData.getReceivingAccountInfo()); // Actually contains whole address, not just PKH
-		byte[] messageData = BTCACCT.buildRedeemMessage(secretA, secretB, qortalReceiveAddress);
+		String qortalReceivingAddress = Base58.encode(tradeBotData.getReceivingAccountInfo()); // Actually contains whole address, not just PKH
+		byte[] messageData = BTCACCT.buildRedeemMessage(secretA, secretB, qortalReceivingAddress);
 
 		PrivateKeyAccount sender = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
 		MessageTransaction messageTransaction = MessageTransaction.build(repository, sender, Group.NO_GROUP, tradeBotData.getAtAddress(), messageData, false, false);
@@ -809,10 +809,10 @@ public class TradeBot {
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
-		String receiveAddress = tradeBotData.getTradeNativeAddress();
+		String receivingAddress = tradeBotData.getTradeNativeAddress();
 
 		LOGGER.info(() -> String.format("P2SH-B %s redeemed, using secrets to redeem AT %s. Funds should arrive at %s",
-				p2shAddress, tradeBotData.getAtAddress(), receiveAddress));
+				p2shAddress, tradeBotData.getAtAddress(), receivingAddress));
 	}
 
 	/**
@@ -873,9 +873,9 @@ public class TradeBot {
 		Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedBitcoin);
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
-		byte[] receivePublicKeyHash = tradeBotData.getReceivingAccountInfo();
+		byte[] receivingAccountInfo = tradeBotData.getReceivingAccountInfo();
 
-		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secretA, receivePublicKeyHash);
+		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secretA, receivingAccountInfo);
 
 		if (!BTC.getInstance().broadcastTransaction(p2shRedeemTransaction)) {
 			// We couldn't redeem P2SH-A at this time
@@ -887,9 +887,9 @@ public class TradeBot {
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
-		String receiveAddress = BTC.getInstance().pkhToAddress(receivePublicKeyHash);
+		String receivingAddress = BTC.getInstance().pkhToAddress(receivingAccountInfo);
 
-		LOGGER.info(() -> String.format("P2SH-A %s redeemed. Funds should arrive at %s", tradeBotData.getAtAddress(), receiveAddress));
+		LOGGER.info(() -> String.format("P2SH-A %s redeemed. Funds should arrive at %s", tradeBotData.getAtAddress(), receivingAddress));
 	}
 
 	/**

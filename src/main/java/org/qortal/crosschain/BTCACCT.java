@@ -88,10 +88,10 @@ import com.google.common.primitives.Bytes;
  * 				<ul>
  * 					<li>secret-A</li>
  * 					<li>secret-B</li>
- * 					<li>Qortal receive address of her chosing</li>
+ * 					<li>Qortal receiving address of her chosing</li>
  * 				</ul>
  * 			</li>
- * 			<li>AT's QORT funds are sent to Qortal receive address</li>
+ * 			<li>AT's QORT funds are sent to Qortal receiving address</li>
  * 		</ul>
  * </li>
  * <li>Bob checks AT, extracts secret-A
@@ -124,7 +124,7 @@ public class BTCACCT {
 			+ 8 /*lockTimeB*/
 			+ 24 /*hash of secret-A (padded from 20 to 24)*/
 			+ 8 /*lockTimeA*/;
-	public static final int REDEEM_MESSAGE_LENGTH = 32 /*secret*/ + 32 /*secret*/ + 32 /*partner's Qortal receive address padded from 25 to 32*/;
+	public static final int REDEEM_MESSAGE_LENGTH = 32 /*secret*/ + 32 /*secret*/ + 32 /*partner's Qortal receiving address padded from 25 to 32*/;
 	public static final int CANCEL_MESSAGE_LENGTH = 32 /*AT creator's Qortal address*/;
 
 	public enum Mode {
@@ -195,7 +195,7 @@ public class BTCACCT {
 		final int addrHashOfSecretAPointer = addrCounter++;
 
 		final int addrRedeemMessageSecretBOffset = addrCounter++;
-		final int addrRedeemMessageReceiveAddressOffset = addrCounter++;
+		final int addrRedeemMessageReceivingAddressOffset = addrCounter++;
 
 		final int addrMessageDataPointer = addrCounter++;
 		final int addrMessageDataLength = addrCounter++;
@@ -290,7 +290,7 @@ public class BTCACCT {
 		assert dataByteBuffer.position() == addrHashOfSecretBPointer * MachineState.VALUE_SIZE : "addrHashOfSecretBPointer incorrect";
 		dataByteBuffer.putLong(addrHashOfSecretB);
 
-		// Index into data segment of recipient address, used by SET_B_IND
+		// Index into data segment of partner's Qortal address, used by SET_B_IND
 		assert dataByteBuffer.position() == addrQortalPartnerAddressPointer * MachineState.VALUE_SIZE : "addrQortalPartnerAddressPointer incorrect";
 		dataByteBuffer.putLong(addrQortalPartnerAddress1);
 
@@ -318,8 +318,8 @@ public class BTCACCT {
 		assert dataByteBuffer.position() == addrRedeemMessageSecretBOffset * MachineState.VALUE_SIZE : "addrRedeemMessageSecretBOffset incorrect";
 		dataByteBuffer.putLong(32L);
 
-		// Offset into 'redeem' MESSAGE data payload for extracting Qortal receive address
-		assert dataByteBuffer.position() == addrRedeemMessageReceiveAddressOffset * MachineState.VALUE_SIZE : "addrRedeemMessageReceiveAddressOffset incorrect";
+		// Offset into 'redeem' MESSAGE data payload for extracting Qortal receiving address
+		assert dataByteBuffer.position() == addrRedeemMessageReceivingAddressOffset * MachineState.VALUE_SIZE : "addrRedeemMessageReceivingAddressOffset incorrect";
 		dataByteBuffer.putLong(64L);
 
 		// Source location and length for hashing any passed secret
@@ -540,12 +540,12 @@ public class BTCACCT {
 				codeByteBuffer.put(OpCode.BNZ_DAT.compile(addrResult, calcOffset(codeByteBuffer, labelPayout)));
 				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelRedeemTxnLoop == null ? 0 : labelRedeemTxnLoop));
 
-				/* Success! Pay arranged amount to receive address */
+				/* Success! Pay arranged amount to receiving address */
 				labelPayout = codeByteBuffer.position();
 
-				// Extract Qortal receive address from next 32 bytes of message from transaction into B register
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrRedeemMessageReceiveAddressOffset));
-				// Pay AT's balance to recipient
+				// Extract Qortal receiving address from next 32 bytes of message from transaction into B register
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrRedeemMessageReceivingAddressOffset));
+				// Pay AT's balance to receiving address
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PAY_TO_ADDRESS_IN_B, addrQortAmount));
 				// Set redeemed mode
 				codeByteBuffer.put(OpCode.SET_VAL.compile(addrMode, Mode.REDEEMED.value));
@@ -678,7 +678,7 @@ public class BTCACCT {
 		// Skip pointer to message sender
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
-		// Skip 'trade' message data offset for recipient's bitcoin PKH
+		// Skip 'trade' message data offset for partner's bitcoin PKH
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
 		// Skip pointer to partner's bitcoin PKH
@@ -693,7 +693,7 @@ public class BTCACCT {
 		// Skip 'redeem' message data offset for secret-B
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
-		// Skip 'redeem' message data offset for partner's Qortal receive address
+		// Skip 'redeem' message data offset for partner's Qortal receiving address
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
 		// Skip pointer to message data
@@ -751,9 +751,9 @@ public class BTCACCT {
 		dataByteBuffer.position(dataByteBuffer.position() + 32 - hashOfSecretA.length); // skip to 32 bytes
 
 		// Potential partner's Bitcoin PKH
-		byte[] recipientBitcoinPKH = new byte[20];
-		dataByteBuffer.get(recipientBitcoinPKH);
-		dataByteBuffer.position(dataByteBuffer.position() + 32 - recipientBitcoinPKH.length); // skip to 32 bytes
+		byte[] partnerBitcoinPKH = new byte[20];
+		dataByteBuffer.get(partnerBitcoinPKH);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - partnerBitcoinPKH.length); // skip to 32 bytes
 
 		long modeValue = dataByteBuffer.getLong();
 		Mode mode = Mode.valueOf((int) (modeValue & 0xffL));
@@ -764,7 +764,7 @@ public class BTCACCT {
 			tradeData.tradeRefundHeight = new Timestamp(tradeRefundTimestamp).blockHeight;
 			tradeData.qortalPartnerAddress = qortalRecipient;
 			tradeData.hashOfSecretA = hashOfSecretA;
-			tradeData.partnerBitcoinPKH = recipientBitcoinPKH;
+			tradeData.partnerBitcoinPKH = partnerBitcoinPKH;
 			tradeData.lockTimeA = lockTimeA;
 			tradeData.lockTimeB = lockTimeB;
 		} else {
@@ -775,9 +775,9 @@ public class BTCACCT {
 	}
 
 	/** Returns 'offer' MESSAGE payload for trade partner to send to AT creator's trade address. */
-	public static byte[] buildOfferMessage(byte[] recipientBitcoinPKH, byte[] hashOfSecretA, int lockTimeA) {
+	public static byte[] buildOfferMessage(byte[] partnerBitcoinPKH, byte[] hashOfSecretA, int lockTimeA) {
 		byte[] lockTimeABytes = BitTwiddling.toBEByteArray((long) lockTimeA);
-		return Bytes.concat(recipientBitcoinPKH, hashOfSecretA, lockTimeABytes);
+		return Bytes.concat(partnerBitcoinPKH, hashOfSecretA, lockTimeABytes);
 	}
 
 	/** Returns info extracted from 'offer' MESSAGE payload sent by trade partner to AT creator's trade address, or null if not valid. */
@@ -796,11 +796,11 @@ public class BTCACCT {
 	/** Returns 'trade' MESSAGE payload for AT creator to send to AT. */
 	public static byte[] buildTradeMessage(String partnerQortalTradeAddress, byte[] partnerBitcoinPKH, byte[] hashOfSecretA, int lockTimeA, int lockTimeB) {
 		byte[] data = new byte[TRADE_MESSAGE_LENGTH];
-		byte[] recipientQortalAddressBytes = Base58.decode(partnerQortalTradeAddress);
+		byte[] partnerQortalAddressBytes = Base58.decode(partnerQortalTradeAddress);
 		byte[] lockTimeABytes = BitTwiddling.toBEByteArray((long) lockTimeA);
 		byte[] lockTimeBBytes = BitTwiddling.toBEByteArray((long) lockTimeB);
 
-		System.arraycopy(recipientQortalAddressBytes, 0, data, 0, recipientQortalAddressBytes.length);
+		System.arraycopy(partnerQortalAddressBytes, 0, data, 0, partnerQortalAddressBytes.length);
 		System.arraycopy(partnerBitcoinPKH, 0, data, 32, partnerBitcoinPKH.length);
 		System.arraycopy(lockTimeBBytes, 0, data, 56, lockTimeBBytes.length);
 		System.arraycopy(hashOfSecretA, 0, data, 64, hashOfSecretA.length);
@@ -820,13 +820,13 @@ public class BTCACCT {
 	}
 
 	/** Returns 'redeem' MESSAGE payload for trade partner/ to send to AT. */
-	public static byte[] buildRedeemMessage(byte[] secretA, byte[] secretB, String qortalReceiveAddress) {
+	public static byte[] buildRedeemMessage(byte[] secretA, byte[] secretB, String qortalReceivingAddress) {
 		byte[] data = new byte[REDEEM_MESSAGE_LENGTH];
-		byte[] qortalReceiveAddressBytes = Base58.decode(qortalReceiveAddress);
+		byte[] qortalReceivingAddressBytes = Base58.decode(qortalReceivingAddress);
 
 		System.arraycopy(secretA, 0, data, 0, secretA.length);
 		System.arraycopy(secretB, 0, data, 32, secretB.length);
-		System.arraycopy(qortalReceiveAddressBytes, 0, data, 64, qortalReceiveAddressBytes.length);
+		System.arraycopy(qortalReceivingAddressBytes, 0, data, 64, qortalReceivingAddressBytes.length);
 
 		return data;
 	}

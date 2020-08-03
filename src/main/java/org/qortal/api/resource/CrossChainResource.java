@@ -853,10 +853,10 @@ public class CrossChainResource {
 		if (redeemRequest.secret == null || redeemRequest.secret.length != BTCACCT.SECRET_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
-		if (redeemRequest.receivePublicKeyHash == null)
-			redeemRequest.receivePublicKeyHash = redeemKey.getPubKeyHash();
+		if (redeemRequest.receivingAccountInfo == null)
+			redeemRequest.receivingAccountInfo = redeemKey.getPubKeyHash();
 
-		if (redeemRequest.receivePublicKeyHash.length != 20)
+		if (redeemRequest.receivingAccountInfo.length != 20)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
 		// Extract data from cross-chain trading AT
@@ -899,7 +899,7 @@ public class CrossChainResource {
 
 			Coin redeemAmount = Coin.valueOf(p2shBalance - redeemRequest.bitcoinMinerFee.unscaledValue().longValue());
 
-			org.bitcoinj.core.Transaction redeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, redeemRequest.secret, redeemRequest.receivePublicKeyHash);
+			org.bitcoinj.core.Transaction redeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, redeemRequest.secret, redeemRequest.receivingAccountInfo);
 			boolean wasBroadcast = BTC.getInstance().broadcastTransaction(redeemTransaction);
 
 			if (!wasBroadcast)
@@ -961,15 +961,15 @@ public class CrossChainResource {
 	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
 		Security.checkApiCallAllowed(request);
 
-		Address receiveAddress;
+		Address receivingAddress;
 		try {
-			receiveAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeBotCreateRequest.receiveAddress);
+			receivingAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
 		} catch (AddressFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 		}
 
 		// We only support P2PKH addresses at this time
-		if (receiveAddress.getOutputScriptType() != ScriptType.P2PKH)
+		if (receivingAddress.getOutputScriptType() != ScriptType.P2PKH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		if (tradeBotCreateRequest.tradeTimeout < 60)

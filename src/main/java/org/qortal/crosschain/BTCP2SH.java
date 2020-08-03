@@ -163,10 +163,10 @@ public class BTCP2SH {
 	 * @param fundingOutput output from transaction that funded P2SH address
 	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
 	 * @param secret actual 32-byte secret used when building redeemScript
-	 * @param receivePublicKeyHash PKH used for output
+	 * @param receivingAccountInfo Bitcoin PKH used for output
 	 * @return Signed Bitcoin transaction for redeeming P2SH
 	 */
-	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey redeemKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, byte[] secret, byte[] receivePublicKeyHash) {
+	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey redeemKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, byte[] secret, byte[] receivingAccountInfo) {
 		Function<byte[], Script> redeemSigScriptBuilder = (txSigBytes) -> {
 			// Build scriptSig with...
 			ScriptBuilder scriptBuilder = new ScriptBuilder();
@@ -187,7 +187,7 @@ public class BTCP2SH {
 			return scriptBuilder.build();
 		};
 
-		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder, receivePublicKeyHash);
+		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder, receivingAccountInfo);
 	}
 
 	/** Returns 'secret', if any, given list of raw bitcoin transactions. */

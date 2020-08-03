@@ -28,7 +28,7 @@ public class TradeBotCreateRequest {
 	public int tradeTimeout;
 
 	@Schema(description = "Bitcoin address for receiving", example = "1NCTG9oLk41bU6pcehLNo9DVJup77EHAVx")
-	public String receiveAddress;
+	public String receivingAddress;
 
 	public TradeBotCreateRequest() {
 	}

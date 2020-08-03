@@ -8,6 +8,7 @@ import java.util.Map;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -46,6 +47,7 @@ public class TradeBotData {
 	private byte[] tradeForeignPublicKey;
 	private byte[] tradeForeignPublicKeyHash;
 
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long bitcoinAmount;
 
 	// Never expose this via API
