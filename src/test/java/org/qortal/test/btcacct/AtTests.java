@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
 
-import org.bitcoinj.core.Base58;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
@@ -54,6 +53,8 @@ public class AtTests extends Common {
 	public static final long fundingAmount = 123_45600000L;
 	public static final long bitcoinAmount = 864200L;
 	public static final byte[] bitcoinReceivePublicKeyHash = HashCode.fromString("00112233445566778899aabbccddeeff").asBytes();
+
+	private static final Random RANDOM = new Random();
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -132,11 +133,11 @@ public class AtTests extends Common {
 			long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
 
 			// Send creator's address to AT, instead of typical partner's address
-			byte[] partnerAddressBytes = Bytes.ensureCapacity(Base58.decode(deployer.getAddress()), 32, 0);
-			MessageTransaction messageTransaction = sendMessage(repository, deployer, partnerAddressBytes, atAddress);
+			byte[] messageData = BTCACCT.buildCancelMessage(deployer.getAddress());
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 			long messageFee = messageTransaction.getTransactionData().getFee();
 
-			// Refund should happen 1st block after receiving 'cancel' message
+			// AT should process 'cancel' message in next block
 			BlockUtils.mintBlock(repository);
 
 			long expectedMinimumBalance = deployersPostDeploymentBalance;
@@ -164,6 +165,45 @@ public class AtTests extends Common {
 			actualBalance = deployer.getConfirmedBalance(Asset.QORT);
 
 			assertEquals("Deployer's post-orphan/pre-refund balance incorrect", expectedBalance, actualBalance);
+		}
+	}
+
+	@SuppressWarnings("unused")
+	@Test
+	public void testOfferCancelInvalidLength() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
+
+			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
+
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
+			Account at = deployAtTransaction.getATAccount();
+			String atAddress = at.getAddress();
+
+			long deployAtFee = deployAtTransaction.getTransactionData().getFee();
+			long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
+
+			// Instead of sending creator's address to AT, send too-short/invalid message
+			byte[] messageData = new byte[7];
+			RANDOM.nextBytes(messageData);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
+			long messageFee = messageTransaction.getTransactionData().getFee();
+
+			// AT should process 'cancel' message in next block
+			// As message is too short, it will be padded to 32bytes and (probably) contain incorrect sender to be valid cancel
+			BlockUtils.mintBlock(repository);
+
+			describeAt(repository, atAddress);
+
+			// Check AT is NOT finished
+			ATData atData = repository.getATRepository().fromATAddress(atAddress);
+			assertFalse(atData.getIsFinished());
+
+			// AT should still be in OFFERING mode
+			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			assertEquals(BTCACCT.Mode.OFFERING, tradeData.mode);
 		}
 	}
 
@@ -462,8 +502,7 @@ public class AtTests extends Common {
 
 			// Send incorrect secrets to AT, from correct account
 			byte[] wrongSecret = new byte[32];
-			Random random = new Random();
-			random.nextBytes(wrongSecret);
+			RANDOM.nextBytes(wrongSecret);
 			messageData = BTCACCT.buildRedeemMessage(wrongSecret, secretB, partner.getAddress());
 			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
@@ -509,6 +548,51 @@ public class AtTests extends Common {
 			assertEquals("Partner's balance incorrect", expectedBalance, actualBalance);
 
 			checkTradeRefund(repository, deployer, deployersInitialBalance, deployAtFee);
+		}
+	}
+
+	@SuppressWarnings("unused")
+	@Test
+	public void testCorrectSecretsCorrectSenderInvalidMessageLength() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
+
+			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
+
+			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
+			Account at = deployAtTransaction.getATAccount();
+			String atAddress = at.getAddress();
+
+			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+
+			// Send trade info to AT
+			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
+
+			// Give AT time to process message
+			BlockUtils.mintBlock(repository);
+
+			// Send correct secrets to AT, from correct account, but missing receive address, hence incorrect length
+			messageData = Bytes.concat(secretA, secretB);
+			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
+
+			// AT should NOT send funds in the next block
+			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
+			BlockUtils.mintBlock(repository);
+
+			describeAt(repository, atAddress);
+
+			// Check AT is NOT finished
+			ATData atData = repository.getATRepository().fromATAddress(atAddress);
+			assertFalse(atData.getIsFinished());
+
+			// AT should be in TRADING mode
+			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
 		}
 	}
 
