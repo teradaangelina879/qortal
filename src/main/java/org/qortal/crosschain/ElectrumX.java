@@ -95,20 +95,19 @@ public class ElectrumX {
 			case "MAIN":
 				servers.addAll(Arrays.asList(
 						// Servers chosen on NO BASIS WHATSOEVER from various sources!
-						// new Server("tardis.bauerj.eu", Server.ConnectionType.SSL, 50002),
-						// new Server("rbx.curalle.ovh", Server.ConnectionType.SSL, 50002),
-						// new Server("quick.electumx.live", Server.ConnectionType.SSL, 50002),
-						// new Server("enode.duckdns.org", Server.ConnectionType.SSL, 50002),
-						// new Server("electrumx.ddns.net", Server.ConnectionType.SSL, 50002),
-						// new Server("electrumx.ml", Server.ConnectionType.SSL, 50002),
-						// new Server("electrum.eff.ro", Server.ConnectionType.SSL, 50002),
-						// new Server("electrum.bitkoins.nl", Server.ConnectionType.SSL, 50512),
-						// new Server("E-X.not.fyi", Server.ConnectionType.SSL, 50002),
-						// new Server("btc.electroncash.dk", Server.ConnectionType.SSL, 60002),
-						// new Server("electrum.blockstream.info", Server.ConnectionType.TCP, 50001),
-						// new Server("electrum.blockstream.info", Server.ConnectionType.SSL, 50002),
-						// new Server("bitcoin.aranguren.org", Server.ConnectionType.TCP, 50001),
-						));
+						new Server("tardis.bauerj.eu", Server.ConnectionType.SSL, 50002),
+						new Server("rbx.curalle.ovh", Server.ConnectionType.SSL, 50002),
+						new Server("quick.electumx.live", Server.ConnectionType.SSL, 50002),
+						new Server("enode.duckdns.org", Server.ConnectionType.SSL, 50002),
+						new Server("electrumx.ddns.net", Server.ConnectionType.SSL, 50002),
+						new Server("electrumx.ml", Server.ConnectionType.SSL, 50002),
+						new Server("electrum.eff.ro", Server.ConnectionType.SSL, 50002),
+						new Server("electrum.bitkoins.nl", Server.ConnectionType.SSL, 50512),
+						new Server("E-X.not.fyi", Server.ConnectionType.SSL, 50002),
+						new Server("btc.electroncash.dk", Server.ConnectionType.SSL, 60002),
+						new Server("electrum.blockstream.info", Server.ConnectionType.TCP, 50001),
+						new Server("electrum.blockstream.info", Server.ConnectionType.SSL, 50002),
+						new Server("bitcoin.aranguren.org", Server.ConnectionType.TCP, 50001)));
 				break;
 
 			case "TEST3":
