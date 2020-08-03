@@ -43,6 +43,7 @@ import org.qortal.api.Security;
 import org.qortal.api.model.CrossChainCancelRequest;
 import org.qortal.api.model.CrossChainSecretRequest;
 import org.qortal.api.model.CrossChainTradeRequest;
+import org.qortal.api.model.CrossChainTradeSummary;
 import org.qortal.api.model.TradeBotCreateRequest;
 import org.qortal.api.model.TradeBotRespondRequest;
 import org.qortal.api.model.CrossChainBitcoinP2SHStatus;
@@ -57,6 +58,7 @@ import org.qortal.crosschain.BTCACCT;
 import org.qortal.crosschain.BTCP2SH;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
+import org.qortal.data.at.ATStateData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.data.transaction.BaseTransactionData;
@@ -92,7 +94,6 @@ public class CrossChainResource {
 		summary = "Find cross-chain trade offers",
 		responses = {
 			@ApiResponse(
-				description = "automated transactions",
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
@@ -1094,6 +1095,54 @@ public class CrossChainResource {
 			repository.saveChanges();
 
 			return "true";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/trades")
+	@Operation(
+		summary = "Find completed cross-chain trades",
+		description = "Returns summary info about successfully completed cross-chain trades",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = CrossChainTradeSummary.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	public List<CrossChainTradeSummary> getCompletedTrades(
+			@Parameter( ref = "limit") @QueryParam("limit") Integer limit,
+			@Parameter( ref = "offset" ) @QueryParam("offset") Integer offset,
+			@Parameter( ref = "reverse" ) @QueryParam("reverse") Boolean reverse) {
+		// Impose a limit on 'limit'
+		if (limit != null && limit > 100)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		byte[] codeHash = BTCACCT.CODE_BYTES_HASH;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(codeHash, BTCACCT.MODE_BYTE_OFFSET, (long) BTCACCT.Mode.REDEEMED.value, limit, offset, reverse);
+
+			List<CrossChainTradeSummary> crossChainTrades = new ArrayList<>();
+			for (ATStateData atState : atStates) {
+				CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atState);
+
+				// We also need block timestamp for use as trade timestamp
+				long timestamp = repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
+
+				CrossChainTradeSummary crossChainTradeSummary = new CrossChainTradeSummary(crossChainTradeData, timestamp);
+				crossChainTrades.add(crossChainTradeSummary);
+			}
+
+			return crossChainTrades;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

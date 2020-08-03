@@ -626,7 +626,19 @@ public class HSQLDBDatabaseUpdates {
 							+ "trade_native_address QortalAddress NOT NULL, secret VARBINARY(32) NOT NULL, hash_of_secret VARBINARY(32) NOT NULL, "
 							+ "trade_foreign_public_key VARBINARY(33) NOT NULL, trade_foreign_public_key_hash VARBINARY(32) NOT NULL, "
 							+ "bitcoin_amount BIGINT NOT NULL, xprv58 VARCHAR(200), last_transaction_signature Signature, locktime_a BIGINT, "
-							+ "receiving_public_key_hash VARBINARY(32) NOT NULL, PRIMARY KEY (trade_private_key))");
+							+ "receiving_account_info VARBINARY(32) NOT NULL, PRIMARY KEY (trade_private_key))");
+					break;
+
+				case 21:
+					// AT functionality index
+					stmt.execute("CREATE INDEX IF NOT EXISTS ATCodeHashIndex ON ATs (code_hash, is_finished)");
+					break;
+
+				case 22:
+					// XXX for testing only - do not merge in 'master'
+					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN IF NOT EXISTS receiving_public_key_hash VARBINARY(32)");
+					stmt.execute("ALTER TABLE TradeBotStates DROP COLUMN receiving_public_key_hash");
+					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN IF NOT EXISTS receiving_account_info VARBINARY(32)");
 					break;
 
 				default:

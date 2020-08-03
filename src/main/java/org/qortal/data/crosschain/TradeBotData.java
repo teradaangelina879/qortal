@@ -58,7 +58,7 @@ public class TradeBotData {
 	private Integer lockTimeA;
 
 	// Could be Bitcoin or Qortal...
-	private byte[] receivingPublicKeyHash;
+	private byte[] receivingAccountInfo;
 
 	protected TradeBotData() {
 		/* JAXB */
@@ -68,7 +68,7 @@ public class TradeBotData {
 			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, String tradeNativeAddress,
 			byte[] secret, byte[] hashOfSecret,
 			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash,
-			long bitcoinAmount, String xprv58, byte[] lastTransactionSignature, Integer lockTimeA, byte[] receivingPublicKeyHash) {
+			long bitcoinAmount, String xprv58, byte[] lastTransactionSignature, Integer lockTimeA, byte[] receivingAccountInfo) {
 		this.tradePrivateKey = tradePrivateKey;
 		this.tradeState = tradeState;
 		this.atAddress = atAddress;
@@ -83,7 +83,7 @@ public class TradeBotData {
 		this.xprv58 = xprv58;
 		this.lastTransactionSignature = lastTransactionSignature;
 		this.lockTimeA = lockTimeA;
-		this.receivingPublicKeyHash = receivingPublicKeyHash;
+		this.receivingAccountInfo = receivingAccountInfo;
 	}
 
 	public byte[] getTradePrivateKey() {
@@ -158,8 +158,8 @@ public class TradeBotData {
 		this.lockTimeA = lockTimeA;
 	}
 
-	public byte[] getReceivingPublicKeyHash() {
-		return this.receivingPublicKeyHash;
+	public byte[] getReceivingAccountInfo() {
+		return this.receivingAccountInfo;
 	}
 
 }

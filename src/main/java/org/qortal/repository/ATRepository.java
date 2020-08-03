@@ -15,6 +15,9 @@ public interface ATRepository {
 	/** Returns where AT with passed address exists in repository */
 	public boolean exists(String atAddress) throws DataException;
 
+	/** Returns AT creator's public key, or null if not found */
+	public byte[] getCreatorPublicKey(String atAddress) throws DataException;
+
 	/** Returns list of executable ATs, empty if none found */
 	public List<ATData> getAllExecutableATs() throws DataException;
 
@@ -53,6 +56,24 @@ public interface ATRepository {
 	 * @return ATStateData for AT with greatest height or null if none found
 	 */
 	public ATStateData getLatestATState(String atAddress) throws DataException;
+
+	/**
+	 * Returns final ATStateData for ATs matching codeHash (required)
+	 * and specific data segment value (optional).
+	 * <p>
+	 * If searching for specific data segment value, both <tt>dataByteOffset</tt>
+	 * and <tt>expectedValue</tt> need to be non-null.
+	 * <p>
+	 * Note that <tt>dataByteOffset</tt> starts from 0 and will typically be
+	 * a multiple of <tt>MachineState.VALUE_SIZE</tt>, which is usually 8:
+	 * width of a long.
+	 * <p>
+	 * Although <tt>expectedValue</tt>, if provided, is natively an unsigned long,
+	 * the data segment comparison is done via unsigned hex string.
+	 */
+	public List<ATStateData> getMatchingFinalATStates(byte[] codeHash,
+			Integer dataByteOffset, Long expectedValue,
+			Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns all ATStateData for a given block height.

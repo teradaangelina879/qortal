@@ -69,6 +69,20 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
+	public byte[] getCreatorPublicKey(String atAddress) throws DataException {
+		String sql = "SELECT creator FROM ATs WHERE AT_address = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, atAddress)) {
+			if (resultSet == null)
+				return null;
+
+			return resultSet.getBytes(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch AT creator's public key from repository", e);
+		}
+	}
+
+	@Override
 	public List<ATData> getAllExecutableATs() throws DataException {
 		String sql = "SELECT AT_address, creator, created_when, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, had_fatal_error, "
@@ -270,6 +284,68 @@ public class HSQLDBATRepository implements ATRepository {
 			return new ATStateData(atAddress, height, created, stateData, stateHash, fees, isInitial);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch latest AT state from repository", e);
+		}
+	}
+
+	@Override
+	public List<ATStateData> getMatchingFinalATStates(byte[] codeHash,
+			Integer dataByteOffset, Long expectedValue,
+			Integer limit, Integer offset, Boolean reverse) throws DataException {
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT AT_address, height, created_when, state_data, state_hash, fees, is_initial "
+				+ "FROM ATs "
+				+ "CROSS JOIN LATERAL("
+					+ "SELECT height, created_when, state_data, state_hash, fees, is_initial "
+					+ "FROM ATStates "
+					+ "WHERE ATStates.AT_address = ATs.AT_address "
+					+ "ORDER BY height DESC "
+					+ "LIMIT 1"
+				+ ") AS FinalATStates "
+				+ "WHERE code_hash = ? AND is_finished ");
+
+		Object[] bindParams;
+
+		if (dataByteOffset != null && expectedValue != null) {
+			sql.append("AND RAWTOHEX(SUBSTRING(state_data FROM ? FOR 8)) = ? ");
+
+			// We convert our long to hex Java-side to control endian
+			String expectedHexValue = String.format("%016x", expectedValue); // left-zero-padding and conversion
+
+			// SQL binary data offsets start at 1
+			bindParams = new Object[] { codeHash, dataByteOffset + 1, expectedHexValue };
+		} else {
+			bindParams = new Object[] { codeHash };
+		}
+
+		sql.append(" ORDER BY height ");
+		if (reverse != null && reverse)
+			sql.append("DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
+
+		List<ATStateData> atStates = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams)) {
+			if (resultSet == null)
+				return atStates;
+
+			do {
+				String atAddress = resultSet.getString(1);
+				int height = resultSet.getInt(2);
+				long created = resultSet.getLong(3);
+				byte[] stateData = resultSet.getBytes(4); // Actually BLOB
+				byte[] stateHash = resultSet.getBytes(5);
+				long fees = resultSet.getLong(6);
+				boolean isInitial = resultSet.getBoolean(7);
+
+				ATStateData atStateData = new ATStateData(atAddress, height, created, stateData, stateHash, fees, isInitial);
+
+				atStates.add(atStateData);
+			} while (resultSet.next());
+
+			return atStates;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching AT states from repository", e);
 		}
 	}
 

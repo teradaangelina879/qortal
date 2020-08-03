@@ -108,6 +108,11 @@ public class BTCACCT {
 	public static final int MIN_LOCKTIME = 1500000000;
 	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("fad14381b77ae1a2bfe7e16a1a8b571839c5f405fca0490ead08499ac170f65b").asBytes(); // SHA256 of AT code bytes
 
+	/** <b>Value</b> offset into AT segment where 'mode' variable (long) is stored. (Multiply by MachineState.VALUE_SIZE for byte offset). */
+	private static final int MODE_VALUE_OFFSET = 63;
+	/** <b>Byte</b> offset into AT state data where 'mode' variable (long) is stored. */
+	public static final int MODE_BYTE_OFFSET = MachineState.HEADER_LENGTH + (MODE_VALUE_OFFSET * MachineState.VALUE_SIZE);
+
 	public static class OfferMessageData {
 		public byte[] partnerBitcoinPKH;
 		public byte[] hashOfSecretA;
@@ -235,6 +240,7 @@ public class BTCACCT {
 		addrCounter += 4;
 
 		final int addrMode = addrCounter++;
+		assert addrMode == MODE_VALUE_OFFSET : "MODE_VALUE_OFFSET does not match addrMode";
 
 		// Data segment
 		ByteBuffer dataByteBuffer = ByteBuffer.allocate(addrCounter * MachineState.VALUE_SIZE);
@@ -584,18 +590,40 @@ public class BTCACCT {
 	 * @throws DataException
 	 */
 	public static CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
-		String atAddress = atData.getATAddress();
+		ATStateData atStateData = repository.getATRepository().getLatestATState(atData.getATAddress());
+		return populateTradeData(repository, atData.getCreatorPublicKey(), atStateData);
+	}
 
-		ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
-		byte[] stateData = atStateData.getStateData();
+	/**
+	 * Returns CrossChainTradeData with useful info extracted from AT.
+	 * 
+	 * @param repository
+	 * @param atAddress
+	 * @throws DataException
+	 */
+	public static CrossChainTradeData populateTradeData(Repository repository, ATStateData atStateData) throws DataException {
+		byte[] creatorPublicKey = repository.getATRepository().getCreatorPublicKey(atStateData.getATAddress());
+		return populateTradeData(repository, creatorPublicKey, atStateData);
+	}
+
+	/**
+	 * Returns CrossChainTradeData with useful info extracted from AT.
+	 * 
+	 * @param repository
+	 * @param atAddress
+	 * @throws DataException
+	 */
+	public static CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
+		String atAddress = atStateData.getATAddress();
 
 		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
+		byte[] stateData = atStateData.getStateData();
 		byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
 
 		CrossChainTradeData tradeData = new CrossChainTradeData();
 		tradeData.qortalAtAddress = atAddress;
-		tradeData.qortalCreator = Crypto.toAddress(atData.getCreatorPublicKey());
-		tradeData.creationTimestamp = atData.getCreation();
+		tradeData.qortalCreator = Crypto.toAddress(creatorPublicKey);
+		tradeData.creationTimestamp = atStateData.getCreation();
 
 		Account atAccount = new Account(repository, atAddress);
 		tradeData.qortBalance = atAccount.getConfirmedBalance(Asset.QORT);

@@ -61,6 +61,15 @@ public interface BlockRepository {
 	public int getHeightFromTimestamp(long timestamp) throws DataException;
 
 	/**
+	 * Returns block timestamp for a given height.
+	 *
+	 * @param height
+	 * @return timestamp, or 0 if height is out of bounds.
+	 * @throws DataException
+	 */
+	public long getTimestampFromHeight(int height) throws DataException;
+
+	/**
 	 * Return highest block height from repository.
 	 * 
 	 * @return height, or 0 if there are no blocks in DB (not very likely).

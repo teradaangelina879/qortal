@@ -718,7 +718,7 @@ public class TradeBot {
 		Coin redeemAmount = Coin.ZERO; // The real funds are in P2SH-A
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
-		byte[] receivePublicKeyHash = tradeBotData.getReceivingPublicKeyHash();
+		byte[] receivePublicKeyHash = tradeBotData.getReceivingAccountInfo();
 
 		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, tradeBotData.getSecret(), receivePublicKeyHash);
 
@@ -787,7 +787,7 @@ public class TradeBot {
 
 		// Send 'redeem' MESSAGE to AT using both secrets
 		byte[] secretA = tradeBotData.getSecret();
-		String qortalReceiveAddress = Base58.encode(tradeBotData.getReceivingPublicKeyHash()); // Actually contains whole address, not just PKH
+		String qortalReceiveAddress = Base58.encode(tradeBotData.getReceivingAccountInfo()); // Actually contains whole address, not just PKH
 		byte[] messageData = BTCACCT.buildRedeemMessage(secretA, secretB, qortalReceiveAddress);
 
 		PrivateKeyAccount sender = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
@@ -873,7 +873,7 @@ public class TradeBot {
 		Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedBitcoin);
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
-		byte[] receivePublicKeyHash = tradeBotData.getReceivingPublicKeyHash();
+		byte[] receivePublicKeyHash = tradeBotData.getReceivingAccountInfo();
 
 		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secretA, receivePublicKeyHash);
 
