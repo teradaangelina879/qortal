@@ -14,6 +14,9 @@ public class TradeBotRespondRequest {
 	@Schema(description = "Bitcoin BIP32 extended private key", example = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TbTVGajEB55L1HYLg2aQMecZLXLre5YJcawpdFG66STVAWPJ")
 	public String xprv58;
 
+	@Schema(description = "Qortal address for receiving QORT from AT")
+	public String receivingAddress;
+
 	public TradeBotRespondRequest() {
 	}
 

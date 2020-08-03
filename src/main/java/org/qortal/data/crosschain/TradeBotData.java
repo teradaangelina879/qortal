@@ -48,7 +48,7 @@ public class TradeBotData {
 
 	private long bitcoinAmount;
 
-	// Never expose this
+	// Never expose this via API
 	@XmlTransient
 	@Schema(hidden = true)
 	private String xprv58;
@@ -56,6 +56,9 @@ public class TradeBotData {
 	private byte[] lastTransactionSignature;
 
 	private Integer lockTimeA;
+
+	// Could be Bitcoin or Qortal...
+	private byte[] receivingPublicKeyHash;
 
 	protected TradeBotData() {
 		/* JAXB */
@@ -65,7 +68,7 @@ public class TradeBotData {
 			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, String tradeNativeAddress,
 			byte[] secret, byte[] hashOfSecret,
 			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash,
-			long bitcoinAmount, String xprv58, byte[] lastTransactionSignature, Integer lockTimeA) {
+			long bitcoinAmount, String xprv58, byte[] lastTransactionSignature, Integer lockTimeA, byte[] receivingPublicKeyHash) {
 		this.tradePrivateKey = tradePrivateKey;
 		this.tradeState = tradeState;
 		this.atAddress = atAddress;
@@ -80,6 +83,7 @@ public class TradeBotData {
 		this.xprv58 = xprv58;
 		this.lastTransactionSignature = lastTransactionSignature;
 		this.lockTimeA = lockTimeA;
+		this.receivingPublicKeyHash = receivingPublicKeyHash;
 	}
 
 	public byte[] getTradePrivateKey() {
@@ -152,6 +156,10 @@ public class TradeBotData {
 
 	public void setLockTimeA(Integer lockTimeA) {
 		this.lockTimeA = lockTimeA;
+	}
+
+	public byte[] getReceivingPublicKeyHash() {
+		return this.receivingPublicKeyHash;
 	}
 
 }

@@ -33,9 +33,6 @@ public class CrossChainBuildRequest {
 	@Schema(description = "Trade time window (minutes) from trade agreement to automatic refund", example = "10080")
 	public Integer tradeTimeout;
 
-	@Schema(description = "Bitcoin address for receiving", example = "1NCTG9oLk41bU6pcehLNo9DVJup77EHAVx")
-	public String receiveAddress;
-
 	public CrossChainBuildRequest() {
 	}
 

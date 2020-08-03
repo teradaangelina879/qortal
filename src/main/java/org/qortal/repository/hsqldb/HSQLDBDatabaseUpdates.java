@@ -626,7 +626,7 @@ public class HSQLDBDatabaseUpdates {
 							+ "trade_native_address QortalAddress NOT NULL, secret VARBINARY(32) NOT NULL, hash_of_secret VARBINARY(32) NOT NULL, "
 							+ "trade_foreign_public_key VARBINARY(33) NOT NULL, trade_foreign_public_key_hash VARBINARY(32) NOT NULL, "
 							+ "bitcoin_amount BIGINT NOT NULL, xprv58 VARCHAR(200), last_transaction_signature Signature, locktime_a BIGINT, "
-							+ "PRIMARY KEY (trade_private_key))");
+							+ "receiving_public_key_hash VARBINARY(32) NOT NULL, PRIMARY KEY (trade_private_key))");
 					break;
 
 				default:

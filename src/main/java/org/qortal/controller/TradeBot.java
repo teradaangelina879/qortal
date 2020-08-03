@@ -40,6 +40,7 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 import org.qortal.utils.Amounts;
+import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
 public class TradeBot {
@@ -133,7 +134,7 @@ public class TradeBot {
 		String aTType = "ACCT";
 		String tags = "ACCT QORT BTC";
 		byte[] creationBytes = BTCACCT.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, hashOfSecretB, tradeBotCreateRequest.qortAmount,
-				tradeBotCreateRequest.bitcoinAmount, tradeBotCreateRequest.tradeTimeout, bitcoinReceivePublicKeyHash);
+				tradeBotCreateRequest.bitcoinAmount, tradeBotCreateRequest.tradeTimeout);
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
 		DeployAtTransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, aTType, tags, creationBytes, amount, Asset.QORT);
@@ -150,7 +151,7 @@ public class TradeBot {
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				secretB, hashOfSecretB,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
-				tradeBotCreateRequest.bitcoinAmount, null, null, null);
+				tradeBotCreateRequest.bitcoinAmount, null, null, null, bitcoinReceivePublicKeyHash);
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -188,7 +189,7 @@ public class TradeBot {
 	 * <p>
 	 * It is envisaged that the value in <tt>xprv58</tt> will actually come from a Qortal-UI-managed wallet.
 	 * <p>
-	 * If sufficient funds are available, <b>this method will actually fund the P2SH-A<b>
+	 * If sufficient funds are available, <b>this method will actually fund the P2SH-A</b>
 	 * with the Bitcoin amount expected by 'Bob'.
 	 * <p>
 	 * If the Bitcoin transaction is successfully broadcast to the network then the trade-bot entry
@@ -202,7 +203,7 @@ public class TradeBot {
 	 * @return true if P2SH-A funding transaction successfully broadcast to Bitcoin network, false otherwise
 	 * @throws DataException
 	 */
-	public static boolean startResponse(Repository repository, CrossChainTradeData crossChainTradeData, String xprv58) throws DataException {
+	public static boolean startResponse(Repository repository, CrossChainTradeData crossChainTradeData, String xprv58, String receivingAddress) throws DataException {
 		byte[] tradePrivateKey = generateTradePrivateKey();
 		byte[] secretA = generateSecret();
 		byte[] hashOfSecretA = Crypto.hash160(secretA);
@@ -213,6 +214,7 @@ public class TradeBot {
 
 		byte[] tradeForeignPublicKey = deriveTradeForeignPublicKey(tradePrivateKey);
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
+		byte[] receivingPublicKeyHash = Base58.decode(receivingAddress); // Actually the whole address, not just PKH
 
 		// We need to generate lockTime-A: halfway of refundTimeout from now
 		int lockTimeA = crossChainTradeData.tradeTimeout * 60 + (int) (NTP.getTime() / 1000L);
@@ -222,7 +224,7 @@ public class TradeBot {
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				secretA, hashOfSecretA,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
-				crossChainTradeData.expectedBitcoin, xprv58, null, lockTimeA);
+				crossChainTradeData.expectedBitcoin, xprv58, null, lockTimeA, receivingPublicKeyHash);
 
 		// Check we have enough funds via xprv58 to fund both P2SHs to cover expectedBitcoin
 		String tradeForeignAddress = BTC.getInstance().pkhToAddress(tradeForeignPublicKeyHash);
@@ -499,7 +501,7 @@ public class TradeBot {
 			if (offerMessageData == null)
 				continue;
 
-			byte[] aliceForeignPublicKeyHash = offerMessageData.recipientBitcoinPKH;
+			byte[] aliceForeignPublicKeyHash = offerMessageData.partnerBitcoinPKH;
 			byte[] hashOfSecretA = offerMessageData.hashOfSecretA;
 			int lockTimeA = (int) offerMessageData.lockTimeA;
 			// Determine P2SH-A address and confirm funded
@@ -592,11 +594,11 @@ public class TradeBot {
 		}
 
 		// We're waiting for AT to be in TRADE mode
-		if (crossChainTradeData.mode != CrossChainTradeData.Mode.TRADE)
+		if (crossChainTradeData.mode != BTCACCT.Mode.TRADING)
 			return;
 
 		// We're expecting AT to be locked to our native trade address
-		if (!crossChainTradeData.qortalRecipient.equals(tradeBotData.getTradeNativeAddress())) {
+		if (!crossChainTradeData.qortalPartnerAddress.equals(tradeBotData.getTradeNativeAddress())) {
 			// AT locked to different address! We shouldn't continue but wait and refund.
 
 			byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
@@ -604,7 +606,7 @@ public class TradeBot {
 
 			LOGGER.warn(() -> String.format("AT %s locked to %s, not us (%s). Refunding %s - aborting trade",
 					tradeBotData.getAtAddress(),
-					crossChainTradeData.qortalRecipient,
+					crossChainTradeData.qortalPartnerAddress,
 					tradeBotData.getTradeNativeAddress(),
 					p2shAddress));
 
@@ -701,7 +703,7 @@ public class TradeBot {
 			// AT yet to process MESSAGE
 			return;
 
-		byte[] redeemScriptBytes = BTCP2SH.buildScript(crossChainTradeData.recipientBitcoinPKH, crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
+		byte[] redeemScriptBytes = BTCP2SH.buildScript(crossChainTradeData.partnerBitcoinPKH, crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
 		Long balance = BTC.getInstance().getBalance(p2shAddress);
@@ -716,7 +718,7 @@ public class TradeBot {
 		Coin redeemAmount = Coin.ZERO; // The real funds are in P2SH-A
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
-		byte[] receivePublicKeyHash = crossChainTradeData.creatorReceiveBitcoinPKH;
+		byte[] receivePublicKeyHash = tradeBotData.getReceivingPublicKeyHash();
 
 		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, tradeBotData.getSecret(), receivePublicKeyHash);
 
@@ -783,9 +785,10 @@ public class TradeBot {
 			// Secret not revealed at this time
 			return;
 
-		// Send MESSAGE to AT using both secrets
+		// Send 'redeem' MESSAGE to AT using both secrets
 		byte[] secretA = tradeBotData.getSecret();
-		byte[] messageData = BTCACCT.buildRedeemMessage(secretA, secretB);
+		String qortalReceiveAddress = Base58.encode(tradeBotData.getReceivingPublicKeyHash()); // Actually contains whole address, not just PKH
+		byte[] messageData = BTCACCT.buildRedeemMessage(secretA, secretB, qortalReceiveAddress);
 
 		PrivateKeyAccount sender = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
 		MessageTransaction messageTransaction = MessageTransaction.build(repository, sender, Group.NO_GROUP, tradeBotData.getAtAddress(), messageData, false, false);
@@ -846,7 +849,7 @@ public class TradeBot {
 		}
 
 		// We check variable in AT that is set when trade successfully completes
-		if (!crossChainTradeData.hasRedeemed) {
+		if (crossChainTradeData.mode != BTCACCT.Mode.REDEEMED) {
 			tradeBotData.setState(TradeBotData.State.BOB_REFUNDED);
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
@@ -864,13 +867,13 @@ public class TradeBot {
 
 		// Use secret-A to redeem P2SH-A
 
-		byte[] redeemScriptBytes = BTCP2SH.buildScript(crossChainTradeData.recipientBitcoinPKH, crossChainTradeData.lockTimeA, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretA);
+		byte[] redeemScriptBytes = BTCP2SH.buildScript(crossChainTradeData.partnerBitcoinPKH, crossChainTradeData.lockTimeA, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretA);
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
 		Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedBitcoin);
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
-		byte[] receivePublicKeyHash = crossChainTradeData.creatorReceiveBitcoinPKH;
+		byte[] receivePublicKeyHash = tradeBotData.getReceivingPublicKeyHash();
 
 		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, secretA, receivePublicKeyHash);
 

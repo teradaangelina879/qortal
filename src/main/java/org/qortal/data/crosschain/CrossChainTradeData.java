@@ -6,14 +6,13 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.crosschain.BTC;
+import org.qortal.crosschain.BTCACCT;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 public class CrossChainTradeData {
-
-	public enum Mode { OFFER, TRADE };
 
 	// Properties
 
@@ -28,9 +27,6 @@ public class CrossChainTradeData {
 
 	@Schema(description = "AT creator's Bitcoin trade public-key-hash (PKH)")
 	public byte[] creatorBitcoinPKH;
-
-	@Schema(description = "AT creator's Bitcoin receiving public-key-hash (PKH)")
-	public byte[] creatorReceiveBitcoinPKH;
 
 	@Schema(description = "Timestamp when AT was created (milliseconds since epoch)")
 	public long creationTimestamp;
@@ -53,7 +49,7 @@ public class CrossChainTradeData {
 	public long qortAmount;
 
 	@Schema(description = "Trade partner's Qortal address (trade begins when this is set)")
-	public String qortalRecipient;
+	public String qortalPartnerAddress;
 
 	@Schema(description = "Timestamp when AT switched to trade mode")
 	public Long tradeModeTimestamp;
@@ -68,7 +64,7 @@ public class CrossChainTradeData {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	public long expectedBitcoin;
 
-	public Mode mode;
+	public BTCACCT.Mode mode;
 
 	@Schema(description = "Suggested Bitcoin P2SH-A nLockTime based on trade timeout")
 	public Integer lockTimeA;
@@ -77,10 +73,7 @@ public class CrossChainTradeData {
 	public Integer lockTimeB;
 
 	@Schema(description = "Trade partner's Bitcoin public-key-hash (PKH)")
-	public byte[] recipientBitcoinPKH;
-
-	@Schema(description = "Whether AT has paid out to trade partner")
-	public Boolean hasRedeemed;
+	public byte[] partnerBitcoinPKH;
 
 	// Constructors
 
@@ -102,20 +95,10 @@ public class CrossChainTradeData {
 	@XmlElement(name = "recipientBitcoinAddress")
 	@Schema(description = "Trade partner's trading Bitcoin PKH in address form")
 	public String getRecipientBitcoinAddress() {
-		if (this.recipientBitcoinPKH == null)
+		if (this.partnerBitcoinPKH == null)
 			return null;
 
-		return BTC.getInstance().pkhToAddress(this.recipientBitcoinPKH);
-	}
-
-	// We can represent BitcoinPKH as an address
-	@XmlElement(name = "creatorBitcoinReceivingAddress")
-	@Schema(description = "AT creator's Bitcoin receiving address")
-	public String getCreatorBitcoinReceivingAddress() {
-		if (this.creatorReceiveBitcoinPKH == null)
-			return null;
-
-		return BTC.getInstance().pkhToAddress(this.creatorReceiveBitcoinPKH);
+		return BTC.getInstance().pkhToAddress(this.partnerBitcoinPKH);
 	}
 
 }

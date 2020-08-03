@@ -19,7 +19,6 @@ import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.block.Block;
-import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
@@ -65,7 +64,7 @@ public class AtTests extends Common {
 	public void testCompile() {
 		Account deployer = Common.getTestAccount(null, "chloe");
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout, bitcoinReceivePublicKeyHash);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
 		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
@@ -73,10 +72,10 @@ public class AtTests extends Common {
 	public void testDeploy() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 
@@ -90,10 +89,10 @@ public class AtTests extends Common {
 
 			assertEquals("AT's post-deployment balance incorrect", expectedBalance, actualBalance);
 
-			expectedBalance = recipientsInitialBalance;
-			actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+			expectedBalance = partnersInitialBalance;
+			actualBalance = partner.getConfirmedBalance(Asset.QORT);
 
-			assertEquals("Recipient's post-deployment balance incorrect", expectedBalance, actualBalance);
+			assertEquals("Partner's post-deployment balance incorrect", expectedBalance, actualBalance);
 
 			// Test orphaning
 			BlockUtils.orphanLastBlock(repository);
@@ -108,10 +107,10 @@ public class AtTests extends Common {
 
 			assertEquals("AT's post-orphan/pre-deployment balance incorrect", expectedBalance, actualBalance);
 
-			expectedBalance = recipientsInitialBalance;
-			actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+			expectedBalance = partnersInitialBalance;
+			actualBalance = partner.getConfirmedBalance(Asset.QORT);
 
-			assertEquals("Recipient's post-orphan/pre-deployment balance incorrect", expectedBalance, actualBalance);
+			assertEquals("Partner's post-orphan/pre-deployment balance incorrect", expectedBalance, actualBalance);
 		}
 	}
 
@@ -120,10 +119,10 @@ public class AtTests extends Common {
 	public void testOfferCancel() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			Account at = deployAtTransaction.getATAccount();
@@ -132,12 +131,12 @@ public class AtTests extends Common {
 			long deployAtFee = deployAtTransaction.getTransactionData().getFee();
 			long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
 
-			// Send creator's address to AT
-			byte[] recipientAddressBytes = Bytes.ensureCapacity(Base58.decode(deployer.getAddress()), 32, 0);
-			MessageTransaction messageTransaction = sendMessage(repository, deployer, recipientAddressBytes, atAddress);
+			// Send creator's address to AT, instead of typical partner's address
+			byte[] partnerAddressBytes = Bytes.ensureCapacity(Base58.decode(deployer.getAddress()), 32, 0);
+			MessageTransaction messageTransaction = sendMessage(repository, deployer, partnerAddressBytes, atAddress);
 			long messageFee = messageTransaction.getTransactionData().getFee();
 
-			// Refund should happen 1st block after receiving recipient address
+			// Refund should happen 1st block after receiving 'cancel' message
 			BlockUtils.mintBlock(repository);
 
 			long expectedMinimumBalance = deployersPostDeploymentBalance;
@@ -154,6 +153,10 @@ public class AtTests extends Common {
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
 			assertTrue(atData.getIsFinished());
 
+			// AT should be in CANCELLED mode
+			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			assertEquals(BTCACCT.Mode.CANCELLED, tradeData.mode);
+
 			// Test orphaning
 			BlockUtils.orphanLastBlock(repository);
 
@@ -169,21 +172,21 @@ public class AtTests extends Common {
 	public void testTradingInfoProcessing() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
-			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
-			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			Block postDeploymentBlock = BlockUtils.mintBlock(repository);
@@ -199,16 +202,16 @@ public class AtTests extends Common {
 			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
 
 			// AT should be in TRADE mode
-			assertEquals(CrossChainTradeData.Mode.TRADE, tradeData.mode);
+			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
 
 			// Check hashOfSecretA was extracted correctly
 			assertTrue(Arrays.equals(hashOfSecretA, tradeData.hashOfSecretA));
 
-			// Check trade partner/recipient Qortal address was extracted correctly
-			assertEquals(recipient.getAddress(), tradeData.qortalRecipient);
+			// Check trade partner Qortal address was extracted correctly
+			assertEquals(partner.getAddress(), tradeData.qortalPartnerAddress);
 
-			// Check trade partner/recipient's Bitcoin PKH was extracted correctly
-			assertTrue(Arrays.equals(bitcoinPublicKeyHash, tradeData.recipientBitcoinPKH));
+			// Check trade partner's Bitcoin PKH was extracted correctly
+			assertTrue(Arrays.equals(bitcoinPublicKeyHash, tradeData.partnerBitcoinPKH));
 
 			// Test orphaning
 			BlockUtils.orphanToBlock(repository, postDeploymentBlockHeight);
@@ -226,30 +229,30 @@ public class AtTests extends Common {
 	public void testIncorrectTradeSender() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 			PrivateKeyAccount bystander = Common.getTestAccount(repository, "bob");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
-			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
-			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT BUT NOT FROM AT CREATOR
-			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, bystander, messageData, atAddress);
 
 			BlockUtils.mintBlock(repository);
 
-			long expectedBalance = recipientsInitialBalance;
-			long actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long expectedBalance = partnersInitialBalance;
+			long actualBalance = partner.getConfirmedBalance(Asset.QORT);
 
-			assertEquals("Recipient's post-initial-payout balance incorrect", expectedBalance, actualBalance);
+			assertEquals("Partner's post-initial-payout balance incorrect", expectedBalance, actualBalance);
 
 			describeAt(repository, atAddress);
 
@@ -257,7 +260,7 @@ public class AtTests extends Common {
 			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
 
 			// AT should still be in OFFER mode
-			assertEquals(CrossChainTradeData.Mode.OFFER, tradeData.mode);
+			assertEquals(BTCACCT.Mode.OFFERING, tradeData.mode);
 		}
 	}
 
@@ -266,21 +269,21 @@ public class AtTests extends Common {
 	public void testAutomaticTradeRefund() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
-			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
-			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			Block postDeploymentBlock = BlockUtils.mintBlock(repository);
@@ -298,6 +301,10 @@ public class AtTests extends Common {
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
 			assertTrue(atData.getIsFinished());
 
+			// AT should be in REFUNDED mode
+			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			assertEquals(BTCACCT.Mode.REFUNDED, tradeData.mode);
+
 			// Test orphaning
 			BlockUtils.orphanToBlock(repository, postDeploymentBlockHeight);
 
@@ -313,29 +320,29 @@ public class AtTests extends Common {
 	public void testCorrectSecretsCorrectSender() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
-			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
-			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
 			// Send correct secrets to AT, from correct account
-			messageData = BTCACCT.buildRedeemMessage(secretA, secretB);
-			messageTransaction = sendMessage(repository, recipient, messageData, atAddress);
+			messageData = BTCACCT.buildRedeemMessage(secretA, secretB, partner.getAddress());
+			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should send funds in the next block
 			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
@@ -347,18 +354,22 @@ public class AtTests extends Common {
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
 			assertTrue(atData.getIsFinished());
 
-			long expectedBalance = recipientsInitialBalance - messageTransaction.getTransactionData().getFee() + redeemAmount;
-			long actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+			// AT should be in REDEEMED mode
+			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			assertEquals(BTCACCT.Mode.REDEEMED, tradeData.mode);
 
-			assertEquals("Recipent's post-redeem balance incorrect", expectedBalance, actualBalance);
+			long expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee() + redeemAmount;
+			long actualBalance = partner.getConfirmedBalance(Asset.QORT);
+
+			assertEquals("Partner's post-redeem balance incorrect", expectedBalance, actualBalance);
 
 			// Orphan redeem
 			BlockUtils.orphanLastBlock(repository);
 
-			expectedBalance = recipientsInitialBalance - messageTransaction.getTransactionData().getFee();
-			actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+			expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee();
+			actualBalance = partner.getConfirmedBalance(Asset.QORT);
 
-			assertEquals("Recipent's post-orphan/pre-redeem balance incorrect", expectedBalance, actualBalance);
+			assertEquals("Partner's post-orphan/pre-redeem balance incorrect", expectedBalance, actualBalance);
 
 			// Check AT state
 			ATStateData postOrphanAtStateData = repository.getATRepository().getLatestATState(atAddress);
@@ -372,11 +383,11 @@ public class AtTests extends Common {
 	public void testCorrectSecretsIncorrectSender() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 			PrivateKeyAccount bystander = Common.getTestAccount(repository, "bob");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			long deployAtFee = deployAtTransaction.getTransactionData().getFee();
@@ -384,19 +395,19 @@ public class AtTests extends Common {
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
-			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
-			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
 			// Send correct secrets to AT, but from wrong account
-			messageData = BTCACCT.buildRedeemMessage(secretA, secretB);
+			messageData = BTCACCT.buildRedeemMessage(secretA, secretB, partner.getAddress());
 			messageTransaction = sendMessage(repository, bystander, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -409,10 +420,14 @@ public class AtTests extends Common {
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
 			assertFalse(atData.getIsFinished());
 
-			long expectedBalance = recipientsInitialBalance;
-			long actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+			// AT should still be in TRADE mode
+			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
 
-			assertEquals("Recipent's balance incorrect", expectedBalance, actualBalance);
+			long expectedBalance = partnersInitialBalance;
+			long actualBalance = partner.getConfirmedBalance(Asset.QORT);
+
+			assertEquals("Partner's balance incorrect", expectedBalance, actualBalance);
 
 			checkTradeRefund(repository, deployer, deployersInitialBalance, deployAtFee);
 		}
@@ -423,10 +438,10 @@ public class AtTests extends Common {
 	public void testIncorrectSecretsCorrectSender() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 			long deployAtFee = deployAtTransaction.getTransactionData().getFee();
@@ -434,12 +449,12 @@ public class AtTests extends Common {
 			Account at = deployAtTransaction.getATAccount();
 			String atAddress = at.getAddress();
 
-			long recipientMessageTransactionTimestamp = System.currentTimeMillis();
-			int lockTimeA = calcTestLockTimeA(recipientMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTransactionTimestamp, lockTimeA);
+			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
+			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
+			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(recipient.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 
 			// Give AT time to process message
@@ -449,8 +464,8 @@ public class AtTests extends Common {
 			byte[] wrongSecret = new byte[32];
 			Random random = new Random();
 			random.nextBytes(wrongSecret);
-			messageData = BTCACCT.buildRedeemMessage(wrongSecret, secretB);
-			messageTransaction = sendMessage(repository, recipient, messageData, atAddress);
+			messageData = BTCACCT.buildRedeemMessage(wrongSecret, secretB, partner.getAddress());
+			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
 			ATStateData preRedeemAtStateData = repository.getATRepository().getLatestATState(atAddress);
@@ -462,14 +477,18 @@ public class AtTests extends Common {
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
 			assertFalse(atData.getIsFinished());
 
-			long expectedBalance = recipientsInitialBalance - messageTransaction.getTransactionData().getFee();
-			long actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+			// AT should still be in TRADE mode
+			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
 
-			assertEquals("Recipent's balance incorrect", expectedBalance, actualBalance);
+			long expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee();
+			long actualBalance = partner.getConfirmedBalance(Asset.QORT);
+
+			assertEquals("Partner's balance incorrect", expectedBalance, actualBalance);
 
 			// Send incorrect secrets to AT, from correct account
-			messageData = BTCACCT.buildRedeemMessage(secretA, wrongSecret);
-			messageTransaction = sendMessage(repository, recipient, messageData, atAddress);
+			messageData = BTCACCT.buildRedeemMessage(secretA, wrongSecret, partner.getAddress());
+			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
 			BlockUtils.mintBlock(repository);
@@ -480,10 +499,14 @@ public class AtTests extends Common {
 			atData = repository.getATRepository().fromATAddress(atAddress);
 			assertFalse(atData.getIsFinished());
 
-			expectedBalance = recipientsInitialBalance - messageTransaction.getTransactionData().getFee() * 2;
-			actualBalance = recipient.getConfirmedBalance(Asset.QORT);
+			// AT should still be in TRADE mode
+			tradeData = BTCACCT.populateTradeData(repository, atData);
+			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
 
-			assertEquals("Recipent's balance incorrect", expectedBalance, actualBalance);
+			expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee() * 2;
+			actualBalance = partner.getConfirmedBalance(Asset.QORT);
+
+			assertEquals("Partner's balance incorrect", expectedBalance, actualBalance);
 
 			checkTradeRefund(repository, deployer, deployersInitialBalance, deployAtFee);
 		}
@@ -494,10 +517,10 @@ public class AtTests extends Common {
 	public void testDescribeDeployed() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
-			PrivateKeyAccount recipient = Common.getTestAccount(repository, "dilbert");
+			PrivateKeyAccount partner = Common.getTestAccount(repository, "dilbert");
 
 			long deployersInitialBalance = deployer.getConfirmedBalance(Asset.QORT);
-			long recipientsInitialBalance = recipient.getConfirmedBalance(Asset.QORT);
+			long partnersInitialBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer);
 
@@ -528,7 +551,7 @@ public class AtTests extends Common {
 	}
 
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout, bitcoinReceivePublicKeyHash);
+		byte[] creationBytes = BTCACCT.buildQortalAT(deployer.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();
@@ -611,6 +634,7 @@ public class AtTests extends Common {
 		int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();
 
 		System.out.print(String.format("%s:\n"
+				+ "\tmode: %s\n"
 				+ "\tcreator: %s,\n"
 				+ "\tcreation timestamp: %s,\n"
 				+ "\tcurrent balance: %s QORT,\n"
@@ -618,9 +642,9 @@ public class AtTests extends Common {
 				+ "\tHASH160 of secret-B: %s,\n"
 				+ "\tredeem payout: %s QORT,\n"
 				+ "\texpected bitcoin: %s BTC,\n"
-				+ "\treceiving bitcoin address: %s,\n"
 				+ "\tcurrent block height: %d,\n",
 				tradeData.qortalAtAddress,
+				tradeData.mode.name(),
 				tradeData.qortalCreator,
 				epochMilliFormatter.apply(tradeData.creationTimestamp),
 				Amounts.prettyAmount(tradeData.qortBalance),
@@ -628,26 +652,19 @@ public class AtTests extends Common {
 				HashCode.fromBytes(tradeData.hashOfSecretB).toString().substring(0, 40),
 				Amounts.prettyAmount(tradeData.qortAmount),
 				Amounts.prettyAmount(tradeData.expectedBitcoin),
-				BTC.getInstance().pkhToAddress(tradeData.creatorReceiveBitcoinPKH),
 				currentBlockHeight));
 
-		// Are we in 'offer' or 'trade' stage?
-		if (tradeData.tradeRefundHeight == null) {
-			// Offer
-			System.out.println(String.format("\tstatus: 'offer mode'"));
-		} else {
-			// Trade
-			System.out.println(String.format("\tstatus: 'trade mode',\n"
-					+ "\trefund height: block %d,\n"
+		if (tradeData.mode != BTCACCT.Mode.OFFERING && tradeData.mode != BTCACCT.Mode.CANCELLED) {
+			System.out.println(String.format("\trefund height: block %d,\n"
 					+ "\tHASH160 of secret-A: %s,\n"
 					+ "\tBitcoin P2SH-A nLockTime: %d (%s),\n"
 					+ "\tBitcoin P2SH-B nLockTime: %d (%s),\n"
-					+ "\ttrade recipient: %s",
+					+ "\ttrade partner: %s",
 					tradeData.tradeRefundHeight,
 					HashCode.fromBytes(tradeData.hashOfSecretA).toString().substring(0, 40),
 					tradeData.lockTimeA, epochMilliFormatter.apply(tradeData.lockTimeA * 1000L),
 					tradeData.lockTimeB, epochMilliFormatter.apply(tradeData.lockTimeB * 1000L),
-					tradeData.qortalRecipient));
+					tradeData.qortalPartnerAddress));
 		}
 	}
 
