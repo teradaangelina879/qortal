@@ -73,4 +73,17 @@ public class BtcTests extends Common {
 		btc.buildSpend(xprv58, recipient, amount);
 	}
 
+	@Test
+	public void testGetWalletBalance() {
+		BTC btc = BTC.getInstance();
+
+		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+
+		Long balance = btc.getWalletBalance(xprv58);
+
+		assertNotNull(balance);
+
+		System.out.println(BTC.format(balance));
+	}
+
 }

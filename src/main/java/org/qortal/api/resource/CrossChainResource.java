@@ -911,6 +911,42 @@ public class CrossChainResource {
 		}
 	}
 
+	@POST
+	@Path("/btc/walletbalance")
+	@Operation(
+		summary = "Returns BTC balance for BIP32 wallet",
+		description = "Supply BIP32 'm' private key in base58, starting with 'xprv' for mainnet, 'tprv' for testnet",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string",
+					description = "BIP32 'm' private key in base58",
+					example = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TbTVGajEB55L1HYLg2aQMecZLXLre5YJcawpdFG66STVAWPJ"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY})
+	public String getBitcoinWalletBalance(String xprv58) {
+		Security.checkApiCallAllowed(request);
+
+		if (!BTC.getInstance().isValidXprv(xprv58))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+
+		Long balance = BTC.getInstance().getWalletBalance(xprv58);
+		if (balance == null)
+			return "null";
+
+		return balance.toString();
+	}
+
 	@GET
 	@Path("/tradebot")
 	@Operation(

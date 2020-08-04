@@ -206,10 +206,7 @@ public class BTC {
 	 */
 	public Transaction buildSpend(String xprv58, String recipient, long amount) {
 		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
-		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet));
-
-		DeterministicKeyChain activeKeyChain = wallet.getActiveKeyChain();
-		activeKeyChain.setLookaheadSize(3);
+		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet, WalletAwareUTXOProvider.KeySearchMode.REQUEST_MORE_IF_ALL_SPENT));
 
 		Address destination = Address.fromString(this.params, recipient);
 		SendRequest sendRequest = SendRequest.to(destination, Coin.valueOf(amount));
@@ -218,111 +215,144 @@ public class BTC {
 			// Much smaller fee for TestNet3
 			sendRequest.feePerKb = Coin.valueOf(2000L);
 
-		do {
-			activeKeyChain.maybeLookAhead();
+		try {
+			wallet.completeTx(sendRequest);
+			return sendRequest.tx;
+		} catch (InsufficientMoneyException e) {
+			return null;
+		}
+	}
 
-			try {
-				wallet.completeTx(sendRequest);
-				break;
-			} catch (InsufficientMoneyException e) {
-				return null;
-			} catch (WalletAwareUTXOProvider.AllKeysSpentException e) {
-				// loop again and use maybeLookAhead() to generate more keys to check
-			}
-		} while (true);
+	/**
+	 * Returns unspent Bitcoin balance given 'm' BIP32 key.
+	 *
+	 * @param xprv58 BIP32 extended Bitcoin private key
+	 * @return unspent BTC balance, or null if unable to determine balance
+	 */
+	public Long getWalletBalance(String xprv58) {
+		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet, WalletAwareUTXOProvider.KeySearchMode.REQUEST_MORE_IF_ANY_SPENT));
 
-		return sendRequest.tx;
+		Coin balance = wallet.getBalance();
+		if (balance == null)
+			return null;
+
+		return balance.value;
 	}
 
 	// UTXOProvider support
 
 	static class WalletAwareUTXOProvider implements UTXOProvider {
-		private final Wallet wallet;
+		private static final int LOOKAHEAD_INCREMENT = 3;
+
 		private final BTC btc;
+		private final Wallet wallet;
 
-		// We extend RuntimeException for unchecked-ness so it will bubble up to caller.
-		// We can't use UTXOProviderException as it will be wrapped in RuntimeException anyway.
-		@SuppressWarnings("serial")
-		public static class AllKeysSpentException extends RuntimeException {
-			public AllKeysSpentException() {
-				super();
-			}
+		enum KeySearchMode {
+			REQUEST_MORE_IF_ALL_SPENT, REQUEST_MORE_IF_ANY_SPENT;
 		}
+		private final KeySearchMode keySearchMode;
+		private final DeterministicKeyChain keyChain;
 
-		public WalletAwareUTXOProvider(BTC btc, Wallet wallet) {
+		public WalletAwareUTXOProvider(BTC btc, Wallet wallet, KeySearchMode keySearchMode) {
 			this.btc = btc;
 			this.wallet = wallet;
+			this.keySearchMode = keySearchMode;
+			this.keyChain = this.wallet.getActiveKeyChain();
+
+			// Set up wallet's key chain
+			this.keyChain.setLookaheadSize(LOOKAHEAD_INCREMENT);
+			this.keyChain.maybeLookAhead();
 		}
 
 		public List<UTXO> getOpenTransactionOutputs(List<ECKey> keys) throws UTXOProviderException {
 			List<UTXO> allUnspentOutputs = new ArrayList<>();
 			final boolean coinbase = false;
 
-			boolean areAllKeysSpent = true;
-			for (ECKey key : keys) {
-				if (btc.spentKeys.contains(key)) {
-					wallet.getActiveKeyChain().markKeyAsUsed((DeterministicKey) key);
-					continue;
-				}
+			int ki = 0;
+			do {
+				boolean areAllKeysUnspent = true;
+				boolean areAllKeysSpent = true;
 
-				Address address = Address.fromKey(btc.params, key, ScriptType.P2PKH);
-				byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
+				for (; ki < keys.size(); ++ki) {
+					ECKey key = keys.get(ki);
 
-				List<UnspentOutput> unspentOutputs = btc.electrumX.getUnspentOutputs(script);
-				if (unspentOutputs == null)
-					throw new UTXOProviderException(String.format("Unable to fetch unspent outputs for %s", address));
-
-				/*
-				 * If there are no unspent outputs then either:
-				 * a) all the outputs have been spent
-				 * b) address has never been used
-				 * 
-				 * For case (a) we want to remember not to check this address (key) again.
-				 * If all passed keys are spent then we need to signal caller that they might want to
-				 * generate more keys to check.
-				 */
-
-				if (unspentOutputs.isEmpty()) {
-					// Ask for transaction history - if it's empty then key has never been used
-					List<byte[]> historicTransactionHashes = btc.electrumX.getAddressTransactions(script);
-					if (historicTransactionHashes == null)
-						throw new UTXOProviderException(
-								String.format("Unable to fetch transaction history for %s", address));
-
-					if (!historicTransactionHashes.isEmpty()) {
-						// Fully spent key - case (a)
-						btc.spentKeys.add(key);
+					if (btc.spentKeys.contains(key)) {
 						wallet.getActiveKeyChain().markKeyAsUsed((DeterministicKey) key);
-					} else {
-						// Key never been used - case (b)
-						areAllKeysSpent = false;
+						areAllKeysUnspent = false;
+						continue;
 					}
 
-					continue;
+					Address address = Address.fromKey(btc.params, key, ScriptType.P2PKH);
+					byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
+
+					List<UnspentOutput> unspentOutputs = btc.electrumX.getUnspentOutputs(script);
+					if (unspentOutputs == null)
+						throw new UTXOProviderException(String.format("Unable to fetch unspent outputs for %s", address));
+
+					/*
+					 * If there are no unspent outputs then either:
+					 * a) all the outputs have been spent
+					 * b) address has never been used
+					 * 
+					 * For case (a) we want to remember not to check this address (key) again.
+					 */
+
+					if (unspentOutputs.isEmpty()) {
+						// Ask for transaction history - if it's empty then key has never been used
+						List<byte[]> historicTransactionHashes = btc.electrumX.getAddressTransactions(script);
+						if (historicTransactionHashes == null)
+							throw new UTXOProviderException(
+									String.format("Unable to fetch transaction history for %s", address));
+
+						if (!historicTransactionHashes.isEmpty()) {
+							// Fully spent key - case (a)
+							btc.spentKeys.add(key);
+							wallet.getActiveKeyChain().markKeyAsUsed((DeterministicKey) key);
+							areAllKeysUnspent = false;
+						} else {
+							// Key never been used - case (b)
+							areAllKeysSpent = false;
+						}
+
+						continue;
+					}
+
+					// If we reach here, then there's definitely at least one unspent key
+					areAllKeysSpent = false;
+
+					for (UnspentOutput unspentOutput : unspentOutputs) {
+						List<TransactionOutput> transactionOutputs = btc.getOutputs(unspentOutput.hash);
+						if (transactionOutputs == null)
+							throw new UTXOProviderException(String.format("Unable to fetch outputs for TX %s",
+									HashCode.fromBytes(unspentOutput.hash)));
+
+						TransactionOutput transactionOutput = transactionOutputs.get(unspentOutput.index);
+
+						UTXO utxo = new UTXO(Sha256Hash.wrap(unspentOutput.hash), unspentOutput.index,
+								Coin.valueOf(unspentOutput.value), unspentOutput.height, coinbase,
+								transactionOutput.getScriptPubKey());
+
+						allUnspentOutputs.add(utxo);
+					}
 				}
 
-				// If we reach here, then there's definitely at least one unspent key
-				areAllKeysSpent = false;
+				if ((this.keySearchMode == KeySearchMode.REQUEST_MORE_IF_ALL_SPENT && areAllKeysSpent)
+						|| (this.keySearchMode == KeySearchMode.REQUEST_MORE_IF_ANY_SPENT && !areAllKeysUnspent)) {
+					// Generate some more keys
+					this.keyChain.setLookaheadSize(this.keyChain.getLookaheadSize() + LOOKAHEAD_INCREMENT);
+					this.keyChain.maybeLookAhead();
 
-				for (UnspentOutput unspentOutput : unspentOutputs) {
-					List<TransactionOutput> transactionOutputs = btc.getOutputs(unspentOutput.hash);
-					if (transactionOutputs == null)
-						throw new UTXOProviderException(String.format("Unable to fetch outputs for TX %s",
-								HashCode.fromBytes(unspentOutput.hash)));
-
-					TransactionOutput transactionOutput = transactionOutputs.get(unspentOutput.index);
-
-					UTXO utxo = new UTXO(Sha256Hash.wrap(unspentOutput.hash), unspentOutput.index,
-							Coin.valueOf(unspentOutput.value), unspentOutput.height, coinbase,
-							transactionOutput.getScriptPubKey());
-
-					allUnspentOutputs.add(utxo);
+					// This returns all keys, including those already in 'keys'
+					List<DeterministicKey> allLeafKeys = this.keyChain.getLeafKeys();
+					// Add only new keys onto our list of keys to search
+					List<DeterministicKey> newKeys = allLeafKeys.subList(ki, allLeafKeys.size());
+					keys.addAll(newKeys);
+					// Fall-through to checking more keys as now 'ki' is smaller than 'keys.size()' again
 				}
-			}
 
-			if (areAllKeysSpent)
-				// Notify caller that they need to check more keys
-				throw new AllKeysSpentException();
+				// If we have processed all keys, then we're done
+			} while (ki < keys.size());
 
 			return allUnspentOutputs;
 		}
