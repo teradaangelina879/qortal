@@ -17,7 +17,6 @@ import org.ciyam.at.OpCode;
 import org.ciyam.at.Timestamp;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
-import org.qortal.at.QortalAtLoggerFactory;
 import org.qortal.at.QortalFunctionCode;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
@@ -614,13 +613,11 @@ public class BTCACCT {
 	 * @throws DataException
 	 */
 	public static CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
+		byte[] addressBytes = new byte[25]; // for general use
 		String atAddress = atStateData.getATAddress();
 
-		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-		byte[] stateData = atStateData.getStateData();
-		byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
-
 		CrossChainTradeData tradeData = new CrossChainTradeData();
+
 		tradeData.qortalAtAddress = atAddress;
 		tradeData.qortalCreator = Crypto.toAddress(creatorPublicKey);
 		tradeData.creationTimestamp = atStateData.getCreation();
@@ -628,8 +625,9 @@ public class BTCACCT {
 		Account atAccount = new Account(repository, atAddress);
 		tradeData.qortBalance = atAccount.getConfirmedBalance(Asset.QORT);
 
-		ByteBuffer dataByteBuffer = ByteBuffer.wrap(dataBytes);
-		byte[] addressBytes = new byte[25];
+		byte[] stateData = atStateData.getStateData();
+		ByteBuffer dataByteBuffer = ByteBuffer.wrap(stateData);
+		dataByteBuffer.position(MachineState.HEADER_LENGTH);
 
 		/* Constants */
 
