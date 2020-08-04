@@ -293,6 +293,9 @@ public class BTC {
 						// Fully spent key - case (a)
 						btc.spentKeys.add(key);
 						wallet.getActiveKeyChain().markKeyAsUsed((DeterministicKey) key);
+					} else {
+						// Key never been used - case (b)
+						areAllKeysSpent = false;
 					}
 
 					continue;
