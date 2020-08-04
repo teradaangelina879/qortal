@@ -32,17 +32,20 @@ public class CrossChainOfferSummary {
 
 	private BTCACCT.Mode mode;
 
+	private long timestamp;
+
 	protected CrossChainOfferSummary() {
 		/* For JAXB */
 	}
 
-	public CrossChainOfferSummary(CrossChainTradeData crossChainTradeData) {
+	public CrossChainOfferSummary(CrossChainTradeData crossChainTradeData, long timestamp) {
 		this.qortalAtAddress = crossChainTradeData.qortalAtAddress;
 		this.qortalCreator = crossChainTradeData.qortalCreator;
 		this.qortAmount = crossChainTradeData.qortAmount;
 		this.btcAmount = crossChainTradeData.expectedBitcoin;
 		this.tradeTimeout = crossChainTradeData.tradeTimeout;
 		this.mode = crossChainTradeData.mode;
+		this.timestamp = timestamp;
 	}
 
 	public String getQortalAtAddress() {
@@ -67,6 +70,10 @@ public class CrossChainOfferSummary {
 
 	public BTCACCT.Mode getMode() {
 		return this.mode;
+	}
+
+	public long getTimestamp() {
+		return this.timestamp;
 	}
 
 }

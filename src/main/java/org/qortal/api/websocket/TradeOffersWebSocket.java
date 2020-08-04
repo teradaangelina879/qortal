@@ -20,6 +20,7 @@ import org.qortal.controller.BlockNotifier;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.block.BlockData;
+import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -89,7 +90,7 @@ public class TradeOffersWebSocket extends WebSocketServlet implements ApiWebSock
 				}
 			}
 
-			crossChainOfferSummaries = produceSummaries(repository, initialAtStates);
+			crossChainOfferSummaries = produceSummaries(repository, initialAtStates, null);
 		} catch (DataException e) {
 			session.close(4003, "generic repository issue");
 			return;
@@ -130,7 +131,7 @@ public class TradeOffersWebSocket extends WebSocketServlet implements ApiWebSock
 				if (atStates == null)
 					return;
 
-				List<CrossChainOfferSummary> crossChainOfferSummaries = produceSummaries(repository, atStates);
+				List<CrossChainOfferSummary> crossChainOfferSummaries = produceSummaries(repository, atStates, blockData.getTimestamp());
 
 				// Remove any entries unchanged from last time
 				crossChainOfferSummaries.removeIf(offerSummary -> previousAtModes.get(offerSummary.getQortalAtAddress()) == offerSummary.getMode());
@@ -166,11 +167,22 @@ public class TradeOffersWebSocket extends WebSocketServlet implements ApiWebSock
 		return true;
 	}
 
-	private static List<CrossChainOfferSummary> produceSummaries(Repository repository, List<ATStateData> atStates) throws DataException {
+	private static List<CrossChainOfferSummary> produceSummaries(Repository repository, List<ATStateData> atStates, Long timestamp) throws DataException {
 		List<CrossChainOfferSummary> offerSummaries = new ArrayList<>();
 
-		for (ATStateData atState : atStates)
-			offerSummaries.add(new CrossChainOfferSummary(BTCACCT.populateTradeData(repository, atState)));
+		for (ATStateData atState : atStates) {
+			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atState);
+
+			long atStateTimestamp;
+			if (crossChainTradeData.mode == BTCACCT.Mode.OFFERING) {
+				// We want when trade was created, not when it was last updated
+				atStateTimestamp = atState.getCreation();
+			} else {
+				atStateTimestamp = timestamp != null ? timestamp : repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
+			}
+
+			offerSummaries.add(new CrossChainOfferSummary(crossChainTradeData, atStateTimestamp));
+		}
 
 		return offerSummaries;
 	}
