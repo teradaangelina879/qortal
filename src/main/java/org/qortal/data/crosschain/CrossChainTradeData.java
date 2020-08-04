@@ -73,6 +73,9 @@ public class CrossChainTradeData {
 	@Schema(description = "Trade partner's Bitcoin public-key-hash (PKH)")
 	public byte[] partnerBitcoinPKH;
 
+	@Schema(description = "Trade partner's Qortal receiving address")
+	public String qortalPartnerReceivingAddress;
+
 	// Constructors
 
 	// Necessary for JAXB

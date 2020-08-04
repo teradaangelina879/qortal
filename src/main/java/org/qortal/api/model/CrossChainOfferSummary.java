@@ -34,6 +34,8 @@ public class CrossChainOfferSummary {
 
 	private long timestamp;
 
+	private String partnerQortalReceivingAddress;
+
 	protected CrossChainOfferSummary() {
 		/* For JAXB */
 	}
@@ -46,6 +48,7 @@ public class CrossChainOfferSummary {
 		this.tradeTimeout = crossChainTradeData.tradeTimeout;
 		this.mode = crossChainTradeData.mode;
 		this.timestamp = timestamp;
+		this.partnerQortalReceivingAddress = crossChainTradeData.qortalPartnerReceivingAddress;
 	}
 
 	public String getQortalAtAddress() {
@@ -74,6 +77,10 @@ public class CrossChainOfferSummary {
 
 	public long getTimestamp() {
 		return this.timestamp;
+	}
+
+	public String getPartnerQortalReceivingAddress() {
+		return this.partnerQortalReceivingAddress;
 	}
 
 }

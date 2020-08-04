@@ -105,10 +105,10 @@ public class BTCACCT {
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("fad14381b77ae1a2bfe7e16a1a8b571839c5f405fca0490ead08499ac170f65b").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("a472f32a6799ff85ed99567701b42fa228c58a09d38485ab208ad78d0f2cc813").asBytes(); // SHA256 of AT code bytes
 
 	/** <b>Value</b> offset into AT segment where 'mode' variable (long) is stored. (Multiply by MachineState.VALUE_SIZE for byte offset). */
-	private static final int MODE_VALUE_OFFSET = 63;
+	private static final int MODE_VALUE_OFFSET = 68;
 	/** <b>Byte</b> offset into AT state data where 'mode' variable (long) is stored. */
 	public static final int MODE_BYTE_OFFSET = MachineState.HEADER_LENGTH + (MODE_VALUE_OFFSET * MachineState.VALUE_SIZE);
 
@@ -199,6 +199,8 @@ public class BTCACCT {
 		final int addrMessageDataPointer = addrCounter++;
 		final int addrMessageDataLength = addrCounter++;
 
+		final int addrPartnerReceivingAddressPointer = addrCounter++;
+
 		final int addrEndOfConstants = addrCounter;
 
 		// Variables
@@ -236,6 +238,9 @@ public class BTCACCT {
 		addrCounter += 4;
 
 		final int addrPartnerBitcoinPKH = addrCounter;
+		addrCounter += 4;
+
+		final int addrPartnerReceivingAddress = addrCounter;
 		addrCounter += 4;
 
 		final int addrMode = addrCounter++;
@@ -326,6 +331,10 @@ public class BTCACCT {
 		dataByteBuffer.putLong(addrMessageData);
 		assert dataByteBuffer.position() == addrMessageDataLength * MachineState.VALUE_SIZE : "addrMessageDataLength incorrect";
 		dataByteBuffer.putLong(32L);
+
+		// Pointer into data segment of where to save partner's receiving Qortal address, used by GET_B_IND
+		assert dataByteBuffer.position() == addrPartnerReceivingAddressPointer * MachineState.VALUE_SIZE : "addrPartnerReceivingAddressPointer incorrect";
+		dataByteBuffer.putLong(addrPartnerReceivingAddress);
 
 		assert dataByteBuffer.position() == addrEndOfConstants * MachineState.VALUE_SIZE : "dataByteBuffer position not at end of constants";
 
@@ -544,6 +553,8 @@ public class BTCACCT {
 
 				// Extract Qortal receiving address from next 32 bytes of message from transaction into B register
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrRedeemMessageReceivingAddressOffset));
+				// Save B register into data segment starting at addrPartnerReceivingAddress (as pointed to by addrPartnerReceivingAddressPointer)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrPartnerReceivingAddressPointer));
 				// Pay AT's balance to receiving address
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PAY_TO_ADDRESS_IN_B, addrQortAmount));
 				// Set redeemed mode
@@ -700,6 +711,9 @@ public class BTCACCT {
 		// Skip message data length
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
+		// Skip pointer to partner's receiving address
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
 		/* End of constants / begin variables */
 
 		// Skip AT creator's address
@@ -753,8 +767,16 @@ public class BTCACCT {
 		dataByteBuffer.get(partnerBitcoinPKH);
 		dataByteBuffer.position(dataByteBuffer.position() + 32 - partnerBitcoinPKH.length); // skip to 32 bytes
 
+		// Partner's receiving address (if present)
+		byte[] partnerReceivingAddress = new byte[25];
+		dataByteBuffer.get(partnerReceivingAddress);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - partnerReceivingAddress.length); // skip to 32 bytes
+
+		// Trade AT's 'mode'
 		long modeValue = dataByteBuffer.getLong();
 		Mode mode = Mode.valueOf((int) (modeValue & 0xffL));
+
+		/* End of variables */
 
 		if (mode != null && mode != Mode.OFFERING) {
 			tradeData.mode = mode;
@@ -765,6 +787,9 @@ public class BTCACCT {
 			tradeData.partnerBitcoinPKH = partnerBitcoinPKH;
 			tradeData.lockTimeA = lockTimeA;
 			tradeData.lockTimeB = lockTimeB;
+
+			if (mode == Mode.REDEEMED)
+				tradeData.qortalPartnerReceivingAddress = Base58.encode(partnerReceivingAddress);
 		} else {
 			tradeData.mode = Mode.OFFERING;
 		}
