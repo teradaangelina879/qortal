@@ -277,12 +277,6 @@ public class BTC {
 				for (; ki < keys.size(); ++ki) {
 					ECKey key = keys.get(ki);
 
-					if (btc.spentKeys.contains(key)) {
-						wallet.getActiveKeyChain().markKeyAsUsed((DeterministicKey) key);
-						areAllKeysUnspent = false;
-						continue;
-					}
-
 					Address address = Address.fromKey(btc.params, key, ScriptType.P2PKH);
 					byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
 
@@ -299,6 +293,13 @@ public class BTC {
 					 */
 
 					if (unspentOutputs.isEmpty()) {
+						// If this is a known key that has been spent before, then we can skip asking for transaction history
+						if (btc.spentKeys.contains(key)) {
+							wallet.getActiveKeyChain().markKeyAsUsed((DeterministicKey) key);
+							areAllKeysUnspent = false;
+							continue;
+						}
+
 						// Ask for transaction history - if it's empty then key has never been used
 						List<byte[]> historicTransactionHashes = btc.electrumX.getAddressTransactions(script);
 						if (historicTransactionHashes == null)

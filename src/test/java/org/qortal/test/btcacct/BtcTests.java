@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import java.util.Arrays;
 import java.util.List;
 
+import org.bitcoinj.core.Transaction;
 import org.bitcoinj.store.BlockStoreException;
 import org.junit.After;
 import org.junit.Before;
@@ -67,10 +68,17 @@ public class BtcTests extends Common {
 		BTC btc = BTC.getInstance();
 
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+
 		String recipient = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 		long amount = 1000L;
 
-		btc.buildSpend(xprv58, recipient, amount);
+		Transaction transaction = btc.buildSpend(xprv58, recipient, amount);
+		assertNotNull(transaction);
+
+		// Check spent key caching doesn't affect outcome
+
+		transaction = btc.buildSpend(xprv58, recipient, amount);
+		assertNotNull(transaction);
 	}
 
 	@Test
@@ -84,6 +92,16 @@ public class BtcTests extends Common {
 		assertNotNull(balance);
 
 		System.out.println(BTC.format(balance));
+
+		// Check spent key caching doesn't affect outcome
+
+		Long repeatBalance = btc.getWalletBalance(xprv58);
+
+		assertNotNull(repeatBalance);
+
+		System.out.println(BTC.format(repeatBalance));
+
+		assertEquals(balance, repeatBalance);
 	}
 
 }
