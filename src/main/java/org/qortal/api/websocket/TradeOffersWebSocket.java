@@ -63,14 +63,18 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 			// Save initial AT modes
 			previousAtModes.putAll(initialAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> BTCACCT.Mode.OFFERING)));
 
+			// Convert to offer summaries
+			crossChainOfferSummaries = produceSummaries(repository, initialAtStates, null);
+
 			if (includeHistoric) {
-				// We also want REDEEMED trades over the last 24 hours
+				// We also want REDEEMED/REFUNDED/CANCELLED trades over the last 24 hours
 				long timestamp = NTP.getTime() - 24 * 60 * 60 * 1000L;
 				minimumFinalHeight = repository.getBlockRepository().getHeightFromTimestamp(timestamp);
 
 				if (minimumFinalHeight != 0) {
 					isFinished = Boolean.TRUE;
-					expectedValue = (long) BTCACCT.Mode.REDEEMED.value;
+					dataByteOffset = null;
+					expectedValue = null;
 					++minimumFinalHeight; // because height is just *before* timestamp
 
 					List<ATStateData> historicAtStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
@@ -78,18 +82,32 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 							null, null, null);
 
 					if (historicAtStates == null) {
-						session.close(4002, "repository issue fetching REDEEMED trades");
+						session.close(4002, "repository issue fetching historic trades");
 						return;
 					}
 
-					initialAtStates.addAll(historicAtStates);
+					for (ATStateData historicAtState : historicAtStates) {
+						CrossChainOfferSummary historicOfferSummary = produceSummary(repository, historicAtState, null);
 
-					// Save initial AT modes
-					previousAtModes.putAll(historicAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> BTCACCT.Mode.REDEEMED)));
+						switch (historicOfferSummary.getMode()) {
+							case REDEEMED:
+							case REFUNDED:
+							case CANCELLED:
+								break;
+
+							default:
+								continue;
+						}
+
+						// Add summary to initial burst
+						crossChainOfferSummaries.add(historicOfferSummary);
+
+						// Save initial AT mode
+						previousAtModes.put(historicAtState.getATAddress(), historicOfferSummary.getMode());
+					}
 				}
 			}
 
-			crossChainOfferSummaries = produceSummaries(repository, initialAtStates, null);
 		} catch (DataException e) {
 			session.close(4003, "generic repository issue");
 			return;
@@ -168,22 +186,25 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 		return true;
 	}
 
+	private static CrossChainOfferSummary produceSummary(Repository repository, ATStateData atState, Long timestamp) throws DataException {
+		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atState);
+
+		long atStateTimestamp;
+
+		if (crossChainTradeData.mode == BTCACCT.Mode.OFFERING)
+			// We want when trade was created, not when it was last updated
+			atStateTimestamp = atState.getCreation();
+		else
+			atStateTimestamp = timestamp != null ? timestamp : repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
+
+		return new CrossChainOfferSummary(crossChainTradeData, atStateTimestamp);
+	}
+
 	private static List<CrossChainOfferSummary> produceSummaries(Repository repository, List<ATStateData> atStates, Long timestamp) throws DataException {
 		List<CrossChainOfferSummary> offerSummaries = new ArrayList<>();
 
-		for (ATStateData atState : atStates) {
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atState);
-
-			long atStateTimestamp;
-			if (crossChainTradeData.mode == BTCACCT.Mode.OFFERING) {
-				// We want when trade was created, not when it was last updated
-				atStateTimestamp = atState.getCreation();
-			} else {
-				atStateTimestamp = timestamp != null ? timestamp : repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
-			}
-
-			offerSummaries.add(new CrossChainOfferSummary(crossChainTradeData, atStateTimestamp));
-		}
+		for (ATStateData atState : atStates)
+			offerSummaries.add(produceSummary(repository, atState, timestamp));
 
 		return offerSummaries;
 	}
