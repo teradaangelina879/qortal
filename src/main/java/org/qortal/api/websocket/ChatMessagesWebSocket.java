@@ -12,7 +12,6 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
-import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.controller.ChatNotifier;
 import org.qortal.data.chat.ChatMessage;
@@ -23,7 +22,7 @@ import org.qortal.repository.RepositoryManager;
 
 @WebSocket
 @SuppressWarnings("serial")
-public class ChatMessagesWebSocket extends WebSocketServlet implements ApiWebSocket {
+public class ChatMessagesWebSocket extends ApiWebSocket {
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
@@ -123,7 +122,7 @@ public class ChatMessagesWebSocket extends WebSocketServlet implements ApiWebSoc
 		StringWriter stringWriter = new StringWriter();
 
 		try {
-			this.marshall(stringWriter, chatMessages);
+			marshall(stringWriter, chatMessages);
 
 			session.getRemote().sendString(stringWriter.toString());
 		} catch (IOException e) {

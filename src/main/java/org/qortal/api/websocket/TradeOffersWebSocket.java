@@ -13,7 +13,6 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
-import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.model.CrossChainOfferSummary;
 import org.qortal.controller.BlockNotifier;
@@ -28,7 +27,7 @@ import org.qortal.utils.NTP;
 
 @WebSocket
 @SuppressWarnings("serial")
-public class TradeOffersWebSocket extends WebSocketServlet implements ApiWebSocket {
+public class TradeOffersWebSocket extends ApiWebSocket {
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
@@ -116,46 +115,48 @@ public class TradeOffersWebSocket extends WebSocketServlet implements ApiWebSock
 	}
 
 	private void onNotify(Session session, BlockData blockData, final Map<String, BTCACCT.Mode> previousAtModes) {
+		List<CrossChainOfferSummary> crossChainOfferSummaries = null;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Find any new trade ATs since this block
+			final Boolean isFinished = null;
+			final Integer dataByteOffset = null;
+			final Long expectedValue = null;
+			final Integer minimumFinalHeight = blockData.getHeight();
+
+			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
+					isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
+					null, null, null);
+
+			if (atStates == null)
+				return;
+
+			crossChainOfferSummaries = produceSummaries(repository, atStates, blockData.getTimestamp());
+		} catch (DataException e) {
+			// No output this time
+		}
+
 		synchronized (previousAtModes) { //NOSONAR squid:S2445 suppressed because previousAtModes is final and curried in lambda
-			try (final Repository repository = RepositoryManager.getRepository()) {
-				// Find any new trade ATs since this block
-				final Boolean isFinished = null;
-				final Integer dataByteOffset = null;
-				final Long expectedValue = null;
-				final Integer minimumFinalHeight = blockData.getHeight();
+			// Remove any entries unchanged from last time
+			crossChainOfferSummaries.removeIf(offerSummary -> previousAtModes.get(offerSummary.getQortalAtAddress()) == offerSummary.getMode());
 
-				List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
-						isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
-						null, null, null);
+			// Don't send anything if no results
+			if (crossChainOfferSummaries.isEmpty())
+				return;
 
-				if (atStates == null)
-					return;
+			final boolean wasSent = sendOfferSummaries(session, crossChainOfferSummaries);
 
-				List<CrossChainOfferSummary> crossChainOfferSummaries = produceSummaries(repository, atStates, blockData.getTimestamp());
+			if (!wasSent)
+				return;
 
-				// Remove any entries unchanged from last time
-				crossChainOfferSummaries.removeIf(offerSummary -> previousAtModes.get(offerSummary.getQortalAtAddress()) == offerSummary.getMode());
-
-				// Don't send anything if no results
-				if (crossChainOfferSummaries.isEmpty())
-					return;
-
-				final boolean wasSent = sendOfferSummaries(session, crossChainOfferSummaries);
-
-				if (!wasSent)
-					return;
-
-				previousAtModes.putAll(crossChainOfferSummaries.stream().collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, CrossChainOfferSummary::getMode)));
-			} catch (DataException e) {
-				// No output this time
-			}
+			previousAtModes.putAll(crossChainOfferSummaries.stream().collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, CrossChainOfferSummary::getMode)));
 		}
 	}
 
 	private boolean sendOfferSummaries(Session session, List<CrossChainOfferSummary> crossChainOfferSummaries) {
 		try {
 			StringWriter stringWriter = new StringWriter();
-			this.marshall(stringWriter, crossChainOfferSummaries);
+			marshall(stringWriter, crossChainOfferSummaries);
 
 			String output = stringWriter.toString();
 			session.getRemote().sendStringByFuture(output);
