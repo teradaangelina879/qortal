@@ -30,6 +30,8 @@ import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
+import org.qortal.event.Event;
+import org.qortal.event.EventBus;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -46,6 +48,18 @@ import org.qortal.utils.NTP;
 public class TradeBot {
 
 	public enum ResponseResult { OK, INSUFFICIENT_FUNDS, BTC_BALANCE_ISSUE, BTC_NETWORK_ISSUE }
+
+	public static class StateChangeEvent implements Event {
+		private final TradeBotData tradeBotData;
+
+		public StateChangeEvent(TradeBotData tradeBotData) {
+			this.tradeBotData = tradeBotData;
+		}
+
+		public TradeBotData getTradeBotData() {
+			return this.tradeBotData;
+		}
+	}
 
 	private static final Logger LOGGER = LogManager.getLogger(TradeBot.class);
 	private static final Random RANDOM = new SecureRandom();
@@ -158,6 +172,7 @@ public class TradeBot {
 		repository.saveChanges();
 
 		LOGGER.info(() -> String.format("Built AT %s. Waiting for deployment", atAddress));
+		notifyStateChange(tradeBotData);
 
 		// Return to user for signing and broadcast as we don't have their Qortal private key
 		try {
@@ -258,6 +273,7 @@ public class TradeBot {
 		repository.saveChanges();
 
 		LOGGER.info(() -> String.format("Funding P2SH-A %s. Waiting for confirmation", p2shAddress));
+		notifyStateChange(tradeBotData);
 
 		return ResponseResult.OK;
 	}
@@ -368,6 +384,7 @@ public class TradeBot {
 		repository.saveChanges();
 
 		LOGGER.info(() -> String.format("AT %s confirmed ready. Waiting for trade message", tradeBotData.getAtAddress()));
+		notifyStateChange(tradeBotData);
 	}
 
 	/**
@@ -405,6 +422,7 @@ public class TradeBot {
 			repository.saveChanges();
 
 			LOGGER.info(() -> String.format("AT %s cancelled. Refunding P2SH-A %s - aborting trade", tradeBotData.getAtAddress(), p2shAddress));
+			notifyStateChange(tradeBotData);
 
 			return;
 		}
@@ -443,6 +461,7 @@ public class TradeBot {
 
 		LOGGER.info(() -> String.format("P2SH-A %s funding confirmed. Messaged %s. Waiting for AT %s to lock to us",
 				p2shAddress, crossChainTradeData.qortalCreatorTradeAddress, tradeBotData.getAtAddress()));
+		notifyStateChange(tradeBotData);
 	}
 
 	/**
@@ -478,6 +497,7 @@ public class TradeBot {
 			repository.saveChanges();
 
 			LOGGER.info(() -> String.format("AT %s cancelled - trading aborted", tradeBotData.getAtAddress()));
+			notifyStateChange(tradeBotData);
 
 			return;
 		}
@@ -550,6 +570,7 @@ public class TradeBot {
 			String p2shBAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
 			LOGGER.info(() -> String.format("Locked AT %s to %s. Waiting for P2SH-B %s", tradeBotData.getAtAddress(), aliceNativeAddress, p2shBAddress));
+			notifyStateChange(tradeBotData);
 
 			return;
 		}
@@ -558,6 +579,7 @@ public class TradeBot {
 		if (tradeBotData.getLastTransactionSignature() != originalLastTransactionSignature) {
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
+			notifyStateChange(tradeBotData);
 		}
 	}
 
@@ -597,6 +619,8 @@ public class TradeBot {
 			else
 				LOGGER.info(() -> String.format("LockTime-A reached, refunding P2SH-A %s - aborting trade", p2shAddress));
 
+			notifyStateChange(tradeBotData);
+
 			return;
 		}
 
@@ -621,6 +645,8 @@ public class TradeBot {
 			tradeBotData.setState(TradeBotData.State.ALICE_REFUNDING_A);
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
+
+			notifyStateChange(tradeBotData);
 
 			return;
 		}
@@ -679,6 +705,8 @@ public class TradeBot {
 
 		LOGGER.info(() -> String.format("AT %s locked to us (%s). P2SH-B %s funded. Watching P2SH-B for secret-B",
 				tradeBotData.getAtAddress(), tradeBotData.getTradeNativeAddress(), p2shAddress));
+
+		notifyStateChange(tradeBotData);
 	}
 
 	/**
@@ -706,6 +734,7 @@ public class TradeBot {
 			repository.saveChanges();
 
 			LOGGER.info(() -> String.format("AT %s has auto-refunded - trade aborted", tradeBotData.getAtAddress()));
+			notifyStateChange(tradeBotData);
 
 			return;
 		}
@@ -746,6 +775,7 @@ public class TradeBot {
 		repository.saveChanges();
 
 		LOGGER.info(() -> String.format("P2SH-B %s redeemed (exposing secret-B). Watching AT %s for secret-A", p2shAddress, tradeBotData.getAtAddress()));
+		notifyStateChange(tradeBotData);
 	}
 
 	/**
@@ -782,6 +812,7 @@ public class TradeBot {
 			repository.saveChanges();
 
 			LOGGER.info(() -> String.format("LockTime-B reached, refunding P2SH-B %s - aborting trade", p2shAddress));
+			notifyStateChange(tradeBotData);
 
 			return;
 		}
@@ -825,6 +856,8 @@ public class TradeBot {
 
 		LOGGER.info(() -> String.format("P2SH-B %s redeemed, using secrets to redeem AT %s. Funds should arrive at %s",
 				p2shAddress, tradeBotData.getAtAddress(), receivingAddress));
+
+		notifyStateChange(tradeBotData);
 	}
 
 	/**
@@ -867,6 +900,7 @@ public class TradeBot {
 			repository.saveChanges();
 
 			LOGGER.info(() -> String.format("AT %s has auto-refunded - trade aborted", tradeBotData.getAtAddress()));
+			notifyStateChange(tradeBotData);
 
 			return;
 		}
@@ -902,6 +936,7 @@ public class TradeBot {
 		String receivingAddress = BTC.getInstance().pkhToAddress(receivingAccountInfo);
 
 		LOGGER.info(() -> String.format("P2SH-A %s redeemed. Funds should arrive at %s", tradeBotData.getAtAddress(), receivingAddress));
+		notifyStateChange(tradeBotData);
 	}
 
 	/**
@@ -943,6 +978,7 @@ public class TradeBot {
 		repository.saveChanges();
 
 		LOGGER.info(() -> String.format("Refunded P2SH-B %s. Waiting for LockTime-A", p2shAddress));
+		notifyStateChange(tradeBotData);
 	}
 
 	/** Trade-bot is attempting to refund P2SH-A. */
@@ -987,6 +1023,12 @@ public class TradeBot {
 		repository.saveChanges();
 
 		LOGGER.info(() -> String.format("LockTime-A reached. Refunded P2SH-A %s. Trade aborted", p2shAddress));
+		notifyStateChange(tradeBotData);
+	}
+
+	private static void notifyStateChange(TradeBotData tradeBotData) {
+		StateChangeEvent stateChangeEvent = new StateChangeEvent(tradeBotData);
+		EventBus.INSTANCE.notify(stateChangeEvent);
 	}
 
 }
