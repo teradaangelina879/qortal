@@ -1045,7 +1045,7 @@ public class CrossChainResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
 	public String tradeBotResponder(TradeBotRespondRequest tradeBotRespondRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -1068,9 +1068,22 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode != BTCACCT.Mode.OFFERING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			boolean result = TradeBot.startResponse(repository, crossChainTradeData, tradeBotRespondRequest.xprv58, tradeBotRespondRequest.receivingAddress);
+			TradeBot.ResponseResult result = TradeBot.startResponse(repository, crossChainTradeData, tradeBotRespondRequest.xprv58, tradeBotRespondRequest.receivingAddress);
 
-			return result ? "true" : "false";
+			switch (result) {
+				case OK:
+					return "true";
+
+				case INSUFFICIENT_FUNDS:
+				case BTC_BALANCE_ISSUE:
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_BALANCE_ISSUE);
+
+				case BTC_NETWORK_ISSUE:
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
+
+				default:
+					return "false";
+			}
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

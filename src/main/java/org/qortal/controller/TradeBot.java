@@ -45,6 +45,8 @@ import org.qortal.utils.NTP;
 
 public class TradeBot {
 
+	public enum ResponseResult { OK, INSUFFICIENT_FUNDS, BTC_BALANCE_ISSUE, BTC_NETWORK_ISSUE }
+
 	private static final Logger LOGGER = LogManager.getLogger(TradeBot.class);
 	private static final Random RANDOM = new SecureRandom();
 	private static final long FEE_AMOUNT = 1000L;
@@ -203,7 +205,7 @@ public class TradeBot {
 	 * @return true if P2SH-A funding transaction successfully broadcast to Bitcoin network, false otherwise
 	 * @throws DataException
 	 */
-	public static boolean startResponse(Repository repository, CrossChainTradeData crossChainTradeData, String xprv58, String receivingAddress) throws DataException {
+	public static ResponseResult startResponse(Repository repository, CrossChainTradeData crossChainTradeData, String xprv58, String receivingAddress) throws DataException {
 		byte[] tradePrivateKey = generateTradePrivateKey();
 		byte[] secretA = generateSecret();
 		byte[] hashOfSecretA = Crypto.hash160(secretA);
@@ -233,7 +235,7 @@ public class TradeBot {
 
 		Transaction fundingCheckTransaction = BTC.getInstance().buildSpend(xprv58, tradeForeignAddress, totalFundsRequired);
 		if (fundingCheckTransaction == null)
-			return false;
+			return ResponseResult.INSUFFICIENT_FUNDS;
 
 		// P2SH-A to be funded
 		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeForeignPublicKeyHash, lockTimeA, crossChainTradeData.creatorBitcoinPKH, hashOfSecretA);
@@ -241,10 +243,15 @@ public class TradeBot {
 
 		// Fund P2SH-A
 		Transaction p2shFundingTransaction = BTC.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddress, crossChainTradeData.expectedBitcoin + FEE_AMOUNT);
+		if (p2shFundingTransaction == null) {
+			LOGGER.warn(() -> String.format("Unable to build P2SH-A funding transaction - lack of funds?"));
+			return ResponseResult.BTC_BALANCE_ISSUE;
+		}
+
 		if (!BTC.getInstance().broadcastTransaction(p2shFundingTransaction)) {
 			// We couldn't fund P2SH-A at this time
 			LOGGER.debug(() -> String.format("Couldn't broadcast P2SH-A funding transaction?"));
-			return false;
+			return ResponseResult.BTC_NETWORK_ISSUE;
 		}
 
 		repository.getCrossChainRepository().save(tradeBotData);
@@ -252,7 +259,7 @@ public class TradeBot {
 
 		LOGGER.info(() -> String.format("Funding P2SH-A %s. Waiting for confirmation", p2shAddress));
 
-		return true;
+		return ResponseResult.OK;
 	}
 
 	private static byte[] generateTradePrivateKey() {
