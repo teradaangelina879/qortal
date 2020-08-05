@@ -654,6 +654,11 @@ public class TradeBot {
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
 		Transaction p2shFundingTransaction = BTC.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddress, FEE_AMOUNT);
+		if (p2shFundingTransaction == null) {
+			LOGGER.warn(() -> String.format("Unable to build P2SH-B funding transaction - lack of funds?"));
+			return;
+		}
+
 		if (!BTC.getInstance().broadcastTransaction(p2shFundingTransaction)) {
 			// We couldn't fund P2SH-B at this time
 			LOGGER.debug(() -> String.format("Couldn't broadcast P2SH-B funding transaction?"));
