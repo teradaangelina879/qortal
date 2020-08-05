@@ -1011,6 +1011,9 @@ public class CrossChainResource {
 		if (tradeBotCreateRequest.tradeTimeout < 60)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
+		if (tradeBotCreateRequest.bitcoinAmount <= 0 || tradeBotCreateRequest.qortAmount <= 0 || tradeBotCreateRequest.fundingQortAmount <= 0)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Do some simple checking first
 			Account creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);

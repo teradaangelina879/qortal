@@ -35,7 +35,13 @@ public class TradeBotData {
 	}
 	private State tradeState;
 
+	private String creatorAddress;
 	private String atAddress;
+
+	private long timestamp;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long qortAmount;
 
 	private byte[] tradeNativePublicKey;
 	private byte[] tradeNativePublicKeyHash;
@@ -66,14 +72,18 @@ public class TradeBotData {
 		/* JAXB */
 	}
 
-	public TradeBotData(byte[] tradePrivateKey, State tradeState, String atAddress,
+	public TradeBotData(byte[] tradePrivateKey, State tradeState, String creatorAddress, String atAddress,
+			long timestamp, long qortAmount,
 			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, String tradeNativeAddress,
 			byte[] secret, byte[] hashOfSecret,
 			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash,
 			long bitcoinAmount, String xprv58, byte[] lastTransactionSignature, Integer lockTimeA, byte[] receivingAccountInfo) {
 		this.tradePrivateKey = tradePrivateKey;
 		this.tradeState = tradeState;
+		this.creatorAddress = creatorAddress;
 		this.atAddress = atAddress;
+		this.timestamp = timestamp;
+		this.qortAmount = qortAmount;
 		this.tradeNativePublicKey = tradeNativePublicKey;
 		this.tradeNativePublicKeyHash = tradeNativePublicKeyHash;
 		this.tradeNativeAddress = tradeNativeAddress;
@@ -100,12 +110,28 @@ public class TradeBotData {
 		this.tradeState = state;
 	}
 
+	public String getCreatorAddress() {
+		return this.creatorAddress;
+	}
+
 	public String getAtAddress() {
 		return this.atAddress;
 	}
 
 	public void setAtAddress(String atAddress) {
 		this.atAddress = atAddress;
+	}
+
+	public long getTimestamp() {
+		return this.timestamp;
+	}
+
+	public void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
+	}
+
+	public long getQortAmount() {
+		return this.qortAmount;
 	}
 
 	public byte[] getTradeNativePublicKey() {

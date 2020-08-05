@@ -163,7 +163,7 @@ public class TradeBot {
 		String atAddress = deployAtTransactionData.getAtAddress();
 
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.BOB_WAITING_FOR_AT_CONFIRM,
-				atAddress,
+				creator.getAddress(), atAddress, timestamp, tradeBotCreateRequest.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				secretB, hashOfSecretB,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
@@ -237,7 +237,7 @@ public class TradeBot {
 		int lockTimeA = crossChainTradeData.tradeTimeout * 60 + (int) (NTP.getTime() / 1000L);
 
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.ALICE_WAITING_FOR_P2SH_A,
-				crossChainTradeData.qortalAtAddress,
+				receivingAddress, crossChainTradeData.qortalAtAddress, NTP.getTime(), crossChainTradeData.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				secretA, hashOfSecretA,
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
@@ -380,6 +380,7 @@ public class TradeBot {
 			return;
 
 		tradeBotData.setState(TradeBotData.State.BOB_WAITING_FOR_MESSAGE);
+		tradeBotData.setTimestamp(NTP.getTime());
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -418,6 +419,7 @@ public class TradeBot {
 		if (atData.getIsFinished()) {
 			// No point sending MESSAGE - might as well wait for refund
 			tradeBotData.setState(TradeBotData.State.ALICE_REFUNDING_A);
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 
@@ -456,6 +458,7 @@ public class TradeBot {
 		}
 
 		tradeBotData.setState(TradeBotData.State.ALICE_WAITING_FOR_AT_LOCK);
+		tradeBotData.setTimestamp(NTP.getTime());
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -493,6 +496,7 @@ public class TradeBot {
 		// If AT has finished then Bob likely cancelled his trade offer
 		if (atData.getIsFinished()) {
 			tradeBotData.setState(TradeBotData.State.BOB_REFUNDED);
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 
@@ -563,6 +567,7 @@ public class TradeBot {
 			}
 
 			tradeBotData.setState(TradeBotData.State.BOB_WAITING_FOR_P2SH_B);
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 
@@ -577,6 +582,7 @@ public class TradeBot {
 
 		// Don't resave if we don't need to
 		if (tradeBotData.getLastTransactionSignature() != originalLastTransactionSignature) {
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 			notifyStateChange(tradeBotData);
@@ -608,6 +614,7 @@ public class TradeBot {
 		// Refund P2SH-A if AT finished (i.e. Bob cancelled trade) or we've passed lockTime-A
 		if (atData.getIsFinished() || NTP.getTime() >= tradeBotData.getLockTimeA() * 1000L) {
 			tradeBotData.setState(TradeBotData.State.ALICE_REFUNDING_A);
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 
@@ -643,6 +650,7 @@ public class TradeBot {
 
 			// There's no P2SH-B at this point, so jump straight to refunding P2SH-A
 			tradeBotData.setState(TradeBotData.State.ALICE_REFUNDING_A);
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 
@@ -700,6 +708,7 @@ public class TradeBot {
 
 		// P2SH-B funded, now we wait for Bob to redeem it
 		tradeBotData.setState(TradeBotData.State.ALICE_WATCH_P2SH_B);
+		tradeBotData.setTimestamp(NTP.getTime());
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -730,6 +739,7 @@ public class TradeBot {
 		// If we've passed AT refund timestamp then AT will have finished after auto-refunding
 		if (atData.getIsFinished()) {
 			tradeBotData.setState(TradeBotData.State.BOB_REFUNDED);
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 
@@ -771,6 +781,7 @@ public class TradeBot {
 
 		// P2SH-B redeemed, now we wait for Alice to use secret-A to redeem AT
 		tradeBotData.setState(TradeBotData.State.BOB_WAITING_FOR_AT_REDEEM);
+		tradeBotData.setTimestamp(NTP.getTime());
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -808,6 +819,7 @@ public class TradeBot {
 		// Refund P2SH-B if we've passed lockTime-B
 		if (NTP.getTime() >= crossChainTradeData.lockTimeB * 1000L) {
 			tradeBotData.setState(TradeBotData.State.ALICE_REFUNDING_B);
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 
@@ -849,6 +861,7 @@ public class TradeBot {
 		}
 
 		tradeBotData.setState(TradeBotData.State.ALICE_DONE);
+		tradeBotData.setTimestamp(NTP.getTime());
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -896,6 +909,7 @@ public class TradeBot {
 		// We check variable in AT that is set when trade successfully completes
 		if (crossChainTradeData.mode != BTCACCT.Mode.REDEEMED) {
 			tradeBotData.setState(TradeBotData.State.BOB_REFUNDED);
+			tradeBotData.setTimestamp(NTP.getTime());
 			repository.getCrossChainRepository().save(tradeBotData);
 			repository.saveChanges();
 
@@ -930,6 +944,7 @@ public class TradeBot {
 		}
 
 		tradeBotData.setState(TradeBotData.State.BOB_DONE);
+		tradeBotData.setTimestamp(NTP.getTime());
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -973,7 +988,7 @@ public class TradeBot {
 		}
 
 		tradeBotData.setState(TradeBotData.State.ALICE_REFUNDING_A);
-
+		tradeBotData.setTimestamp(NTP.getTime());
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 
@@ -1018,7 +1033,7 @@ public class TradeBot {
 		}
 
 		tradeBotData.setState(TradeBotData.State.ALICE_REFUNDED);
-
+		tradeBotData.setTimestamp(NTP.getTime());
 		repository.getCrossChainRepository().save(tradeBotData);
 		repository.saveChanges();
 

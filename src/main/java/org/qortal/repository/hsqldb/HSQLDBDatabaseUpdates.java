@@ -4,9 +4,14 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.utils.Base58;
+
+import com.google.common.hash.HashCode;
 
 public class HSQLDBDatabaseUpdates {
 
@@ -621,7 +626,7 @@ public class HSQLDBDatabaseUpdates {
 				case 20:
 					// Trade bot
 					stmt.execute("CREATE TABLE TradeBotStates (trade_private_key QortalKeySeed NOT NULL, trade_state TINYINT NOT NULL, "
-							+ "at_address QortalAddress, "
+							+ "creator_address QortalAddress NOT NULL, at_address QortalAddress, updated_when BIGINT NOT NULL, qort_amount QortalAmount NOT NULL, "
 							+ "trade_native_public_key QortalPublicKey NOT NULL, trade_native_public_key_hash VARBINARY(32) NOT NULL, "
 							+ "trade_native_address QortalAddress NOT NULL, secret VARBINARY(32) NOT NULL, hash_of_secret VARBINARY(32) NOT NULL, "
 							+ "trade_foreign_public_key VARBINARY(33) NOT NULL, trade_foreign_public_key_hash VARBINARY(32) NOT NULL, "
@@ -639,6 +644,39 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN IF NOT EXISTS receiving_public_key_hash VARBINARY(32)");
 					stmt.execute("ALTER TABLE TradeBotStates DROP COLUMN receiving_public_key_hash");
 					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN IF NOT EXISTS receiving_account_info VARBINARY(32)");
+					break;
+
+				case 23:
+					// XXX for testing/dev only - do not merge into 'master'
+					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN IF NOT EXISTS creator_address QortalAddress BEFORE at_address");
+					// Update Bob bot entries
+					stmt.execute("UPDATE TradeBotStates AS StatesToUpdate "
+							+ "SET (trade_private_key, creator_address) = ("
+								+ "SELECT trade_private_key, accounts.account "
+								+ "FROM TradeBotStates "
+								+ "JOIN ATs USING (at_address) "
+								+ "JOIN Accounts ON Accounts.public_key = ATs.creator "
+								+ "WHERE tradebotstates.trade_private_key = StatesToUpdate.trade_private_key"
+							+ ") WHERE trade_state < 90");
+
+					stmt.execute("SELECT trade_private_key, receiving_account_info FROM TradeBotStates WHERE trade_state >= 90");
+					Map<String, String> aliceAddresses = new HashMap<>();
+					try (ResultSet resultSet = stmt.getResultSet()) {
+						while (resultSet.next()) {
+							byte[] tradePrivateKey = resultSet.getBytes(1);
+							byte[] receivingAccountInfo = resultSet.getBytes(2);
+
+							aliceAddresses.put(HashCode.fromBytes(tradePrivateKey).toString(), Base58.encode(receivingAccountInfo));
+						}
+					}
+					for (Map.Entry<String, String> entry : aliceAddresses.entrySet())
+						stmt.execute("UPDATE TradeBotStates SET creator_address = '" + entry.getValue() + "' WHERE trade_private_key = HEXTORAW('" + entry.getKey() + "')");
+					stmt.execute("COMMIT");
+
+					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN IF NOT EXISTS updated_when BIGINT BEFORE trade_native_public_key");
+					stmt.execute("UPDATE TradeBotStates SET updated_when = UNIX_TIMESTAMP() * 1000");
+
+					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN IF NOT EXISTS qort_amount QortalAmount NOT NULL DEFAULT 12345678 BEFORE trade_native_public_key");
 					break;
 
 				default:
