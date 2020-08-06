@@ -46,6 +46,7 @@ import org.qortal.api.model.CrossChainTradeRequest;
 import org.qortal.api.model.CrossChainTradeSummary;
 import org.qortal.api.model.TradeBotCreateRequest;
 import org.qortal.api.model.TradeBotRespondRequest;
+import org.qortal.api.model.BitcoinSendRequest;
 import org.qortal.api.model.CrossChainBitcoinP2SHStatus;
 import org.qortal.api.model.CrossChainBitcoinRedeemRequest;
 import org.qortal.api.model.CrossChainBitcoinRefundRequest;
@@ -945,6 +946,57 @@ public class CrossChainResource {
 			return "null";
 
 		return balance.toString();
+	}
+
+	@POST
+	@Path("/btc/send")
+	@Operation(
+		summary = "Sends BTC from BIP32 wallet to specific address",
+		description = "Currently only supports 'legacy' P2PKH Bitcoin addresses. Supply BIP32 'm' private key in base58, starting with 'xprv' for mainnet, 'tprv' for testnet",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = BitcoinSendRequest.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE})
+	public String sendBitcoin(BitcoinSendRequest bitcoinSendRequest) {
+		Security.checkApiCallAllowed(request);
+
+		if (bitcoinSendRequest.bitcoinAmount <= 0)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		Address receivingAddress;
+		try {
+			receivingAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), bitcoinSendRequest.receivingAddress);
+		} catch (AddressFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+		}
+
+		// We only support P2PKH addresses at this time
+		if (receivingAddress.getOutputScriptType() != ScriptType.P2PKH)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		if (!BTC.getInstance().isValidXprv(bitcoinSendRequest.xprv58))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+
+		org.bitcoinj.core.Transaction spendTransaction = BTC.getInstance().buildSpend(bitcoinSendRequest.xprv58, bitcoinSendRequest.receivingAddress, bitcoinSendRequest.bitcoinAmount);
+		if (spendTransaction == null)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_BALANCE_ISSUE);
+
+		if (!BTC.getInstance().broadcastTransaction(spendTransaction))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
+
+		return "true";
 	}
 
 	@GET
