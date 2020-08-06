@@ -380,7 +380,7 @@ public class CrossChainResource {
 		summary = "Builds raw, unsigned 'cancel' MESSAGE transaction that cancels cross-chain trade offer",
 		description = "Specify address of cross-chain AT that needs to be cancelled.<br>"
 			+ "AT needs to be in 'offer' mode. Messages sent to an AT in 'trade' mode will be ignored, but still cost fees to send!<br>"
-			+ "You need to sign output with trade's private key otherwise the MESSAGE transaction will be invalid.",
+			+ "You need to sign output with AT creator's private key otherwise the MESSAGE transaction will be invalid.",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -404,9 +404,9 @@ public class CrossChainResource {
 	public String buildCancelMessage(CrossChainCancelRequest cancelRequest) {
 		Security.checkApiCallAllowed(request);
 
-		byte[] tradePublicKey = cancelRequest.tradePublicKey;
+		byte[] creatorPublicKey = cancelRequest.creatorPublicKey;
 
-		if (tradePublicKey == null || tradePublicKey.length != Transformer.PUBLIC_KEY_LENGTH)
+		if (creatorPublicKey == null || creatorPublicKey.length != Transformer.PUBLIC_KEY_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
 		if (cancelRequest.atAddress == null || !Crypto.isValidAtAddress(cancelRequest.atAddress))
@@ -419,16 +419,16 @@ public class CrossChainResource {
 			if (crossChainTradeData.mode != BTCACCT.Mode.OFFERING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			// Does supplied public key match trade public key?
-			if (!Crypto.toAddress(tradePublicKey).equals(crossChainTradeData.qortalCreatorTradeAddress))
+			// Does supplied public key match AT creator's public key?
+			if (!Arrays.equals(creatorPublicKey, atData.getCreatorPublicKey()))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
 			// Good to make MESSAGE
 
-			String atCreatorAddress = crossChainTradeData.qortalCreator;
+			String atCreatorAddress = Crypto.toAddress(creatorPublicKey);
 			byte[] messageData = BTCACCT.buildCancelMessage(atCreatorAddress);
 
-			byte[] messageTransactionBytes = buildAtMessage(repository, tradePublicKey, cancelRequest.atAddress, messageData);
+			byte[] messageTransactionBytes = buildAtMessage(repository, creatorPublicKey, cancelRequest.atAddress, messageData);
 
 			return Base58.encode(messageTransactionBytes);
 		} catch (DataException e) {
@@ -1222,12 +1222,18 @@ public class CrossChainResource {
 	}
 
 	private byte[] buildAtMessage(Repository repository, byte[] senderPublicKey, String atAddress, byte[] messageData) throws DataException {
-		// senderPublicKey is actually ephemeral trade public key, so there is no corresponding account and hence no reference
 		long txTimestamp = NTP.getTime();
 
-		Random random = new Random();
-		byte[] lastReference = new byte[Transformer.SIGNATURE_LENGTH];
-		random.nextBytes(lastReference);
+		// senderPublicKey could be ephemeral trade public key where there is no corresponding account and hence no reference
+		String senderAddress = Crypto.toAddress(senderPublicKey);
+		byte[] lastReference = repository.getAccountRepository().getLastReference(senderAddress);
+		final boolean requiresPoW = lastReference == null;
+
+		if (requiresPoW) {
+			Random random = new Random();
+			lastReference = new byte[Transformer.SIGNATURE_LENGTH];
+			random.nextBytes(lastReference);
+		}
 
 		int version = 4;
 		int nonce = 0;
@@ -1240,7 +1246,12 @@ public class CrossChainResource {
 
 		MessageTransaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
 
-		messageTransaction.computeNonce();
+		if (requiresPoW) {
+			messageTransaction.computeNonce();
+		} else {
+			fee = messageTransaction.calcRecommendedFee();
+			messageTransactionData.setFee(fee);
+		}
 
 		ValidationResult result = messageTransaction.isValidUnconfirmed();
 		if (result != ValidationResult.OK)
