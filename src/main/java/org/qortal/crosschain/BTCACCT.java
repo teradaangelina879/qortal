@@ -105,7 +105,7 @@ public class BTCACCT {
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("a472f32a6799ff85ed99567701b42fa228c58a09d38485ab208ad78d0f2cc813").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("f7f419522a9aaa3c671149878f8c1374dfc59d4fd86ca43ff2a4d913cfbc9e89").asBytes(); // SHA256 of AT code bytes
 
 	/** <b>Value</b> offset into AT segment where 'mode' variable (long) is stored. (Multiply by MachineState.VALUE_SIZE for byte offset). */
 	private static final int MODE_VALUE_OFFSET = 68;
@@ -343,7 +343,8 @@ public class BTCACCT {
 
 		Integer labelTradeTxnLoop = null;
 		Integer labelCheckTradeTxn = null;
-
+		Integer labelCheckCancelTxn = null;
+		Integer labelNotTradeNorCancelTxn = null;
 		Integer labelCheckNonRefundTradeTxn = null;
 		Integer labelTradeTxnExtract = null;
 		Integer labelRedeemTxnLoop = null;
@@ -395,38 +396,43 @@ public class BTCACCT {
 				// If transaction type is not MESSAGE type then go look for another transaction
 				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrTxnType, addrMessageTxnType, calcOffset(codeByteBuffer, labelTradeTxnLoop)));
 
-				/* Check transaction's sender. We're expecting AT creator's trade address. */
+				/* Check transaction's sender. We're expecting AT creator's trade address for 'trade' message, or AT creator's own address for 'cancel' message. */
 
 				// Extract sender address from transaction into B register
 				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_ADDRESS_FROM_TX_IN_A_INTO_B));
 				// Save B register into data segment starting at addrMessageSender1 (as pointed to by addrMessageSenderPointer)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrMessageSenderPointer));
-				// Compare each part of transaction's sender's address with expected address. If they don't match, look for another transaction.
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender1, addrCreatorTradeAddress1, calcOffset(codeByteBuffer, labelTradeTxnLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender2, addrCreatorTradeAddress2, calcOffset(codeByteBuffer, labelTradeTxnLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender3, addrCreatorTradeAddress3, calcOffset(codeByteBuffer, labelTradeTxnLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender4, addrCreatorTradeAddress4, calcOffset(codeByteBuffer, labelTradeTxnLoop)));
+				// Compare each part of message sender's address with AT creator's trade address. If they don't match, check for cancel situation.
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender1, addrCreatorTradeAddress1, calcOffset(codeByteBuffer, labelCheckCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender2, addrCreatorTradeAddress2, calcOffset(codeByteBuffer, labelCheckCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender3, addrCreatorTradeAddress3, calcOffset(codeByteBuffer, labelCheckCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender4, addrCreatorTradeAddress4, calcOffset(codeByteBuffer, labelCheckCancelTxn)));
+				// Message sender's address matches AT creator's trade address so go process 'trade' message
+				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelCheckNonRefundTradeTxn == null ? 0 : labelCheckNonRefundTradeTxn));
 
-				/* Extract trade partner info from message */
+				/* Checking message sender for possible cancel message */
+				labelCheckCancelTxn = codeByteBuffer.position();
 
-				// Extract message from transaction into B register
-				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_MESSAGE_FROM_TX_IN_A_INTO_B));
-				// Save B register into data segment starting at addrQortalPartnerAddress1 (as pointed to by addrQortalPartnerAddressPointer)
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrQortalPartnerAddressPointer));
-				// Compare each of partner address with creator's address (for offer-cancel scenario). If they don't match, assume address is trade partner.
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrQortalPartnerAddress1, addrCreatorAddress1, calcOffset(codeByteBuffer, labelCheckNonRefundTradeTxn)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrQortalPartnerAddress2, addrCreatorAddress2, calcOffset(codeByteBuffer, labelCheckNonRefundTradeTxn)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrQortalPartnerAddress3, addrCreatorAddress3, calcOffset(codeByteBuffer, labelCheckNonRefundTradeTxn)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrQortalPartnerAddress4, addrCreatorAddress4, calcOffset(codeByteBuffer, labelCheckNonRefundTradeTxn)));
+				// Compare each part of message sender's address with AT creator's address. If they don't match, look for another transaction.
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender1, addrCreatorAddress1, calcOffset(codeByteBuffer, labelNotTradeNorCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender2, addrCreatorAddress2, calcOffset(codeByteBuffer, labelNotTradeNorCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender3, addrCreatorAddress3, calcOffset(codeByteBuffer, labelNotTradeNorCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender4, addrCreatorAddress4, calcOffset(codeByteBuffer, labelNotTradeNorCancelTxn)));
 				// Partner address is AT creator's address, so cancel offer and finish.
 				codeByteBuffer.put(OpCode.SET_VAL.compile(addrMode, Mode.CANCELLED.value));
 				// We're finished forever (finishing auto-refunds remaining balance to AT creator)
 				codeByteBuffer.put(OpCode.FIN_IMD.compile());
 
+				/* Not trade nor cancel message */
+				labelNotTradeNorCancelTxn = codeByteBuffer.position();
+
+				// Loop to find another transaction
+				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelTradeTxnLoop == null ? 0 : labelTradeTxnLoop));
+
 				/* Possible switch-to-trade-mode message */
 				labelCheckNonRefundTradeTxn = codeByteBuffer.position();
 
-				// Not offer-cancel scenario so check we received expected number of message bytes
+				// Check 'trade' message we received has expected number of message bytes
 				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(QortalFunctionCode.GET_MESSAGE_LENGTH_FROM_TX_IN_A.value, addrMessageLength));
 				// If message length matches, branch to info extraction code
 				codeByteBuffer.put(OpCode.BEQ_DAT.compile(addrMessageLength, addrExpectedTradeMessageLength, calcOffset(codeByteBuffer, labelTradeTxnExtract)));
@@ -436,9 +442,13 @@ public class BTCACCT {
 				/* Extracting info from 'trade' MESSAGE transaction */
 				labelTradeTxnExtract = codeByteBuffer.position();
 
-				// Message is expected length, grab next 32 bytes
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrTradeMessagePartnerBitcoinPKHOffset));
+				// Extract message from transaction into B register
+				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_MESSAGE_FROM_TX_IN_A_INTO_B));
+				// Save B register into data segment starting at addrQortalPartnerAddress1 (as pointed to by addrQortalPartnerAddressPointer)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrQortalPartnerAddressPointer));
 
+				// Extract trade partner's Bitcoin public key hash (PKH)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrTradeMessagePartnerBitcoinPKHOffset));
 				// Extract partner's Bitcoin PKH (we only really use values from B1-B3)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrPartnerBitcoinPKHPointer));
 				// Also extract lockTimeB
