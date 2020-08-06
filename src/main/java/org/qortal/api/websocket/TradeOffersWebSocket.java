@@ -14,11 +14,11 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
+import org.qortal.api.model.BlockInfo;
 import org.qortal.api.model.CrossChainOfferSummary;
 import org.qortal.controller.BlockNotifier;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.data.at.ATStateData;
-import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -118,7 +118,7 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 			return;
 		}
 
-		BlockNotifier.Listener listener = blockData -> onNotify(session, blockData, previousAtModes);
+		BlockNotifier.Listener listener = blockInfo -> onNotify(session, blockInfo, previousAtModes);
 		BlockNotifier.getInstance().register(session, listener);
 	}
 
@@ -132,7 +132,7 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 		/* ignored */
 	}
 
-	private void onNotify(Session session, BlockData blockData, final Map<String, BTCACCT.Mode> previousAtModes) {
+	private void onNotify(Session session, BlockInfo blockInfo, final Map<String, BTCACCT.Mode> previousAtModes) {
 		List<CrossChainOfferSummary> crossChainOfferSummaries = null;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -140,7 +140,7 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 			final Boolean isFinished = null;
 			final Integer dataByteOffset = null;
 			final Long expectedValue = null;
-			final Integer minimumFinalHeight = blockData.getHeight();
+			final Integer minimumFinalHeight = blockInfo.getHeight();
 
 			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
 					isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
@@ -149,7 +149,7 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 			if (atStates == null)
 				return;
 
-			crossChainOfferSummaries = produceSummaries(repository, atStates, blockData.getTimestamp());
+			crossChainOfferSummaries = produceSummaries(repository, atStates, blockInfo.getTimestamp());
 		} catch (DataException e) {
 			// No output this time
 		}
