@@ -81,16 +81,9 @@ public class Network {
 	private static final byte[] TESTNET_MESSAGE_MAGIC = new byte[] { 0x71, 0x6f, 0x72, 0x54 }; // qorT
 
 	private static final String[] INITIAL_PEERS = new String[] {
-			"node1.qortal.org",
-			"node2.qortal.org",
-			"node3.qortal.org",
-			"node4.qortal.org",
-			"node5.qortal.org",
-			"node6.qortal.org",
-			"node7.qortal.org",
-			"node8.qortal.org",
-			"node9.qortal.org",
-			"node10.qortal.org"
+			"node1.qortal.org", "node2.qortal.org", "node3.qortal.org", "node4.qortal.org", "node5.qortal.org",
+			"node6.qortal.org", "node7.qortal.org", "node8.qortal.org", "node9.qortal.org", "node10.qortal.org",
+			"node.qortal.ru", "node2.qortal.ru"
 	};
 
 	private static final long NETWORK_EPC_KEEPALIVE = 10L; // seconds
