@@ -13,7 +13,7 @@ import org.bitcoinj.script.Script.ScriptType;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BTCP2SH;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -98,12 +98,12 @@ public class BuildP2SH {
 			System.out.println(String.format("Bitcoin redeem amount: %s", bitcoinAmount.toPlainString()));
 
 			System.out.println(String.format("Redeem Bitcoin address: %s", redeemBitcoinAddress));
-			System.out.println(String.format("Redeem miner's fee: %s", BTC.FORMAT.format(bitcoinFee)));
+			System.out.println(String.format("Redeem miner's fee: %s", BTC.format(bitcoinFee)));
 
 			System.out.println(String.format("Redeem script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneOffset.UTC), lockTime));
 			System.out.println(String.format("Hash of secret: %s", HashCode.fromBytes(secretHash)));
 
-			byte[] redeemScriptBytes = BTCACCT.buildScript(refundBitcoinAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
+			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundBitcoinAddress.getHash(), lockTime, redeemBitcoinAddress.getHash(), secretHash);
 			System.out.println(String.format("Redeem script: %s", HashCode.fromBytes(redeemScriptBytes)));
 
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
@@ -115,7 +115,7 @@ public class BuildP2SH {
 
 			// Fund P2SH
 			System.out.println(String.format("\nYou need to fund %s with %s (includes redeem/refund fee of %s)",
-					p2shAddress.toString(), BTC.FORMAT.format(bitcoinAmount), BTC.FORMAT.format(bitcoinFee)));
+					p2shAddress.toString(), BTC.format(bitcoinAmount), BTC.format(bitcoinFee)));
 
 			System.out.println("Once this is done, responder should run Respond to check P2SH funding and create AT");
 		} catch (DataException e) {

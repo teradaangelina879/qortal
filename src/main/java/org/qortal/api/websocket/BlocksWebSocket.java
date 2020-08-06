@@ -11,7 +11,6 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
-import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.ApiError;
 import org.qortal.api.model.BlockInfo;
@@ -23,7 +22,7 @@ import org.qortal.utils.Base58;
 
 @WebSocket
 @SuppressWarnings("serial")
-public class BlocksWebSocket extends WebSocketServlet implements ApiWebSocket {
+public class BlocksWebSocket extends ApiWebSocket {
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
@@ -111,7 +110,7 @@ public class BlocksWebSocket extends WebSocketServlet implements ApiWebSocket {
 		StringWriter stringWriter = new StringWriter();
 
 		try {
-			this.marshall(stringWriter, blockInfo);
+			marshall(stringWriter, blockInfo);
 
 			session.getRemote().sendStringByFuture(stringWriter.toString());
 		} catch (IOException | WebSocketException e) {

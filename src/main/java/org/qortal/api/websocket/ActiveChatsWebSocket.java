@@ -12,7 +12,6 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
-import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.controller.ChatNotifier;
 import org.qortal.crypto.Crypto;
@@ -24,7 +23,7 @@ import org.qortal.repository.RepositoryManager;
 
 @WebSocket
 @SuppressWarnings("serial")
-public class ActiveChatsWebSocket extends WebSocketServlet implements ApiWebSocket {
+public class ActiveChatsWebSocket extends ApiWebSocket {
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
@@ -33,7 +32,7 @@ public class ActiveChatsWebSocket extends WebSocketServlet implements ApiWebSock
 
 	@OnWebSocketConnect
 	public void onWebSocketConnect(Session session) {
-		Map<String, String> pathParams = this.getPathParams(session, "/{address}");
+		Map<String, String> pathParams = getPathParams(session, "/{address}");
 
 		String address = pathParams.get("address");
 		if (address == null || !Crypto.isValidAddress(address)) {
@@ -76,7 +75,7 @@ public class ActiveChatsWebSocket extends WebSocketServlet implements ApiWebSock
 
 			StringWriter stringWriter = new StringWriter();
 
-			this.marshall(stringWriter, activeChats);
+			marshall(stringWriter, activeChats);
 
 			// Only output if something has changed
 			String output = stringWriter.toString();

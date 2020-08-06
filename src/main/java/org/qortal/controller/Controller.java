@@ -792,6 +792,9 @@ public class Controller extends Thread {
 				this.notifyGroupMembershipChange = false;
 				ChatNotifier.getInstance().onGroupMembershipChange();
 			}
+
+			// Trade-bot might want to perform some actions too
+			TradeBot.getInstance().onChainTipChange();
 		});
 	}
 

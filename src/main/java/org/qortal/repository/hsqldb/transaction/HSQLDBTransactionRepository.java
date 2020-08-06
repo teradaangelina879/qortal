@@ -19,6 +19,7 @@ import org.qortal.data.PaymentData;
 import org.qortal.data.group.GroupApprovalData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.GroupApprovalTransactionData;
+import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.TransferAssetTransactionData;
 import org.qortal.repository.DataException;
@@ -629,6 +630,43 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			throw new DataException("Unable to fetch latest auto-update transaction signature from repository", e);
 		}
 	}
+
+	@Override
+	public List<MessageTransactionData> getMessagesByRecipient(String recipient,
+			Integer limit, Integer offset, Boolean reverse) throws DataException {
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT signature from MessageTransactions "
+				+ "JOIN Transactions USING (signature) "
+				+ "JOIN BlockTransactions ON transaction_signature = signature "
+				+ "WHERE recipient = ?");
+
+		sql.append("ORDER BY Transactions.created_when");
+		sql.append((reverse == null || !reverse) ? " ASC" : " DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
+
+		List<MessageTransactionData> messageTransactionsData = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), recipient)) {
+			if (resultSet == null)
+				return messageTransactionsData;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				TransactionData transactionData = this.fromSignature(signature);
+				if (transactionData == null || transactionData.getType() != TransactionType.MESSAGE)
+					return null;
+
+				messageTransactionsData.add((MessageTransactionData) transactionData);
+			} while (resultSet.next());
+
+			return messageTransactionsData;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch trade-bot messages from repository", e);
+		}
+	}
+
 
 	@Override
 	public List<TransactionData> getAssetTransactions(long assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)

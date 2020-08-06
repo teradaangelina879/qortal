@@ -5,12 +5,13 @@ import static org.junit.Assert.*;
 import java.util.Arrays;
 import java.util.List;
 
+import org.bitcoinj.core.Transaction;
 import org.bitcoinj.store.BlockStoreException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BTCP2SH;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
@@ -55,11 +56,52 @@ public class BtcTests extends Common {
 
 		List<byte[]> rawTransactions = BTC.getInstance().getAddressTransactions(p2shAddress);
 
-		byte[] expectedSecret = AtTests.secret;
-		byte[] secret = BTCACCT.findP2shSecret(p2shAddress, rawTransactions);
+		byte[] expectedSecret = "This string is exactly 32 bytes!".getBytes();
+		byte[] secret = BTCP2SH.findP2shSecret(p2shAddress, rawTransactions);
 
 		assertNotNull(secret);
 		assertTrue("secret incorrect", Arrays.equals(expectedSecret, secret));
+	}
+
+	@Test
+	public void testBuildSpend() {
+		BTC btc = BTC.getInstance();
+
+		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+
+		String recipient = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
+		long amount = 1000L;
+
+		Transaction transaction = btc.buildSpend(xprv58, recipient, amount);
+		assertNotNull(transaction);
+
+		// Check spent key caching doesn't affect outcome
+
+		transaction = btc.buildSpend(xprv58, recipient, amount);
+		assertNotNull(transaction);
+	}
+
+	@Test
+	public void testGetWalletBalance() {
+		BTC btc = BTC.getInstance();
+
+		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+
+		Long balance = btc.getWalletBalance(xprv58);
+
+		assertNotNull(balance);
+
+		System.out.println(BTC.format(balance));
+
+		// Check spent key caching doesn't affect outcome
+
+		Long repeatBalance = btc.getWalletBalance(xprv58);
+
+		assertNotNull(repeatBalance);
+
+		System.out.println(BTC.format(repeatBalance));
+
+		assertEquals(balance, repeatBalance);
 	}
 
 }

@@ -1,26 +1,14 @@
 package org.qortal.crosschain;
 
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 import static org.ciyam.at.OpCode.calcOffset;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Map;
 
-import org.bitcoinj.core.Address;
-import org.bitcoinj.core.Coin;
-import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.LegacyAddress;
-import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.Transaction.SigHash;
-import org.bitcoinj.core.TransactionInput;
-import org.bitcoinj.core.TransactionOutput;
-import org.bitcoinj.crypto.TransactionSignature;
-import org.bitcoinj.script.Script;
-import org.bitcoinj.script.ScriptBuilder;
-import org.bitcoinj.script.ScriptChunk;
-import org.bitcoinj.script.ScriptOpCodes;
 import org.ciyam.at.API;
 import org.ciyam.at.CompilationException;
 import org.ciyam.at.FunctionCode;
@@ -29,14 +17,12 @@ import org.ciyam.at.OpCode;
 import org.ciyam.at.Timestamp;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
-import org.qortal.at.QortalAtLoggerFactory;
-import org.qortal.block.BlockChain;
-import org.qortal.block.BlockChain.CiyamAtSettings;
+import org.qortal.at.QortalFunctionCode;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
-import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.CrossChainTradeData;
+import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.utils.Base58;
@@ -45,246 +31,197 @@ import org.qortal.utils.BitTwiddling;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
-/*
- * Bob generates Bitcoin private key
- * 		private key required to sign P2SH redeem tx
- * 		private key can be used to create 'secret' (e.g. double-SHA256)
- * 		encrypted private key could be stored in Qortal AT for access by Bob from any node
- * Bob creates Qortal AT
- * Alice finds Qortal AT and wants to trade
- * 		Alice generates Bitcoin private key
- * 		Alice will need to send Bob her Qortal address and Bitcoin refund address
- * Bob sends Alice's Qortal address to Qortal AT
- * Qortal AT sends initial QORT payment to Alice (so she has QORT to send message to AT and claim funds)
- * Alice receives funds and checks Qortal AT to confirm it's locked to her
- * Alice creates/funds Bitcoin P2SH
- * 		Alice requires: Bob's redeem Bitcoin address, Alice's refund Bitcoin address, derived locktime
- * Bob checks P2SH is funded
- * 		Bob requires: Bob's redeem Bitcoin address, Alice's refund Bitcoin address, derived locktime
- * Bob uses secret to redeem P2SH
- * 		Qortal core/UI will need to create, and sign, this transaction
- * Alice scans P2SH redeem tx and uses secret to redeem Qortal AT
+/**
+ * Cross-chain trade AT
+ * 
+ * <p>
+ * <ul>
+ * <li>Bob generates Bitcoin & Qortal 'trade' keys, and secret-b
+ * 		<ul>
+ * 			<li>private key required to sign P2SH redeem tx</li>
+ * 			<li>private key could be used to create 'secret' (e.g. double-SHA256)</li>
+ * 			<li>encrypted private key could be stored in Qortal AT for access by Bob from any node</li>
+ * 		</ul>
+ * </li>
+ * <li>Bob deploys Qortal AT
+ * 		<ul>
+ * 		</ul>
+ * </li>
+ * <li>Alice finds Qortal AT and wants to trade
+ * 		<ul>
+ * 			<li>Alice generates Bitcoin & Qortal 'trade' keys</li>
+ * 			<li>Alice funds Bitcoin P2SH-A</li>
+ * 			<li>Alice sends 'offer' MESSAGE to Bob from her Qortal trade address, containing:
+ * 				<ul>
+ * 					<li>hash-of-secret-A</li>
+ * 					<li>her 'trade' Bitcoin PKH</li>
+ * 				</ul>
+ * 			</li>
+ * 		</ul>
+ * </li>
+ * <li>Bob receives "offer" MESSAGE
+ * 		<ul>
+ * 			<li>Checks Alice's P2SH-A</li>
+ * 			<li>Sends 'trade' MESSAGE to Qortal AT from his trade address, containing:
+ * 				<ul>
+ * 					<li>Alice's trade Qortal address</li>
+ * 					<li>Alice's trade Bitcoin PKH</li>
+ * 					<li>hash-of-secret-A</li>
+ * 				</ul>
+ * 			</li>
+ * 		</ul>
+ * </li>
+ * <li>Alice checks Qortal AT to confirm it's locked to her
+ * 		<ul>
+ * 			<li>Alice creates/funds Bitcoin P2SH-B</li>
+ * 		</ul>
+ * </li>
+ * <li>Bob checks P2SH-B is funded
+ * 		<ul>
+ * 			<li>Bob redeems P2SH-B using his Bitcoin trade key and secret-B</li>
+ * 		</ul>
+ * </li>
+ * <li>Alice scans P2SH-B redeem transaction to extract secret-B
+ * 		<ul>
+ * 			<li>Alice sends 'redeem' MESSAGE to Qortal AT from her trade address, containing:
+ * 				<ul>
+ * 					<li>secret-A</li>
+ * 					<li>secret-B</li>
+ * 					<li>Qortal receiving address of her chosing</li>
+ * 				</ul>
+ * 			</li>
+ * 			<li>AT's QORT funds are sent to Qortal receiving address</li>
+ * 		</ul>
+ * </li>
+ * <li>Bob checks AT, extracts secret-A
+ * 		<ul>
+ * 			<li>Bob redeems P2SH-A using his Bitcoin trade key and secret-A</li>
+ * 			<li>P2SH-A BTC funds end up at Bitcoin address determined by redeem transaction output(s)</li>
+ * 		</ul>
+ * </li>
+ * </ul>
  */
-
 public class BTCACCT {
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("edcdb1feb36e079c5f956faff2f24219b12e5fbaaa05654335e615e33218282f").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("f7f419522a9aaa3c671149878f8c1374dfc59d4fd86ca43ff2a4d913cfbc9e89").asBytes(); // SHA256 of AT code bytes
 
-	/*
-	 * OP_TUCK (to copy public key to before signature)
-	 * OP_CHECKSIGVERIFY (sig & pubkey must verify or script fails)
-	 * OP_HASH160 (convert public key to PKH)
-	 * OP_DUP (duplicate PKH)
-	 * <push 20 bytes> <refund PKH> OP_EQUAL (does PKH match refund PKH?)
-	 * OP_IF
-	 * 	OP_DROP (no need for duplicate PKH)
-	 * 	<push 4 bytes> <locktime>
-	 * 	OP_CHECKLOCKTIMEVERIFY (if this passes, leftover stack is <locktime> so script passes)
-	 * OP_ELSE
-	 * 	<push 20 bytes> <redeem PKH> OP_EQUALVERIFY (duplicate PKH must match redeem PKH or script fails)
-	 * 	OP_HASH160 (hash secret)
-	 * 	<push 20 bytes> <hash of secret> OP_EQUAL (do hashes of secrets match? if true, script passes else script fails)
-	 * OP_ENDIF
-	 */
+	/** <b>Value</b> offset into AT segment where 'mode' variable (long) is stored. (Multiply by MachineState.VALUE_SIZE for byte offset). */
+	private static final int MODE_VALUE_OFFSET = 68;
+	/** <b>Byte</b> offset into AT state data where 'mode' variable (long) is stored. */
+	public static final int MODE_BYTE_OFFSET = MachineState.HEADER_LENGTH + (MODE_VALUE_OFFSET * MachineState.VALUE_SIZE);
 
-	private static final byte[] redeemScript1 = HashCode.fromString("7dada97614").asBytes(); // OP_TUCK OP_CHECKSIGVERIFY OP_HASH160 OP_DUP push(0x14 bytes)
-	private static final byte[] redeemScript2 = HashCode.fromString("87637504").asBytes(); // OP_EQUAL OP_IF OP_DROP push(0x4 bytes)
-	private static final byte[] redeemScript3 = HashCode.fromString("b16714").asBytes(); // OP_CHECKLOCKTIMEVERIFY OP_ELSE push(0x14 bytes)
-	private static final byte[] redeemScript4 = HashCode.fromString("88a914").asBytes(); // OP_EQUALVERIFY OP_HASH160 push(0x14 bytes)
-	private static final byte[] redeemScript5 = HashCode.fromString("8768").asBytes(); // OP_EQUAL OP_ENDIF
-
-	/**
-	 * Returns Bitcoin redeemScript used for cross-chain trading.
-	 * <p>
-	 * See comments in {@link BTCACCT} for more details.
-	 * 
-	 * @param refunderPubKeyHash 20-byte HASH160 of P2SH funder's public key, for refunding purposes
-	 * @param lockTime seconds-since-epoch threshold, after which P2SH funder can claim refund
-	 * @param redeemerPubKeyHash 20-byte HASH160 of P2SH redeemer's public key
-	 * @param secretHash 20-byte HASH160 of secret, used by P2SH redeemer to claim funds
-	 * @return
-	 */
-	public static byte[] buildScript(byte[] refunderPubKeyHash, int lockTime, byte[] redeemerPubKeyHash, byte[] secretHash) {
-		return Bytes.concat(redeemScript1, refunderPubKeyHash, redeemScript2, BitTwiddling.toLEByteArray((int) (lockTime & 0xffffffffL)),
-				redeemScript3, redeemerPubKeyHash, redeemScript4, secretHash, redeemScript5);
+	public static class OfferMessageData {
+		public byte[] partnerBitcoinPKH;
+		public byte[] hashOfSecretA;
+		public long lockTimeA;
 	}
+	public static final int OFFER_MESSAGE_LENGTH = 20 /*partnerBitcoinPKH*/ + 20 /*hashOfSecretA*/ + 8 /*lockTimeA*/;
+	public static final int TRADE_MESSAGE_LENGTH = 32 /*partner's Qortal trade address (padded from 25 to 32)*/
+			+ 24 /*partner's Bitcoin PKH (padded from 20 to 24)*/
+			+ 8 /*lockTimeB*/
+			+ 24 /*hash of secret-A (padded from 20 to 24)*/
+			+ 8 /*lockTimeA*/;
+	public static final int REDEEM_MESSAGE_LENGTH = 32 /*secret*/ + 32 /*secret*/ + 32 /*partner's Qortal receiving address padded from 25 to 32*/;
+	public static final int CANCEL_MESSAGE_LENGTH = 32 /*AT creator's Qortal address*/;
 
-	/**
-	 * Builds a custom transaction to spend P2SH.
-	 * 
-	 * @param amount output amount, should be total of input amounts, less miner fees
-	 * @param spendKey key for signing transaction, and also where funds are 'sent' (output)
-	 * @param fundingOutput output from transaction that funded P2SH address
-	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
-	 * @param lockTime (optional) transaction nLockTime, used in refund scenario
-	 * @param scriptSigBuilder function for building scriptSig using transaction input signature
-	 * @return Signed Bitcoin transaction for spending P2SH
-	 */
-	public static Transaction buildP2shTransaction(Coin amount, ECKey spendKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, Long lockTime, Function<byte[], Script> scriptSigBuilder) {
-		NetworkParameters params = BTC.getInstance().getNetworkParameters();
+	public enum Mode {
+		OFFERING(0), TRADING(1), CANCELLED(2), REFUNDED(3), REDEEMED(4);
 
-		Transaction transaction = new Transaction(params);
-		transaction.setVersion(2);
+		public final int value;
+		private static final Map<Integer, Mode> map = stream(Mode.values()).collect(toMap(mode -> mode.value, mode -> mode));
 
-		// Output is back to P2SH funder
-		transaction.addOutput(amount, ScriptBuilder.createP2PKHOutputScript(spendKey.getPubKeyHash()));
-
-		for (int inputIndex = 0; inputIndex < fundingOutputs.size(); ++inputIndex) {
-			TransactionOutput fundingOutput = fundingOutputs.get(inputIndex);
-
-			// Input (without scriptSig prior to signing)
-			TransactionInput input = new TransactionInput(params, null, redeemScriptBytes, fundingOutput.getOutPointFor());
-			if (lockTime != null)
-				input.setSequenceNumber(BTC.LOCKTIME_NO_RBF_SEQUENCE); // Use max-value, so no lockTime and no RBF
-			else
-				input.setSequenceNumber(BTC.NO_LOCKTIME_NO_RBF_SEQUENCE); // Use max-value - 1, so lockTime can be used but not RBF
-			transaction.addInput(input);
+		Mode(int value) {
+			this.value = value;
 		}
 
-		// Set locktime after inputs added but before input signatures are generated
-		if (lockTime != null)
-			transaction.setLockTime(lockTime);
-
-		for (int inputIndex = 0; inputIndex < fundingOutputs.size(); ++inputIndex) {
-			// Generate transaction signature for input
-			final boolean anyoneCanPay = false;
-			TransactionSignature txSig = transaction.calculateSignature(inputIndex, spendKey, redeemScriptBytes, SigHash.ALL, anyoneCanPay);
-
-			// Calculate transaction signature
-			byte[] txSigBytes = txSig.encodeToBitcoin();
-
-			// Build scriptSig using lambda and tx signature
-			Script scriptSig = scriptSigBuilder.apply(txSigBytes);
-
-			// Set input scriptSig
-			transaction.getInput(inputIndex).setScriptSig(scriptSig);
+		public static Mode valueOf(int value) {
+			return map.get(value);
 		}
-
-		return transaction;
 	}
 
-	/**
-	 * Returns signed Bitcoin transaction claiming refund from P2SH address.
-	 * 
-	 * @param refundAmount refund amount, should be total of input amounts, less miner fees
-	 * @param refundKey key for signing transaction, and also where refund is 'sent' (output)
-	 * @param fundingOutput output from transaction that funded P2SH address
-	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
-	 * @param lockTime transaction nLockTime - must be at least locktime used in redeemScript
-	 * @return Signed Bitcoin transaction for refunding P2SH
-	 */
-	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey refundKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, long lockTime) {
-		Function<byte[], Script> refundSigScriptBuilder = (txSigBytes) -> {
-			// Build scriptSig with...
-			ScriptBuilder scriptBuilder = new ScriptBuilder();
-
-			// transaction signature
-			scriptBuilder.addChunk(new ScriptChunk(txSigBytes.length, txSigBytes));
-
-			// redeem public key
-			byte[] refundPubKey = refundKey.getPubKey();
-			scriptBuilder.addChunk(new ScriptChunk(refundPubKey.length, refundPubKey));
-
-			// redeem script
-			scriptBuilder.addChunk(new ScriptChunk(ScriptOpCodes.OP_PUSHDATA1, redeemScriptBytes));
-
-			return scriptBuilder.build();
-		};
-
-		return buildP2shTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundSigScriptBuilder);
-	}
-
-	/**
-	 * Returns signed Bitcoin transaction redeeming funds from P2SH address.
-	 * 
-	 * @param redeemAmount redeem amount, should be total of input amounts, less miner fees
-	 * @param redeemKey key for signing transaction, and also where funds are 'sent' (output)
-	 * @param fundingOutput output from transaction that funded P2SH address
-	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
-	 * @param secret actual 32-byte secret used when building redeemScript
-	 * @return Signed Bitcoin transaction for redeeming P2SH
-	 */
-	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey redeemKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, byte[] secret) {
-		Function<byte[], Script> redeemSigScriptBuilder = (txSigBytes) -> {
-			// Build scriptSig with...
-			ScriptBuilder scriptBuilder = new ScriptBuilder();
-
-			// secret
-			scriptBuilder.addChunk(new ScriptChunk(secret.length, secret));
-
-			// transaction signature
-			scriptBuilder.addChunk(new ScriptChunk(txSigBytes.length, txSigBytes));
-
-			// redeem public key
-			byte[] redeemPubKey = redeemKey.getPubKey();
-			scriptBuilder.addChunk(new ScriptChunk(redeemPubKey.length, redeemPubKey));
-
-			// redeem script
-			scriptBuilder.addChunk(new ScriptChunk(ScriptOpCodes.OP_PUSHDATA1, redeemScriptBytes));
-
-			return scriptBuilder.build();
-		};
-
-		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder);
+	private BTCACCT() {
 	}
 
 	/**
 	 * Returns Qortal AT creation bytes for cross-chain trading AT.
 	 * <p>
-	 * <tt>tradeTimeout</tt> (minutes) is the time window for the recipient to send the
+	 * <tt>tradeTimeout</tt> (minutes) is the time window for the trade partner to send the
 	 * 32-byte secret to the AT, before the AT automatically refunds the AT's creator.
 	 * 
-	 * @param qortalCreator Qortal address for AT creator, also used for refunds
-	 * @param secretHash 20-byte HASH160 of 32-byte secret
-	 * @param tradeTimeout how many minutes, from start of 'trade mode' until AT auto-refunds AT creator
-	 * @param initialPayout how much QORT to pay trade partner upon switch to 'trade mode'
-	 * @param redeemPayout how much QORT to pay trade partner if they send correct 32-byte secret to AT
+	 * @param creatorTradeAddress AT creator's trade Qortal address, also used for refunds
+	 * @param bitcoinPublicKeyHash 20-byte HASH160 of creator's trade Bitcoin public key
+	 * @param hashOfSecretB 20-byte HASH160 of 32-byte secret-B
+	 * @param qortAmount how much QORT to pay trade partner if they send correct 32-byte secrets to AT
 	 * @param bitcoinAmount how much BTC the AT creator is expecting to trade
+	 * @param tradeTimeout suggested timeout for entire trade
 	 * @return
 	 */
-	public static byte[] buildQortalAT(String qortalCreator, byte[] secretHash, int tradeTimeout, long initialPayout, long redeemPayout, long bitcoinAmount) {
+	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] bitcoinPublicKeyHash, byte[] hashOfSecretB, long qortAmount, long bitcoinAmount, int tradeTimeout) {
 		// Labels for data segment addresses
 		int addrCounter = 0;
 
 		// Constants (with corresponding dataByteBuffer.put*() calls below)
 
-		final int addrQortalCreator1 = addrCounter++;
-		final int addrQortalCreator2 = addrCounter++;
-		final int addrQortalCreator3 = addrCounter++;
-		final int addrQortalCreator4 = addrCounter++;
+		final int addrCreatorTradeAddress1 = addrCounter++;
+		final int addrCreatorTradeAddress2 = addrCounter++;
+		final int addrCreatorTradeAddress3 = addrCounter++;
+		final int addrCreatorTradeAddress4 = addrCounter++;
 
-		final int addrSecretHash = addrCounter;
+		final int addrBitcoinPublicKeyHash = addrCounter;
 		addrCounter += 4;
 
-		final int addrTradeTimeout = addrCounter++;
-		final int addrInitialPayoutAmount = addrCounter++;
-		final int addrRedeemPayoutAmount = addrCounter++;
+		final int addrHashOfSecretB = addrCounter;
+		addrCounter += 4;
+
+		final int addrQortAmount = addrCounter++;
 		final int addrBitcoinAmount = addrCounter++;
+		final int addrTradeTimeout = addrCounter++;
 
-		final int addrMessageTxType = addrCounter++;
+		final int addrMessageTxnType = addrCounter++;
+		final int addrExpectedTradeMessageLength = addrCounter++;
+		final int addrExpectedRedeemMessageLength = addrCounter++;
 
-		final int addrSecretHashPointer = addrCounter++;
-		final int addrQortalRecipientPointer = addrCounter++;
+		final int addrCreatorAddressPointer = addrCounter++;
+		final int addrHashOfSecretBPointer = addrCounter++;
+		final int addrQortalPartnerAddressPointer = addrCounter++;
 		final int addrMessageSenderPointer = addrCounter++;
+
+		final int addrTradeMessagePartnerBitcoinPKHOffset = addrCounter++;
+		final int addrPartnerBitcoinPKHPointer = addrCounter++;
+		final int addrTradeMessageHashOfSecretAOffset = addrCounter++;
+		final int addrHashOfSecretAPointer = addrCounter++;
+
+		final int addrRedeemMessageSecretBOffset = addrCounter++;
+		final int addrRedeemMessageReceivingAddressOffset = addrCounter++;
 
 		final int addrMessageDataPointer = addrCounter++;
 		final int addrMessageDataLength = addrCounter++;
+
+		final int addrPartnerReceivingAddressPointer = addrCounter++;
 
 		final int addrEndOfConstants = addrCounter;
 
 		// Variables
 
-		final int addrQortalRecipient1 = addrCounter++;
-		final int addrQortalRecipient2 = addrCounter++;
-		final int addrQortalRecipient3 = addrCounter++;
-		final int addrQortalRecipient4 = addrCounter++;
+		final int addrCreatorAddress1 = addrCounter++;
+		final int addrCreatorAddress2 = addrCounter++;
+		final int addrCreatorAddress3 = addrCounter++;
+		final int addrCreatorAddress4 = addrCounter++;
 
-		final int addrTradeRefundTimestamp = addrCounter++;
-		final int addrLastTxTimestamp = addrCounter++;
+		final int addrQortalPartnerAddress1 = addrCounter++;
+		final int addrQortalPartnerAddress2 = addrCounter++;
+		final int addrQortalPartnerAddress3 = addrCounter++;
+		final int addrQortalPartnerAddress4 = addrCounter++;
+
+		final int addrLockTimeA = addrCounter++;
+		final int addrLockTimeB = addrCounter++;
+		final int addrRefundTimeout = addrCounter++;
+		final int addrRefundTimestamp = addrCounter++;
+		final int addrLastTxnTimestamp = addrCounter++;
 		final int addrBlockTimestamp = addrCounter++;
-		final int addrTxType = addrCounter++;
+		final int addrTxnType = addrCounter++;
 		final int addrResult = addrCounter++;
 
 		final int addrMessageSender1 = addrCounter++;
@@ -292,52 +229,102 @@ public class BTCACCT {
 		final int addrMessageSender3 = addrCounter++;
 		final int addrMessageSender4 = addrCounter++;
 
+		final int addrMessageLength = addrCounter++;
+
 		final int addrMessageData = addrCounter;
 		addrCounter += 4;
+
+		final int addrHashOfSecretA = addrCounter;
+		addrCounter += 4;
+
+		final int addrPartnerBitcoinPKH = addrCounter;
+		addrCounter += 4;
+
+		final int addrPartnerReceivingAddress = addrCounter;
+		addrCounter += 4;
+
+		final int addrMode = addrCounter++;
+		assert addrMode == MODE_VALUE_OFFSET : "MODE_VALUE_OFFSET does not match addrMode";
 
 		// Data segment
 		ByteBuffer dataByteBuffer = ByteBuffer.allocate(addrCounter * MachineState.VALUE_SIZE);
 
-		// AT creator's Qortal address, decoded from Base58
-		assert dataByteBuffer.position() == addrQortalCreator1 * MachineState.VALUE_SIZE : "addrQortalCreator1 incorrect";
-		byte[] qortalCreatorBytes = Base58.decode(qortalCreator);
-		dataByteBuffer.put(Bytes.ensureCapacity(qortalCreatorBytes, 32, 0));
+		// AT creator's trade Qortal address, decoded from Base58
+		assert dataByteBuffer.position() == addrCreatorTradeAddress1 * MachineState.VALUE_SIZE : "addrCreatorTradeAddress1 incorrect";
+		byte[] creatorTradeAddressBytes = Base58.decode(creatorTradeAddress);
+		dataByteBuffer.put(Bytes.ensureCapacity(creatorTradeAddressBytes, 32, 0));
 
-		// Hash of secret
-		assert dataByteBuffer.position() == addrSecretHash * MachineState.VALUE_SIZE : "addrSecretHash incorrect";
-		dataByteBuffer.put(Bytes.ensureCapacity(secretHash, 32, 0));
+		// Bitcoin public key hash
+		assert dataByteBuffer.position() == addrBitcoinPublicKeyHash * MachineState.VALUE_SIZE : "addrBitcoinPublicKeyHash incorrect";
+		dataByteBuffer.put(Bytes.ensureCapacity(bitcoinPublicKeyHash, 32, 0));
 
-		// Trade timeout in minutes
-		assert dataByteBuffer.position() == addrTradeTimeout * MachineState.VALUE_SIZE : "addrTradeTimeout incorrect";
-		dataByteBuffer.putLong(tradeTimeout);
+		// Hash of secret-B
+		assert dataByteBuffer.position() == addrHashOfSecretB * MachineState.VALUE_SIZE : "addrHashOfSecretB incorrect";
+		dataByteBuffer.put(Bytes.ensureCapacity(hashOfSecretB, 32, 0));
 
-		// Initial payout amount
-		assert dataByteBuffer.position() == addrInitialPayoutAmount * MachineState.VALUE_SIZE : "addrInitialPayoutAmount incorrect";
-		dataByteBuffer.putLong(initialPayout);
-
-		// Redeem payout amount
-		assert dataByteBuffer.position() == addrRedeemPayoutAmount * MachineState.VALUE_SIZE : "addrRedeemPayoutAmount incorrect";
-		dataByteBuffer.putLong(redeemPayout);
+		// Redeem Qort amount
+		assert dataByteBuffer.position() == addrQortAmount * MachineState.VALUE_SIZE : "addrQortAmount incorrect";
+		dataByteBuffer.putLong(qortAmount);
 
 		// Expected Bitcoin amount
 		assert dataByteBuffer.position() == addrBitcoinAmount * MachineState.VALUE_SIZE : "addrBitcoinAmount incorrect";
 		dataByteBuffer.putLong(bitcoinAmount);
 
+		// Suggested trade timeout (minutes)
+		assert dataByteBuffer.position() == addrTradeTimeout * MachineState.VALUE_SIZE : "addrTradeTimeout incorrect";
+		dataByteBuffer.putLong(tradeTimeout);
+
 		// We're only interested in MESSAGE transactions
-		assert dataByteBuffer.position() == addrMessageTxType * MachineState.VALUE_SIZE : "addrMessageTxType incorrect";
+		assert dataByteBuffer.position() == addrMessageTxnType * MachineState.VALUE_SIZE : "addrMessageTxnType incorrect";
 		dataByteBuffer.putLong(API.ATTransactionType.MESSAGE.value);
 
-		// Index into data segment of hash, used by GET_B_IND
-		assert dataByteBuffer.position() == addrSecretHashPointer * MachineState.VALUE_SIZE : "addrSecretHashPointer incorrect";
-		dataByteBuffer.putLong(addrSecretHash);
+		// Expected length of 'trade' MESSAGE data from AT creator
+		assert dataByteBuffer.position() == addrExpectedTradeMessageLength * MachineState.VALUE_SIZE : "addrExpectedTradeMessageLength incorrect";
+		dataByteBuffer.putLong(TRADE_MESSAGE_LENGTH);
 
-		// Index into data segment of recipient address, used by SET_B_IND
-		assert dataByteBuffer.position() == addrQortalRecipientPointer * MachineState.VALUE_SIZE : "addrQortalRecipientPointer incorrect";
-		dataByteBuffer.putLong(addrQortalRecipient1);
+		// Expected length of 'redeem' MESSAGE data from trade partner
+		assert dataByteBuffer.position() == addrExpectedRedeemMessageLength * MachineState.VALUE_SIZE : "addrExpectedRedeemMessageLength incorrect";
+		dataByteBuffer.putLong(REDEEM_MESSAGE_LENGTH);
+
+		// Index into data segment of AT creator's address, used by GET_B_IND
+		assert dataByteBuffer.position() == addrCreatorAddressPointer * MachineState.VALUE_SIZE : "addrCreatorAddressPointer incorrect";
+		dataByteBuffer.putLong(addrCreatorAddress1);
+
+		// Index into data segment of hash of secret B, used by GET_B_IND
+		assert dataByteBuffer.position() == addrHashOfSecretBPointer * MachineState.VALUE_SIZE : "addrHashOfSecretBPointer incorrect";
+		dataByteBuffer.putLong(addrHashOfSecretB);
+
+		// Index into data segment of partner's Qortal address, used by SET_B_IND
+		assert dataByteBuffer.position() == addrQortalPartnerAddressPointer * MachineState.VALUE_SIZE : "addrQortalPartnerAddressPointer incorrect";
+		dataByteBuffer.putLong(addrQortalPartnerAddress1);
 
 		// Index into data segment of (temporary) transaction's sender's address, used by GET_B_IND
 		assert dataByteBuffer.position() == addrMessageSenderPointer * MachineState.VALUE_SIZE : "addrMessageSenderPointer incorrect";
 		dataByteBuffer.putLong(addrMessageSender1);
+
+		// Offset into 'trade' MESSAGE data payload for extracting partner's Bitcoin PKH
+		assert dataByteBuffer.position() == addrTradeMessagePartnerBitcoinPKHOffset * MachineState.VALUE_SIZE : "addrTradeMessagePartnerBitcoinPKHOffset incorrect";
+		dataByteBuffer.putLong(32L);
+
+		// Index into data segment of partner's Bitcoin PKH, used by GET_B_IND
+		assert dataByteBuffer.position() == addrPartnerBitcoinPKHPointer * MachineState.VALUE_SIZE : "addrPartnerBitcoinPKHPointer incorrect";
+		dataByteBuffer.putLong(addrPartnerBitcoinPKH);
+
+		// Offset into 'trade' MESSAGE data payload for extracting hash-of-secret-A
+		assert dataByteBuffer.position() == addrTradeMessageHashOfSecretAOffset * MachineState.VALUE_SIZE : "addrTradeMessageHashOfSecretAOffset incorrect";
+		dataByteBuffer.putLong(64L);
+
+		// Index into data segment to hash of secret A, used by GET_B_IND
+		assert dataByteBuffer.position() == addrHashOfSecretAPointer * MachineState.VALUE_SIZE : "addrHashOfSecretAPointer incorrect";
+		dataByteBuffer.putLong(addrHashOfSecretA);
+
+		// Offset into 'redeem' MESSAGE data payload for extracting secret-B
+		assert dataByteBuffer.position() == addrRedeemMessageSecretBOffset * MachineState.VALUE_SIZE : "addrRedeemMessageSecretBOffset incorrect";
+		dataByteBuffer.putLong(32L);
+
+		// Offset into 'redeem' MESSAGE data payload for extracting Qortal receiving address
+		assert dataByteBuffer.position() == addrRedeemMessageReceivingAddressOffset * MachineState.VALUE_SIZE : "addrRedeemMessageReceivingAddressOffset incorrect";
+		dataByteBuffer.putLong(64L);
 
 		// Source location and length for hashing any passed secret
 		assert dataByteBuffer.position() == addrMessageDataPointer * MachineState.VALUE_SIZE : "addrMessageDataPointer incorrect";
@@ -345,19 +332,28 @@ public class BTCACCT {
 		assert dataByteBuffer.position() == addrMessageDataLength * MachineState.VALUE_SIZE : "addrMessageDataLength incorrect";
 		dataByteBuffer.putLong(32L);
 
+		// Pointer into data segment of where to save partner's receiving Qortal address, used by GET_B_IND
+		assert dataByteBuffer.position() == addrPartnerReceivingAddressPointer * MachineState.VALUE_SIZE : "addrPartnerReceivingAddressPointer incorrect";
+		dataByteBuffer.putLong(addrPartnerReceivingAddress);
+
 		assert dataByteBuffer.position() == addrEndOfConstants * MachineState.VALUE_SIZE : "dataByteBuffer position not at end of constants";
 
 		// Code labels
 		Integer labelRefund = null;
 
-		Integer labelOfferTxLoop = null;
-		Integer labelCheckOfferTx = null;
+		Integer labelTradeTxnLoop = null;
+		Integer labelCheckTradeTxn = null;
+		Integer labelCheckCancelTxn = null;
+		Integer labelNotTradeNorCancelTxn = null;
+		Integer labelCheckNonRefundTradeTxn = null;
+		Integer labelTradeTxnExtract = null;
+		Integer labelRedeemTxnLoop = null;
+		Integer labelCheckRedeemTxn = null;
+		Integer labelCheckRedeemTxnSender = null;
+		Integer labelCheckSecretB = null;
+		Integer labelPayout = null;
 
-		Integer labelTradeMode = null;
-		Integer labelTradeTxLoop = null;
-		Integer labelCheckTradeTx = null;
-
-		ByteBuffer codeByteBuffer = ByteBuffer.allocate(512);
+		ByteBuffer codeByteBuffer = ByteBuffer.allocate(768);
 
 		// Two-pass version
 		for (int pass = 0; pass < 2; ++pass) {
@@ -367,146 +363,223 @@ public class BTCACCT {
 				/* Initialization */
 
 				// Use AT creation 'timestamp' as starting point for finding transactions sent to AT
-				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_CREATION_TIMESTAMP, addrLastTxTimestamp));
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_CREATION_TIMESTAMP, addrLastTxnTimestamp));
+
+				// Load B register with AT creator's address so we can save it into addrCreatorAddress1-4
+				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_CREATOR_INTO_B));
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrCreatorAddressPointer));
 
 				// Set restart position to after this opcode
 				codeByteBuffer.put(OpCode.SET_PCS.compile());
 
-				/* Loop, waiting for message from AT owner containing trade partner details, or AT owner's address to cancel offer */
+				/* Loop, waiting for message from AT creator's trade address containing trade partner details, or AT owner's address to cancel offer */
 
 				/* Transaction processing loop */
-				labelOfferTxLoop = codeByteBuffer.position();
+				labelTradeTxnLoop = codeByteBuffer.position();
 
-				// Find next transaction to this AT since the last one (if any)
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxTimestamp));
-				// If no transaction found, A will be zero. If A is zero, set addrComparator to 1, otherwise 0.
+				// Find next transaction (if any) to this AT since the last one (referenced by addrLastTxnTimestamp)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));
+				// If no transaction found, A will be zero. If A is zero, set addrResult to 1, otherwise 0.
 				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.CHECK_A_IS_ZERO, addrResult));
 				// If addrResult is zero (i.e. A is non-zero, transaction was found) then go check transaction
-				codeByteBuffer.put(OpCode.BZR_DAT.compile(addrResult, calcOffset(codeByteBuffer, labelCheckOfferTx)));
+				codeByteBuffer.put(OpCode.BZR_DAT.compile(addrResult, calcOffset(codeByteBuffer, labelCheckTradeTxn)));
 				// Stop and wait for next block
 				codeByteBuffer.put(OpCode.STP_IMD.compile());
 
 				/* Check transaction */
-				labelCheckOfferTx = codeByteBuffer.position();
+				labelCheckTradeTxn = codeByteBuffer.position();
 
 				// Update our 'last found transaction's timestamp' using 'timestamp' from transaction
-				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_TIMESTAMP_FROM_TX_IN_A, addrLastTxTimestamp));
-				// Extract transaction type (message/payment) from transaction and save type in addrTxType
-				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_TYPE_FROM_TX_IN_A, addrTxType));
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_TIMESTAMP_FROM_TX_IN_A, addrLastTxnTimestamp));
+				// Extract transaction type (message/payment) from transaction and save type in addrTxnType
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_TYPE_FROM_TX_IN_A, addrTxnType));
 				// If transaction type is not MESSAGE type then go look for another transaction
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrTxType, addrMessageTxType, calcOffset(codeByteBuffer, labelOfferTxLoop)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrTxnType, addrMessageTxnType, calcOffset(codeByteBuffer, labelTradeTxnLoop)));
 
-				/* Check transaction's sender */
+				/* Check transaction's sender. We're expecting AT creator's trade address for 'trade' message, or AT creator's own address for 'cancel' message. */
 
 				// Extract sender address from transaction into B register
 				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_ADDRESS_FROM_TX_IN_A_INTO_B));
 				// Save B register into data segment starting at addrMessageSender1 (as pointed to by addrMessageSenderPointer)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrMessageSenderPointer));
-				// Compare each part of transaction's sender's address with expected address. If they don't match, look for another transaction.
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender1, addrQortalCreator1, calcOffset(codeByteBuffer, labelOfferTxLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender2, addrQortalCreator2, calcOffset(codeByteBuffer, labelOfferTxLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender3, addrQortalCreator3, calcOffset(codeByteBuffer, labelOfferTxLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender4, addrQortalCreator4, calcOffset(codeByteBuffer, labelOfferTxLoop)));
+				// Compare each part of message sender's address with AT creator's trade address. If they don't match, check for cancel situation.
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender1, addrCreatorTradeAddress1, calcOffset(codeByteBuffer, labelCheckCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender2, addrCreatorTradeAddress2, calcOffset(codeByteBuffer, labelCheckCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender3, addrCreatorTradeAddress3, calcOffset(codeByteBuffer, labelCheckCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender4, addrCreatorTradeAddress4, calcOffset(codeByteBuffer, labelCheckCancelTxn)));
+				// Message sender's address matches AT creator's trade address so go process 'trade' message
+				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelCheckNonRefundTradeTxn == null ? 0 : labelCheckNonRefundTradeTxn));
 
-				/* Extract trade partner info from message */
+				/* Checking message sender for possible cancel message */
+				labelCheckCancelTxn = codeByteBuffer.position();
+
+				// Compare each part of message sender's address with AT creator's address. If they don't match, look for another transaction.
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender1, addrCreatorAddress1, calcOffset(codeByteBuffer, labelNotTradeNorCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender2, addrCreatorAddress2, calcOffset(codeByteBuffer, labelNotTradeNorCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender3, addrCreatorAddress3, calcOffset(codeByteBuffer, labelNotTradeNorCancelTxn)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender4, addrCreatorAddress4, calcOffset(codeByteBuffer, labelNotTradeNorCancelTxn)));
+				// Partner address is AT creator's address, so cancel offer and finish.
+				codeByteBuffer.put(OpCode.SET_VAL.compile(addrMode, Mode.CANCELLED.value));
+				// We're finished forever (finishing auto-refunds remaining balance to AT creator)
+				codeByteBuffer.put(OpCode.FIN_IMD.compile());
+
+				/* Not trade nor cancel message */
+				labelNotTradeNorCancelTxn = codeByteBuffer.position();
+
+				// Loop to find another transaction
+				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelTradeTxnLoop == null ? 0 : labelTradeTxnLoop));
+
+				/* Possible switch-to-trade-mode message */
+				labelCheckNonRefundTradeTxn = codeByteBuffer.position();
+
+				// Check 'trade' message we received has expected number of message bytes
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(QortalFunctionCode.GET_MESSAGE_LENGTH_FROM_TX_IN_A.value, addrMessageLength));
+				// If message length matches, branch to info extraction code
+				codeByteBuffer.put(OpCode.BEQ_DAT.compile(addrMessageLength, addrExpectedTradeMessageLength, calcOffset(codeByteBuffer, labelTradeTxnExtract)));
+				// Message length didn't match - go back to finding another 'trade' MESSAGE transaction
+				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelTradeTxnLoop == null ? 0 : labelTradeTxnLoop));
+
+				/* Extracting info from 'trade' MESSAGE transaction */
+				labelTradeTxnExtract = codeByteBuffer.position();
 
 				// Extract message from transaction into B register
 				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_MESSAGE_FROM_TX_IN_A_INTO_B));
-				// Save B register into data segment starting at addrQortalRecipient1 (as pointed to by addrQortalRecipientPointer)
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrQortalRecipientPointer));
-				// Compare each of recipient address with creator's address (for offer-cancel scenario). If they don't match, assume recipient is trade partner.
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrQortalRecipient1, addrQortalCreator1, calcOffset(codeByteBuffer, labelTradeMode)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrQortalRecipient2, addrQortalCreator2, calcOffset(codeByteBuffer, labelTradeMode)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrQortalRecipient3, addrQortalCreator3, calcOffset(codeByteBuffer, labelTradeMode)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrQortalRecipient4, addrQortalCreator4, calcOffset(codeByteBuffer, labelTradeMode)));
-				// Recipient address is AT creator's address, so cancel offer and finish.
-				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelRefund == null ? 0 : labelRefund));
+				// Save B register into data segment starting at addrQortalPartnerAddress1 (as pointed to by addrQortalPartnerAddressPointer)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrQortalPartnerAddressPointer));
 
-				/* Switch to 'trade mode' */
-				labelTradeMode = codeByteBuffer.position();
+				// Extract trade partner's Bitcoin public key hash (PKH)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrTradeMessagePartnerBitcoinPKHOffset));
+				// Extract partner's Bitcoin PKH (we only really use values from B1-B3)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrPartnerBitcoinPKHPointer));
+				// Also extract lockTimeB
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_B4, addrLockTimeB));
 
-				// Send initial payment to recipient so they have enough funds to message AT if all goes well
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PAY_TO_ADDRESS_IN_B, addrInitialPayoutAmount));
+				// Grab next 32 bytes
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrTradeMessageHashOfSecretAOffset));
 
-				// Calculate trade timeout refund 'timestamp' by adding addrTradeTimeout minutes to above message's 'timestamp', then save into addrTradeRefundTimestamp
-				codeByteBuffer.put(OpCode.EXT_FUN_RET_DAT_2.compile(FunctionCode.ADD_MINUTES_TO_TIMESTAMP, addrTradeRefundTimestamp, addrLastTxTimestamp, addrTradeTimeout));
+				// Extract hash-of-secret-a (we only really use values from B1-B3)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrHashOfSecretAPointer));
+				// Extract lockTimeA (from B4)
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_B4, addrLockTimeA));
+
+				// Calculate trade refund timeout: (lockTimeA - lockTimeB) / 2 / 60
+				codeByteBuffer.put(OpCode.SET_DAT.compile(addrRefundTimeout, addrLockTimeA)); // refundTimeout = lockTimeA
+				codeByteBuffer.put(OpCode.SUB_DAT.compile(addrRefundTimeout, addrLockTimeB)); // refundTimeout -= lockTimeB
+				codeByteBuffer.put(OpCode.DIV_VAL.compile(addrRefundTimeout, 2L * 60L)); // refundTimeout /= 2 * 60
+				// Calculate trade timeout refund 'timestamp' by adding addrRefundTimeout minutes to this transaction's 'timestamp', then save into addrRefundTimestamp
+				codeByteBuffer.put(OpCode.EXT_FUN_RET_DAT_2.compile(FunctionCode.ADD_MINUTES_TO_TIMESTAMP, addrRefundTimestamp, addrLastTxnTimestamp, addrRefundTimeout));
+
+				/* We are in 'trade mode' */
+				codeByteBuffer.put(OpCode.SET_VAL.compile(addrMode, Mode.TRADING.value));
 
 				// Set restart position to after this opcode
 				codeByteBuffer.put(OpCode.SET_PCS.compile());
 
-				/* Loop, waiting for trade timeout or message from Qortal trade recipient containing secret */
+				/* Loop, waiting for trade timeout or 'redeem' MESSAGE from Qortal trade partner */
 
 				// Fetch current block 'timestamp'
 				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_BLOCK_TIMESTAMP, addrBlockTimestamp));
 				// If we're not past refund 'timestamp' then look for next transaction
-				codeByteBuffer.put(OpCode.BLT_DAT.compile(addrBlockTimestamp, addrTradeRefundTimestamp, calcOffset(codeByteBuffer, labelTradeTxLoop)));
+				codeByteBuffer.put(OpCode.BLT_DAT.compile(addrBlockTimestamp, addrRefundTimestamp, calcOffset(codeByteBuffer, labelRedeemTxnLoop)));
 				// We're past refund 'timestamp' so go refund everything back to AT creator
 				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelRefund == null ? 0 : labelRefund));
 
 				/* Transaction processing loop */
-				labelTradeTxLoop = codeByteBuffer.position();
+				labelRedeemTxnLoop = codeByteBuffer.position();
 
 				// Find next transaction to this AT since the last one (if any)
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxTimestamp));
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));
 				// If no transaction found, A will be zero. If A is zero, set addrComparator to 1, otherwise 0.
 				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.CHECK_A_IS_ZERO, addrResult));
 				// If addrResult is zero (i.e. A is non-zero, transaction was found) then go check transaction
-				codeByteBuffer.put(OpCode.BZR_DAT.compile(addrResult, calcOffset(codeByteBuffer, labelCheckTradeTx)));
+				codeByteBuffer.put(OpCode.BZR_DAT.compile(addrResult, calcOffset(codeByteBuffer, labelCheckRedeemTxn)));
 				// Stop and wait for next block
 				codeByteBuffer.put(OpCode.STP_IMD.compile());
 
 				/* Check transaction */
-				labelCheckTradeTx = codeByteBuffer.position();
+				labelCheckRedeemTxn = codeByteBuffer.position();
 
 				// Update our 'last found transaction's timestamp' using 'timestamp' from transaction
-				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_TIMESTAMP_FROM_TX_IN_A, addrLastTxTimestamp));
-				// Extract transaction type (message/payment) from transaction and save type in addrTxType
-				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_TYPE_FROM_TX_IN_A, addrTxType));
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_TIMESTAMP_FROM_TX_IN_A, addrLastTxnTimestamp));
+				// Extract transaction type (message/payment) from transaction and save type in addrTxnType
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_TYPE_FROM_TX_IN_A, addrTxnType));
 				// If transaction type is not MESSAGE type then go look for another transaction
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrTxType, addrMessageTxType, calcOffset(codeByteBuffer, labelTradeTxLoop)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrTxnType, addrMessageTxnType, calcOffset(codeByteBuffer, labelRedeemTxnLoop)));
+
+				/* Check message payload length */
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(QortalFunctionCode.GET_MESSAGE_LENGTH_FROM_TX_IN_A.value, addrMessageLength));
+				// If message length matches, branch to sender checking code
+				codeByteBuffer.put(OpCode.BEQ_DAT.compile(addrMessageLength, addrExpectedRedeemMessageLength, calcOffset(codeByteBuffer, labelCheckRedeemTxnSender)));
+				// Message length didn't match - go back to finding another 'redeem' MESSAGE transaction
+				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelRedeemTxnLoop == null ? 0 : labelRedeemTxnLoop));
 
 				/* Check transaction's sender */
+				labelCheckRedeemTxnSender = codeByteBuffer.position();
 
 				// Extract sender address from transaction into B register
 				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_ADDRESS_FROM_TX_IN_A_INTO_B));
 				// Save B register into data segment starting at addrMessageSender1 (as pointed to by addrMessageSenderPointer)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrMessageSenderPointer));
 				// Compare each part of transaction's sender's address with expected address. If they don't match, look for another transaction.
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender1, addrQortalRecipient1, calcOffset(codeByteBuffer, labelTradeTxLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender2, addrQortalRecipient2, calcOffset(codeByteBuffer, labelTradeTxLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender3, addrQortalRecipient3, calcOffset(codeByteBuffer, labelTradeTxLoop)));
-				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender4, addrQortalRecipient4, calcOffset(codeByteBuffer, labelTradeTxLoop)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender1, addrQortalPartnerAddress1, calcOffset(codeByteBuffer, labelRedeemTxnLoop)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender2, addrQortalPartnerAddress2, calcOffset(codeByteBuffer, labelRedeemTxnLoop)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender3, addrQortalPartnerAddress3, calcOffset(codeByteBuffer, labelRedeemTxnLoop)));
+				codeByteBuffer.put(OpCode.BNE_DAT.compile(addrMessageSender4, addrQortalPartnerAddress4, calcOffset(codeByteBuffer, labelRedeemTxnLoop)));
 
-				/* Check 'secret' in transaction's message */
+				/* Check 'secret-A' in transaction's message */
 
-				// Extract message from transaction into B register
+				// Extract secret-A from first 32 bytes of message from transaction into B register
 				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_MESSAGE_FROM_TX_IN_A_INTO_B));
 				// Save B register into data segment starting at addrMessageData (as pointed to by addrMessageDataPointer)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrMessageDataPointer));
-				// Load B register with expected hash result (as pointed to by addrSecretHashPointer)
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.SET_B_IND, addrSecretHashPointer));
+				// Load B register with expected hash result (as pointed to by addrHashOfSecretAPointer)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.SET_B_IND, addrHashOfSecretAPointer));
 				// Perform HASH160 using source data at addrMessageData. (Location and length specified via addrMessageDataPointer and addrMessageDataLength).
 				// Save the equality result (1 if they match, 0 otherwise) into addrResult.
 				codeByteBuffer.put(OpCode.EXT_FUN_RET_DAT_2.compile(FunctionCode.CHECK_HASH160_WITH_B, addrResult, addrMessageDataPointer, addrMessageDataLength));
 				// If hashes don't match, addrResult will be zero so go find another transaction
-				codeByteBuffer.put(OpCode.BZR_DAT.compile(addrResult, calcOffset(codeByteBuffer, labelTradeTxLoop)));
+				codeByteBuffer.put(OpCode.BNZ_DAT.compile(addrResult, calcOffset(codeByteBuffer, labelCheckSecretB)));
+				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelRedeemTxnLoop == null ? 0 : labelRedeemTxnLoop));
 
-				/* Success! Pay arranged amount to intended recipient */
+				/* Check 'secret-B' in transaction's message */
 
-				// Load B register with intended recipient address (as pointed to by addrQortalRecipientPointer)
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.SET_B_IND, addrQortalRecipientPointer));
-				// Pay AT's balance to recipient
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PAY_TO_ADDRESS_IN_B, addrRedeemPayoutAmount));
+				labelCheckSecretB = codeByteBuffer.position();
+
+				// Extract secret-B from next 32 bytes of message from transaction into B register
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrRedeemMessageSecretBOffset));
+				// Save B register into data segment starting at addrMessageData (as pointed to by addrMessageDataPointer)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrMessageDataPointer));
+				// Load B register with expected hash result (as pointed to by addrHashOfSecretBPointer)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.SET_B_IND, addrHashOfSecretBPointer));
+				// Perform HASH160 using source data at addrMessageData. (Location and length specified via addrMessageDataPointer and addrMessageDataLength).
+				// Save the equality result (1 if they match, 0 otherwise) into addrResult.
+				codeByteBuffer.put(OpCode.EXT_FUN_RET_DAT_2.compile(FunctionCode.CHECK_HASH160_WITH_B, addrResult, addrMessageDataPointer, addrMessageDataLength));
+				// If hashes don't match, addrResult will be zero so go find another transaction
+				codeByteBuffer.put(OpCode.BNZ_DAT.compile(addrResult, calcOffset(codeByteBuffer, labelPayout)));
+				codeByteBuffer.put(OpCode.JMP_ADR.compile(labelRedeemTxnLoop == null ? 0 : labelRedeemTxnLoop));
+
+				/* Success! Pay arranged amount to receiving address */
+				labelPayout = codeByteBuffer.position();
+
+				// Extract Qortal receiving address from next 32 bytes of message from transaction into B register
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrRedeemMessageReceivingAddressOffset));
+				// Save B register into data segment starting at addrPartnerReceivingAddress (as pointed to by addrPartnerReceivingAddressPointer)
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrPartnerReceivingAddressPointer));
+				// Pay AT's balance to receiving address
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PAY_TO_ADDRESS_IN_B, addrQortAmount));
+				// Set redeemed mode
+				codeByteBuffer.put(OpCode.SET_VAL.compile(addrMode, Mode.REDEEMED.value));
+				// We're finished forever (finishing auto-refunds remaining balance to AT creator)
+				codeByteBuffer.put(OpCode.FIN_IMD.compile());
+
 				// Fall-through to refunding any remaining balance back to AT creator
 
 				/* Refund balance back to AT creator */
 				labelRefund = codeByteBuffer.position();
 
-				// Load B register with AT creator's address.
-				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PUT_CREATOR_INTO_B));
-				// Pay AT's balance back to AT's creator.
-				codeByteBuffer.put(OpCode.EXT_FUN.compile(FunctionCode.PAY_ALL_TO_ADDRESS_IN_B));
-				// We're finished forever
+				// Set refunded mode
+				codeByteBuffer.put(OpCode.SET_VAL.compile(addrMode, Mode.REFUNDED.value));
+				// We're finished forever (finishing auto-refunds remaining balance to AT creator)
 				codeByteBuffer.put(OpCode.FIN_IMD.compile());
 			} catch (CompilationException e) {
 				throw new IllegalStateException("Unable to compile BTC-QORT ACCT?", e);
@@ -537,55 +610,109 @@ public class BTCACCT {
 	 * @throws DataException
 	 */
 	public static CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
-		String atAddress = atData.getATAddress();
+		ATStateData atStateData = repository.getATRepository().getLatestATState(atData.getATAddress());
+		return populateTradeData(repository, atData.getCreatorPublicKey(), atStateData);
+	}
 
-		ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
-		byte[] stateData = atStateData.getStateData();
+	/**
+	 * Returns CrossChainTradeData with useful info extracted from AT.
+	 * 
+	 * @param repository
+	 * @param atAddress
+	 * @throws DataException
+	 */
+	public static CrossChainTradeData populateTradeData(Repository repository, ATStateData atStateData) throws DataException {
+		byte[] creatorPublicKey = repository.getATRepository().getCreatorPublicKey(atStateData.getATAddress());
+		return populateTradeData(repository, creatorPublicKey, atStateData);
+	}
 
-		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-		byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
+	/**
+	 * Returns CrossChainTradeData with useful info extracted from AT.
+	 * 
+	 * @param repository
+	 * @param atAddress
+	 * @throws DataException
+	 */
+	public static CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
+		byte[] addressBytes = new byte[25]; // for general use
+		String atAddress = atStateData.getATAddress();
 
 		CrossChainTradeData tradeData = new CrossChainTradeData();
+
 		tradeData.qortalAtAddress = atAddress;
-		tradeData.qortalCreator = Crypto.toAddress(atData.getCreatorPublicKey());
-		tradeData.creationTimestamp = atData.getCreation();
+		tradeData.qortalCreator = Crypto.toAddress(creatorPublicKey);
+		tradeData.creationTimestamp = atStateData.getCreation();
 
 		Account atAccount = new Account(repository, atAddress);
 		tradeData.qortBalance = atAccount.getConfirmedBalance(Asset.QORT);
 
-		ByteBuffer dataByteBuffer = ByteBuffer.wrap(dataBytes);
-		byte[] addressBytes = new byte[32];
+		byte[] stateData = atStateData.getStateData();
+		ByteBuffer dataByteBuffer = ByteBuffer.wrap(stateData);
+		dataByteBuffer.position(MachineState.HEADER_LENGTH);
 
-		// Skip AT creator address
-		dataByteBuffer.position(dataByteBuffer.position() + 32);
+		/* Constants */
 
-		// Hash of secret
-		tradeData.secretHash = new byte[20];
-		dataByteBuffer.get(tradeData.secretHash);
-		dataByteBuffer.position(dataByteBuffer.position() + 32 - 20); // skip to 32 bytes
+		// Skip creator's trade address
+		dataByteBuffer.get(addressBytes);
+		tradeData.qortalCreatorTradeAddress = Base58.encode(addressBytes);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - addressBytes.length);
 
-		// Trade timeout
-		tradeData.tradeRefundTimeout = dataByteBuffer.getLong();
+		// Creator's Bitcoin/foreign public key hash
+		tradeData.creatorBitcoinPKH = new byte[20];
+		dataByteBuffer.get(tradeData.creatorBitcoinPKH);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - tradeData.creatorBitcoinPKH.length); // skip to 32 bytes
 
-		// Initial payout
-		tradeData.initialPayout = dataByteBuffer.getLong();
+		// Hash of secret B
+		tradeData.hashOfSecretB = new byte[20];
+		dataByteBuffer.get(tradeData.hashOfSecretB);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - tradeData.hashOfSecretB.length); // skip to 32 bytes
 
 		// Redeem payout
-		tradeData.redeemPayout = dataByteBuffer.getLong();
+		tradeData.qortAmount = dataByteBuffer.getLong();
 
 		// Expected BTC amount
 		tradeData.expectedBitcoin = dataByteBuffer.getLong();
 
+		// Trade timeout
+		tradeData.tradeTimeout = (int) dataByteBuffer.getLong();
+
 		// Skip MESSAGE transaction type
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
-		// Skip pointer to secretHash
+		// Skip expected 'trade' message length
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
-		// Skip pointer to Qortal recipient
+		// Skip expected 'redeem' message length
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip pointer to creator's address
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip pointer to hash-of-secret-B
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip pointer to partner's Qortal trade address
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
 		// Skip pointer to message sender
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip 'trade' message data offset for partner's bitcoin PKH
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip pointer to partner's bitcoin PKH
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip 'trade' message data offset for hash-of-secret-A
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip pointer to hash-of-secret-A
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip 'redeem' message data offset for secret-B
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip 'redeem' message data offset for partner's Qortal receiving address
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
 		// Skip pointer to message data
@@ -594,73 +721,195 @@ public class BTCACCT {
 		// Skip message data length
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
-		// Qortal recipient (if any)
-		dataByteBuffer.get(addressBytes);
+		// Skip pointer to partner's receiving address
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
-		// Trade offer timeout (AT 'timestamp' converted to Qortal block height)
+		/* End of constants / begin variables */
+
+		// Skip AT creator's address
+		dataByteBuffer.position(dataByteBuffer.position() + 8 * 4);
+
+		// Partner's trade address (if present)
+		dataByteBuffer.get(addressBytes);
+		String qortalRecipient = Base58.encode(addressBytes);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - addressBytes.length);
+
+		// Potential lockTimeA (if in trade mode)
+		int lockTimeA = (int) dataByteBuffer.getLong();
+
+		// Potential lockTimeB (if in trade mode)
+		int lockTimeB = (int) dataByteBuffer.getLong();
+
+		// AT refund timeout (probably only useful for debugging)
+		int refundTimeout = (int) dataByteBuffer.getLong();
+
+		// Trade-mode refund timestamp (AT 'timestamp' converted to Qortal block height)
 		long tradeRefundTimestamp = dataByteBuffer.getLong();
 
-		if (tradeRefundTimestamp != 0) {
-			tradeData.mode = CrossChainTradeData.Mode.TRADE;
+		// Skip last transaction timestamp
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip block timestamp
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip transaction type
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip temporary result
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip temporary message sender
+		dataByteBuffer.position(dataByteBuffer.position() + 8 * 4);
+
+		// Skip message length
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip temporary message data
+		dataByteBuffer.position(dataByteBuffer.position() + 8 * 4);
+
+		// Potential hash160 of secret A
+		byte[] hashOfSecretA = new byte[20];
+		dataByteBuffer.get(hashOfSecretA);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - hashOfSecretA.length); // skip to 32 bytes
+
+		// Potential partner's Bitcoin PKH
+		byte[] partnerBitcoinPKH = new byte[20];
+		dataByteBuffer.get(partnerBitcoinPKH);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - partnerBitcoinPKH.length); // skip to 32 bytes
+
+		// Partner's receiving address (if present)
+		byte[] partnerReceivingAddress = new byte[25];
+		dataByteBuffer.get(partnerReceivingAddress);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - partnerReceivingAddress.length); // skip to 32 bytes
+
+		// Trade AT's 'mode'
+		long modeValue = dataByteBuffer.getLong();
+		Mode mode = Mode.valueOf((int) (modeValue & 0xffL));
+
+		/* End of variables */
+
+		if (mode != null && mode != Mode.OFFERING) {
+			tradeData.mode = mode;
+			tradeData.refundTimeout = refundTimeout;
 			tradeData.tradeRefundHeight = new Timestamp(tradeRefundTimestamp).blockHeight;
+			tradeData.qortalPartnerAddress = qortalRecipient;
+			tradeData.hashOfSecretA = hashOfSecretA;
+			tradeData.partnerBitcoinPKH = partnerBitcoinPKH;
+			tradeData.lockTimeA = lockTimeA;
+			tradeData.lockTimeB = lockTimeB;
 
-			if (addressBytes[0] != 0)
-				tradeData.qortalRecipient = Base58.encode(Arrays.copyOf(addressBytes, Account.ADDRESS_LENGTH));
-
-			// We'll suggest half of trade timeout
-			CiyamAtSettings ciyamAtSettings = BlockChain.getInstance().getCiyamAtSettings();
-
-			int tradeModeSwitchHeight = (int) (tradeData.tradeRefundHeight - tradeData.tradeRefundTimeout / ciyamAtSettings.minutesPerBlock);
-
-			BlockData blockData = repository.getBlockRepository().fromHeight(tradeModeSwitchHeight);
-			if (blockData != null) {
-				tradeData.tradeModeTimestamp = blockData.getTimestamp(); // NOTE: milliseconds from epoch
-				tradeData.lockTime = (int) (tradeData.tradeModeTimestamp / 1000L + tradeData.tradeRefundTimeout / 2 * 60);
-			}
+			if (mode == Mode.REDEEMED)
+				tradeData.qortalPartnerReceivingAddress = Base58.encode(partnerReceivingAddress);
 		} else {
-			tradeData.mode = CrossChainTradeData.Mode.OFFER;
+			tradeData.mode = Mode.OFFERING;
 		}
 
 		return tradeData;
 	}
 
-	public static byte[] findP2shSecret(String p2shAddress, List<byte[]> rawTransactions) {
-		NetworkParameters params = BTC.getInstance().getNetworkParameters();
+	/** Returns 'offer' MESSAGE payload for trade partner to send to AT creator's trade address. */
+	public static byte[] buildOfferMessage(byte[] partnerBitcoinPKH, byte[] hashOfSecretA, int lockTimeA) {
+		byte[] lockTimeABytes = BitTwiddling.toBEByteArray((long) lockTimeA);
+		return Bytes.concat(partnerBitcoinPKH, hashOfSecretA, lockTimeABytes);
+	}
 
-		for (byte[] rawTransaction : rawTransactions) {
-			Transaction transaction = new Transaction(params, rawTransaction);
+	/** Returns info extracted from 'offer' MESSAGE payload sent by trade partner to AT creator's trade address, or null if not valid. */
+	public static OfferMessageData extractOfferMessageData(byte[] messageData) {
+		if (messageData == null || messageData.length != OFFER_MESSAGE_LENGTH)
+			return null;
 
-			// Cycle through inputs, looking for one that spends our P2SH
-			for (TransactionInput input : transaction.getInputs()) {
-				Script scriptSig = input.getScriptSig();
-				List<ScriptChunk> scriptChunks = scriptSig.getChunks();
+		OfferMessageData offerMessageData = new OfferMessageData();
+		offerMessageData.partnerBitcoinPKH = Arrays.copyOfRange(messageData, 0, 20);
+		offerMessageData.hashOfSecretA = Arrays.copyOfRange(messageData, 20, 40);
+		offerMessageData.lockTimeA = BitTwiddling.longFromBEBytes(messageData, 40);
 
-				// Expected number of script chunks for redeem. Refund might not have the same number.
-				int expectedChunkCount = 1 /*secret*/ + 1 /*sig*/ + 1 /*pubkey*/ + 1 /*redeemScript*/;
-				if (scriptChunks.size() != expectedChunkCount)
-					continue;
+		return offerMessageData;
+	}
 
-				// We're expecting last chunk to contain the actual redeemScript
-				ScriptChunk lastChunk = scriptChunks.get(scriptChunks.size() - 1);
-				byte[] redeemScriptBytes = lastChunk.data;
+	/** Returns 'trade' MESSAGE payload for AT creator to send to AT. */
+	public static byte[] buildTradeMessage(String partnerQortalTradeAddress, byte[] partnerBitcoinPKH, byte[] hashOfSecretA, int lockTimeA, int lockTimeB) {
+		byte[] data = new byte[TRADE_MESSAGE_LENGTH];
+		byte[] partnerQortalAddressBytes = Base58.decode(partnerQortalTradeAddress);
+		byte[] lockTimeABytes = BitTwiddling.toBEByteArray((long) lockTimeA);
+		byte[] lockTimeBBytes = BitTwiddling.toBEByteArray((long) lockTimeB);
 
-				// If non-push scripts, redeemScript will be null
-				if (redeemScriptBytes == null)
-					continue;
+		System.arraycopy(partnerQortalAddressBytes, 0, data, 0, partnerQortalAddressBytes.length);
+		System.arraycopy(partnerBitcoinPKH, 0, data, 32, partnerBitcoinPKH.length);
+		System.arraycopy(lockTimeBBytes, 0, data, 56, lockTimeBBytes.length);
+		System.arraycopy(hashOfSecretA, 0, data, 64, hashOfSecretA.length);
+		System.arraycopy(lockTimeABytes, 0, data, 88, lockTimeABytes.length);
 
-				byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
-				Address inputAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
+		return data;
+	}
 
-				if (!inputAddress.toString().equals(p2shAddress))
-					// Input isn't spending our P2SH
-					continue;
+	/** Returns 'cancel' MESSAGE payload for AT creator to cancel trade AT. */
+	public static byte[] buildCancelMessage(String creatorQortalAddress) {
+		byte[] data = new byte[CANCEL_MESSAGE_LENGTH];
+		byte[] creatorQortalAddressBytes = Base58.decode(creatorQortalAddress);
 
-				byte[] secret = scriptChunks.get(0).data;
-				if (secret.length != BTCACCT.SECRET_LENGTH)
-					continue;
+		System.arraycopy(creatorQortalAddressBytes, 0, data, 0, creatorQortalAddressBytes.length);
 
-				return secret;
-			}
+		return data;
+	}
+
+	/** Returns 'redeem' MESSAGE payload for trade partner/ to send to AT. */
+	public static byte[] buildRedeemMessage(byte[] secretA, byte[] secretB, String qortalReceivingAddress) {
+		byte[] data = new byte[REDEEM_MESSAGE_LENGTH];
+		byte[] qortalReceivingAddressBytes = Base58.decode(qortalReceivingAddress);
+
+		System.arraycopy(secretA, 0, data, 0, secretA.length);
+		System.arraycopy(secretB, 0, data, 32, secretB.length);
+		System.arraycopy(qortalReceivingAddressBytes, 0, data, 64, qortalReceivingAddressBytes.length);
+
+		return data;
+	}
+
+	/** Returns P2SH-B lockTime (epoch seconds) based on trade partner's 'offer' MESSAGE timestamp and P2SH-A locktime. */
+	public static int calcLockTimeB(long offerMessageTimestamp, int lockTimeA) {
+		// lockTimeB is halfway between offerMessageTimesamp and lockTimeA
+		return (int) ((lockTimeA + (offerMessageTimestamp / 1000L)) / 2L);
+	}
+
+	public static byte[] findSecretA(Repository repository, CrossChainTradeData crossChainTradeData) throws DataException {
+		String atAddress = crossChainTradeData.qortalAtAddress;
+		String redeemerAddress = crossChainTradeData.qortalPartnerAddress;
+
+		List<MessageTransactionData> messageTransactionsData = repository.getTransactionRepository().getMessagesByRecipient(atAddress, null, null, null);
+		if (messageTransactionsData == null)
+			return null;
+
+		// Find 'redeem' message
+		for (MessageTransactionData messageTransactionData : messageTransactionsData) {
+			// Check message payload type/encryption
+			if (messageTransactionData.isText() || messageTransactionData.isEncrypted())
+				continue;
+
+			// Check message payload size
+			byte[] messageData = messageTransactionData.getData();
+			if (messageData.length != REDEEM_MESSAGE_LENGTH)
+				// Wrong payload length
+				continue;
+
+			// Check sender
+			if (!Crypto.toAddress(messageTransactionData.getSenderPublicKey()).equals(redeemerAddress))
+				// Wrong sender;
+				continue;
+
+			// Extract both secretA & secretB
+			byte[] secretA = new byte[32];
+			System.arraycopy(messageData, 0, secretA, 0, secretA.length);
+			byte[] secretB = new byte[32];
+			System.arraycopy(messageData, 32, secretB, 0, secretB.length);
+
+			byte[] hashOfSecretA = Crypto.hash160(secretA);
+			if (!Arrays.equals(hashOfSecretA, crossChainTradeData.hashOfSecretA))
+				continue;
+
+			byte[] hashOfSecretB = Crypto.hash160(secretB);
+			if (!Arrays.equals(hashOfSecretB, crossChainTradeData.hashOfSecretB))
+				continue;
+
+			return secretA;
 		}
 
 		return null;

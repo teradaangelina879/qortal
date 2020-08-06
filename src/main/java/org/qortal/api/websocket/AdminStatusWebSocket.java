@@ -11,7 +11,6 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
-import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.model.NodeStatus;
 import org.qortal.controller.StatusNotifier;
@@ -21,7 +20,7 @@ import org.qortal.repository.RepositoryManager;
 
 @WebSocket
 @SuppressWarnings("serial")
-public class AdminStatusWebSocket extends WebSocketServlet implements ApiWebSocket {
+public class AdminStatusWebSocket extends ApiWebSocket {
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
@@ -57,7 +56,7 @@ public class AdminStatusWebSocket extends WebSocketServlet implements ApiWebSock
 
 			StringWriter stringWriter = new StringWriter();
 
-			this.marshall(stringWriter, nodeStatus);
+			marshall(stringWriter, nodeStatus);
 
 			// Only output if something has changed
 			String output = stringWriter.toString();

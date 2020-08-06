@@ -25,11 +25,11 @@ import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.TrustlessSSLSocketFactory;
-import org.qortal.utils.Pair;
 
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
+/** ElectrumX network support for querying Bitcoin-related info like block headers, transaction outputs, etc. */
 public class ElectrumX {
 
 	private static final Logger LOGGER = LogManager.getLogger(ElectrumX.class);
@@ -93,7 +93,21 @@ public class ElectrumX {
 	private ElectrumX(String bitcoinNetwork) {
 		switch (bitcoinNetwork) {
 			case "MAIN":
-				servers.addAll(Arrays.asList());
+				servers.addAll(Arrays.asList(
+						// Servers chosen on NO BASIS WHATSOEVER from various sources!
+						new Server("tardis.bauerj.eu", Server.ConnectionType.SSL, 50002),
+						new Server("rbx.curalle.ovh", Server.ConnectionType.SSL, 50002),
+						new Server("quick.electumx.live", Server.ConnectionType.SSL, 50002),
+						new Server("enode.duckdns.org", Server.ConnectionType.SSL, 50002),
+						new Server("electrumx.ddns.net", Server.ConnectionType.SSL, 50002),
+						new Server("electrumx.ml", Server.ConnectionType.SSL, 50002),
+						new Server("electrum.eff.ro", Server.ConnectionType.SSL, 50002),
+						new Server("electrum.bitkoins.nl", Server.ConnectionType.SSL, 50512),
+						new Server("E-X.not.fyi", Server.ConnectionType.SSL, 50002),
+						new Server("btc.electroncash.dk", Server.ConnectionType.SSL, 60002),
+						new Server("electrum.blockstream.info", Server.ConnectionType.TCP, 50001),
+						new Server("electrum.blockstream.info", Server.ConnectionType.SSL, 50002),
+						new Server("bitcoin.aranguren.org", Server.ConnectionType.TCP, 50001)));
 				break;
 
 			case "TEST3":
@@ -119,6 +133,7 @@ public class ElectrumX {
 		rpc("server.banner");
 	}
 
+	/** Returns ElectrumX instance linked to passed Bitcoin network, one of "MAIN", "TEST3" or "REGTEST". */
 	public static synchronized ElectrumX getInstance(String bitcoinNetwork) {
 		if (!instances.containsKey(bitcoinNetwork))
 			instances.put(bitcoinNetwork, new ElectrumX(bitcoinNetwork));
@@ -129,16 +144,26 @@ public class ElectrumX {
 	// Methods for use by other classes
 
 	public Integer getCurrentHeight() {
-		JSONObject blockJson = (JSONObject) this.rpc("blockchain.headers.subscribe");
-		if (blockJson == null || !blockJson.containsKey("height"))
+		Object blockObj = this.rpc("blockchain.headers.subscribe");
+		if (!(blockObj instanceof JSONObject))
+			return null;
+
+		JSONObject blockJson = (JSONObject) blockObj;
+
+		if (!blockJson.containsKey("height"))
 			return null;
 
 		return ((Long) blockJson.get("height")).intValue();
 	}
 
 	public List<byte[]> getBlockHeaders(int startHeight, long count) {
-		JSONObject blockJson = (JSONObject) this.rpc("blockchain.block.headers", startHeight, count);
-		if (blockJson == null || !blockJson.containsKey("count") || !blockJson.containsKey("hex"))
+		Object blockObj = this.rpc("blockchain.block.headers", startHeight, count);
+		if (!(blockObj instanceof JSONObject))
+			return null;
+
+		JSONObject blockJson = (JSONObject) blockObj;
+
+		if (!blockJson.containsKey("count") || !blockJson.containsKey("hex"))
 			return null;
 
 		Long returnedCount = (Long) blockJson.get("count");
@@ -155,57 +180,87 @@ public class ElectrumX {
 		return rawBlockHeaders;
 	}
 
+	/** Returns confirmed balance, based on passed payment script, or null if there was an error or no known balance. */
 	public Long getBalance(byte[] script) {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
-		JSONObject balanceJson = (JSONObject) this.rpc("blockchain.scripthash.get_balance", HashCode.fromBytes(scriptHash).toString());
-		if (balanceJson == null || !balanceJson.containsKey("confirmed"))
+		Object balanceObj = this.rpc("blockchain.scripthash.get_balance", HashCode.fromBytes(scriptHash).toString());
+		if (!(balanceObj instanceof JSONObject))
+			return null;
+
+		JSONObject balanceJson = (JSONObject) balanceObj;
+
+		if (!balanceJson.containsKey("confirmed"))
 			return null;
 
 		return (Long) balanceJson.get("confirmed");
 	}
 
-	public List<Pair<byte[], Integer>> getUnspentOutputs(byte[] script) {
+	/** Unspent output info as returned by ElectrumX network. */
+	public static class UnspentOutput {
+		public final byte[] hash;
+		public final int index;
+		public final int height;
+		public final long value;
+
+		public UnspentOutput(byte[] hash, int index, int height, long value) {
+			this.hash = hash;
+			this.index = index;
+			this.height = height;
+			this.value = value;
+		}
+	}
+
+	/** Returns list of unspent outputs pertaining to passed payment script, or null if there was an error. */
+	public List<UnspentOutput> getUnspentOutputs(byte[] script) {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
-		JSONArray unspentJson = (JSONArray) this.rpc("blockchain.scripthash.listunspent", HashCode.fromBytes(scriptHash).toString());
-		if (unspentJson == null)
+		Object unspentJson = this.rpc("blockchain.scripthash.listunspent", HashCode.fromBytes(scriptHash).toString());
+		if (!(unspentJson instanceof JSONArray))
 			return null;
 
-		List<Pair<byte[], Integer>> unspentOutputs = new ArrayList<>();
-		for (Object rawUnspent : unspentJson) {
+		List<UnspentOutput> unspentOutputs = new ArrayList<>();
+		for (Object rawUnspent : (JSONArray) unspentJson) {
 			JSONObject unspent = (JSONObject) rawUnspent;
+
+			int height = ((Long) unspent.get("height")).intValue();
+			// We only want unspent outputs from confirmed transactions (and definitely not mempool duplicates with height 0)
+			if (height <= 0)
+				continue;
 
 			byte[] txHash = HashCode.fromString((String) unspent.get("tx_hash")).asBytes();
 			int outputIndex = ((Long) unspent.get("tx_pos")).intValue();
+			long value = (Long) unspent.get("value");
 
-			unspentOutputs.add(new Pair<>(txHash, outputIndex));
+			unspentOutputs.add(new UnspentOutput(txHash, outputIndex, height, value));
 		}
 
 		return unspentOutputs;
 	}
 
+	/** Returns raw transaction for passed transaction hash, or null if not found. */
 	public byte[] getRawTransaction(byte[] txHash) {
-		String rawTransactionHex = (String) this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString());
-		if (rawTransactionHex == null)
+		Object rawTransactionHex = this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString());
+		if (!(rawTransactionHex instanceof String))
 			return null;
 
-		return HashCode.fromString(rawTransactionHex).asBytes();
+		return HashCode.fromString((String) rawTransactionHex).asBytes();
 	}
 
+	/** Returns list of raw transactions, relating to passed payment script, if null if there's an error. */
 	public List<byte[]> getAddressTransactions(byte[] script) {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
-		JSONArray transactionsJson = (JSONArray) this.rpc("blockchain.scripthash.get_history", HashCode.fromBytes(scriptHash).toString());
-		if (transactionsJson == null)
+		Object transactionsJson = this.rpc("blockchain.scripthash.get_history", HashCode.fromBytes(scriptHash).toString());
+		if (!(transactionsJson instanceof JSONArray))
 			return null;
 
 		List<byte[]> rawTransactions = new ArrayList<>();
 
-		for (Object rawTransactionInfo : transactionsJson) {
+		for (Object rawTransactionInfo : (JSONArray) transactionsJson) {
 			JSONObject transactionInfo = (JSONObject) rawTransactionInfo;
 
 			// We only want confirmed transactions
@@ -223,6 +278,7 @@ public class ElectrumX {
 		return rawTransactions;
 	}
 
+	/** Returns true if raw transaction successfully broadcast. */
 	public boolean broadcastTransaction(byte[] transactionBytes) {
 		Object rawBroadcastResult = this.rpc("blockchain.transaction.broadcast", HashCode.fromBytes(transactionBytes).toString());
 		if (rawBroadcastResult == null)
@@ -235,14 +291,15 @@ public class ElectrumX {
 
 	// Class-private utility methods
 
+	/** Query current server for its list of peer servers, and return those we can parse. */
 	private Set<Server> serverPeersSubscribe() {
 		Set<Server> newServers = new HashSet<>();
 
-		JSONArray peers = (JSONArray) this.connectedRpc("server.peers.subscribe");
-		if (peers == null)
+		Object peers = this.connectedRpc("server.peers.subscribe");
+		if (!(peers instanceof JSONArray))
 			return newServers;
 
-		for (Object rawPeer : peers) {
+		for (Object rawPeer : (JSONArray) peers) {
 			JSONArray peer = (JSONArray) rawPeer;
 			if (peer.size() < 3)
 				continue;
@@ -287,6 +344,7 @@ public class ElectrumX {
 		return newServers;
 	}
 
+	/** Return output from RPC call, with automatic reconnection to different server if needed. */
 	private synchronized Object rpc(String method, Object...params) {
 		while (haveConnection()) {
 			Object response = connectedRpc(method, params);
@@ -305,6 +363,7 @@ public class ElectrumX {
 		return null;
 	}
 
+	/** Returns true if we have, or create, a connection to an ElectrumX server. */
 	private boolean haveConnection() {
 		if (this.currentServer != null)
 			return true;
@@ -377,9 +436,11 @@ public class ElectrumX {
 		if (response.isEmpty())
 			return null;
 
-		JSONObject responseJson = (JSONObject) JSONValue.parse(response);
-		if (responseJson == null)
+		Object responseObj = JSONValue.parse(response);
+		if (!(responseObj instanceof JSONObject))
 			return null;
+
+		JSONObject responseJson = (JSONObject) responseObj;
 
 		return responseJson.get("result");
 	}

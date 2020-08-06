@@ -133,6 +133,20 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
+	public long getTimestampFromHeight(int height) throws DataException {
+		String sql = "SELECT minted_when FROM Blocks WHERE height = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, height)) {
+			if (resultSet == null)
+				return 0;
+
+			return resultSet.getLong(1);
+		} catch (SQLException e) {
+			throw new DataException("Error obtaining block timestamp by height from repository", e);
+		}
+	}
+
+	@Override
 	public int getBlockchainHeight() throws DataException {
 		String sql = "SELECT height FROM Blocks ORDER BY height DESC LIMIT 1";
 

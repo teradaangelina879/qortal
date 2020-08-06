@@ -15,6 +15,9 @@ public interface ATRepository {
 	/** Returns where AT with passed address exists in repository */
 	public boolean exists(String atAddress) throws DataException;
 
+	/** Returns AT creator's public key, or null if not found */
+	public byte[] getCreatorPublicKey(String atAddress) throws DataException;
+
 	/** Returns list of executable ATs, empty if none found */
 	public List<ATData> getAllExecutableATs() throws DataException;
 
@@ -55,6 +58,24 @@ public interface ATRepository {
 	public ATStateData getLatestATState(String atAddress) throws DataException;
 
 	/**
+	 * Returns final ATStateData for ATs matching codeHash (required)
+	 * and specific data segment value (optional).
+	 * <p>
+	 * If searching for specific data segment value, both <tt>dataByteOffset</tt>
+	 * and <tt>expectedValue</tt> need to be non-null.
+	 * <p>
+	 * Note that <tt>dataByteOffset</tt> starts from 0 and will typically be
+	 * a multiple of <tt>MachineState.VALUE_SIZE</tt>, which is usually 8:
+	 * width of a long.
+	 * <p>
+	 * Although <tt>expectedValue</tt>, if provided, is natively an unsigned long,
+	 * the data segment comparison is done via unsigned hex string.
+	 */
+	public List<ATStateData> getMatchingFinalATStates(byte[] codeHash, Boolean isFinished,
+			Integer dataByteOffset, Long expectedValue, Integer minimumFinalHeight,
+			Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
 	 * Returns all ATStateData for a given block height.
 	 * <p>
 	 * Unlike <tt>getATState</tt>, only returns ATStateData saved at the given height.
@@ -87,5 +108,29 @@ public interface ATRepository {
 
 	/** Delete state data for all ATs at this height */
 	public void deleteATStates(int height) throws DataException;
+
+	// Finding transactions for ATs to process
+
+	static class NextTransactionInfo {
+		public final int height;
+		public final int sequence;
+		public final byte[] signature;
+
+		public NextTransactionInfo(int height, int sequence, byte[] signature) {
+			this.height = height;
+			this.sequence = sequence;
+			this.signature = signature;
+		}
+	}
+
+	/**
+	 * Find next transaction for AT to process.
+	 * <p>
+	 * @param recipient AT address
+	 * @param height starting height
+	 * @param sequence starting sequence
+	 * @return next transaction info, or null if none found
+	 */
+	public NextTransactionInfo findNextTransaction(String recipient, int height, int sequence) throws DataException;
 
 }

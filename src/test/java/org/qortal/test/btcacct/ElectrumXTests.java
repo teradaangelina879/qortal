@@ -12,8 +12,8 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.Test;
 import org.qortal.crosschain.ElectrumX;
+import org.qortal.crosschain.ElectrumX.UnspentOutput;
 import org.qortal.utils.BitTwiddling;
-import org.qortal.utils.Pair;
 
 import com.google.common.hash.HashCode;
 
@@ -61,7 +61,7 @@ public class ElectrumXTests {
 
 			// Timestamp(int) is at 4 + 32 + 32 = 68 bytes offset
 			int offset = 4 + 32 + 32;
-			int timestamp = BitTwiddling.fromLEBytes(blockHeader, offset);
+			int timestamp = BitTwiddling.intFromLEBytes(blockHeader, offset);
 			System.out.println(String.format("Block %d timestamp: %d", height + i, timestamp));
 		}
 	}
@@ -100,13 +100,13 @@ public class ElectrumXTests {
 
 		Address address = Address.fromString(TestNet3Params.get(), "2N4szZUfigj7fSBCEX4PaC8TVbC5EvidaVF");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
-		List<Pair<byte[], Integer>> unspentOutputs = electrumX.getUnspentOutputs(script);
+		List<UnspentOutput> unspentOutputs = electrumX.getUnspentOutputs(script);
 
 		assertNotNull(unspentOutputs);
 		assertFalse(unspentOutputs.isEmpty());
 
-		for (Pair<byte[], Integer> unspentOutput : unspentOutputs)
-			System.out.println(String.format("TestNet address %s has unspent output at tx %s, output index %d", address, HashCode.fromBytes(unspentOutput.getA()).toString(), unspentOutput.getB()));
+		for (UnspentOutput unspentOutput : unspentOutputs)
+			System.out.println(String.format("TestNet address %s has unspent output at tx %s, output index %d", address, HashCode.fromBytes(unspentOutput.hash), unspentOutput.index));
 	}
 
 	@Test
