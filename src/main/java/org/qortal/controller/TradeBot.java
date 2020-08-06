@@ -63,7 +63,7 @@ public class TradeBot {
 
 	private static final Logger LOGGER = LogManager.getLogger(TradeBot.class);
 	private static final Random RANDOM = new SecureRandom();
-	private static final long FEE_AMOUNT = 1000L;
+	private static final long FEE_AMOUNT = 5000L;
 
 	private static TradeBot instance;
 
