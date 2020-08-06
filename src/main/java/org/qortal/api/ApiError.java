@@ -128,8 +128,8 @@ public enum ApiError {
 
 	// Bitcoin
 	BTC_NETWORK_ISSUE(1201, 500),
-	BTC_BALANCE_ISSUE(1202, 422),
-	BTC_TOO_SOON(1203, 422);
+	BTC_BALANCE_ISSUE(1202, 402),
+	BTC_TOO_SOON(1203, 408);
 
 	private static final Map<Integer, ApiError> map = stream(ApiError.values()).collect(toMap(apiError -> apiError.code, apiError -> apiError));
 
