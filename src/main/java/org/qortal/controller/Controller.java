@@ -9,9 +9,11 @@ import java.security.Security;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -112,8 +114,10 @@ public class Controller extends Thread {
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
 	private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 1 * 60 * 1000L; // ms
-	private static final long ONLINE_TIMESTAMP_MODULUS = 5 * 60 * 1000L;
+	public static final long ONLINE_TIMESTAMP_MODULUS = 5 * 60 * 1000L;
 	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000L);
+	/** How many (latest) blocks' worth of online accounts we cache */
+	private static final int MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS = 2;
 
 	private static volatile boolean isStopping = false;
 	private static BlockMinter blockMinter = null;
@@ -168,8 +172,10 @@ public class Controller extends Thread {
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly minted block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
 
-	/** Cache of 'online accounts' */
+	/** Cache of current 'online accounts' */
 	List<OnlineAccountData> onlineAccounts = new ArrayList<>();
+	/** Cache of latest blocks' online accounts */
+	Deque<List<OnlineAccountData>> latestBlocksOnlineAccounts = new ArrayDeque<>(MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS);
 
 	// Constructors
 
@@ -1462,6 +1468,30 @@ public class Controller extends Thread {
 
 		synchronized (this.onlineAccounts) {
 			return this.onlineAccounts.stream().filter(account -> account.getTimestamp() == onlineTimestamp).collect(Collectors.toList());
+		}
+	}
+
+	/** Returns cached, unmodifiable list of latest block's online accounts. */
+	public List<OnlineAccountData> getLatestBlocksOnlineAccounts() {
+		synchronized (this.latestBlocksOnlineAccounts) {
+			return this.latestBlocksOnlineAccounts.peekFirst();
+		}
+	}
+
+	/** Caches list of latest block's online accounts. Typically called by Block.process() */
+	public void pushLatestBlocksOnlineAccounts(List<OnlineAccountData> latestBlocksOnlineAccounts) {
+		synchronized (this.latestBlocksOnlineAccounts) {
+			if (this.latestBlocksOnlineAccounts.size() == MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS)
+				this.latestBlocksOnlineAccounts.pollLast();
+
+			this.latestBlocksOnlineAccounts.addFirst(Collections.unmodifiableList(latestBlocksOnlineAccounts));
+		}
+	}
+
+	/** Reverts list of latest block's online accounts. Typically called by Block.orphan() */
+	public void popLatestBlocksOnlineAccounts() {
+		synchronized (this.latestBlocksOnlineAccounts) {
+			this.latestBlocksOnlineAccounts.pollFirst();
 		}
 	}
 

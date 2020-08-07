@@ -215,6 +215,9 @@ public class Block {
 	/** Always use getExpandedAccounts() to access this, as it's lazy-instantiated. */
 	private List<ExpandedAccount> cachedExpandedAccounts = null;
 
+	/** Opportunistic cache of this block's valid online accounts. Only created by call to isValid(). */
+	private List<OnlineAccountData> cachedValidOnlineAccounts = null;
+
 	// Other useful constants
 
 	private static final BigInteger MAX_DISTANCE;
@@ -940,23 +943,45 @@ public class Block {
 			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 
 		// Check signatures
-		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
 		long onlineTimestamp = this.blockData.getOnlineAccountsTimestamp();
 		byte[] onlineTimestampBytes = Longs.toByteArray(onlineTimestamp);
-		List<OnlineAccountData> onlineAccounts = Controller.getInstance().getOnlineAccounts();
+
+		// If this block is much older than current online timestamp, then there's no point checking current online accounts
+		List<OnlineAccountData> currentOnlineAccounts = onlineTimestamp < NTP.getTime() - Controller.ONLINE_TIMESTAMP_MODULUS
+				? null
+				: Controller.getInstance().getOnlineAccounts();
+		List<OnlineAccountData> latestBlocksOnlineAccounts = Controller.getInstance().getLatestBlocksOnlineAccounts();
+
+		// Extract online accounts' timestamp signatures from block data
+		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
+
+		// We'll build up a list of online accounts to hand over to Controller if block is added to chain
+		// and this will become latestBlocksOnlineAccounts (above) to reduce CPU load when we process next block...
+		List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
 
 		for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
 			byte[] signature = onlineAccountsSignatures.get(i);
 			byte[] publicKey = expandedAccounts.get(i).getRewardSharePublicKey();
 
-			// If signature is still current then no need to perform Ed25519 verify
 			OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, signature, publicKey);
-			if (onlineAccounts.remove(onlineAccountData)) // remove() is like contains() but also reduces the number to check next time
+			ourOnlineAccounts.add(onlineAccountData);
+
+			// If signature is still current then no need to perform Ed25519 verify
+			if (currentOnlineAccounts != null && currentOnlineAccounts.remove(onlineAccountData))
+				// remove() returned true, so online account still current
+				// and one less entry in currentOnlineAccounts to check next time
+				continue;
+
+			// If signature was okay in latest block then no need to perform Ed25519 verify
+			if (latestBlocksOnlineAccounts != null && latestBlocksOnlineAccounts.contains(onlineAccountData))
 				continue;
 
 			if (!Crypto.verify(publicKey, signature, onlineTimestampBytes))
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
 		}
+
+		// All online accounts valid, so save our list of online accounts for potential later use
+		this.cachedValidOnlineAccounts = ourOnlineAccounts;
 
 		return ValidationResult.OK;
 	}
@@ -1271,6 +1296,9 @@ public class Block {
 		linkTransactionsToBlock();
 
 		postBlockTidy();
+
+		// Give Controller our cached, valid online accounts data (if any) to help reduce CPU load for next block
+		Controller.getInstance().pushLatestBlocksOnlineAccounts(this.cachedValidOnlineAccounts);
 	}
 
 	protected void increaseAccountLevels() throws DataException {
@@ -1474,6 +1502,9 @@ public class Block {
 		this.blockData.setHeight(null);
 
 		postBlockTidy();
+
+		// Remove any cached, valid online accounts data from Controller
+		Controller.getInstance().popLatestBlocksOnlineAccounts();
 	}
 
 	protected void orphanTransactionsFromBlock() throws DataException {
