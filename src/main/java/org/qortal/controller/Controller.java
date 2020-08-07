@@ -1484,7 +1484,9 @@ public class Controller extends Thread {
 			if (this.latestBlocksOnlineAccounts.size() == MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS)
 				this.latestBlocksOnlineAccounts.pollLast();
 
-			this.latestBlocksOnlineAccounts.addFirst(Collections.unmodifiableList(latestBlocksOnlineAccounts));
+			this.latestBlocksOnlineAccounts.addFirst(latestBlocksOnlineAccounts == null
+					? Collections.emptyList()
+					: Collections.unmodifiableList(latestBlocksOnlineAccounts));
 		}
 	}
 
