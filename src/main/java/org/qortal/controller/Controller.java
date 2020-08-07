@@ -894,8 +894,16 @@ public class Controller extends Thread {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 			if (blockData == null) {
-				LOGGER.debug(() -> String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
-				// Send no response at all???
+				// We don't have this block
+
+				// Send valid, yet unexpected message type in response, so peer's synchronizer doesn't have to wait for timeout
+				LOGGER.debug(() -> String.format("Sending 'block unknown' response to peer %s for GET_BLOCK request for unknown block %s", peer, Base58.encode(signature)));
+
+				// We'll send empty block summaries message as it's very short
+				Message blockUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				blockUnknownMessage.setId(message.getId());
+				if (!peer.sendMessage(blockUnknownMessage))
+					peer.disconnect("failed to send block-unknown response");
 				return;
 			}
 
