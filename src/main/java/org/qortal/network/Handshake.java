@@ -162,7 +162,9 @@ public enum Handshake {
 			}
 
 			int nonce = responseMessage.getNonce();
-			if (!MemoryPoW.verify2(data, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce)) {
+			int powBufferSize = peer.getPeersVersion() < PEER_VERSION_131 ? POW_BUFFER_SIZE_PRE_131 : POW_BUFFER_SIZE_POST_131;
+			int powDifficulty = peer.getPeersVersion() < PEER_VERSION_131 ? POW_DIFFICULTY_PRE_131 : POW_DIFFICULTY_POST_131;
+			if (!MemoryPoW.verify2(data, powBufferSize, powDifficulty, nonce)) {
 				LOGGER.debug(() -> String.format("Peer %s sent incorrect RESPONSE nonce", peer));
 				return null;
 			}
@@ -194,7 +196,9 @@ public enum Handshake {
 					// No point computing for dead peer
 					return;
 
-				Integer nonce = MemoryPoW.compute2(data, POW_BUFFER_SIZE, POW_DIFFICULTY);
+				int powBufferSize = peer.getPeersVersion() < PEER_VERSION_131 ? POW_BUFFER_SIZE_PRE_131 : POW_BUFFER_SIZE_POST_131;
+				int powDifficulty = peer.getPeersVersion() < PEER_VERSION_131 ? POW_DIFFICULTY_PRE_131 : POW_DIFFICULTY_POST_131;
+				Integer nonce = MemoryPoW.compute2(data, powBufferSize, powDifficulty);
 
 				Message responseMessage = new ResponseMessage(nonce, data);
 				if (!peer.sendMessage(responseMessage))
@@ -242,8 +246,15 @@ public enum Handshake {
 
 	private static final Pattern VERSION_PATTERN = Pattern.compile(Controller.VERSION_PREFIX + "(\\d{1,3})\\.(\\d{1,5})\\.(\\d{1,5})");
 
-	private static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	private static final int POW_DIFFICULTY = 8; // leading zero bits
+	private static final long PEER_VERSION_131 = 0x0100030001L;
+
+	private static final int POW_BUFFER_SIZE_PRE_131 = 8 * 1024 * 1024; // bytes
+	private static final int POW_DIFFICULTY_PRE_131 = 8; // leading zero bits
+	// Can always be made harder in the future...
+	private static final int POW_BUFFER_SIZE_POST_131 = 2 * 1024 * 1024; // bytes
+	private static final int POW_DIFFICULTY_POST_131 = 2; // leading zero bits
+
+
 	private static final ExecutorService responseExecutor = Executors.newFixedThreadPool(Settings.getInstance().getNetworkPoWComputePoolSize(), new DaemonThreadFactory("Network-PoW"));
 
 	private static final byte[] ZERO_CHALLENGE = new byte[ChallengeMessage.CHALLENGE_LENGTH];
