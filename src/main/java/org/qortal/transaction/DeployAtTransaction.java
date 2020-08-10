@@ -33,7 +33,9 @@ public class DeployAtTransaction extends Transaction {
 	public static final int MAX_DESCRIPTION_SIZE = 2000;
 	public static final int MAX_AT_TYPE_SIZE = 200;
 	public static final int MAX_TAGS_SIZE = 200;
-	public static final int MAX_CREATION_BYTES_SIZE = 100_000;
+	public static final int MAX_CREATION_BYTES_SIZE = 4096;
+	public static final int MAX_CODE_BYTES_LENGTH = 1024;
+	public static final int MAX_AT_STATE_LENGTH = 1024;
 
 	// Constructors
 
@@ -157,7 +159,15 @@ public class DeployAtTransaction extends Transaction {
 		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
 
 		try {
-			new MachineState(api, loggerFactory, this.deployAtTransactionData.getCreationBytes());
+			MachineState state = new MachineState(api, loggerFactory, this.deployAtTransactionData.getCreationBytes());
+
+			byte[] codeBytes = state.getCodeBytes();
+			if (codeBytes == null || codeBytes.length > MAX_CODE_BYTES_LENGTH)
+				return ValidationResult.INVALID_CREATION_BYTES;
+
+			byte[] atStateBytes = state.toBytes();
+			if (atStateBytes == null || atStateBytes.length > MAX_AT_STATE_LENGTH)
+				return ValidationResult.INVALID_CREATION_BYTES;
 		} catch (IllegalArgumentException e) {
 			// Not valid
 			return ValidationResult.INVALID_CREATION_BYTES;
