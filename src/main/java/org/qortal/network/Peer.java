@@ -372,9 +372,11 @@ public class Peer {
 					if (message == null && bytesRead == 0 && !wasByteBufferFull) {
 						// No complete message in buffer, no more bytes to read from socket even though there was room to read bytes
 
+						/* DISABLED
 						// If byteBuffer is empty then we can deallocate it, to save memory, albeit costing GC
 						if (this.byteBuffer.remaining() == this.byteBuffer.capacity())
 							this.byteBuffer = null;
+						*/
 
 						return;
 					}
