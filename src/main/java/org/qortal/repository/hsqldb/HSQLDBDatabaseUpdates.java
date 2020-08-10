@@ -95,7 +95,6 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE COLLATION SQL_TEXT_NO_PAD FOR SQL_TEXT FROM SQL_TEXT NO PAD");
 
 					stmt.execute("SET FILES SPACE TRUE"); // Enable per-table block space within .data file, useful for CACHED table types
-					stmt.execute("SET FILES LOB SCALE 1"); // LOB granularity is 1KB
 					// Slow down log fsync() calls from every 500ms to reduce I/O load
 					stmt.execute("SET FILES WRITE DELAY 5"); // only fsync() every 5 seconds
 
@@ -103,15 +102,15 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("INSERT INTO DatabaseInfo VALUES ( 0 )");
 
 					stmt.execute("CREATE TYPE ArbitraryData AS VARBINARY(256)");
-					stmt.execute("CREATE TYPE AssetData AS CLOB(400K)");
+					stmt.execute("CREATE TYPE AssetData AS VARCHAR(400K)");
 					stmt.execute("CREATE TYPE AssetID AS BIGINT");
 					stmt.execute("CREATE TYPE AssetName AS VARCHAR(34) COLLATE SQL_TEXT_NO_PAD");
 					stmt.execute("CREATE TYPE AssetOrderID AS VARBINARY(64)");
-					stmt.execute("CREATE TYPE ATCode AS BLOB(64K)"); // 16bit * 1
-					stmt.execute("CREATE TYPE ATCreationBytes AS BLOB(576K)"); // 16bit * 1 + 16bit * 8
+					stmt.execute("CREATE TYPE ATCode AS VARBINARY(1024)"); // was: 16bit * 1
+					stmt.execute("CREATE TYPE ATCreationBytes AS VARBINARY(4096)"); // was: 16bit * 1 + 16bit * 8
 					stmt.execute("CREATE TYPE ATMessage AS VARBINARY(32)");
 					stmt.execute("CREATE TYPE ATName AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
-					stmt.execute("CREATE TYPE ATState AS BLOB(1M)"); // 16bit * 8 + 16bit * 4 + 16bit * 4
+					stmt.execute("CREATE TYPE ATState AS VARBINARY(1024)"); // was: 16bit * 8 + 16bit * 4 + 16bit * 4
 					stmt.execute("CREATE TYPE ATTags AS VARCHAR(80) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATType AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATStateHash as VARBINARY(32)");
@@ -142,7 +141,7 @@ public class HSQLDBDatabaseUpdates {
 							+ "transaction_count INTEGER NOT NULL, total_fees QortalAmount NOT NULL, transactions_signature Signature NOT NULL, "
 							+ "height INTEGER NOT NULL, minted_when EpochMillis NOT NULL, "
 							+ "minter QortalPublicKey NOT NULL, minter_signature Signature NOT NULL, AT_count INTEGER NOT NULL, AT_fees QortalAmount NOT NULL, "
-							+ "online_accounts BLOB(1M), online_accounts_count INTEGER NOT NULL, online_accounts_timestamp EpochMillis, online_accounts_signatures BLOB(1M), "
+							+ "online_accounts VARBINARY(1204), online_accounts_count INTEGER NOT NULL, online_accounts_timestamp EpochMillis, online_accounts_signatures VARBINARY(1M), "
 							+ "PRIMARY KEY (signature))");
 					// For finding blocks by height.
 					stmt.execute("CREATE INDEX BlockHeightIndex ON Blocks (height)");
@@ -632,6 +631,18 @@ public class HSQLDBDatabaseUpdates {
 				case 21:
 					// AT functionality index
 					stmt.execute("CREATE INDEX IF NOT EXISTS ATCodeHashIndex ON ATs (code_hash, is_finished)");
+					break;
+
+				case 22:
+					// LOB downsizing
+					stmt.execute("ALTER TABLE Blocks ALTER COLUMN online_accounts VARBINARY(1024)");
+					stmt.execute("ALTER TABLE Blocks ALTER COLUMN online_accounts_signatures VARBINARY(1048576)");
+
+					stmt.execute("ALTER TABLE DeployATTransactions ALTER COLUMN creation_bytes VARBINARY(4096)");
+
+					stmt.execute("ALTER TABLE ATs ALTER COLUMN code_bytes VARBINARY(1024)");
+
+					stmt.execute("ALTER TABLE ATStates ALTER COLUMN state_data VARBINARY(1024)");
 					break;
 
 				default:
