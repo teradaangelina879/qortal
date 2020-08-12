@@ -117,12 +117,8 @@ public class AT {
 	}
 
 	public void update(int blockHeight, long blockTimestamp) throws DataException {
-		// [Re]create AT machine state using AT state data or from scratch as applicable
-		QortalATAPI api = new QortalATAPI(repository, this.atData, blockTimestamp);
-		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-
-		byte[] codeBytes = this.atData.getCodeBytes();
-		MachineState state = MachineState.fromBytes(api, loggerFactory, this.atStateData.getStateData(), codeBytes);
+		// Extract minimal/flags-only AT machine state using AT state data
+		MachineState state = MachineState.flagsOnlyfromBytes(this.atStateData.getStateData());
 
 		// Save latest AT state data
 		this.repository.getATRepository().save(this.atStateData);
@@ -151,12 +147,8 @@ public class AT {
 		if (previousStateData == null)
 			throw new DataException("Can't find previous AT state data for " + atAddress);
 
-		// [Re]create AT machine state using AT state data or from scratch as applicable
-		QortalATAPI api = new QortalATAPI(repository, this.atData, blockTimestamp);
-		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-
-		byte[] codeBytes = this.atData.getCodeBytes();
-		MachineState state = MachineState.fromBytes(api, loggerFactory, previousStateData.getStateData(), codeBytes);
+		// Extract minimal/flags-only AT machine state using AT state data
+		MachineState state = MachineState.flagsOnlyfromBytes(previousStateData.getStateData());
 
 		// Update AT info in repository
 		this.atData.setIsSleeping(state.isSleeping());

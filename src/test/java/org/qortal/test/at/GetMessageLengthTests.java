@@ -13,7 +13,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.at.QortalAtLoggerFactory;
 import org.qortal.at.QortalFunctionCode;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.transaction.BaseTransactionData;
@@ -67,8 +66,7 @@ public class GetMessageLengthTests extends Common {
 			ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
 			byte[] stateData = atStateData.getStateData();
 
-			QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-			byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
+			byte[] dataBytes = MachineState.extractDataBytes(stateData);
 
 			long extractedLength = BitTwiddling.longFromBEBytes(dataBytes, 0);
 
@@ -88,8 +86,7 @@ public class GetMessageLengthTests extends Common {
 		ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
 		byte[] stateData = atStateData.getStateData();
 
-		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-		byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
+		byte[] dataBytes = MachineState.extractDataBytes(stateData);
 
 		long extractedLength = BitTwiddling.longFromBEBytes(dataBytes, 0);
 

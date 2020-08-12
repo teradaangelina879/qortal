@@ -12,7 +12,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.at.QortalAtLoggerFactory;
 import org.qortal.at.QortalFunctionCode;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.transaction.BaseTransactionData;
@@ -64,8 +63,7 @@ public class GetPartialMessageTests extends Common {
 				ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
 				byte[] stateData = atStateData.getStateData();
 
-				QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
-				byte[] dataBytes = MachineState.extractDataBytes(loggerFactory, stateData);
+				byte[] dataBytes = MachineState.extractDataBytes(stateData);
 
 				byte[] actualData = new byte[32];
 				System.arraycopy(dataBytes, MachineState.VALUE_SIZE, actualData, 0, 32);
