@@ -482,7 +482,7 @@ public class BlockChain {
 	}
 
 	/**
-	 * Some sort start-up/initialization/checking method.
+	 * Some sort of start-up/initialization/checking method.
 	 * 
 	 * @throws SQLException
 	 */
@@ -492,7 +492,9 @@ public class BlockChain {
 			rebuildBlockchain();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature();
+			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - 1440, 1);
+
+			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);
 
 			if (detachedBlockData != null) {
 				LOGGER.error(String.format("Block %d's reference does not match any block's signature", detachedBlockData.getHeight()));

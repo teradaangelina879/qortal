@@ -152,11 +152,12 @@ public interface BlockRepository {
 	public int trimOldOnlineAccountsSignatures(long timestamp) throws DataException;
 
 	/**
-	 * Returns first (lowest height) block that doesn't link back to genesis block.
+	 * Returns first (lowest height) block that doesn't link back to specified block.
 	 * 
+	 * @param startHeight height of specified block
 	 * @throws DataException
 	 */
-	public BlockData getDetachedBlockSignature() throws DataException;
+	public BlockData getDetachedBlockSignature(int startHeight) throws DataException;
 
 	/**
 	 * Saves block into repository.

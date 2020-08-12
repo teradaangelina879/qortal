@@ -471,14 +471,14 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public BlockData getDetachedBlockSignature() throws DataException {
+	public BlockData getDetachedBlockSignature(int startHeight) throws DataException {
 		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks "
 				+ "LEFT OUTER JOIN Blocks AS ParentBlocks "
 				+ "ON ParentBlocks.signature = Blocks.reference "
-				+ "WHERE ParentBlocks.signature IS NULL AND Blocks.height > 1 "
+				+ "WHERE ParentBlocks.signature IS NULL AND Blocks.height > ? "
 				+ "ORDER BY Blocks.height ASC LIMIT 1";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, startHeight)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error fetching block by signature from repository", e);
