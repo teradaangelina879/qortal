@@ -214,8 +214,9 @@ public class AutoUpdate extends Thread {
 			return false; // failed - try another repo
 		}
 
-		// Give repository a chance to backup in case things go badly wrong
-		RepositoryManager.backup(true);
+		// Give repository a chance to backup in case things go badly wrong (if enabled)
+		if (Settings.getInstance().getRepositoryBackupInterval() > 0)
+			RepositoryManager.backup(true);
 
 		// Call ApplyUpdate to end this process (unlocking current JAR so it can be replaced)
 		String javaHome = System.getProperty("java.home");
