@@ -636,13 +636,18 @@ public class HSQLDBDatabaseUpdates {
 				case 22:
 					// LOB downsizing
 					stmt.execute("ALTER TABLE Blocks ALTER COLUMN online_accounts VARBINARY(1024)");
+					stmt.execute("CHECKPOINT");
 					stmt.execute("ALTER TABLE Blocks ALTER COLUMN online_accounts_signatures VARBINARY(1048576)");
+					stmt.execute("CHECKPOINT");
 
 					stmt.execute("ALTER TABLE DeployATTransactions ALTER COLUMN creation_bytes VARBINARY(4096)");
+					stmt.execute("CHECKPOINT");
 
 					stmt.execute("ALTER TABLE ATs ALTER COLUMN code_bytes VARBINARY(1024)");
+					stmt.execute("CHECKPOINT");
 
 					stmt.execute("ALTER TABLE ATStates ALTER COLUMN state_data VARBINARY(1024)");
+					stmt.execute("CHECKPOINT");
 					break;
 
 				default:
