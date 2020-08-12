@@ -268,7 +268,8 @@ public class HSQLDBATRepository implements ATRepository {
 				+ "FROM ATStates "
 				+ "WHERE AT_address = ? "
 				+ "ORDER BY height DESC "
-				+ "LIMIT 1";
+				+ "LIMIT 1 "
+				+ "USING INDEX";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, atAddress)) {
 			if (resultSet == null)
@@ -299,7 +300,8 @@ public class HSQLDBATRepository implements ATRepository {
 					+ "FROM ATStates "
 					+ "WHERE ATStates.AT_address = ATs.AT_address "
 					+ "ORDER BY height DESC "
-					+ "LIMIT 1"
+					+ "LIMIT 1 "
+					+ "USING INDEX"
 				+ ") AS FinalATStates "
 				+ "WHERE code_hash = ? ");
 
