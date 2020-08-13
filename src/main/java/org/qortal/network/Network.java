@@ -50,7 +50,6 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
-import org.qortal.transform.Transformer;
 import org.qortal.utils.ExecuteProduceConsume;
 // import org.qortal.utils.ExecutorDumper;
 import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
@@ -91,15 +90,16 @@ public class Network {
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
 	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
 
-	private final Ed25519PrivateKeyParameters edPrivateKeyParams;
-	private final Ed25519PublicKeyParameters edPublicKeyParams;
-	private final String ourNodeId;
+	// Generate our node keys / ID
+	private final Ed25519PrivateKeyParameters edPrivateKeyParams = new Ed25519PrivateKeyParameters(new SecureRandom());
+	private final Ed25519PublicKeyParameters edPublicKeyParams = edPrivateKeyParams.generatePublicKey();
+	private final String ourNodeId = Crypto.toNodeAddress(edPublicKeyParams.getEncoded());
 
 	private final int maxMessageSize;
 
-	private List<PeerData> allKnownPeers;
-	private List<Peer> connectedPeers;
-	private List<PeerAddress> selfPeers;
+	private final List<PeerData> allKnownPeers = new ArrayList<>();
+	private final List<Peer> connectedPeers = new ArrayList<>();
+	private final List<PeerAddress> selfPeers = new ArrayList<>();
 
 	private ExecuteProduceConsume networkEPC;
 	private Selector channelSelector;
@@ -108,38 +108,20 @@ public class Network {
 
 	private int minOutboundPeers;
 	private int maxPeers;
-	private long nextConnectTaskTimestamp;
+	private long nextConnectTaskTimestamp = 0L; // ms - try first connect once NTP syncs
 
-	private ExecutorService broadcastExecutor;
-	private long nextBroadcastTimestamp;
+	private ExecutorService broadcastExecutor = Executors.newCachedThreadPool();
+	private long nextBroadcastTimestamp = 0L; // ms - try first broadcast once NTP syncs
 
-	private Lock mergePeersLock;
+	private final Lock mergePeersLock = new ReentrantLock();
 
 	// Constructors
 
 	private Network() {
-		connectedPeers = new ArrayList<>();
-		selfPeers = new ArrayList<>();
-
-		// Generate our ID
-		byte[] seed = new byte[Transformer.PRIVATE_KEY_LENGTH];
-		new SecureRandom().nextBytes(seed);
-
-		edPrivateKeyParams = new Ed25519PrivateKeyParameters(seed, 0);
-		edPublicKeyParams = edPrivateKeyParams.generatePublicKey();
-		ourNodeId = Crypto.toNodeAddress(edPublicKeyParams.getEncoded());
-
 		maxMessageSize = 4 + 1 + 4 + BlockChain.getInstance().getMaxBlockSize();
 
 		minOutboundPeers = Settings.getInstance().getMinOutboundPeers();
 		maxPeers = Settings.getInstance().getMaxPeers();
-
-		nextConnectTaskTimestamp = 0; // First connect once NTP syncs
-
-		broadcastExecutor = Executors.newCachedThreadPool();
-		nextBroadcastTimestamp = 0; // First broadcast once NTP syncs
-
-		mergePeersLock = new ReentrantLock();
 
 		// We'll use a cached thread pool but with more aggressive timeout.
 		ExecutorService networkExecutor = new ThreadPoolExecutor(1,
@@ -177,7 +159,9 @@ public class Network {
 
 		// Load all known peers from repository
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			allKnownPeers = repository.getNetworkRepository().getAllPeers();
+			synchronized (this.allKnownPeers) {
+				this.allKnownPeers.addAll(repository.getNetworkRepository().getAllPeers());
+			}
 		}
 
 		// Start up first networking thread
