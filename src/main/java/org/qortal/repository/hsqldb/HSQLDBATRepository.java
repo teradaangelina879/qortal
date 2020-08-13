@@ -301,7 +301,6 @@ public class HSQLDBATRepository implements ATRepository {
 					+ "WHERE ATStates.AT_address = ATs.AT_address "
 					+ "ORDER BY height DESC "
 					+ "LIMIT 1 "
-					+ "USING INDEX"
 				+ ") AS FinalATStates "
 				+ "WHERE code_hash = ? ");
 
@@ -309,7 +308,7 @@ public class HSQLDBATRepository implements ATRepository {
 		bindParams.add(codeHash);
 
 		if (isFinished != null) {
-			sql.append("AND is_finished = ?");
+			sql.append("AND is_finished = ? ");
 			bindParams.add(isFinished);
 		}
 

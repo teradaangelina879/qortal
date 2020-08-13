@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
@@ -1223,6 +1224,10 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	public List<CrossChainTradeSummary> getCompletedTrades(
+			@Parameter(
+				description = "Only return trades that completed on/after this timestamp (milliseconds since epoch)",
+				example = "1597310000000"
+			) @QueryParam("minimumTimestamp") Long minimumTimestamp,
 			@Parameter( ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter( ref = "offset" ) @QueryParam("offset") Integer offset,
 			@Parameter( ref = "reverse" ) @QueryParam("reverse") Boolean reverse) {
@@ -1230,10 +1235,27 @@ public class CrossChainResource {
 		if (limit != null && limit > 100)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
+		// minimumTimestamp (if given) needs to be positive
+		if (minimumTimestamp != null && minimumTimestamp <= 0)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
 		final Boolean isFinished = Boolean.TRUE;
-		final Integer minimumFinalHeight = null;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			Integer minimumFinalHeight = null;
+
+			if (minimumTimestamp != null) {
+				minimumFinalHeight = repository.getBlockRepository().getHeightFromTimestamp(minimumTimestamp);
+
+				if (minimumFinalHeight == 0)
+					// We don't have any blocks since minimumTimestamp, let alone trades, so nothing to return
+					return Collections.emptyList();
+
+				// height returned from repository is for block BEFORE timestamp
+				// but we want trades AFTER timestamp so bump height accordingly
+				minimumFinalHeight++;
+			}
+
 			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
 					isFinished,
 					BTCACCT.MODE_BYTE_OFFSET, (long) BTCACCT.Mode.REDEEMED.value,
