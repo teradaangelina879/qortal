@@ -10,6 +10,8 @@ import org.qortal.data.at.ATStateData;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.DataException;
 
+import com.google.common.primitives.Longs;
+
 public class HSQLDBATRepository implements ATRepository {
 
 	protected HSQLDBRepository repository;
@@ -298,8 +300,14 @@ public class HSQLDBATRepository implements ATRepository {
 				+ "CROSS JOIN LATERAL("
 					+ "SELECT height, created_when, state_data, state_hash, fees, is_initial "
 					+ "FROM ATStates "
-					+ "WHERE ATStates.AT_address = ATs.AT_address "
-					+ "ORDER BY height DESC "
+					+ "WHERE ATStates.AT_address = ATs.AT_address ");
+
+		if (minimumFinalHeight != null) {
+			sql.append("AND height >= ");
+			sql.append(minimumFinalHeight);
+		}
+
+		sql.append(	"ORDER BY height DESC "
 					+ "LIMIT 1 "
 				+ ") AS FinalATStates "
 				+ "WHERE code_hash = ? ");
@@ -313,19 +321,14 @@ public class HSQLDBATRepository implements ATRepository {
 		}
 
 		if (dataByteOffset != null && expectedValue != null) {
-			sql.append("AND RAWTOHEX(SUBSTRING(state_data FROM ? FOR 8)) = ? ");
+			sql.append("AND SUBSTRING(state_data FROM ? FOR 8) = ? ");
 
-			// We convert our long to hex Java-side to control endian
-			String expectedHexValue = String.format("%016x", expectedValue); // left-zero-padding and conversion
+			// We convert our long on Java-side to control endian
+			byte[] rawExpectedValue = Longs.toByteArray(expectedValue);
 
 			// SQL binary data offsets start at 1
 			bindParams.add(dataByteOffset + 1);
-			bindParams.add(expectedHexValue);
-		}
-
-		if (minimumFinalHeight != null) {
-			sql.append("AND height >= ");
-			sql.append(minimumFinalHeight);
+			bindParams.add(rawExpectedValue);
 		}
 
 		sql.append(" ORDER BY height ");

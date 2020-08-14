@@ -76,7 +76,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		List<CrossChainOfferSummary> crossChainOfferSummaries;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Find any new trade ATs since this block
+			// Find any new/changed trade ATs since this block
 			final Boolean isFinished = null;
 			final Integer dataByteOffset = null;
 			final Long expectedValue = null;
