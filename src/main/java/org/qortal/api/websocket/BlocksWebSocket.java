@@ -14,7 +14,11 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.ApiError;
 import org.qortal.api.model.BlockInfo;
-import org.qortal.controller.BlockNotifier;
+import org.qortal.controller.Controller;
+import org.qortal.data.block.BlockData;
+import org.qortal.event.Event;
+import org.qortal.event.EventBus;
+import org.qortal.event.Listener;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -22,26 +26,42 @@ import org.qortal.utils.Base58;
 
 @WebSocket
 @SuppressWarnings("serial")
-public class BlocksWebSocket extends ApiWebSocket {
+public class BlocksWebSocket extends ApiWebSocket implements Listener {
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
 		factory.register(BlocksWebSocket.class);
+
+		EventBus.INSTANCE.addListener(this::listen);
+	}
+
+	@Override
+	public void listen(Event event) {
+		if (!(event instanceof Controller.NewBlockEvent))
+			return;
+
+		BlockData blockData = ((Controller.NewBlockEvent) event).getBlockData();
+		BlockInfo blockInfo = new BlockInfo(blockData);
+
+		for (Session session : getSessions())
+			sendBlockInfo(session, blockInfo);
 	}
 
 	@OnWebSocketConnect
+	@Override
 	public void onWebSocketConnect(Session session) {
-		BlockNotifier.Listener listener = blockInfo -> onNotify(session, blockInfo);
-		BlockNotifier.getInstance().register(session, listener);
+		super.onWebSocketConnect(session);
 	}
 
 	@OnWebSocketClose
+	@Override
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
-		BlockNotifier.getInstance().deregister(session);
+		super.onWebSocketClose(session, statusCode, reason);
 	}
 
 	@OnWebSocketError
 	public void onWebSocketError(Session session, Throwable throwable) {
+		/* We ignore errors for now, but method here to silence log spam */
 	}
 
 	@OnWebSocketMessage
@@ -71,7 +91,7 @@ public class BlocksWebSocket extends ApiWebSocket {
 					return;
 				}
 
-				onNotify(session, blockInfos.get(0));
+				sendBlockInfo(session, blockInfos.get(0));
 			} catch (DataException e) {
 				sendError(session, ApiError.REPOSITORY_ISSUE);
 			}
@@ -100,13 +120,13 @@ public class BlocksWebSocket extends ApiWebSocket {
 				return;
 			}
 
-			onNotify(session, blockInfos.get(0));
+			sendBlockInfo(session, blockInfos.get(0));
 		} catch (DataException e) {
 			sendError(session, ApiError.REPOSITORY_ISSUE);
 		}
 	}
 
-	private void onNotify(Session session, BlockInfo blockInfo) {
+	private void sendBlockInfo(Session session, BlockInfo blockInfo) {
 		StringWriter stringWriter = new StringWriter();
 
 		try {

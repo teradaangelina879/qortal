@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.eclipse.jetty.websocket.api.Session;
@@ -14,12 +15,15 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
-import org.qortal.api.model.BlockInfo;
 import org.qortal.api.model.CrossChainOfferSummary;
-import org.qortal.controller.BlockNotifier;
+import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.data.at.ATStateData;
+import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.CrossChainTradeData;
+import org.qortal.event.Event;
+import org.qortal.event.EventBus;
+import org.qortal.event.Listener;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -27,120 +31,56 @@ import org.qortal.utils.NTP;
 
 @WebSocket
 @SuppressWarnings("serial")
-public class TradeOffersWebSocket extends ApiWebSocket {
+public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
+
+	private static final Map<String, BTCACCT.Mode> previousAtModes = new HashMap<>();
+
+	// OFFERING
+	private static final List<CrossChainOfferSummary> currentSummaries = new ArrayList<>();
+	// REDEEMED/REFUNDED/CANCELLED
+	private static final List<CrossChainOfferSummary> historicSummaries = new ArrayList<>();
+
+	private static final Predicate<CrossChainOfferSummary> isCurrent = offerSummary
+			-> offerSummary.getMode() == BTCACCT.Mode.OFFERING;
+
+	private static final Predicate<CrossChainOfferSummary> isHistoric = offerSummary
+			-> offerSummary.getMode() == BTCACCT.Mode.REDEEMED
+			|| offerSummary.getMode() == BTCACCT.Mode.REFUNDED
+			|| offerSummary.getMode() == BTCACCT.Mode.CANCELLED;
+
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
 		factory.register(TradeOffersWebSocket.class);
-	}
-
-	@OnWebSocketConnect
-	public void onWebSocketConnect(Session session) {
-		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
-
-		final boolean includeHistoric = queryParams.get("includeHistoric") != null;
-		final Map<String, BTCACCT.Mode> previousAtModes = new HashMap<>();
-		List<CrossChainOfferSummary> crossChainOfferSummaries;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<ATStateData> initialAtStates;
+			populateCurrentSummaries(repository);
 
-			// We want ALL OFFERING trades
-			Boolean isFinished = Boolean.FALSE;
-			Integer dataByteOffset = BTCACCT.MODE_BYTE_OFFSET;
-			Long expectedValue = (long) BTCACCT.Mode.OFFERING.value;
-			Integer minimumFinalHeight = null;
-
-			initialAtStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
-					isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
-					null, null, null);
-
-			if (initialAtStates == null) {
-				session.close(4001, "repository issue fetching OFFERING trades");
-				return;
-			}
-
-			// Save initial AT modes
-			previousAtModes.putAll(initialAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> BTCACCT.Mode.OFFERING)));
-
-			// Convert to offer summaries
-			crossChainOfferSummaries = produceSummaries(repository, initialAtStates, null);
-
-			if (includeHistoric) {
-				// We also want REDEEMED/REFUNDED/CANCELLED trades over the last 24 hours
-				long timestamp = NTP.getTime() - 24 * 60 * 60 * 1000L;
-				minimumFinalHeight = repository.getBlockRepository().getHeightFromTimestamp(timestamp);
-
-				if (minimumFinalHeight != 0) {
-					isFinished = Boolean.TRUE;
-					dataByteOffset = null;
-					expectedValue = null;
-					++minimumFinalHeight; // because height is just *before* timestamp
-
-					List<ATStateData> historicAtStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
-							isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
-							null, null, null);
-
-					if (historicAtStates == null) {
-						session.close(4002, "repository issue fetching historic trades");
-						return;
-					}
-
-					for (ATStateData historicAtState : historicAtStates) {
-						CrossChainOfferSummary historicOfferSummary = produceSummary(repository, historicAtState, null);
-
-						switch (historicOfferSummary.getMode()) {
-							case REDEEMED:
-							case REFUNDED:
-							case CANCELLED:
-								break;
-
-							default:
-								continue;
-						}
-
-						// Add summary to initial burst
-						crossChainOfferSummaries.add(historicOfferSummary);
-
-						// Save initial AT mode
-						previousAtModes.put(historicAtState.getATAddress(), historicOfferSummary.getMode());
-					}
-				}
-			}
-
+			populateHistoricSummaries(repository);
 		} catch (DataException e) {
-			session.close(4003, "generic repository issue");
+			// How to fail properly?
 			return;
 		}
 
-		if (!sendOfferSummaries(session, crossChainOfferSummaries)) {
-			session.close(4004, "websocket issue");
+		EventBus.INSTANCE.addListener(this::listen);
+	}
+
+	@Override
+	public void listen(Event event) {
+		if (!(event instanceof Controller.NewBlockEvent))
 			return;
-		}
 
-		BlockNotifier.Listener listener = blockInfo -> onNotify(session, blockInfo, previousAtModes);
-		BlockNotifier.getInstance().register(session, listener);
-	}
+		BlockData blockData = ((Controller.NewBlockEvent) event).getBlockData();
 
-	@OnWebSocketClose
-	public void onWebSocketClose(Session session, int statusCode, String reason) {
-		BlockNotifier.getInstance().deregister(session);
-	}
-
-	@OnWebSocketMessage
-	public void onWebSocketMessage(Session session, String message) {
-		/* ignored */
-	}
-
-	private void onNotify(Session session, BlockInfo blockInfo, final Map<String, BTCACCT.Mode> previousAtModes) {
-		List<CrossChainOfferSummary> crossChainOfferSummaries = null;
+		// Process any new info
+		List<CrossChainOfferSummary> crossChainOfferSummaries;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Find any new trade ATs since this block
 			final Boolean isFinished = null;
 			final Integer dataByteOffset = null;
 			final Long expectedValue = null;
-			final Integer minimumFinalHeight = blockInfo.getHeight();
+			final Integer minimumFinalHeight = blockData.getHeight();
 
 			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
 					isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
@@ -149,12 +89,13 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 			if (atStates == null)
 				return;
 
-			crossChainOfferSummaries = produceSummaries(repository, atStates, blockInfo.getTimestamp());
+			crossChainOfferSummaries = produceSummaries(repository, atStates, blockData.getTimestamp());
 		} catch (DataException e) {
 			// No output this time
+			return;
 		}
 
-		synchronized (previousAtModes) { //NOSONAR squid:S2445 suppressed because previousAtModes is final and curried in lambda
+		synchronized (previousAtModes) {
 			// Remove any entries unchanged from last time
 			crossChainOfferSummaries.removeIf(offerSummary -> previousAtModes.get(offerSummary.getQortalAtAddress()) == offerSummary.getMode());
 
@@ -162,13 +103,63 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 			if (crossChainOfferSummaries.isEmpty())
 				return;
 
-			final boolean wasSent = sendOfferSummaries(session, crossChainOfferSummaries);
-
-			if (!wasSent)
-				return;
-
+			// Update
 			previousAtModes.putAll(crossChainOfferSummaries.stream().collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, CrossChainOfferSummary::getMode)));
+
+			synchronized (currentSummaries) {
+				// Add any OFFERING to 'current'
+				currentSummaries.addAll(crossChainOfferSummaries.stream().filter(isCurrent).collect(Collectors.toList()));
+			}
+
+			final long tooOldTimestamp = NTP.getTime() - 24 * 60 * 60 * 1000L;
+			synchronized (historicSummaries) {
+				// Add any REDEEMED/REFUNDED/CANCELLED
+				historicSummaries.addAll(crossChainOfferSummaries.stream().filter(isHistoric).collect(Collectors.toList()));
+
+				// But also remove any that are over 24 hours old
+				historicSummaries.removeIf(offerSummary -> offerSummary.getTimestamp() < tooOldTimestamp);
+			}
 		}
+
+		// Notify sessions
+		for (Session session : getSessions())
+			sendOfferSummaries(session, crossChainOfferSummaries);
+	}
+
+	@OnWebSocketConnect
+	@Override
+	public void onWebSocketConnect(Session session) {
+		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		final boolean includeHistoric = queryParams.get("includeHistoric") != null;
+
+		List<CrossChainOfferSummary> crossChainOfferSummaries;
+
+		synchronized (currentSummaries) {
+			crossChainOfferSummaries = new ArrayList<>(currentSummaries);
+		}
+
+		if (includeHistoric)
+			synchronized (historicSummaries) {
+				crossChainOfferSummaries.addAll(historicSummaries);
+			}
+
+		if (!sendOfferSummaries(session, crossChainOfferSummaries)) {
+			session.close(4002, "websocket issue");
+			return;
+		}
+
+		super.onWebSocketConnect(session);
+	}
+
+	@OnWebSocketClose
+	@Override
+	public void onWebSocketClose(Session session, int statusCode, String reason) {
+		super.onWebSocketClose(session, statusCode, reason);
+	}
+
+	@OnWebSocketMessage
+	public void onWebSocketMessage(Session session, String message) {
+		/* ignored */
 	}
 
 	private boolean sendOfferSummaries(Session session, List<CrossChainOfferSummary> crossChainOfferSummaries) {
@@ -184,6 +175,68 @@ public class TradeOffersWebSocket extends ApiWebSocket {
 		}
 
 		return true;
+	}
+
+	private static void populateCurrentSummaries(Repository repository) throws DataException {
+		// We want ALL OFFERING trades
+		Boolean isFinished = Boolean.FALSE;
+		Integer dataByteOffset = BTCACCT.MODE_BYTE_OFFSET;
+		Long expectedValue = (long) BTCACCT.Mode.OFFERING.value;
+		Integer minimumFinalHeight = null;
+
+		List<ATStateData> initialAtStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
+				isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
+				null, null, null);
+
+		if (initialAtStates == null)
+			throw new DataException("Couldn't fetch current trades from repository");
+
+		// Save initial AT modes
+		previousAtModes.putAll(initialAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> BTCACCT.Mode.OFFERING)));
+
+		// Convert to offer summaries
+		currentSummaries.addAll(produceSummaries(repository, initialAtStates, null));
+	}
+
+	private static void populateHistoricSummaries(Repository repository) throws DataException {
+		// We want REDEEMED/REFUNDED/CANCELLED trades over the last 24 hours
+		long timestamp = System.currentTimeMillis() - 24 * 60 * 60 * 1000L;
+		int minimumFinalHeight = repository.getBlockRepository().getHeightFromTimestamp(timestamp);
+
+		if (minimumFinalHeight == 0)
+			throw new DataException("Couldn't fetch block timestamp from repository");
+
+		Boolean isFinished = Boolean.TRUE;
+		Integer dataByteOffset = null;
+		Long expectedValue = null;
+		++minimumFinalHeight; // because height is just *before* timestamp
+
+		List<ATStateData> historicAtStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
+				isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
+				null, null, null);
+
+		if (historicAtStates == null)
+			throw new DataException("Couldn't fetch historic trades from repository");
+
+		for (ATStateData historicAtState : historicAtStates) {
+			CrossChainOfferSummary historicOfferSummary = produceSummary(repository, historicAtState, null);
+
+			switch (historicOfferSummary.getMode()) {
+				case REDEEMED:
+				case REFUNDED:
+				case CANCELLED:
+					break;
+
+				default:
+					continue;
+			}
+
+			// Add summary to initial burst
+			historicSummaries.add(historicOfferSummary);
+
+			// Save initial AT mode
+			previousAtModes.put(historicAtState.getATAddress(), historicOfferSummary.getMode());
+		}
 	}
 
 	private static CrossChainOfferSummary produceSummary(Repository repository, ATStateData atState, Long timestamp) throws DataException {

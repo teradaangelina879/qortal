@@ -50,6 +50,8 @@ import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
+import org.qortal.event.Event;
+import org.qortal.event.EventBus;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.globalization.Translator;
 import org.qortal.gui.Gui;
@@ -629,6 +631,11 @@ public class Controller extends Thread {
 		}
 	}
 
+	public static class StatusChangeEvent implements Event {
+		public StatusChangeEvent() {
+		}
+	}
+
 	private void updateSysTray() {
 		if (NTP.getTime() == null) {
 			SysTray.getInstance().setToolTipText(Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_CLOCK"));
@@ -656,7 +663,7 @@ public class Controller extends Thread {
 		SysTray.getInstance().setToolTipText(tooltip);
 
 		this.callbackExecutor.execute(() -> {
-			StatusNotifier.getInstance().onStatusChange(NTP.getTime());
+			EventBus.INSTANCE.notify(new StatusChangeEvent());
 		});
 	}
 
@@ -783,6 +790,18 @@ public class Controller extends Thread {
 		requestSysTrayUpdate = true;
 	}
 
+	public static class NewBlockEvent implements Event {
+		private final BlockData blockData;
+
+		public NewBlockEvent(BlockData blockData) {
+			this.blockData = blockData;
+		}
+
+		public BlockData getBlockData() {
+			return this.blockData;
+		}
+	}
+
 	public void onNewBlock(BlockData latestBlockData) {
 		this.setChainTip(latestBlockData);
 		requestSysTrayUpdate = true;
@@ -792,7 +811,8 @@ public class Controller extends Thread {
 			Network network = Network.getInstance();
 			network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
 
-			BlockNotifier.getInstance().onNewBlock(latestBlockData);
+			// Notify listeners of new block
+			EventBus.INSTANCE.notify(new NewBlockEvent(latestBlockData));
 
 			if (this.notifyGroupMembershipChange) {
 				this.notifyGroupMembershipChange = false;
