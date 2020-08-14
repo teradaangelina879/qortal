@@ -95,6 +95,28 @@ public class RepositoryTests extends Common {
 		}
 	}
 
+	@Test
+	public void testUpdateReadDeadlock() throws DataException {
+		// Open connection 1
+		try (final Repository repository1 = RepositoryManager.getRepository()) {
+			// Mint blocks so we have data (online account signatures) to work with
+			for (int i = 0; i < 10; ++i)
+				BlockUtils.mintBlock(repository1);
+
+			// Perform database 'update', but don't commit at this stage
+			repository1.getBlockRepository().trimOldOnlineAccountsSignatures(System.currentTimeMillis());
+
+			// Open connection 2
+			try (final Repository repository2 = RepositoryManager.getRepository()) {
+				// Perform database read on same blocks - this should not deadlock
+				repository2.getBlockRepository().getTimestampFromHeight(5);
+			}
+
+			// Save updates - this should not deadlock
+			repository1.saveChanges();
+		}
+	}
+
 	/** Check that the <i>sub-query</i> used to fetch highest block height is optimized by HSQLDB. */
 	@Test
 	public void testBlockHeightSpeed() throws DataException, SQLException {
