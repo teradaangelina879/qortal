@@ -269,9 +269,10 @@ public class HSQLDBATRepository implements ATRepository {
 		String sql = "SELECT height, created_when, state_data, state_hash, fees, is_initial "
 				+ "FROM ATStates "
 				+ "WHERE AT_address = ? "
-				+ "ORDER BY height DESC "
-				+ "LIMIT 1 "
-				+ "USING INDEX";
+				// AT_address then height so the compound primary key is used as an index
+				// Both must be the same direction also
+				+ "ORDER BY AT_address DESC, height DESC "
+				+ "LIMIT 1 ";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, atAddress)) {
 			if (resultSet == null)
@@ -307,7 +308,9 @@ public class HSQLDBATRepository implements ATRepository {
 			sql.append(minimumFinalHeight);
 		}
 
-		sql.append(	"ORDER BY height DESC "
+		// AT_address then height so the compound primary key is used as an index
+		// Both must be the same direction also
+		sql.append(	"ORDER BY AT_address DESC, height DESC "
 					+ "LIMIT 1 "
 				+ ") AS FinalATStates "
 				+ "WHERE code_hash = ? ");

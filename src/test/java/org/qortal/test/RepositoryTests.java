@@ -13,6 +13,7 @@ import org.qortal.test.common.Common;
 
 import static org.junit.Assert.*;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -177,6 +178,44 @@ public class RepositoryTests extends Common {
 				fail("Interrupt was swallowed");
 		} catch (DataException | SQLException e) {
 			fail("DataException during blocked statement");
+		}
+	}
+
+	/** Test HSQLDB bug-fix for INSERT INTO...ON DUPLICATE KEY UPDATE... bug */
+	@Test
+	public void testOnDuplicateKeyUpdateBugFix() throws SQLException, DataException {
+		ResultSet resultSet;
+
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+			hsqldb.prepareStatement("DROP TABLE IF EXISTS bugtest").execute();
+			hsqldb.prepareStatement("CREATE TABLE bugtest (id INT NOT NULL, counter INT NOT NULL, PRIMARY KEY(id))").execute();
+
+			hsqldb.prepareStatement("INSERT INTO bugtest (id, counter) VALUES (1, 1) ON DUPLICATE KEY UPDATE counter = counter + 1").execute();
+			resultSet = hsqldb.checkedExecute("SELECT counter FROM bugtest WHERE id = 1");
+			assertNotNull(resultSet);
+			assertEquals(1, resultSet.getInt(1));
+
+			hsqldb.prepareStatement("INSERT INTO bugtest (id, counter) VALUES (1, 100) ON DUPLICATE KEY UPDATE counter = counter + 1").execute();
+			resultSet = hsqldb.checkedExecute("SELECT counter FROM bugtest WHERE id = 1");
+			assertNotNull(resultSet);
+			assertEquals(2, resultSet.getInt(1));
+		}
+	}
+
+	/** Test HSQLDB bug-fix for "General Error" in non-fully-qualified columns inside LATERAL() */
+	@Test
+	public void testOnLateralGeneralError() throws SQLException, DataException {
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+			hsqldb.prepareStatement("DROP TABLE IF EXISTS tableA").execute();
+			hsqldb.prepareStatement("DROP TABLE IF EXISTS tableB").execute();
+			hsqldb.prepareStatement("DROP TABLE IF EXISTS tableC").execute();
+
+			hsqldb.prepareStatement("CREATE TABLE tableA (col1 INT)").execute();
+			hsqldb.prepareStatement("CREATE TABLE tableB (col1 INT)").execute();
+			hsqldb.prepareStatement("CREATE TABLE tableC (col2 INT, PRIMARY KEY (col2))").execute();
+
+			// Prior to bug-fix this would throw a General Error SQL Exception
+			hsqldb.prepareStatement("SELECT col3 FROM tableA JOIN tableB USING (col1) CROSS JOIN LATERAL(SELECT col2 FROM tableC WHERE col2 = col1) AS tableC (col3)").execute();
 		}
 	}
 
