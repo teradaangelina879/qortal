@@ -195,7 +195,7 @@ public class BlockMinter extends Thread {
 				// Make sure we're the only thread modifying the blockchain
 				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 				if (!blockchainLock.tryLock(30, TimeUnit.SECONDS)) {
-					LOGGER.warn("Couldn't acquire blockchain lock even after waiting 30 seconds");
+					LOGGER.debug("Couldn't acquire blockchain lock even after waiting 30 seconds");
 					continue;
 				}
 
