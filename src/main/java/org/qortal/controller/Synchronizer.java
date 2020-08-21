@@ -4,6 +4,7 @@ import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -11,11 +12,13 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
+import org.qortal.account.PublicKeyAccount;
 import org.qortal.block.Block;
 import org.qortal.block.Block.ValidationResult;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.network.PeerChainTipData;
+import org.qortal.data.transaction.RewardShareTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Peer;
 import org.qortal.network.message.BlockMessage;
@@ -550,16 +553,34 @@ public class Synchronizer {
 	}
 
 	private void populateBlockSummariesMinterLevels(Repository repository, List<BlockSummaryData> blockSummaries) throws DataException {
+		final int firstBlockHeight = blockSummaries.get(0).getHeight();
+
 		for (int i = 0; i < blockSummaries.size(); ++i) {
 			BlockSummaryData blockSummary = blockSummaries.get(i);
 
 			// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
 			int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, blockSummary.getMinterPublicKey());
 			if (minterLevel == 0) {
-				// We don't want to throw, or use zero, as this will kill Controller thread and make client unstable.
-				// So we log this but use 1 instead
-				LOGGER.warn(String.format("Unexpected zero effective minter level for reward-share %s - using 1 instead!", Base58.encode(blockSummary.getMinterPublicKey())));
-				minterLevel = 1;
+				// It looks like this block's minter's reward-share has been cancelled.
+				// So search for REWARD_SHARE transactions since common block to find missing minter info
+				List<byte[]> transactionSignatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(Transaction.TransactionType.REWARD_SHARE, null, firstBlockHeight, null);
+
+				for (byte[] transactionSignature : transactionSignatures) {
+					RewardShareTransactionData transactionData = (RewardShareTransactionData) repository.getTransactionRepository().fromSignature(transactionSignature);
+
+					if (transactionData != null && Arrays.equals(transactionData.getRewardSharePublicKey(), blockSummary.getMinterPublicKey())) {
+						Account rewardShareMinter = new PublicKeyAccount(repository, transactionData.getMinterPublicKey());
+						minterLevel = rewardShareMinter.getEffectiveMintingLevel();
+						break;
+					}
+				}
+
+				if (minterLevel == 0) {
+					// We don't want to throw, or use zero, as this will kill Controller thread and make client unstable.
+					// So we log this but use 1 instead
+					LOGGER.debug(() -> String.format("Unexpected zero effective minter level for reward-share %s - using 1 instead!", Base58.encode(blockSummary.getMinterPublicKey())));
+					minterLevel = 1;
+				}
 			}
 
 			blockSummary.setMinterLevel(minterLevel);

@@ -115,7 +115,7 @@ public class BlockMinter extends Thread {
 
 					RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
 					if (rewardShareData == null) {
-						// Reward-share doesn't even exist - probably not a good sign
+						// Reward-share doesn't exist - probably cancelled but not yet removed from node's list of minting accounts
 						madi.remove();
 						continue;
 					}
