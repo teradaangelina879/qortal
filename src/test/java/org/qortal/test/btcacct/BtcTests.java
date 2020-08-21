@@ -104,4 +104,17 @@ public class BtcTests extends Common {
 		assertEquals(balance, repeatBalance);
 	}
 
+	@Test
+	public void testGetUnusedReceiveAddress() {
+		BTC btc = BTC.getInstance();
+
+		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+
+		String address = btc.getUnusedReceiveAddress(xprv58);
+
+		assertNotNull(address);
+
+		System.out.println(address);
+	}
+
 }

@@ -20,6 +20,7 @@ import org.bitcoinj.core.TransactionOutput;
 import org.bitcoinj.core.UTXO;
 import org.bitcoinj.core.UTXOProvider;
 import org.bitcoinj.core.UTXOProviderException;
+import org.bitcoinj.crypto.ChildNumber;
 import org.bitcoinj.crypto.DeterministicHierarchy;
 import org.bitcoinj.crypto.DeterministicKey;
 import org.bitcoinj.params.MainNetParams;
@@ -240,6 +241,89 @@ public class BTC {
 		return balance.value;
 	}
 
+	/**
+	 * Returns first unused receive address given 'm' BIP32 key.
+	 *
+	 * @param xprv58 BIP32 extended Bitcoin private key
+	 * @return Bitcoin P2PKH address, or null if something went wrong
+	 */
+	public String getUnusedReceiveAddress(String xprv58) {
+		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
+
+		keyChain.setLookaheadSize(WalletAwareUTXOProvider.LOOKAHEAD_INCREMENT);
+		keyChain.maybeLookAhead();
+
+		final int keyChainPathSize = keyChain.getAccountPath().size();
+		List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
+
+		int ki = 0;
+		do {
+			for (; ki < keys.size(); ++ki) {
+				DeterministicKey dKey = keys.get(ki);
+				List<ChildNumber> dKeyPath = dKey.getPath();
+
+				// If keyChain is based on 'm', then make sure dKey is m/0/ki
+				if (dKeyPath.size() != keyChainPathSize + 2 || dKeyPath.get(dKeyPath.size() - 2) != ChildNumber.ZERO)
+					continue;
+
+				// Check unspent
+				Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
+				byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
+
+				List<UnspentOutput> unspentOutputs = this.electrumX.getUnspentOutputs(script);
+				if (unspentOutputs == null)
+					return null;
+
+				/*
+				 * If there are no unspent outputs then either:
+				 * a) all the outputs have been spent
+				 * b) address has never been used
+				 * 
+				 * For case (a) we want to remember not to check this address (key) again.
+				 */
+
+				if (unspentOutputs.isEmpty()) {
+					// If this is a known key that has been spent before, then we can skip asking for transaction history
+					if (this.spentKeys.contains(dKey)) {
+						wallet.getActiveKeyChain().markKeyAsUsed((DeterministicKey) dKey);
+						continue;
+					}
+
+					// Ask for transaction history - if it's empty then key has never been used
+					List<byte[]> historicTransactionHashes = this.electrumX.getAddressTransactions(script);
+					if (historicTransactionHashes == null)
+						return null;
+
+					if (!historicTransactionHashes.isEmpty()) {
+						// Fully spent key - case (a)
+						this.spentKeys.add(dKey);
+						wallet.getActiveKeyChain().markKeyAsUsed(dKey);
+					} else {
+						// Key never been used - case (b)
+						return address.toString();
+					}
+				}
+
+				// Key has unspent outputs, hence used, so no good to us
+				this.spentKeys.remove(dKey);
+			}
+
+			// Generate some more keys
+			keyChain.setLookaheadSize(keyChain.getLookaheadSize() + WalletAwareUTXOProvider.LOOKAHEAD_INCREMENT);
+			keyChain.maybeLookAhead();
+
+			// This returns all keys, including those already in 'keys'
+			List<DeterministicKey> allLeafKeys = keyChain.getLeafKeys();
+			// Add only new keys onto our list of keys to search
+			List<DeterministicKey> newKeys = allLeafKeys.subList(ki, allLeafKeys.size());
+			keys.addAll(newKeys);
+			// Fall-through to checking more keys as now 'ki' is smaller than 'keys.size()' again
+
+			// Process new keys
+		} while (true);
+	}
+
 	// UTXOProvider support
 
 	static class WalletAwareUTXOProvider implements UTXOProvider {
@@ -320,6 +404,7 @@ public class BTC {
 					}
 
 					// If we reach here, then there's definitely at least one unspent key
+					btc.spentKeys.remove(key);
 					areAllKeysSpent = false;
 
 					for (UnspentOutput unspentOutput : unspentOutputs) {

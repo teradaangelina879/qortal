@@ -719,6 +719,13 @@ public class CrossChainResource {
 		if (refundRequest.atAddress == null || !Crypto.isValidAtAddress(refundRequest.atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
+		if (refundRequest.receivingAccountInfo == null)
+			refundRequest.receivingAccountInfo = refundKey.getPubKeyHash();
+
+		if (refundRequest.receivingAccountInfo.length != 20)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
+
+
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, refundRequest.atAddress);
@@ -756,7 +763,7 @@ public class CrossChainResource {
 
 			Coin refundAmount = Coin.valueOf(p2shBalance - refundRequest.bitcoinMinerFee.unscaledValue().longValue());
 
-			org.bitcoinj.core.Transaction refundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime);
+			org.bitcoinj.core.Transaction refundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundRequest.receivingAccountInfo);
 			boolean wasBroadcast = BTC.getInstance().broadcastTransaction(refundTransaction);
 
 			if (!wasBroadcast)

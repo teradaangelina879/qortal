@@ -131,9 +131,10 @@ public class BTCP2SH {
 	 * @param fundingOutput output from transaction that funded P2SH address
 	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
 	 * @param lockTime transaction nLockTime - must be at least locktime used in redeemScript
+	 * @param receivingAccountInfo Bitcoin PKH used for output
 	 * @return Signed Bitcoin transaction for refunding P2SH
 	 */
-	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey refundKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, long lockTime) {
+	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey refundKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, long lockTime, byte[] receivingAccountInfo) {
 		Function<byte[], Script> refundSigScriptBuilder = (txSigBytes) -> {
 			// Build scriptSig with...
 			ScriptBuilder scriptBuilder = new ScriptBuilder();
@@ -152,7 +153,7 @@ public class BTCP2SH {
 		};
 
 		// Send funds back to funding address
-		return buildP2shTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundSigScriptBuilder, refundKey.getPubKeyHash());
+		return buildP2shTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundSigScriptBuilder, receivingAccountInfo);
 	}
 
 	/**

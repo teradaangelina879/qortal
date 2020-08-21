@@ -186,7 +186,7 @@ public class Refund {
 			Coin refundAmount = Coin.valueOf(p2shBalance).subtract(bitcoinFee);
 			System.out.println(String.format("Spending %s of output, with %s as mining fee", BTC.format(refundAmount), BTC.format(bitcoinFee)));
 
-			Transaction redeemTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime);
+			Transaction redeemTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundKey.getPubKeyHash());
 
 			byte[] redeemBytes = redeemTransaction.bitcoinSerialize();
 

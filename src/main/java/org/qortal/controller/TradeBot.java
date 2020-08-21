@@ -980,7 +980,17 @@ public class TradeBot {
 		ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
 
-		Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, crossChainTradeData.lockTimeB);
+
+		// Determine receive address for refund
+		String receiveAddress = BTC.getInstance().getUnusedReceiveAddress(tradeBotData.getXprv58());
+		if (receiveAddress == null) {
+			LOGGER.debug(() -> String.format("Couldn't determine a receive address for P2SH-B refund?"));
+			return;
+		}
+
+		Address receiving = Address.fromString(BTC.getInstance().getNetworkParameters(), receiveAddress);
+
+		Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, crossChainTradeData.lockTimeB, receiving.getHash());
 		if (!BTC.getInstance().broadcastTransaction(p2shRefundTransaction)) {
 			// We couldn't refund P2SH-B at this time
 			LOGGER.debug(() -> String.format("Couldn't broadcast P2SH-B refund transaction?"));
@@ -1025,7 +1035,16 @@ public class TradeBot {
 			return;
 		}
 
-		Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, tradeBotData.getLockTimeA());
+		// Determine receive address for refund
+		String receiveAddress = BTC.getInstance().getUnusedReceiveAddress(tradeBotData.getXprv58());
+		if (receiveAddress == null) {
+			LOGGER.debug(() -> String.format("Couldn't determine a receive address for P2SH-A refund?"));
+			return;
+		}
+
+		Address receiving = Address.fromString(BTC.getInstance().getNetworkParameters(), receiveAddress);
+
+		Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, tradeBotData.getLockTimeA(), receiving.getHash());
 		if (!BTC.getInstance().broadcastTransaction(p2shRefundTransaction)) {
 			// We couldn't refund P2SH-A at this time
 			LOGGER.debug(() -> String.format("Couldn't broadcast P2SH-A refund transaction?"));
