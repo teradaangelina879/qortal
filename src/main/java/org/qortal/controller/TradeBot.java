@@ -63,7 +63,8 @@ public class TradeBot {
 
 	private static final Logger LOGGER = LogManager.getLogger(TradeBot.class);
 	private static final Random RANDOM = new SecureRandom();
-	private static final long FEE_AMOUNT = 5000L;
+
+	private static final long P2SH_B_OUTPUT_AMOUNT = 1000L; // P2SH-B output amount needs to be higher than the dust threshold (3000 sats/kB).
 
 	private static TradeBot instance;
 
@@ -233,7 +234,7 @@ public class TradeBot {
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 		byte[] receivingPublicKeyHash = Base58.decode(receivingAddress); // Actually the whole address, not just PKH
 
-		// We need to generate lockTime-A: halfway of refundTimeout from now
+		// We need to generate lockTime-A: add tradeTimeout to now
 		int lockTimeA = crossChainTradeData.tradeTimeout * 60 + (int) (NTP.getTime() / 1000L);
 
 		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, TradeBotData.State.ALICE_WAITING_FOR_P2SH_A,
@@ -246,7 +247,14 @@ public class TradeBot {
 		// Check we have enough funds via xprv58 to fund both P2SHs to cover expectedBitcoin
 		String tradeForeignAddress = BTC.getInstance().pkhToAddress(tradeForeignPublicKeyHash);
 
-		long totalFundsRequired = crossChainTradeData.expectedBitcoin + FEE_AMOUNT /* P2SH-A */ + FEE_AMOUNT /* P2SH-B */;
+		Long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
+		if (estimatedFee == null) {
+			LOGGER.debug(() -> String.format("Couldn't estimate Bitcoin fees?"));
+			return ResponseResult.BTC_NETWORK_ISSUE;
+		}
+
+		long totalFundsRequired = crossChainTradeData.expectedBitcoin + estimatedFee /* P2SH-A */
+				+ P2SH_B_OUTPUT_AMOUNT + estimatedFee /* P2SH-B */;
 
 		Transaction fundingCheckTransaction = BTC.getInstance().buildSpend(xprv58, tradeForeignAddress, totalFundsRequired);
 		if (fundingCheckTransaction == null)
@@ -257,7 +265,7 @@ public class TradeBot {
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
 		// Fund P2SH-A
-		Transaction p2shFundingTransaction = BTC.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddress, crossChainTradeData.expectedBitcoin + FEE_AMOUNT);
+		Transaction p2shFundingTransaction = BTC.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddress, crossChainTradeData.expectedBitcoin + estimatedFee);
 		if (p2shFundingTransaction == null) {
 			LOGGER.warn(() -> String.format("Unable to build P2SH-A funding transaction - lack of funds?"));
 			return ResponseResult.BTC_BALANCE_ISSUE;
@@ -539,9 +547,23 @@ public class TradeBot {
 			byte[] redeemScript = BTCP2SH.buildScript(aliceForeignPublicKeyHash, lockTimeA, tradeBotData.getTradeForeignPublicKeyHash(), hashOfSecretA);
 			String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScript);
 
+			Long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
+			if (estimatedFee == null) {
+				LOGGER.debug(() -> String.format("Couldn't estimate Bitcoin fees?"));
+				// Not worth trying other MESSAGEs... give up for now
+				return;
+			}
+
+			final long minimumBalance = tradeBotData.getBitcoinAmount() + estimatedFee;
 			Long balance = BTC.getInstance().getBalance(p2shAddress);
-			if (balance == null || balance < tradeBotData.getBitcoinAmount())
+			if (balance == null || balance < minimumBalance) {
+				// P2SH-A has no, or insufficient, balance
+				if (balance != null && balance > 0)
+					LOGGER.debug(() -> String.format("P2SH-A %s balance %s lower than expected %s", p2shAddress, BTC.format(balance), BTC.format(minimumBalance)));
+
+				// There might be another MESSAGE from someone else with an actually funded P2SH-A...
 				continue;
+			}
 
 			// Good to go - send MESSAGE to AT
 
@@ -694,7 +716,13 @@ public class TradeBot {
 		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
-		Transaction p2shFundingTransaction = BTC.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddress, FEE_AMOUNT);
+		Long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
+		if (estimatedFee == null) {
+			LOGGER.debug(() -> String.format("Couldn't estimate Bitcoin fees?"));
+			return;
+		}
+
+		Transaction p2shFundingTransaction = BTC.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddress, P2SH_B_OUTPUT_AMOUNT + estimatedFee);
 		if (p2shFundingTransaction == null) {
 			LOGGER.warn(() -> String.format("Unable to build P2SH-B funding transaction - lack of funds?"));
 			return;
@@ -757,16 +785,24 @@ public class TradeBot {
 		byte[] redeemScriptBytes = BTCP2SH.buildScript(crossChainTradeData.partnerBitcoinPKH, crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
+		int lockTimeA = tradeBotData.getLockTimeA();
+		Long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
+		if (estimatedFee == null) {
+			LOGGER.debug(() -> String.format("Couldn't estimate Bitcoin fees?"));
+			return;
+		}
+
+		final long minimumBalance = P2SH_B_OUTPUT_AMOUNT + estimatedFee;
 		Long balance = BTC.getInstance().getBalance(p2shAddress);
-		if (balance == null || balance < FEE_AMOUNT) {
+		if (balance == null || balance < minimumBalance) {
 			if (balance != null && balance > 0)
-				LOGGER.debug(() -> String.format("P2SH-B balance %s lower than expected %s", BTC.format(balance), BTC.format(FEE_AMOUNT)));
+				LOGGER.debug(() -> String.format("P2SH-B %s balance %s lower than expected %s", p2shAddress, BTC.format(balance), BTC.format(minimumBalance)));
 
 			return;
 		}
 
 		// Redeem P2SH-B using secret-B
-		Coin redeemAmount = Coin.ZERO; // The real funds are in P2SH-A
+		Coin redeemAmount = Coin.valueOf(P2SH_B_OUTPUT_AMOUNT); // An actual amount to avoid dust filter, remaining used as fees. The real funds are in P2SH-A.
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
 		byte[] receivingAccountInfo = tradeBotData.getReceivingAccountInfo();
@@ -976,7 +1012,7 @@ public class TradeBot {
 		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
-		Coin refundAmount = Coin.ZERO;
+		Coin refundAmount = Coin.valueOf(P2SH_B_OUTPUT_AMOUNT); // An actual amount to avoid dust filter, remaining used as fees.
 		ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress);
 

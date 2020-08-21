@@ -158,6 +158,20 @@ public class BTC {
 		return blockTimestamps.get(5);
 	}
 
+	/**
+	 * Returns estimated BTC fee, in sats per 1000bytes, optionally for historic timestamp.
+	 * 
+	 * @param timestamp optional milliseconds since epoch
+	 * @return sats per 1000bytes, or null if something went wrong
+	 */
+	public Long estimateFee(Long timestamp) {
+		// TODO: This will need to be replaced with something better in the near future!
+		if (timestamp != null && timestamp < 1598280000000L)
+			return 4000L;
+
+		return 10_000L;
+	}
+
 	public Long getBalance(String base58Address) {
 		return this.electrumX.getBalance(addressToScript(base58Address));
 	}
