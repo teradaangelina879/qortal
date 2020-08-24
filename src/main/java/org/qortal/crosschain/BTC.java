@@ -47,6 +47,11 @@ public class BTC {
 
 	protected static final Logger LOGGER = LogManager.getLogger(BTC.class);
 
+	// Temporary values until a dynamic fee system is written.
+	private static final long OLD_FEE_AMOUNT = 4_000L; // Not 5000 so that existing P2SH-B can output 1000, avoiding dust issue, leaving 4000 for fees.
+	private static final long NEW_FEE_TIMESTAMP = 1598280000000L; // milliseconds since epoch
+	private static final long NEW_FEE_AMOUNT = 10_000L;
+
 	private static final int TIMESTAMP_OFFSET = 4 + 32 + 32;
 	private static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
 
@@ -166,10 +171,10 @@ public class BTC {
 	 */
 	public Long estimateFee(Long timestamp) {
 		// TODO: This will need to be replaced with something better in the near future!
-		if (timestamp != null && timestamp < 1598280000000L)
-			return 4000L;
+		if (timestamp != null && timestamp < NEW_FEE_TIMESTAMP)
+			return OLD_FEE_AMOUNT;
 
-		return 10_000L;
+		return NEW_FEE_AMOUNT;
 	}
 
 	public Long getBalance(String base58Address) {
