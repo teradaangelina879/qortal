@@ -19,10 +19,10 @@
     <ROW Property="Manufacturer" Value="Qortal"/>
     <ROW Property="MsiLogging" MultiBuildValue="DefaultBuild:vp"/>
     <ROW Property="NTP_GOOD" Value="false"/>
-    <ROW Property="ProductCode" Value="1033:{31E3EA92-5348-4D5E-BF92-403470774E62} 2052:{FD291A77-AFE6-4511-BF5C-643D2173F4E5} 2057:{AC09453B-3F19-49E9-984D-BF167F2E29B9} " Type="16"/>
+    <ROW Property="ProductCode" Value="1033:{DD2EB0DF-3D3A-41B1-85FA-BBC5B8A864E5} 1049:{CD267E1D-38BD-4CEE-8F51-C96CB24B5714} 2052:{11B6C0D1-D9DD-4149-AD84-5FC3CE945DDB} 2057:{3ADB4B92-08C3-4CC4-B5CF-1EBBE22E69B3} " Type="16"/>
     <ROW Property="ProductLanguage" Value="2057"/>
     <ROW Property="ProductName" Value="Qortal"/>
-    <ROW Property="ProductVersion" Value="1.2.2" Type="32"/>
+    <ROW Property="ProductVersion" Value="1.3.4" Type="32"/>
     <ROW Property="RECONFIG_NTP" Value="true"/>
     <ROW Property="REMOVE_BLOCKCHAIN" Value="YES" Type="4"/>
     <ROW Property="REPAIR_BLOCKCHAIN" Value="YES" Type="4"/>
@@ -174,7 +174,7 @@
     <ROW Component="ADDITIONAL_LICENSE_INFO_97" ComponentId="{D5544706-E2A7-424F-AEA5-3963E355AA29}" Directory_="jdk.crypto.mscapi_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_97" Type="0"/>
     <ROW Component="ADDITIONAL_LICENSE_INFO_98" ComponentId="{104DBCE8-A458-4B3E-9EFA-2D8613561619}" Directory_="jdk.dynalink_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_98" Type="0"/>
     <ROW Component="ADDITIONAL_LICENSE_INFO_99" ComponentId="{D02E3C37-E81A-48FA-9E28-B26B728AECD9}" Directory_="jdk.httpserver_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_99" Type="0"/>
-    <ROW Component="AI_CustomARPName" ComponentId="{761A8B87-CEA8-4F5D-82CC-552C48C9EC14}" Directory_="APPDIR" Attributes="260" KeyPath="DisplayName" Options="1"/>
+    <ROW Component="AI_CustomARPName" ComponentId="{2DFA6687-2747-4EE5-8717-9CFFFF907AA8}" Directory_="APPDIR" Attributes="260" KeyPath="DisplayName" Options="1"/>
     <ROW Component="AI_ExePath" ComponentId="{3644948D-AE0B-41BB-9FAF-A79E70490A08}" Directory_="APPDIR" Attributes="260" KeyPath="AI_ExePath"/>
     <ROW Component="APPDIR" ComponentId="{680DFDDE-3FB4-47A5-8FF5-934F576C6F91}" Directory_="APPDIR" Attributes="0"/>
     <ROW Component="DATA_PATH" ComponentId="{EE0B6107-E244-4CDB-B195-E9038D2F1E0E}" Directory_="DATA_PATH" Attributes="0"/>
@@ -648,7 +648,7 @@
     <ROW BootstrOptKey="GlobalOptions" DownloadFolder="[AppDataFolder][|Manufacturer]\[|ProductName]\prerequisites" Options="2"/>
   </COMPONENT>
   <COMPONENT cid="caphyon.advinst.msicomp.BuildComponent">
-    <ROW BuildKey="DefaultBuild" BuildName="DefaultBuild" BuildOrder="1" BuildType="1" Languages="en_GB;zh;en" LangOpt="1" InstallationType="2" CabsLocation="1" UseLzma="true" LzmaMethod="2" LzmaCompressionLevel="4" PackageType="1" FilesInsideExe="true" ExeIconPath="qortal.ico" ExtractionFolder="[AppDataFolder][|Manufacturer]-extract\[|ProductName] [|ProductVersion]\install" LangsDialog="true" UseLargeSchema="true" Unicode="true" ExeName="[|ProductName]-[|ProductVersion]" MsiPackageType="x64" JRE64Dir="jre64_Dir"/>
+    <ROW BuildKey="DefaultBuild" BuildName="DefaultBuild" BuildOrder="1" BuildType="1" Languages="en_GB;zh;en;ru" LangOpt="1" InstallationType="2" CabsLocation="1" UseLzma="true" LzmaMethod="2" LzmaCompressionLevel="4" PackageType="1" FilesInsideExe="true" ExeIconPath="qortal.ico" ExtractionFolder="[AppDataFolder][|Manufacturer]-extract\[|ProductName] [|ProductVersion]\install" LangsDialog="true" UseLargeSchema="true" Unicode="true" ExeName="[|ProductName]-[|ProductVersion]" MsiPackageType="x64" JRE64Dir="jre64_Dir"/>
   </COMPONENT>
   <COMPONENT cid="caphyon.advinst.msicomp.DictionaryComponent">
     <ROW Path="&lt;AI_DICTS&gt;ui.ail"/>
@@ -656,6 +656,7 @@
     <ROW Path="&lt;AI_DICTS&gt;ui_en.ail"/>
     <ROW Path="&lt;AI_DICTS&gt;ui_zh.ail"/>
     <ROW Path="dictionary.ail" Options="1"/>
+    <ROW Path="&lt;AI_DICTS&gt;ui_ru.ail"/>
   </COMPONENT>
   <COMPONENT cid="caphyon.advinst.msicomp.FirewallExceptionComponent">
     <ROW FirewallException="EXE" DisplayName="[ProductName]" Enabled="1" Scope="*" Condition="((?Qortal.exe=2) AND ($Qortal.exe=3))" Profiles="0" AppPath="[#Qortal.exe]" Port="*" Protocol="ANY"/>
@@ -1128,11 +1129,14 @@
     <ROW IniFile="ApplicationType" FileName="Qortal.ini" DirProperty="APPDIR" Section="Application" Key="Application Type" Value="gui" Action="0" Component_="Qortal.exe"/>
     <ROW IniFile="ClassPath" FileName="Qortal.ini" DirProperty="APPDIR" Section="Class Path" Key="Class Path" Value="[#qortal.jar];" Action="0" Component_="Qortal.exe"/>
     <ROW IniFile="FailureCheck" FileName="Qortal.ini" DirProperty="APPDIR" Section="Application" Key="Failure Check" Value="yes" Action="0" Component_="Qortal.exe"/>
+    <ROW IniFile="JVMSource" FileName="Qortal.ini" DirProperty="APPDIR" Section="Java Runtime Environment" Key="JVM Source" Value="favor_JDK" Action="0" Component_="Qortal.exe"/>
+    <ROW IniFile="JVMType" FileName="Qortal.ini" DirProperty="APPDIR" Section="Java Runtime Environment" Key="JVM Type" Value="favor_server" Action="0" Component_="Qortal.exe"/>
     <ROW IniFile="MainClass" FileName="Qortal.ini" DirProperty="APPDIR" Section="Java Runtime Environment" Key="Main Class" Value="org.qortal.controller.Controller" Action="0" Component_="Qortal.exe"/>
     <ROW IniFile="MaximumVersion" FileName="Qortal.ini" DirProperty="APPDIR" Section="Java Runtime Environment" Key="Maximum Version" Value="any" Action="0" Component_="Qortal.exe"/>
     <ROW IniFile="MinimumVersion" FileName="Qortal.ini" DirProperty="APPDIR" Section="Java Runtime Environment" Key="Minimum Version" Value="11" Action="0" Component_="Qortal.exe"/>
     <ROW IniFile="OverrideWorkingDir" FileName="Qortal.ini" DirProperty="APPDIR" Section="Application" Key="Override WorkingDir" Value="yes" Action="0" Component_="Qortal.exe"/>
     <ROW IniFile="SingleInstance" FileName="Qortal.ini" DirProperty="APPDIR" Section="Application" Key="Single Instance" Value="yes" Action="0" Component_="Qortal.exe"/>
+    <ROW IniFile="VMProvider" FileName="Qortal.ini" DirProperty="APPDIR" Section="Java Runtime Environment" Key="VM Provider" Value="any" Action="0" Component_="Qortal.exe"/>
   </COMPONENT>
   <COMPONENT cid="caphyon.advinst.msicomp.MsiInstExSeqComponent">
     <ROW Action="AI_DOWNGRADE" Condition="AI_NEWERPRODUCTFOUND AND (UILevel &lt;&gt; 5)" Sequence="210"/>
@@ -1189,7 +1193,7 @@
     <ROW Action="Set_DATA_PATH_property" Condition="( NOT Installed )" Sequence="77"/>
   </COMPONENT>
   <COMPONENT cid="caphyon.advinst.msicomp.MsiJavaComponent">
-    <ROW Name="Qortal.exe" Launcher="Qortal.exe" MainClass="MainClass" ClassPath="ClassPath" JREMin="MinimumVersion" JREMax="MaximumVersion" IconPath="qortal.ico" AppType="ApplicationType" SingleInstance="SingleInstance" PlusList="APPDIR;" MinusList="#Qortal.exe;" MacDescription="[|CurrentJavaProductName] [|ProductVersion] © [|Manufacturer], Inc, 2019" MacBundleId="com.[|Manufacturer].[|ProductName].[|CurrentJavaProductName]" FailureCheck="FailureCheck" OverrideWkDir="OverrideWorkingDir" UACExecutionLevel="0" Platform64="true"/>
+    <ROW Name="Qortal.exe" Launcher="Qortal.exe" MainClass="MainClass" ClassPath="ClassPath" JREMin="MinimumVersion" JREMax="MaximumVersion" IconPath="qortal.ico" AppType="ApplicationType" JVMType="JVMType" SingleInstance="SingleInstance" PlusList="APPDIR;" MinusList="#Qortal.exe;" MacDescription="[|CurrentJavaProductName] [|ProductVersion] © [|Manufacturer], Inc, 2019" MacBundleId="com.[|Manufacturer].[|ProductName].[|CurrentJavaProductName]" JVMSourcePreference="JVMSource" FailureCheck="FailureCheck" OverrideWkDir="OverrideWorkingDir" UACExecutionLevel="0" VMProviderOptions="VMProvider" Platform64="true"/>
   </COMPONENT>
   <COMPONENT cid="caphyon.advinst.msicomp.MsiLaunchConditionsComponent">
     <ROW Condition="( Version9X OR VersionNT64 )" Description="[ProductName] can not be installed on [WindowsTypeNTDisplay]." DescriptionLocId="AI.LaunchCondition.NoNT" IsPredefined="true" Builds="DefaultBuild"/>
