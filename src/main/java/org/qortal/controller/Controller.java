@@ -36,7 +36,6 @@ import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiService;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
-import org.qortal.block.BlockMinter;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
 import org.qortal.crypto.Crypto;

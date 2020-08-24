@@ -1,4 +1,4 @@
-package org.qortal.block;
+package org.qortal.controller;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -13,8 +13,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.block.Block;
 import org.qortal.block.Block.ValidationResult;
-import org.qortal.controller.Controller;
+import org.qortal.block.BlockChain;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.block.BlockData;
@@ -60,7 +61,7 @@ public class BlockMinter extends Thread {
 				List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
 				for (TransactionData transactionData : unconfirmedTransactions) {
-					LOGGER.trace(String.format("Deleting unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
+					LOGGER.trace(() -> String.format("Deleting unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
 					repository.getTransactionRepository().delete(transactionData);
 				}
 
@@ -69,7 +70,7 @@ public class BlockMinter extends Thread {
 
 			// Going to need this a lot...
 			BlockRepository blockRepository = repository.getBlockRepository();
-			Block previousBlock = null;
+			BlockData previousBlockData = null;
 
 			List<Block> newBlocks = new ArrayList<>();
 
@@ -150,8 +151,8 @@ public class BlockMinter extends Thread {
 				isMintingPossible = true;
 
 				// Check blockchain hasn't changed
-				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {
-					previousBlock = new Block(repository, lastBlockData);
+				if (previousBlockData == null || !Arrays.equals(previousBlockData.getSignature(), lastBlockData.getSignature())) {
+					previousBlockData = lastBlockData;
 					newBlocks.clear();
 
 					// Reduce log timeout
@@ -162,12 +163,12 @@ public class BlockMinter extends Thread {
 				mintingAccountsData.removeIf(mintingAccountData -> newBlocks.stream().anyMatch(newBlock -> Arrays.equals(newBlock.getBlockData().getMinterPublicKey(), mintingAccountData.getPublicKey())));
 
 				// Do we need to build any potential new blocks?
-				List<PrivateKeyAccount> mintingAccounts = mintingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getPrivateKey())).collect(Collectors.toList());
+				List<PrivateKeyAccount> newBlocksMintingAccounts = mintingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getPrivateKey())).collect(Collectors.toList());
 
-				for (PrivateKeyAccount mintingAccount : mintingAccounts) {
+				for (PrivateKeyAccount mintingAccount : newBlocksMintingAccounts) {
 					// First block does the AT heavy-lifting
 					if (newBlocks.isEmpty()) {
-						Block newBlock = Block.mint(repository, previousBlock.getBlockData(), mintingAccount);
+						Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
 						if (newBlock == null) {
 							// For some reason we can't mint right now
 							moderatedLog(() -> LOGGER.error("Couldn't build a to-be-minted block"));
@@ -233,8 +234,8 @@ public class BlockMinter extends Thread {
 						continue;
 
 					// Pick best block
-					final int parentHeight = previousBlock.getBlockData().getHeight();
-					final byte[] parentBlockSignature = previousBlock.getSignature();
+					final int parentHeight = previousBlockData.getHeight();
+					final byte[] parentBlockSignature = previousBlockData.getSignature();
 
 					BigInteger bestWeight = null;
 

@@ -7,7 +7,7 @@ import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.block.BlockChain;
-import org.qortal.block.BlockMinter;
+import org.qortal.controller.BlockMinter;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.PaymentTransactionData;
