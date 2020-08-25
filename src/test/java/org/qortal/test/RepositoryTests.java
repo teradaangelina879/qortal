@@ -4,6 +4,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
+import org.qortal.crosschain.BTCACCT;
+import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -15,6 +17,8 @@ import static org.junit.Assert.*;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -72,7 +76,7 @@ public class RepositoryTests extends Common {
 	}
 
 	@Test
-	public void testDeadlock() throws DataException {
+	public void testDeadlock() {
 		// Open connection 1
 		try (final Repository repository1 = RepositoryManager.getRepository()) {
 
@@ -93,11 +97,13 @@ public class RepositoryTests extends Common {
 			// Update account in 1
 			account1.setConfirmedBalance(Asset.QORT, 5678L);
 			repository1.saveChanges();
+		} catch (DataException e) {
+			fail("deadlock bug");
 		}
 	}
 
 	@Test
-	public void testUpdateReadDeadlock() throws DataException {
+	public void testUpdateReadDeadlock() {
 		// Open connection 1
 		try (final Repository repository1 = RepositoryManager.getRepository()) {
 			// Mint blocks so we have data (online account signatures) to work with
@@ -115,6 +121,8 @@ public class RepositoryTests extends Common {
 
 			// Save updates - this should not deadlock
 			repository1.saveChanges();
+		} catch (DataException e) {
+			fail("deadlock bug");
 		}
 	}
 
@@ -181,7 +189,11 @@ public class RepositoryTests extends Common {
 		}
 	}
 
-	/** Test HSQLDB bug-fix for INSERT INTO...ON DUPLICATE KEY UPDATE... bug */
+	/**
+	 * Test HSQLDB bug-fix for INSERT INTO...ON DUPLICATE KEY UPDATE... bug
+	 * <p>
+	 * @see <A HREF="https://sourceforge.net/p/hsqldb/discussion/73674/thread/d8d35adb5d/">Behaviour of 'ON DUPLICATE KEY UPDATE'</A> SourceForge discussion
+	 */
 	@Test
 	public void testOnDuplicateKeyUpdateBugFix() throws SQLException, DataException {
 		ResultSet resultSet;
@@ -190,21 +202,28 @@ public class RepositoryTests extends Common {
 			hsqldb.prepareStatement("DROP TABLE IF EXISTS bugtest").execute();
 			hsqldb.prepareStatement("CREATE TABLE bugtest (id INT NOT NULL, counter INT NOT NULL, PRIMARY KEY(id))").execute();
 
+			// No existing row, so new row's "counter" is set to value from VALUES clause, i.e. 1
 			hsqldb.prepareStatement("INSERT INTO bugtest (id, counter) VALUES (1, 1) ON DUPLICATE KEY UPDATE counter = counter + 1").execute();
 			resultSet = hsqldb.checkedExecute("SELECT counter FROM bugtest WHERE id = 1");
 			assertNotNull(resultSet);
 			assertEquals(1, resultSet.getInt(1));
 
+			// Prior to bug-fix, "counter = counter + 1" would always use the 100 from VALUES, instead of existing row's value, for "counter"
 			hsqldb.prepareStatement("INSERT INTO bugtest (id, counter) VALUES (1, 100) ON DUPLICATE KEY UPDATE counter = counter + 1").execute();
 			resultSet = hsqldb.checkedExecute("SELECT counter FROM bugtest WHERE id = 1");
 			assertNotNull(resultSet);
+			// Prior to bug-fix, this would be 100 + 1 = 101
 			assertEquals(2, resultSet.getInt(1));
 		}
 	}
 
-	/** Test HSQLDB bug-fix for "General Error" in non-fully-qualified columns inside LATERAL() */
+	/**
+	 * Test HSQLDB bug-fix for "General Error" in non-fully-qualified columns inside LATERAL()
+	 * <p>
+	 * @see <A HREF="https://sourceforge.net/p/hsqldb/bugs/1580/">#1580 General error with LATERAL and transitive join column</A> SourceForge ticket
+	 */
 	@Test
-	public void testOnLateralGeneralError() throws SQLException, DataException {
+	public void testOnLateralGeneralError() {
 		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
 			hsqldb.prepareStatement("DROP TABLE IF EXISTS tableA").execute();
 			hsqldb.prepareStatement("DROP TABLE IF EXISTS tableB").execute();
@@ -214,8 +233,57 @@ public class RepositoryTests extends Common {
 			hsqldb.prepareStatement("CREATE TABLE tableB (col1 INT)").execute();
 			hsqldb.prepareStatement("CREATE TABLE tableC (col2 INT, PRIMARY KEY (col2))").execute();
 
-			// Prior to bug-fix this would throw a General Error SQL Exception
+			// Prior to bug-fix #1580 this would throw a General Error SQL Exception
 			hsqldb.prepareStatement("SELECT col3 FROM tableA JOIN tableB USING (col1) CROSS JOIN LATERAL(SELECT col2 FROM tableC WHERE col2 = col1) AS tableC (col3)").execute();
+		} catch (SQLException | DataException e) {
+			fail("HSQLDB bug #1580");
+		}
+	}
+
+	/** Specifically test LATERAL() usage in Asset repository */
+	@Test
+	public void testAssetLateral() {
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+			List<Long> assetIds = Collections.emptyList();
+			List<Long> otherAssetIds = Collections.emptyList();
+			Integer limit = null;
+			Integer offset = null;
+			Boolean reverse = null;
+
+			hsqldb.getAssetRepository().getRecentTrades(assetIds, otherAssetIds, limit, offset, reverse);
+		} catch (DataException e) {
+			fail("HSQLDB bug #1580");
+		}
+	}
+
+	/** Specifically test LATERAL() usage in AT repository */
+	@Test
+	public void testAtLateral() {
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+			byte[] codeHash = BTCACCT.CODE_BYTES_HASH;
+			Boolean isFinished = null;
+			Integer dataByteOffset = null;
+			Long expectedValue = null;
+			Integer minimumFinalHeight = 2;
+			Integer limit = null;
+			Integer offset = null;
+			Boolean reverse = null;
+
+			hsqldb.getATRepository().getMatchingFinalATStates(codeHash, isFinished, dataByteOffset, expectedValue, minimumFinalHeight, limit, offset, reverse);
+		} catch (DataException e) {
+			fail("HSQLDB bug #1580");
+		}
+	}
+
+	/** Specifically test LATERAL() usage in Chat repository */
+	@Test
+	public void testChatLateral() {
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+			String address = Crypto.toAddress(new byte[32]);
+
+			hsqldb.getChatRepository().getActiveChats(address);
+		} catch (DataException e) {
+			fail("HSQLDB bug #1580");
 		}
 	}
 
