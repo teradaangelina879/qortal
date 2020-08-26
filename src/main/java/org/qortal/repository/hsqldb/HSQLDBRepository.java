@@ -16,9 +16,12 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,18 +52,18 @@ public class HSQLDBRepository implements Repository {
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
 
 	protected Connection connection;
-	protected Deque<Savepoint> savepoints;
+	protected Deque<Savepoint> savepoints = new ArrayDeque<>(3);
 	protected boolean debugState = false;
 	protected Long slowQueryThreshold = null;
 	protected List<String> sqlStatements;
 	protected long sessionId;
+	protected Map<String, PreparedStatement> preparedStatementCache = new HashMap<>();
 
 	// Constructors
 
 	// NB: no visibility modifier so only callable from within same package
 	/* package */ HSQLDBRepository(Connection connection) throws DataException {
 		this.connection = connection;
-		this.savepoints = new ArrayDeque<>(3);
 
 		this.slowQueryThreshold = Settings.getInstance().getSlowQueryThreshold();
 		if (this.slowQueryThreshold != null)
@@ -240,7 +243,12 @@ public class HSQLDBRepository implements Repository {
 		try (Statement stmt = this.connection.createStatement()) {
 			assertEmptyTransaction("connection close");
 
-			// give connection back to the pool
+			// Assume we are not going to be GC'd for a while
+			this.preparedStatementCache.clear();
+			this.sqlStatements = null;
+			this.savepoints.clear();
+
+			// Give connection back to the pool
 			this.connection.close();
 			this.connection = null;
 		} catch (SQLException e) {
@@ -414,6 +422,17 @@ public class HSQLDBRepository implements Repository {
 		if (this.sqlStatements != null)
 			this.sqlStatements.add(sql);
 
+		/*
+		 * We cache a duplicate PreparedStatement for this SQL string,
+		 * which we never close, which means HSQLDB also caches a parsed,
+		 * prepared statement that can be reused for subsequent
+		 * calls to HSQLDB.prepareStatement(sql).
+		 * 
+		 * See org.hsqldb.StatementManager for more details.
+		 */
+		if (!this.preparedStatementCache.containsKey(sql))
+			this.preparedStatementCache.put(sql, this.connection.prepareStatement(sql));
+
 		return this.connection.prepareStatement(sql);
 	}
 
@@ -460,7 +479,7 @@ public class HSQLDBRepository implements Repository {
 	 * @param objects
 	 * @throws SQLException
 	 */
-	private void prepareExecute(PreparedStatement preparedStatement, Object... objects) throws SQLException {
+	private void bindStatementParams(PreparedStatement preparedStatement, Object... objects) throws SQLException {
 		for (int i = 0; i < objects.length; ++i)
 			// Special treatment for BigDecimals so that they retain their "scale",
 			// which would otherwise be assumed as 0.
@@ -481,7 +500,7 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	private ResultSet checkedExecuteResultSet(PreparedStatement preparedStatement, Object... objects) throws SQLException {
-		prepareExecute(preparedStatement, objects);
+		bindStatementParams(preparedStatement, objects);
 
 		if (!preparedStatement.execute())
 			throw new SQLException("Fetching from database produced no results");
@@ -504,14 +523,32 @@ public class HSQLDBRepository implements Repository {
 	 * @return number of changed rows
 	 * @throws SQLException
 	 */
-	/* package */ int checkedExecuteUpdateCount(String sql, Object... objects) throws SQLException {
+	/* package */ int executeCheckedUpdate(String sql, Object... objects) throws SQLException {
+		return this.executeCheckedBatchUpdate(sql, Collections.singletonList(objects));
+	}
+
+	/**
+	 * Execute batched PreparedStatement
+	 * 
+	 * @param preparedStatement
+	 * @param objects
+	 * @return number of changed rows
+	 * @throws SQLException
+	 */
+	/* package */ int executeCheckedBatchUpdate(String sql, List<Object[]> batchedObjects) throws SQLException {
+		// Nothing to do?
+		if (batchedObjects == null || batchedObjects.isEmpty())
+			return 0;
+
 		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
-			prepareExecute(preparedStatement, objects);
+			for (Object[] objects : batchedObjects) {
+				this.bindStatementParams(preparedStatement, objects);
+				preparedStatement.addBatch();
+			}
 
 			long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
 
-			if (preparedStatement.execute())
-				throw new SQLException("Database produced results, not row count");
+			int[] updateCounts = preparedStatement.executeBatch();
 
 			if (this.slowQueryThreshold != null) {
 				long queryTime = System.currentTimeMillis() - beforeQuery;
@@ -523,11 +560,15 @@ public class HSQLDBRepository implements Repository {
 				}
 			}
 
-			int rowCount = preparedStatement.getUpdateCount();
-			if (rowCount == -1)
-				throw new SQLException("Database returned invalid row count");
+			int totalCount = 0;
+			for (int i = 0; i < updateCounts.length; ++i) {
+				if (updateCounts[i] < 0)
+					throw new SQLException("Database returned invalid row count");
 
-			return rowCount;
+				totalCount += updateCounts[i];
+			}
+
+			return totalCount;
 		}
 	}
 
@@ -598,7 +639,25 @@ public class HSQLDBRepository implements Repository {
 		sql.append(" WHERE ");
 		sql.append(whereClause);
 
-		return this.checkedExecuteUpdateCount(sql.toString(), objects);
+		return this.executeCheckedUpdate(sql.toString(), objects);
+	}
+
+	/**
+	 * Delete rows from database table.
+	 * 
+	 * @param tableName
+	 * @param whereClause
+	 * @param objects
+	 * @throws SQLException
+	 */
+	public int deleteBatch(String tableName, String whereClause, List<Object[]> batchedObjects) throws SQLException {
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("DELETE FROM ");
+		sql.append(tableName);
+		sql.append(" WHERE ");
+		sql.append(whereClause);
+
+		return this.executeCheckedBatchUpdate(sql.toString(), batchedObjects);
 	}
 
 	/**
@@ -612,7 +671,7 @@ public class HSQLDBRepository implements Repository {
 		sql.append("DELETE FROM ");
 		sql.append(tableName);
 
-		return this.checkedExecuteUpdateCount(sql.toString());
+		return this.executeCheckedUpdate(sql.toString());
 	}
 
 	/**

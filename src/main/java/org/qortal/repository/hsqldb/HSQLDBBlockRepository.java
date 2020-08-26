@@ -464,7 +464,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE minted_when < ? AND online_accounts_signatures IS NOT NULL";
 
 		try {
-			return this.repository.checkedExecuteUpdateCount(sql, timestamp);
+			return this.repository.executeCheckedUpdate(sql, timestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to trim old online accounts signatures in repository", e);
 		}

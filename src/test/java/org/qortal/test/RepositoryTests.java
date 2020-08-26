@@ -17,6 +17,7 @@ import static org.junit.Assert.*;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -129,11 +130,17 @@ public class RepositoryTests extends Common {
 	/** Check that the <i>sub-query</i> used to fetch highest block height is optimized by HSQLDB. */
 	@Test
 	public void testBlockHeightSpeed() throws DataException, SQLException {
+		final int mintBlockCount = 30000;
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Mint some blocks
-			System.out.println("Minting test blocks - should take approx. 30 seconds...");
-			for (int i = 0; i < 30000; ++i)
+			System.out.println(String.format("Minting %d test blocks - should take approx. 30 seconds...", mintBlockCount));
+
+			long beforeBigMint = System.currentTimeMillis();
+			for (int i = 0; i < mintBlockCount; ++i)
 				BlockUtils.mintBlock(repository);
+
+			System.out.println(String.format("Minting %d blocks actually took %d seconds", mintBlockCount, (System.currentTimeMillis() - beforeBigMint) / 1000L));
 
 			final HSQLDBRepository hsqldb = (HSQLDBRepository) repository;
 
@@ -284,6 +291,21 @@ public class RepositoryTests extends Common {
 			hsqldb.getChatRepository().getActiveChats(address);
 		} catch (DataException e) {
 			fail("HSQLDB bug #1580");
+		}
+	}
+
+	/** Test batched DELETE */
+	@Test
+	public void testBatchedDelete() {
+		// Generate test data
+		List<Object[]> batchedObjects = new ArrayList<>();
+		for (int i = 0; i < 100; ++i)
+			batchedObjects.add(new Object[] { String.valueOf(i), 1L });
+
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+			hsqldb.deleteBatch("AccountBalances", "account = ? AND asset_id = ?", batchedObjects);
+		} catch (DataException | SQLException e) {
+			fail("Batched delete failed: " + e.getMessage());
 		}
 	}
 
