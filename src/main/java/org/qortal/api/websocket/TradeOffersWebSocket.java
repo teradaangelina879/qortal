@@ -106,15 +106,21 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 			// Update
 			previousAtModes.putAll(crossChainOfferSummaries.stream().collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, CrossChainOfferSummary::getMode)));
 
+			// Find 'historic' (REDEEMED/REFUNDED/CANCELLED) entries for use below:
+			List<CrossChainOfferSummary> historicOffers = crossChainOfferSummaries.stream().filter(isHistoric).collect(Collectors.toList());
+
 			synchronized (currentSummaries) {
 				// Add any OFFERING to 'current'
 				currentSummaries.addAll(crossChainOfferSummaries.stream().filter(isCurrent).collect(Collectors.toList()));
+
+				// Remove any offers that have become REDEEMED/REFUNDED/CANCELLED
+				currentSummaries.removeAll(historicOffers);
 			}
 
 			final long tooOldTimestamp = NTP.getTime() - 24 * 60 * 60 * 1000L;
 			synchronized (historicSummaries) {
 				// Add any REDEEMED/REFUNDED/CANCELLED
-				historicSummaries.addAll(crossChainOfferSummaries.stream().filter(isHistoric).collect(Collectors.toList()));
+				historicSummaries.addAll(historicOffers);
 
 				// But also remove any that are over 24 hours old
 				historicSummaries.removeIf(offerSummary -> offerSummary.getTimestamp() < tooOldTimestamp);
