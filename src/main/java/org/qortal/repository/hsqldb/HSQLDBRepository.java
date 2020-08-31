@@ -341,6 +341,16 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
+	@Override
+	public void performPeriodicMaintenance() throws DataException {
+		// Defrag DB - takes a while!
+		try (Statement stmt = this.connection.createStatement()) {
+			stmt.execute("CHECKPOINT DEFRAG");
+		} catch (SQLException e) {
+			throw new DataException("Unable to defrag repository");
+		}
+	}
+
 	/** Returns DB pathname from passed connection URL. If memory DB, returns "mem". */
 	private static String getDbPathname(String connectionUrl) {
 		Pattern pattern = Pattern.compile("hsqldb:(mem|file):(.*?)(;|$)");

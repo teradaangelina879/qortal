@@ -45,4 +45,6 @@ public interface Repository extends AutoCloseable {
 
 	public void backup(boolean quick) throws DataException;
 
+	public void performPeriodicMaintenance() throws DataException;
+
 }
