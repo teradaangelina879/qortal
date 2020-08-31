@@ -64,6 +64,9 @@ public class TradeBot {
 	private static final Logger LOGGER = LogManager.getLogger(TradeBot.class);
 	private static final Random RANDOM = new SecureRandom();
 
+	/** Maximum time Bob waits for his AT creation transaction to be confirmed into a block. */
+	private static final long MAX_AT_CONFIRMATION_PERIOD = 24 * 60 * 60 * 1000L; // ms
+
 	private static final long P2SH_B_OUTPUT_AMOUNT = 1000L; // P2SH-B output amount needs to be higher than the dust threshold (3000 sats/kB).
 
 	private static TradeBot instance;
@@ -384,8 +387,21 @@ public class TradeBot {
 	 * If AT is deployed, then trade-bot's next step is to wait for MESSAGE from Alice.
 	 */
 	private void handleBobWaitingForAtConfirm(Repository repository, TradeBotData tradeBotData) throws DataException {
-		if (!repository.getATRepository().exists(tradeBotData.getAtAddress()))
+		if (!repository.getATRepository().exists(tradeBotData.getAtAddress())) {
+			if (NTP.getTime() - tradeBotData.getTimestamp() <= MAX_AT_CONFIRMATION_PERIOD)
+				return;
+
+			// We've waited ages for AT to be confirmed into a block but something has gone awry.
+			// After this long we assume transaction loss so give up with trade-bot entry too.
+			tradeBotData.setState(TradeBotData.State.BOB_REFUNDED);
+			tradeBotData.setTimestamp(NTP.getTime());
+			repository.getCrossChainRepository().delete(tradeBotData.getTradePrivateKey());
+			repository.saveChanges();
+
+			LOGGER.info(() -> String.format("AT %s never confirmed. Giving up on trade", tradeBotData.getAtAddress()));
+			notifyStateChange(tradeBotData);
 			return;
+		}
 
 		tradeBotData.setState(TradeBotData.State.BOB_WAITING_FOR_MESSAGE);
 		tradeBotData.setTimestamp(NTP.getTime());
