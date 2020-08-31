@@ -785,7 +785,7 @@ public class TradeBot {
 		byte[] redeemScriptBytes = BTCP2SH.buildScript(crossChainTradeData.partnerBitcoinPKH, crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
 		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
 
-		int lockTimeA = tradeBotData.getLockTimeA();
+		int lockTimeA = crossChainTradeData.lockTimeA;
 		Long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
 		if (estimatedFee == null) {
 			LOGGER.debug(() -> String.format("Couldn't estimate Bitcoin fees?"));
