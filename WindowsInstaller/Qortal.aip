@@ -19,10 +19,10 @@
     <ROW Property="Manufacturer" Value="Qortal"/>
     <ROW Property="MsiLogging" MultiBuildValue="DefaultBuild:vp"/>
     <ROW Property="NTP_GOOD" Value="false"/>
-    <ROW Property="ProductCode" Value="1033:{DD2EB0DF-3D3A-41B1-85FA-BBC5B8A864E5} 1049:{CD267E1D-38BD-4CEE-8F51-C96CB24B5714} 2052:{11B6C0D1-D9DD-4149-AD84-5FC3CE945DDB} 2057:{3ADB4B92-08C3-4CC4-B5CF-1EBBE22E69B3} " Type="16"/>
+    <ROW Property="ProductCode" Value="1033:{3F23DC7A-BC0B-4598-9FD4-C4B927A10D7F} 1049:{CF0D5DDC-7CB7-4308-8F98-DF8D2DB2D38D} 2052:{983B77E5-62CF-431C-B015-B96C5DCA6858} 2057:{BF1C757A-A3A0-4285-906A-6D8D91D74D0A} " Type="16"/>
     <ROW Property="ProductLanguage" Value="2057"/>
     <ROW Property="ProductName" Value="Qortal"/>
-    <ROW Property="ProductVersion" Value="1.3.4" Type="32"/>
+    <ROW Property="ProductVersion" Value="1.3.5" Type="32"/>
     <ROW Property="RECONFIG_NTP" Value="true"/>
     <ROW Property="REMOVE_BLOCKCHAIN" Value="YES" Type="4"/>
     <ROW Property="REPAIR_BLOCKCHAIN" Value="YES" Type="4"/>
@@ -174,7 +174,7 @@
     <ROW Component="ADDITIONAL_LICENSE_INFO_97" ComponentId="{D5544706-E2A7-424F-AEA5-3963E355AA29}" Directory_="jdk.crypto.mscapi_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_97" Type="0"/>
     <ROW Component="ADDITIONAL_LICENSE_INFO_98" ComponentId="{104DBCE8-A458-4B3E-9EFA-2D8613561619}" Directory_="jdk.dynalink_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_98" Type="0"/>
     <ROW Component="ADDITIONAL_LICENSE_INFO_99" ComponentId="{D02E3C37-E81A-48FA-9E28-B26B728AECD9}" Directory_="jdk.httpserver_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_99" Type="0"/>
-    <ROW Component="AI_CustomARPName" ComponentId="{2DFA6687-2747-4EE5-8717-9CFFFF907AA8}" Directory_="APPDIR" Attributes="260" KeyPath="DisplayName" Options="1"/>
+    <ROW Component="AI_CustomARPName" ComponentId="{5FCFB67B-FDD0-4B15-9A58-2188092589E9}" Directory_="APPDIR" Attributes="260" KeyPath="DisplayName" Options="1"/>
     <ROW Component="AI_ExePath" ComponentId="{3644948D-AE0B-41BB-9FAF-A79E70490A08}" Directory_="APPDIR" Attributes="260" KeyPath="AI_ExePath"/>
     <ROW Component="APPDIR" ComponentId="{680DFDDE-3FB4-47A5-8FF5-934F576C6F91}" Directory_="APPDIR" Attributes="0"/>
     <ROW Component="DATA_PATH" ComponentId="{EE0B6107-E244-4CDB-B195-E9038D2F1E0E}" Directory_="DATA_PATH" Attributes="0"/>
