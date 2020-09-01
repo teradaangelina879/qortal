@@ -2,6 +2,12 @@
 
 set -e
 
+# Optional git tag?
+if [ $# -ge 1 ]; then
+	git_tag="$1"
+	shift
+fi
+
 saved_pwd=$PWD
 
 # Check we are within a git repo
@@ -31,10 +37,12 @@ if [ -z "${project}" ]; then
 fi
 
 # Extract git tag
-git_tag=$( git tag --points-at HEAD )
 if [ -z "${git_tag}" ]; then
-	echo "Unable to extract git tag"
-	exit 1
+	git_tag=$( git tag --points-at HEAD )
+	if [ -z "${git_tag}" ]; then
+		echo "Unable to extract git tag"
+		exit 1
+	fi
 fi
 
 build_dir=/tmp/${project}
@@ -47,7 +55,8 @@ cp target/${project}*.jar ${build_dir}/${project}.jar
 
 git show HEAD:log4j2.properties > ${build_dir}/log4j2.properties
 
-git show HEAD:run.sh > ${build_dir}/run.sh
+git show HEAD:start.sh > ${build_dir}/start.sh
+git show HEAD:stop.sh > ${build_dir}/stop.sh
 
 printf "{\n}\n" > ${build_dir}/settings.json
 
