@@ -143,6 +143,8 @@ public class Controller extends Thread {
 	/** Whether we can mint new blocks, as reported by BlockMinter. */
 	private volatile boolean isMintingPossible = false;
 
+	/** Synchronization object for sync variables below */
+	private final Object syncLock = new Object();
 	/** Whether we are attempting to synchronize. */
 	private volatile boolean isSynchronizing = false;
 	/** Temporary estimate of synchronization progress for SysTray use. */
@@ -272,7 +274,9 @@ public class Controller extends Thread {
 	}
 
 	public Integer getSyncPercent() {
-		return this.isSynchronizing ? this.syncPercent : null;
+		synchronized (this.syncLock) {
+			return this.isSynchronizing ? this.syncPercent : null;
+		}
 	}
 
 	// Entry point
@@ -511,6 +515,10 @@ public class Controller extends Thread {
 	};
 
 	private void potentiallySynchronize() throws InterruptedException {
+		// Already synchronizing via another thread?
+		if (this.isSynchronizing)
+			return;
+
 		List<Peer> peers = Network.getInstance().getHandshakedPeers();
 
 		// Disregard peers that have "misbehaved" recently
@@ -543,12 +551,20 @@ public class Controller extends Thread {
 	}
 
 	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
-		syncPercent = (this.chainTip.getHeight() * 100) / peer.getChainTipData().getLastHeight();
-		// Only update SysTray if we're potentially changing height
-		if (syncPercent < 100) {
-			isSynchronizing = true;
-			updateSysTray();
+		boolean hasStatusChanged = false;
+
+		synchronized (this.syncLock) {
+			this.syncPercent = (this.chainTip.getHeight() * 100) / peer.getChainTipData().getLastHeight();
+
+			// Only update SysTray if we're potentially changing height
+			if (this.syncPercent < 100) {
+				this.isSynchronizing = true;
+				hasStatusChanged = true;
+			}
 		}
+
+		if (hasStatusChanged)
+			updateSysTray();
 
 		BlockData priorChainTip = this.chainTip;
 
@@ -649,14 +665,17 @@ public class Controller extends Thread {
 		String heightText = Translator.INSTANCE.translate("SysTray", "BLOCK_HEIGHT");
 
 		String actionText;
-		if (isMintingPossible)
-			actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
-		else if (isSynchronizing)
-			actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), syncPercent);
-		else if (numberOfPeers < Settings.getInstance().getMinBlockchainPeers())
-			actionText = Translator.INSTANCE.translate("SysTray", "CONNECTING");
-		else
-			actionText = Translator.INSTANCE.translate("SysTray", "MINTING_DISABLED");
+
+		synchronized (this.syncLock) {
+			if (this.isMintingPossible)
+				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
+			else if (this.isSynchronizing)
+				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), this.syncPercent);
+			else if (numberOfPeers < Settings.getInstance().getMinBlockchainPeers())
+				actionText = Translator.INSTANCE.translate("SysTray", "CONNECTING");
+			else
+				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_DISABLED");
+		}
 
 		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height);
 		SysTray.getInstance().setToolTipText(tooltip);
