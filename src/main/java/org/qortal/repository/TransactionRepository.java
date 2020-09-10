@@ -6,7 +6,6 @@ import java.util.Map;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.data.group.GroupApprovalData;
 import org.qortal.data.transaction.GroupApprovalTransactionData;
-import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.TransferAssetTransactionData;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -123,18 +122,6 @@ public interface TransactionRepository {
 	 * @throws DataException
 	 */
 	public byte[] getLatestAutoUpdateTransaction(TransactionType txType, int txGroupId, Integer service) throws DataException;
-
-	/**
-	 * Returns list of MESSAGE transaction data matching recipient.
-	 * @param recipient
-	 * @param limit
-	 * @param offset
-	 * @param reverse
-	 * @return
-	 * @throws DataException
-	 */
-	public List<MessageTransactionData> getMessagesByRecipient(String recipient,
-			Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns list of transactions relating to specific asset ID.

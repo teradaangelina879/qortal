@@ -7,6 +7,7 @@ import org.bitcoinj.core.AddressFormatException;
 import org.bitcoinj.core.TransactionOutput;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.crosschain.BTC;
+import org.qortal.crosschain.BitcoinException;
 import org.qortal.settings.Settings;
 
 import com.google.common.hash.HashCode;
@@ -46,9 +47,11 @@ public class GetTransaction {
 		}
 
 		// Grab all outputs from transaction
-		List<TransactionOutput> fundingOutputs = BTC.getInstance().getOutputs(transactionId);
-		if (fundingOutputs == null) {
-			System.out.println(String.format("Transaction not found"));
+		List<TransactionOutput> fundingOutputs;
+		try {
+			fundingOutputs = BTC.getInstance().getOutputs(transactionId);
+		} catch (BitcoinException e) {
+			System.out.println(String.format("Transaction not found (or error occurred)"));
 			return;
 		}
 

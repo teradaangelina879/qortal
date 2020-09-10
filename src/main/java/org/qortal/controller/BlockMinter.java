@@ -275,8 +275,9 @@ public class BlockMinter extends Thread {
 					try {
 						newBlock.process();
 
-						LOGGER.info(String.format("Minted new block: %d", newBlock.getBlockData().getHeight()));
 						repository.saveChanges();
+
+						LOGGER.info(String.format("Minted new block: %d", newBlock.getBlockData().getHeight()));
 
 						RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(newBlock.getBlockData().getMinterPublicKey());
 
@@ -293,9 +294,7 @@ public class BlockMinter extends Thread {
 									newBlock.getMinter().getAddress()));
 						}
 
-						repository.saveChanges();
-
-						// Notify controller
+						// Notify controller after we're released blockchain lock
 						newBlockMinted = true;
 					} catch (DataException e) {
 						// Unable to process block - report and discard
@@ -306,8 +305,14 @@ public class BlockMinter extends Thread {
 					blockchainLock.unlock();
 				}
 
-				if (newBlockMinted)
-					Controller.getInstance().onNewBlock(newBlock.getBlockData());
+				if (newBlockMinted) {
+					BlockData newBlockData = newBlock.getBlockData();
+					// Notify Controller and broadcast our new chain to network
+					Controller.getInstance().onNewBlock(newBlockData);
+
+					Network network = Network.getInstance();
+					network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newBlockData));
+				}
 			}
 		} catch (DataException e) {
 			LOGGER.warn("Repository issue while running block minter", e);

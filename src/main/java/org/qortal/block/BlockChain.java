@@ -554,17 +554,22 @@ public class BlockChain {
 
 		try {
 			try (final Repository repository = RepositoryManager.getRepository()) {
-				for (int height = repository.getBlockRepository().getBlockchainHeight(); height > targetHeight; --height) {
+				int height = repository.getBlockRepository().getBlockchainHeight();
+				BlockData orphanBlockData = repository.getBlockRepository().fromHeight(height);
+
+				while (height > targetHeight) {
 					LOGGER.info(String.format("Forcably orphaning block %d", height));
 
-					BlockData blockData = repository.getBlockRepository().fromHeight(height);
-					Block block = new Block(repository, blockData);
+					Block block = new Block(repository, orphanBlockData);
 					block.orphan();
-					repository.saveChanges();
-				}
 
-				BlockData lastBlockData = repository.getBlockRepository().getLastBlock();
-				Controller.getInstance().setChainTip(lastBlockData);
+					repository.saveChanges();
+
+					--height;
+					orphanBlockData = repository.getBlockRepository().fromHeight(height);
+
+					Controller.getInstance().onNewBlock(orphanBlockData);
+				}
 
 				return true;
 			}

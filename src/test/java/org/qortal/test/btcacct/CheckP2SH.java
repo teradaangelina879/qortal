@@ -16,6 +16,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCP2SH;
+import org.qortal.crosschain.BitcoinException;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -135,11 +136,7 @@ public class CheckP2SH {
 				System.out.println(String.format("Too soon (%s) to redeem based on median block time %s", LocalDateTime.ofInstant(Instant.ofEpochMilli(now), ZoneOffset.UTC), LocalDateTime.ofInstant(Instant.ofEpochSecond(medianBlockTime), ZoneOffset.UTC)));
 
 			// Check P2SH is funded
-			Long p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
-			if (p2shBalance == null) {
-				System.err.println(String.format("Unable to check P2SH address %s balance", p2shAddress));
-				System.exit(2);
-			}
+			long p2shBalance = BTC.getInstance().getConfirmedBalance(p2shAddress.toString());
 			System.out.println(String.format("P2SH address %s balance: %s", p2shAddress, BTC.format(p2shBalance)));
 
 			// Grab all P2SH funding transactions (just in case there are more than one)
@@ -164,7 +161,9 @@ public class CheckP2SH {
 				System.exit(2);
 			}
 		} catch (DataException e) {
-			throw new RuntimeException("Repository issue: " + e.getMessage());
+			System.err.println("Repository issue: " + e.getMessage());
+		} catch (BitcoinException e) {
+			System.err.println("Bitcoin issue: " + e.getMessage());
 		}
 	}
 

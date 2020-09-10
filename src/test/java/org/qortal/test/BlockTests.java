@@ -133,4 +133,48 @@ public class BlockTests extends Common {
 		}
 	}
 
+	@Test
+	public void testCommonBlockSearch() {
+		// Given a list of block summaries, trim all trailing summaries after common block
+
+		// We'll represent known block summaries as a list of booleans,
+		// where the boolean value indicates whether peer's block is also in our repository.
+
+		// Trivial case, single element array
+		assertCommonBlock(0, new boolean[] { true });
+
+		// Test odd and even array lengths
+		for (int arrayLength = 5; arrayLength <= 6; ++arrayLength) {
+			boolean[] testBlocks = new boolean[arrayLength];
+
+			// Test increasing amount of common blocks
+			for (int c = 1; c <= testBlocks.length; ++c) {
+				testBlocks[c - 1] = true;
+
+				assertCommonBlock(c - 1, testBlocks);
+			}
+		}
+	}
+
+	private void assertCommonBlock(int expectedIndex, boolean[] testBlocks) {
+		int commonBlockIndex = findCommonBlockIndex(testBlocks);
+		assertEquals(expectedIndex, commonBlockIndex);
+	}
+
+	private int findCommonBlockIndex(boolean[] testBlocks) {
+		int low = 1;
+		int high = testBlocks.length - 1;
+
+		while (low <= high) {
+			int mid = (low + high) >>> 1;
+
+			if (testBlocks[mid])
+				low = mid + 1;
+			else
+				high = mid - 1;
+		}
+
+		return low - 1;
+	}
+
 }

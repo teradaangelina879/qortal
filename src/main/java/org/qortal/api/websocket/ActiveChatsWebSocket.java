@@ -31,6 +31,7 @@ public class ActiveChatsWebSocket extends ApiWebSocket {
 	}
 
 	@OnWebSocketConnect
+	@Override
 	public void onWebSocketConnect(Session session) {
 		Map<String, String> pathParams = getPathParams(session, "/{address}");
 
@@ -49,16 +50,19 @@ public class ActiveChatsWebSocket extends ApiWebSocket {
 	}
 
 	@OnWebSocketClose
+	@Override
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
 		ChatNotifier.getInstance().deregister(session);
 	}
 
 	@OnWebSocketError
 	public void onWebSocketError(Session session, Throwable throwable) {
+		/* ignored */
 	}
 
 	@OnWebSocketMessage
 	public void onWebSocketMessage(Session session, String message) {
+		/* ignored */
 	}
 
 	private void onNotify(Session session, ChatTransactionData chatTransactionData, String ourAddress, AtomicReference<String> previousOutput) {

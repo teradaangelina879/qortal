@@ -9,9 +9,12 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
@@ -33,15 +36,14 @@ import org.qortal.utils.NTP;
 @SuppressWarnings("serial")
 public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 
+	private static final Logger LOGGER = LogManager.getLogger(TradeOffersWebSocket.class);
+
 	private static final Map<String, BTCACCT.Mode> previousAtModes = new HashMap<>();
 
 	// OFFERING
-	private static final List<CrossChainOfferSummary> currentSummaries = new ArrayList<>();
+	private static final Map<String, CrossChainOfferSummary> currentSummaries = new HashMap<>();
 	// REDEEMED/REFUNDED/CANCELLED
-	private static final List<CrossChainOfferSummary> historicSummaries = new ArrayList<>();
-
-	private static final Predicate<CrossChainOfferSummary> isCurrent = offerSummary
-			-> offerSummary.getMode() == BTCACCT.Mode.OFFERING;
+	private static final Map<String, CrossChainOfferSummary> historicSummaries = new HashMap<>();
 
 	private static final Predicate<CrossChainOfferSummary> isHistoric = offerSummary
 			-> offerSummary.getMode() == BTCACCT.Mode.REDEEMED
@@ -104,27 +106,33 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 				return;
 
 			// Update
-			previousAtModes.putAll(crossChainOfferSummaries.stream().collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, CrossChainOfferSummary::getMode)));
+			for (CrossChainOfferSummary offerSummary : crossChainOfferSummaries) {
+				previousAtModes.put(offerSummary.qortalAtAddress, offerSummary.getMode());
+				LOGGER.trace(() -> String.format("Block height: %d, AT: %s, mode: %s", blockData.getHeight(), offerSummary.qortalAtAddress, offerSummary.getMode().name()));
 
-			// Find 'historic' (REDEEMED/REFUNDED/CANCELLED) entries for use below:
-			List<CrossChainOfferSummary> historicOffers = crossChainOfferSummaries.stream().filter(isHistoric).collect(Collectors.toList());
+				switch (offerSummary.getMode()) {
+					case OFFERING:
+						currentSummaries.put(offerSummary.qortalAtAddress, offerSummary);
+						historicSummaries.remove(offerSummary.qortalAtAddress);
+						break;
 
-			synchronized (currentSummaries) {
-				// Add any OFFERING to 'current'
-				currentSummaries.addAll(crossChainOfferSummaries.stream().filter(isCurrent).collect(Collectors.toList()));
+					case REDEEMED:
+					case REFUNDED:
+					case CANCELLED:
+						currentSummaries.remove(offerSummary.qortalAtAddress);
+						historicSummaries.put(offerSummary.qortalAtAddress, offerSummary);
+						break;
 
-				// Remove any offers that have become REDEEMED/REFUNDED/CANCELLED
-				currentSummaries.removeAll(historicOffers);
+					case TRADING:
+						currentSummaries.remove(offerSummary.qortalAtAddress);
+						historicSummaries.remove(offerSummary.qortalAtAddress);
+						break;
+				}
 			}
 
+			// Remove any historic offers that are over 24 hours old
 			final long tooOldTimestamp = NTP.getTime() - 24 * 60 * 60 * 1000L;
-			synchronized (historicSummaries) {
-				// Add any REDEEMED/REFUNDED/CANCELLED
-				historicSummaries.addAll(historicOffers);
-
-				// But also remove any that are over 24 hours old
-				historicSummaries.removeIf(offerSummary -> offerSummary.getTimestamp() < tooOldTimestamp);
-			}
+			historicSummaries.values().removeIf(historicSummary -> historicSummary.getTimestamp() < tooOldTimestamp);
 		}
 
 		// Notify sessions
@@ -138,16 +146,14 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
 		final boolean includeHistoric = queryParams.get("includeHistoric") != null;
 
-		List<CrossChainOfferSummary> crossChainOfferSummaries;
+		List<CrossChainOfferSummary> crossChainOfferSummaries = new ArrayList<>();
 
-		synchronized (currentSummaries) {
-			crossChainOfferSummaries = new ArrayList<>(currentSummaries);
+		synchronized (previousAtModes) {
+			crossChainOfferSummaries.addAll(currentSummaries.values());
+
+			if (includeHistoric)
+				crossChainOfferSummaries.addAll(historicSummaries.values());
 		}
-
-		if (includeHistoric)
-			synchronized (historicSummaries) {
-				crossChainOfferSummaries.addAll(historicSummaries);
-			}
 
 		if (!sendOfferSummaries(session, crossChainOfferSummaries)) {
 			session.close(4002, "websocket issue");
@@ -161,6 +167,11 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 	@Override
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
 		super.onWebSocketClose(session, statusCode, reason);
+	}
+
+	@OnWebSocketError
+	public void onWebSocketError(Session session, Throwable throwable) {
+		/* ignored */
 	}
 
 	@OnWebSocketMessage
@@ -201,7 +212,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		previousAtModes.putAll(initialAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> BTCACCT.Mode.OFFERING)));
 
 		// Convert to offer summaries
-		currentSummaries.addAll(produceSummaries(repository, initialAtStates, null));
+		currentSummaries.putAll(produceSummaries(repository, initialAtStates, null).stream().collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, offerSummary -> offerSummary)));
 	}
 
 	private static void populateHistoricSummaries(Repository repository) throws DataException {
@@ -227,21 +238,14 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		for (ATStateData historicAtState : historicAtStates) {
 			CrossChainOfferSummary historicOfferSummary = produceSummary(repository, historicAtState, null);
 
-			switch (historicOfferSummary.getMode()) {
-				case REDEEMED:
-				case REFUNDED:
-				case CANCELLED:
-					break;
-
-				default:
-					continue;
-			}
+			if (!isHistoric.test(historicOfferSummary))
+				continue;
 
 			// Add summary to initial burst
-			historicSummaries.add(historicOfferSummary);
+			historicSummaries.put(historicOfferSummary.getQortalAtAddress(), historicOfferSummary);
 
 			// Save initial AT mode
-			previousAtModes.put(historicAtState.getATAddress(), historicOfferSummary.getMode());
+			previousAtModes.put(historicOfferSummary.getQortalAtAddress(), historicOfferSummary.getMode());
 		}
 	}
 

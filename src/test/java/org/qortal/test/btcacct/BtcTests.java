@@ -12,6 +12,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCP2SH;
+import org.qortal.crosschain.BitcoinException;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
@@ -28,7 +29,7 @@ public class BtcTests extends Common {
 	}
 
 	@Test
-	public void testGetMedianBlockTime() throws BlockStoreException {
+	public void testGetMedianBlockTime() throws BlockStoreException, BitcoinException {
 		System.out.println(String.format("Starting BTC instance..."));
 		BTC btc = BTC.getInstance();
 		System.out.println(String.format("BTC instance started"));
@@ -50,7 +51,7 @@ public class BtcTests extends Common {
 	}
 
 	@Test
-	public void testFindP2shSecret() {
+	public void testFindP2shSecret() throws BitcoinException {
 		// This actually exists on TEST3 but can take a while to fetch
 		String p2shAddress = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 
@@ -105,7 +106,7 @@ public class BtcTests extends Common {
 	}
 
 	@Test
-	public void testGetUnusedReceiveAddress() {
+	public void testGetUnusedReceiveAddress() throws BitcoinException {
 		BTC btc = BTC.getInstance();
 
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";

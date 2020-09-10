@@ -83,4 +83,10 @@ public class CrossChainOfferSummary {
 		return this.partnerQortalReceivingAddress;
 	}
 
+	// For debugging mostly
+
+	public String toString() {
+		return String.format("%s: %s", this.qortalAtAddress, this.mode.name());
+	}
+
 }

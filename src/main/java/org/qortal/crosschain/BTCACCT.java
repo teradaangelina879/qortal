@@ -874,7 +874,8 @@ public class BTCACCT {
 		String atAddress = crossChainTradeData.qortalAtAddress;
 		String redeemerAddress = crossChainTradeData.qortalPartnerAddress;
 
-		List<MessageTransactionData> messageTransactionsData = repository.getTransactionRepository().getMessagesByRecipient(atAddress, null, null, null);
+		// We don't have partner's public key so we check every message to AT
+		List<MessageTransactionData> messageTransactionsData = repository.getMessageRepository().getMessagesByParticipants(null, atAddress, null, null, null);
 		if (messageTransactionsData == null)
 			return null;
 

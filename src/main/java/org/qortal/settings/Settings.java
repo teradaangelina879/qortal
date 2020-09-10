@@ -98,6 +98,9 @@ public class Settings {
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
 	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
+	// Also crosschain-related:
+	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
+	private boolean tradebotSystrayEnabled = false;
 
 	// Repository related
 	/** Queries that take longer than this are logged. (milliseconds) */
@@ -365,6 +368,10 @@ public class Settings {
 
 	public BitcoinNet getBitcoinNet() {
 		return this.bitcoinNet;
+	}
+
+	public boolean isTradebotSystrayEnabled() {
+		return this.tradebotSystrayEnabled;
 	}
 
 	public Long getSlowQueryThreshold() {

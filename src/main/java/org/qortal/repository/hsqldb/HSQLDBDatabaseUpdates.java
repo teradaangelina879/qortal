@@ -650,6 +650,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CHECKPOINT");
 					break;
 
+				case 23:
+					// MESSAGE transactions index
+					stmt.execute("CREATE INDEX IF NOT EXISTS MessageTransactionsRecipientIndex ON MessageTransactions (recipient, sender)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

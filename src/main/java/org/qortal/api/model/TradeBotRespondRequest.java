@@ -8,13 +8,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class TradeBotRespondRequest {
 
-	@Schema(description = "Qortal AT address", example = "AH3e3jHEsGHPVQPDiJx4pYqgVi72auxgVy")
+	@Schema(description = "Qortal AT address", example = "Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	public String atAddress;
 
-	@Schema(description = "Bitcoin BIP32 extended private key", example = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TbTVGajEB55L1HYLg2aQMecZLXLre5YJcawpdFG66STVAWPJ")
+	@Schema(description = "Bitcoin BIP32 extended private key", example = "xprv___________________________________________________________________________________________________________")
 	public String xprv58;
 
-	@Schema(description = "Qortal address for receiving QORT from AT")
+	@Schema(description = "Qortal address for receiving QORT from AT", example = "Qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq")
 	public String receivingAddress;
 
 	public TradeBotRespondRequest() {

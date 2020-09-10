@@ -11,8 +11,11 @@ import org.bitcoinj.script.ScriptBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.Test;
+import org.qortal.crosschain.BitcoinException;
+import org.qortal.crosschain.BitcoinTransaction;
 import org.qortal.crosschain.ElectrumX;
-import org.qortal.crosschain.ElectrumX.UnspentOutput;
+import org.qortal.crosschain.TransactionHash;
+import org.qortal.crosschain.UnspentOutput;
 import org.qortal.utils.BitTwiddling;
 
 import com.google.common.hash.HashCode;
@@ -34,26 +37,36 @@ public class ElectrumXTests {
 	}
 
 	@Test
-	public void testGetCurrentHeight() {
+	public void testGetCurrentHeight() throws BitcoinException {
 		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
 
-		Integer height = electrumX.getCurrentHeight();
+		int height = electrumX.getCurrentHeight();
 
-		assertNotNull(height);
 		assertTrue(height > 10000);
 		System.out.println("Current TEST3 height: " + height);
 	}
 
 	@Test
-	public void testGetRecentBlocks() {
+	public void testInvalidRequest() {
+		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+		try {
+			electrumX.getBlockHeaders(-1, -1);
+		} catch (BitcoinException e) {
+			// Should throw due to negative start block height
+			return;
+		}
+
+		fail("Negative start block height should cause error");
+	}
+
+	@Test
+	public void testGetRecentBlocks() throws BitcoinException {
 		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
 
-		Integer height = electrumX.getCurrentHeight();
-		assertNotNull(height);
+		int height = electrumX.getCurrentHeight();
 		assertTrue(height > 10000);
 
 		List<byte[]> recentBlockHeaders = electrumX.getBlockHeaders(height - 11, 11);
-		assertNotNull(recentBlockHeaders);
 
 		System.out.println(String.format("Returned %d recent blocks", recentBlockHeaders.size()));
 		for (int i = 0; i < recentBlockHeaders.size(); ++i) {
@@ -67,42 +80,39 @@ public class ElectrumXTests {
 	}
 
 	@Test
-	public void testGetP2PKHBalance() {
+	public void testGetP2PKHBalance() throws BitcoinException {
 		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
 
 		Address address = Address.fromString(TestNet3Params.get(), "n3GNqMveyvaPvUbH469vDRadqpJMPc84JA");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
-		Long balance = electrumX.getBalance(script);
+		long balance = electrumX.getConfirmedBalance(script);
 
-		assertNotNull(balance);
 		assertTrue(balance > 0L);
 
 		System.out.println(String.format("TestNet address %s has balance: %d sats / %d.%08d BTC", address, balance, (balance / 100000000L), (balance % 100000000L)));
 	}
 
 	@Test
-	public void testGetP2SHBalance() {
+	public void testGetP2SHBalance() throws BitcoinException {
 		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
 
 		Address address = Address.fromString(TestNet3Params.get(), "2N4szZUfigj7fSBCEX4PaC8TVbC5EvidaVF");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
-		Long balance = electrumX.getBalance(script);
+		long balance = electrumX.getConfirmedBalance(script);
 
-		assertNotNull(balance);
 		assertTrue(balance > 0L);
 
 		System.out.println(String.format("TestNet address %s has balance: %d sats / %d.%08d BTC", address, balance, (balance / 100000000L), (balance % 100000000L)));
 	}
 
 	@Test
-	public void testGetUnspentOutputs() {
+	public void testGetUnspentOutputs() throws BitcoinException {
 		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
 
 		Address address = Address.fromString(TestNet3Params.get(), "2N4szZUfigj7fSBCEX4PaC8TVbC5EvidaVF");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
-		List<UnspentOutput> unspentOutputs = electrumX.getUnspentOutputs(script);
+		List<UnspentOutput> unspentOutputs = electrumX.getUnspentOutputs(script, false);
 
-		assertNotNull(unspentOutputs);
 		assertFalse(unspentOutputs.isEmpty());
 
 		for (UnspentOutput unspentOutput : unspentOutputs)
@@ -110,27 +120,68 @@ public class ElectrumXTests {
 	}
 
 	@Test
-	public void testGetRawTransaction() {
+	public void testGetRawTransaction() throws BitcoinException {
 		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
 
 		byte[] txHash = HashCode.fromString("7653fea9ffcd829d45ed2672938419a94951b08175982021e77d619b553f29af").asBytes();
 
 		byte[] rawTransactionBytes = electrumX.getRawTransaction(txHash);
 
-		assertNotNull(rawTransactionBytes);
+		assertFalse(rawTransactionBytes.length == 0);
 	}
 
 	@Test
-	public void testGetAddressTransactions() {
+	public void testGetUnknownRawTransaction() {
+		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+
+		byte[] txHash = HashCode.fromString("f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0").asBytes();
+
+		try {
+			electrumX.getRawTransaction(txHash);
+			fail("Bitcoin transaction should be unknown and hence throw exception");
+		} catch (BitcoinException e) {
+			if (!(e instanceof BitcoinException.NotFoundException))
+				fail("Bitcoin transaction should be unknown and hence throw NotFoundException");
+		}
+	}
+
+	@Test
+	public void testGetTransaction() throws BitcoinException {
+		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+
+		String txHash = "7653fea9ffcd829d45ed2672938419a94951b08175982021e77d619b553f29af";
+
+		BitcoinTransaction transaction = electrumX.getTransaction(txHash);
+
+		assertNotNull(transaction);
+		assertTrue(transaction.txHash.equals(txHash));
+	}
+
+	@Test
+	public void testGetUnknownTransaction() {
+		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+
+		String txHash = "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0";
+
+		try {
+			electrumX.getTransaction(txHash);
+			fail("Bitcoin transaction should be unknown and hence throw exception");
+		} catch (BitcoinException e) {
+			if (!(e instanceof BitcoinException.NotFoundException))
+				fail("Bitcoin transaction should be unknown and hence throw NotFoundException");
+		}
+	}
+
+	@Test
+	public void testGetAddressTransactions() throws BitcoinException {
 		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
 
 		Address address = Address.fromString(TestNet3Params.get(), "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
 
-		List<byte[]> rawTransactions = electrumX.getAddressTransactions(script);
+		List<TransactionHash> transactionHashes = electrumX.getAddressTransactions(script, false);
 
-		assertNotNull(rawTransactions);
-		assertFalse(rawTransactions.isEmpty());
+		assertFalse(transactionHashes.isEmpty());
 	}
 
 }

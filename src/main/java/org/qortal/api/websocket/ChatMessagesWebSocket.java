@@ -32,6 +32,7 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 	}
 
 	@OnWebSocketConnect
+	@Override
 	public void onWebSocketConnect(Session session) {
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
 
@@ -86,16 +87,19 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 	}
 
 	@OnWebSocketClose
+	@Override
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
 		ChatNotifier.getInstance().deregister(session);
 	}
 
 	@OnWebSocketError
 	public void onWebSocketError(Session session, Throwable throwable) {
+		/* ignored */
 	}
 
 	@OnWebSocketMessage
 	public void onWebSocketMessage(Session session, String message) {
+		/* ignored */
 	}
 
 	private void onNotify(Session session, ChatTransactionData chatTransactionData, int txGroupId) {

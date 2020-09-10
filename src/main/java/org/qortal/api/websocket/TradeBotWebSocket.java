@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
@@ -71,6 +72,7 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 	}
 
 	@OnWebSocketConnect
+	@Override
 	public void onWebSocketConnect(Session session) {
 		// Send all known trade-bot entries
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -92,8 +94,14 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 	}
 
 	@OnWebSocketClose
+	@Override
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
 		super.onWebSocketClose(session, statusCode, reason);
+	}
+
+	@OnWebSocketError
+	public void onWebSocketError(Session session, Throwable throwable) {
+		/* ignored */
 	}
 
 	@OnWebSocketMessage

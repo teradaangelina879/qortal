@@ -241,15 +241,15 @@ public class Synchronizer {
 		blockSummariesFromCommon.addAll(blockSummariesBatch);
 
 		// Trim summaries so that first summary is common block.
-		// Currently we work back from the end until we hit a block we also have.
+		// Currently we work forward from common block until we hit a block we don't have
 		// TODO: rewrite as modified binary search!
-		for (int i = blockSummariesFromCommon.size() - 1; i > 0; --i) {
-			if (repository.getBlockRepository().exists(blockSummariesFromCommon.get(i).getSignature())) {
-				// Note: index i isn't cleared: List.subList is fromIndex inclusive to toIndex exclusive
-				blockSummariesFromCommon.subList(0, i).clear();
+		int i;
+		for (i = 1; i < blockSummariesFromCommon.size(); ++i)
+			if (!repository.getBlockRepository().exists(blockSummariesFromCommon.get(i).getSignature()))
 				break;
-			}
-		}
+
+		// Note: index i - 1 isn't cleared: List.subList is fromIndex inclusive to toIndex exclusive
+		blockSummariesFromCommon.subList(0, i - 1).clear();
 
 		return SynchronizationResult.OK;
 	}
@@ -397,15 +397,20 @@ public class Synchronizer {
 		// Unwind to common block (unless common block is our latest block)
 		LOGGER.debug(String.format("Orphaning blocks back to common block height %d, sig %.8s", commonBlockHeight, commonBlockSig58));
 
+		BlockData orphanBlockData = repository.getBlockRepository().fromHeight(ourHeight);
 		while (ourHeight > commonBlockHeight) {
 			if (Controller.isStopping())
 				return SynchronizationResult.SHUTTING_DOWN;
 
-			BlockData blockData = repository.getBlockRepository().fromHeight(ourHeight);
-			Block block = new Block(repository, blockData);
+			Block block = new Block(repository, orphanBlockData);
 			block.orphan();
 
+			repository.saveChanges();
+
 			--ourHeight;
+			orphanBlockData = repository.getBlockRepository().fromHeight(ourHeight);
+
+			Controller.getInstance().onNewBlock(orphanBlockData);
 		}
 
 		LOGGER.debug(String.format("Orphaned blocks back to height %d, sig %.8s - applying new blocks from peer %s", commonBlockHeight, commonBlockSig58, peer));
@@ -426,9 +431,9 @@ public class Synchronizer {
 
 			newBlock.process();
 
-			// If we've grown our blockchain then at least save progress so far
-			if (ourHeight > ourInitialHeight)
-				repository.saveChanges();
+			repository.saveChanges();
+
+			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}
 
 		return SynchronizationResult.OK;
@@ -508,9 +513,9 @@ public class Synchronizer {
 
 			newBlock.process();
 
-			// If we've grown our blockchain then at least save progress so far
-			if (ourHeight > ourInitialHeight)
-				repository.saveChanges();
+			repository.saveChanges();
+
+			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}
 
 		return SynchronizationResult.OK;

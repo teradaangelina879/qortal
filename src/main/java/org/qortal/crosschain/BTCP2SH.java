@@ -1,9 +1,15 @@
 package org.qortal.crosschain;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import org.bitcoinj.core.Address;
+import org.bitcoinj.core.Base58;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
@@ -24,6 +30,10 @@ import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
 public class BTCP2SH {
+
+	public enum Status {
+		UNFUNDED, FUNDING_IN_PROGRESS, FUNDED, REDEEM_IN_PROGRESS, REDEEMED, REFUND_IN_PROGRESS, REFUNDED
+	}
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
@@ -232,6 +242,131 @@ public class BTCP2SH {
 		}
 
 		return null;
+	}
+
+	/** Returns P2SH status, given P2SH address and expected redeem/refund amount, or throws BitcoinException if error occurs. */
+	public static Status determineP2shStatus(String p2shAddress, long minimumAmount) throws BitcoinException {
+		final BTC btc = BTC.getInstance();
+
+		List<TransactionHash> transactionHashes = btc.getAddressTransactions(p2shAddress, BTC.INCLUDE_UNCONFIRMED);
+
+		// Sort by confirmed first, followed by ascending height
+		transactionHashes.sort(TransactionHash.CONFIRMED_FIRST.thenComparing(TransactionHash::getHeight));
+
+		// Transaction cache
+		Map<String, BitcoinTransaction> transactionsByHash = new HashMap<>();
+		// HASH160(redeem script) for this p2shAddress
+		byte[] ourRedeemScriptHash = addressToRedeemScriptHash(p2shAddress);
+
+		// Check for spends first, caching full transaction info as we progress just in case we don't return in this loop
+		for (TransactionHash transactionInfo : transactionHashes) {
+			BitcoinTransaction bitcoinTransaction = btc.getTransaction(transactionInfo.txHash);
+
+			// Cache for possible later reuse
+			transactionsByHash.put(transactionInfo.txHash, bitcoinTransaction);
+
+			// Acceptable funding is one transaction output, so we're expecting only one input
+			if (bitcoinTransaction.inputs.size() != 1)
+				// Wrong number of inputs
+				continue;
+
+			String scriptSig = bitcoinTransaction.inputs.get(0).scriptSig;
+
+			List<byte[]> scriptSigChunks = extractScriptSigChunks(HashCode.fromString(scriptSig).asBytes());
+			if (scriptSigChunks.size() < 3 || scriptSigChunks.size() > 4)
+				// Not spending one of these P2SH
+				continue;
+
+			// Last chunk is redeem script
+			byte[] redeemScriptBytes = scriptSigChunks.get(scriptSigChunks.size() - 1);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
+			if (!Arrays.equals(redeemScriptHash, ourRedeemScriptHash))
+				// Not spending our specific P2SH
+				continue;
+
+			// If we have 4 chunks, then secret is present
+			return scriptSigChunks.size() == 4
+					? (transactionInfo.height == 0 ? Status.REDEEM_IN_PROGRESS : Status.REDEEMED)
+					: (transactionInfo.height == 0 ? Status.REFUND_IN_PROGRESS : Status.REFUNDED);
+		}
+
+		String ourScriptPubKey = HashCode.fromBytes(addressToScriptPubKey(p2shAddress)).toString();
+
+		// Check for funding
+		for (TransactionHash transactionInfo : transactionHashes) {
+			BitcoinTransaction bitcoinTransaction = transactionsByHash.get(transactionInfo.txHash);
+			if (bitcoinTransaction == null)
+				// Should be present in map!
+				throw new BitcoinException("Cached Bitcoin transaction now missing?");
+
+			// Check outputs for our specific P2SH
+			for (BitcoinTransaction.Output output : bitcoinTransaction.outputs) {
+				// Check amount
+				if (output.value < minimumAmount)
+					// Output amount too small (not taking fees into account)
+					continue;
+
+				String scriptPubKey = output.scriptPubKey;
+				if (!scriptPubKey.equals(ourScriptPubKey))
+					// Not funding our specific P2SH
+					continue;
+
+				return transactionInfo.height == 0 ? Status.FUNDING_IN_PROGRESS : Status.FUNDED;
+			}
+		}
+
+		return Status.UNFUNDED;
+	}
+
+	private static List<byte[]> extractScriptSigChunks(byte[] scriptSigBytes) {
+		List<byte[]> chunks = new ArrayList<>();
+
+		int offset = 0;
+		int previousOffset = 0;
+		while (offset < scriptSigBytes.length) {
+			byte pushOp = scriptSigBytes[offset++];
+
+			if (pushOp < 0 || pushOp > 0x4c)
+				// Unacceptable OP
+				return Collections.emptyList();
+
+			// Special treatment for OP_PUSHDATA1
+			if (pushOp == 0x4c) {
+				if (offset >= scriptSigBytes.length)
+					// Run out of scriptSig bytes?
+					return Collections.emptyList();
+
+				pushOp = scriptSigBytes[offset++];
+			}
+
+			previousOffset = offset;
+			offset += Byte.toUnsignedInt(pushOp);
+
+			byte[] chunk = Arrays.copyOfRange(scriptSigBytes, previousOffset, offset);
+			chunks.add(chunk);
+		}
+
+		return chunks;
+	}
+
+	private static byte[] addressToScriptPubKey(String p2shAddress) {
+		// We want the HASH160 part of the P2SH address
+		byte[] p2shAddressBytes = Base58.decode(p2shAddress);
+
+		byte[] scriptPubKey = new byte[1 + 1 + 20 + 1];
+		scriptPubKey[0x00] = (byte) 0xa9; /* OP_HASH160 */
+		scriptPubKey[0x01] = (byte) 0x14; /* PUSH 0x14 bytes */
+		System.arraycopy(p2shAddressBytes, 1, scriptPubKey, 2, 0x14);
+		scriptPubKey[0x16] = (byte) 0x87; /* OP_EQUAL */
+
+		return scriptPubKey;
+	}
+
+	private static byte[] addressToRedeemScriptHash(String p2shAddress) {
+		// We want the HASH160 part of the P2SH address
+		byte[] p2shAddressBytes = Base58.decode(p2shAddress);
+
+		return Arrays.copyOfRange(p2shAddressBytes, 1, 1 + 20);
 	}
 
 }

@@ -371,6 +371,9 @@ public class Controller extends Thread {
 		blockMinter = new BlockMinter();
 		blockMinter.start();
 
+		LOGGER.info("Starting trade-bot");
+		TradeBot.getInstance();
+
 		// Arbitrary transaction data manager
 		// LOGGER.info("Starting arbitrary-transaction data manager");
 		// ArbitraryDataManager.getInstance().start();
@@ -638,6 +641,9 @@ public class Controller extends Thread {
 
 				// Update chain-tip, systray, notify peers, websockets, etc.
 				this.onNewBlock(newChainTip);
+
+				Network network = Network.getInstance();
+				network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newChainTip));
 			}
 
 			return syncResult;
@@ -821,25 +827,19 @@ public class Controller extends Thread {
 	}
 
 	public void onNewBlock(BlockData latestBlockData) {
-		this.setChainTip(latestBlockData);
+		// Protective copy
+		BlockData blockDataCopy = new BlockData(latestBlockData);
+
+		this.setChainTip(blockDataCopy);
 		requestSysTrayUpdate = true;
 
-		// Broadcast our new height info and notify websocket listeners
-		this.callbackExecutor.execute(() -> {
-			Network network = Network.getInstance();
-			network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
+		// Notify listeners, trade-bot, etc.
+		EventBus.INSTANCE.notify(new NewBlockEvent(blockDataCopy));
 
-			// Notify listeners of new block
-			EventBus.INSTANCE.notify(new NewBlockEvent(latestBlockData));
-
-			if (this.notifyGroupMembershipChange) {
-				this.notifyGroupMembershipChange = false;
-				ChatNotifier.getInstance().onGroupMembershipChange();
-			}
-
-			// Trade-bot might want to perform some actions too
-			TradeBot.getInstance().onChainTipChange();
-		});
+		if (this.notifyGroupMembershipChange) {
+			this.notifyGroupMembershipChange = false;
+			ChatNotifier.getInstance().onGroupMembershipChange();
+		}
 	}
 
 	/** Callback for when we've received a new transaction via API or peer. */

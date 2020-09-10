@@ -190,4 +190,9 @@ public class TradeBotData {
 		return this.receivingAccountInfo;
 	}
 
+	// Mostly for debugging
+	public String toString() {
+		return String.format("%s: %s", this.atAddress, this.tradeState.name());
+	}
+
 }

@@ -38,6 +38,7 @@ import org.qortal.repository.ChatRepository;
 import org.qortal.repository.CrossChainRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
+import org.qortal.repository.MessageRepository;
 import org.qortal.repository.NameRepository;
 import org.qortal.repository.NetworkRepository;
 import org.qortal.repository.Repository;
@@ -127,6 +128,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public GroupRepository getGroupRepository() {
 		return new HSQLDBGroupRepository(this);
+	}
+
+	@Override
+	public MessageRepository getMessageRepository() {
+		return new HSQLDBMessageRepository(this);
 	}
 
 	@Override

@@ -32,7 +32,6 @@ import org.bitcoinj.utils.MonetaryFormat;
 import org.bitcoinj.wallet.DeterministicKeyChain;
 import org.bitcoinj.wallet.SendRequest;
 import org.bitcoinj.wallet.Wallet;
-import org.qortal.crosschain.ElectrumX.UnspentOutput;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.utils.BitTwiddling;
@@ -45,12 +44,16 @@ public class BTC {
 	public static final long LOCKTIME_NO_RBF_SEQUENCE = NO_LOCKTIME_NO_RBF_SEQUENCE - 1;
 	public static final int HASH160_LENGTH = 20;
 
+	public static final boolean INCLUDE_UNCONFIRMED = true;
+	public static final boolean EXCLUDE_UNCONFIRMED = false;
+
 	protected static final Logger LOGGER = LogManager.getLogger(BTC.class);
 
 	// Temporary values until a dynamic fee system is written.
 	private static final long OLD_FEE_AMOUNT = 4_000L; // Not 5000 so that existing P2SH-B can output 1000, avoiding dust issue, leaving 4000 for fees.
 	private static final long NEW_FEE_TIMESTAMP = 1598280000000L; // milliseconds since epoch
 	private static final long NEW_FEE_AMOUNT = 10_000L;
+	private static final long NON_MAINNET_FEE = 1000L; // enough for TESTNET3 and should be OK for REGTEST
 
 	private static final int TIMESTAMP_OFFSET = 4 + 32 + 32;
 	private static final MonetaryFormat FORMAT = new MonetaryFormat().minDecimals(8).postfixCode();
@@ -143,16 +146,18 @@ public class BTC {
 		return p2shAddress.toString();
 	}
 
-	/** Returns median timestamp from latest 11 blocks, in seconds. */
-	public Integer getMedianBlockTime() {
-		Integer height = this.electrumX.getCurrentHeight();
-		if (height == null)
-			return null;
+	/**
+	 * Returns median timestamp from latest 11 blocks, in seconds.
+	 * <p>
+	 * @throws BitcoinException if error occurs
+	 */
+	public Integer getMedianBlockTime() throws BitcoinException {
+		int height = this.electrumX.getCurrentHeight();
 
 		// Grab latest 11 blocks
 		List<byte[]> blockHeaders = this.electrumX.getBlockHeaders(height - 11, 11);
-		if (blockHeaders == null || blockHeaders.size() < 11)
-			return null;
+		if (blockHeaders.size() < 11)
+			throw new BitcoinException("Not enough blocks to determine median block time");
 
 		List<Integer> blockTimestamps = blockHeaders.stream().map(blockHeader -> BitTwiddling.intFromLEBytes(blockHeader, TIMESTAMP_OFFSET)).collect(Collectors.toList());
 
@@ -166,10 +171,13 @@ public class BTC {
 	/**
 	 * Returns estimated BTC fee, in sats per 1000bytes, optionally for historic timestamp.
 	 * 
-	 * @param timestamp optional milliseconds since epoch
-	 * @return sats per 1000bytes, or null if something went wrong
+	 * @param timestamp optional milliseconds since epoch, or null for 'now'
+	 * @return sats per 1000bytes, or throws BitcoinException if something went wrong
 	 */
-	public Long estimateFee(Long timestamp) {
+	public long estimateFee(Long timestamp) throws BitcoinException {
+		if (!this.params.getId().equals(NetworkParameters.ID_MAINNET))
+			return NON_MAINNET_FEE;
+
 		// TODO: This will need to be replaced with something better in the near future!
 		if (timestamp != null && timestamp < NEW_FEE_TIMESTAMP)
 			return OLD_FEE_AMOUNT;
@@ -177,20 +185,28 @@ public class BTC {
 		return NEW_FEE_AMOUNT;
 	}
 
-	public Long getBalance(String base58Address) {
-		return this.electrumX.getBalance(addressToScript(base58Address));
+	/**
+	 * Returns confirmed balance, based on passed payment script.
+	 * <p>
+	 * @return confirmed balance, or zero if script unknown
+	 * @throws BitcoinException if there was an error
+	 */
+	public long getConfirmedBalance(String base58Address) throws BitcoinException {
+		return this.electrumX.getConfirmedBalance(addressToScript(base58Address));
 	}
 
-	public List<TransactionOutput> getUnspentOutputs(String base58Address) {
-		List<UnspentOutput> unspentOutputs = this.electrumX.getUnspentOutputs(addressToScript(base58Address));
-		if (unspentOutputs == null)
-			return null;
+	/**
+	 * Returns list of unspent outputs pertaining to passed address.
+	 * <p>
+	 * @return list of unspent outputs, or empty list if address unknown
+	 * @throws BitcoinException if there was an error.
+	 */
+	public List<TransactionOutput> getUnspentOutputs(String base58Address) throws BitcoinException {
+		List<UnspentOutput> unspentOutputs = this.electrumX.getUnspentOutputs(addressToScript(base58Address), false);
 
 		List<TransactionOutput> unspentTransactionOutputs = new ArrayList<>();
 		for (UnspentOutput unspentOutput : unspentOutputs) {
-			List<TransactionOutput> transactionOutputs = getOutputs(unspentOutput.hash);
-			if (transactionOutputs == null)
-				return null;
+			List<TransactionOutput> transactionOutputs = this.getOutputs(unspentOutput.hash);
 
 			unspentTransactionOutputs.add(transactionOutputs.get(unspentOutput.index));
 		}
@@ -198,22 +214,64 @@ public class BTC {
 		return unspentTransactionOutputs;
 	}
 
-	public List<TransactionOutput> getOutputs(byte[] txHash) {
+	/**
+	 * Returns list of outputs pertaining to passed transaction hash.
+	 * <p>
+	 * @return list of outputs, or empty list if transaction unknown
+	 * @throws BitcoinException if there was an error.
+	 */
+	public List<TransactionOutput> getOutputs(byte[] txHash) throws BitcoinException {
 		byte[] rawTransactionBytes = this.electrumX.getRawTransaction(txHash);
-		if (rawTransactionBytes == null)
-			return null;
 
+		// XXX bitcoinj: replace with getTransaction() below
 		Transaction transaction = new Transaction(this.params, rawTransactionBytes);
 		return transaction.getOutputs();
 	}
 
-	/** Returns list of raw transactions spending passed address. */
-	public List<byte[]> getAddressTransactions(String base58Address) {
-		return this.electrumX.getAddressTransactions(addressToScript(base58Address));
+	/**
+	 * Returns list of transaction hashes pertaining to passed address.
+	 * <p>
+	 * @return list of unspent outputs, or empty list if script unknown
+	 * @throws BitcoinException if there was an error.
+	 */
+	public List<TransactionHash> getAddressTransactions(String base58Address, boolean includeUnconfirmed) throws BitcoinException {
+		return this.electrumX.getAddressTransactions(addressToScript(base58Address), includeUnconfirmed);
 	}
 
-	public boolean broadcastTransaction(Transaction transaction) {
-		return this.electrumX.broadcastTransaction(transaction.bitcoinSerialize());
+	/**
+	 * Returns list of raw, confirmed transactions involving given address.
+	 * <p>
+	 * @throws BitcoinException if there was an error
+	 */
+	public List<byte[]> getAddressTransactions(String base58Address) throws BitcoinException {
+		List<TransactionHash> transactionHashes = this.electrumX.getAddressTransactions(addressToScript(base58Address), false);
+
+		List<byte[]> rawTransactions = new ArrayList<>();
+		for (TransactionHash transactionInfo : transactionHashes) {
+			byte[] rawTransaction = this.electrumX.getRawTransaction(HashCode.fromString(transactionInfo.txHash).asBytes());
+			rawTransactions.add(rawTransaction);
+		}
+
+		return rawTransactions;
+	}
+
+	/**
+	 * Returns transaction info for passed transaction hash.
+	 * <p>
+	 * @throws BitcoinException.NotFoundException if transaction unknown
+	 * @throws BitcoinException if error occurs
+	 */
+	public BitcoinTransaction getTransaction(String txHash) throws BitcoinException {
+		return this.electrumX.getTransaction(txHash);
+	}
+
+	/**
+	 * Broadcasts raw transaction to Bitcoin network.
+	 * <p>
+	 * @throws BitcoinException if error occurs
+	 */
+	public void broadcastTransaction(Transaction transaction) throws BitcoinException {
+		this.electrumX.broadcastTransaction(transaction.bitcoinSerialize());
 	}
 
 	/**
@@ -226,7 +284,7 @@ public class BTC {
 	 */
 	public Transaction buildSpend(String xprv58, String recipient, long amount) {
 		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
-		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet, WalletAwareUTXOProvider.KeySearchMode.REQUEST_MORE_IF_ALL_SPENT));
+		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet, WalletAwareUTXOProvider.KeySearchMode.REQUEST_MORE_IF_ANY_SPENT));
 
 		Address destination = Address.fromString(this.params, recipient);
 		SendRequest sendRequest = SendRequest.to(destination, Coin.valueOf(amount));
@@ -264,9 +322,10 @@ public class BTC {
 	 * Returns first unused receive address given 'm' BIP32 key.
 	 *
 	 * @param xprv58 BIP32 extended Bitcoin private key
-	 * @return Bitcoin P2PKH address, or null if something went wrong
+	 * @return Bitcoin P2PKH address
+	 * @throws BitcoinException if something went wrong
 	 */
-	public String getUnusedReceiveAddress(String xprv58) {
+	public String getUnusedReceiveAddress(String xprv58) throws BitcoinException {
 		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
 		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
 
@@ -290,9 +349,7 @@ public class BTC {
 				Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
 				byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
 
-				List<UnspentOutput> unspentOutputs = this.electrumX.getUnspentOutputs(script);
-				if (unspentOutputs == null)
-					return null;
+				List<UnspentOutput> unspentOutputs = this.electrumX.getUnspentOutputs(script, false);
 
 				/*
 				 * If there are no unspent outputs then either:
@@ -310,9 +367,7 @@ public class BTC {
 					}
 
 					// Ask for transaction history - if it's empty then key has never been used
-					List<byte[]> historicTransactionHashes = this.electrumX.getAddressTransactions(script);
-					if (historicTransactionHashes == null)
-						return null;
+					List<TransactionHash> historicTransactionHashes = this.electrumX.getAddressTransactions(script, false);
 
 					if (!historicTransactionHashes.isEmpty()) {
 						// Fully spent key - case (a)
@@ -383,9 +438,12 @@ public class BTC {
 					Address address = Address.fromKey(btc.params, key, ScriptType.P2PKH);
 					byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
 
-					List<UnspentOutput> unspentOutputs = btc.electrumX.getUnspentOutputs(script);
-					if (unspentOutputs == null)
+					List<UnspentOutput> unspentOutputs;
+					try {
+						unspentOutputs = btc.electrumX.getUnspentOutputs(script, false);
+					} catch (BitcoinException e) {
 						throw new UTXOProviderException(String.format("Unable to fetch unspent outputs for %s", address));
+					}
 
 					/*
 					 * If there are no unspent outputs then either:
@@ -404,10 +462,12 @@ public class BTC {
 						}
 
 						// Ask for transaction history - if it's empty then key has never been used
-						List<byte[]> historicTransactionHashes = btc.electrumX.getAddressTransactions(script);
-						if (historicTransactionHashes == null)
-							throw new UTXOProviderException(
-									String.format("Unable to fetch transaction history for %s", address));
+						List<TransactionHash> historicTransactionHashes;
+						try {
+							historicTransactionHashes = btc.electrumX.getAddressTransactions(script, false);
+						} catch (BitcoinException e) {
+							throw new UTXOProviderException(String.format("Unable to fetch transaction history for %s", address));
+						}
 
 						if (!historicTransactionHashes.isEmpty()) {
 							// Fully spent key - case (a)
@@ -427,10 +487,13 @@ public class BTC {
 					areAllKeysSpent = false;
 
 					for (UnspentOutput unspentOutput : unspentOutputs) {
-						List<TransactionOutput> transactionOutputs = btc.getOutputs(unspentOutput.hash);
-						if (transactionOutputs == null)
+						List<TransactionOutput> transactionOutputs;
+						try {
+							transactionOutputs = btc.getOutputs(unspentOutput.hash);
+						} catch (BitcoinException e) {
 							throw new UTXOProviderException(String.format("Unable to fetch outputs for TX %s",
 									HashCode.fromBytes(unspentOutput.hash)));
+						}
 
 						TransactionOutput transactionOutput = transactionOutputs.get(unspentOutput.index);
 
@@ -463,11 +526,11 @@ public class BTC {
 		}
 
 		public int getChainHeadHeight() throws UTXOProviderException {
-			Integer height = btc.electrumX.getCurrentHeight();
-			if (height == null)
+			try {
+				return btc.electrumX.getCurrentHeight();
+			} catch (BitcoinException e) {
 				throw new UTXOProviderException("Unable to determine Bitcoin chain height");
-
-			return height.intValue();
+			}
 		}
 
 		public NetworkParameters getParams() {

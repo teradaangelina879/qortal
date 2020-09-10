@@ -19,6 +19,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTC;
 import org.qortal.crosschain.BTCP2SH;
+import org.qortal.crosschain.BitcoinException;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -135,7 +136,14 @@ public class Refund {
 
 			System.out.println("\nProcessing:");
 
-			long medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			long medianBlockTime;
+			try {
+				medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			} catch (BitcoinException e) {
+				System.err.println("Unable to determine median block time");
+				System.exit(2);
+				return;
+			}
 			System.out.println(String.format("Median block time: %s", LocalDateTime.ofInstant(Instant.ofEpochSecond(medianBlockTime), ZoneOffset.UTC)));
 
 			long now = System.currentTimeMillis();
@@ -151,18 +159,24 @@ public class Refund {
 			}
 
 			// Check P2SH is funded
-			Long p2shBalance = BTC.getInstance().getBalance(p2shAddress.toString());
-			if (p2shBalance == null) {
+			long p2shBalance;
+			try {
+				p2shBalance = BTC.getInstance().getConfirmedBalance(p2shAddress.toString());
+			} catch (BitcoinException e) {
 				System.err.println(String.format("Unable to check P2SH address %s balance", p2shAddress));
 				System.exit(2);
+				return;
 			}
 			System.out.println(String.format("P2SH address %s balance: %s", p2shAddress, BTC.format(p2shBalance)));
 
 			// Grab all P2SH funding transactions (just in case there are more than one)
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
-			if (fundingOutputs == null) {
+			List<TransactionOutput> fundingOutputs;
+			try {
+				fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
+			} catch (BitcoinException e) {
 				System.err.println(String.format("Can't find outputs for P2SH"));
 				System.exit(2);
+				return;
 			}
 
 			System.out.println(String.format("Found %d output%s for P2SH", fundingOutputs.size(), (fundingOutputs.size() != 1 ? "s" : "")));
