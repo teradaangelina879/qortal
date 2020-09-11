@@ -32,7 +32,6 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
-import org.qortal.utils.NTP;
 import org.qortal.utils.StringLongMapXmlAdapter;
 
 /**
@@ -572,35 +571,6 @@ public class BlockChain {
 				}
 
 				return true;
-			}
-		} finally {
-			blockchainLock.unlock();
-		}
-	}
-
-	public static void trimOldOnlineAccountsSignatures() {
-		final Long now = NTP.getTime();
-		if (now == null)
-			return;
-
-		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		if (!blockchainLock.tryLock())
-			// Too busy to trim right now, try again later
-			return;
-
-		try {
-			try (final Repository repository = RepositoryManager.tryRepository()) {
-				if (repository == null)
-					return;
-
-				int numBlocksTrimmed = repository.getBlockRepository().trimOldOnlineAccountsSignatures(now - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime());
-
-				if (numBlocksTrimmed > 0)
-					LOGGER.debug(String.format("Trimmed old online accounts signatures from %d block%s", numBlocksTrimmed, (numBlocksTrimmed != 1 ? "s" : "")));
-
-				repository.saveChanges();
-			} catch (DataException e) {
-				LOGGER.warn(String.format("Repository issue trying to trim old online accounts signatures: %s", e.getMessage()));
 			}
 		} finally {
 			blockchainLock.unlock();

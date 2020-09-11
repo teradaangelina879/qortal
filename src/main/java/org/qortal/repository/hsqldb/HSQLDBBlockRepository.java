@@ -465,11 +465,14 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int trimOldOnlineAccountsSignatures(long timestamp) throws DataException {
-		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE minted_when < ? AND online_accounts_signatures IS NOT NULL";
+		// We're often called so no need to trim all blocks in one go.
+		// Limit updates to reduce CPU and memory load.
+		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE minted_when < ? AND online_accounts_signatures IS NOT NULL LIMIT 1440";
 
 		try {
 			return this.repository.executeCheckedUpdate(sql, timestamp);
 		} catch (SQLException e) {
+			repository.examineException(e);
 			throw new DataException("Unable to trim old online accounts signatures in repository", e);
 		}
 	}

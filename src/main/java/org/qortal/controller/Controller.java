@@ -1407,7 +1407,24 @@ public class Controller extends Thread {
 		sendOurOnlineAccountsInfo();
 
 		// Trim blockchain by removing 'old' online accounts signatures
-		BlockChain.trimOldOnlineAccountsSignatures();
+		long upperMintedTimestamp = now - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
+		trimOldOnlineAccountsSignatures(upperMintedTimestamp);
+	}
+
+	private void trimOldOnlineAccountsSignatures(long upperMintedTimestamp) {
+		try (final Repository repository = RepositoryManager.tryRepository()) {
+			if (repository == null)
+				return;
+
+			int numBlocksTrimmed = repository.getBlockRepository().trimOldOnlineAccountsSignatures(upperMintedTimestamp);
+
+			if (numBlocksTrimmed > 0)
+				LOGGER.debug(() -> String.format("Trimmed old online accounts signatures from %d block%s", numBlocksTrimmed, (numBlocksTrimmed != 1 ? "s" : "")));
+
+			repository.saveChanges();
+		} catch (DataException e) {
+			LOGGER.warn(String.format("Repository issue trying to trim old online accounts signatures: %s", e.getMessage()));
+		}
 	}
 
 	private void sendOurOnlineAccountsInfo() {
