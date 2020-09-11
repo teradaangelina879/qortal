@@ -175,7 +175,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	public List<TransactionData> getTransactionsFromSignature(byte[] signature, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(256);
 
-		sql.append("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? ORDER BY sequence");
+		sql.append("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? ORDER BY block_signature");
+		if (reverse != null && reverse)
+			sql.append(" DESC");
+
+		sql.append(", sequence");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
