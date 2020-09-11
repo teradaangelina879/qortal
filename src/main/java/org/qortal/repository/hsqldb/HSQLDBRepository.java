@@ -771,8 +771,8 @@ public class HSQLDBRepository implements Repository {
 			LOGGER.info(sql);
 	}
 
-	/** Logs other HSQLDB sessions then re-throws passed exception */
-	public SQLException examineException(SQLException e) throws SQLException {
+	/** Logs other HSQLDB sessions then returns passed exception */
+	public SQLException examineException(SQLException e) {
 		LOGGER.error(String.format("HSQLDB error (session %d): %s", this.sessionId, e.getMessage()), e);
 
 		logStatements();
@@ -791,7 +791,11 @@ public class HSQLDBRepository implements Repository {
 				String thisWaitingFor = resultSet.getString(5);
 				String currentStatement = resultSet.getString(6);
 
-				LOGGER.error(String.format("Session %d, %s transaction (size %d), waiting for this '%s', this waiting for '%s', current statement: %s",
+				// Skip logging idle sessions
+				if (transactionSize == 0 && waitingForThis.isEmpty() && thisWaitingFor.isEmpty() && currentStatement.isEmpty())
+					continue;
+
+				LOGGER.error(() -> String.format("Session %d, %s transaction (size %d), waiting for this '%s', this waiting for '%s', current statement: %s",
 						systemSessionId, (inTransaction ? "in" : "not in"), transactionSize, waitingForThis, thisWaitingFor, currentStatement));
 			} while (resultSet.next());
 		} catch (SQLException de) {
