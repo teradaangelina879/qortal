@@ -141,7 +141,7 @@ public class HSQLDBDatabaseUpdates {
 							+ "transaction_count INTEGER NOT NULL, total_fees QortalAmount NOT NULL, transactions_signature Signature NOT NULL, "
 							+ "height INTEGER NOT NULL, minted_when EpochMillis NOT NULL, "
 							+ "minter QortalPublicKey NOT NULL, minter_signature Signature NOT NULL, AT_count INTEGER NOT NULL, AT_fees QortalAmount NOT NULL, "
-							+ "online_accounts VARBINARY(1204), online_accounts_count INTEGER NOT NULL, online_accounts_timestamp EpochMillis, online_accounts_signatures VARBINARY(1M), "
+							+ "online_accounts VARBINARY(1024), online_accounts_count INTEGER NOT NULL, online_accounts_timestamp EpochMillis, online_accounts_signatures VARBINARY(1M), "
 							+ "PRIMARY KEY (signature))");
 					// For finding blocks by height.
 					stmt.execute("CREATE INDEX BlockHeightIndex ON Blocks (height)");
@@ -153,16 +153,6 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX BlockTimestampHeightIndex ON Blocks (minted_when, height)");
 					// Use a separate table space as this table will be very large.
 					stmt.execute("SET TABLE Blocks NEW SPACE");
-
-					// Table to hold next block height.
-					stmt.execute("CREATE TABLE NextBlockHeight (height INT NOT NULL)");
-					// Initial value - should work for empty DB or populated DB.
-					stmt.execute("INSERT INTO NextBlockHeight VALUES (SELECT IFNULL(MAX(height), 0) + 1 FROM Blocks)");
-					// We use triggers on Blocks to update a simple "next block height" table
-					String blockUpdateSql = "UPDATE NextBlockHeight SET height = (SELECT height + 1 FROM Blocks ORDER BY height DESC LIMIT 1)";
-					stmt.execute("CREATE TRIGGER Next_block_height_insert_trigger AFTER INSERT ON Blocks " + blockUpdateSql);
-					stmt.execute("CREATE TRIGGER Next_block_height_update_trigger AFTER UPDATE ON Blocks " + blockUpdateSql);
-					stmt.execute("CREATE TRIGGER Next_block_height_delete_trigger AFTER DELETE ON Blocks " + blockUpdateSql);
 					break;
 
 				case 2:
@@ -653,6 +643,14 @@ public class HSQLDBDatabaseUpdates {
 				case 23:
 					// MESSAGE transactions index
 					stmt.execute("CREATE INDEX IF NOT EXISTS MessageTransactionsRecipientIndex ON MessageTransactions (recipient, sender)");
+					break;
+
+				case 24:
+					// Remove unused NextBlockHeight table and corresponding triggers
+					stmt.execute("DROP TRIGGER IF EXISTS Next_block_height_insert_trigger");
+					stmt.execute("DROP TRIGGER IF EXISTS Next_block_height_update_trigger");
+					stmt.execute("DROP TRIGGER IF EXISTS Next_block_height_delete_trigger");
+					stmt.execute("DROP TABLE IF EXISTS NextBlockHeight");
 					break;
 
 				default:
