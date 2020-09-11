@@ -10,6 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
+import org.bitcoinj.core.Context;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.InsufficientMoneyException;
 import org.bitcoinj.core.LegacyAddress;
@@ -84,6 +85,7 @@ public class BTC {
 	private static BTC instance;
 	private final NetworkParameters params;
 	private final ElectrumX electrumX;
+	private final Context bitcoinjContext;
 
 	// Let ECKey.equals() do the hard work
 	private final Set<ECKey> spentKeys = new HashSet<>();
@@ -97,6 +99,7 @@ public class BTC {
 		LOGGER.info(() -> String.format("Starting Bitcoin support using %s", bitcoinNet.name()));
 
 		this.electrumX = ElectrumX.getInstance(bitcoinNet.name());
+		this.bitcoinjContext = new Context(this.params);
 	}
 
 	public static synchronized BTC getInstance() {
@@ -128,6 +131,7 @@ public class BTC {
 
 	public boolean isValidXprv(String xprv58) {
 		try {
+			Context.propagate(bitcoinjContext);
 			DeterministicKey.deserializeB58(null, xprv58, this.params);
 			return true;
 		} catch (IllegalArgumentException e) {
@@ -137,11 +141,13 @@ public class BTC {
 
 	/** Returns P2PKH Bitcoin address using passed public key hash. */
 	public String pkhToAddress(byte[] publicKeyHash) {
+		Context.propagate(bitcoinjContext);
 		return LegacyAddress.fromPubKeyHash(this.params, publicKeyHash).toString();
 	}
 
 	public String deriveP2shAddress(byte[] redeemScriptBytes) {
 		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
+		Context.propagate(bitcoinjContext);
 		Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 		return p2shAddress.toString();
 	}
@@ -224,6 +230,7 @@ public class BTC {
 		byte[] rawTransactionBytes = this.electrumX.getRawTransaction(txHash);
 
 		// XXX bitcoinj: replace with getTransaction() below
+		Context.propagate(bitcoinjContext);
 		Transaction transaction = new Transaction(this.params, rawTransactionBytes);
 		return transaction.getOutputs();
 	}
@@ -283,6 +290,7 @@ public class BTC {
 	 * @return transaction, or null if insufficient funds
 	 */
 	public Transaction buildSpend(String xprv58, String recipient, long amount) {
+		Context.propagate(bitcoinjContext);
 		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
 		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet, WalletAwareUTXOProvider.KeySearchMode.REQUEST_MORE_IF_ANY_SPENT));
 
@@ -308,6 +316,7 @@ public class BTC {
 	 * @return unspent BTC balance, or null if unable to determine balance
 	 */
 	public Long getWalletBalance(String xprv58) {
+		Context.propagate(bitcoinjContext);
 		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
 		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet, WalletAwareUTXOProvider.KeySearchMode.REQUEST_MORE_IF_ANY_SPENT));
 
@@ -326,6 +335,7 @@ public class BTC {
 	 * @throws BitcoinException if something went wrong
 	 */
 	public String getUnusedReceiveAddress(String xprv58) throws BitcoinException {
+		Context.propagate(bitcoinjContext);
 		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
 		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
 
@@ -541,6 +551,7 @@ public class BTC {
 	// Utility methods for us
 
 	private byte[] addressToScript(String base58Address) {
+		Context.propagate(bitcoinjContext);
 		Address address = Address.fromString(this.params, base58Address);
 		return ScriptBuilder.createOutputScript(address).getProgram();
 	}
