@@ -120,7 +120,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	@Override
 	public int getHeightFromTimestamp(long timestamp) throws DataException {
 		// Uses (minted_when, height) index
-		String sql = "SELECT height FROM Blocks WHERE minted_when <= ? ORDER BY minted_when DESC LIMIT 1";
+		String sql = "SELECT height FROM Blocks WHERE minted_when <= ? ORDER BY minted_when DESC, height DESC LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, timestamp)) {
 			if (resultSet == null)
