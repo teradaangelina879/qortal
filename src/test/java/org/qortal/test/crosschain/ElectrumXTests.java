@@ -1,9 +1,11 @@
-package org.qortal.test.btcacct;
+package org.qortal.test.crosschain;
 
 import static org.junit.Assert.*;
 
 import java.security.Security;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 import org.bitcoinj.core.Address;
 import org.bitcoinj.params.TestNet3Params;
@@ -11,11 +13,13 @@ import org.bitcoinj.script.ScriptBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.Test;
-import org.qortal.crosschain.BitcoinException;
-import org.qortal.crosschain.BitcoinTransaction;
+import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.BitcoinyTransaction;
 import org.qortal.crosschain.ElectrumX;
 import org.qortal.crosschain.TransactionHash;
 import org.qortal.crosschain.UnspentOutput;
+import org.qortal.crosschain.Bitcoin.BitcoinNet;
+import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
 import org.qortal.utils.BitTwiddling;
 
 import com.google.common.hash.HashCode;
@@ -30,15 +34,25 @@ public class ElectrumXTests {
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
 	}
 
+	private static final Map<ElectrumX.Server.ConnectionType, Integer> DEFAULT_ELECTRUMX_PORTS = new EnumMap<>(ElectrumX.Server.ConnectionType.class);
+	static {
+		DEFAULT_ELECTRUMX_PORTS.put(ConnectionType.TCP, 50001);
+		DEFAULT_ELECTRUMX_PORTS.put(ConnectionType.SSL, 50002);
+	}
+
+	private ElectrumX getInstance() {
+		return new ElectrumX(BitcoinNet.TEST3.getGenesisHash(), BitcoinNet.TEST3.getServers(), DEFAULT_ELECTRUMX_PORTS);
+	}
+
 	@Test
 	public void testInstance() {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+		ElectrumX electrumX = getInstance();
 		assertNotNull(electrumX);
 	}
 
 	@Test
-	public void testGetCurrentHeight() throws BitcoinException {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+	public void testGetCurrentHeight() throws ForeignBlockchainException {
+		ElectrumX electrumX = getInstance();
 
 		int height = electrumX.getCurrentHeight();
 
@@ -48,10 +62,10 @@ public class ElectrumXTests {
 
 	@Test
 	public void testInvalidRequest() {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+		ElectrumX electrumX = getInstance();
 		try {
-			electrumX.getBlockHeaders(-1, -1);
-		} catch (BitcoinException e) {
+			electrumX.getRawBlockHeaders(-1, -1);
+		} catch (ForeignBlockchainException e) {
 			// Should throw due to negative start block height
 			return;
 		}
@@ -60,13 +74,13 @@ public class ElectrumXTests {
 	}
 
 	@Test
-	public void testGetRecentBlocks() throws BitcoinException {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+	public void testGetRecentBlocks() throws ForeignBlockchainException {
+		ElectrumX electrumX = getInstance();
 
 		int height = electrumX.getCurrentHeight();
 		assertTrue(height > 10000);
 
-		List<byte[]> recentBlockHeaders = electrumX.getBlockHeaders(height - 11, 11);
+		List<byte[]> recentBlockHeaders = electrumX.getRawBlockHeaders(height - 11, 11);
 
 		System.out.println(String.format("Returned %d recent blocks", recentBlockHeaders.size()));
 		for (int i = 0; i < recentBlockHeaders.size(); ++i) {
@@ -80,8 +94,8 @@ public class ElectrumXTests {
 	}
 
 	@Test
-	public void testGetP2PKHBalance() throws BitcoinException {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+	public void testGetP2PKHBalance() throws ForeignBlockchainException {
+		ElectrumX electrumX = getInstance();
 
 		Address address = Address.fromString(TestNet3Params.get(), "n3GNqMveyvaPvUbH469vDRadqpJMPc84JA");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
@@ -93,8 +107,8 @@ public class ElectrumXTests {
 	}
 
 	@Test
-	public void testGetP2SHBalance() throws BitcoinException {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+	public void testGetP2SHBalance() throws ForeignBlockchainException {
+		ElectrumX electrumX = getInstance();
 
 		Address address = Address.fromString(TestNet3Params.get(), "2N4szZUfigj7fSBCEX4PaC8TVbC5EvidaVF");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
@@ -106,8 +120,8 @@ public class ElectrumXTests {
 	}
 
 	@Test
-	public void testGetUnspentOutputs() throws BitcoinException {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+	public void testGetUnspentOutputs() throws ForeignBlockchainException {
+		ElectrumX electrumX = getInstance();
 
 		Address address = Address.fromString(TestNet3Params.get(), "2N4szZUfigj7fSBCEX4PaC8TVbC5EvidaVF");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
@@ -120,8 +134,8 @@ public class ElectrumXTests {
 	}
 
 	@Test
-	public void testGetRawTransaction() throws BitcoinException {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+	public void testGetRawTransaction() throws ForeignBlockchainException {
+		ElectrumX electrumX = getInstance();
 
 		byte[] txHash = HashCode.fromString("7653fea9ffcd829d45ed2672938419a94951b08175982021e77d619b553f29af").asBytes();
 
@@ -132,26 +146,26 @@ public class ElectrumXTests {
 
 	@Test
 	public void testGetUnknownRawTransaction() {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+		ElectrumX electrumX = getInstance();
 
 		byte[] txHash = HashCode.fromString("f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0").asBytes();
 
 		try {
 			electrumX.getRawTransaction(txHash);
 			fail("Bitcoin transaction should be unknown and hence throw exception");
-		} catch (BitcoinException e) {
-			if (!(e instanceof BitcoinException.NotFoundException))
+		} catch (ForeignBlockchainException e) {
+			if (!(e instanceof ForeignBlockchainException.NotFoundException))
 				fail("Bitcoin transaction should be unknown and hence throw NotFoundException");
 		}
 	}
 
 	@Test
-	public void testGetTransaction() throws BitcoinException {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+	public void testGetTransaction() throws ForeignBlockchainException {
+		ElectrumX electrumX = getInstance();
 
 		String txHash = "7653fea9ffcd829d45ed2672938419a94951b08175982021e77d619b553f29af";
 
-		BitcoinTransaction transaction = electrumX.getTransaction(txHash);
+		BitcoinyTransaction transaction = electrumX.getTransaction(txHash);
 
 		assertNotNull(transaction);
 		assertTrue(transaction.txHash.equals(txHash));
@@ -159,22 +173,22 @@ public class ElectrumXTests {
 
 	@Test
 	public void testGetUnknownTransaction() {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+		ElectrumX electrumX = getInstance();
 
 		String txHash = "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0";
 
 		try {
 			electrumX.getTransaction(txHash);
 			fail("Bitcoin transaction should be unknown and hence throw exception");
-		} catch (BitcoinException e) {
-			if (!(e instanceof BitcoinException.NotFoundException))
+		} catch (ForeignBlockchainException e) {
+			if (!(e instanceof ForeignBlockchainException.NotFoundException))
 				fail("Bitcoin transaction should be unknown and hence throw NotFoundException");
 		}
 	}
 
 	@Test
-	public void testGetAddressTransactions() throws BitcoinException {
-		ElectrumX electrumX = ElectrumX.getInstance("TEST3");
+	public void testGetAddressTransactions() throws ForeignBlockchainException {
+		ElectrumX electrumX = getInstance();
 
 		Address address = Address.fromString(TestNet3Params.get(), "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE");
 		byte[] script = ScriptBuilder.createOutputScript(address).getProgram();

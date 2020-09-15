@@ -20,7 +20,7 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.block.BlockChain;
-import org.qortal.crosschain.BTC.BitcoinNet;
+import org.qortal.crosschain.Bitcoin.BitcoinNet;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)

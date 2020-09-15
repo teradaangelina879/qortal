@@ -29,7 +29,7 @@ import org.qortal.utils.BitTwiddling;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
-public class BTCP2SH {
+public class BitcoinyHTLC {
 
 	public enum Status {
 		UNFUNDED, FUNDING_IN_PROGRESS, FUNDED, REDEEM_IN_PROGRESS, REDEEMED, REFUND_IN_PROGRESS, REFUNDED
@@ -37,6 +37,9 @@ public class BTCP2SH {
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
+
+	public static final long NO_LOCKTIME_NO_RBF_SEQUENCE = 0xFFFFFFFFL;
+	public static final long LOCKTIME_NO_RBF_SEQUENCE = NO_LOCKTIME_NO_RBF_SEQUENCE - 1;
 
 	/*
 	 * OP_TUCK (to copy public key to before signature)
@@ -62,15 +65,14 @@ public class BTCP2SH {
 	private static final byte[] redeemScript5 = HashCode.fromString("8768").asBytes(); // OP_EQUAL OP_ENDIF
 
 	/**
-	 * Returns Bitcoin redeemScript used for cross-chain trading.
+	 * Returns redeemScript used for cross-chain trading.
 	 * <p>
-	 * See comments in {@link BTCP2SH} for more details.
+	 * See comments in {@link BitcoinyHTLC} for more details.
 	 * 
 	 * @param refunderPubKeyHash 20-byte HASH160 of P2SH funder's public key, for refunding purposes
 	 * @param lockTime seconds-since-epoch threshold, after which P2SH funder can claim refund
 	 * @param redeemerPubKeyHash 20-byte HASH160 of P2SH redeemer's public key
 	 * @param secretHash 20-byte HASH160 of secret, used by P2SH redeemer to claim funds
-	 * @return
 	 */
 	public static byte[] buildScript(byte[] refunderPubKeyHash, int lockTime, byte[] redeemerPubKeyHash, byte[] secretHash) {
 		return Bytes.concat(redeemScript1, refunderPubKeyHash, redeemScript2, BitTwiddling.toLEByteArray((int) (lockTime & 0xffffffffL)),
@@ -78,8 +80,9 @@ public class BTCP2SH {
 	}
 
 	/**
-	 * Builds a custom transaction to spend P2SH.
+	 * Builds a custom transaction to spend HTLC P2SH.
 	 * 
+	 * @param params blockchain network parameters
 	 * @param amount output amount, should be total of input amounts, less miner fees
 	 * @param spendKey key for signing transaction, and also where funds are 'sent' (output)
 	 * @param fundingOutput output from transaction that funded P2SH address
@@ -87,12 +90,11 @@ public class BTCP2SH {
 	 * @param lockTime (optional) transaction nLockTime, used in refund scenario
 	 * @param scriptSigBuilder function for building scriptSig using transaction input signature
 	 * @param outputPublicKeyHash PKH used to create P2PKH output
-	 * @return Signed Bitcoin transaction for spending P2SH
+	 * @return Signed transaction for spending P2SH
 	 */
-	public static Transaction buildP2shTransaction(Coin amount, ECKey spendKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes,
+	public static Transaction buildP2shTransaction(NetworkParameters params, Coin amount, ECKey spendKey,
+			List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes,
 			Long lockTime, Function<byte[], Script> scriptSigBuilder, byte[] outputPublicKeyHash) {
-		NetworkParameters params = BTC.getInstance().getNetworkParameters();
-
 		Transaction transaction = new Transaction(params);
 		transaction.setVersion(2);
 
@@ -105,9 +107,9 @@ public class BTCP2SH {
 			// Input (without scriptSig prior to signing)
 			TransactionInput input = new TransactionInput(params, null, redeemScriptBytes, fundingOutput.getOutPointFor());
 			if (lockTime != null)
-				input.setSequenceNumber(BTC.LOCKTIME_NO_RBF_SEQUENCE); // Use max-value - 1, so lockTime can be used but not RBF
+				input.setSequenceNumber(LOCKTIME_NO_RBF_SEQUENCE); // Use max-value - 1, so lockTime can be used but not RBF
 			else
-				input.setSequenceNumber(BTC.NO_LOCKTIME_NO_RBF_SEQUENCE); // Use max-value, so no lockTime and no RBF
+				input.setSequenceNumber(NO_LOCKTIME_NO_RBF_SEQUENCE); // Use max-value, so no lockTime and no RBF
 			transaction.addInput(input);
 		}
 
@@ -134,17 +136,19 @@ public class BTCP2SH {
 	}
 
 	/**
-	 * Returns signed Bitcoin transaction claiming refund from P2SH address.
+	 * Returns signed transaction claiming refund from HTLC P2SH.
 	 * 
+	 * @param params blockchain network parameters
 	 * @param refundAmount refund amount, should be total of input amounts, less miner fees
-	 * @param refundKey key for signing transaction, and also where refund is 'sent' (output)
-	 * @param fundingOutput output from transaction that funded P2SH address
+	 * @param refundKey key for signing transaction
+	 * @param fundingOutputs outputs from transaction that funded P2SH address
 	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
 	 * @param lockTime transaction nLockTime - must be at least locktime used in redeemScript
-	 * @param receivingAccountInfo Bitcoin PKH used for output
-	 * @return Signed Bitcoin transaction for refunding P2SH
+	 * @param receivingAccountInfo public-key-hash used for P2PKH output
+	 * @return Signed transaction for refunding P2SH
 	 */
-	public static Transaction buildRefundTransaction(Coin refundAmount, ECKey refundKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, long lockTime, byte[] receivingAccountInfo) {
+	public static Transaction buildRefundTransaction(NetworkParameters params, Coin refundAmount, ECKey refundKey,
+			List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, long lockTime, byte[] receivingAccountInfo) {
 		Function<byte[], Script> refundSigScriptBuilder = (txSigBytes) -> {
 			// Build scriptSig with...
 			ScriptBuilder scriptBuilder = new ScriptBuilder();
@@ -163,21 +167,23 @@ public class BTCP2SH {
 		};
 
 		// Send funds back to funding address
-		return buildP2shTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundSigScriptBuilder, receivingAccountInfo);
+		return buildP2shTransaction(params, refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundSigScriptBuilder, receivingAccountInfo);
 	}
 
 	/**
-	 * Returns signed Bitcoin transaction redeeming funds from P2SH address.
+	 * Returns signed transaction redeeming funds from P2SH address.
 	 * 
+	 * @param params blockchain network parameters
 	 * @param redeemAmount redeem amount, should be total of input amounts, less miner fees
-	 * @param redeemKey key for signing transaction, and also where funds are 'sent' (output)
-	 * @param fundingOutput output from transaction that funded P2SH address
+	 * @param redeemKey key for signing transaction
+	 * @param fundingOutputs outputs from transaction that funded P2SH address
 	 * @param redeemScriptBytes the redeemScript itself, in byte[] form
 	 * @param secret actual 32-byte secret used when building redeemScript
 	 * @param receivingAccountInfo Bitcoin PKH used for output
-	 * @return Signed Bitcoin transaction for redeeming P2SH
+	 * @return Signed transaction for redeeming P2SH
 	 */
-	public static Transaction buildRedeemTransaction(Coin redeemAmount, ECKey redeemKey, List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, byte[] secret, byte[] receivingAccountInfo) {
+	public static Transaction buildRedeemTransaction(NetworkParameters params, Coin redeemAmount, ECKey redeemKey,
+			List<TransactionOutput> fundingOutputs, byte[] redeemScriptBytes, byte[] secret, byte[] receivingAccountInfo) {
 		Function<byte[], Script> redeemSigScriptBuilder = (txSigBytes) -> {
 			// Build scriptSig with...
 			ScriptBuilder scriptBuilder = new ScriptBuilder();
@@ -198,17 +204,15 @@ public class BTCP2SH {
 			return scriptBuilder.build();
 		};
 
-		return buildP2shTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder, receivingAccountInfo);
+		return buildP2shTransaction(params, redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder, receivingAccountInfo);
 	}
 
-	/** Returns 'secret', if any, given list of raw bitcoin transactions. */
-	public static byte[] findP2shSecret(String p2shAddress, List<byte[]> rawTransactions) {
-		NetworkParameters params = BTC.getInstance().getNetworkParameters();
-
+	/** Returns 'secret', if any, given list of raw transactions. */
+	public static byte[] findHtlcSecret(NetworkParameters params, String p2shAddress, List<byte[]> rawTransactions) {
 		for (byte[] rawTransaction : rawTransactions) {
 			Transaction transaction = new Transaction(params, rawTransaction);
 
-			// Cycle through inputs, looking for one that spends our P2SH
+			// Cycle through inputs, looking for one that spends our HTLC
 			for (TransactionInput input : transaction.getInputs()) {
 				Script scriptSig = input.getScriptSig();
 				List<ScriptChunk> scriptChunks = scriptSig.getChunks();
@@ -230,11 +234,11 @@ public class BTCP2SH {
 				Address inputAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
 				if (!inputAddress.toString().equals(p2shAddress))
-					// Input isn't spending our P2SH
+					// Input isn't spending our HTLC
 					continue;
 
 				byte[] secret = scriptChunks.get(0).data;
-				if (secret.length != BTCP2SH.SECRET_LENGTH)
+				if (secret.length != BitcoinyHTLC.SECRET_LENGTH)
 					continue;
 
 				return secret;
@@ -244,70 +248,74 @@ public class BTCP2SH {
 		return null;
 	}
 
-	/** Returns P2SH status, given P2SH address and expected redeem/refund amount, or throws BitcoinException if error occurs. */
-	public static Status determineP2shStatus(String p2shAddress, long minimumAmount) throws BitcoinException {
-		final BTC btc = BTC.getInstance();
-
-		List<TransactionHash> transactionHashes = btc.getAddressTransactions(p2shAddress, BTC.INCLUDE_UNCONFIRMED);
+	/**
+	 * Returns HTLC status, given P2SH address and expected redeem/refund amount
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	public static Status determineHtlcStatus(BitcoinyBlockchainProvider blockchain, String p2shAddress, long minimumAmount) throws ForeignBlockchainException {
+		byte[] ourScriptPubKey = addressToScriptPubKey(p2shAddress);
+		List<TransactionHash> transactionHashes = blockchain.getAddressTransactions(ourScriptPubKey, BitcoinyBlockchainProvider.INCLUDE_UNCONFIRMED);
 
 		// Sort by confirmed first, followed by ascending height
 		transactionHashes.sort(TransactionHash.CONFIRMED_FIRST.thenComparing(TransactionHash::getHeight));
 
 		// Transaction cache
-		Map<String, BitcoinTransaction> transactionsByHash = new HashMap<>();
+		Map<String, BitcoinyTransaction> transactionsByHash = new HashMap<>();
 		// HASH160(redeem script) for this p2shAddress
 		byte[] ourRedeemScriptHash = addressToRedeemScriptHash(p2shAddress);
 
 		// Check for spends first, caching full transaction info as we progress just in case we don't return in this loop
 		for (TransactionHash transactionInfo : transactionHashes) {
-			BitcoinTransaction bitcoinTransaction = btc.getTransaction(transactionInfo.txHash);
+			BitcoinyTransaction bitcoinyTransaction = blockchain.getTransaction(transactionInfo.txHash);
 
 			// Cache for possible later reuse
-			transactionsByHash.put(transactionInfo.txHash, bitcoinTransaction);
+			transactionsByHash.put(transactionInfo.txHash, bitcoinyTransaction);
 
 			// Acceptable funding is one transaction output, so we're expecting only one input
-			if (bitcoinTransaction.inputs.size() != 1)
+			if (bitcoinyTransaction.inputs.size() != 1)
 				// Wrong number of inputs
 				continue;
 
-			String scriptSig = bitcoinTransaction.inputs.get(0).scriptSig;
+			String scriptSig = bitcoinyTransaction.inputs.get(0).scriptSig;
 
 			List<byte[]> scriptSigChunks = extractScriptSigChunks(HashCode.fromString(scriptSig).asBytes());
 			if (scriptSigChunks.size() < 3 || scriptSigChunks.size() > 4)
-				// Not spending one of these P2SH
+				// Not valid chunks for our form of HTLC
 				continue;
 
 			// Last chunk is redeem script
 			byte[] redeemScriptBytes = scriptSigChunks.get(scriptSigChunks.size() - 1);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 			if (!Arrays.equals(redeemScriptHash, ourRedeemScriptHash))
-				// Not spending our specific P2SH
+				// Not spending our specific HTLC redeem script
 				continue;
 
-			// If we have 4 chunks, then secret is present
-			return scriptSigChunks.size() == 4
-					? (transactionInfo.height == 0 ? Status.REDEEM_IN_PROGRESS : Status.REDEEMED)
-					: (transactionInfo.height == 0 ? Status.REFUND_IN_PROGRESS : Status.REFUNDED);
+			if (scriptSigChunks.size() == 4)
+				// If we have 4 chunks, then secret is present, hence redeem
+				return transactionInfo.height == 0 ? Status.REDEEM_IN_PROGRESS : Status.REDEEMED;
+			else
+				return transactionInfo.height == 0 ? Status.REFUND_IN_PROGRESS : Status.REFUNDED;
 		}
 
-		String ourScriptPubKey = HashCode.fromBytes(addressToScriptPubKey(p2shAddress)).toString();
+		String ourScriptPubKeyHex = HashCode.fromBytes(ourScriptPubKey).toString();
 
 		// Check for funding
 		for (TransactionHash transactionInfo : transactionHashes) {
-			BitcoinTransaction bitcoinTransaction = transactionsByHash.get(transactionInfo.txHash);
-			if (bitcoinTransaction == null)
+			BitcoinyTransaction bitcoinyTransaction = transactionsByHash.get(transactionInfo.txHash);
+			if (bitcoinyTransaction == null)
 				// Should be present in map!
-				throw new BitcoinException("Cached Bitcoin transaction now missing?");
+				throw new ForeignBlockchainException("Cached Bitcoin transaction now missing?");
 
 			// Check outputs for our specific P2SH
-			for (BitcoinTransaction.Output output : bitcoinTransaction.outputs) {
+			for (BitcoinyTransaction.Output output : bitcoinyTransaction.outputs) {
 				// Check amount
 				if (output.value < minimumAmount)
 					// Output amount too small (not taking fees into account)
 					continue;
 
-				String scriptPubKey = output.scriptPubKey;
-				if (!scriptPubKey.equals(ourScriptPubKey))
+				String scriptPubKeyHex = output.scriptPubKey;
+				if (!scriptPubKeyHex.equals(ourScriptPubKeyHex))
 					// Not funding our specific P2SH
 					continue;
 

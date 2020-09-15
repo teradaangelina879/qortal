@@ -1,17 +1,17 @@
 package org.qortal.crosschain;
 
 @SuppressWarnings("serial")
-public class BitcoinException extends Exception {
+public class ForeignBlockchainException extends Exception {
 
-	public BitcoinException() {
+	public ForeignBlockchainException() {
 		super();
 	}
 
-	public BitcoinException(String message) {
+	public ForeignBlockchainException(String message) {
 		super(message);
 	}
 
-	public static class NetworkException extends BitcoinException {
+	public static class NetworkException extends ForeignBlockchainException {
 		private final Integer daemonErrorCode;
 
 		public NetworkException() {
@@ -34,7 +34,7 @@ public class BitcoinException extends Exception {
 		}
 	}
 
-	public static class NotFoundException extends BitcoinException {
+	public static class NotFoundException extends ForeignBlockchainException {
 		public NotFoundException() {
 			super();
 		}
@@ -44,7 +44,7 @@ public class BitcoinException extends Exception {
 		}
 	}
 
-	public static class InsufficientFundsException extends BitcoinException {
+	public static class InsufficientFundsException extends ForeignBlockchainException {
 		public InsufficientFundsException() {
 			super();
 		}

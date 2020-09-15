@@ -101,7 +101,7 @@ import com.google.common.primitives.Bytes;
  * </li>
  * </ul>
  */
-public class BTCACCT {
+public class BitcoinACCTv1 {
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;
@@ -141,7 +141,7 @@ public class BTCACCT {
 		}
 	}
 
-	private BTCACCT() {
+	private BitcoinACCTv1() {
 	}
 
 	/**
@@ -156,7 +156,6 @@ public class BTCACCT {
 	 * @param qortAmount how much QORT to pay trade partner if they send correct 32-byte secrets to AT
 	 * @param bitcoinAmount how much BTC the AT creator is expecting to trade
 	 * @param tradeTimeout suggested timeout for entire trade
-	 * @return
 	 */
 	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] bitcoinPublicKeyHash, byte[] hashOfSecretB, long qortAmount, long bitcoinAmount, int tradeTimeout) {
 		// Labels for data segment addresses
@@ -591,7 +590,7 @@ public class BTCACCT {
 		byte[] codeBytes = new byte[codeByteBuffer.limit()];
 		codeByteBuffer.get(codeBytes);
 
-		assert Arrays.equals(Crypto.digest(codeBytes), BTCACCT.CODE_BYTES_HASH)
+		assert Arrays.equals(Crypto.digest(codeBytes), BitcoinACCTv1.CODE_BYTES_HASH)
 			: String.format("BTCACCT.CODE_BYTES_HASH mismatch: expected %s, actual %s", HashCode.fromBytes(CODE_BYTES_HASH), HashCode.fromBytes(Crypto.digest(codeBytes)));
 
 		final short ciyamAtVersion = 2;

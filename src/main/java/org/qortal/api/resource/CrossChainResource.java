@@ -48,17 +48,18 @@ import org.qortal.api.model.CrossChainTradeSummary;
 import org.qortal.api.model.TradeBotCreateRequest;
 import org.qortal.api.model.TradeBotRespondRequest;
 import org.qortal.api.model.BitcoinSendRequest;
-import org.qortal.api.model.CrossChainBitcoinP2SHStatus;
+import org.qortal.api.model.CrossChainBitcoinyHTLCStatus;
 import org.qortal.api.model.CrossChainBitcoinRedeemRequest;
 import org.qortal.api.model.CrossChainBitcoinRefundRequest;
 import org.qortal.api.model.CrossChainBitcoinTemplateRequest;
 import org.qortal.api.model.CrossChainBuildRequest;
 import org.qortal.asset.Asset;
 import org.qortal.controller.TradeBot;
-import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BTCACCT;
-import org.qortal.crosschain.BTCP2SH;
-import org.qortal.crosschain.BitcoinException;
+import org.qortal.crosschain.Bitcoin;
+import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.Bitcoiny;
+import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
@@ -116,7 +117,7 @@ public class CrossChainResource {
 		if (limit != null && limit > 100)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-		byte[] codeHash = BTCACCT.CODE_BYTES_HASH;
+		byte[] codeHash = BitcoinACCTv1.CODE_BYTES_HASH;
 		boolean isExecutable = true;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -124,7 +125,7 @@ public class CrossChainResource {
 
 			List<CrossChainTradeData> crossChainTradesData = new ArrayList<>();
 			for (ATData atData : atsData) {
-				CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+				CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 				crossChainTradesData.add(crossChainTradeData);
 			}
 
@@ -163,7 +164,7 @@ public class CrossChainResource {
 		if (creatorPublicKey == null || creatorPublicKey.length != Transformer.PUBLIC_KEY_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
 
-		if (tradeRequest.hashOfSecretB == null || tradeRequest.hashOfSecretB.length != BTC.HASH160_LENGTH)
+		if (tradeRequest.hashOfSecretB == null || tradeRequest.hashOfSecretB.length != Bitcoiny.HASH160_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		if (tradeRequest.tradeTimeout == null)
@@ -188,7 +189,7 @@ public class CrossChainResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PublicKeyAccount creatorAccount = new PublicKeyAccount(repository, creatorPublicKey);
 
-			byte[] creationBytes = BTCACCT.buildQortalAT(creatorAccount.getAddress(), tradeRequest.bitcoinPublicKeyHash, tradeRequest.hashOfSecretB,
+			byte[] creationBytes = BitcoinACCTv1.buildQortalAT(creatorAccount.getAddress(), tradeRequest.bitcoinPublicKeyHash, tradeRequest.hashOfSecretB,
 					tradeRequest.qortAmount, tradeRequest.bitcoinAmount, tradeRequest.tradeTimeout);
 
 			long txTimestamp = NTP.getTime();
@@ -266,9 +267,9 @@ public class CrossChainResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, tradeRequest.atAddress);
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode != BTCACCT.Mode.OFFERING)
+			if (crossChainTradeData.mode != BitcoinACCTv1.Mode.OFFERING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			// Does supplied public key match trade public key?
@@ -284,7 +285,7 @@ public class CrossChainResource {
 
 			MessageTransactionData messageTransactionData = (MessageTransactionData) transactionData;
 			byte[] messageData = messageTransactionData.getData();
-			BTCACCT.OfferMessageData offerMessageData = BTCACCT.extractOfferMessageData(messageData);
+			BitcoinACCTv1.OfferMessageData offerMessageData = BitcoinACCTv1.extractOfferMessageData(messageData);
 			if (offerMessageData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_INVALID);
 
@@ -295,9 +296,9 @@ public class CrossChainResource {
 			int lockTimeA = (int) offerMessageData.lockTimeA;
 
 			String aliceNativeAddress = Crypto.toAddress(messageTransactionData.getCreatorPublicKey());
-			int lockTimeB = BTCACCT.calcLockTimeB(messageTransactionData.getTimestamp(), lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(messageTransactionData.getTimestamp(), lockTimeA);
 
-			byte[] outgoingMessageData = BTCACCT.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] outgoingMessageData = BitcoinACCTv1.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			byte[] messageTransactionBytes = buildAtMessage(repository, tradePublicKey, tradeRequest.atAddress, outgoingMessageData);
 
 			return Base58.encode(messageTransactionBytes);
@@ -344,10 +345,10 @@ public class CrossChainResource {
 		if (secretRequest.atAddress == null || !Crypto.isValidAtAddress(secretRequest.atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		if (secretRequest.secretA == null || secretRequest.secretA.length != BTCACCT.SECRET_LENGTH)
+		if (secretRequest.secretA == null || secretRequest.secretA.length != BitcoinACCTv1.SECRET_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
-		if (secretRequest.secretB == null || secretRequest.secretB.length != BTCACCT.SECRET_LENGTH)
+		if (secretRequest.secretB == null || secretRequest.secretB.length != BitcoinACCTv1.SECRET_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		if (secretRequest.receivingAddress == null || !Crypto.isValidAddress(secretRequest.receivingAddress))
@@ -355,9 +356,9 @@ public class CrossChainResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, secretRequest.atAddress);
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode != BTCACCT.Mode.TRADING)
+			if (crossChainTradeData.mode != BitcoinACCTv1.Mode.TRADING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			String partnerAddress = Crypto.toAddress(partnerPublicKey);
@@ -368,7 +369,7 @@ public class CrossChainResource {
 
 			// Good to make MESSAGE
 
-			byte[] messageData = BTCACCT.buildRedeemMessage(secretRequest.secretA, secretRequest.secretB, secretRequest.receivingAddress);
+			byte[] messageData = BitcoinACCTv1.buildRedeemMessage(secretRequest.secretA, secretRequest.secretB, secretRequest.receivingAddress);
 			byte[] messageTransactionBytes = buildAtMessage(repository, partnerPublicKey, secretRequest.atAddress, messageData);
 
 			return Base58.encode(messageTransactionBytes);
@@ -417,9 +418,9 @@ public class CrossChainResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, cancelRequest.atAddress);
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode != BTCACCT.Mode.OFFERING)
+			if (crossChainTradeData.mode != BitcoinACCTv1.Mode.OFFERING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			// Does supplied public key match AT creator's public key?
@@ -429,7 +430,7 @@ public class CrossChainResource {
 			// Good to make MESSAGE
 
 			String atCreatorAddress = Crypto.toAddress(creatorPublicKey);
-			byte[] messageData = BTCACCT.buildCancelMessage(atCreatorAddress);
+			byte[] messageData = BitcoinACCTv1.buildCancelMessage(atCreatorAddress);
 
 			byte[] messageTransactionBytes = buildAtMessage(repository, creatorPublicKey, cancelRequest.atAddress, messageData);
 
@@ -492,8 +493,8 @@ public class CrossChainResource {
 	}
 
 	private String deriveP2sh(CrossChainBitcoinTemplateRequest templateRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
-		BTC btc = BTC.getInstance();
-		NetworkParameters params = btc.getNetworkParameters();
+		Bitcoin bitcoin = Bitcoin.getInstance();
+		NetworkParameters params = bitcoin.getNetworkParameters();
 
 		if (templateRequest.refundPublicKeyHash == null || templateRequest.refundPublicKeyHash.length != 20)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
@@ -507,12 +508,12 @@ public class CrossChainResource {
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, templateRequest.atAddress);
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode == BTCACCT.Mode.OFFERING || crossChainTradeData.mode == BTCACCT.Mode.CANCELLED)
+			if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING || crossChainTradeData.mode == BitcoinACCTv1.Mode.CANCELLED)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, lockTimeFn.applyAsInt(crossChainTradeData), templateRequest.redeemPublicKeyHash, hashOfSecretFn.apply(crossChainTradeData));
+			byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(templateRequest.refundPublicKeyHash, lockTimeFn.applyAsInt(crossChainTradeData), templateRequest.redeemPublicKeyHash, hashOfSecretFn.apply(crossChainTradeData));
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
@@ -537,12 +538,12 @@ public class CrossChainResource {
 		),
 		responses = {
 			@ApiResponse(
-				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = CrossChainBitcoinP2SHStatus.class))
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = CrossChainBitcoinyHTLCStatus.class))
 			)
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public CrossChainBitcoinP2SHStatus checkP2shA(CrossChainBitcoinTemplateRequest templateRequest) {
+	public CrossChainBitcoinyHTLCStatus checkP2shA(CrossChainBitcoinTemplateRequest templateRequest) {
 		Security.checkApiCallAllowed(request);
 
 		return checkP2sh(templateRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeA, (crossChainTradeData) -> crossChainTradeData.hashOfSecretA);
@@ -563,20 +564,20 @@ public class CrossChainResource {
 		),
 		responses = {
 			@ApiResponse(
-				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = CrossChainBitcoinP2SHStatus.class))
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = CrossChainBitcoinyHTLCStatus.class))
 			)
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public CrossChainBitcoinP2SHStatus checkP2shB(CrossChainBitcoinTemplateRequest templateRequest) {
+	public CrossChainBitcoinyHTLCStatus checkP2shB(CrossChainBitcoinTemplateRequest templateRequest) {
 		Security.checkApiCallAllowed(request);
 
 		return checkP2sh(templateRequest, (crossChainTradeData) -> crossChainTradeData.lockTimeB, (crossChainTradeData) -> crossChainTradeData.hashOfSecretB);
 	}
 
-	private CrossChainBitcoinP2SHStatus checkP2sh(CrossChainBitcoinTemplateRequest templateRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
-		BTC btc = BTC.getInstance();
-		NetworkParameters params = btc.getNetworkParameters();
+	private CrossChainBitcoinyHTLCStatus checkP2sh(CrossChainBitcoinTemplateRequest templateRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
+		Bitcoin bitcoin = Bitcoin.getInstance();
+		NetworkParameters params = bitcoin.getNetworkParameters();
 
 		if (templateRequest.refundPublicKeyHash == null || templateRequest.refundPublicKeyHash.length != 20)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
@@ -590,47 +591,47 @@ public class CrossChainResource {
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, templateRequest.atAddress);
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode == BTCACCT.Mode.OFFERING || crossChainTradeData.mode == BTCACCT.Mode.CANCELLED)
+			if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING || crossChainTradeData.mode == BitcoinACCTv1.Mode.CANCELLED)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
 			byte[] hashOfSecret = hashOfSecretFn.apply(crossChainTradeData);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(templateRequest.refundPublicKeyHash, lockTime, templateRequest.redeemPublicKeyHash, hashOfSecret);
+			byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(templateRequest.refundPublicKeyHash, lockTime, templateRequest.redeemPublicKeyHash, hashOfSecret);
 			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 
 			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
 
-			int medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			int medianBlockTime = bitcoin.getMedianBlockTime();
 
 			long now = NTP.getTime();
 
 			// Check P2SH is funded
-			long p2shBalance = BTC.getInstance().getConfirmedBalance(p2shAddress.toString());
+			long p2shBalance = bitcoin.getConfirmedBalance(p2shAddress.toString());
 
-			CrossChainBitcoinP2SHStatus p2shStatus = new CrossChainBitcoinP2SHStatus();
-			p2shStatus.bitcoinP2shAddress = p2shAddress.toString();
-			p2shStatus.bitcoinP2shBalance = BigDecimal.valueOf(p2shBalance, 8);
+			CrossChainBitcoinyHTLCStatus htlcStatus = new CrossChainBitcoinyHTLCStatus();
+			htlcStatus.bitcoinP2shAddress = p2shAddress.toString();
+			htlcStatus.bitcoinP2shBalance = BigDecimal.valueOf(p2shBalance, 8);
 
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
+			List<TransactionOutput> fundingOutputs = bitcoin.getUnspentOutputs(p2shAddress.toString());
 
 			if (p2shBalance >= crossChainTradeData.expectedBitcoin && !fundingOutputs.isEmpty()) {
-				p2shStatus.canRedeem = now >= medianBlockTime * 1000L;
-				p2shStatus.canRefund = now >= lockTime * 1000L;
+				htlcStatus.canRedeem = now >= medianBlockTime * 1000L;
+				htlcStatus.canRefund = now >= lockTime * 1000L;
 			}
 
 			if (now >= medianBlockTime * 1000L) {
 				// See if we can extract secret
-				List<byte[]> rawTransactions = BTC.getInstance().getAddressTransactions(p2shStatus.bitcoinP2shAddress);
-				p2shStatus.secret = BTCP2SH.findP2shSecret(p2shStatus.bitcoinP2shAddress, rawTransactions);
+				List<byte[]> rawTransactions = bitcoin.getAddressTransactions(htlcStatus.bitcoinP2shAddress);
+				htlcStatus.secret = BitcoinyHTLC.findHtlcSecret(bitcoin.getNetworkParameters(), htlcStatus.bitcoinP2shAddress, rawTransactions);
 			}
 
-			return p2shStatus;
+			return htlcStatus;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		} catch (BitcoinException e) {
+		} catch (ForeignBlockchainException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
 		}
 	}
@@ -690,8 +691,7 @@ public class CrossChainResource {
 	}
 
 	private String refundP2sh(CrossChainBitcoinRefundRequest refundRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
-		BTC btc = BTC.getInstance();
-		NetworkParameters params = btc.getNetworkParameters();
+		Bitcoin bitcoin = Bitcoin.getInstance();
 
 		byte[] refundPrivateKey = refundRequest.refundPrivateKey;
 		if (refundPrivateKey == null)
@@ -727,26 +727,24 @@ public class CrossChainResource {
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, refundRequest.atAddress);
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode == BTCACCT.Mode.OFFERING || crossChainTradeData.mode == BTCACCT.Mode.CANCELLED)
+			if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING || crossChainTradeData.mode == BitcoinACCTv1.Mode.CANCELLED)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
 			byte[] hashOfSecret = hashOfSecretFn.apply(crossChainTradeData);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(refundKey.getPubKeyHash(), lockTime, refundRequest.redeemPublicKeyHash, hashOfSecret);
-			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
-
-			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
+			byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(refundKey.getPubKeyHash(), lockTime, refundRequest.redeemPublicKeyHash, hashOfSecret);
+			String p2shAddress = bitcoin.deriveP2shAddress(redeemScriptBytes);
 
 			long now = NTP.getTime();
 
 			// Check P2SH is funded
 
-			long p2shBalance = BTC.getInstance().getConfirmedBalance(p2shAddress.toString());
+			long p2shBalance = bitcoin.getConfirmedBalance(p2shAddress);
 
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
+			List<TransactionOutput> fundingOutputs = bitcoin.getUnspentOutputs(p2shAddress);
 			if (fundingOutputs.isEmpty())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
@@ -759,14 +757,14 @@ public class CrossChainResource {
 
 			Coin refundAmount = Coin.valueOf(p2shBalance - refundRequest.bitcoinMinerFee.unscaledValue().longValue());
 
-			org.bitcoinj.core.Transaction refundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptBytes, lockTime, refundRequest.receivingAccountInfo);
-			BTC.getInstance().broadcastTransaction(refundTransaction);
-
+			org.bitcoinj.core.Transaction refundTransaction = BitcoinyHTLC.buildRefundTransaction(bitcoin.getNetworkParameters(), refundAmount, refundKey,
+					fundingOutputs, redeemScriptBytes, lockTime, refundRequest.receivingAccountInfo);
+			bitcoin.broadcastTransaction(refundTransaction);
 
 			return refundTransaction.getTxId().toString();
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		} catch (BitcoinException e) {
+		} catch (ForeignBlockchainException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
 		}
 	}
@@ -828,8 +826,7 @@ public class CrossChainResource {
 	}
 
 	private String redeemP2sh(CrossChainBitcoinRedeemRequest redeemRequest, ToIntFunction<CrossChainTradeData> lockTimeFn, Function<CrossChainTradeData, byte[]> hashOfSecretFn) {
-		BTC btc = BTC.getInstance();
-		NetworkParameters params = btc.getNetworkParameters();
+		Bitcoin bitcoin = Bitcoin.getInstance();
 
 		byte[] redeemPrivateKey = redeemRequest.redeemPrivateKey;
 		if (redeemPrivateKey == null)
@@ -855,7 +852,7 @@ public class CrossChainResource {
 		if (redeemRequest.atAddress == null || !Crypto.isValidAtAddress(redeemRequest.atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		if (redeemRequest.secret == null || redeemRequest.secret.length != BTCACCT.SECRET_LENGTH)
+		if (redeemRequest.secret == null || redeemRequest.secret.length != BitcoinACCTv1.SECRET_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		if (redeemRequest.receivingAccountInfo == null)
@@ -867,30 +864,28 @@ public class CrossChainResource {
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, redeemRequest.atAddress);
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode == BTCACCT.Mode.OFFERING || crossChainTradeData.mode == BTCACCT.Mode.CANCELLED)
+			if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING || crossChainTradeData.mode == BitcoinACCTv1.Mode.CANCELLED)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
 			byte[] hashOfSecret = hashOfSecretFn.apply(crossChainTradeData);
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(redeemRequest.refundPublicKeyHash, lockTime, redeemKey.getPubKeyHash(), hashOfSecret);
-			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
+			byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(redeemRequest.refundPublicKeyHash, lockTime, redeemKey.getPubKeyHash(), hashOfSecret);
+			String p2shAddress = bitcoin.deriveP2shAddress(redeemScriptBytes);
 
-			Address p2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
-
-			int medianBlockTime = BTC.getInstance().getMedianBlockTime();
+			int medianBlockTime = bitcoin.getMedianBlockTime();
 
 			long now = NTP.getTime();
 
 			// Check P2SH is funded
-			long p2shBalance = BTC.getInstance().getConfirmedBalance(p2shAddress.toString());
+			long p2shBalance = bitcoin.getConfirmedBalance(p2shAddress);
 
 			if (p2shBalance < crossChainTradeData.expectedBitcoin)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_BALANCE_ISSUE);
 
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddress.toString());
+			List<TransactionOutput> fundingOutputs = bitcoin.getUnspentOutputs(p2shAddress);
 			if (fundingOutputs.isEmpty())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
@@ -900,14 +895,15 @@ public class CrossChainResource {
 
 			Coin redeemAmount = Coin.valueOf(p2shBalance - redeemRequest.bitcoinMinerFee.unscaledValue().longValue());
 
-			org.bitcoinj.core.Transaction redeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, redeemRequest.secret, redeemRequest.receivingAccountInfo);
+			org.bitcoinj.core.Transaction redeemTransaction = BitcoinyHTLC.buildRedeemTransaction(bitcoin.getNetworkParameters(), redeemAmount, redeemKey,
+					fundingOutputs, redeemScriptBytes, redeemRequest.secret, redeemRequest.receivingAccountInfo);
 
-			BTC.getInstance().broadcastTransaction(redeemTransaction);
+			bitcoin.broadcastTransaction(redeemTransaction);
 
 			return redeemTransaction.getTxId().toString();
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		} catch (BitcoinException e) {
+		} catch (ForeignBlockchainException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
 		}
 	}
@@ -938,10 +934,10 @@ public class CrossChainResource {
 	public String getBitcoinWalletBalance(String xprv58) {
 		Security.checkApiCallAllowed(request);
 
-		if (!BTC.getInstance().isValidXprv(xprv58))
+		if (!Bitcoin.getInstance().isValidXprv(xprv58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
-		Long balance = BTC.getInstance().getWalletBalance(xprv58);
+		Long balance = Bitcoin.getInstance().getWalletBalance(xprv58);
 		if (balance == null)
 			return "null";
 
@@ -977,7 +973,7 @@ public class CrossChainResource {
 
 		Address receivingAddress;
 		try {
-			receivingAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), bitcoinSendRequest.receivingAddress);
+			receivingAddress = Address.fromString(Bitcoin.getInstance().getNetworkParameters(), bitcoinSendRequest.receivingAddress);
 		} catch (AddressFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 		}
@@ -986,16 +982,16 @@ public class CrossChainResource {
 		if (receivingAddress.getOutputScriptType() != ScriptType.P2PKH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		if (!BTC.getInstance().isValidXprv(bitcoinSendRequest.xprv58))
+		if (!Bitcoin.getInstance().isValidXprv(bitcoinSendRequest.xprv58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
-		org.bitcoinj.core.Transaction spendTransaction = BTC.getInstance().buildSpend(bitcoinSendRequest.xprv58, bitcoinSendRequest.receivingAddress, bitcoinSendRequest.bitcoinAmount);
+		org.bitcoinj.core.Transaction spendTransaction = Bitcoin.getInstance().buildSpend(bitcoinSendRequest.xprv58, bitcoinSendRequest.receivingAddress, bitcoinSendRequest.bitcoinAmount);
 		if (spendTransaction == null)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_BALANCE_ISSUE);
 
 		try {
-			BTC.getInstance().broadcastTransaction(spendTransaction);
-		} catch (BitcoinException e) {
+			Bitcoin.getInstance().broadcastTransaction(spendTransaction);
+		} catch (ForeignBlockchainException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BTC_NETWORK_ISSUE);
 		}
 
@@ -1054,7 +1050,7 @@ public class CrossChainResource {
 
 		Address receivingAddress;
 		try {
-			receivingAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
+			receivingAddress = Address.fromString(Bitcoin.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
 		} catch (AddressFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 		}
@@ -1112,7 +1108,7 @@ public class CrossChainResource {
 		if (atAddress == null || !Crypto.isValidAtAddress(atAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		if (!BTC.getInstance().isValidXprv(tradeBotRespondRequest.xprv58))
+		if (!Bitcoin.getInstance().isValidXprv(tradeBotRespondRequest.xprv58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 		if (tradeBotRespondRequest.receivingAddress == null || !Crypto.isValidAddress(tradeBotRespondRequest.receivingAddress))
@@ -1121,9 +1117,9 @@ public class CrossChainResource {
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = fetchAtDataWithChecking(repository, atAddress);
-			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode != BTCACCT.Mode.OFFERING)
+			if (crossChainTradeData.mode != BitcoinACCTv1.Mode.OFFERING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			TradeBot.ResponseResult result = TradeBot.startResponse(repository, crossChainTradeData, tradeBotRespondRequest.xprv58, tradeBotRespondRequest.receivingAddress);
@@ -1258,15 +1254,15 @@ public class CrossChainResource {
 				minimumFinalHeight++;
 			}
 
-			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BTCACCT.CODE_BYTES_HASH,
+			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BitcoinACCTv1.CODE_BYTES_HASH,
 					isFinished,
-					BTCACCT.MODE_BYTE_OFFSET, (long) BTCACCT.Mode.REDEEMED.value,
+					BitcoinACCTv1.MODE_BYTE_OFFSET, (long) BitcoinACCTv1.Mode.REDEEMED.value,
 					minimumFinalHeight,
 					limit, offset, reverse);
 
 			List<CrossChainTradeSummary> crossChainTrades = new ArrayList<>();
 			for (ATStateData atState : atStates) {
-				CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atState);
+				CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atState);
 
 				// We also need block timestamp for use as trade timestamp
 				long timestamp = repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
@@ -1287,7 +1283,7 @@ public class CrossChainResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
 		// Must be correct AT - check functionality using code hash
-		if (!Arrays.equals(atData.getCodeHash(), BTCACCT.CODE_BYTES_HASH))
+		if (!Arrays.equals(atData.getCodeHash(), BitcoinACCTv1.CODE_BYTES_HASH))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		// No point sending message to AT that's finished

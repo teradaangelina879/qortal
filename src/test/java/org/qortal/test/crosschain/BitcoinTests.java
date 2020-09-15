@@ -1,4 +1,4 @@
-package org.qortal.test.btcacct;
+package org.qortal.test.crosschain;
 
 import static org.junit.Assert.*;
 
@@ -10,35 +10,38 @@ import org.bitcoinj.store.BlockStoreException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BTCP2SH;
-import org.qortal.crosschain.BitcoinException;
+import org.qortal.crosschain.Bitcoin;
+import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
-public class BtcTests extends Common {
+public class BitcoinTests extends Common {
+
+	private Bitcoin bitcoin;
 
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useDefaultSettings(); // TestNet3
+		bitcoin = Bitcoin.getInstance();
 	}
 
 	@After
 	public void afterTest() {
-		BTC.resetForTesting();
+		Bitcoin.resetForTesting();
+		bitcoin = null;
 	}
 
 	@Test
-	public void testGetMedianBlockTime() throws BlockStoreException, BitcoinException {
+	public void testGetMedianBlockTime() throws BlockStoreException, ForeignBlockchainException {
 		System.out.println(String.format("Starting BTC instance..."));
-		BTC btc = BTC.getInstance();
 		System.out.println(String.format("BTC instance started"));
 
 		long before = System.currentTimeMillis();
-		System.out.println(String.format("Bitcoin median blocktime: %d", btc.getMedianBlockTime()));
+		System.out.println(String.format("Bitcoin median blocktime: %d", bitcoin.getMedianBlockTime()));
 		long afterFirst = System.currentTimeMillis();
 
-		System.out.println(String.format("Bitcoin median blocktime: %d", btc.getMedianBlockTime()));
+		System.out.println(String.format("Bitcoin median blocktime: %d", bitcoin.getMedianBlockTime()));
 		long afterSecond = System.currentTimeMillis();
 
 		long firstPeriod = afterFirst - before;
@@ -51,14 +54,14 @@ public class BtcTests extends Common {
 	}
 
 	@Test
-	public void testFindP2shSecret() throws BitcoinException {
+	public void testFindHtlcSecret() throws ForeignBlockchainException {
 		// This actually exists on TEST3 but can take a while to fetch
 		String p2shAddress = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 
-		List<byte[]> rawTransactions = BTC.getInstance().getAddressTransactions(p2shAddress);
+		List<byte[]> rawTransactions = bitcoin.getAddressTransactions(p2shAddress);
 
 		byte[] expectedSecret = "This string is exactly 32 bytes!".getBytes();
-		byte[] secret = BTCP2SH.findP2shSecret(p2shAddress, rawTransactions);
+		byte[] secret = BitcoinyHTLC.findHtlcSecret(bitcoin.getNetworkParameters(), p2shAddress, rawTransactions);
 
 		assertNotNull(secret);
 		assertTrue("secret incorrect", Arrays.equals(expectedSecret, secret));
@@ -66,52 +69,46 @@ public class BtcTests extends Common {
 
 	@Test
 	public void testBuildSpend() {
-		BTC btc = BTC.getInstance();
-
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
 		String recipient = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 		long amount = 1000L;
 
-		Transaction transaction = btc.buildSpend(xprv58, recipient, amount);
+		Transaction transaction = bitcoin.buildSpend(xprv58, recipient, amount);
 		assertNotNull(transaction);
 
 		// Check spent key caching doesn't affect outcome
 
-		transaction = btc.buildSpend(xprv58, recipient, amount);
+		transaction = bitcoin.buildSpend(xprv58, recipient, amount);
 		assertNotNull(transaction);
 	}
 
 	@Test
 	public void testGetWalletBalance() {
-		BTC btc = BTC.getInstance();
-
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
-		Long balance = btc.getWalletBalance(xprv58);
+		Long balance = bitcoin.getWalletBalance(xprv58);
 
 		assertNotNull(balance);
 
-		System.out.println(BTC.format(balance));
+		System.out.println(bitcoin.format(balance));
 
 		// Check spent key caching doesn't affect outcome
 
-		Long repeatBalance = btc.getWalletBalance(xprv58);
+		Long repeatBalance = bitcoin.getWalletBalance(xprv58);
 
 		assertNotNull(repeatBalance);
 
-		System.out.println(BTC.format(repeatBalance));
+		System.out.println(bitcoin.format(repeatBalance));
 
 		assertEquals(balance, repeatBalance);
 	}
 
 	@Test
-	public void testGetUnusedReceiveAddress() throws BitcoinException {
-		BTC btc = BTC.getInstance();
-
+	public void testGetUnusedReceiveAddress() throws ForeignBlockchainException {
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
-		String address = btc.getUnusedReceiveAddress(xprv58);
+		String address = bitcoin.getUnusedReceiveAddress(xprv58);
 
 		assertNotNull(address);
 

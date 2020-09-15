@@ -4,7 +4,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.data.crosschain.CrossChainTradeData;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,7 +30,7 @@ public class CrossChainOfferSummary {
 	@Schema(description = "Suggested trade timeout (minutes)", example = "10080")
 	private int tradeTimeout;
 
-	private BTCACCT.Mode mode;
+	private BitcoinACCTv1.Mode mode;
 
 	private long timestamp;
 
@@ -71,7 +71,7 @@ public class CrossChainOfferSummary {
 		return this.tradeTimeout;
 	}
 
-	public BTCACCT.Mode getMode() {
+	public BitcoinACCTv1.Mode getMode() {
 		return this.mode;
 	}
 

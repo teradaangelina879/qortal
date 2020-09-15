@@ -6,7 +6,8 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,33 +31,22 @@ import org.qortal.crypto.TrustlessSSLSocketFactory;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
-/** ElectrumX network support for querying Bitcoin-related info like block headers, transaction outputs, etc. */
-public class ElectrumX {
+/** ElectrumX network support for querying Bitcoiny-related info like block headers, transaction outputs, etc. */
+public class ElectrumX extends BitcoinyBlockchainProvider {
 
 	private static final Logger LOGGER = LogManager.getLogger(ElectrumX.class);
 	private static final Random RANDOM = new Random();
 
 	private static final double MIN_PROTOCOL_VERSION = 1.2;
-
-	private static final int DEFAULT_TCP_PORT = 50001;
-	private static final int DEFAULT_SSL_PORT = 50002;
-
 	private static final int BLOCK_HEADER_LENGTH = 80;
-
-	private static final String MAIN_GENESIS_HASH = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f";
-	private static final String TEST3_GENESIS_HASH = "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943";
-	// We won't know REGTEST (i.e. local) genesis block hash
 
 	// "message": "daemon error: DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})"
 	private static final Pattern DAEMON_ERROR_REGEX = Pattern.compile("DaemonError\\(\\{.*'code': ?(-?[0-9]+).*\\}\\)\\z"); // Capture 'code' inside curly-brace content
 
-	// Key: Bitcoin network (e.g. "MAIN", "TEST3", "REGTEST"), value: ElectrumX instance
-	private static final Map<String, ElectrumX> instances = new HashMap<>();
-
-	private static class Server {
+	public static class Server {
 		String hostname;
 
-		enum ConnectionType { TCP, SSL }
+		public enum ConnectionType { TCP, SSL }
 		ConnectionType connectionType;
 
 		int port;
@@ -95,7 +85,9 @@ public class ElectrumX {
 	private Set<Server> servers = new HashSet<>();
 	private List<Server> remainingServers = new ArrayList<>();
 
-	private String expectedGenesisHash;
+	private final String expectedGenesisHash;
+	private final Map<Server.ConnectionType, Integer> defaultPorts = new EnumMap<>(Server.ConnectionType.class);
+
 	private Server currentServer;
 	private Socket socket;
 	private Scanner scanner;
@@ -103,79 +95,10 @@ public class ElectrumX {
 
 	// Constructors
 
-	private ElectrumX(String bitcoinNetwork) {
-		switch (bitcoinNetwork) {
-			case "MAIN":
-				this.expectedGenesisHash = MAIN_GENESIS_HASH;
-
-				this.servers.addAll(Arrays.asList(
-						// Servers chosen on NO BASIS WHATSOEVER from various sources!
-						new Server("enode.duckdns.org", Server.ConnectionType.SSL, 50002),
-						new Server("electrumx.ml", Server.ConnectionType.SSL, 50002),
-						new Server("electrum.bitkoins.nl", Server.ConnectionType.SSL, 50512),
-						new Server("btc.electroncash.dk", Server.ConnectionType.SSL, 60002),
-						new Server("electrumx.electricnewyear.net", Server.ConnectionType.SSL, 50002),
-						new Server("dxm.no-ip.biz", Server.ConnectionType.TCP, 50001),
-						new Server("kirsche.emzy.de", Server.ConnectionType.TCP, 50001),
-						new Server("2AZZARITA.hopto.org", Server.ConnectionType.TCP, 50001),
-						new Server("xtrum.com", Server.ConnectionType.TCP, 50001),
-						new Server("electrum.srvmin.network", Server.ConnectionType.TCP, 50001),
-						new Server("electrumx.alexridevski.net", Server.ConnectionType.TCP, 50001),
-						new Server("bitcoin.lukechilds.co", Server.ConnectionType.TCP, 50001),
-						new Server("electrum.poiuty.com", Server.ConnectionType.TCP, 50001),
-						new Server("horsey.cryptocowboys.net", Server.ConnectionType.TCP, 50001),
-						new Server("electrum.emzy.de", Server.ConnectionType.TCP, 50001),
-						new Server("electrum-server.ninja", Server.ConnectionType.TCP, 50081),
-						new Server("bitcoin.electrumx.multicoin.co", Server.ConnectionType.TCP, 50001),
-						new Server("esx.geekhosters.com", Server.ConnectionType.TCP, 50001),
-						new Server("bitcoin.grey.pw", Server.ConnectionType.TCP, 50003),
-						new Server("exs.ignorelist.com", Server.ConnectionType.TCP, 50001),
-						new Server("electrum.coinext.com.br", Server.ConnectionType.TCP, 50001),
-						new Server("bitcoin.aranguren.org", Server.ConnectionType.TCP, 50001),
-						new Server("skbxmit.coinjoined.com", Server.ConnectionType.TCP, 50001),
-						new Server("alviss.coinjoined.com", Server.ConnectionType.TCP, 50001),
-						new Server("electrum2.privateservers.network", Server.ConnectionType.TCP, 50001),
-						new Server("electrumx.schulzemic.net", Server.ConnectionType.TCP, 50001),
-						new Server("bitcoins.sk", Server.ConnectionType.TCP, 56001),
-						new Server("node.mendonca.xyz", Server.ConnectionType.TCP, 50001),
-						new Server("bitcoin.aranguren.org", Server.ConnectionType.TCP, 50001)));
-				break;
-
-			case "TEST3":
-				this.expectedGenesisHash = TEST3_GENESIS_HASH;
-
-				this.servers.addAll(Arrays.asList(
-						new Server("electrum.blockstream.info", Server.ConnectionType.TCP, 60001),
-						new Server("electrum.blockstream.info", Server.ConnectionType.SSL, 60002),
-						new Server("electrumx-test.1209k.com", Server.ConnectionType.SSL, 50002),
-						new Server("testnet.qtornado.com", Server.ConnectionType.TCP, 51001),
-						new Server("testnet.qtornado.com", Server.ConnectionType.SSL, 51002),
-						new Server("testnet.aranguren.org", Server.ConnectionType.TCP, 51001),
-						new Server("testnet.aranguren.org", Server.ConnectionType.SSL, 51002),
-						new Server("testnet.hsmiths.com", Server.ConnectionType.SSL, 53012)));
-				break;
-
-			case "REGTEST":
-				this.expectedGenesisHash = null;
-
-				this.servers.addAll(Arrays.asList(
-						new Server("localhost", Server.ConnectionType.TCP, DEFAULT_TCP_PORT),
-						new Server("localhost", Server.ConnectionType.SSL, DEFAULT_SSL_PORT)));
-				break;
-
-			default:
-				throw new IllegalArgumentException(String.format("Bitcoin network '%s' unknown", bitcoinNetwork));
-		}
-
-		LOGGER.debug(() -> String.format("Starting ElectrumX support for %s Bitcoin network", bitcoinNetwork));
-	}
-
-	/** Returns ElectrumX instance linked to passed Bitcoin network, one of "MAIN", "TEST3" or "REGTEST". */
-	public static synchronized ElectrumX getInstance(String bitcoinNetwork) {
-		if (!instances.containsKey(bitcoinNetwork))
-			instances.put(bitcoinNetwork, new ElectrumX(bitcoinNetwork));
-
-		return instances.get(bitcoinNetwork);
+	public ElectrumX(String genesisHash, Collection<Server> initialServerList, Map<Server.ConnectionType, Integer> defaultPorts) {
+		this.expectedGenesisHash = genesisHash;
+		this.servers.addAll(initialServerList);
+		this.defaultPorts.putAll(defaultPorts);
 	}
 
 	// Methods for use by other classes
@@ -183,19 +106,19 @@ public class ElectrumX {
 	/**
 	 * Returns current blockchain height.
 	 * <p>
-	 * @throws BitcoinException if error occurs
+	 * @throws ForeignBlockchainException if error occurs
 	 */
-	public int getCurrentHeight() throws BitcoinException {
+	public int getCurrentHeight() throws ForeignBlockchainException {
 		Object blockObj = this.rpc("blockchain.headers.subscribe");
 		if (!(blockObj instanceof JSONObject))
-			throw new BitcoinException.NetworkException("Unexpected output from ElectrumX blockchain.headers.subscribe RPC");
+			throw new ForeignBlockchainException.NetworkException("Unexpected output from ElectrumX blockchain.headers.subscribe RPC");
 
 		JSONObject blockJson = (JSONObject) blockObj;
 
 		Object heightObj = blockJson.get("height");
 
 		if (!(heightObj instanceof Long))
-			throw new BitcoinException.NetworkException("Missing/invalid 'height' in JSON from ElectrumX blockchain.headers.subscribe RPC");
+			throw new ForeignBlockchainException.NetworkException("Missing/invalid 'height' in JSON from ElectrumX blockchain.headers.subscribe RPC");
 
 		return ((Long) heightObj).intValue();
 	}
@@ -203,12 +126,12 @@ public class ElectrumX {
 	/**
 	 * Returns list of raw block headers, starting from <tt>startHeight</tt> inclusive.
 	 * <p>
-	 * @throws BitcoinException if error occurs
+	 * @throws ForeignBlockchainException if error occurs
 	 */
-	public List<byte[]> getBlockHeaders(int startHeight, long count) throws BitcoinException {
+	public List<byte[]> getRawBlockHeaders(int startHeight, int count) throws ForeignBlockchainException {
 		Object blockObj = this.rpc("blockchain.block.headers", startHeight, count);
 		if (!(blockObj instanceof JSONObject))
-			throw new BitcoinException.NetworkException("Unexpected output from ElectrumX blockchain.block.headers RPC");
+			throw new ForeignBlockchainException.NetworkException("Unexpected output from ElectrumX blockchain.block.headers RPC");
 
 		JSONObject blockJson = (JSONObject) blockObj;
 
@@ -216,14 +139,14 @@ public class ElectrumX {
 		Object hexObj = blockJson.get("hex");
 
 		if (!(countObj instanceof Long) || !(hexObj instanceof String))
-			throw new BitcoinException.NetworkException("Missing/invalid 'count' or 'hex' entries in JSON from ElectrumX blockchain.block.headers RPC");
+			throw new ForeignBlockchainException.NetworkException("Missing/invalid 'count' or 'hex' entries in JSON from ElectrumX blockchain.block.headers RPC");
 
 		Long returnedCount = (Long) countObj;
 		String hex = (String) hexObj;
 
 		byte[] raw = HashCode.fromString(hex).asBytes();
 		if (raw.length != returnedCount * BLOCK_HEADER_LENGTH)
-			throw new BitcoinException.NetworkException("Unexpected raw header length in JSON from ElectrumX blockchain.block.headers RPC");
+			throw new ForeignBlockchainException.NetworkException("Unexpected raw header length in JSON from ElectrumX blockchain.block.headers RPC");
 
 		List<byte[]> rawBlockHeaders = new ArrayList<>(returnedCount.intValue());
 		for (int i = 0; i < returnedCount; ++i)
@@ -236,22 +159,22 @@ public class ElectrumX {
 	 * Returns confirmed balance, based on passed payment script.
 	 * <p>
 	 * @return confirmed balance, or zero if script unknown
-	 * @throws BitcoinException if there was an error
+	 * @throws ForeignBlockchainException if there was an error
 	 */
-	public long getConfirmedBalance(byte[] script) throws BitcoinException {
+	public long getConfirmedBalance(byte[] script) throws ForeignBlockchainException {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
 		Object balanceObj = this.rpc("blockchain.scripthash.get_balance", HashCode.fromBytes(scriptHash).toString());
 		if (!(balanceObj instanceof JSONObject))
-			throw new BitcoinException.NetworkException("Unexpected output from ElectrumX blockchain.scripthash.get_balance RPC");
+			throw new ForeignBlockchainException.NetworkException("Unexpected output from ElectrumX blockchain.scripthash.get_balance RPC");
 
 		JSONObject balanceJson = (JSONObject) balanceObj;
 
 		Object confirmedBalanceObj = balanceJson.get("confirmed");
 
 		if (!(confirmedBalanceObj instanceof Long))
-			throw new BitcoinException.NetworkException("Missing confirmed balance from ElectrumX blockchain.scripthash.get_balance RPC");
+			throw new ForeignBlockchainException.NetworkException("Missing confirmed balance from ElectrumX blockchain.scripthash.get_balance RPC");
 
 		return (Long) balanceJson.get("confirmed");
 	}
@@ -260,15 +183,15 @@ public class ElectrumX {
 	 * Returns list of unspent outputs pertaining to passed payment script.
 	 * <p>
 	 * @return list of unspent outputs, or empty list if script unknown
-	 * @throws BitcoinException if there was an error.
+	 * @throws ForeignBlockchainException if there was an error.
 	 */
-	public List<UnspentOutput> getUnspentOutputs(byte[] script, boolean includeUnconfirmed) throws BitcoinException {
+	public List<UnspentOutput> getUnspentOutputs(byte[] script, boolean includeUnconfirmed) throws ForeignBlockchainException {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
 		Object unspentJson = this.rpc("blockchain.scripthash.listunspent", HashCode.fromBytes(scriptHash).toString());
 		if (!(unspentJson instanceof JSONArray))
-			throw new BitcoinException("Expected array output from ElectrumX blockchain.scripthash.listunspent RPC");
+			throw new ForeignBlockchainException("Expected array output from ElectrumX blockchain.scripthash.listunspent RPC");
 
 		List<UnspentOutput> unspentOutputs = new ArrayList<>();
 		for (Object rawUnspent : (JSONArray) unspentJson) {
@@ -292,23 +215,23 @@ public class ElectrumX {
 	/**
 	 * Returns raw transaction for passed transaction hash.
 	 * <p>
-	 * @throws BitcoinException.NotFoundException if transaction not found
-	 * @throws BitcoinException if error occurs
+	 * @throws ForeignBlockchainException.NotFoundException if transaction not found
+	 * @throws ForeignBlockchainException if error occurs
 	 */
-	public byte[] getRawTransaction(byte[] txHash) throws BitcoinException {
+	public byte[] getRawTransaction(byte[] txHash) throws ForeignBlockchainException {
 		Object rawTransactionHex;
 		try {
 			rawTransactionHex = this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString());
-		} catch (BitcoinException.NetworkException e) {
+		} catch (ForeignBlockchainException.NetworkException e) {
 			// DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})
 			if (Integer.valueOf(-5).equals(e.getDaemonErrorCode()))
-				throw new BitcoinException.NotFoundException(e.getMessage());
+				throw new ForeignBlockchainException.NotFoundException(e.getMessage());
 
 			throw e;
 		}
 
 		if (!(rawTransactionHex instanceof String))
-			throw new BitcoinException.NetworkException("Expected hex string as raw transaction from ElectrumX blockchain.transaction.get RPC");
+			throw new ForeignBlockchainException.NetworkException("Expected hex string as raw transaction from ElectrumX blockchain.transaction.get RPC");
 
 		return HashCode.fromString((String) rawTransactionHex).asBytes();
 	}
@@ -316,33 +239,37 @@ public class ElectrumX {
 	/**
 	 * Returns transaction info for passed transaction hash.
 	 * <p>
-	 * @throws BitcoinException.NotFoundException if transaction not found
-	 * @throws BitcoinException if error occurs
+	 * @throws ForeignBlockchainException.NotFoundException if transaction not found
+	 * @throws ForeignBlockchainException if error occurs
 	 */
-	public BitcoinTransaction getTransaction(String txHash) throws BitcoinException {
+	public BitcoinyTransaction getTransaction(String txHash) throws ForeignBlockchainException {
 		Object transactionObj;
 		try {
 			transactionObj = this.rpc("blockchain.transaction.get", txHash, true);
-		} catch (BitcoinException.NetworkException e) {
+		} catch (ForeignBlockchainException.NetworkException e) {
 			// DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})
 			if (Integer.valueOf(-5).equals(e.getDaemonErrorCode()))
-				throw new BitcoinException.NotFoundException(e.getMessage());
+				throw new ForeignBlockchainException.NotFoundException(e.getMessage());
+
+			// Some servers also return non-standard responses like this:
+			// {"error":"verbose transactions are currently unsupported","id":3,"jsonrpc":"2.0"}
+			// We should probably try another server for these cases
 
 			throw e;
 		}
 
 		if (!(transactionObj instanceof JSONObject))
-			throw new BitcoinException.NetworkException("Expected JSONObject as response from ElectrumX blockchain.transaction.get RPC");
+			throw new ForeignBlockchainException.NetworkException("Expected JSONObject as response from ElectrumX blockchain.transaction.get RPC");
 
 		JSONObject transactionJson = (JSONObject) transactionObj;
 
 		Object inputsObj = transactionJson.get("vin");
 		if (!(inputsObj instanceof JSONArray))
-			throw new BitcoinException.NetworkException("Expected JSONArray for 'vin' from ElectrumX blockchain.transaction.get RPC");
+			throw new ForeignBlockchainException.NetworkException("Expected JSONArray for 'vin' from ElectrumX blockchain.transaction.get RPC");
 
 		Object outputsObj = transactionJson.get("vout");
 		if (!(outputsObj instanceof JSONArray))
-			throw new BitcoinException.NetworkException("Expected JSONArray for 'vout' from ElectrumX blockchain.transaction.get RPC");
+			throw new ForeignBlockchainException.NetworkException("Expected JSONArray for 'vout' from ElectrumX blockchain.transaction.get RPC");
 
 		try {
 			int size = ((Long) transactionJson.get("size")).intValue();
@@ -354,7 +281,7 @@ public class ElectrumX {
 					? ((Long) timeObj).intValue()
 					: null;
 
-			List<BitcoinTransaction.Input> inputs = new ArrayList<>();
+			List<BitcoinyTransaction.Input> inputs = new ArrayList<>();
 			for (Object inputObj : (JSONArray) inputsObj) {
 				JSONObject inputJson = (JSONObject) inputObj;
 
@@ -363,40 +290,40 @@ public class ElectrumX {
 				String outputTxHash = (String) inputJson.get("txid");
 				int outputVout = ((Long) inputJson.get("vout")).intValue();
 
-				inputs.add(new BitcoinTransaction.Input(scriptSig, sequence, outputTxHash, outputVout));
+				inputs.add(new BitcoinyTransaction.Input(scriptSig, sequence, outputTxHash, outputVout));
 			}
 
-			List<BitcoinTransaction.Output> outputs = new ArrayList<>();
+			List<BitcoinyTransaction.Output> outputs = new ArrayList<>();
 			for (Object outputObj : (JSONArray) outputsObj) {
 				JSONObject outputJson = (JSONObject) outputObj;
 
 				String scriptPubKey = (String) ((JSONObject) outputJson.get("scriptPubKey")).get("hex");
 				long value = (long) (((Double) outputJson.get("value")) * 1e8);
 
-				outputs.add(new BitcoinTransaction.Output(scriptPubKey, value));
+				outputs.add(new BitcoinyTransaction.Output(scriptPubKey, value));
 			}
 
-			return new BitcoinTransaction(txHash, size, locktime, timestamp, inputs, outputs);
+			return new BitcoinyTransaction(txHash, size, locktime, timestamp, inputs, outputs);
 		} catch (NullPointerException | ClassCastException e) {
 			// Unexpected / invalid response from ElectrumX server
 		}
 
-		throw new BitcoinException.NetworkException("Unexpected JSON format from ElectrumX blockchain.transaction.get RPC");
+		throw new ForeignBlockchainException.NetworkException("Unexpected JSON format from ElectrumX blockchain.transaction.get RPC");
 	}
 
 	/**
 	 * Returns list of transactions, relating to passed payment script.
 	 * <p>
 	 * @return list of related transactions, or empty list if script unknown
-	 * @throws BitcoinException if error occurs
+	 * @throws ForeignBlockchainException if error occurs
 	 */
-	public List<TransactionHash> getAddressTransactions(byte[] script, boolean includeUnconfirmed) throws BitcoinException {
+	public List<TransactionHash> getAddressTransactions(byte[] script, boolean includeUnconfirmed) throws ForeignBlockchainException {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
 
 		Object transactionsJson = this.rpc("blockchain.scripthash.get_history", HashCode.fromBytes(scriptHash).toString());
 		if (!(transactionsJson instanceof JSONArray))
-			throw new BitcoinException.NetworkException("Expected array output from ElectrumX blockchain.scripthash.get_history RPC");
+			throw new ForeignBlockchainException.NetworkException("Expected array output from ElectrumX blockchain.scripthash.get_history RPC");
 
 		List<TransactionHash> transactionHashes = new ArrayList<>();
 
@@ -417,16 +344,16 @@ public class ElectrumX {
 	}
 
 	/**
-	 * Broadcasts raw transaction to Bitcoin network.
+	 * Broadcasts raw transaction to network.
 	 * <p>
-	 * @throws BitcoinException if error occurs
+	 * @throws ForeignBlockchainException if error occurs
 	 */
-	public void broadcastTransaction(byte[] transactionBytes) throws BitcoinException {
+	public void broadcastTransaction(byte[] transactionBytes) throws ForeignBlockchainException {
 		Object rawBroadcastResult = this.rpc("blockchain.transaction.broadcast", HashCode.fromBytes(transactionBytes).toString());
 
 		// We're expecting a simple string that is the transaction hash
 		if (!(rawBroadcastResult instanceof String))
-			throw new BitcoinException.NetworkException("Unexpected response from ElectrumX blockchain.transaction.broadcast RPC");
+			throw new ForeignBlockchainException.NetworkException("Unexpected response from ElectrumX blockchain.transaction.broadcast RPC");
 	}
 
 	// Class-private utility methods
@@ -434,10 +361,10 @@ public class ElectrumX {
 	/**
 	 * Query current server for its list of peer servers, and return those we can parse.
 	 * <p>
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 * @throws ClassCastException to be handled by caller
 	 */
-	private Set<Server> serverPeersSubscribe() throws BitcoinException {
+	private Set<Server> serverPeersSubscribe() throws ForeignBlockchainException {
 		Set<Server> newServers = new HashSet<>();
 
 		Object peers = this.connectedRpc("server.peers.subscribe");
@@ -454,17 +381,17 @@ public class ElectrumX {
 			for (Object rawFeature : features) {
 				String feature = (String) rawFeature;
 				Server.ConnectionType connectionType = null;
-				int port = -1;
+				Integer port = null;
 
 				switch (feature.charAt(0)) {
 					case 's':
 						connectionType = Server.ConnectionType.SSL;
-						port = DEFAULT_SSL_PORT;
+						port = this.defaultPorts.get(connectionType);
 						break;
 
 					case 't':
 						connectionType = Server.ConnectionType.TCP;
-						port = DEFAULT_TCP_PORT;
+						port = this.defaultPorts.get(connectionType);
 						break;
 
 					default:
@@ -472,7 +399,7 @@ public class ElectrumX {
 						break;
 				}
 
-				if (connectionType == null)
+				if (connectionType == null || port == null)
 					// We couldn't extract any peer connection info?
 					continue;
 
@@ -497,9 +424,9 @@ public class ElectrumX {
 	 * Performs RPC call, with automatic reconnection to different server if needed.
 	 * <p>
 	 * @return "result" object from within JSON output
-	 * @throws BitcoinException if server returns error or something goes wrong
+	 * @throws ForeignBlockchainException if server returns error or something goes wrong
 	 */
-	private synchronized Object rpc(String method, Object...params) throws BitcoinException {
+	private synchronized Object rpc(String method, Object...params) throws ForeignBlockchainException {
 		if (this.remainingServers.isEmpty())
 			this.remainingServers.addAll(this.servers);
 
@@ -518,11 +445,11 @@ public class ElectrumX {
 		}
 
 		// Failed to perform RPC - maybe lack of servers?
-		throw new BitcoinException.NetworkException("Failed to perform Bitcoin RPC");
+		throw new ForeignBlockchainException.NetworkException(String.format("Failed to perform ElectrumX RPC %s", method));
 	}
 
 	/** Returns true if we have, or create, a connection to an ElectrumX server. */
-	private boolean haveConnection() throws BitcoinException {
+	private boolean haveConnection() throws ForeignBlockchainException {
 		if (this.currentServer != null)
 			return true;
 
@@ -566,7 +493,7 @@ public class ElectrumX {
 				LOGGER.debug(() -> String.format("Connected to %s", server));
 				this.currentServer = server;
 				return true;
-			} catch (IOException | BitcoinException | ClassCastException | NullPointerException e) {
+			} catch (IOException | ForeignBlockchainException | ClassCastException | NullPointerException e) {
 				// Try another server...
 				if (this.socket != null && !this.socket.isClosed())
 					try {
@@ -589,10 +516,10 @@ public class ElectrumX {
 	 * @param method
 	 * @param params
 	 * @return response Object, or null if server fails to respond
-	 * @throws BitcoinException if server returns error
+	 * @throws ForeignBlockchainException if server returns error
 	 */
 	@SuppressWarnings("unchecked")
-	private Object connectedRpc(String method, Object...params) throws BitcoinException {
+	private Object connectedRpc(String method, Object...params) throws ForeignBlockchainException {
 		JSONObject requestJson = new JSONObject();
 		requestJson.put("id", this.nextId++);
 		requestJson.put("method", method);
@@ -630,15 +557,18 @@ public class ElectrumX {
 
 		Object errorObj = responseJson.get("error");
 		if (errorObj != null) {
+			if (errorObj instanceof String)
+				throw new ForeignBlockchainException.NetworkException(String.format("Unexpected error message from ElectrumX RPC %s: %s", method, (String) errorObj));
+
 			if (!(errorObj instanceof JSONObject))
-				throw new BitcoinException.NetworkException(String.format("Unexpected error response from ElectrumX RPC %s", method));
+				throw new ForeignBlockchainException.NetworkException(String.format("Unexpected error response from ElectrumX RPC %s", method));
 
 			JSONObject errorJson = (JSONObject) errorObj;
 
 			Object messageObj = errorJson.get("message");
 
 			if (!(messageObj instanceof String))
-				throw new BitcoinException.NetworkException(String.format("Missing/invalid message in error response from ElectrumX RPC %s", method));
+				throw new ForeignBlockchainException.NetworkException(String.format("Missing/invalid message in error response from ElectrumX RPC %s", method));
 
 			String message = (String) messageObj;
 
@@ -649,12 +579,12 @@ public class ElectrumX {
 			if (messageMatcher.find())
 				try {
 					int daemonErrorCode = Integer.parseInt(messageMatcher.group(1));
-					throw new BitcoinException.NetworkException(daemonErrorCode, message);
+					throw new ForeignBlockchainException.NetworkException(daemonErrorCode, message);
 				} catch (NumberFormatException e) {
 					// We couldn't parse the error code integer? Fall-through to generic exception...
 				}
 
-			throw new BitcoinException.NetworkException(message);
+			throw new ForeignBlockchainException.NetworkException(message);
 		}
 
 		return responseJson.get("result");

@@ -20,10 +20,10 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.model.TradeBotCreateRequest;
 import org.qortal.asset.Asset;
-import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BTCACCT;
-import org.qortal.crosschain.BTCP2SH;
-import org.qortal.crosschain.BitcoinException;
+import org.qortal.crosschain.Bitcoin;
+import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.at.ATData;
@@ -144,7 +144,7 @@ public class TradeBot implements Listener {
 		// Convert Bitcoin receiving address into public key hash (we only support P2PKH at this time)
 		Address bitcoinReceivingAddress;
 		try {
-			bitcoinReceivingAddress = Address.fromString(BTC.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
+			bitcoinReceivingAddress = Address.fromString(Bitcoin.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
 		} catch (AddressFormatException e) {
 			throw new DataException("Unsupported Bitcoin receiving address: " + tradeBotCreateRequest.receivingAddress);
 		}
@@ -166,7 +166,7 @@ public class TradeBot implements Listener {
 		String description = "QORT/BTC cross-chain trade";
 		String aTType = "ACCT";
 		String tags = "ACCT QORT BTC";
-		byte[] creationBytes = BTCACCT.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, hashOfSecretB, tradeBotCreateRequest.qortAmount,
+		byte[] creationBytes = BitcoinACCTv1.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, hashOfSecretB, tradeBotCreateRequest.qortAmount,
 				tradeBotCreateRequest.bitcoinAmount, tradeBotCreateRequest.tradeTimeout);
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
@@ -259,44 +259,44 @@ public class TradeBot implements Listener {
 				crossChainTradeData.expectedBitcoin, xprv58, null, lockTimeA, receivingPublicKeyHash);
 
 		// Check we have enough funds via xprv58 to fund both P2SHs to cover expectedBitcoin
-		String tradeForeignAddress = BTC.getInstance().pkhToAddress(tradeForeignPublicKeyHash);
+		String tradeForeignAddress = Bitcoin.getInstance().pkhToAddress(tradeForeignPublicKeyHash);
 
-		long estimatedFee;
+		long p2shFee;
 		try {
-			estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
-		} catch (BitcoinException e) {
+			p2shFee = Bitcoin.getInstance().getP2shFee(lockTimeA * 1000L);
+		} catch (ForeignBlockchainException e) {
 			LOGGER.debug("Couldn't estimate Bitcoin fees?");
 			return ResponseResult.BTC_NETWORK_ISSUE;
 		}
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
-		long fundsRequiredForP2shA = estimatedFee /*funding P2SH-A*/ + crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT + estimatedFee /*redeeming/refunding P2SH-A*/;
-		long fundsRequiredForP2shB = estimatedFee /*funding P2SH-B*/ + P2SH_B_OUTPUT_AMOUNT + estimatedFee /*redeeming/refunding P2SH-B*/;
+		long fundsRequiredForP2shA = p2shFee /*funding P2SH-A*/ + crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT + p2shFee /*redeeming/refunding P2SH-A*/;
+		long fundsRequiredForP2shB = p2shFee /*funding P2SH-B*/ + P2SH_B_OUTPUT_AMOUNT + p2shFee /*redeeming/refunding P2SH-B*/;
 		long totalFundsRequired = fundsRequiredForP2shA + fundsRequiredForP2shB;
 
 		// As buildSpend also adds a fee, this is more pessimistic than required
-		Transaction fundingCheckTransaction = BTC.getInstance().buildSpend(xprv58, tradeForeignAddress, totalFundsRequired);
+		Transaction fundingCheckTransaction = Bitcoin.getInstance().buildSpend(xprv58, tradeForeignAddress, totalFundsRequired);
 		if (fundingCheckTransaction == null)
 			return ResponseResult.INSUFFICIENT_FUNDS;
 
 		// P2SH-A to be funded
-		byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeForeignPublicKeyHash, lockTimeA, crossChainTradeData.creatorBitcoinPKH, hashOfSecretA);
-		String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
+		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(tradeForeignPublicKeyHash, lockTimeA, crossChainTradeData.creatorBitcoinPKH, hashOfSecretA);
+		String p2shAddress = Bitcoin.getInstance().deriveP2shAddress(redeemScriptBytes);
 
 		// Fund P2SH-A
 
 		// Do not include fee for funding transaction as this is covered by buildSpend()
-		long amountA = crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT + estimatedFee /*redeeming/refunding P2SH-A*/;
+		long amountA = crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT + p2shFee /*redeeming/refunding P2SH-A*/;
 
-		Transaction p2shFundingTransaction = BTC.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddress, amountA);
+		Transaction p2shFundingTransaction = Bitcoin.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddress, amountA);
 		if (p2shFundingTransaction == null) {
 			LOGGER.debug("Unable to build P2SH-A funding transaction - lack of funds?");
 			return ResponseResult.BTC_BALANCE_ISSUE;
 		}
 
 		try {
-			BTC.getInstance().broadcastTransaction(p2shFundingTransaction);
-		} catch (BitcoinException e) {
+			Bitcoin.getInstance().broadcastTransaction(p2shFundingTransaction);
+		} catch (ForeignBlockchainException e) {
 			// We couldn't fund P2SH-A at this time
 			LOGGER.debug("Couldn't broadcast P2SH-A funding transaction?");
 			return ResponseResult.BTC_NETWORK_ISSUE;
@@ -390,7 +390,7 @@ public class TradeBot implements Listener {
 							default:
 								LOGGER.warn(() -> String.format("Unhandled trade-bot state %s", tradeBotData.getState().name()));
 						}
-					} catch (BitcoinException e) {
+					} catch (ForeignBlockchainException e) {
 						LOGGER.warn(() -> String.format("Bitcoin issue processing %s: %s", tradeBotData.getAtAddress(), e.getMessage()));
 					}
 				}
@@ -442,18 +442,20 @@ public class TradeBot implements Listener {
 	 * 	<li>lockTime of P2SH-A - also used to derive P2SH-A address, but also for other use later in the trading process</li>
 	 * </ul>
 	 * If MESSAGE transaction is successfully broadcast, trade-bot's next step is to wait until Bob's AT has locked trade to Alice only.
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 */
-	private void handleAliceWaitingForP2shA(Repository repository, TradeBotData tradeBotData) throws DataException, BitcoinException {
+	private void handleAliceWaitingForP2shA(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
 			LOGGER.warn(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
 			return;
 		}
-		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-		byte[] redeemScriptA = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
-		String p2shAddressA = BTC.getInstance().deriveP2shAddress(redeemScriptA);
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
+		byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
+		String p2shAddressA = bitcoin.deriveP2shAddress(redeemScriptA);
 
 		// If AT has finished then maybe Bob cancelled his trade offer
 		if (atData.getIsFinished()) {
@@ -465,9 +467,9 @@ public class TradeBot implements Listener {
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long minimumAmountA = crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT;
-		BTCP2SH.Status p2shStatus = BTCP2SH.determineP2shStatus(p2shAddressA, minimumAmountA);
+		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
-		switch (p2shStatus) {
+		switch (htlcStatusA) {
 			case UNFUNDED:
 			case FUNDING_IN_PROGRESS:
 				return;
@@ -493,7 +495,7 @@ public class TradeBot implements Listener {
 		// P2SH-A funding confirmed
 
 		// Attempt to send MESSAGE to Bob's Qortal trade address
-		byte[] messageData = BTCACCT.buildOfferMessage(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
+		byte[] messageData = BitcoinACCTv1.buildOfferMessage(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
 		String messageRecipient = crossChainTradeData.qortalCreatorTradeAddress;
 
 		boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, messageData);
@@ -536,9 +538,9 @@ public class TradeBot implements Listener {
 	 * <p>
 	 * Trade-bot's next step is to wait for P2SH-B, which will allow Bob to reveal his secret-B,
 	 * needed by Alice to progress her side of the trade.
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 */
-	private void handleBobWaitingForMessage(Repository repository, TradeBotData tradeBotData) throws DataException, BitcoinException {
+	private void handleBobWaitingForMessage(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException {
 		// Fetch AT so we can determine trade start timestamp
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
@@ -552,6 +554,8 @@ public class TradeBot implements Listener {
 					() -> String.format("AT %s cancelled - trading aborted", tradeBotData.getAtAddress()));
 			return;
 		}
+
+		Bitcoin bitcoin = Bitcoin.getInstance();
 
 		String address = tradeBotData.getTradeNativeAddress();
 		List<MessageTransactionData> messageTransactionsData = repository.getMessageRepository().getMessagesByParticipants(null, address, null, null, null);
@@ -575,7 +579,7 @@ public class TradeBot implements Listener {
 
 			// We're expecting: HASH160(secret-A), Alice's Bitcoin pubkeyhash and lockTime-A
 			byte[] messageData = messageTransactionData.getData();
-			BTCACCT.OfferMessageData offerMessageData = BTCACCT.extractOfferMessageData(messageData);
+			BitcoinACCTv1.OfferMessageData offerMessageData = BitcoinACCTv1.extractOfferMessageData(messageData);
 			if (offerMessageData == null)
 				continue;
 
@@ -584,14 +588,14 @@ public class TradeBot implements Listener {
 			int lockTimeA = (int) offerMessageData.lockTimeA;
 
 			// Determine P2SH-A address and confirm funded
-			byte[] redeemScriptA = BTCP2SH.buildScript(aliceForeignPublicKeyHash, lockTimeA, tradeBotData.getTradeForeignPublicKeyHash(), hashOfSecretA);
-			String p2shAddressA = BTC.getInstance().deriveP2shAddress(redeemScriptA);
+			byte[] redeemScriptA = BitcoinyHTLC.buildScript(aliceForeignPublicKeyHash, lockTimeA, tradeBotData.getTradeForeignPublicKeyHash(), hashOfSecretA);
+			String p2shAddressA = bitcoin.deriveP2shAddress(redeemScriptA);
 
 			final long minimumAmountA = tradeBotData.getBitcoinAmount() - P2SH_B_OUTPUT_AMOUNT;
 
-			BTCP2SH.Status p2shStatus = BTCP2SH.determineP2shStatus(p2shAddressA, minimumAmountA);
+			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
-			switch (p2shStatus) {
+			switch (htlcStatusA) {
 				case UNFUNDED:
 				case FUNDING_IN_PROGRESS:
 					// There might be another MESSAGE from someone else with an actually funded P2SH-A...
@@ -617,10 +621,10 @@ public class TradeBot implements Listener {
 			// Good to go - send MESSAGE to AT
 
 			String aliceNativeAddress = Crypto.toAddress(messageTransactionData.getCreatorPublicKey());
-			int lockTimeB = BTCACCT.calcLockTimeB(messageTransactionData.getTimestamp(), lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(messageTransactionData.getTimestamp(), lockTimeA);
 
 			// Build outgoing message, padding each part to 32 bytes to make it easier for AT to consume
-			byte[] outgoingMessageData = BTCACCT.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] outgoingMessageData = BitcoinACCTv1.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			String messageRecipient = tradeBotData.getAtAddress();
 
 			boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, outgoingMessageData);
@@ -641,8 +645,8 @@ public class TradeBot implements Listener {
 				}
 			}
 
-			byte[] redeemScriptB = BTCP2SH.buildScript(aliceForeignPublicKeyHash, lockTimeB, tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret());
-			String p2shAddressB = BTC.getInstance().deriveP2shAddress(redeemScriptB);
+			byte[] redeemScriptB = BitcoinyHTLC.buildScript(aliceForeignPublicKeyHash, lockTimeB, tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret());
+			String p2shAddressB = bitcoin.deriveP2shAddress(redeemScriptB);
 
 			updateTradeBotState(repository, tradeBotData, TradeBotData.State.BOB_WAITING_FOR_P2SH_B,
 					() -> String.format("Locked AT %s to %s. Waiting for P2SH-B %s", tradeBotData.getAtAddress(), aliceNativeAddress, p2shAddressB));
@@ -668,25 +672,27 @@ public class TradeBot implements Listener {
 	 * <p>
 	 * If P2SH-B funding transaction is successfully broadcast to the Bitcoin network, trade-bot's next
 	 * step is to watch for Bob revealing secret-B by redeeming P2SH-B.
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 */
-	private void handleAliceWaitingForAtLock(Repository repository, TradeBotData tradeBotData) throws DataException, BitcoinException {
+	private void handleAliceWaitingForAtLock(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
 			LOGGER.warn(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
 			return;
 		}
-		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+
+		Bitcoin bitcoin = Bitcoin.getInstance();
 
 		// Refund P2SH-A if AT finished (i.e. Bob cancelled trade) or we've passed lockTime-A
 		if (atData.getIsFinished() || NTP.getTime() >= tradeBotData.getLockTimeA() * 1000L) {
-			byte[] redeemScriptA = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
-			String p2shAddressA = BTC.getInstance().deriveP2shAddress(redeemScriptA);
+			byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
+			String p2shAddressA = bitcoin.deriveP2shAddress(redeemScriptA);
 
 			long minimumAmountA = crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT;
-			BTCP2SH.Status p2shStatusA = BTCP2SH.determineP2shStatus(p2shAddressA, minimumAmountA);
+			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
-			switch (p2shStatusA) {
+			switch (htlcStatusA) {
 				case UNFUNDED:
 				case FUNDING_IN_PROGRESS:
 					// This shouldn't occur, but defensively revert back to waiting for P2SH-A
@@ -721,15 +727,15 @@ public class TradeBot implements Listener {
 		}
 
 		// We're waiting for AT to be in TRADE mode
-		if (crossChainTradeData.mode != BTCACCT.Mode.TRADING)
+		if (crossChainTradeData.mode != BitcoinACCTv1.Mode.TRADING)
 			return;
 
 		// We're expecting AT to be locked to our native trade address
 		if (!crossChainTradeData.qortalPartnerAddress.equals(tradeBotData.getTradeNativeAddress())) {
 			// AT locked to different address! We shouldn't continue but wait and refund.
 
-			byte[] redeemScriptBytes = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
-			String p2shAddress = BTC.getInstance().deriveP2shAddress(redeemScriptBytes);
+			byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
+			String p2shAddress = bitcoin.deriveP2shAddress(redeemScriptBytes);
 
 			updateTradeBotState(repository, tradeBotData, TradeBotData.State.ALICE_REFUNDING_A,
 					() -> String.format("AT %s locked to %s, not us (%s). Refunding %s - aborting trade",
@@ -753,7 +759,7 @@ public class TradeBot implements Listener {
 
 		long recipientMessageTimestamp = messageTransactionsData.get(0).getTimestamp();
 		int lockTimeA = tradeBotData.getLockTimeA();
-		int lockTimeB = BTCACCT.calcLockTimeB(recipientMessageTimestamp, lockTimeA);
+		int lockTimeB = BitcoinACCTv1.calcLockTimeB(recipientMessageTimestamp, lockTimeA);
 
 		// Our calculated lockTime-B should match AT's calculated lockTime-B
 		if (lockTimeB != crossChainTradeData.lockTimeB) {
@@ -762,17 +768,17 @@ public class TradeBot implements Listener {
 			return;
 		}
 
-		byte[] redeemScriptB = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
-		String p2shAddressB = BTC.getInstance().deriveP2shAddress(redeemScriptB);
+		byte[] redeemScriptB = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
+		String p2shAddressB = bitcoin.deriveP2shAddress(redeemScriptB);
 
-		long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
+		long p2shFee = bitcoin.getP2shFee(lockTimeA * 1000L);
 
 		// Have we funded P2SH-B already?
-		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + estimatedFee;
+		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + p2shFee;
 
-		BTCP2SH.Status p2shStatusB = BTCP2SH.determineP2shStatus(p2shAddressB, minimumAmountB);
+		BitcoinyHTLC.Status htlcStatusB = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressB, minimumAmountB);
 
-		switch (p2shStatusB) {
+		switch (htlcStatusB) {
 			case UNFUNDED:
 			case FUNDING_IN_PROGRESS:
 			case FUNDED:
@@ -792,17 +798,17 @@ public class TradeBot implements Listener {
 				return;
 		}
 
-		if (p2shStatusB == BTCP2SH.Status.UNFUNDED) {
+		if (htlcStatusB == BitcoinyHTLC.Status.UNFUNDED) {
 			// Do not include fee for funding transaction as this is covered by buildSpend()
-			long amountB = P2SH_B_OUTPUT_AMOUNT + estimatedFee /*redeeming/refunding P2SH-B*/;
+			long amountB = P2SH_B_OUTPUT_AMOUNT + p2shFee /*redeeming/refunding P2SH-B*/;
 
-			Transaction p2shFundingTransaction = BTC.getInstance().buildSpend(tradeBotData.getXprv58(), p2shAddressB, amountB);
+			Transaction p2shFundingTransaction = bitcoin.buildSpend(tradeBotData.getXprv58(), p2shAddressB, amountB);
 			if (p2shFundingTransaction == null) {
 				LOGGER.debug("Unable to build P2SH-B funding transaction - lack of funds?");
 				return;
 			}
 
-			BTC.getInstance().broadcastTransaction(p2shFundingTransaction);
+			bitcoin.broadcastTransaction(p2shFundingTransaction);
 		}
 
 		// P2SH-B funded, now we wait for Bob to redeem it
@@ -820,15 +826,15 @@ public class TradeBot implements Listener {
 	 * Assuming P2SH-B is funded, trade-bot 'redeems' this P2SH using secret-B, thus revealing it to Alice.
 	 * <p>
 	 * Trade-bot's next step is to wait for Alice to use secret-B, and her secret-A, to redeem Bob's AT.
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 */
-	private void handleBobWaitingForP2shB(Repository repository, TradeBotData tradeBotData) throws DataException, BitcoinException {
+	private void handleBobWaitingForP2shB(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
 			LOGGER.warn(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
 			return;
 		}
-		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 		// If we've passed AT refund timestamp then AT will have finished after auto-refunding
 		if (atData.getIsFinished()) {
@@ -843,17 +849,19 @@ public class TradeBot implements Listener {
 			// AT yet to process MESSAGE
 			return;
 
-		byte[] redeemScriptB = BTCP2SH.buildScript(crossChainTradeData.partnerBitcoinPKH, crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
-		String p2shAddressB = BTC.getInstance().deriveP2shAddress(redeemScriptB);
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
+		byte[] redeemScriptB = BitcoinyHTLC.buildScript(crossChainTradeData.partnerBitcoinPKH, crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
+		String p2shAddressB = bitcoin.deriveP2shAddress(redeemScriptB);
 
 		int lockTimeA = crossChainTradeData.lockTimeA;
-		long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
+		long p2shFee = bitcoin.getP2shFee(lockTimeA * 1000L);
 
-		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + estimatedFee;
+		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + p2shFee;
 
-		BTCP2SH.Status p2shStatusB = BTCP2SH.determineP2shStatus(p2shAddressB, minimumAmountB);
+		BitcoinyHTLC.Status htlcStatusB = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressB, minimumAmountB);
 
-		switch (p2shStatusB) {
+		switch (htlcStatusB) {
 			case UNFUNDED:
 			case FUNDING_IN_PROGRESS:
 				// Still waiting for P2SH-B to be funded...
@@ -878,12 +886,13 @@ public class TradeBot implements Listener {
 		// Redeem P2SH-B using secret-B
 		Coin redeemAmount = Coin.valueOf(P2SH_B_OUTPUT_AMOUNT); // An actual amount to avoid dust filter, remaining used as fees. The real funds are in P2SH-A.
 		ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-		List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddressB);
+		List<TransactionOutput> fundingOutputs = bitcoin.getUnspentOutputs(p2shAddressB);
 		byte[] receivingAccountInfo = tradeBotData.getReceivingAccountInfo();
 
-		Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptB, tradeBotData.getSecret(), receivingAccountInfo);
+		Transaction p2shRedeemTransaction = BitcoinyHTLC.buildRedeemTransaction(bitcoin.getNetworkParameters(), redeemAmount, redeemKey,
+				fundingOutputs, redeemScriptB, tradeBotData.getSecret(), receivingAccountInfo);
 
-		BTC.getInstance().broadcastTransaction(p2shRedeemTransaction);
+		bitcoin.broadcastTransaction(p2shRedeemTransaction);
 
 		// P2SH-B redeemed, now we wait for Alice to use secret-A to redeem AT
 		updateTradeBotState(repository, tradeBotData, TradeBotData.State.BOB_WAITING_FOR_AT_REDEEM,
@@ -905,18 +914,18 @@ public class TradeBot implements Listener {
 	 * In revealing a valid secret-A, Bob can then redeem the BTC funds from P2SH-A.
 	 * <p>
 	 * If trade-bot successfully broadcasts the MESSAGE transaction, then this specific trade is done.
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 */
-	private void handleAliceWatchingP2shB(Repository repository, TradeBotData tradeBotData) throws DataException, BitcoinException {
+	private void handleAliceWatchingP2shB(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
 			LOGGER.warn(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
 			return;
 		}
-		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 		// We check variable in AT that is set when Bob is refunded
-		if (atData.getIsFinished() && crossChainTradeData.mode == BTCACCT.Mode.REFUNDED) {
+		if (atData.getIsFinished() && crossChainTradeData.mode == BitcoinACCTv1.Mode.REFUNDED) {
 			// Bob bailed out of trade so we must start refunding too
 			updateTradeBotState(repository, tradeBotData, TradeBotData.State.ALICE_REFUNDING_B,
 					() -> String.format("AT %s has auto-refunded, Attempting refund also", tradeBotData.getAtAddress()));
@@ -924,16 +933,18 @@ public class TradeBot implements Listener {
 			return;
 		}
 
-		byte[] redeemScriptB = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
-		String p2shAddressB = BTC.getInstance().deriveP2shAddress(redeemScriptB);
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
+		byte[] redeemScriptB = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
+		String p2shAddressB = bitcoin.deriveP2shAddress(redeemScriptB);
 
 		int lockTimeA = crossChainTradeData.lockTimeA;
-		long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
-		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + estimatedFee;
+		long p2shFee = bitcoin.getP2shFee(lockTimeA * 1000L);
+		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + p2shFee;
 
-		BTCP2SH.Status p2shStatusB = BTCP2SH.determineP2shStatus(p2shAddressB, minimumAmountB);
+		BitcoinyHTLC.Status htlcStatusB = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressB, minimumAmountB);
 
-		switch (p2shStatusB) {
+		switch (htlcStatusB) {
 			case UNFUNDED:
 			case FUNDING_IN_PROGRESS:
 			case FUNDED:
@@ -953,9 +964,9 @@ public class TradeBot implements Listener {
 				return;
 		}
 
-		List<byte[]> p2shTransactions = BTC.getInstance().getAddressTransactions(p2shAddressB);
+		List<byte[]> p2shTransactions = bitcoin.getAddressTransactions(p2shAddressB);
 
-		byte[] secretB = BTCP2SH.findP2shSecret(p2shAddressB, p2shTransactions);
+		byte[] secretB = BitcoinyHTLC.findHtlcSecret(bitcoin.getNetworkParameters(), p2shAddressB, p2shTransactions);
 		if (secretB == null)
 			// Secret not revealed at this time
 			return;
@@ -963,7 +974,7 @@ public class TradeBot implements Listener {
 		// Send 'redeem' MESSAGE to AT using both secrets
 		byte[] secretA = tradeBotData.getSecret();
 		String qortalReceivingAddress = Base58.encode(tradeBotData.getReceivingAccountInfo()); // Actually contains whole address, not just PKH
-		byte[] messageData = BTCACCT.buildRedeemMessage(secretA, secretB, qortalReceivingAddress);
+		byte[] messageData = BitcoinACCTv1.buildRedeemMessage(secretA, secretB, qortalReceivingAddress);
 		String messageRecipient = tradeBotData.getAtAddress();
 
 		boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, messageData);
@@ -1001,15 +1012,15 @@ public class TradeBot implements Listener {
 	 * (This could potentially be 'improved' to send BTC to any address of Bob's choosing by changing the transaction output).
 	 * <p>
 	 * If trade-bot successfully broadcasts the transaction, then this specific trade is done.
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 */
-	private void handleBobWaitingForAtRedeem(Repository repository, TradeBotData tradeBotData) throws DataException, BitcoinException {
+	private void handleBobWaitingForAtRedeem(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
 			LOGGER.warn(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
 			return;
 		}
-		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 		// AT should be 'finished' once Alice has redeemed QORT funds
 		if (!atData.getIsFinished())
@@ -1024,7 +1035,7 @@ public class TradeBot implements Listener {
 		}
 
 		// We check variable in AT that is set when trade successfully completes
-		if (crossChainTradeData.mode != BTCACCT.Mode.REDEEMED) {
+		if (crossChainTradeData.mode != BitcoinACCTv1.Mode.REDEEMED) {
 			// Not redeemed so must be refunded
 			updateTradeBotState(repository, tradeBotData, TradeBotData.State.BOB_REFUNDED,
 					() -> String.format("AT %s has auto-refunded - trade aborted", tradeBotData.getAtAddress()));
@@ -1032,7 +1043,7 @@ public class TradeBot implements Listener {
 			return;
 		}
 
-		byte[] secretA = BTCACCT.findSecretA(repository, crossChainTradeData);
+		byte[] secretA = BitcoinACCTv1.findSecretA(repository, crossChainTradeData);
 		if (secretA == null) {
 			LOGGER.debug(() -> String.format("Unable to find secret-A from redeem message to AT %s?", tradeBotData.getAtAddress()));
 			return;
@@ -1040,15 +1051,17 @@ public class TradeBot implements Listener {
 
 		// Use secret-A to redeem P2SH-A
 
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
 		byte[] receivingAccountInfo = tradeBotData.getReceivingAccountInfo();
-		byte[] redeemScriptA = BTCP2SH.buildScript(crossChainTradeData.partnerBitcoinPKH, crossChainTradeData.lockTimeA, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretA);
-		String p2shAddressA = BTC.getInstance().deriveP2shAddress(redeemScriptA);
+		byte[] redeemScriptA = BitcoinyHTLC.buildScript(crossChainTradeData.partnerBitcoinPKH, crossChainTradeData.lockTimeA, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretA);
+		String p2shAddressA = bitcoin.deriveP2shAddress(redeemScriptA);
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long minimumAmountA = crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT;
-		BTCP2SH.Status p2shStatus = BTCP2SH.determineP2shStatus(p2shAddressA, minimumAmountA);
+		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
-		switch (p2shStatus) {
+		switch (htlcStatusA) {
 			case UNFUNDED:
 			case FUNDING_IN_PROGRESS:
 				// P2SH-A suddenly not funded? Our best bet at this point is to hope for AT auto-refund
@@ -1069,17 +1082,18 @@ public class TradeBot implements Listener {
 				break;
 		}
 
-		if (p2shStatus == BTCP2SH.Status.FUNDED) {
+		if (htlcStatusA == BitcoinyHTLC.Status.FUNDED) {
 			Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT);
 			ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddressA);
+			List<TransactionOutput> fundingOutputs = bitcoin.getUnspentOutputs(p2shAddressA);
 
-			Transaction p2shRedeemTransaction = BTCP2SH.buildRedeemTransaction(redeemAmount, redeemKey, fundingOutputs, redeemScriptA, secretA, receivingAccountInfo);
+			Transaction p2shRedeemTransaction = BitcoinyHTLC.buildRedeemTransaction(bitcoin.getNetworkParameters(), redeemAmount, redeemKey,
+					fundingOutputs, redeemScriptA, secretA, receivingAccountInfo);
 
-			BTC.getInstance().broadcastTransaction(p2shRedeemTransaction);
+			bitcoin.broadcastTransaction(p2shRedeemTransaction);
 		}
 
-		String receivingAddress = BTC.getInstance().pkhToAddress(receivingAccountInfo);
+		String receivingAddress = bitcoin.pkhToAddress(receivingAccountInfo);
 
 		updateTradeBotState(repository, tradeBotData, TradeBotData.State.BOB_DONE,
 				() -> String.format("P2SH-A %s redeemed. Funds should arrive at %s", tradeBotData.getAtAddress(), receivingAddress));
@@ -1091,35 +1105,37 @@ public class TradeBot implements Listener {
 	 * We could potentially skip this step as P2SH-B is only funded with a token amount to cover the mining fee should Bob redeem P2SH-B.
 	 * <p>
 	 * Upon successful broadcast of P2SH-B refunding transaction, trade-bot's next step is to begin refunding of P2SH-A.
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 */
-	private void handleAliceRefundingP2shB(Repository repository, TradeBotData tradeBotData) throws DataException, BitcoinException {
+	private void handleAliceRefundingP2shB(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
 			LOGGER.warn(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
 			return;
 		}
-		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 		// We can't refund P2SH-B until lockTime-B has passed
 		if (NTP.getTime() <= crossChainTradeData.lockTimeB * 1000L)
 			return;
 
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
 		// We can't refund P2SH-B until we've passed median block time
-		int medianBlockTime = BTC.getInstance().getMedianBlockTime();
+		int medianBlockTime = bitcoin.getMedianBlockTime();
 		if (NTP.getTime() <= medianBlockTime * 1000L)
 			return;
 
-		byte[] redeemScriptB = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
-		String p2shAddressB = BTC.getInstance().deriveP2shAddress(redeemScriptB);
+		byte[] redeemScriptB = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), crossChainTradeData.lockTimeB, crossChainTradeData.creatorBitcoinPKH, crossChainTradeData.hashOfSecretB);
+		String p2shAddressB = bitcoin.deriveP2shAddress(redeemScriptB);
 
 		int lockTimeA = crossChainTradeData.lockTimeA;
-		long estimatedFee = BTC.getInstance().estimateFee(lockTimeA * 1000L);
-		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + estimatedFee;
+		long p2shFee = bitcoin.getP2shFee(lockTimeA * 1000L);
+		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + p2shFee;
 
-		BTCP2SH.Status p2shStatusB = BTCP2SH.determineP2shStatus(p2shAddressB, minimumAmountB);
+		BitcoinyHTLC.Status htlcStatusB = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressB, minimumAmountB);
 
-		switch (p2shStatusB) {
+		switch (htlcStatusB) {
 			case UNFUNDED:
 			case FUNDING_IN_PROGRESS:
 				// Still waiting for P2SH-B to be funded...
@@ -1140,18 +1156,19 @@ public class TradeBot implements Listener {
 				break;
 		}
 
-		if (p2shStatusB == BTCP2SH.Status.FUNDED) {
+		if (htlcStatusB == BitcoinyHTLC.Status.FUNDED) {
 			Coin refundAmount = Coin.valueOf(P2SH_B_OUTPUT_AMOUNT); // An actual amount to avoid dust filter, remaining used as fees.
 			ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddressB);
+			List<TransactionOutput> fundingOutputs = bitcoin.getUnspentOutputs(p2shAddressB);
 
 			// Determine receive address for refund
-			String receiveAddress = BTC.getInstance().getUnusedReceiveAddress(tradeBotData.getXprv58());
-			Address receiving = Address.fromString(BTC.getInstance().getNetworkParameters(), receiveAddress);
+			String receiveAddress = bitcoin.getUnusedReceiveAddress(tradeBotData.getXprv58());
+			Address receiving = Address.fromString(bitcoin.getNetworkParameters(), receiveAddress);
 
-			Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptB, crossChainTradeData.lockTimeB, receiving.getHash());
+			Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(bitcoin.getNetworkParameters(), refundAmount, refundKey,
+					fundingOutputs, redeemScriptB, crossChainTradeData.lockTimeB, receiving.getHash());
 
-			BTC.getInstance().broadcastTransaction(p2shRefundTransaction);
+			bitcoin.broadcastTransaction(p2shRefundTransaction);
 		}
 
 		updateTradeBotState(repository, tradeBotData, TradeBotData.State.ALICE_REFUNDING_A,
@@ -1160,33 +1177,35 @@ public class TradeBot implements Listener {
 
 	/**
 	 * Trade-bot is attempting to refund P2SH-A.
-	 * @throws BitcoinException
+	 * @throws ForeignBlockchainException
 	 */
-	private void handleAliceRefundingP2shA(Repository repository, TradeBotData tradeBotData) throws DataException, BitcoinException {
+	private void handleAliceRefundingP2shA(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException {
 		ATData atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 		if (atData == null) {
 			LOGGER.warn(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
 			return;
 		}
-		CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 		// We can't refund P2SH-A until lockTime-A has passed
 		if (NTP.getTime() <= tradeBotData.getLockTimeA() * 1000L)
 			return;
 
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
 		// We can't refund P2SH-A until we've passed median block time
-		int medianBlockTime = BTC.getInstance().getMedianBlockTime();
+		int medianBlockTime = bitcoin.getMedianBlockTime();
 		if (NTP.getTime() <= medianBlockTime * 1000L)
 			return;
 
-		byte[] redeemScriptA = BTCP2SH.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
-		String p2shAddressA = BTC.getInstance().deriveP2shAddress(redeemScriptA);
+		byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorBitcoinPKH, tradeBotData.getHashOfSecret());
+		String p2shAddressA = bitcoin.deriveP2shAddress(redeemScriptA);
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long minimumAmountA = crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT;
-		BTCP2SH.Status p2shStatus = BTCP2SH.determineP2shStatus(p2shAddressA, minimumAmountA);
+		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
-		switch (p2shStatus) {
+		switch (htlcStatusA) {
 			case UNFUNDED:
 			case FUNDING_IN_PROGRESS:
 				// Still waiting for P2SH-A to be funded...
@@ -1208,18 +1227,19 @@ public class TradeBot implements Listener {
 				break;
 		}
 
-		if (p2shStatus == BTCP2SH.Status.FUNDED) {
+		if (htlcStatusA == BitcoinyHTLC.Status.FUNDED) {
 			Coin refundAmount = Coin.valueOf(crossChainTradeData.expectedBitcoin - P2SH_B_OUTPUT_AMOUNT);
 			ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-			List<TransactionOutput> fundingOutputs = BTC.getInstance().getUnspentOutputs(p2shAddressA);
+			List<TransactionOutput> fundingOutputs = bitcoin.getUnspentOutputs(p2shAddressA);
 
 			// Determine receive address for refund
-			String receiveAddress = BTC.getInstance().getUnusedReceiveAddress(tradeBotData.getXprv58());
-			Address receiving = Address.fromString(BTC.getInstance().getNetworkParameters(), receiveAddress);
+			String receiveAddress = bitcoin.getUnusedReceiveAddress(tradeBotData.getXprv58());
+			Address receiving = Address.fromString(bitcoin.getNetworkParameters(), receiveAddress);
 
-			Transaction p2shRefundTransaction = BTCP2SH.buildRefundTransaction(refundAmount, refundKey, fundingOutputs, redeemScriptA, tradeBotData.getLockTimeA(), receiving.getHash());
+			Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(bitcoin.getNetworkParameters(), refundAmount, refundKey,
+					fundingOutputs, redeemScriptA, tradeBotData.getLockTimeA(), receiving.getHash());
 
-			BTC.getInstance().broadcastTransaction(p2shRefundTransaction);
+			bitcoin.broadcastTransaction(p2shRefundTransaction);
 		}
 
 		updateTradeBotState(repository, tradeBotData, TradeBotData.State.ALICE_REFUNDED,

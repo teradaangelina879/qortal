@@ -1,4 +1,4 @@
-package org.qortal.test.btcacct;
+package org.qortal.test.crosschain.bitcoinv1;
 
 import static org.junit.Assert.*;
 
@@ -18,7 +18,7 @@ import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.block.Block;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
@@ -41,7 +41,7 @@ import org.qortal.utils.Amounts;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
-public class AtTests extends Common {
+public class BitcoinACCTv1Tests extends Common {
 
 	public static final byte[] secretA = "This string is exactly 32 bytes!".getBytes();
 	public static final byte[] hashOfSecretA = Crypto.hash160(secretA); // daf59884b4d1aec8c1b17102530909ee43c0151a
@@ -51,7 +51,7 @@ public class AtTests extends Common {
 	public static final int tradeTimeout = 20; // blocks
 	public static final long redeemAmount = 80_40200000L;
 	public static final long fundingAmount = 123_45600000L;
-	public static final long bitcoinAmount = 864200L;
+	public static final long bitcoinAmount = 864200L; // 0.00864200 BTC
 
 	private static final Random RANDOM = new Random();
 
@@ -64,8 +64,10 @@ public class AtTests extends Common {
 	public void testCompile() {
 		PrivateKeyAccount tradeAccount = createTradeAccount(null);
 
-		byte[] creationBytes = BTCACCT.buildQortalAT(tradeAccount.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
-		System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
+		byte[] creationBytes = BitcoinACCTv1.buildQortalAT(tradeAccount.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
+		assertNotNull(creationBytes);
+
+		System.out.println("AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 	}
 
 	@Test
@@ -136,7 +138,7 @@ public class AtTests extends Common {
 			long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
 
 			// Send creator's address to AT, instead of typical partner's address
-			byte[] messageData = BTCACCT.buildCancelMessage(deployer.getAddress());
+			byte[] messageData = BitcoinACCTv1.buildCancelMessage(deployer.getAddress());
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 			long messageFee = messageTransaction.getTransactionData().getFee();
 
@@ -150,8 +152,8 @@ public class AtTests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in CANCELLED mode
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
-			assertEquals(BTCACCT.Mode.CANCELLED, tradeData.mode);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			assertEquals(BitcoinACCTv1.Mode.CANCELLED, tradeData.mode);
 
 			// Check balances
 			long expectedMinimumBalance = deployersPostDeploymentBalance;
@@ -209,8 +211,8 @@ public class AtTests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in CANCELLED mode
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
-			assertEquals(BTCACCT.Mode.CANCELLED, tradeData.mode);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			assertEquals(BitcoinACCTv1.Mode.CANCELLED, tradeData.mode);
 		}
 	}
 
@@ -232,10 +234,10 @@ public class AtTests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			Block postDeploymentBlock = BlockUtils.mintBlock(repository);
@@ -247,10 +249,10 @@ public class AtTests extends Common {
 			describeAt(repository, atAddress);
 
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 			// AT should be in TRADE mode
-			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
+			assertEquals(BitcoinACCTv1.Mode.TRADING, tradeData.mode);
 
 			// Check hashOfSecretA was extracted correctly
 			assertTrue(Arrays.equals(hashOfSecretA, tradeData.hashOfSecretA));
@@ -293,10 +295,10 @@ public class AtTests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT BUT NOT FROM AT CREATOR
-			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, bystander, messageData, atAddress);
 
 			BlockUtils.mintBlock(repository);
@@ -309,10 +311,10 @@ public class AtTests extends Common {
 			describeAt(repository, atAddress);
 
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 			// AT should still be in OFFER mode
-			assertEquals(BTCACCT.Mode.OFFERING, tradeData.mode);
+			assertEquals(BitcoinACCTv1.Mode.OFFERING, tradeData.mode);
 		}
 	}
 
@@ -334,10 +336,10 @@ public class AtTests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			Block postDeploymentBlock = BlockUtils.mintBlock(repository);
@@ -356,8 +358,8 @@ public class AtTests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in REFUNDED mode
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
-			assertEquals(BTCACCT.Mode.REFUNDED, tradeData.mode);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			assertEquals(BitcoinACCTv1.Mode.REFUNDED, tradeData.mode);
 
 			// Test orphaning
 			BlockUtils.orphanToBlock(repository, postDeploymentBlockHeight);
@@ -388,17 +390,17 @@ public class AtTests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
 			// Send correct secrets to AT, from correct account
-			messageData = BTCACCT.buildRedeemMessage(secretA, secretB, partner.getAddress());
+			messageData = BitcoinACCTv1.buildRedeemMessage(secretA, secretB, partner.getAddress());
 			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should send funds in the next block
@@ -412,8 +414,8 @@ public class AtTests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in REDEEMED mode
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
-			assertEquals(BTCACCT.Mode.REDEEMED, tradeData.mode);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			assertEquals(BitcoinACCTv1.Mode.REDEEMED, tradeData.mode);
 
 			// Check balances
 			long expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee() + redeemAmount;
@@ -459,17 +461,17 @@ public class AtTests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
 			// Send correct secrets to AT, but from wrong account
-			messageData = BTCACCT.buildRedeemMessage(secretA, secretB, partner.getAddress());
+			messageData = BitcoinACCTv1.buildRedeemMessage(secretA, secretB, partner.getAddress());
 			messageTransaction = sendMessage(repository, bystander, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -483,8 +485,8 @@ public class AtTests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
-			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			assertEquals(BitcoinACCTv1.Mode.TRADING, tradeData.mode);
 
 			// Check balances
 			long expectedBalance = partnersInitialBalance;
@@ -517,10 +519,10 @@ public class AtTests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			// Give AT time to process message
@@ -529,7 +531,7 @@ public class AtTests extends Common {
 			// Send incorrect secrets to AT, from correct account
 			byte[] wrongSecret = new byte[32];
 			RANDOM.nextBytes(wrongSecret);
-			messageData = BTCACCT.buildRedeemMessage(wrongSecret, secretB, partner.getAddress());
+			messageData = BitcoinACCTv1.buildRedeemMessage(wrongSecret, secretB, partner.getAddress());
 			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -543,8 +545,8 @@ public class AtTests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
-			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			assertEquals(BitcoinACCTv1.Mode.TRADING, tradeData.mode);
 
 			long expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee();
 			long actualBalance = partner.getConfirmedBalance(Asset.QORT);
@@ -552,7 +554,7 @@ public class AtTests extends Common {
 			assertEquals("Partner's balance incorrect", expectedBalance, actualBalance);
 
 			// Send incorrect secrets to AT, from correct account
-			messageData = BTCACCT.buildRedeemMessage(secretA, wrongSecret, partner.getAddress());
+			messageData = BitcoinACCTv1.buildRedeemMessage(secretA, wrongSecret, partner.getAddress());
 			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -565,8 +567,8 @@ public class AtTests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			tradeData = BTCACCT.populateTradeData(repository, atData);
-			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
+			tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			assertEquals(BitcoinACCTv1.Mode.TRADING, tradeData.mode);
 
 			// Check balances
 			expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee() * 2;
@@ -597,10 +599,10 @@ public class AtTests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BTCACCT.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BTCACCT.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			// Give AT time to process message
@@ -621,8 +623,8 @@ public class AtTests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should be in TRADING mode
-			CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
-			assertEquals(BTCACCT.Mode.TRADING, tradeData.mode);
+			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			assertEquals(BitcoinACCTv1.Mode.TRADING, tradeData.mode);
 		}
 	}
 
@@ -654,7 +656,7 @@ public class AtTests extends Common {
 						HashCode.fromBytes(codeHash)));
 
 				// Not one of ours?
-				if (!Arrays.equals(codeHash, BTCACCT.CODE_BYTES_HASH))
+				if (!Arrays.equals(codeHash, BitcoinACCTv1.CODE_BYTES_HASH))
 					continue;
 
 				describeAt(repository, atAddress);
@@ -667,7 +669,7 @@ public class AtTests extends Common {
 	}
 
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer, String tradeAddress) throws DataException {
-		byte[] creationBytes = BTCACCT.buildQortalAT(tradeAddress, bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
+		byte[] creationBytes = BitcoinACCTv1.buildQortalAT(tradeAddress, bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();
@@ -744,7 +746,7 @@ public class AtTests extends Common {
 
 	private void describeAt(Repository repository, String atAddress) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(atAddress);
-		CrossChainTradeData tradeData = BTCACCT.populateTradeData(repository, atData);
+		CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 		Function<Long, String> epochMilliFormatter = (timestamp) -> LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
 		int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();
@@ -770,7 +772,7 @@ public class AtTests extends Common {
 				Amounts.prettyAmount(tradeData.expectedBitcoin),
 				currentBlockHeight));
 
-		if (tradeData.mode != BTCACCT.Mode.OFFERING && tradeData.mode != BTCACCT.Mode.CANCELLED) {
+		if (tradeData.mode != BitcoinACCTv1.Mode.OFFERING && tradeData.mode != BitcoinACCTv1.Mode.CANCELLED) {
 			System.out.println(String.format("\trefund height: block %d,\n"
 					+ "\tHASH160 of secret-A: %s,\n"
 					+ "\tBitcoin P2SH-A nLockTime: %d (%s),\n"

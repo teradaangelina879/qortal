@@ -1,4 +1,4 @@
-package org.qortal.test.btcacct;
+package org.qortal.test.crosschain.bitcoinv1;
 
 import org.bitcoinj.core.Coin;
 

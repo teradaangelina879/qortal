@@ -3,7 +3,7 @@ package org.qortal.crosschain;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class BitcoinTransaction {
+public class BitcoinyTransaction {
 
 	public final String txHash;
 	public final int size;
@@ -46,7 +46,7 @@ public class BitcoinTransaction {
 	}
 	public final List<Output> outputs;
 
-	public BitcoinTransaction(String txHash, int size, int locktime, Integer timestamp,
+	public BitcoinyTransaction(String txHash, int size, int locktime, Integer timestamp,
 			List<Input> inputs, List<Output> outputs) {
 		this.txHash = txHash;
 		this.size = size;

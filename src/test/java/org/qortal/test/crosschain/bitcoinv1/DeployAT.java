@@ -1,12 +1,13 @@
-package org.qortal.test.btcacct;
+package org.qortal.test.crosschain.bitcoinv1;
 
 import java.security.Security;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.controller.Controller;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -27,8 +28,6 @@ import org.qortal.utils.Base58;
 import com.google.common.hash.HashCode;
 
 public class DeployAT {
-
-	public static final long atFundingExtra = 2000000L;
 
 	private static void usage(String error) {
 		if (error != null)
@@ -51,6 +50,8 @@ public class DeployAT {
 			usage(null);
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
+		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
+
 		Settings.fileInstance("settings-test.json");
 
 		byte[] refundPrivateKey = null;
@@ -114,8 +115,8 @@ public class DeployAT {
 			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
 
 			// Deploy AT
-			byte[] creationBytes = BTCACCT.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, secretHash, redeemAmount, expectedBitcoin, tradeTimeout);
-			System.out.println("CIYAM AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
+			byte[] creationBytes = BitcoinACCTv1.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, secretHash, redeemAmount, expectedBitcoin, tradeTimeout);
+			System.out.println("AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			long txTimestamp = System.currentTimeMillis();
 			byte[] lastReference = refundAccount.getLastReference();

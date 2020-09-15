@@ -1,4 +1,4 @@
-package org.qortal.test.btcacct;
+package org.qortal.test.crosschain;
 
 import java.security.Security;
 import java.util.List;
@@ -6,8 +6,9 @@ import java.util.List;
 import org.bitcoinj.core.AddressFormatException;
 import org.bitcoinj.core.TransactionOutput;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.qortal.crosschain.BTC;
-import org.qortal.crosschain.BitcoinException;
+import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.crosschain.Bitcoin;
+import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.settings.Settings;
 
 import com.google.common.hash.HashCode;
@@ -34,6 +35,8 @@ public class GetTransaction {
 			usage(null);
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
+		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
+
 		Settings.fileInstance("settings-test.json");
 
 		byte[] transactionId = null;
@@ -49,8 +52,8 @@ public class GetTransaction {
 		// Grab all outputs from transaction
 		List<TransactionOutput> fundingOutputs;
 		try {
-			fundingOutputs = BTC.getInstance().getOutputs(transactionId);
-		} catch (BitcoinException e) {
+			fundingOutputs = Bitcoin.getInstance().getOutputs(transactionId);
+		} catch (ForeignBlockchainException e) {
 			System.out.println(String.format("Transaction not found (or error occurred)"));
 			return;
 		}
