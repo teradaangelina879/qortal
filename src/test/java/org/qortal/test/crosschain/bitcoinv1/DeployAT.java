@@ -1,13 +1,15 @@
 package org.qortal.test.crosschain.bitcoinv1;
 
-import java.security.Security;
-
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.bitcoinj.core.Address;
+import org.bitcoinj.core.AddressFormatException;
+import org.bitcoinj.core.LegacyAddress;
+import org.bitcoinj.core.NetworkParameters;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.controller.Controller;
+import org.qortal.crosschain.Bitcoin;
 import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.Bitcoiny;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -17,7 +19,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryFactory;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
-import org.qortal.settings.Settings;
+import org.qortal.test.crosschain.apps.Common;
 import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
@@ -33,14 +35,14 @@ public class DeployAT {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <BTC amount> <your Bitcoin PKH> <HASH160-of-secret> <AT funding amount> <trade-timeout>"));
+		System.err.println(String.format("usage: DeployAT <your Qortal PRIVATE key> <QORT amount> <AT funding amount> <BTC amount> <your Bitcoin PKH/P2PKH> <HASH160-of-secret> <trade-timeout>"));
 		System.err.println(String.format("example: DeployAT "
-				+ "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot \\\n"
-				+ "\t80.4020 \\\n"
+				+ "7Eztjz2TsxwbrWUYEaSdLbASKQGTfK2rR7ViFc5gaiZw \\\n"
+				+ "\t10 \\\n"
+				+ "\t10.1 \\\n"
 				+ "\t0.00864200 \\\n"
-				+ "\t750b06757a2448b8a4abebaa6e4662833fd5ddbb \\\n"
+				+ "\t750b06757a2448b8a4abebaa6e4662833fd5ddbb (or mrBpZYYGYMwUa8tRjTiXfP1ySqNXszWN5h) \\\n"
 				+ "\tdaf59884b4d1aec8c1b17102530909ee43c0151a \\\n"
-				+ "\t123.456 \\\n"
 				+ "\t10080"));
 		System.exit(1);
 	}
@@ -49,17 +51,17 @@ public class DeployAT {
 		if (args.length != 7)
 			usage(null);
 
-		Security.insertProviderAt(new BouncyCastleProvider(), 0);
-		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
+		Common.init();
 
-		Settings.fileInstance("settings-test.json");
+		Bitcoiny bitcoiny = Bitcoin.getInstance();
+		NetworkParameters params = bitcoiny.getNetworkParameters();
 
 		byte[] refundPrivateKey = null;
 		long redeemAmount = 0;
+		long fundingAmount = 0;
 		long expectedBitcoin = 0;
 		byte[] bitcoinPublicKeyHash = null;
 		byte[] secretHash = null;
-		long fundingAmount = 0;
 		int tradeTimeout = 0;
 
 		int argIndex = 0;
@@ -72,21 +74,29 @@ public class DeployAT {
 			if (redeemAmount <= 0)
 				usage("QORT amount must be positive");
 
+			fundingAmount = Long.parseLong(args[argIndex++]);
+			if (fundingAmount <= redeemAmount)
+				usage("AT funding amount must be greater than QORT redeem amount");
+
 			expectedBitcoin = Long.parseLong(args[argIndex++]);
 			if (expectedBitcoin <= 0)
 				usage("Expected BTC amount must be positive");
 
-			bitcoinPublicKeyHash = HashCode.fromString(args[argIndex++]).asBytes();
+			String bitcoinPKHish = args[argIndex++];
+			// Try P2PKH first
+			try {
+				Address bitcoinAddress = LegacyAddress.fromBase58(params, bitcoinPKHish);
+				bitcoinPublicKeyHash = bitcoinAddress.getHash();
+			} catch (AddressFormatException e) {
+				// Try parsing as PKH hex string instead
+				bitcoinPublicKeyHash = HashCode.fromString(bitcoinPKHish).asBytes();
+			}
 			if (bitcoinPublicKeyHash.length != 20)
 				usage("Bitcoin PKH must be 20 bytes");
 
 			secretHash = HashCode.fromString(args[argIndex++]).asBytes();
 			if (secretHash.length != 20)
 				usage("Hash of secret must be 20 bytes");
-
-			fundingAmount = Long.parseLong(args[argIndex++]);
-			if (fundingAmount <= redeemAmount)
-				usage("AT funding amount must be greater than QORT redeem amount");
 
 			tradeTimeout = Integer.parseInt(args[argIndex++]);
 			if (tradeTimeout < 60 || tradeTimeout > 50000)
@@ -99,12 +109,11 @@ public class DeployAT {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
-			throw new RuntimeException("Repository startup issue: " + e.getMessage());
+			System.err.println(String.format("Repository start-up issue: %s", e.getMessage()));
+			System.exit(2);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			System.out.println("Confirm the following is correct based on the info you've given:");
-
 			PrivateKeyAccount refundAccount = new PrivateKeyAccount(repository, refundPrivateKey);
 			System.out.println(String.format("Refund Qortal address: %s", refundAccount.getAddress()));
 
@@ -150,11 +159,10 @@ public class DeployAT {
 				System.exit(2);
 			}
 
-			System.out.println(String.format("\nSigned transaction in base58, ready for POST /transactions/process:\n%s\n", Base58.encode(signedBytes)));
-		} catch (NumberFormatException e) {
-			usage(String.format("Number format exception: %s", e.getMessage()));
+			System.out.println(String.format("%nSigned transaction in base58, ready for POST /transactions/process:%n%s", Base58.encode(signedBytes)));
 		} catch (DataException e) {
-			throw new RuntimeException("Repository issue: " + e.getMessage());
+			System.err.println(String.format("Repository issue: %s", e.getMessage()));
+			System.exit(2);
 		}
 	}
 
