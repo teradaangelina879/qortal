@@ -1,4 +1,4 @@
-package org.qortal.test.crosschain.bitcoinv1;
+package org.qortal.test.crosschain.litecoinv1;
 
 import static org.junit.Assert.*;
 
@@ -18,7 +18,7 @@ import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.block.Block;
-import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.LitecoinACCTv1;
 import org.qortal.crosschain.AcctMode;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
@@ -42,17 +42,15 @@ import org.qortal.utils.Amounts;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 
-public class BitcoinACCTv1Tests extends Common {
+public class LitecoinACCTv1Tests extends Common {
 
 	public static final byte[] secretA = "This string is exactly 32 bytes!".getBytes();
 	public static final byte[] hashOfSecretA = Crypto.hash160(secretA); // daf59884b4d1aec8c1b17102530909ee43c0151a
-	public static final byte[] secretB = "This string is roughly 32 bytes?".getBytes();
-	public static final byte[] hashOfSecretB = Crypto.hash160(secretB); // 31f0dd71decf59bbc8ef0661f4030479255cfa58
-	public static final byte[] bitcoinPublicKeyHash = HashCode.fromString("bb00bb11bb22bb33bb44bb55bb66bb77bb88bb99").asBytes();
+	public static final byte[] litecoinPublicKeyHash = HashCode.fromString("bb00bb11bb22bb33bb44bb55bb66bb77bb88bb99").asBytes();
 	public static final int tradeTimeout = 20; // blocks
 	public static final long redeemAmount = 80_40200000L;
 	public static final long fundingAmount = 123_45600000L;
-	public static final long bitcoinAmount = 864200L; // 0.00864200 BTC
+	public static final long litecoinAmount = 864200L; // 0.00864200 LTC
 
 	private static final Random RANDOM = new Random();
 
@@ -65,7 +63,7 @@ public class BitcoinACCTv1Tests extends Common {
 	public void testCompile() {
 		PrivateKeyAccount tradeAccount = createTradeAccount(null);
 
-		byte[] creationBytes = BitcoinACCTv1.buildQortalAT(tradeAccount.getAddress(), bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
+		byte[] creationBytes = LitecoinACCTv1.buildQortalAT(tradeAccount.getAddress(), litecoinPublicKeyHash, redeemAmount, litecoinAmount, tradeTimeout);
 		assertNotNull(creationBytes);
 
 		System.out.println("AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
@@ -139,7 +137,7 @@ public class BitcoinACCTv1Tests extends Common {
 			long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
 
 			// Send creator's address to AT, instead of typical partner's address
-			byte[] messageData = BitcoinACCTv1.buildCancelMessage(deployer.getAddress());
+			byte[] messageData = LitecoinACCTv1.buildCancelMessage(deployer.getAddress());
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 			long messageFee = messageTransaction.getTransactionData().getFee();
 
@@ -153,7 +151,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in CANCELLED mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 			assertEquals(AcctMode.CANCELLED, tradeData.mode);
 
 			// Check balances
@@ -212,7 +210,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in CANCELLED mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 			assertEquals(AcctMode.CANCELLED, tradeData.mode);
 		}
 	}
@@ -235,10 +233,10 @@ public class BitcoinACCTv1Tests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int refundTimeout = LitecoinACCTv1.calcRefundTimeout(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partner.getAddress(), litecoinPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			Block postDeploymentBlock = BlockUtils.mintBlock(repository);
@@ -250,7 +248,7 @@ public class BitcoinACCTv1Tests extends Common {
 			describeAt(repository, atAddress);
 
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 
 			// AT should be in TRADE mode
 			assertEquals(AcctMode.TRADING, tradeData.mode);
@@ -261,8 +259,8 @@ public class BitcoinACCTv1Tests extends Common {
 			// Check trade partner Qortal address was extracted correctly
 			assertEquals(partner.getAddress(), tradeData.qortalPartnerAddress);
 
-			// Check trade partner's Bitcoin PKH was extracted correctly
-			assertTrue(Arrays.equals(bitcoinPublicKeyHash, tradeData.partnerBitcoinPKH));
+			// Check trade partner's Litecoin PKH was extracted correctly
+			assertTrue(Arrays.equals(litecoinPublicKeyHash, tradeData.partnerBitcoinPKH));
 
 			// Test orphaning
 			BlockUtils.orphanToBlock(repository, postDeploymentBlockHeight);
@@ -296,10 +294,10 @@ public class BitcoinACCTv1Tests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int refundTimeout = LitecoinACCTv1.calcRefundTimeout(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT BUT NOT FROM AT CREATOR
-			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partner.getAddress(), litecoinPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			MessageTransaction messageTransaction = sendMessage(repository, bystander, messageData, atAddress);
 
 			BlockUtils.mintBlock(repository);
@@ -312,7 +310,7 @@ public class BitcoinACCTv1Tests extends Common {
 			describeAt(repository, atAddress);
 
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 
 			// AT should still be in OFFER mode
 			assertEquals(AcctMode.OFFERING, tradeData.mode);
@@ -337,10 +335,10 @@ public class BitcoinACCTv1Tests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int refundTimeout = LitecoinACCTv1.calcRefundTimeout(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partner.getAddress(), litecoinPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			Block postDeploymentBlock = BlockUtils.mintBlock(repository);
@@ -359,7 +357,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in REFUNDED mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 			assertEquals(AcctMode.REFUNDED, tradeData.mode);
 
 			// Test orphaning
@@ -375,7 +373,7 @@ public class BitcoinACCTv1Tests extends Common {
 
 	@SuppressWarnings("unused")
 	@Test
-	public void testCorrectSecretsCorrectSender() throws DataException {
+	public void testCorrectSecretCorrectSender() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
 			PrivateKeyAccount tradeAccount = createTradeAccount(repository);
@@ -391,17 +389,17 @@ public class BitcoinACCTv1Tests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int refundTimeout = LitecoinACCTv1.calcRefundTimeout(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partner.getAddress(), litecoinPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
-			// Send correct secrets to AT, from correct account
-			messageData = BitcoinACCTv1.buildRedeemMessage(secretA, secretB, partner.getAddress());
+			// Send correct secret to AT, from correct account
+			messageData = LitecoinACCTv1.buildRedeemMessage(secretA,  partner.getAddress());
 			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should send funds in the next block
@@ -415,7 +413,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in REDEEMED mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 			assertEquals(AcctMode.REDEEMED, tradeData.mode);
 
 			// Check balances
@@ -442,7 +440,7 @@ public class BitcoinACCTv1Tests extends Common {
 
 	@SuppressWarnings("unused")
 	@Test
-	public void testCorrectSecretsIncorrectSender() throws DataException {
+	public void testCorrectSecretIncorrectSender() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
 			PrivateKeyAccount tradeAccount = createTradeAccount(repository);
@@ -462,17 +460,17 @@ public class BitcoinACCTv1Tests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int refundTimeout = LitecoinACCTv1.calcRefundTimeout(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partner.getAddress(), litecoinPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
-			// Send correct secrets to AT, but from wrong account
-			messageData = BitcoinACCTv1.buildRedeemMessage(secretA, secretB, partner.getAddress());
+			// Send correct secret to AT, but from wrong account
+			messageData = LitecoinACCTv1.buildRedeemMessage(secretA, partner.getAddress());
 			messageTransaction = sendMessage(repository, bystander, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -486,7 +484,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 
 			// Check balances
@@ -502,7 +500,7 @@ public class BitcoinACCTv1Tests extends Common {
 
 	@SuppressWarnings("unused")
 	@Test
-	public void testIncorrectSecretsCorrectSender() throws DataException {
+	public void testIncorrectSecretCorrectSender() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
 			PrivateKeyAccount tradeAccount = createTradeAccount(repository);
@@ -520,19 +518,19 @@ public class BitcoinACCTv1Tests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int refundTimeout = LitecoinACCTv1.calcRefundTimeout(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partner.getAddress(), litecoinPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
-			// Send incorrect secrets to AT, from correct account
+			// Send incorrect secret to AT, from correct account
 			byte[] wrongSecret = new byte[32];
 			RANDOM.nextBytes(wrongSecret);
-			messageData = BitcoinACCTv1.buildRedeemMessage(wrongSecret, secretB, partner.getAddress());
+			messageData = LitecoinACCTv1.buildRedeemMessage(wrongSecret, partner.getAddress());
 			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -546,34 +544,11 @@ public class BitcoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 
 			long expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee();
 			long actualBalance = partner.getConfirmedBalance(Asset.QORT);
-
-			assertEquals("Partner's balance incorrect", expectedBalance, actualBalance);
-
-			// Send incorrect secrets to AT, from correct account
-			messageData = BitcoinACCTv1.buildRedeemMessage(secretA, wrongSecret, partner.getAddress());
-			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
-
-			// AT should NOT send funds in the next block
-			BlockUtils.mintBlock(repository);
-
-			describeAt(repository, atAddress);
-
-			// Check AT is NOT finished
-			atData = repository.getATRepository().fromATAddress(atAddress);
-			assertFalse(atData.getIsFinished());
-
-			// AT should still be in TRADE mode
-			tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
-			assertEquals(AcctMode.TRADING, tradeData.mode);
-
-			// Check balances
-			expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee() * 2;
-			actualBalance = partner.getConfirmedBalance(Asset.QORT);
 
 			assertEquals("Partner's balance incorrect", expectedBalance, actualBalance);
 
@@ -584,7 +559,7 @@ public class BitcoinACCTv1Tests extends Common {
 
 	@SuppressWarnings("unused")
 	@Test
-	public void testCorrectSecretsCorrectSenderInvalidMessageLength() throws DataException {
+	public void testCorrectSecretCorrectSenderInvalidMessageLength() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "chloe");
 			PrivateKeyAccount tradeAccount = createTradeAccount(repository);
@@ -600,17 +575,17 @@ public class BitcoinACCTv1Tests extends Common {
 
 			long partnersOfferMessageTransactionTimestamp = System.currentTimeMillis();
 			int lockTimeA = calcTestLockTimeA(partnersOfferMessageTransactionTimestamp);
-			int lockTimeB = BitcoinACCTv1.calcLockTimeB(partnersOfferMessageTransactionTimestamp, lockTimeA);
+			int refundTimeout = LitecoinACCTv1.calcRefundTimeout(partnersOfferMessageTransactionTimestamp, lockTimeA);
 
 			// Send trade info to AT
-			byte[] messageData = BitcoinACCTv1.buildTradeMessage(partner.getAddress(), bitcoinPublicKeyHash, hashOfSecretA, lockTimeA, lockTimeB);
+			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partner.getAddress(), litecoinPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			MessageTransaction messageTransaction = sendMessage(repository, tradeAccount, messageData, atAddress);
 
 			// Give AT time to process message
 			BlockUtils.mintBlock(repository);
 
-			// Send correct secrets to AT, from correct account, but missing receive address, hence incorrect length
-			messageData = Bytes.concat(secretA, secretB);
+			// Send correct secret to AT, from correct account, but missing receive address, hence incorrect length
+			messageData = Bytes.concat(secretA);
 			messageTransaction = sendMessage(repository, partner, messageData, atAddress);
 
 			// AT should NOT send funds in the next block
@@ -624,7 +599,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should be in TRADING mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 		}
 	}
@@ -657,7 +632,7 @@ public class BitcoinACCTv1Tests extends Common {
 						HashCode.fromBytes(codeHash)));
 
 				// Not one of ours?
-				if (!Arrays.equals(codeHash, BitcoinACCTv1.CODE_BYTES_HASH))
+				if (!Arrays.equals(codeHash, LitecoinACCTv1.CODE_BYTES_HASH))
 					continue;
 
 				describeAt(repository, atAddress);
@@ -670,7 +645,7 @@ public class BitcoinACCTv1Tests extends Common {
 	}
 
 	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer, String tradeAddress) throws DataException {
-		byte[] creationBytes = BitcoinACCTv1.buildQortalAT(tradeAddress, bitcoinPublicKeyHash, hashOfSecretB, redeemAmount, bitcoinAmount, tradeTimeout);
+		byte[] creationBytes = LitecoinACCTv1.buildQortalAT(tradeAddress, litecoinPublicKeyHash, redeemAmount, litecoinAmount, tradeTimeout);
 
 		long txTimestamp = System.currentTimeMillis();
 		byte[] lastReference = deployer.getLastReference();
@@ -681,10 +656,10 @@ public class BitcoinACCTv1Tests extends Common {
 		}
 
 		Long fee = null;
-		String name = "QORT-BTC cross-chain trade";
-		String description = String.format("Qortal-Bitcoin cross-chain trade");
+		String name = "QORT-LTC cross-chain trade";
+		String description = String.format("Qortal-Litecoin cross-chain trade");
 		String atType = "ACCT";
-		String tags = "QORT-BTC ACCT";
+		String tags = "QORT-LTC ACCT";
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, deployer.getPublicKey(), fee, null);
 		TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, fundingAmount, Asset.QORT);
@@ -729,7 +704,7 @@ public class BitcoinACCTv1Tests extends Common {
 
 	private void checkTradeRefund(Repository repository, Account deployer, long deployersInitialBalance, long deployAtFee) throws DataException {
 		long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
-		int refundTimeout = tradeTimeout * 3 / 4 + 1; // close enough
+		int refundTimeout = tradeTimeout / 2 + 1; // close enough
 
 		// AT should automatically refund deployer after 'refundTimeout' blocks
 		for (int blockCount = 0; blockCount <= refundTimeout; ++blockCount)
@@ -747,7 +722,7 @@ public class BitcoinACCTv1Tests extends Common {
 
 	private void describeAt(Repository repository, String atAddress) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(atAddress);
-		CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+		CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
 
 		Function<Long, String> epochMilliFormatter = (timestamp) -> LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
 		int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();
@@ -758,9 +733,8 @@ public class BitcoinACCTv1Tests extends Common {
 				+ "\tcreation timestamp: %s,\n"
 				+ "\tcurrent balance: %s QORT,\n"
 				+ "\tis finished: %b,\n"
-				+ "\tHASH160 of secret-B: %s,\n"
 				+ "\tredeem payout: %s QORT,\n"
-				+ "\texpected bitcoin: %s BTC,\n"
+				+ "\texpected Litecoin: %s LTC,\n"
 				+ "\tcurrent block height: %d,\n",
 				tradeData.qortalAtAddress,
 				tradeData.mode,
@@ -768,22 +742,23 @@ public class BitcoinACCTv1Tests extends Common {
 				epochMilliFormatter.apply(tradeData.creationTimestamp),
 				Amounts.prettyAmount(tradeData.qortBalance),
 				atData.getIsFinished(),
-				HashCode.fromBytes(tradeData.hashOfSecretB).toString().substring(0, 40),
 				Amounts.prettyAmount(tradeData.qortAmount),
 				Amounts.prettyAmount(tradeData.expectedBitcoin),
 				currentBlockHeight));
 
 		if (tradeData.mode != AcctMode.OFFERING && tradeData.mode != AcctMode.CANCELLED) {
-			System.out.println(String.format("\trefund height: block %d,\n"
+			System.out.println(String.format("\trefund timeout: %d minutes,\n"
+					+ "\trefund height: block %d,\n"
 					+ "\tHASH160 of secret-A: %s,\n"
-					+ "\tBitcoin P2SH-A nLockTime: %d (%s),\n"
-					+ "\tBitcoin P2SH-B nLockTime: %d (%s),\n"
-					+ "\ttrade partner: %s",
+					+ "\tLitecoin P2SH-A nLockTime: %d (%s),\n"
+					+ "\ttrade partner: %s\n"
+					+ "\tpartner's receiving address: %s",
+					tradeData.refundTimeout,
 					tradeData.tradeRefundHeight,
 					HashCode.fromBytes(tradeData.hashOfSecretA).toString().substring(0, 40),
 					tradeData.lockTimeA, epochMilliFormatter.apply(tradeData.lockTimeA * 1000L),
-					tradeData.lockTimeB, epochMilliFormatter.apply(tradeData.lockTimeB * 1000L),
-					tradeData.qortalPartnerAddress));
+					tradeData.qortalPartnerAddress,
+					tradeData.qortalPartnerReceivingAddress));
 		}
 	}
 

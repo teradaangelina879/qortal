@@ -15,6 +15,7 @@ import org.qortal.crosschain.Bitcoiny;
 import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.settings.Settings;
+import org.qortal.utils.NTP;
 
 import com.google.common.hash.HashCode;
 
@@ -25,6 +26,8 @@ public abstract class Common {
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
 
 		Settings.fileInstance("settings-test.json");
+
+		NTP.setFixedOffset(0L);
 	}
 
 	public static long getP2shFee(Bitcoiny bitcoiny) {

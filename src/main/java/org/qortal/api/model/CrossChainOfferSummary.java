@@ -4,7 +4,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.AcctMode;
 import org.qortal.data.crosschain.CrossChainTradeData;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -24,13 +24,20 @@ public class CrossChainOfferSummary {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long qortAmount;
 
+	@Schema(description = "Bitcoin amount - DEPRECATED: use foreignAmount")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	@Deprecated
 	private long btcAmount;
+
+	@Schema(description = "Foreign blockchain amount")
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long foreignAmount;
 
 	@Schema(description = "Suggested trade timeout (minutes)", example = "10080")
 	private int tradeTimeout;
 
-	private BitcoinACCTv1.Mode mode;
+	@Schema(description = "Current AT execution mode")
+	private AcctMode mode;
 
 	private long timestamp;
 
@@ -45,6 +52,7 @@ public class CrossChainOfferSummary {
 		this.qortalCreator = crossChainTradeData.qortalCreator;
 		this.qortAmount = crossChainTradeData.qortAmount;
 		this.btcAmount = crossChainTradeData.expectedBitcoin;
+		this.foreignAmount = crossChainTradeData.expectedBitcoin;
 		this.tradeTimeout = crossChainTradeData.tradeTimeout;
 		this.mode = crossChainTradeData.mode;
 		this.timestamp = timestamp;
@@ -67,11 +75,15 @@ public class CrossChainOfferSummary {
 		return this.btcAmount;
 	}
 
+	public long getForeignAmount() {
+		return this.foreignAmount;
+	}
+
 	public int getTradeTimeout() {
 		return this.tradeTimeout;
 	}
 
-	public BitcoinACCTv1.Mode getMode() {
+	public AcctMode getMode() {
 		return this.mode;
 	}
 
@@ -86,7 +98,7 @@ public class CrossChainOfferSummary {
 	// For debugging mostly
 
 	public String toString() {
-		return String.format("%s: %s", this.qortalAtAddress, this.mode.name());
+		return String.format("%s: %s", this.qortalAtAddress, this.mode);
 	}
 
 }

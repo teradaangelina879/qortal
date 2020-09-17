@@ -4,7 +4,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.AcctMode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -62,12 +62,13 @@ public class CrossChainTradeData {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	public long expectedBitcoin;
 
-	public BitcoinACCTv1.Mode mode;
+	@Schema(description = "Current AT execution mode")
+	public AcctMode mode;
 
-	@Schema(description = "Suggested Bitcoin P2SH-A nLockTime based on trade timeout")
+	@Schema(description = "Suggested P2SH-A nLockTime based on trade timeout")
 	public Integer lockTimeA;
 
-	@Schema(description = "Suggested Bitcoin P2SH-B nLockTime based on trade timeout")
+	@Schema(description = "Suggested P2SH-B nLockTime based on trade timeout")
 	public Integer lockTimeB;
 
 	@Schema(description = "Trade partner's Bitcoin public-key-hash (PKH)")

@@ -20,6 +20,7 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.model.TradeBotCreateRequest;
 import org.qortal.asset.Asset;
+import org.qortal.crosschain.AcctMode;
 import org.qortal.crosschain.Bitcoin;
 import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crosschain.ForeignBlockchainException;
@@ -727,7 +728,7 @@ public class TradeBot implements Listener {
 		}
 
 		// We're waiting for AT to be in TRADE mode
-		if (crossChainTradeData.mode != BitcoinACCTv1.Mode.TRADING)
+		if (crossChainTradeData.mode != AcctMode.TRADING)
 			return;
 
 		// We're expecting AT to be locked to our native trade address
@@ -925,7 +926,7 @@ public class TradeBot implements Listener {
 		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
 		// We check variable in AT that is set when Bob is refunded
-		if (atData.getIsFinished() && crossChainTradeData.mode == BitcoinACCTv1.Mode.REFUNDED) {
+		if (atData.getIsFinished() && crossChainTradeData.mode == AcctMode.REFUNDED) {
 			// Bob bailed out of trade so we must start refunding too
 			updateTradeBotState(repository, tradeBotData, TradeBotData.State.ALICE_REFUNDING_B,
 					() -> String.format("AT %s has auto-refunded, Attempting refund also", tradeBotData.getAtAddress()));
@@ -1035,7 +1036,7 @@ public class TradeBot implements Listener {
 		}
 
 		// We check variable in AT that is set when trade successfully completes
-		if (crossChainTradeData.mode != BitcoinACCTv1.Mode.REDEEMED) {
+		if (crossChainTradeData.mode != AcctMode.REDEEMED) {
 			// Not redeemed so must be refunded
 			updateTradeBotState(repository, tradeBotData, TradeBotData.State.BOB_REFUNDED,
 					() -> String.format("AT %s has auto-refunded - trade aborted", tradeBotData.getAtAddress()));

@@ -21,6 +21,7 @@ import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.model.CrossChainOfferSummary;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.AcctMode;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.CrossChainTradeData;
@@ -38,7 +39,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 
 	private static final Logger LOGGER = LogManager.getLogger(TradeOffersWebSocket.class);
 
-	private static final Map<String, BitcoinACCTv1.Mode> previousAtModes = new HashMap<>();
+	private static final Map<String, AcctMode> previousAtModes = new HashMap<>();
 
 	// OFFERING
 	private static final Map<String, CrossChainOfferSummary> currentSummaries = new HashMap<>();
@@ -46,9 +47,9 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 	private static final Map<String, CrossChainOfferSummary> historicSummaries = new HashMap<>();
 
 	private static final Predicate<CrossChainOfferSummary> isHistoric = offerSummary
-			-> offerSummary.getMode() == BitcoinACCTv1.Mode.REDEEMED
-			|| offerSummary.getMode() == BitcoinACCTv1.Mode.REFUNDED
-			|| offerSummary.getMode() == BitcoinACCTv1.Mode.CANCELLED;
+			-> offerSummary.getMode() == AcctMode.REDEEMED
+			|| offerSummary.getMode() == AcctMode.REFUNDED
+			|| offerSummary.getMode() == AcctMode.CANCELLED;
 
 
 	@Override
@@ -198,7 +199,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		// We want ALL OFFERING trades
 		Boolean isFinished = Boolean.FALSE;
 		Integer dataByteOffset = BitcoinACCTv1.MODE_BYTE_OFFSET;
-		Long expectedValue = (long) BitcoinACCTv1.Mode.OFFERING.value;
+		Long expectedValue = (long) AcctMode.OFFERING.value;
 		Integer minimumFinalHeight = null;
 
 		List<ATStateData> initialAtStates = repository.getATRepository().getMatchingFinalATStates(BitcoinACCTv1.CODE_BYTES_HASH,
@@ -209,7 +210,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 			throw new DataException("Couldn't fetch current trades from repository");
 
 		// Save initial AT modes
-		previousAtModes.putAll(initialAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> BitcoinACCTv1.Mode.OFFERING)));
+		previousAtModes.putAll(initialAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> AcctMode.OFFERING)));
 
 		// Convert to offer summaries
 		currentSummaries.putAll(produceSummaries(repository, initialAtStates, null).stream().collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, offerSummary -> offerSummary)));
@@ -254,7 +255,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 
 		long atStateTimestamp;
 
-		if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING)
+		if (crossChainTradeData.mode == AcctMode.OFFERING)
 			// We want when trade was created, not when it was last updated
 			atStateTimestamp = atState.getCreation();
 		else

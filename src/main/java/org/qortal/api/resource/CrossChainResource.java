@@ -59,6 +59,7 @@ import org.qortal.crosschain.Bitcoin;
 import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crosschain.Bitcoiny;
 import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.AcctMode;
 import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
@@ -269,7 +270,7 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, tradeRequest.atAddress);
 			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode != BitcoinACCTv1.Mode.OFFERING)
+			if (crossChainTradeData.mode != AcctMode.OFFERING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			// Does supplied public key match trade public key?
@@ -358,7 +359,7 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, secretRequest.atAddress);
 			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode != BitcoinACCTv1.Mode.TRADING)
+			if (crossChainTradeData.mode != AcctMode.TRADING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			String partnerAddress = Crypto.toAddress(partnerPublicKey);
@@ -420,7 +421,7 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, cancelRequest.atAddress);
 			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode != BitcoinACCTv1.Mode.OFFERING)
+			if (crossChainTradeData.mode != AcctMode.OFFERING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			// Does supplied public key match AT creator's public key?
@@ -510,7 +511,7 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, templateRequest.atAddress);
 			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING || crossChainTradeData.mode == BitcoinACCTv1.Mode.CANCELLED)
+			if (crossChainTradeData.mode == AcctMode.OFFERING || crossChainTradeData.mode == AcctMode.CANCELLED)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(templateRequest.refundPublicKeyHash, lockTimeFn.applyAsInt(crossChainTradeData), templateRequest.redeemPublicKeyHash, hashOfSecretFn.apply(crossChainTradeData));
@@ -593,7 +594,7 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, templateRequest.atAddress);
 			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING || crossChainTradeData.mode == BitcoinACCTv1.Mode.CANCELLED)
+			if (crossChainTradeData.mode == AcctMode.OFFERING || crossChainTradeData.mode == AcctMode.CANCELLED)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
@@ -729,7 +730,7 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, refundRequest.atAddress);
 			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING || crossChainTradeData.mode == BitcoinACCTv1.Mode.CANCELLED)
+			if (crossChainTradeData.mode == AcctMode.OFFERING || crossChainTradeData.mode == AcctMode.CANCELLED)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
@@ -866,7 +867,7 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, redeemRequest.atAddress);
 			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode == BitcoinACCTv1.Mode.OFFERING || crossChainTradeData.mode == BitcoinACCTv1.Mode.CANCELLED)
+			if (crossChainTradeData.mode == AcctMode.OFFERING || crossChainTradeData.mode == AcctMode.CANCELLED)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			int lockTime = lockTimeFn.applyAsInt(crossChainTradeData);
@@ -1119,7 +1120,7 @@ public class CrossChainResource {
 			ATData atData = fetchAtDataWithChecking(repository, atAddress);
 			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atData);
 
-			if (crossChainTradeData.mode != BitcoinACCTv1.Mode.OFFERING)
+			if (crossChainTradeData.mode != AcctMode.OFFERING)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			TradeBot.ResponseResult result = TradeBot.startResponse(repository, crossChainTradeData, tradeBotRespondRequest.xprv58, tradeBotRespondRequest.receivingAddress);
@@ -1256,7 +1257,7 @@ public class CrossChainResource {
 
 			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BitcoinACCTv1.CODE_BYTES_HASH,
 					isFinished,
-					BitcoinACCTv1.MODE_BYTE_OFFSET, (long) BitcoinACCTv1.Mode.REDEEMED.value,
+					BitcoinACCTv1.MODE_BYTE_OFFSET, (long) AcctMode.REDEEMED.value,
 					minimumFinalHeight,
 					limit, offset, reverse);
 
