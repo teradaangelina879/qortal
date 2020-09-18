@@ -15,7 +15,7 @@ public enum ApiError {
 	// COMMON
 	// UNKNOWN(0, 500),
 	JSON(1, 400),
-	// NO_BALANCE(2, 422),
+	INSUFFICIENT_BALANCE(2, 422),
 	// NOT_YET_RELEASED(3, 422),
 	UNAUTHORIZED(4, 403),
 	REPOSITORY_ISSUE(5, 500),
@@ -126,10 +126,10 @@ public enum ApiError {
 	// Groups
 	GROUP_UNKNOWN(1101, 404),
 
-	// Bitcoin
-	BTC_NETWORK_ISSUE(1201, 500),
-	BTC_BALANCE_ISSUE(1202, 402),
-	BTC_TOO_SOON(1203, 408);
+	// Foreign blockchain
+	FOREIGN_BLOCKCHAIN_NETWORK_ISSUE(1201, 500),
+	FOREIGN_BLOCKCHAIN_BALANCE_ISSUE(1202, 402),
+	FOREIGN_BLOCKCHAIN_TOO_SOON(1203, 408);
 
 	private static final Map<Integer, ApiError> map = stream(ApiError.values()).collect(toMap(apiError -> apiError.code, apiError -> apiError));
 

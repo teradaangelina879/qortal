@@ -153,7 +153,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in CANCELLED mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.CANCELLED, tradeData.mode);
 
 			// Check balances
@@ -212,7 +212,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in CANCELLED mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.CANCELLED, tradeData.mode);
 		}
 	}
@@ -250,7 +250,7 @@ public class BitcoinACCTv1Tests extends Common {
 			describeAt(repository, atAddress);
 
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 
 			// AT should be in TRADE mode
 			assertEquals(AcctMode.TRADING, tradeData.mode);
@@ -312,7 +312,7 @@ public class BitcoinACCTv1Tests extends Common {
 			describeAt(repository, atAddress);
 
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 
 			// AT should still be in OFFER mode
 			assertEquals(AcctMode.OFFERING, tradeData.mode);
@@ -359,7 +359,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in REFUNDED mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.REFUNDED, tradeData.mode);
 
 			// Test orphaning
@@ -415,7 +415,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in REDEEMED mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.REDEEMED, tradeData.mode);
 
 			// Check balances
@@ -486,7 +486,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 
 			// Check balances
@@ -546,7 +546,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 
 			long expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee();
@@ -568,7 +568,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 
 			// Check balances
@@ -624,7 +624,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should be in TRADING mode
-			CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 		}
 	}
@@ -747,7 +747,7 @@ public class BitcoinACCTv1Tests extends Common {
 
 	private void describeAt(Repository repository, String atAddress) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(atAddress);
-		CrossChainTradeData tradeData = BitcoinACCTv1.populateTradeData(repository, atData);
+		CrossChainTradeData tradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
 
 		Function<Long, String> epochMilliFormatter = (timestamp) -> LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
 		int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();

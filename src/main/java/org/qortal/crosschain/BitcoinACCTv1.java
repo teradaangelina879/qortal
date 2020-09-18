@@ -98,11 +98,12 @@ import com.google.common.primitives.Bytes;
  * </li>
  * </ul>
  */
-public class BitcoinACCTv1 {
+public class BitcoinACCTv1 implements ACCT {
+
+	public static final String NAME = "BitcoinACCTv1";
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("f7f419522a9aaa3c671149878f8c1374dfc59d4fd86ca43ff2a4d913cfbc9e89").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;
-	public static final int MIN_LOCKTIME = 1500000000;
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("f7f419522a9aaa3c671149878f8c1374dfc59d4fd86ca43ff2a4d913cfbc9e89").asBytes(); // SHA256 of AT code bytes
 
 	/** <b>Value</b> offset into AT segment where 'mode' variable (long) is stored. (Multiply by MachineState.VALUE_SIZE for byte offset). */
 	private static final int MODE_VALUE_OFFSET = 68;
@@ -123,7 +124,24 @@ public class BitcoinACCTv1 {
 	public static final int REDEEM_MESSAGE_LENGTH = 32 /*secret*/ + 32 /*secret*/ + 32 /*partner's Qortal receiving address padded from 25 to 32*/;
 	public static final int CANCEL_MESSAGE_LENGTH = 32 /*AT creator's Qortal address*/;
 
+	private static BitcoinACCTv1 instance;
+
 	private BitcoinACCTv1() {
+	}
+
+	public static synchronized BitcoinACCTv1 getInstance() {
+		if (instance == null)
+			instance = new BitcoinACCTv1();
+
+		return instance;
+	}
+
+	public byte[] getCodeBytesHash() {
+		return CODE_BYTES_HASH;
+	}
+
+	public ForeignBlockchain getBlockchain() {
+		return Bitcoin.getInstance();
 	}
 
 	/**
@@ -590,7 +608,7 @@ public class BitcoinACCTv1 {
 	 * @param atAddress
 	 * @throws DataException
 	 */
-	public static CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
+	public CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
 		ATStateData atStateData = repository.getATRepository().getLatestATState(atData.getATAddress());
 		return populateTradeData(repository, atData.getCreatorPublicKey(), atStateData);
 	}

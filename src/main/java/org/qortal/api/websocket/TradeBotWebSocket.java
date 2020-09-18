@@ -15,7 +15,7 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
-import org.qortal.controller.TradeBot;
+import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
@@ -30,7 +30,7 @@ import org.qortal.utils.Base58;
 public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 
 	/** Cache of trade-bot entry states, keyed by trade-bot entry's "trade private key" (base58) */
-	private static final Map<String, TradeBotData.State> PREVIOUS_STATES = new HashMap<>();
+	private static final Map<String, Integer> PREVIOUS_STATES = new HashMap<>();
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
@@ -42,7 +42,7 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 				// How do we properly fail here?
 				return;
 
-			PREVIOUS_STATES.putAll(tradeBotEntries.stream().collect(Collectors.toMap(entry -> Base58.encode(entry.getTradePrivateKey()), TradeBotData::getState)));
+			PREVIOUS_STATES.putAll(tradeBotEntries.stream().collect(Collectors.toMap(entry -> Base58.encode(entry.getTradePrivateKey()), TradeBotData::getStateValue)));
 		} catch (DataException e) {
 			// No output this time
 		}
@@ -59,11 +59,11 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 		String tradePrivateKey58 = Base58.encode(tradeBotData.getTradePrivateKey());
 
 		synchronized (PREVIOUS_STATES) {
-			if (PREVIOUS_STATES.get(tradePrivateKey58) == tradeBotData.getState())
+			if (PREVIOUS_STATES.get(tradePrivateKey58) == tradeBotData.getStateValue())
 				// Not changed
 				return;
 
-			PREVIOUS_STATES.put(tradePrivateKey58, tradeBotData.getState());
+			PREVIOUS_STATES.put(tradePrivateKey58, tradeBotData.getStateValue());
 		}
 
 		List<TradeBotData> tradeBotEntries = Collections.singletonList(tradeBotData);

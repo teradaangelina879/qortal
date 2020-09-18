@@ -1,10 +1,5 @@
 package org.qortal.data.crosschain;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
-
-import java.util.Map;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
@@ -18,22 +13,13 @@ public class TradeBotData {
 
 	private byte[] tradePrivateKey;
 
-	public enum State {
-		BOB_WAITING_FOR_AT_CONFIRM(10), BOB_WAITING_FOR_MESSAGE(15), BOB_WAITING_FOR_P2SH_B(20), BOB_WAITING_FOR_AT_REDEEM(25), BOB_DONE(30), BOB_REFUNDED(35),
-		ALICE_WAITING_FOR_P2SH_A(80), ALICE_WAITING_FOR_AT_LOCK(85), ALICE_WATCH_P2SH_B(90), ALICE_DONE(95), ALICE_REFUNDING_B(100), ALICE_REFUNDING_A(105), ALICE_REFUNDED(110);
+	private String acctName;
+	private String tradeState;
 
-		public final int value;
-		private static final Map<Integer, State> map = stream(State.values()).collect(toMap(state -> state.value, state -> state));
-
-		State(int value) {
-			this.value = value;
-		}
-
-		public static State valueOf(int value) {
-			return map.get(value);
-		}
-	}
-	private State tradeState;
+	// Internal use - not shown via API
+	@XmlTransient
+	@Schema(hidden = true)
+	private int tradeStateValue;
 
 	private String creatorAddress;
 	private String atAddress;
@@ -50,19 +36,25 @@ public class TradeBotData {
 	private byte[] secret;
 	private byte[] hashOfSecret;
 
+	private String foreignBlockchain;
 	private byte[] tradeForeignPublicKey;
 	private byte[] tradeForeignPublicKeyHash;
 
+	@Deprecated
+	@Schema(description = "DEPRECATED: use foreignAmount instead", type = "number")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long bitcoinAmount;
+
+	@Schema(description = "amount in foreign blockchain currency", type = "number")
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long foreignAmount;
 
 	// Never expose this via API
 	@XmlTransient
 	@Schema(hidden = true)
-	private String xprv58;
+	private String foreignKey;
 
 	private byte[] lastTransactionSignature;
-
 	private Integer lockTimeA;
 
 	// Could be Bitcoin or Qortal...
@@ -72,14 +64,18 @@ public class TradeBotData {
 		/* JAXB */
 	}
 
-	public TradeBotData(byte[] tradePrivateKey, State tradeState, String creatorAddress, String atAddress,
+	public TradeBotData(byte[] tradePrivateKey, String acctName, String tradeState, int tradeStateValue,
+			String creatorAddress, String atAddress,
 			long timestamp, long qortAmount,
 			byte[] tradeNativePublicKey, byte[] tradeNativePublicKeyHash, String tradeNativeAddress,
 			byte[] secret, byte[] hashOfSecret,
-			byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash,
-			long bitcoinAmount, String xprv58, byte[] lastTransactionSignature, Integer lockTimeA, byte[] receivingAccountInfo) {
+			String foreignBlockchain, byte[] tradeForeignPublicKey, byte[] tradeForeignPublicKeyHash,
+			long foreignAmount, String foreignKey,
+			byte[] lastTransactionSignature, Integer lockTimeA, byte[] receivingAccountInfo) {
 		this.tradePrivateKey = tradePrivateKey;
+		this.acctName = acctName;
 		this.tradeState = tradeState;
+		this.tradeStateValue = tradeStateValue;
 		this.creatorAddress = creatorAddress;
 		this.atAddress = atAddress;
 		this.timestamp = timestamp;
@@ -89,10 +85,13 @@ public class TradeBotData {
 		this.tradeNativeAddress = tradeNativeAddress;
 		this.secret = secret;
 		this.hashOfSecret = hashOfSecret;
+		this.foreignBlockchain = foreignBlockchain;
 		this.tradeForeignPublicKey = tradeForeignPublicKey;
 		this.tradeForeignPublicKeyHash = tradeForeignPublicKeyHash;
-		this.bitcoinAmount = bitcoinAmount;
-		this.xprv58 = xprv58;
+		// deprecated copy
+		this.bitcoinAmount = foreignAmount;
+		this.foreignAmount = foreignAmount;
+		this.foreignKey = foreignKey;
 		this.lastTransactionSignature = lastTransactionSignature;
 		this.lockTimeA = lockTimeA;
 		this.receivingAccountInfo = receivingAccountInfo;
@@ -102,12 +101,24 @@ public class TradeBotData {
 		return this.tradePrivateKey;
 	}
 
-	public State getState() {
+	public String getAcctName() {
+		return this.acctName;
+	}
+
+	public String getState() {
 		return this.tradeState;
 	}
 
-	public void setState(State state) {
+	public void setState(String state) {
 		this.tradeState = state;
+	}
+
+	public int getStateValue() {
+		return this.tradeStateValue;
+	}
+
+	public void setStateValue(int stateValue) {
+		this.tradeStateValue = stateValue;
 	}
 
 	public String getCreatorAddress() {
@@ -154,6 +165,10 @@ public class TradeBotData {
 		return this.hashOfSecret;
 	}
 
+	public String getForeignBlockchain() {
+		return this.foreignBlockchain;
+	}
+
 	public byte[] getTradeForeignPublicKey() {
 		return this.tradeForeignPublicKey;
 	}
@@ -162,12 +177,12 @@ public class TradeBotData {
 		return this.tradeForeignPublicKeyHash;
 	}
 
-	public long getBitcoinAmount() {
-		return this.bitcoinAmount;
+	public long getForeignAmount() {
+		return this.foreignAmount;
 	}
 
-	public String getXprv58() {
-		return this.xprv58;
+	public String getForeignKey() {
+		return this.foreignKey;
 	}
 
 	public byte[] getLastTransactionSignature() {
@@ -192,7 +207,7 @@ public class TradeBotData {
 
 	// Mostly for debugging
 	public String toString() {
-		return String.format("%s: %s", this.atAddress, this.tradeState.name());
+		return String.format("%s: %s (%d)", this.atAddress, this.tradeState, this.tradeStateValue);
 	}
 
 }

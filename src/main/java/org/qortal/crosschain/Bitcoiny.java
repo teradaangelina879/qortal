@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.Address;
+import org.bitcoinj.core.AddressFormatException;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.ECKey;
@@ -36,7 +37,7 @@ import org.qortal.utils.BitTwiddling;
 import com.google.common.hash.HashCode;
 
 /** Bitcoin-like (Bitcoin, Litecoin, etc.) support */
-public abstract class Bitcoiny {
+public abstract class Bitcoiny implements ForeignBlockchain {
 
 	protected static final Logger LOGGER = LogManager.getLogger(Bitcoiny.class);
 
@@ -80,6 +81,24 @@ public abstract class Bitcoiny {
 
 	public NetworkParameters getNetworkParameters() {
 		return this.params;
+	}
+
+	// Interface obligations 
+
+	@Override
+	public boolean isValidAddress(String address) {
+		try {
+			ScriptType addressType = Address.fromString(this.params, address).getOutputScriptType();
+
+			return addressType == ScriptType.P2PKH || addressType == ScriptType.P2SH;
+		} catch (AddressFormatException e) {
+			return false;
+		}
+	}
+
+	@Override
+	public boolean isValidWalletKey(String walletKey) {
+		return this.isValidXprv(walletKey);
 	}
 
 	// Actual useful methods for use by other classes
@@ -247,9 +266,10 @@ public abstract class Bitcoiny {
 	 * @param xprv58 BIP32 private key
 	 * @param recipient P2PKH address
 	 * @param amount unscaled amount
+	 * @param feePerByte unscaled fee per byte, or null to use default fees
 	 * @return transaction, or null if insufficient funds
 	 */
-	public Transaction buildSpend(String xprv58, String recipient, long amount) {
+	public Transaction buildSpend(String xprv58, String recipient, long amount, Long feePerByte) {
 		Context.propagate(bitcoinjContext);
 
 		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
@@ -258,8 +278,11 @@ public abstract class Bitcoiny {
 		Address destination = Address.fromString(this.params, recipient);
 		SendRequest sendRequest = SendRequest.to(destination, Coin.valueOf(amount));
 
-		// Allow override of default for TestNet3, etc.
-		sendRequest.feePerKb = this.getFeePerKb();
+		if (feePerByte != null)
+			sendRequest.feePerKb = Coin.valueOf(feePerByte * 1000L); // Note: 1000 not 1024
+		else
+			// Allow override of default for TestNet3, etc.
+			sendRequest.feePerKb = this.getFeePerKb();
 
 		try {
 			wallet.completeTx(sendRequest);
@@ -267,6 +290,18 @@ public abstract class Bitcoiny {
 		} catch (InsufficientMoneyException e) {
 			return null;
 		}
+	}
+
+	/**
+	 * Returns bitcoinj transaction sending <tt>amount</tt> to <tt>recipient</tt> using default fees.
+	 * 
+	 * @param xprv58 BIP32 private key
+	 * @param recipient P2PKH address
+	 * @param amount unscaled amount
+	 * @return transaction, or null if insufficient funds
+	 */
+	public Transaction buildSpend(String xprv58, String recipient, long amount) {
+		return buildSpend(xprv58, recipient, amount, null);
 	}
 
 	/**

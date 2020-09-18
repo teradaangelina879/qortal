@@ -151,7 +151,7 @@ public class LitecoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in CANCELLED mode
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.CANCELLED, tradeData.mode);
 
 			// Check balances
@@ -210,7 +210,7 @@ public class LitecoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in CANCELLED mode
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.CANCELLED, tradeData.mode);
 		}
 	}
@@ -248,7 +248,7 @@ public class LitecoinACCTv1Tests extends Common {
 			describeAt(repository, atAddress);
 
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 
 			// AT should be in TRADE mode
 			assertEquals(AcctMode.TRADING, tradeData.mode);
@@ -310,7 +310,7 @@ public class LitecoinACCTv1Tests extends Common {
 			describeAt(repository, atAddress);
 
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 
 			// AT should still be in OFFER mode
 			assertEquals(AcctMode.OFFERING, tradeData.mode);
@@ -357,7 +357,7 @@ public class LitecoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in REFUNDED mode
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.REFUNDED, tradeData.mode);
 
 			// Test orphaning
@@ -413,7 +413,7 @@ public class LitecoinACCTv1Tests extends Common {
 			assertTrue(atData.getIsFinished());
 
 			// AT should be in REDEEMED mode
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.REDEEMED, tradeData.mode);
 
 			// Check balances
@@ -484,7 +484,7 @@ public class LitecoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 
 			// Check balances
@@ -544,7 +544,7 @@ public class LitecoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should still be in TRADE mode
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 
 			long expectedBalance = partnersInitialBalance - messageTransaction.getTransactionData().getFee();
@@ -599,7 +599,7 @@ public class LitecoinACCTv1Tests extends Common {
 			assertFalse(atData.getIsFinished());
 
 			// AT should be in TRADING mode
-			CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+			CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 			assertEquals(AcctMode.TRADING, tradeData.mode);
 		}
 	}
@@ -722,7 +722,7 @@ public class LitecoinACCTv1Tests extends Common {
 
 	private void describeAt(Repository repository, String atAddress) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(atAddress);
-		CrossChainTradeData tradeData = LitecoinACCTv1.populateTradeData(repository, atData);
+		CrossChainTradeData tradeData = LitecoinACCTv1.getInstance().populateTradeData(repository, atData);
 
 		Function<Long, String> epochMilliFormatter = (timestamp) -> LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
 		int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();

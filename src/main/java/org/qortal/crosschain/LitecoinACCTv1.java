@@ -87,11 +87,12 @@ import com.google.common.primitives.Bytes;
  * </li>
  * </ul>
  */
-public class LitecoinACCTv1 {
+public class LitecoinACCTv1 implements ACCT {
+
+	public static final String NAME = "LitcoinACCTv1";
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("0fb15ad9ad1867dfbcafa51155481aa15d984ff9506f2b428eca4e2a2feac2b3").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;
-	public static final int MIN_LOCKTIME = 1500000000;
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("0fb15ad9ad1867dfbcafa51155481aa15d984ff9506f2b428eca4e2a2feac2b3").asBytes(); // SHA256 of AT code bytes
 
 	/** <b>Value</b> offset into AT segment where 'mode' variable (long) is stored. (Multiply by MachineState.VALUE_SIZE for byte offset). */
 	private static final int MODE_VALUE_OFFSET = 61;
@@ -112,7 +113,24 @@ public class LitecoinACCTv1 {
 	public static final int REDEEM_MESSAGE_LENGTH = 32 /*secret-A*/ + 32 /*partner's Qortal receiving address padded from 25 to 32*/;
 	public static final int CANCEL_MESSAGE_LENGTH = 32 /*AT creator's Qortal address*/;
 
+	private static LitecoinACCTv1 instance;
+
 	private LitecoinACCTv1() {
+	}
+
+	public static synchronized LitecoinACCTv1 getInstance() {
+		if (instance == null)
+			instance = new LitecoinACCTv1();
+
+		return instance;
+	}
+
+	public byte[] getCodeBytesHash() {
+		return CODE_BYTES_HASH;
+	}
+
+	public ForeignBlockchain getBlockchain() {
+		return Litecoin.getInstance();
 	}
 
 	/**
@@ -541,7 +559,7 @@ public class LitecoinACCTv1 {
 	 * @param atAddress
 	 * @throws DataException
 	 */
-	public static CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
+	public CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
 		ATStateData atStateData = repository.getATRepository().getLatestATState(atData.getATAddress());
 		return populateTradeData(repository, atData.getCreatorPublicKey(), atStateData);
 	}
