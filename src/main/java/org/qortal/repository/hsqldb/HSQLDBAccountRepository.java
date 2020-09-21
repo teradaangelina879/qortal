@@ -932,6 +932,8 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public List<EligibleQoraHolderData> getEligibleLegacyQoraHolders(Integer blockHeight) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
+		List<Object> bindParams = new ArrayList<>();
+
 		sql.append("SELECT account, Qora.balance, QortFromQora.balance, final_qort_from_qora, final_block_height ");
 		sql.append("FROM AccountBalances AS Qora ");
 		sql.append("LEFT OUTER JOIN AccountQortFromQoraInfo USING (account) ");
@@ -942,15 +944,15 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		sql.append(" AND (final_block_height IS NULL");
 
 		if (blockHeight != null) {
-			sql.append(" OR final_block_height >= ");
-			sql.append(blockHeight);
+			sql.append(" OR final_block_height >= ?");
+			bindParams.add(blockHeight);
 		}
 
 		sql.append(")");
 
 		List<EligibleQoraHolderData> eligibleLegacyQoraHolders = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return eligibleLegacyQoraHolders;
 
