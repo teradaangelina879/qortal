@@ -137,16 +137,21 @@ public class HSQLDBATRepository implements ATRepository {
 	@Override
 	public List<ATData> getATsByFunctionality(byte[] codeHash, Boolean isExecutable, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
+		List<Object> bindParams = new ArrayList<>();
+
 		sql.append("SELECT AT_address, creator, created_when, version, asset_id, code_bytes, ")
 				.append("is_sleeping, sleep_until_height, is_finished, had_fatal_error, ")
 				.append("is_frozen, frozen_balance ")
 				.append("FROM ATs ")
 				.append("WHERE code_hash = ? ");
+		bindParams.add(codeHash);
 
-		if (isExecutable != null)
-			sql.append("AND is_finished = ").append(isExecutable ? "false" : "true");
+		if (isExecutable != null) {
+			sql.append("AND is_finished = ? ");
+			bindParams.add(isExecutable);
+		}
 
-		sql.append(" ORDER BY created_when ");
+		sql.append("ORDER BY created_when ");
 		if (reverse != null && reverse)
 			sql.append("DESC");
 
@@ -154,7 +159,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 		List<ATData> matchingATs = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), codeHash)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return matchingATs;
 
@@ -296,6 +301,8 @@ public class HSQLDBATRepository implements ATRepository {
 			Integer dataByteOffset, Long expectedValue, Integer minimumFinalHeight,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
+		List<Object> bindParams = new ArrayList<>();
+
 		sql.append("SELECT AT_address, height, created_when, state_data, state_hash, fees, is_initial "
 				+ "FROM ATs "
 				+ "CROSS JOIN LATERAL("
@@ -304,18 +311,16 @@ public class HSQLDBATRepository implements ATRepository {
 					+ "WHERE ATStates.AT_address = ATs.AT_address ");
 
 		if (minimumFinalHeight != null) {
-			sql.append("AND height >= ");
-			sql.append(minimumFinalHeight);
+			sql.append("AND height >= ? ");
+			bindParams.add(minimumFinalHeight);
 		}
 
 		// AT_address then height so the compound primary key is used as an index
 		// Both must be the same direction also
-		sql.append(	"ORDER BY AT_address DESC, height DESC "
+		sql.append("ORDER BY AT_address DESC, height DESC "
 					+ "LIMIT 1 "
 				+ ") AS FinalATStates "
 				+ "WHERE code_hash = ? ");
-
-		List<Object> bindParams = new ArrayList<>();
 		bindParams.add(codeHash);
 
 		if (isFinished != null) {
