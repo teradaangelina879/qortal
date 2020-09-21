@@ -382,6 +382,8 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	@Override
 	public List<BlockInfo> getBlockInfos(Integer startHeight, Integer endHeight, Integer count) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
+		List<Object> bindParams = new ArrayList<>();
+
 		sql.append("SELECT signature, height, minted_when, transaction_count, RewardShares.minter ");
 
 		/*
@@ -400,10 +402,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		if (startHeight != null && endHeight != null) {
 			sql.append("FROM Blocks ");
 			sql.append("JOIN RewardShares ON RewardShares.reward_share_public_key = Blocks.minter ");
-			sql.append("WHERE height BETWEEN ");
-			sql.append(startHeight);
-			sql.append(" AND ");
-			sql.append(endHeight - 1);
+			sql.append("WHERE height BETWEEN ? AND ?");
+			bindParams.add(startHeight);
+			bindParams.add(Integer.valueOf(endHeight - 1));
 		} else if (endHeight != null || (startHeight == null && count != null)) {
 			// we are going to return blocks from the end of the chain
 			if (count == null)
@@ -411,17 +412,15 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 			if (endHeight == null) {
 				sql.append("FROM (SELECT height FROM Blocks ORDER BY height DESC LIMIT 1) AS MaxHeights (max_height) ");
-				sql.append("JOIN Blocks ON height BETWEEN (max_height - ");
-				sql.append(count);
-				sql.append(" + 1) AND max_height ");
+				sql.append("JOIN Blocks ON height BETWEEN (max_height - ? + 1) AND max_height ");
 				sql.append("JOIN RewardShares ON RewardShares.reward_share_public_key = Blocks.minter");
+				bindParams.add(count);
 			} else {
 				sql.append("FROM Blocks ");
 				sql.append("JOIN RewardShares ON RewardShares.reward_share_public_key = Blocks.minter ");
-				sql.append("WHERE height BETWEEN ");
-				sql.append(endHeight - count);
-				sql.append(" AND ");
-				sql.append(endHeight - 1);
+				sql.append("WHERE height BETWEEN ? AND ?");
+				bindParams.add(Integer.valueOf(endHeight - count));
+				bindParams.add(Integer.valueOf(endHeight - 1));
 			}
 
 		} else {
@@ -434,15 +433,14 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 			sql.append("FROM Blocks ");
 			sql.append("JOIN RewardShares ON RewardShares.reward_share_public_key = Blocks.minter ");
-			sql.append("WHERE height BETWEEN ");
-			sql.append(startHeight);
-			sql.append(" AND ");
-			sql.append(startHeight + count - 1);
+			sql.append("WHERE height BETWEEN ? AND ?");
+			bindParams.add(startHeight);
+			bindParams.add(Integer.valueOf(startHeight + count - 1));
 		}
 
 		List<BlockInfo> blockInfos = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return blockInfos;
 

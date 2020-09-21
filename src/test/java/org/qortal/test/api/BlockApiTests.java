@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.api.ApiError;
 import org.qortal.api.resource.BlocksResource;
 import org.qortal.block.GenesisBlock;
 import org.qortal.repository.DataException;
@@ -82,6 +83,19 @@ public class BlockApiTests extends ApiCommon {
 	@Test
 	public void testGetBlockRange() {
 		assertNotNull(this.blocksResource.getBlockRange(1, 1));
+
+		List<Integer> testValues = Arrays.asList(null, Integer.valueOf(1));
+
+		for (Integer startHeight : testValues)
+			for (Integer endHeight : testValues)
+				for (Integer count : testValues) {
+					if (startHeight != null && endHeight != null && count != null) {
+						assertApiError(ApiError.INVALID_CRITERIA, () -> this.blocksResource.getBlockRange(startHeight, endHeight, count));
+						continue;
+					}
+
+					assertNotNull(this.blocksResource.getBlockRange(startHeight, endHeight, count));
+				}
 	}
 
 	@Test
