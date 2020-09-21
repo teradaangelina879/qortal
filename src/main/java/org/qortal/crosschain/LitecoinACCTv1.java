@@ -125,10 +125,17 @@ public class LitecoinACCTv1 implements ACCT {
 		return instance;
 	}
 
+	@Override
 	public byte[] getCodeBytesHash() {
 		return CODE_BYTES_HASH;
 	}
 
+	@Override
+	public int getModeByteOffset() {
+		return MODE_BYTE_OFFSET;
+	}
+
+	@Override
 	public ForeignBlockchain getBlockchain() {
 		return Litecoin.getInstance();
 	}
@@ -559,6 +566,7 @@ public class LitecoinACCTv1 implements ACCT {
 	 * @param atAddress
 	 * @throws DataException
 	 */
+	@Override
 	public CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
 		ATStateData atStateData = repository.getATRepository().getLatestATState(atData.getATAddress());
 		return populateTradeData(repository, atData.getCreatorPublicKey(), atStateData);
@@ -571,7 +579,8 @@ public class LitecoinACCTv1 implements ACCT {
 	 * @param atAddress
 	 * @throws DataException
 	 */
-	public static CrossChainTradeData populateTradeData(Repository repository, ATStateData atStateData) throws DataException {
+	@Override
+	public CrossChainTradeData populateTradeData(Repository repository, ATStateData atStateData) throws DataException {
 		byte[] creatorPublicKey = repository.getATRepository().getCreatorPublicKey(atStateData.getATAddress());
 		return populateTradeData(repository, creatorPublicKey, atStateData);
 	}
@@ -583,7 +592,7 @@ public class LitecoinACCTv1 implements ACCT {
 	 * @param atAddress
 	 * @throws DataException
 	 */
-	public static CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
+	public CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
 		byte[] addressBytes = new byte[25]; // for general use
 		String atAddress = atStateData.getATAddress();
 
@@ -608,9 +617,9 @@ public class LitecoinACCTv1 implements ACCT {
 		dataByteBuffer.position(dataByteBuffer.position() + 32 - addressBytes.length);
 
 		// Creator's Litecoin/foreign public key hash
-		tradeData.creatorBitcoinPKH = new byte[20];
-		dataByteBuffer.get(tradeData.creatorBitcoinPKH);
-		dataByteBuffer.position(dataByteBuffer.position() + 32 - tradeData.creatorBitcoinPKH.length); // skip to 32 bytes
+		tradeData.creatorForeignPKH = new byte[20];
+		dataByteBuffer.get(tradeData.creatorForeignPKH);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - tradeData.creatorForeignPKH.length); // skip to 32 bytes
 
 		// We don't use secret-B
 		tradeData.hashOfSecretB = null;
@@ -619,7 +628,7 @@ public class LitecoinACCTv1 implements ACCT {
 		tradeData.qortAmount = dataByteBuffer.getLong();
 
 		// Expected LTC amount
-		tradeData.expectedBitcoin = dataByteBuffer.getLong();
+		tradeData.expectedForeignAmount = dataByteBuffer.getLong();
 
 		// Trade timeout
 		tradeData.tradeTimeout = (int) dataByteBuffer.getLong();
@@ -733,7 +742,7 @@ public class LitecoinACCTv1 implements ACCT {
 			tradeData.tradeRefundHeight = new Timestamp(tradeRefundTimestamp).blockHeight;
 			tradeData.qortalPartnerAddress = qortalRecipient;
 			tradeData.hashOfSecretA = hashOfSecretA;
-			tradeData.partnerBitcoinPKH = partnerLitecoinPKH;
+			tradeData.partnerForeignPKH = partnerLitecoinPKH;
 			tradeData.lockTimeA = lockTimeA;
 
 			if (mode == AcctMode.REDEEMED)
@@ -741,6 +750,8 @@ public class LitecoinACCTv1 implements ACCT {
 		} else {
 			tradeData.mode = AcctMode.OFFERING;
 		}
+
+		tradeData.duplicateDeprecated();
 
 		return tradeData;
 	}
@@ -781,7 +792,8 @@ public class LitecoinACCTv1 implements ACCT {
 	}
 
 	/** Returns 'cancel' MESSAGE payload for AT creator to cancel trade AT. */
-	public static byte[] buildCancelMessage(String creatorQortalAddress) {
+	@Override
+	public byte[] buildCancelMessage(String creatorQortalAddress) {
 		byte[] data = new byte[CANCEL_MESSAGE_LENGTH];
 		byte[] creatorQortalAddressBytes = Base58.decode(creatorQortalAddress);
 
@@ -803,7 +815,7 @@ public class LitecoinACCTv1 implements ACCT {
 
 	/** Returns refund timeout (minutes) based on trade partner's 'offer' MESSAGE timestamp and P2SH-A locktime. */
 	public static int calcRefundTimeout(long offerMessageTimestamp, int lockTimeA) {
-		// refund should be triggered halfway between offerMessageTimesamp and lockTimeA
+		// refund should be triggered halfway between offerMessageTimestamp and lockTimeA
 		return (int) ((lockTimeA - (offerMessageTimestamp / 1000L)) / 2L / 60L);
 	}
 

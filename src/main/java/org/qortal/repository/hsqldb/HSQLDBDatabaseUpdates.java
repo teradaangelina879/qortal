@@ -684,6 +684,9 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN bitcoin_amount RENAME TO foreign_amount");
 
 					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN xprv58 RENAME TO foreign_key");
+
+					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN secret SET NULL");
+					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN hash_of_secret SET NULL");
 					break;
 
 				default:

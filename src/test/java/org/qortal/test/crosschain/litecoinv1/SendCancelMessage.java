@@ -65,7 +65,7 @@ public class SendCancelMessage {
 			String creatorQortalAddress = qortalAccount.getAddress();
 			System.out.println(String.format("Qortal address: %s", creatorQortalAddress));
 
-			byte[] messageData = LitecoinACCTv1.buildCancelMessage(creatorQortalAddress);
+			byte[] messageData = LitecoinACCTv1.getInstance().buildCancelMessage(creatorQortalAddress);
 			MessageTransaction messageTransaction = MessageTransaction.build(repository, qortalAccount, Group.NO_GROUP, atAddress, messageData, false, false);
 
 			System.out.println("Computing nonce...");

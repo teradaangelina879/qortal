@@ -12,7 +12,7 @@ public class TradeBotRespondRequest {
 	public String atAddress;
 
 	@Deprecated
-	@Schema(description = "Bitcoin BIP32 extended private key. DEPRECATED: use foreignKey instead",
+	@Schema(description = "Bitcoin BIP32 extended private key. DEPRECATED: use foreignKey instead", hidden = true,
 			example = "xprv___________________________________________________________________________________________________________")
 	public String xprv58;
 

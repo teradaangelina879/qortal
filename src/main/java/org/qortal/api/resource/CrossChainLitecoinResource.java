@@ -23,7 +23,7 @@ import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.Litecoin;
 
 @Path("/crosschain/ltc")
-@Tag(name = "Cross-Chain (Bitcoin)")
+@Tag(name = "Cross-Chain (Litecoin)")
 public class CrossChainLitecoinResource {
 
 	@Context

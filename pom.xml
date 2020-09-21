@@ -200,6 +200,10 @@
 							<pattern>org.qortal.api.model**</pattern>
 							<template>${project.build.sourceDirectory}/org/qortal/data/package-info.java</template>
 						</package>
+						<package>
+							<pattern>org.qortal.api.model.**</pattern>
+							<template>${project.build.sourceDirectory}/org/qortal/data/package-info.java</template>
+						</package>
 					</packages>
 					<outputDirectory>${project.build.directory}/generated-sources/package-info</outputDirectory>
 				</configuration>

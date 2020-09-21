@@ -136,10 +136,17 @@ public class BitcoinACCTv1 implements ACCT {
 		return instance;
 	}
 
+	@Override
 	public byte[] getCodeBytesHash() {
 		return CODE_BYTES_HASH;
 	}
 
+	@Override
+	public int getModeByteOffset() {
+		return MODE_BYTE_OFFSET;
+	}
+
+	@Override
 	public ForeignBlockchain getBlockchain() {
 		return Bitcoin.getInstance();
 	}
@@ -608,6 +615,7 @@ public class BitcoinACCTv1 implements ACCT {
 	 * @param atAddress
 	 * @throws DataException
 	 */
+	@Override
 	public CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
 		ATStateData atStateData = repository.getATRepository().getLatestATState(atData.getATAddress());
 		return populateTradeData(repository, atData.getCreatorPublicKey(), atStateData);
@@ -620,7 +628,8 @@ public class BitcoinACCTv1 implements ACCT {
 	 * @param atAddress
 	 * @throws DataException
 	 */
-	public static CrossChainTradeData populateTradeData(Repository repository, ATStateData atStateData) throws DataException {
+	@Override
+	public CrossChainTradeData populateTradeData(Repository repository, ATStateData atStateData) throws DataException {
 		byte[] creatorPublicKey = repository.getATRepository().getCreatorPublicKey(atStateData.getATAddress());
 		return populateTradeData(repository, creatorPublicKey, atStateData);
 	}
@@ -632,7 +641,7 @@ public class BitcoinACCTv1 implements ACCT {
 	 * @param atAddress
 	 * @throws DataException
 	 */
-	public static CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
+	public CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
 		byte[] addressBytes = new byte[25]; // for general use
 		String atAddress = atStateData.getATAddress();
 
@@ -657,9 +666,9 @@ public class BitcoinACCTv1 implements ACCT {
 		dataByteBuffer.position(dataByteBuffer.position() + 32 - addressBytes.length);
 
 		// Creator's Bitcoin/foreign public key hash
-		tradeData.creatorBitcoinPKH = new byte[20];
-		dataByteBuffer.get(tradeData.creatorBitcoinPKH);
-		dataByteBuffer.position(dataByteBuffer.position() + 32 - tradeData.creatorBitcoinPKH.length); // skip to 32 bytes
+		tradeData.creatorForeignPKH = new byte[20];
+		dataByteBuffer.get(tradeData.creatorForeignPKH);
+		dataByteBuffer.position(dataByteBuffer.position() + 32 - tradeData.creatorForeignPKH.length); // skip to 32 bytes
 
 		// Hash of secret B
 		tradeData.hashOfSecretB = new byte[20];
@@ -670,7 +679,7 @@ public class BitcoinACCTv1 implements ACCT {
 		tradeData.qortAmount = dataByteBuffer.getLong();
 
 		// Expected BTC amount
-		tradeData.expectedBitcoin = dataByteBuffer.getLong();
+		tradeData.expectedForeignAmount = dataByteBuffer.getLong();
 
 		// Trade timeout
 		tradeData.tradeTimeout = (int) dataByteBuffer.getLong();
@@ -793,7 +802,7 @@ public class BitcoinACCTv1 implements ACCT {
 			tradeData.tradeRefundHeight = new Timestamp(tradeRefundTimestamp).blockHeight;
 			tradeData.qortalPartnerAddress = qortalRecipient;
 			tradeData.hashOfSecretA = hashOfSecretA;
-			tradeData.partnerBitcoinPKH = partnerBitcoinPKH;
+			tradeData.partnerForeignPKH = partnerBitcoinPKH;
 			tradeData.lockTimeA = lockTimeA;
 			tradeData.lockTimeB = lockTimeB;
 
@@ -802,6 +811,8 @@ public class BitcoinACCTv1 implements ACCT {
 		} else {
 			tradeData.mode = AcctMode.OFFERING;
 		}
+
+		tradeData.duplicateDeprecated();
 
 		return tradeData;
 	}
@@ -842,7 +853,8 @@ public class BitcoinACCTv1 implements ACCT {
 	}
 
 	/** Returns 'cancel' MESSAGE payload for AT creator to cancel trade AT. */
-	public static byte[] buildCancelMessage(String creatorQortalAddress) {
+	@Override
+	public byte[] buildCancelMessage(String creatorQortalAddress) {
 		byte[] data = new byte[CANCEL_MESSAGE_LENGTH];
 		byte[] creatorQortalAddressBytes = Base58.decode(creatorQortalAddress);
 
@@ -865,7 +877,7 @@ public class BitcoinACCTv1 implements ACCT {
 
 	/** Returns P2SH-B lockTime (epoch seconds) based on trade partner's 'offer' MESSAGE timestamp and P2SH-A locktime. */
 	public static int calcLockTimeB(long offerMessageTimestamp, int lockTimeA) {
-		// lockTimeB is halfway between offerMessageTimesamp and lockTimeA
+		// lockTimeB is halfway between offerMessageTimestamp and lockTimeA
 		return (int) ((lockTimeA + (offerMessageTimestamp / 1000L)) / 2L);
 	}
 

@@ -101,6 +101,9 @@ public class CrossChainTradeBotResource {
 	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
 		Security.checkApiCallAllowed(request);
 
+		if (tradeBotCreateRequest.foreignBlockchain == null)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
 		ForeignBlockchain foreignBlockchain = tradeBotCreateRequest.foreignBlockchain.getInstance();
 
 		// We prefer foreignAmount to deprecated bitcoinAmount
@@ -256,7 +259,6 @@ public class CrossChainTradeBotResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
-
 
 	private ATData fetchAtDataWithChecking(Repository repository, String atAddress) throws DataException {
 		ATData atData = repository.getATRepository().fromATAddress(atAddress);

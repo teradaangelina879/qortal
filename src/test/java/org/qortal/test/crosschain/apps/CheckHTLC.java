@@ -48,7 +48,7 @@ public class CheckHTLC {
 		Address refundAddress = null;
 		Coin amount = null;
 		Address redeemAddress = null;
-		byte[] secretHash = null;
+		byte[] hashOfSecret = null;
 		int lockTime = 0;
 
 		int argIndex = 0;
@@ -81,8 +81,8 @@ public class CheckHTLC {
 			if (redeemAddress.getOutputScriptType() != ScriptType.P2PKH)
 				usage("Redeem address must be in P2PKH form");
 
-			secretHash = HashCode.fromString(args[argIndex++]).asBytes();
-			if (secretHash.length != 20)
+			hashOfSecret = HashCode.fromString(args[argIndex++]).asBytes();
+			if (hashOfSecret.length != 20)
 				usage("Hash of secret must be 20 bytes");
 
 			lockTime = Integer.parseInt(args[argIndex++]);
@@ -98,12 +98,12 @@ public class CheckHTLC {
 		System.out.println(String.format("Refund PKH: %s", refundAddress));
 		System.out.println(String.format("Redeem/refund amount: %s", amount.toPlainString()));
 		System.out.println(String.format("Redeem PKH: %s", redeemAddress));
-		System.out.println(String.format("Hash of secret: %s", HashCode.fromBytes(secretHash)));
+		System.out.println(String.format("Hash of secret: %s", HashCode.fromBytes(hashOfSecret)));
 		System.out.println(String.format("Script lockTime: %s (%d)", LocalDateTime.ofInstant(Instant.ofEpochSecond(lockTime), ZoneOffset.UTC), lockTime));
 
 		System.out.println(String.format("Redeem/refund miner's fee: %s", bitcoiny.format(p2shFee)));
 
-		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(refundAddress.getHash(), lockTime, redeemAddress.getHash(), secretHash);
+		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(refundAddress.getHash(), lockTime, redeemAddress.getHash(), hashOfSecret);
 		System.out.println(String.format("Raw script bytes: %s", HashCode.fromBytes(redeemScriptBytes)));
 
 		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);

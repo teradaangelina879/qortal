@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.Map;
 
+import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.NetworkParameters;
 import org.libdohj.params.LitecoinMainNetParams;
@@ -17,6 +18,8 @@ import org.qortal.settings.Settings;
 public class Litecoin extends Bitcoiny {
 
 	public static final String CURRENCY_CODE = "LTC";
+
+	private static final Coin DEFAULT_FEE_PER_KB = Coin.valueOf(10000); // 0.0001 LTC per 1000 bytes
 
 	// Temporary values until a dynamic fee system is written.
 	private static final long MAINNET_FEE = 1000L;
@@ -151,6 +154,12 @@ public class Litecoin extends Bitcoiny {
 	}
 
 	// Actual useful methods for use by other classes
+
+	/** Default Litecoin fee is lower than Bitcoin: only 10sats/byte. */
+	@Override
+	public Coin getFeePerKb() {
+		return DEFAULT_FEE_PER_KB;
+	}
 
 	/**
 	 * Returns estimated LTC fee, in sats per 1000bytes, optionally for historic timestamp.

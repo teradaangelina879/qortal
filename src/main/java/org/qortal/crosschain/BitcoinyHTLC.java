@@ -72,11 +72,11 @@ public class BitcoinyHTLC {
 	 * @param refunderPubKeyHash 20-byte HASH160 of P2SH funder's public key, for refunding purposes
 	 * @param lockTime seconds-since-epoch threshold, after which P2SH funder can claim refund
 	 * @param redeemerPubKeyHash 20-byte HASH160 of P2SH redeemer's public key
-	 * @param secretHash 20-byte HASH160 of secret, used by P2SH redeemer to claim funds
+	 * @param hashOfSecret 20-byte HASH160 of secret, used by P2SH redeemer to claim funds
 	 */
-	public static byte[] buildScript(byte[] refunderPubKeyHash, int lockTime, byte[] redeemerPubKeyHash, byte[] secretHash) {
+	public static byte[] buildScript(byte[] refunderPubKeyHash, int lockTime, byte[] redeemerPubKeyHash, byte[] hashOfSecret) {
 		return Bytes.concat(redeemScript1, refunderPubKeyHash, redeemScript2, BitTwiddling.toLEByteArray((int) (lockTime & 0xffffffffL)),
-				redeemScript3, redeemerPubKeyHash, redeemScript4, secretHash, redeemScript5);
+				redeemScript3, redeemerPubKeyHash, redeemScript4, hashOfSecret, redeemScript5);
 	}
 
 	/**

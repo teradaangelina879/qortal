@@ -6,6 +6,8 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qortal.data.crosschain.CrossChainTradeData;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 public class CrossChainTradeSummary {
@@ -15,8 +17,13 @@ public class CrossChainTradeSummary {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long qortAmount;
 
+	@Deprecated
+	@Schema(description = "DEPRECATED: use foreignAmount instead")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long btcAmount;
+
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long foreignAmount;
 
 	protected CrossChainTradeSummary() {
 		/* For JAXB */
@@ -25,7 +32,8 @@ public class CrossChainTradeSummary {
 	public CrossChainTradeSummary(CrossChainTradeData crossChainTradeData, long timestamp) {
 		this.tradeTimestamp = timestamp;
 		this.qortAmount = crossChainTradeData.qortAmount;
-		this.btcAmount = crossChainTradeData.expectedBitcoin;
+		this.foreignAmount = crossChainTradeData.expectedForeignAmount;
+		this.btcAmount = this.foreignAmount;
 	}
 
 	public long getTradeTimestamp() {
@@ -40,4 +48,7 @@ public class CrossChainTradeSummary {
 		return this.btcAmount;
 	}
 
+	public long getForeignAmount() {
+		return this.foreignAmount;
+	}
 }

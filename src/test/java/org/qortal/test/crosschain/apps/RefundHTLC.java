@@ -54,7 +54,7 @@ public class RefundHTLC {
 		Address p2shAddress = null;
 		byte[] refundPrivateKey = null;
 		Address redeemAddress = null;
-		byte[] secretHash = null;
+		byte[] hashOfSecret = null;
 		int lockTime = 0;
 		Address outputAddress = null;
 
@@ -89,8 +89,8 @@ public class RefundHTLC {
 			if (redeemAddress.getOutputScriptType() != ScriptType.P2PKH)
 				usage("Redeem address must be in P2PKH form");
 
-			secretHash = HashCode.fromString(args[argIndex++]).asBytes();
-			if (secretHash.length != 20)
+			hashOfSecret = HashCode.fromString(args[argIndex++]).asBytes();
+			if (hashOfSecret.length != 20)
 				usage("HASH160 of secret must be 20 bytes");
 
 			lockTime = Integer.parseInt(args[argIndex++]);
@@ -111,7 +111,7 @@ public class RefundHTLC {
 		ECKey refundKey = ECKey.fromPrivate(refundPrivateKey);
 		Address refundAddress = Address.fromKey(params, refundKey, ScriptType.P2PKH);
 
-		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(refundAddress.getHash(), lockTime, redeemAddress.getHash(), secretHash);
+		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(refundAddress.getHash(), lockTime, redeemAddress.getHash(), hashOfSecret);
 
 		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 		Address derivedP2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);

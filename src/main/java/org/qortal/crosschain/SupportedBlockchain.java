@@ -1,6 +1,7 @@
 package org.qortal.crosschain;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,14 +51,17 @@ public enum SupportedBlockchain {
 	}
 
 	public abstract ForeignBlockchain getInstance();
-
 	public abstract ACCT getLatestAcct();
 
-	public static ACCT getAcctByCodeHash(byte[] codeHash) {
-		for (SupportedBlockchain supportedBlockchain : SupportedBlockchain.values()) {
+	public Map<ByteArray, Supplier<ACCT>> getAcctMap() {
+		return Collections.unmodifiableMap(this.supportedAcctsByCodeHash);
+	}
 
-			@SuppressWarnings("unlikely-arg-type") // OK, because ByteArray is designed to work with byte[]
-			Supplier<ACCT> acctInstanceSupplier = supportedBlockchain.supportedAcctsByCodeHash.get(codeHash);
+	public static ACCT getAcctByCodeHash(byte[] codeHash) {
+		ByteArray wrappedCodeHash = new ByteArray(codeHash);
+
+		for (SupportedBlockchain supportedBlockchain : SupportedBlockchain.values()) {
+			Supplier<ACCT> acctInstanceSupplier = supportedBlockchain.supportedAcctsByCodeHash.get(wrappedCodeHash);
 
 			if (acctInstanceSupplier != null)
 				return acctInstanceSupplier.get();

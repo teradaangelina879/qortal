@@ -251,7 +251,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 	}
 
 	private static CrossChainOfferSummary produceSummary(Repository repository, ATStateData atState, Long timestamp) throws DataException {
-		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.populateTradeData(repository, atState);
+		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atState);
 
 		long atStateTimestamp;
 

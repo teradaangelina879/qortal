@@ -61,7 +61,7 @@ public class DeployAT {
 		long fundingAmount = 0;
 		long expectedBitcoin = 0;
 		byte[] bitcoinPublicKeyHash = null;
-		byte[] secretHash = null;
+		byte[] hashOfSecret = null;
 		int tradeTimeout = 0;
 
 		int argIndex = 0;
@@ -94,8 +94,8 @@ public class DeployAT {
 			if (bitcoinPublicKeyHash.length != 20)
 				usage("Bitcoin PKH must be 20 bytes");
 
-			secretHash = HashCode.fromString(args[argIndex++]).asBytes();
-			if (secretHash.length != 20)
+			hashOfSecret = HashCode.fromString(args[argIndex++]).asBytes();
+			if (hashOfSecret.length != 20)
 				usage("Hash of secret must be 20 bytes");
 
 			tradeTimeout = Integer.parseInt(args[argIndex++]);
@@ -121,10 +121,10 @@ public class DeployAT {
 
 			System.out.println(String.format("AT funding amount: %s", Amounts.prettyAmount(fundingAmount)));
 
-			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(secretHash)));
+			System.out.println(String.format("HASH160 of secret: %s", HashCode.fromBytes(hashOfSecret)));
 
 			// Deploy AT
-			byte[] creationBytes = BitcoinACCTv1.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, secretHash, redeemAmount, expectedBitcoin, tradeTimeout);
+			byte[] creationBytes = BitcoinACCTv1.buildQortalAT(refundAccount.getAddress(), bitcoinPublicKeyHash, hashOfSecret, redeemAmount, expectedBitcoin, tradeTimeout);
 			System.out.println("AT creation bytes: " + HashCode.fromBytes(creationBytes).toString());
 
 			long txTimestamp = System.currentTimeMillis();

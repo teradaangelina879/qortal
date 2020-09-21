@@ -23,11 +23,11 @@ public class TradeBotCreateRequest {
 	public long fundingQortAmount;
 
 	@Deprecated
-	@Schema(description = "Bitcoin amount wanted in return. DEPRECATED: use foreignAmount instead", example = "0.00864200", type = "number")
+	@Schema(description = "Bitcoin amount wanted in return. DEPRECATED: use foreignAmount instead", example = "0.00864200", type = "number", hidden = true)
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	public Long bitcoinAmount;
 
-	@Schema(description = "Foreign blockchain. Note: default (BITCOIN) to be removed in the future", example = "Bitcoin", defaultValue = "BITCOIN")
+	@Schema(description = "Foreign blockchain. Note: default (BITCOIN) to be removed in the future", example = "BITCOIN", defaultValue = "BITCOIN")
 	public SupportedBlockchain foreignBlockchain;
 
 	@Schema(description = "Foreign blockchain amount wanted in return", example = "0.00864200", type = "number")

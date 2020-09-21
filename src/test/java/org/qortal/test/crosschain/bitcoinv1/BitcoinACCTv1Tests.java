@@ -139,7 +139,7 @@ public class BitcoinACCTv1Tests extends Common {
 			long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
 
 			// Send creator's address to AT, instead of typical partner's address
-			byte[] messageData = BitcoinACCTv1.buildCancelMessage(deployer.getAddress());
+			byte[] messageData = BitcoinACCTv1.getInstance().buildCancelMessage(deployer.getAddress());
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 			long messageFee = messageTransaction.getTransactionData().getFee();
 
@@ -262,7 +262,7 @@ public class BitcoinACCTv1Tests extends Common {
 			assertEquals(partner.getAddress(), tradeData.qortalPartnerAddress);
 
 			// Check trade partner's Bitcoin PKH was extracted correctly
-			assertTrue(Arrays.equals(bitcoinPublicKeyHash, tradeData.partnerBitcoinPKH));
+			assertTrue(Arrays.equals(bitcoinPublicKeyHash, tradeData.partnerForeignPKH));
 
 			// Test orphaning
 			BlockUtils.orphanToBlock(repository, postDeploymentBlockHeight);
@@ -770,7 +770,7 @@ public class BitcoinACCTv1Tests extends Common {
 				atData.getIsFinished(),
 				HashCode.fromBytes(tradeData.hashOfSecretB).toString().substring(0, 40),
 				Amounts.prettyAmount(tradeData.qortAmount),
-				Amounts.prettyAmount(tradeData.expectedBitcoin),
+				Amounts.prettyAmount(tradeData.expectedForeignAmount),
 				currentBlockHeight));
 
 		if (tradeData.mode != AcctMode.OFFERING && tradeData.mode != AcctMode.CANCELLED) {

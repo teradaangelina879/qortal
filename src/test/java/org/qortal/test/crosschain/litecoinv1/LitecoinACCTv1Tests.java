@@ -137,7 +137,7 @@ public class LitecoinACCTv1Tests extends Common {
 			long deployersPostDeploymentBalance = deployersInitialBalance - fundingAmount - deployAtFee;
 
 			// Send creator's address to AT, instead of typical partner's address
-			byte[] messageData = LitecoinACCTv1.buildCancelMessage(deployer.getAddress());
+			byte[] messageData = LitecoinACCTv1.getInstance().buildCancelMessage(deployer.getAddress());
 			MessageTransaction messageTransaction = sendMessage(repository, deployer, messageData, atAddress);
 			long messageFee = messageTransaction.getTransactionData().getFee();
 
@@ -260,7 +260,7 @@ public class LitecoinACCTv1Tests extends Common {
 			assertEquals(partner.getAddress(), tradeData.qortalPartnerAddress);
 
 			// Check trade partner's Litecoin PKH was extracted correctly
-			assertTrue(Arrays.equals(litecoinPublicKeyHash, tradeData.partnerBitcoinPKH));
+			assertTrue(Arrays.equals(litecoinPublicKeyHash, tradeData.partnerForeignPKH));
 
 			// Test orphaning
 			BlockUtils.orphanToBlock(repository, postDeploymentBlockHeight);
@@ -743,7 +743,7 @@ public class LitecoinACCTv1Tests extends Common {
 				Amounts.prettyAmount(tradeData.qortBalance),
 				atData.getIsFinished(),
 				Amounts.prettyAmount(tradeData.qortAmount),
-				Amounts.prettyAmount(tradeData.expectedBitcoin),
+				Amounts.prettyAmount(tradeData.expectedForeignAmount),
 				currentBlockHeight));
 
 		if (tradeData.mode != AcctMode.OFFERING && tradeData.mode != AcctMode.CANCELLED) {

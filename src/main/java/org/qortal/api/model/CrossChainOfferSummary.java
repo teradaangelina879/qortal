@@ -51,8 +51,8 @@ public class CrossChainOfferSummary {
 		this.qortalAtAddress = crossChainTradeData.qortalAtAddress;
 		this.qortalCreator = crossChainTradeData.qortalCreator;
 		this.qortAmount = crossChainTradeData.qortAmount;
-		this.btcAmount = crossChainTradeData.expectedBitcoin;
-		this.foreignAmount = crossChainTradeData.expectedBitcoin;
+		this.foreignAmount = crossChainTradeData.expectedForeignAmount;
+		this.btcAmount = this.foreignAmount; // Duplicate for deprecated field
 		this.tradeTimeout = crossChainTradeData.tradeTimeout;
 		this.mode = crossChainTradeData.mode;
 		this.timestamp = timestamp;

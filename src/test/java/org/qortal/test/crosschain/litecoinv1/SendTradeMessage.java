@@ -46,7 +46,7 @@ public class SendTradeMessage {
 		String atAddress = null;
 		String partnerTradeAddress = null;
 		byte[] partnerTradePublicKeyHash = null;
-		byte[] secretHash = null;
+		byte[] hashOfSecret = null;
 		int lockTime = 0;
 
 		int argIndex = 0;
@@ -67,8 +67,8 @@ public class SendTradeMessage {
 			if (partnerTradePublicKeyHash.length != 20)
 				usage("Partner trade PKH must be 20 bytes");
 
-			secretHash = HashCode.fromString(args[argIndex++]).asBytes();
-			if (secretHash.length != 20)
+			hashOfSecret = HashCode.fromString(args[argIndex++]).asBytes();
+			if (hashOfSecret.length != 20)
 				usage("HASH160 of secret must be 20 bytes");
 
 			lockTime = Integer.parseInt(args[argIndex++]);
@@ -93,7 +93,7 @@ public class SendTradeMessage {
 				System.exit(2);
 			}
 
-			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partnerTradeAddress, partnerTradePublicKeyHash, secretHash, lockTime, refundTimeout);
+			byte[] messageData = LitecoinACCTv1.buildTradeMessage(partnerTradeAddress, partnerTradePublicKeyHash, hashOfSecret, lockTime, refundTimeout);
 			MessageTransaction messageTransaction = MessageTransaction.build(repository, tradeAccount, Group.NO_GROUP, atAddress, messageData, false, false);
 
 			System.out.println("Computing nonce...");

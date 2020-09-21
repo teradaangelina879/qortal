@@ -108,12 +108,12 @@ public class RedeemHTLC {
 
 		System.out.println(String.format("Attempting to redeem HTLC %s to %s", p2shAddress, outputAddress));
 
-		byte[] secretHash = Crypto.hash160(secret);
+		byte[] hashOfSecret = Crypto.hash160(secret);
 
 		ECKey redeemKey = ECKey.fromPrivate(redeemPrivateKey);
 		Address redeemAddress = Address.fromKey(params, redeemKey, ScriptType.P2PKH);
 
-		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(refundAddress.getHash(), lockTime, redeemAddress.getHash(), secretHash);
+		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(refundAddress.getHash(), lockTime, redeemAddress.getHash(), hashOfSecret);
 
 		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
 		Address derivedP2shAddress = LegacyAddress.fromScriptHash(params, redeemScriptHash);
