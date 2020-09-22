@@ -3,7 +3,6 @@ package org.qortal.test.crosschain;
 import static org.junit.Assert.*;
 
 import java.util.Arrays;
-import java.util.List;
 
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.store.BlockStoreException;
@@ -55,10 +54,8 @@ public class LitecoinTests extends Common {
 		// This actually exists on TEST3 but can take a while to fetch
 		String p2shAddress = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 
-		List<byte[]> rawTransactions = litecoin.getAddressTransactions(p2shAddress);
-
 		byte[] expectedSecret = "This string is exactly 32 bytes!".getBytes();
-		byte[] secret = BitcoinyHTLC.findHtlcSecret(litecoin.getNetworkParameters(), p2shAddress, rawTransactions);
+		byte[] secret = BitcoinyHTLC.findHtlcSecret(litecoin, p2shAddress);
 
 		assertNotNull("secret not found", secret);
 		assertTrue("secret incorrect", Arrays.equals(expectedSecret, secret));

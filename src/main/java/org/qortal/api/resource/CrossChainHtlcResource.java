@@ -159,8 +159,7 @@ public class CrossChainHtlcResource {
 
 			if (now >= medianBlockTime * 1000L) {
 				// See if we can extract secret
-				List<byte[]> rawTransactions = bitcoiny.getAddressTransactions(htlcStatus.bitcoinP2shAddress);
-				htlcStatus.secret = BitcoinyHTLC.findHtlcSecret(bitcoiny.getNetworkParameters(), htlcStatus.bitcoinP2shAddress, rawTransactions);
+				htlcStatus.secret = BitcoinyHTLC.findHtlcSecret(bitcoiny, htlcStatus.bitcoinP2shAddress);
 			}
 
 			return htlcStatus;

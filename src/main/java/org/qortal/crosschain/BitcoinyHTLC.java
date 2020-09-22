@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -40,6 +41,31 @@ public class BitcoinyHTLC {
 
 	public static final long NO_LOCKTIME_NO_RBF_SEQUENCE = 0xFFFFFFFFL;
 	public static final long LOCKTIME_NO_RBF_SEQUENCE = NO_LOCKTIME_NO_RBF_SEQUENCE - 1;
+
+	// Assuming node's trade-bot has no more than 100 entries?
+	private static final int MAX_CACHE_ENTRIES = 100;
+
+	// Max time-to-live for cache entries (milliseconds)
+	private static final long CACHE_TIMEOUT = 30_000L;
+
+	@SuppressWarnings("serial")
+	private static final Map<String, byte[]> SECRET_CACHE = new LinkedHashMap<>(MAX_CACHE_ENTRIES + 1, 0.75F, true) {
+		// This method is called just after a new entry has been added
+		@Override
+		public boolean removeEldestEntry(Map.Entry<String, byte[]> eldest) {
+			return size() > MAX_CACHE_ENTRIES;
+		}
+	};
+	private static final byte[] NO_SECRET_CACHE_ENTRY = new byte[0];
+
+	@SuppressWarnings("serial")
+	private static final Map<String, Status> STATUS_CACHE = new LinkedHashMap<>(MAX_CACHE_ENTRIES + 1, 0.75F, true) {
+		// This method is called just after a new entry has been added
+		@Override
+		public boolean removeEldestEntry(Map.Entry<String, Status> eldest) {
+			return size() > MAX_CACHE_ENTRIES;
+		}
+	};
 
 	/*
 	 * OP_TUCK (to copy public key to before signature)
@@ -207,8 +233,21 @@ public class BitcoinyHTLC {
 		return buildP2shTransaction(params, redeemAmount, redeemKey, fundingOutputs, redeemScriptBytes, null, redeemSigScriptBuilder, receivingAccountInfo);
 	}
 
-	/** Returns 'secret', if any, given list of raw transactions. */
-	public static byte[] findHtlcSecret(NetworkParameters params, String p2shAddress, List<byte[]> rawTransactions) {
+	/**
+	 * Returns 'secret', if any, given HTLC's P2SH address.
+	 * <p>
+	 * @throws ForeignBlockchainException
+	 */
+	public static byte[] findHtlcSecret(Bitcoiny bitcoiny, String p2shAddress) throws ForeignBlockchainException {
+		NetworkParameters params = bitcoiny.getNetworkParameters();
+		String compoundKey = String.format("%s-%s-%d", params.getId(), p2shAddress, System.currentTimeMillis() / CACHE_TIMEOUT);
+
+		byte[] secret = SECRET_CACHE.getOrDefault(compoundKey, NO_SECRET_CACHE_ENTRY);
+		if (secret != NO_SECRET_CACHE_ENTRY)
+			return secret;
+
+		List<byte[]> rawTransactions = bitcoiny.getAddressTransactions(p2shAddress);
+
 		for (byte[] rawTransaction : rawTransactions) {
 			Transaction transaction = new Transaction(params, rawTransaction);
 
@@ -237,13 +276,19 @@ public class BitcoinyHTLC {
 					// Input isn't spending our HTLC
 					continue;
 
-				byte[] secret = scriptChunks.get(0).data;
+				secret = scriptChunks.get(0).data;
 				if (secret.length != BitcoinyHTLC.SECRET_LENGTH)
 					continue;
+
+				// Cache secret for a while
+				SECRET_CACHE.put(compoundKey, secret);
 
 				return secret;
 			}
 		}
+
+		// Cache negative result
+		SECRET_CACHE.put(compoundKey, null);
 
 		return null;
 	}
@@ -254,6 +299,12 @@ public class BitcoinyHTLC {
 	 * @throws ForeignBlockchainException if error occurs
 	 */
 	public static Status determineHtlcStatus(BitcoinyBlockchainProvider blockchain, String p2shAddress, long minimumAmount) throws ForeignBlockchainException {
+		String compoundKey = String.format("%s-%s-%d", blockchain.getNetId(), p2shAddress, System.currentTimeMillis() / CACHE_TIMEOUT);
+
+		Status cachedStatus = STATUS_CACHE.getOrDefault(compoundKey, null);
+		if (cachedStatus != null)
+			return cachedStatus;
+
 		byte[] ourScriptPubKey = addressToScriptPubKey(p2shAddress);
 		List<TransactionHash> transactionHashes = blockchain.getAddressTransactions(ourScriptPubKey, BitcoinyBlockchainProvider.INCLUDE_UNCONFIRMED);
 
@@ -293,9 +344,12 @@ public class BitcoinyHTLC {
 
 			if (scriptSigChunks.size() == 4)
 				// If we have 4 chunks, then secret is present, hence redeem
-				return transactionInfo.height == 0 ? Status.REDEEM_IN_PROGRESS : Status.REDEEMED;
+				cachedStatus = transactionInfo.height == 0 ? Status.REDEEM_IN_PROGRESS : Status.REDEEMED;
 			else
-				return transactionInfo.height == 0 ? Status.REFUND_IN_PROGRESS : Status.REFUNDED;
+				cachedStatus = transactionInfo.height == 0 ? Status.REFUND_IN_PROGRESS : Status.REFUNDED;
+
+			STATUS_CACHE.put(compoundKey, cachedStatus);
+			return cachedStatus;
 		}
 
 		String ourScriptPubKeyHex = HashCode.fromBytes(ourScriptPubKey).toString();
@@ -319,11 +373,15 @@ public class BitcoinyHTLC {
 					// Not funding our specific P2SH
 					continue;
 
-				return transactionInfo.height == 0 ? Status.FUNDING_IN_PROGRESS : Status.FUNDED;
+				cachedStatus = transactionInfo.height == 0 ? Status.FUNDING_IN_PROGRESS : Status.FUNDED;
+				STATUS_CACHE.put(compoundKey, cachedStatus);
+				return cachedStatus;
 			}
 		}
 
-		return Status.UNFUNDED;
+		cachedStatus = Status.UNFUNDED;
+		STATUS_CACHE.put(compoundKey, cachedStatus);
+		return cachedStatus;
 	}
 
 	private static List<byte[]> extractScriptSigChunks(byte[] scriptSigBytes) {

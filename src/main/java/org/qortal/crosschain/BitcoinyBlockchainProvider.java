@@ -7,6 +7,9 @@ public abstract class BitcoinyBlockchainProvider {
 	public static final boolean INCLUDE_UNCONFIRMED = true;
 	public static final boolean EXCLUDE_UNCONFIRMED = false;
 
+	/** Returns ID unique to bitcoiny network (e.g. "Litecoin-TEST3") */
+	public abstract String getNetId();
+
 	/** Returns current blockchain height. */
 	public abstract int getCurrentHeight() throws ForeignBlockchainException;
 

@@ -947,9 +947,7 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 				return;
 		}
 
-		List<byte[]> p2shTransactions = bitcoin.getAddressTransactions(p2shAddressB);
-
-		byte[] secretB = BitcoinyHTLC.findHtlcSecret(bitcoin.getNetworkParameters(), p2shAddressB, p2shTransactions);
+		byte[] secretB = BitcoinyHTLC.findHtlcSecret(bitcoin, p2shAddressB);
 		if (secretB == null)
 			// Secret not revealed at this time
 			return;

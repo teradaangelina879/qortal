@@ -41,7 +41,7 @@ public class ElectrumXTests {
 	}
 
 	private ElectrumX getInstance() {
-		return new ElectrumX(BitcoinNet.TEST3.getGenesisHash(), BitcoinNet.TEST3.getServers(), DEFAULT_ELECTRUMX_PORTS);
+		return new ElectrumX("Bitcoin-" + BitcoinNet.TEST3.name(), BitcoinNet.TEST3.getGenesisHash(), BitcoinNet.TEST3.getServers(), DEFAULT_ELECTRUMX_PORTS);
 	}
 
 	@Test

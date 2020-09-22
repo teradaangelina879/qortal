@@ -164,7 +164,7 @@ public class Bitcoin extends Bitcoiny {
 		if (instance == null) {
 			BitcoinNet bitcoinNet = Settings.getInstance().getBitcoinNet();
 
-			BitcoinyBlockchainProvider electrumX = new ElectrumX(bitcoinNet.getGenesisHash(), bitcoinNet.getServers(), DEFAULT_ELECTRUMX_PORTS);
+			BitcoinyBlockchainProvider electrumX = new ElectrumX("Bitcoin-" + bitcoinNet.name(), bitcoinNet.getGenesisHash(), bitcoinNet.getServers(), DEFAULT_ELECTRUMX_PORTS);
 			Context bitcoinjContext = new Context(bitcoinNet.getParams());
 
 			instance = new Bitcoin(bitcoinNet, electrumX, bitcoinjContext, CURRENCY_CODE);

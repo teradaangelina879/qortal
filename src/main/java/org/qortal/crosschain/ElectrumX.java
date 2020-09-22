@@ -85,6 +85,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private Set<Server> servers = new HashSet<>();
 	private List<Server> remainingServers = new ArrayList<>();
 
+	private final String netId;
 	private final String expectedGenesisHash;
 	private final Map<Server.ConnectionType, Integer> defaultPorts = new EnumMap<>(Server.ConnectionType.class);
 
@@ -95,7 +96,8 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 
 	// Constructors
 
-	public ElectrumX(String genesisHash, Collection<Server> initialServerList, Map<Server.ConnectionType, Integer> defaultPorts) {
+	public ElectrumX(String netId, String genesisHash, Collection<Server> initialServerList, Map<Server.ConnectionType, Integer> defaultPorts) {
+		this.netId = netId;
 		this.expectedGenesisHash = genesisHash;
 		this.servers.addAll(initialServerList);
 		this.defaultPorts.putAll(defaultPorts);
@@ -103,11 +105,17 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 
 	// Methods for use by other classes
 
+	@Override
+	public String getNetId() {
+		return this.netId;
+	}
+
 	/**
 	 * Returns current blockchain height.
 	 * <p>
 	 * @throws ForeignBlockchainException if error occurs
 	 */
+	@Override
 	public int getCurrentHeight() throws ForeignBlockchainException {
 		Object blockObj = this.rpc("blockchain.headers.subscribe");
 		if (!(blockObj instanceof JSONObject))
@@ -128,6 +136,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * <p>
 	 * @throws ForeignBlockchainException if error occurs
 	 */
+	@Override
 	public List<byte[]> getRawBlockHeaders(int startHeight, int count) throws ForeignBlockchainException {
 		Object blockObj = this.rpc("blockchain.block.headers", startHeight, count);
 		if (!(blockObj instanceof JSONObject))
@@ -161,6 +170,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * @return confirmed balance, or zero if script unknown
 	 * @throws ForeignBlockchainException if there was an error
 	 */
+	@Override
 	public long getConfirmedBalance(byte[] script) throws ForeignBlockchainException {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
@@ -185,6 +195,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * @return list of unspent outputs, or empty list if script unknown
 	 * @throws ForeignBlockchainException if there was an error.
 	 */
+	@Override
 	public List<UnspentOutput> getUnspentOutputs(byte[] script, boolean includeUnconfirmed) throws ForeignBlockchainException {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
@@ -218,6 +229,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * @throws ForeignBlockchainException.NotFoundException if transaction not found
 	 * @throws ForeignBlockchainException if error occurs
 	 */
+	@Override
 	public byte[] getRawTransaction(byte[] txHash) throws ForeignBlockchainException {
 		Object rawTransactionHex;
 		try {
@@ -242,6 +254,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * @throws ForeignBlockchainException.NotFoundException if transaction not found
 	 * @throws ForeignBlockchainException if error occurs
 	 */
+	@Override
 	public BitcoinyTransaction getTransaction(String txHash) throws ForeignBlockchainException {
 		Object transactionObj;
 		try {
@@ -317,6 +330,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * @return list of related transactions, or empty list if script unknown
 	 * @throws ForeignBlockchainException if error occurs
 	 */
+	@Override
 	public List<TransactionHash> getAddressTransactions(byte[] script, boolean includeUnconfirmed) throws ForeignBlockchainException {
 		byte[] scriptHash = Crypto.digest(script);
 		Bytes.reverse(scriptHash);
@@ -348,6 +362,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * <p>
 	 * @throws ForeignBlockchainException if error occurs
 	 */
+	@Override
 	public void broadcastTransaction(byte[] transactionBytes) throws ForeignBlockchainException {
 		Object rawBroadcastResult = this.rpc("blockchain.transaction.broadcast", HashCode.fromBytes(transactionBytes).toString());
 
