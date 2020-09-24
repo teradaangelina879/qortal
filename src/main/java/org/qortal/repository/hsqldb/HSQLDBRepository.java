@@ -446,10 +446,21 @@ public class HSQLDBRepository implements Repository {
 		 * 
 		 * See org.hsqldb.StatementManager for more details.
 		 */
-		if (!this.preparedStatementCache.containsKey(sql))
-			this.preparedStatementCache.put(sql, this.connection.prepareStatement(sql));
+		PreparedStatement preparedStatement = this.preparedStatementCache.get(sql);
+		if (preparedStatement == null || preparedStatement.isClosed()) {
+			if (preparedStatement != null)
+				// This shouldn't occur, so log, but recompile
+				LOGGER.debug(() -> String.format("Recompiling closed PreparedStatement: %s", sql));
 
-		return this.connection.prepareStatement(sql);
+			preparedStatement =  this.connection.prepareStatement(sql);
+			this.preparedStatementCache.put(sql, preparedStatement);
+		} else {
+			// Clean up ready for reuse
+			preparedStatement.clearBatch();
+			preparedStatement.clearParameters();
+		}
+
+		return preparedStatement;
 	}
 
 	/**
@@ -465,9 +476,8 @@ public class HSQLDBRepository implements Repository {
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.prepareStatement(sql);
 
-		// Close the PreparedStatement when the ResultSet is closed otherwise there's a potential resource leak.
-		// We can't use try-with-resources here as closing the PreparedStatement on return would also prematurely close the ResultSet.
-		preparedStatement.closeOnCompletion();
+		// We don't close the PreparedStatement when the ResultSet is closed because we cached PreparedStatements now.
+		// They are cleaned up when connection/session is closed.
 
 		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
 
@@ -556,36 +566,35 @@ public class HSQLDBRepository implements Repository {
 		if (batchedObjects == null || batchedObjects.isEmpty())
 			return 0;
 
-		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
-			for (Object[] objects : batchedObjects) {
-				this.bindStatementParams(preparedStatement, objects);
-				preparedStatement.addBatch();
-			}
-
-			long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
-
-			int[] updateCounts = preparedStatement.executeBatch();
-
-			if (this.slowQueryThreshold != null) {
-				long queryTime = System.currentTimeMillis() - beforeQuery;
-
-				if (queryTime > this.slowQueryThreshold) {
-					LOGGER.info(() -> String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
-
-					logStatements();
-				}
-			}
-
-			int totalCount = 0;
-			for (int i = 0; i < updateCounts.length; ++i) {
-				if (updateCounts[i] < 0)
-					throw new SQLException("Database returned invalid row count");
-
-				totalCount += updateCounts[i];
-			}
-
-			return totalCount;
+		PreparedStatement preparedStatement = this.prepareStatement(sql);
+		for (Object[] objects : batchedObjects) {
+			this.bindStatementParams(preparedStatement, objects);
+			preparedStatement.addBatch();
 		}
+
+		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
+
+		int[] updateCounts = preparedStatement.executeBatch();
+
+		if (this.slowQueryThreshold != null) {
+			long queryTime = System.currentTimeMillis() - beforeQuery;
+
+			if (queryTime > this.slowQueryThreshold) {
+				LOGGER.info(() -> String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+
+				logStatements();
+			}
+		}
+
+		int totalCount = 0;
+		for (int i = 0; i < updateCounts.length; ++i) {
+			if (updateCounts[i] < 0)
+				throw new SQLException("Database returned invalid row count");
+
+			totalCount += updateCounts[i];
+		}
+
+		return totalCount;
 	}
 
 	/**
