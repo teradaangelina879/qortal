@@ -51,9 +51,10 @@ public class AT {
 
 		MachineState machineState = new MachineState(api, loggerFactory, deployATTransactionData.getCreationBytes());
 
-		byte[] codeHash = Crypto.digest(machineState.getCodeBytes());
+		byte[] codeBytes = machineState.getCodeBytes();
+		byte[] codeHash = Crypto.digest(codeBytes);
 
-		this.atData = new ATData(atAddress, creatorPublicKey, creation, machineState.version, assetId, machineState.getCodeBytes(), codeHash,
+		this.atData = new ATData(atAddress, creatorPublicKey, creation, machineState.version, assetId, codeBytes, codeHash,
 				machineState.isSleeping(), machineState.getSleepUntilHeight(), machineState.isFinished(), machineState.hadFatalError(),
 				machineState.isFrozen(), machineState.getFrozenBalance());
 
