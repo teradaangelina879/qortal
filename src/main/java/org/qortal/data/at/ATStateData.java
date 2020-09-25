@@ -5,7 +5,6 @@ public class ATStateData {
 	// Properties
 	private String ATAddress;
 	private Integer height;
-	private Long creation;
 	private byte[] stateData;
 	private byte[] stateHash;
 	private Long fees;
@@ -14,10 +13,9 @@ public class ATStateData {
 	// Constructors
 
 	/** Create new ATStateData */
-	public ATStateData(String ATAddress, Integer height, Long creation, byte[] stateData, byte[] stateHash, Long fees, boolean isInitial) {
+	public ATStateData(String ATAddress, Integer height, byte[] stateData, byte[] stateHash, Long fees, boolean isInitial) {
 		this.ATAddress = ATAddress;
 		this.height = height;
-		this.creation = creation;
 		this.stateData = stateData;
 		this.stateHash = stateHash;
 		this.fees = fees;
@@ -26,21 +24,21 @@ public class ATStateData {
 
 	/** For recreating per-block ATStateData from repository where not all info is needed */
 	public ATStateData(String ATAddress, int height, byte[] stateHash, Long fees, boolean isInitial) {
-		this(ATAddress, height, null, null, stateHash, fees, isInitial);
+		this(ATAddress, height, null, stateHash, fees, isInitial);
 	}
 
 	/** For creating ATStateData from serialized bytes when we don't have all the info */
 	public ATStateData(String ATAddress, byte[] stateHash) {
 		// This won't ever be initial AT state from deployment as that's never serialized over the network,
 		// but generated when the DeployAtTransaction is processed locally.
-		this(ATAddress, null, null, null, stateHash, null, false);
+		this(ATAddress, null, null, stateHash, null, false);
 	}
 
 	/** For creating ATStateData from serialized bytes when we don't have all the info */
 	public ATStateData(String ATAddress, byte[] stateHash, Long fees) {
 		// This won't ever be initial AT state from deployment as that's never serialized over the network,
 		// but generated when the DeployAtTransaction is processed locally.
-		this(ATAddress, null, null, null, stateHash, fees, false);
+		this(ATAddress, null, null, stateHash, fees, false);
 	}
 
 	// Getters / setters
@@ -56,10 +54,6 @@ public class ATStateData {
 	// Likely to be used when block received over network is attached to blockchain
 	public void setHeight(Integer height) {
 		this.height = height;
-	}
-
-	public Long getCreation() {
-		return this.creation;
 	}
 
 	public byte[] getStateData() {

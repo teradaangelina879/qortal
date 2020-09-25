@@ -111,6 +111,8 @@ public class Controller extends Thread {
 	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms
 	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000L; // ms
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
+	private static final long TRIM_AT_STATES_INTERVAL = 2 * 1000L; // ms
+	private static final int TRIM_AT_BATCH_SIZE = 200; // blocks
 
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
@@ -138,6 +140,8 @@ public class Controller extends Thread {
 	private long repositoryBackupTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
+	private long trimAtStatesTimestamp = startTime + TRIM_AT_STATES_INTERVAL; // ms
+	private Integer trimAtStatesStartHeight = null;
 	private long onlineAccountsTasksTimestamp = startTime + ONLINE_ACCOUNTS_TASKS_INTERVAL; // ms
 
 	/** Whether we can mint new blocks, as reported by BlockMinter. */
@@ -482,6 +486,11 @@ public class Controller extends Thread {
 				if (now >= onlineAccountsTasksTimestamp) {
 					onlineAccountsTasksTimestamp = now + ONLINE_ACCOUNTS_TASKS_INTERVAL;
 					performOnlineAccountsTasks();
+				}
+
+				if (now >= trimAtStatesTimestamp) {
+					trimAtStatesTimestamp = now + TRIM_AT_STATES_INTERVAL;
+					trimAtStates();
 				}
 			}
 		} catch (InterruptedException e) {
@@ -1424,6 +1433,47 @@ public class Controller extends Thread {
 			repository.saveChanges();
 		} catch (DataException e) {
 			LOGGER.warn(String.format("Repository issue trying to trim old online accounts signatures: %s", e.getMessage()));
+		}
+	}
+
+	private void trimAtStates() {
+		if (this.getChainTip() == null)
+			return;
+
+		try (final Repository repository = RepositoryManager.tryRepository()) {
+			if (repository == null)
+				return;
+
+			if (trimAtStatesStartHeight == null) {
+				trimAtStatesStartHeight = repository.getATRepository().findFirstTrimmableStateHeight();
+				// The above will probably take enough time by itself
+				return;
+			}
+
+			long currentTrimmableTimestamp = NTP.getTime() - Settings.getInstance().getAtStatesMaxLifetime();
+			// We want to keep AT states near the tip of our copy of blockchain so we can process/orphan nearby blocks
+			long chainTrimmableTimestamp = this.getChainTip().getTimestamp() - Settings.getInstance().getAtStatesMaxLifetime();
+
+			long upperTrimmableTimestamp = Math.min(currentTrimmableTimestamp, chainTrimmableTimestamp);
+
+			int upperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(upperTrimmableTimestamp);
+			int upperBatchHeight = Math.min(trimAtStatesStartHeight + TRIM_AT_BATCH_SIZE, upperTrimmableHeight);
+
+			if (trimAtStatesStartHeight >= upperBatchHeight)
+				return;
+
+			int numAtStatesTrimmed = repository.getATRepository().trimAtStates(trimAtStatesStartHeight, upperBatchHeight);
+			repository.saveChanges();
+
+			if (numAtStatesTrimmed > 0) {
+				LOGGER.debug(() -> String.format("Trimmed %d AT state%s between blocks %d and %d",
+						numAtStatesTrimmed, (numAtStatesTrimmed != 1 ? "s" : ""),
+						trimAtStatesStartHeight, upperBatchHeight));
+			} else {
+				trimAtStatesStartHeight = upperBatchHeight;
+			}
+		} catch (DataException e) {
+			LOGGER.warn(String.format("Repository issue trying to trim AT states: %s", e.getMessage()));
 		}
 	}
 

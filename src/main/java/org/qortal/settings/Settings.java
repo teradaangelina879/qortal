@@ -79,6 +79,8 @@ public class Settings {
 	private long repositoryBackupInterval = 0; // ms
 	/** Whether to show a notification when we backup repository. */
 	private boolean showBackupNotification = false;
+	/** How long to keep old, full, AT state data (ms). */
+	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
@@ -404,6 +406,10 @@ public class Settings {
 
 	public boolean getShowBackupNotification() {
 		return this.showBackupNotification;
+	}
+
+	public long getAtStatesMaxLifetime() {
+		return this.atStatesMaxLifetime;
 	}
 
 }

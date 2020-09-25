@@ -256,7 +256,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 
 		if (crossChainTradeData.mode == BTCACCT.Mode.OFFERING)
 			// We want when trade was created, not when it was last updated
-			atStateTimestamp = atState.getCreation();
+			atStateTimestamp = crossChainTradeData.creationTimestamp;
 		else
 			atStateTimestamp = timestamp != null ? timestamp : repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
 

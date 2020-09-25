@@ -61,7 +61,7 @@ public class AT {
 		byte[] stateData = machineState.toBytes();
 		byte[] stateHash = Crypto.digest(stateData);
 
-		this.atStateData = new ATStateData(atAddress, height, creation, stateData, stateHash, 0L, true);
+		this.atStateData = new ATStateData(atAddress, height, stateData, stateHash, 0L, true);
 	}
 
 	// Getters / setters
@@ -107,12 +107,11 @@ public class AT {
 			throw new DataException(String.format("Uncaught exception while running AT '%s'", atAddress), e);
 		}
 
-		long creation = this.atData.getCreation();
 		byte[] stateData = state.toBytes();
 		byte[] stateHash = Crypto.digest(stateData);
 		long atFees = api.calcFinalFees(state);
 
-		this.atStateData = new ATStateData(atAddress, blockHeight, creation, stateData, stateHash, atFees, false);
+		this.atStateData = new ATStateData(atAddress, blockHeight, stateData, stateHash, atFees, false);
 
 		return api.getTransactions();
 	}

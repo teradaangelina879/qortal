@@ -212,6 +212,8 @@ public class HSQLDBDatabaseUpdates {
 							+ "PRIMARY KEY (account))");
 					// For looking up an account by public key
 					stmt.execute("CREATE INDEX AccountPublicKeyIndex on Accounts (public_key)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE Accounts NEW SPACE");
 
 					// Account balances
 					stmt.execute("CREATE TABLE AccountBalances (account QortalAddress, asset_id AssetID, balance QortalAmount NOT NULL, "
@@ -220,6 +222,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX AccountBalancesAssetBalanceIndex ON AccountBalances (asset_id, balance)");
 					// Add CHECK constraint to account balances
 					stmt.execute("ALTER TABLE AccountBalances ADD CONSTRAINT CheckBalanceNotNegative CHECK (balance >= 0)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE AccountBalances NEW SPACE");
 
 					// Keeping track of QORT gained from holding legacy QORA
 					stmt.execute("CREATE TABLE AccountQortFromQoraInfo (account QortalAddress, final_qort_from_qora QortalAmount, final_block_height INT, "
@@ -417,6 +421,8 @@ public class HSQLDBDatabaseUpdates {
 							+ "PRIMARY KEY (AT_address, height), FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
 					// For finding per-block AT states, ordered by creation timestamp
 					stmt.execute("CREATE INDEX BlockATStateIndex on ATStates (height, created_when)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE ATStates NEW SPACE");
 
 					// Deploy CIYAM AT Transactions
 					stmt.execute("CREATE TABLE DeployATTransactions (signature Signature, creator QortalPublicKey NOT NULL, AT_name ATName NOT NULL, "
@@ -651,6 +657,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("DROP TRIGGER IF EXISTS Next_block_height_update_trigger");
 					stmt.execute("DROP TRIGGER IF EXISTS Next_block_height_delete_trigger");
 					stmt.execute("DROP TABLE IF EXISTS NextBlockHeight");
+					break;
+
+				case 25:
+					// Remove excess created_when from ATStates
+					stmt.execute("ALTER TABLE ATStates DROP created_when");
+					stmt.execute("CREATE INDEX ATStateHeightIndex on ATStates (height)");
 					break;
 
 				default:

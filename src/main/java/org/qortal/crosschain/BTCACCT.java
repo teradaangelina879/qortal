@@ -611,7 +611,7 @@ public class BTCACCT {
 	 */
 	public static CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
 		ATStateData atStateData = repository.getATRepository().getLatestATState(atData.getATAddress());
-		return populateTradeData(repository, atData.getCreatorPublicKey(), atStateData);
+		return populateTradeData(repository, atData.getCreatorPublicKey(), atData.getCreation(), atStateData);
 	}
 
 	/**
@@ -622,8 +622,8 @@ public class BTCACCT {
 	 * @throws DataException
 	 */
 	public static CrossChainTradeData populateTradeData(Repository repository, ATStateData atStateData) throws DataException {
-		byte[] creatorPublicKey = repository.getATRepository().getCreatorPublicKey(atStateData.getATAddress());
-		return populateTradeData(repository, creatorPublicKey, atStateData);
+		ATData atData = repository.getATRepository().fromATAddress(atStateData.getATAddress());
+		return populateTradeData(repository, atData.getCreatorPublicKey(), atData.getCreation(), atStateData);
 	}
 
 	/**
@@ -633,7 +633,7 @@ public class BTCACCT {
 	 * @param atAddress
 	 * @throws DataException
 	 */
-	public static CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
+	public static CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, long creationTimestamp, ATStateData atStateData) throws DataException {
 		byte[] addressBytes = new byte[25]; // for general use
 		String atAddress = atStateData.getATAddress();
 
@@ -641,7 +641,7 @@ public class BTCACCT {
 
 		tradeData.qortalAtAddress = atAddress;
 		tradeData.qortalCreator = Crypto.toAddress(creatorPublicKey);
-		tradeData.creationTimestamp = atStateData.getCreation();
+		tradeData.creationTimestamp = creationTimestamp;
 
 		Account atAccount = new Account(repository, atAddress);
 		tradeData.qortBalance = atAccount.getConfirmedBalance(Asset.QORT);

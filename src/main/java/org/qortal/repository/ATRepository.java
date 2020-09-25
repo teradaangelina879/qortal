@@ -87,6 +87,12 @@ public interface ATRepository {
 	 */
 	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException;
 
+	/** Returns height of first trimmable AT state, or null if not found. */
+	public Integer findFirstTrimmableStateHeight() throws DataException;
+
+	/** Trims non-initial full AT state data between passed heights. Returns number of trimmed rows. */
+	public int trimAtStates(int minHeight, int maxHeight) throws DataException;
+
 	/**
 	 * Save ATStateData into repository.
 	 * <p>
