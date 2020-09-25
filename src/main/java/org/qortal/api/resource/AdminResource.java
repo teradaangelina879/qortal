@@ -57,6 +57,7 @@ import org.qortal.network.PeerAddress;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
@@ -118,6 +119,7 @@ public class AdminResource {
 		nodeInfo.buildVersion = Controller.getInstance().getVersionString();
 		nodeInfo.buildTimestamp = Controller.getInstance().getBuildTimestamp();
 		nodeInfo.nodeId = Network.getInstance().getOurNodeId();
+		nodeInfo.isTestNet = Settings.getInstance().isTestNet();
 
 		return nodeInfo;
 	}
