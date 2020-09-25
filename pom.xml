@@ -14,8 +14,7 @@
 		<commons-text.version>1.8</commons-text.version>
 		<dagger.version>1.2.2</dagger.version>
 		<guava.version>28.1-jre</guava.version>
-		<hsqldb.version>2.5.0-fixed</hsqldb.version>
-		<hsqldb-sqltool.version>2.5.0</hsqldb-sqltool.version>
+		<hsqldb.version>2.5.1</hsqldb.version>
 		<jersey.version>2.29.1</jersey.version>
 		<jetty.version>9.4.29.v20200521</jetty.version>
 		<log4j.version>2.12.1</log4j.version>
@@ -396,12 +395,6 @@
 			<groupId>org.hsqldb</groupId>
 			<artifactId>hsqldb</artifactId>
 			<version>${hsqldb.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.hsqldb</groupId>
-			<artifactId>sqltool</artifactId>
-			<version>${hsqldb-sqltool.version}</version>
-			<scope>test</scope>
 		</dependency>
 		<!-- CIYAM AT (automated transactions) -->
 		<dependency>
