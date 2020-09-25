@@ -40,7 +40,6 @@ import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
-import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.ActivitySummary;
@@ -437,8 +436,6 @@ public class AdminResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		} catch (NumberFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
-		} catch (ApiException e) {
-			throw e;
 		}
 	}
 
@@ -494,12 +491,37 @@ public class AdminResource {
 			return syncResult.name();
 		} catch (IllegalArgumentException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-		} catch (ApiException e) {
-			throw e;
 		} catch (UnknownHostException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		} catch (InterruptedException e) {
 			return SynchronizationResult.NO_BLOCKCHAIN_LOCK.name();
+		}
+	}
+
+	@DELETE
+	@Path("/repository")
+	@Operation(
+		summary = "Perform maintenance on repository.",
+		description = "Requires enough free space to rebuild repository. This will pause your node for a while."
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public void performRepositoryMaintenance() {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.performPeriodicMaintenance();
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// No big deal
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 

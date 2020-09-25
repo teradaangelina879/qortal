@@ -351,7 +351,10 @@ public class HSQLDBRepository implements Repository {
 	public void performPeriodicMaintenance() throws DataException {
 		// Defrag DB - takes a while!
 		try (Statement stmt = this.connection.createStatement()) {
+			LOGGER.info("performing maintenance - this will take a while");
+			stmt.execute("CHECKPOINT");
 			stmt.execute("CHECKPOINT DEFRAG");
+			LOGGER.info("maintenance completed");
 		} catch (SQLException e) {
 			throw new DataException("Unable to defrag repository");
 		}
