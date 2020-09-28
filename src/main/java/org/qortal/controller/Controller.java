@@ -835,6 +835,12 @@ public class Controller extends Thread {
 		}
 	}
 
+	/**
+	 * Callback for when we've received a new block.
+	 * <p>
+	 * See <b>WARNING</b> for {@link EventBus#notify(Event)}
+	 * to prevent deadlocks.
+	 */
 	public void onNewBlock(BlockData latestBlockData) {
 		// Protective copy
 		BlockData blockDataCopy = new BlockData(latestBlockData);

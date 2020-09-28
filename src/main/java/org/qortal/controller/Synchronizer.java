@@ -410,6 +410,7 @@ public class Synchronizer {
 			--ourHeight;
 			orphanBlockData = repository.getBlockRepository().fromHeight(ourHeight);
 
+			repository.discardChanges(); // clear transaction status to prevent deadlocks
 			Controller.getInstance().onNewBlock(orphanBlockData);
 		}
 
