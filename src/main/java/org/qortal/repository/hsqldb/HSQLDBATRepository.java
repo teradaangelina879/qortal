@@ -400,39 +400,35 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
-	public Integer findFirstTrimmableStateHeight() throws DataException {
+	public int findFirstTrimmableStateHeight(int minHeight, int maxHeight) throws DataException {
 		String sql = "SELECT MIN(height) FROM ATStates "
-				+ "WHERE is_initial = FALSE AND state_data IS NOT NULL";
+				+ "WHERE state_data IS NOT NULL "
+				+ "AND height BETWEEN ? AND ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, minHeight, maxHeight)) {
 			if (resultSet == null)
-				return null;
+				return 0;
 
-			int height = resultSet.getInt(1);
-			if (height == 0 && resultSet.wasNull())
-				return null;
-
-			return height;
+			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to find first trimmable AT state in repository", e);
 		}
 	}
 
 	@Override
-	public int trimAtStates(int minHeight, int maxHeight) throws DataException {
+	public int trimAtStates(int minHeight, int maxHeight, int limit) throws DataException {
 		if (minHeight >= maxHeight)
 			return 0;
 
 		// We're often called so no need to trim all states in one go.
 		// Limit updates to reduce CPU and memory load.
 		String sql = "UPDATE ATStates SET state_data = NULL "
-				+ "WHERE is_initial = FALSE "
-				+ "AND state_data IS NOT NULL "
+				+ "WHERE state_data IS NOT NULL "
 				+ "AND height BETWEEN ? AND ? "
-				+ "LIMIT 4000";
+				+ "LIMIT ?";
 
 		try {
-			return this.repository.executeCheckedUpdate(sql, minHeight, maxHeight);
+			return this.repository.executeCheckedUpdate(sql, minHeight, maxHeight, limit);
 		} catch (SQLException e) {
 			repository.examineException(e);
 			throw new DataException("Unable to trim AT states in repository", e);

@@ -462,13 +462,31 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public int trimOldOnlineAccountsSignatures(long timestamp) throws DataException {
+	public int findFirstTrimmableOnlineAccountsSignatureHeight(int minHeight, int maxHeight) throws DataException {
+		String sql = "SELECT MIN(height) FROM Blocks "
+				+ "WHERE online_accounts_signatures IS NOT NULL "
+				+ "AND height BETWEEN ? AND ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, minHeight, maxHeight)) {
+			if (resultSet == null)
+				return 0;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to find first trimmable online accounts signatures in repository", e);
+		}
+	}
+
+	@Override
+	public int trimOldOnlineAccountsSignatures(int minHeight, int maxHeight) throws DataException {
 		// We're often called so no need to trim all blocks in one go.
 		// Limit updates to reduce CPU and memory load.
-		String sql = "UPDATE Blocks set online_accounts_signatures = NULL WHERE minted_when < ? AND online_accounts_signatures IS NOT NULL LIMIT 1440";
+		String sql = "UPDATE Blocks SET online_accounts_signatures = NULL "
+				+ "WHERE online_accounts_signatures IS NOT NULL "
+				+ "AND height BETWEEN ? AND ?";
 
 		try {
-			return this.repository.executeCheckedUpdate(sql, timestamp);
+			return this.repository.executeCheckedUpdate(sql, minHeight, maxHeight);
 		} catch (SQLException e) {
 			repository.examineException(e);
 			throw new DataException("Unable to trim old online accounts signatures in repository", e);

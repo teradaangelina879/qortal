@@ -143,13 +143,15 @@ public interface BlockRepository {
 	 */
 	public List<BlockInfo> getBlockInfos(Integer startHeight, Integer endHeight, Integer count) throws DataException;
 
+	/** Returns height of first trimmable online accounts signatures, or 0 if not found. */
+	public int findFirstTrimmableOnlineAccountsSignatureHeight(int minHeight, int maxHeight) throws DataException;
+
 	/**
-	 * Trim online accounts signatures from blocks older than passed timestamp.
+	 * Trim online accounts signatures from blocks between passed heights.
 	 * 
-	 * @param timestamp
 	 * @return number of blocks trimmed
 	 */
-	public int trimOldOnlineAccountsSignatures(long timestamp) throws DataException;
+	public int trimOldOnlineAccountsSignatures(int minHeight, int maxHeight) throws DataException;
 
 	/**
 	 * Returns first (lowest height) block that doesn't link back to specified block.

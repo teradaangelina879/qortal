@@ -112,7 +112,7 @@ public class RepositoryTests extends Common {
 				BlockUtils.mintBlock(repository1);
 
 			// Perform database 'update', but don't commit at this stage
-			repository1.getBlockRepository().trimOldOnlineAccountsSignatures(System.currentTimeMillis());
+			repository1.getBlockRepository().trimOldOnlineAccountsSignatures(1, 10);
 
 			// Open connection 2
 			try (final Repository repository2 = RepositoryManager.getRepository()) {
