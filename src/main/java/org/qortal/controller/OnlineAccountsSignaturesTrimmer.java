@@ -13,6 +13,8 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 
 	private static final Logger LOGGER = LogManager.getLogger(OnlineAccountsSignaturesTrimmer.class);
 
+	private static final long INITIAL_SLEEP_PERIOD = 5 * 60 * 1000L; // ms
+
 	private enum TrimMode { SEARCHING, TRIMMING }
 	private static final long TRIM_INTERVAL = 2 * 1000L; // ms
 	private static final int TRIM_SEARCH_SIZE = 5000; // blocks
@@ -23,6 +25,9 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 
 	public void run() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Don't even start trimming until initial rush has ended
+			Thread.sleep(INITIAL_SLEEP_PERIOD);
+
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 
