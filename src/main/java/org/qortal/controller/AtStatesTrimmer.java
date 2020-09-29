@@ -15,7 +15,7 @@ public class AtStatesTrimmer implements Runnable {
 
 	private enum TrimMode { SEARCHING, TRIMMING }
 	private static final long TRIM_INTERVAL = 2 * 1000L; // ms
-	private static final int TRIM_SEARCH_SIZE = 5000; // blocks
+	private static final int TRIM_SEARCH_SIZE = 2000; // blocks
 	private static final int TRIM_BATCH_SIZE = 200; // blocks
 	private static final int TRIM_LIMIT = 4000; // rows
 
