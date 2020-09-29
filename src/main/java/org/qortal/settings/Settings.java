@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.Locale;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -40,6 +41,9 @@ public class Settings {
 
 	// Settings, and other config files
 	private String userPath;
+
+	// General
+	private String localeLang = Locale.getDefault().getLanguage();
 
 	// Common to all networking (API/P2P)
 	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
@@ -259,6 +263,10 @@ public class Settings {
 
 	public String getUserPath() {
 		return this.userPath;
+	}
+
+	public String getLocaleLang() {
+		return this.localeLang;
 	}
 
 	public int getUiServerPort() {
