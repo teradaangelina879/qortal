@@ -32,6 +32,7 @@ import org.qortal.group.Group;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.repository.ATRepository.NextTransactionInfo;
 import org.qortal.transaction.AtTransaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
@@ -74,8 +75,46 @@ public class QortalATAPI extends API {
 		return this.transactions;
 	}
 
-	public long calcFinalFees(MachineState state) {
-		return state.getSteps() * this.ciyamAtSettings.feePerStep;
+	public boolean willExecute(int blockHeight) throws DataException {
+		// Sleep-until-message/height checking
+		Long sleepUntilMessageTimestamp = this.atData.getSleepUntilMessageTimestamp();
+
+		if (sleepUntilMessageTimestamp != null) {
+			// Quicker to check height, if sleep-until-height also active
+			Integer sleepUntilHeight = this.atData.getSleepUntilHeight();
+
+			boolean wakeDueToHeight = sleepUntilHeight != null && blockHeight >= sleepUntilHeight;
+
+			boolean wakeDueToMessage = false;
+			if (!wakeDueToHeight) {
+				// No avoiding asking repository
+				Timestamp previousTxTimestamp = new Timestamp(sleepUntilMessageTimestamp);
+				NextTransactionInfo nextTransactionInfo = this.repository.getATRepository().findNextTransaction(this.atData.getATAddress(),
+						previousTxTimestamp.blockHeight,
+						previousTxTimestamp.transactionSequence);
+
+				wakeDueToMessage = nextTransactionInfo != null;
+			}
+
+			// Can we skip?
+			if (!wakeDueToHeight && !wakeDueToMessage)
+				// this.atStateData will be null
+				return false;
+		}
+
+		return true;
+	}
+
+	public void preExecute(MachineState state) {
+		// Sleep-until-message/height checking
+		Long sleepUntilMessageTimestamp = this.atData.getSleepUntilMessageTimestamp();
+
+		if (sleepUntilMessageTimestamp != null) {
+			// We've passed checks, so clear sleep-related flags/values
+			this.setIsSleeping(state, false);
+			this.setSleepUntilHeight(state, null);
+			this.atData.setSleepUntilMessageTimestamp(null);
+		}
 	}
 
 	// Inherited methods from CIYAM AT API
@@ -408,6 +447,10 @@ public class QortalATAPI extends API {
 
 	// Utility methods
 
+	public long calcFinalFees(MachineState state) {
+		return state.getSteps() * this.ciyamAtSettings.feePerStep;
+	}
+
 	/** Returns partial transaction signature, used to verify we're operating on the same transaction and not naively using block height & sequence. */
 	public static byte[] partialSignature(byte[] fullSignature) {
 		return Arrays.copyOfRange(fullSignature, 8, 32);
@@ -454,6 +497,15 @@ public class QortalATAPI extends API {
 			default:
 				return null;
 		}
+	}
+
+	/*package*/ void sleepUntilMessageOrHeight(MachineState state, long txTimestamp, Long sleepUntilHeight) {
+		this.setIsSleeping(state, true);
+
+		this.atData.setSleepUntilMessageTimestamp(txTimestamp);
+
+		if (sleepUntilHeight != null)
+			this.setSleepUntilHeight(state, new Timestamp(sleepUntilHeight).blockHeight);
 	}
 
 	/** Returns AT's account */

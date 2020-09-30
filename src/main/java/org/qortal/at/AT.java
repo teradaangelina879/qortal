@@ -1,5 +1,7 @@
 package org.qortal.at;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.ciyam.at.MachineState;
@@ -56,12 +58,12 @@ public class AT {
 
 		this.atData = new ATData(atAddress, creatorPublicKey, creation, machineState.version, assetId, codeBytes, codeHash,
 				machineState.isSleeping(), machineState.getSleepUntilHeight(), machineState.isFinished(), machineState.hadFatalError(),
-				machineState.isFrozen(), machineState.getFrozenBalance());
+				machineState.isFrozen(), machineState.getFrozenBalance(), null);
 
 		byte[] stateData = machineState.toBytes();
 		byte[] stateHash = Crypto.digest(stateData);
 
-		this.atStateData = new ATStateData(atAddress, height, stateData, stateHash, 0L, true);
+		this.atStateData = new ATStateData(atAddress, height, stateData, stateHash, 0L, true, null);
 	}
 
 	// Getters / setters
@@ -84,13 +86,27 @@ public class AT {
 		this.repository.getATRepository().delete(this.atData.getATAddress());
 	}
 
+	/**
+	 * Potentially execute AT.
+	 * <p>
+	 * Note that sleep-until-message support might set/reset
+	 * sleep-related flags/values.
+	 * <p>
+	 * {@link #getATStateData()} will return null if nothing happened.
+	 * <p>
+	 * @param blockHeight
+	 * @param blockTimestamp
+	 * @return AT-generated transactions, possibly empty
+	 * @throws DataException
+	 */
 	public List<AtTransaction> run(int blockHeight, long blockTimestamp) throws DataException {
 		String atAddress = this.atData.getATAddress();
 
 		QortalATAPI api = new QortalATAPI(repository, this.atData, blockTimestamp);
 		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
 
-		byte[] codeBytes = this.atData.getCodeBytes();
+		if (!api.willExecute(blockHeight))
+			return Collections.emptyList();
 
 		// Fetch latest ATStateData for this AT
 		ATStateData latestAtStateData = this.repository.getATRepository().getLatestATState(atAddress);
@@ -100,8 +116,10 @@ public class AT {
 			throw new IllegalStateException("No previous AT state data found");
 
 		// [Re]create AT machine state using AT state data or from scratch as applicable
+		byte[] codeBytes = this.atData.getCodeBytes();
 		MachineState state = MachineState.fromBytes(api, loggerFactory, latestAtStateData.getStateData(), codeBytes);
 		try {
+			api.preExecute(state);
 			state.execute();
 		} catch (Exception e) {
 			throw new DataException(String.format("Uncaught exception while running AT '%s'", atAddress), e);
@@ -109,9 +127,16 @@ public class AT {
 
 		byte[] stateData = state.toBytes();
 		byte[] stateHash = Crypto.digest(stateData);
-		long atFees = api.calcFinalFees(state);
 
-		this.atStateData = new ATStateData(atAddress, blockHeight, stateData, stateHash, atFees, false);
+		// Nothing happened?
+		if (state.getSteps() == 0 && Arrays.equals(stateHash, latestAtStateData.getStateHash()))
+			// this.atStateData will be null
+			return Collections.emptyList();
+
+		long atFees = api.calcFinalFees(state);
+		Long sleepUntilMessageTimestamp = this.atData.getSleepUntilMessageTimestamp();
+
+		this.atStateData = new ATStateData(atAddress, blockHeight, stateData, stateHash, atFees, false, sleepUntilMessageTimestamp);
 
 		return api.getTransactions();
 	}
@@ -130,6 +155,10 @@ public class AT {
 		this.atData.setHadFatalError(state.hadFatalError());
 		this.atData.setIsFrozen(state.isFrozen());
 		this.atData.setFrozenBalance(state.getFrozenBalance());
+
+		// Special sleep-until-message support
+		this.atData.setSleepUntilMessageTimestamp(this.atStateData.getSleepUntilMessageTimestamp());
+
 		this.repository.getATRepository().save(this.atData);
 	}
 
@@ -157,6 +186,10 @@ public class AT {
 		this.atData.setHadFatalError(state.hadFatalError());
 		this.atData.setIsFrozen(state.isFrozen());
 		this.atData.setFrozenBalance(state.getFrozenBalance());
+
+		// Special sleep-until-message support
+		this.atData.setSleepUntilMessageTimestamp(previousStateData.getSleepUntilMessageTimestamp());
+
 		this.repository.getATRepository().save(this.atData);
 	}
 

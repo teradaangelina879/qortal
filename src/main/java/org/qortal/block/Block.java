@@ -1246,12 +1246,13 @@ public class Block {
 		for (ATData atData : executableATs) {
 			AT at = new AT(this.repository, atData);
 			List<AtTransaction> atTransactions = at.run(this.blockData.getHeight(), this.blockData.getTimestamp());
+			ATStateData atStateData = at.getATStateData();
+			// Didn't execute? (e.g. sleeping)
+			if (atStateData == null)
+				continue;
 
 			allAtTransactions.addAll(atTransactions);
-
-			ATStateData atStateData = at.getATStateData();
 			this.ourAtStates.add(atStateData);
-
 			this.ourAtFees += atStateData.getFees();
 		}
 

@@ -85,6 +85,43 @@ public enum QortalFunctionCode {
 		}
 	},
 	/**
+	 * Sleep AT until a new message arrives after 'tx-timestamp'.<br>
+	 * <tt>0x0503 tx-timestamp</tt>
+	 */
+	SLEEP_UNTIL_MESSAGE(0x0503, 1, false) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			if (functionData.value1 <= 0)
+				return;
+
+			long txTimestamp = functionData.value1;
+
+			QortalATAPI api = (QortalATAPI) state.getAPI();
+			api.sleepUntilMessageOrHeight(state, txTimestamp, null);
+		}
+	},
+	/**
+	 * Sleep AT until a new message arrives, after 'tx-timestamp', or height reached.<br>
+	 * <tt>0x0504 tx-timestamp height</tt>
+	 */
+	SLEEP_UNTIL_MESSAGE_OR_HEIGHT(0x0504, 2, false) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			if (functionData.value1 <= 0)
+				return;
+
+			long txTimestamp = functionData.value1;
+
+			if (functionData.value2 <= 0)
+				return;
+
+			long sleepUntilHeight = functionData.value2;
+
+			QortalATAPI api = (QortalATAPI) state.getAPI();
+			api.sleepUntilMessageOrHeight(state, txTimestamp, sleepUntilHeight);
+		}
+	},
+	/**
 	 * Convert address in B to 20-byte value in LSB of B1, and all of B2 & B3.<br>
 	 * <tt>0x0510</tt>
 	 */

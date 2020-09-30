@@ -26,7 +26,7 @@ public class HSQLDBATRepository implements ATRepository {
 	public ATData fromATAddress(String atAddress) throws DataException {
 		String sql = "SELECT creator, created_when, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, is_finished, had_fatal_error, "
-				+ "is_frozen, frozen_balance "
+				+ "is_frozen, frozen_balance, sleep_until_message_timestamp "
 				+ "FROM ATs "
 				+ "WHERE AT_address = ? LIMIT 1";
 
@@ -54,8 +54,13 @@ public class HSQLDBATRepository implements ATRepository {
 			if (frozenBalance == 0 && resultSet.wasNull())
 				frozenBalance = null;
 
+			Long sleepUntilMessageTimestamp = resultSet.getLong(12);
+			if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+				sleepUntilMessageTimestamp = null;
+
 			return new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
-					isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+					isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance,
+					sleepUntilMessageTimestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT from repository", e);
 		}
@@ -88,7 +93,7 @@ public class HSQLDBATRepository implements ATRepository {
 	public List<ATData> getAllExecutableATs() throws DataException {
 		String sql = "SELECT AT_address, creator, created_when, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, had_fatal_error, "
-				+ "is_frozen, frozen_balance "
+				+ "is_frozen, frozen_balance, sleep_until_message_timestamp "
 				+ "FROM ATs "
 				+ "WHERE is_finished = false "
 				+ "ORDER BY created_when ASC";
@@ -122,8 +127,13 @@ public class HSQLDBATRepository implements ATRepository {
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
+				Long sleepUntilMessageTimestamp = resultSet.getLong(12);
+				if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+					sleepUntilMessageTimestamp = null;
+
 				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
-						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance,
+						sleepUntilMessageTimestamp);
 
 				executableATs.add(atData);
 			} while (resultSet.next());
@@ -141,7 +151,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 		sql.append("SELECT AT_address, creator, created_when, version, asset_id, code_bytes, ")
 				.append("is_sleeping, sleep_until_height, is_finished, had_fatal_error, ")
-				.append("is_frozen, frozen_balance ")
+				.append("is_frozen, frozen_balance, sleep_until_message_timestamp ")
 				.append("FROM ATs ")
 				.append("WHERE code_hash = ? ");
 		bindParams.add(codeHash);
@@ -185,8 +195,13 @@ public class HSQLDBATRepository implements ATRepository {
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
+				Long sleepUntilMessageTimestamp = resultSet.getLong(13);
+				if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+					sleepUntilMessageTimestamp = null;
+
 				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
-						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance,
+						sleepUntilMessageTimestamp);
 
 				matchingATs.add(atData);
 			} while (resultSet.next());
@@ -225,7 +240,7 @@ public class HSQLDBATRepository implements ATRepository {
 				.bind("code_bytes", atData.getCodeBytes()).bind("code_hash", atData.getCodeHash())
 				.bind("is_sleeping", atData.getIsSleeping()).bind("sleep_until_height", atData.getSleepUntilHeight())
 				.bind("is_finished", atData.getIsFinished()).bind("had_fatal_error", atData.getHadFatalError()).bind("is_frozen", atData.getIsFrozen())
-				.bind("frozen_balance", atData.getFrozenBalance());
+				.bind("frozen_balance", atData.getFrozenBalance()).bind("sleep_until_message_timestamp", atData.getSleepUntilMessageTimestamp());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -248,7 +263,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATStateData getATStateAtHeight(String atAddress, int height) throws DataException {
-		String sql = "SELECT state_data, state_hash, fees, is_initial "
+		String sql = "SELECT state_data, state_hash, fees, is_initial, sleep_until_message_timestamp "
 				+ "FROM ATStates "
 				+ "LEFT OUTER JOIN ATStatesData USING (AT_address, height) "
 				+ "WHERE ATStates.AT_address = ? AND ATStates.height = ? "
@@ -263,7 +278,11 @@ public class HSQLDBATRepository implements ATRepository {
 			long fees = resultSet.getLong(3);
 			boolean isInitial = resultSet.getBoolean(4);
 
-			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+			Long sleepUntilMessageTimestamp = resultSet.getLong(5);
+			if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+				sleepUntilMessageTimestamp = null;
+
+			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial, sleepUntilMessageTimestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT state from repository", e);
 		}
@@ -271,7 +290,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATStateData getLatestATState(String atAddress) throws DataException {
-		String sql = "SELECT height, state_data, state_hash, fees, is_initial "
+		String sql = "SELECT height, state_data, state_hash, fees, is_initial, sleep_until_message_timestamp "
 				+ "FROM ATStates "
 				+ "JOIN ATStatesData USING (AT_address, height) "
 				+ "WHERE ATStates.AT_address = ? "
@@ -290,7 +309,11 @@ public class HSQLDBATRepository implements ATRepository {
 			long fees = resultSet.getLong(4);
 			boolean isInitial = resultSet.getBoolean(5);
 
-			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+			Long sleepUntilMessageTimestamp = resultSet.getLong(6);
+			if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+				sleepUntilMessageTimestamp = null;
+
+			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial, sleepUntilMessageTimestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch latest AT state from repository", e);
 		}
@@ -303,10 +326,10 @@ public class HSQLDBATRepository implements ATRepository {
 		StringBuilder sql = new StringBuilder(1024);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial "
+		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial, FinalATStates.sleep_until_message_timestamp "
 				+ "FROM ATs "
 				+ "CROSS JOIN LATERAL("
-					+ "SELECT height, state_data, state_hash, fees, is_initial "
+					+ "SELECT height, state_data, state_hash, fees, is_initial, sleep_until_message_timestamp "
 					+ "FROM ATStates "
 					+ "JOIN ATStatesData USING (AT_address, height) "
 					+ "WHERE ATStates.AT_address = ATs.AT_address ");
@@ -360,7 +383,11 @@ public class HSQLDBATRepository implements ATRepository {
 				long fees = resultSet.getLong(5);
 				boolean isInitial = resultSet.getBoolean(6);
 
-				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+				Long sleepUntilMessageTimestamp = resultSet.getLong(7);
+				if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+					sleepUntilMessageTimestamp = null;
+
+				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial, sleepUntilMessageTimestamp);
 
 				atStates.add(atStateData);
 			} while (resultSet.next());
@@ -494,7 +521,8 @@ public class HSQLDBATRepository implements ATRepository {
 
 		atStatesSaver.bind("AT_address", atStateData.getATAddress()).bind("height", atStateData.getHeight())
 				.bind("state_hash", atStateData.getStateHash())
-				.bind("fees", atStateData.getFees()).bind("is_initial", atStateData.isInitial());
+				.bind("fees", atStateData.getFees()).bind("is_initial", atStateData.isInitial())
+				.bind("sleep_until_message_timestamp", atStateData.getSleepUntilMessageTimestamp());
 
 		try {
 			atStatesSaver.execute(this.repository);
