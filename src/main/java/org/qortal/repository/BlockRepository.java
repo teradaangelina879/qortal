@@ -143,8 +143,11 @@ public interface BlockRepository {
 	 */
 	public List<BlockInfo> getBlockInfos(Integer startHeight, Integer endHeight, Integer count) throws DataException;
 
-	/** Returns height of first trimmable online accounts signatures, or 0 if not found. */
-	public int findFirstTrimmableOnlineAccountsSignatureHeight(int minHeight, int maxHeight) throws DataException;
+	/** Returns height of first trimmable online accounts signatures. */
+	public int getOnlineAccountsSignaturesTrimHeight() throws DataException;
+
+	/** Sets new base height for trimming online accounts signatures. */
+	public void setOnlineAccountsSignaturesTrimHeight(int trimHeight) throws DataException;
 
 	/**
 	 * Trim online accounts signatures from blocks between passed heights.

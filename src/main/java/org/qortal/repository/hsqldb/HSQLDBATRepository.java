@@ -400,18 +400,61 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
-	public int findFirstTrimmableStateHeight(int minHeight, int maxHeight) throws DataException {
-		String sql = "SELECT MIN(height) FROM ATStates "
-				+ "WHERE state_data IS NOT NULL "
-				+ "AND height BETWEEN ? AND ?";
+	public int getAtTrimHeight() throws DataException {
+		String sql = "SELECT AT_trim_height FROM DatabaseInfo";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, minHeight, maxHeight)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return 0;
 
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
-			throw new DataException("Unable to find first trimmable AT state in repository", e);
+			throw new DataException("Unable to fetch AT state trim height from repository", e);
+		}
+	}
+
+	@Override
+	public void setAtTrimHeight(int trimHeight) throws DataException {
+		String updateSql = "UPDATE DatabaseInfo SET AT_trim_height = ?";
+
+		try {
+			this.repository.executeCheckedUpdate(updateSql, trimHeight);
+		} catch (SQLException e) {
+			repository.examineException(e);
+			throw new DataException("Unable to set AT state trim height in repository", e);
+		}
+	}
+
+	@Override
+	public void prepareForAtStateTrimming() throws DataException {
+		// Rebuild cache of latest, non-finished AT states that we can't trim
+		String dropSql = "DROP TABLE IF EXISTS LatestATStates";
+
+		try {
+			this.repository.executeCheckedUpdate(dropSql);
+		} catch (SQLException e) {
+			repository.examineException(e);
+			throw new DataException("Unable to drop temporary latest AT states cache from repository", e);
+		}
+
+		String createSql = "CREATE TEMPORARY TABLE LatestATStates "
+				+ "AS ("
+					+ "SELECT AT_address, height FROM ATs "
+					+ "CROSS JOIN LATERAL("
+						+ "SELECT height FROM ATStates "
+						+ "WHERE ATStates.AT_address = ATs.AT_address "
+						+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
+					+ ") "
+					+ "WHERE is_finished IS false"
+				+ ") "
+				+ "WITH DATA "
+				+ "ON COMMIT PRESERVE ROWS";
+
+		try {
+			this.repository.executeCheckedUpdate(createSql);
+		} catch (SQLException e) {
+			repository.examineException(e);
+			throw new DataException("Unable to recreate temporary latest AT states cache in repository", e);
 		}
 	}
 
@@ -425,6 +468,11 @@ public class HSQLDBATRepository implements ATRepository {
 		String sql = "UPDATE ATStates SET state_data = NULL "
 				+ "WHERE state_data IS NOT NULL "
 				+ "AND height BETWEEN ? AND ? "
+				+ "AND NOT EXISTS("
+					+ "SELECT TRUE FROM LatestATStates "
+					+ "WHERE LatestATStates.AT_address = ATStates.AT_address "
+					+ "AND LatestATStates.height = ATStates.height"
+				+ ") "
 				+ "LIMIT ?";
 
 		try {

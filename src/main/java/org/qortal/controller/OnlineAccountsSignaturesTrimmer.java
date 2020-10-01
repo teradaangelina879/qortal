@@ -13,17 +13,16 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 
 	private static final Logger LOGGER = LogManager.getLogger(OnlineAccountsSignaturesTrimmer.class);
 
-	private static final long INITIAL_SLEEP_PERIOD = 5 * 60 * 1000L; // ms
+	private static final long INITIAL_SLEEP_PERIOD = 5 * 60 * 1000L + 1234L; // ms
 
-	private enum TrimMode { SEARCHING, TRIMMING }
 	private static final long TRIM_INTERVAL = 2 * 1000L; // ms
-	private static final int TRIM_SEARCH_SIZE = 5000; // blocks
-	private static final int TRIM_BATCH_SIZE = 500; // blocks
 
-	private TrimMode trimMode = TrimMode.SEARCHING;
-	private int trimStartHeight = 0;
+	// This has a significant effect on execution time
+	private static final int TRIM_BATCH_SIZE = 200; // blocks
 
 	public void run() {
+		Thread.currentThread().setName("Online Accounts trimmer");
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Don't even start trimming until initial rush has ended
 			Thread.sleep(INITIAL_SLEEP_PERIOD);
@@ -41,39 +40,29 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 				long upperTrimmableTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
 				int upperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(upperTrimmableTimestamp);
 
-				if (trimMode == TrimMode.SEARCHING) {
-					int trimEndHeight = Math.min(trimStartHeight + TRIM_SEARCH_SIZE, upperTrimmableHeight);
+				int trimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
 
-					LOGGER.debug(() -> String.format("Searching for trimmable online accounts signatures between blocks %d and %d", trimStartHeight, trimEndHeight));
-					int foundStartHeight = repository.getBlockRepository().findFirstTrimmableOnlineAccountsSignatureHeight(trimStartHeight, trimEndHeight);
+				int upperBatchHeight = trimStartHeight + TRIM_BATCH_SIZE;
+				int upperTrimHeight = Math.min(upperBatchHeight, upperTrimmableHeight);
 
-					if (foundStartHeight == 0) {
-						// No trimmable online accounts signatures found
-						trimStartHeight = trimEndHeight;
-					} else {
-						trimStartHeight = foundStartHeight;
-						trimMode = TrimMode.TRIMMING;
-						LOGGER.debug(() -> String.format("Found first trimmable online accounts signatures at block height %d", trimStartHeight));
-					}
-
-					// The above search will probably take enough time by itself so wait until next round 
-					continue;
-				}
-
-				int upperBatchHeight = Math.min(trimStartHeight + TRIM_BATCH_SIZE, upperTrimmableHeight);
-
-				if (trimStartHeight >= upperBatchHeight)
+				if (trimStartHeight >= upperTrimHeight)
 					continue;
 
-				int numSigsTrimmed = repository.getBlockRepository().trimOldOnlineAccountsSignatures(trimStartHeight, upperBatchHeight);
+				int numSigsTrimmed = repository.getBlockRepository().trimOldOnlineAccountsSignatures(trimStartHeight, upperTrimHeight);
 				repository.saveChanges();
 
 				if (numSigsTrimmed > 0) {
 					LOGGER.debug(() -> String.format("Trimmed %d online accounts signature%s between blocks %d and %d",
 							numSigsTrimmed, (numSigsTrimmed != 1 ? "s" : ""),
-							trimStartHeight, upperBatchHeight));
+							trimStartHeight, upperTrimHeight));
 				} else {
-					trimStartHeight = upperBatchHeight;
+					// Can we move onto next batch?
+					if (upperTrimmableHeight > upperBatchHeight) {
+						repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(upperBatchHeight);
+						repository.saveChanges();
+
+						LOGGER.debug(() -> String.format("Bumping online accounts signatures trim height to %d", upperBatchHeight));
+					}
 				}
 			}
 		} catch (DataException e) {

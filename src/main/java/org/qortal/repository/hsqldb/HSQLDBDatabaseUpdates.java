@@ -665,6 +665,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX ATStateHeightIndex on ATStates (height)");
 					break;
 
+				case 26:
+					// Support for trimming
+					stmt.execute("ALTER TABLE DatabaseInfo ADD AT_trim_height INT NOT NULL DEFAULT 0");
+					stmt.execute("ALTER TABLE DatabaseInfo ADD online_signatures_trim_height INT NOT NULL DEFAULT 0");
+					break;
+
 				default:
 					// nothing to do
 					return false;

@@ -13,18 +13,22 @@ public class AtStatesTrimmer implements Runnable {
 
 	private static final Logger LOGGER = LogManager.getLogger(AtStatesTrimmer.class);
 
-	private enum TrimMode { SEARCHING, TRIMMING }
 	private static final long TRIM_INTERVAL = 2 * 1000L; // ms
-	private static final int TRIM_SEARCH_SIZE = 2000; // blocks
-	private static final int TRIM_BATCH_SIZE = 200; // blocks
-	private static final int TRIM_LIMIT = 4000; // rows
 
-	private TrimMode trimMode = TrimMode.SEARCHING;
-	private int trimStartHeight = 0;
+	// This has a significant effect on execution time
+	private static final int TRIM_BATCH_SIZE = 200; // blocks
+
+	// Not so significant effect on execution time
+	private static final int TRIM_LIMIT = 4000; // rows
 
 	@Override
 	public void run() {
+		Thread.currentThread().setName("AT States trimmer");
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			repository.getATRepository().prepareForAtStateTrimming();
+			repository.saveChanges();
+
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 
@@ -41,39 +45,30 @@ public class AtStatesTrimmer implements Runnable {
 				long upperTrimmableTimestamp = Math.min(currentTrimmableTimestamp, chainTrimmableTimestamp);
 				int upperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(upperTrimmableTimestamp);
 
-				if (trimMode == TrimMode.SEARCHING) {
-					int trimEndHeight = Math.min(trimStartHeight + TRIM_SEARCH_SIZE, upperTrimmableHeight);
+				int trimStartHeight = repository.getATRepository().getAtTrimHeight();
 
-					LOGGER.debug(() -> String.format("Searching for trimmable AT states between blocks %d and %d", trimStartHeight, trimEndHeight));
-					int foundStartHeight = repository.getATRepository().findFirstTrimmableStateHeight(trimStartHeight, trimEndHeight);
+				int upperBatchHeight = trimStartHeight + TRIM_BATCH_SIZE;
+				int upperTrimHeight = Math.min(upperBatchHeight, upperTrimmableHeight);
 
-					if (foundStartHeight == 0) {
-						// No trimmable AT states found
-						trimStartHeight = trimEndHeight;
-					} else {
-						trimStartHeight = foundStartHeight;
-						trimMode = TrimMode.TRIMMING;
-						LOGGER.debug(() -> String.format("Found first trimmable AT state at block height %d", trimStartHeight));
-					}
-
-					// The above search will probably take enough time by itself so wait until next round 
-					continue;
-				}
-
-				int upperBatchHeight = Math.min(trimStartHeight + TRIM_BATCH_SIZE, upperTrimmableHeight);
-
-				if (trimStartHeight >= upperBatchHeight)
+				if (trimStartHeight >= upperTrimHeight)
 					continue;
 
-				int numAtStatesTrimmed = repository.getATRepository().trimAtStates(trimStartHeight, upperBatchHeight, TRIM_LIMIT);
+				int numAtStatesTrimmed = repository.getATRepository().trimAtStates(trimStartHeight, upperTrimHeight, TRIM_LIMIT);
 				repository.saveChanges();
 
 				if (numAtStatesTrimmed > 0) {
 					LOGGER.debug(() -> String.format("Trimmed %d AT state%s between blocks %d and %d",
 							numAtStatesTrimmed, (numAtStatesTrimmed != 1 ? "s" : ""),
-							trimStartHeight, upperBatchHeight));
+							trimStartHeight, upperTrimHeight));
 				} else {
-					trimStartHeight = upperBatchHeight;
+					// Can we move onto next batch?
+					if (upperTrimmableHeight > upperBatchHeight) {
+						repository.getATRepository().setAtTrimHeight(upperBatchHeight);
+						repository.getATRepository().prepareForAtStateTrimming();
+						repository.saveChanges();
+
+						LOGGER.debug(() -> String.format("Bumping AT state trim height to %d", upperBatchHeight));
+					}
 				}
 			}
 		} catch (DataException e) {

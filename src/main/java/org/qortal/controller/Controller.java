@@ -22,6 +22,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -415,8 +416,9 @@ public class Controller extends Thread {
 
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
 
-		Executors.newSingleThreadExecutor(new DaemonThreadFactory("AT states trimmer")).execute(new AtStatesTrimmer());
-		Executors.newSingleThreadExecutor(new DaemonThreadFactory("Online sigs trimmer")).execute(new OnlineAccountsSignaturesTrimmer());
+		ExecutorService trimExecutor = Executors.newCachedThreadPool(new DaemonThreadFactory());
+		trimExecutor.execute(new AtStatesTrimmer());
+		trimExecutor.execute(new OnlineAccountsSignaturesTrimmer());
 
 		try {
 			while (!isStopping) {
@@ -490,7 +492,17 @@ public class Controller extends Thread {
 				}
 			}
 		} catch (InterruptedException e) {
+			// Clear interrupted flag so we can shutdown trim threads
+			Thread.interrupted();
 			// Fall-through to exit
+		} finally {
+			trimExecutor.shutdownNow();
+
+			try {
+				trimExecutor.awaitTermination(2L, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+				// We tried...
+			}
 		}
 	}
 
