@@ -53,12 +53,26 @@ public class HSQLDBRepository implements Repository {
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
 
 	protected Connection connection;
-	protected Deque<Savepoint> savepoints = new ArrayDeque<>(3);
+	protected final Deque<Savepoint> savepoints = new ArrayDeque<>(3);
 	protected boolean debugState = false;
 	protected Long slowQueryThreshold = null;
 	protected List<String> sqlStatements;
 	protected long sessionId;
-	protected Map<String, PreparedStatement> preparedStatementCache = new HashMap<>();
+	protected final Map<String, PreparedStatement> preparedStatementCache = new HashMap<>();
+
+	private final ATRepository atRepository = new HSQLDBATRepository(this);
+	private final AccountRepository accountRepository = new HSQLDBAccountRepository(this);
+	private final ArbitraryRepository arbitraryRepository = new HSQLDBArbitraryRepository(this);
+	private final AssetRepository assetRepository = new HSQLDBAssetRepository(this);
+	private final BlockRepository blockRepository = new HSQLDBBlockRepository(this);
+	private final ChatRepository chatRepository = new HSQLDBChatRepository(this);
+	private final CrossChainRepository crossChainRepository = new HSQLDBCrossChainRepository(this);
+	private final GroupRepository groupRepository = new HSQLDBGroupRepository(this);
+	private final MessageRepository messageRepository = new HSQLDBMessageRepository(this);
+	private final NameRepository nameRepository = new HSQLDBNameRepository(this);
+	private final NetworkRepository networkRepository = new HSQLDBNetworkRepository(this);
+	private final TransactionRepository transactionRepository = new HSQLDBTransactionRepository(this);
+	private final VotingRepository votingRepository = new HSQLDBVotingRepository(this);
 
 	// Constructors
 
@@ -92,67 +106,67 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public ATRepository getATRepository() {
-		return new HSQLDBATRepository(this);
+		return this.atRepository;
 	}
 
 	@Override
 	public AccountRepository getAccountRepository() {
-		return new HSQLDBAccountRepository(this);
+		return this.accountRepository;
 	}
 
 	@Override
 	public ArbitraryRepository getArbitraryRepository() {
-		return new HSQLDBArbitraryRepository(this);
+		return this.arbitraryRepository;
 	}
 
 	@Override
 	public AssetRepository getAssetRepository() {
-		return new HSQLDBAssetRepository(this);
+		return this.assetRepository;
 	}
 
 	@Override
 	public BlockRepository getBlockRepository() {
-		return new HSQLDBBlockRepository(this);
+		return this.blockRepository;
 	}
 
 	@Override
 	public ChatRepository getChatRepository() {
-		return new HSQLDBChatRepository(this);
+		return this.chatRepository;
 	}
 
 	@Override
 	public CrossChainRepository getCrossChainRepository() {
-		return new HSQLDBCrossChainRepository(this);
+		return this.crossChainRepository;
 	}
 
 	@Override
 	public GroupRepository getGroupRepository() {
-		return new HSQLDBGroupRepository(this);
+		return this.groupRepository;
 	}
 
 	@Override
 	public MessageRepository getMessageRepository() {
-		return new HSQLDBMessageRepository(this);
+		return this.messageRepository;
 	}
 
 	@Override
 	public NameRepository getNameRepository() {
-		return new HSQLDBNameRepository(this);
+		return this.nameRepository;
 	}
 
 	@Override
 	public NetworkRepository getNetworkRepository() {
-		return new HSQLDBNetworkRepository(this);
+		return this.networkRepository;
 	}
 
 	@Override
 	public TransactionRepository getTransactionRepository() {
-		return new HSQLDBTransactionRepository(this);
+		return this.transactionRepository;
 	}
 
 	@Override
 	public VotingRepository getVotingRepository() {
-		return new HSQLDBVotingRepository(this);
+		return this.votingRepository;
 	}
 
 	@Override
