@@ -7,6 +7,7 @@ import org.qortal.data.block.BlockData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.utils.NTP;
 
 public class OnlineAccountsSignaturesTrimmer implements Runnable {
@@ -14,11 +15,6 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 	private static final Logger LOGGER = LogManager.getLogger(OnlineAccountsSignaturesTrimmer.class);
 
 	private static final long INITIAL_SLEEP_PERIOD = 5 * 60 * 1000L + 1234L; // ms
-
-	private static final long TRIM_INTERVAL = 2 * 1000L; // ms
-
-	// This has a significant effect on execution time
-	private static final int TRIM_BATCH_SIZE = 200; // blocks
 
 	public void run() {
 		Thread.currentThread().setName("Online Accounts trimmer");
@@ -30,7 +26,7 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 
-				Thread.sleep(TRIM_INTERVAL);
+				Thread.sleep(Settings.getInstance().getOnlineSignaturesTrimInterval());
 
 				BlockData chainTip = Controller.getInstance().getChainTip();
 				if (chainTip == null || NTP.getTime() == null)
@@ -42,7 +38,7 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 
 				int trimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
 
-				int upperBatchHeight = trimStartHeight + TRIM_BATCH_SIZE;
+				int upperBatchHeight = trimStartHeight + Settings.getInstance().getOnlineSignaturesTrimBatchSize();
 				int upperTrimHeight = Math.min(upperBatchHeight, upperTrimmableHeight);
 
 				if (trimStartHeight >= upperTrimHeight)

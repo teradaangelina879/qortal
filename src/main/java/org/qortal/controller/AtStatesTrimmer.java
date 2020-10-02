@@ -13,14 +13,6 @@ public class AtStatesTrimmer implements Runnable {
 
 	private static final Logger LOGGER = LogManager.getLogger(AtStatesTrimmer.class);
 
-	private static final long TRIM_INTERVAL = 2 * 1000L; // ms
-
-	// This has a significant effect on execution time
-	private static final int TRIM_BATCH_SIZE = 200; // blocks
-
-	// Not so significant effect on execution time
-	private static final int TRIM_LIMIT = 4000; // rows
-
 	@Override
 	public void run() {
 		Thread.currentThread().setName("AT States trimmer");
@@ -32,7 +24,7 @@ public class AtStatesTrimmer implements Runnable {
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 
-				Thread.sleep(TRIM_INTERVAL);
+				Thread.sleep(Settings.getInstance().getAtStatesTrimInterval());
 
 				BlockData chainTip = Controller.getInstance().getChainTip();
 				if (chainTip == null || NTP.getTime() == null)
@@ -47,13 +39,13 @@ public class AtStatesTrimmer implements Runnable {
 
 				int trimStartHeight = repository.getATRepository().getAtTrimHeight();
 
-				int upperBatchHeight = trimStartHeight + TRIM_BATCH_SIZE;
+				int upperBatchHeight = trimStartHeight + Settings.getInstance().getAtStatesTrimBatchSize();
 				int upperTrimHeight = Math.min(upperBatchHeight, upperTrimmableHeight);
 
 				if (trimStartHeight >= upperTrimHeight)
 					continue;
 
-				int numAtStatesTrimmed = repository.getATRepository().trimAtStates(trimStartHeight, upperTrimHeight, TRIM_LIMIT);
+				int numAtStatesTrimmed = repository.getATRepository().trimAtStates(trimStartHeight, upperTrimHeight, Settings.getInstance().getAtStatesTrimLimit());
 				repository.saveChanges();
 
 				if (numAtStatesTrimmed > 0) {

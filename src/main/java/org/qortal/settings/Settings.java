@@ -83,8 +83,22 @@ public class Settings {
 	private long repositoryBackupInterval = 0; // ms
 	/** Whether to show a notification when we backup repository. */
 	private boolean showBackupNotification = false;
+
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
+	/** How often to attempt AT state trimming (ms). */
+	private long atStatesTrimInterval = 5678L; // milliseconds
+	/** Block height range to scan for trimmable AT states.<br>
+	 * This has a significant effect on execution time. */
+	private int atStatesTrimBatchSize = 100; // blocks
+	/** Max number of AT states to trim in one go. */
+	private int atStatesTrimLimit = 4000; // records
+
+	/** How often to attempt online accounts signatures trimming (ms). */
+	private long onlineSignaturesTrimInterval = 9876L; // milliseconds
+	/** Block height range to scan for trimmable online accounts signatures.<br>
+	 * This has a significant effect on execution time. */
+	private int onlineSignaturesTrimBatchSize = 100; // blocks
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
@@ -418,6 +432,26 @@ public class Settings {
 
 	public long getAtStatesMaxLifetime() {
 		return this.atStatesMaxLifetime;
+	}
+
+	public long getAtStatesTrimInterval() {
+		return this.atStatesTrimInterval;
+	}
+
+	public int getAtStatesTrimBatchSize() {
+		return this.atStatesTrimBatchSize;
+	}
+
+	public int getAtStatesTrimLimit() {
+		return this.atStatesTrimLimit;
+	}
+
+	public long getOnlineSignaturesTrimInterval() {
+		return this.onlineSignaturesTrimInterval;
+	}
+
+	public int getOnlineSignaturesTrimBatchSize() {
+		return this.onlineSignaturesTrimBatchSize;
 	}
 
 }
