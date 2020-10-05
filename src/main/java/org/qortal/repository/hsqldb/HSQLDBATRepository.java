@@ -445,7 +445,6 @@ public class HSQLDBATRepository implements ATRepository {
 						+ "WHERE ATStates.AT_address = ATs.AT_address "
 						+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
 					+ ") "
-					+ "WHERE is_finished IS false"
 				+ ") "
 				+ "WITH DATA "
 				+ "ON COMMIT PRESERVE ROWS";
