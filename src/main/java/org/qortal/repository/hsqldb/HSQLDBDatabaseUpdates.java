@@ -671,6 +671,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE DatabaseInfo ADD online_signatures_trim_height INT NOT NULL DEFAULT 0");
 					break;
 
+				case 27:
+					// More indexes
+					stmt.execute("CREATE INDEX IF NOT EXISTS PaymentTransactionsRecipientIndex ON PaymentTransactions (recipient)");
+					stmt.execute("CREATE INDEX IF NOT EXISTS ATTransactionsRecipientIndex ON ATTransactions (recipient)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
