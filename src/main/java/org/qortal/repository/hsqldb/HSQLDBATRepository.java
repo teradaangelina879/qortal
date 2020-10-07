@@ -147,7 +147,7 @@ public class HSQLDBATRepository implements ATRepository {
 		bindParams.add(codeHash);
 
 		if (isExecutable != null) {
-			sql.append("AND is_finished = ? ");
+			sql.append("AND is_finished != ? ");
 			bindParams.add(isExecutable);
 		}
 
