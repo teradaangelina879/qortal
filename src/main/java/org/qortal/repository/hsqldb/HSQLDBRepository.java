@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -208,7 +209,7 @@ public class HSQLDBRepository implements Repository {
 			this.savepoints.clear();
 
 			// Before clearing statements so we can log what led to assertion error
-			assertEmptyTransaction("transaction commit");
+			assertEmptyTransaction("transaction rollback");
 
 			if (this.sqlStatements != null)
 				this.sqlStatements.clear();
@@ -298,11 +299,12 @@ public class HSQLDBRepository implements Repository {
 				Path oldRepoDirPath = Paths.get(dbPathname).getParent();
 
 				// Delete old repository files
-				Files.walk(oldRepoDirPath)
-						.sorted(Comparator.reverseOrder())
+				try (Stream<Path> paths = Files.walk(oldRepoDirPath)) {
+					paths.sorted(Comparator.reverseOrder())
 						.map(Path::toFile)
 						.filter(file -> file.getPath().startsWith(dbPathname))
 						.forEach(File::delete);
+				}
 			}
 		} catch (NoSuchFileException e) {
 			// Nothing to remove
@@ -342,11 +344,12 @@ public class HSQLDBRepository implements Repository {
 			Path backupDirPath = Paths.get(backupPathname).getParent();
 			String backupDirPathname = backupDirPath.toString();
 
-			Files.walk(backupDirPath)
-					.sorted(Comparator.reverseOrder())
+			try (Stream<Path> paths = Files.walk(backupDirPath)) {
+				paths.sorted(Comparator.reverseOrder())
 					.map(Path::toFile)
 					.filter(file -> file.getPath().startsWith(backupDirPathname))
 					.forEach(File::delete);
+			}
 		} catch (NoSuchFileException e) {
 			// Nothing to remove
 		} catch (SQLException | IOException e) {
@@ -411,11 +414,12 @@ public class HSQLDBRepository implements Repository {
 			LOGGER.info("Attempting repository recovery using backup");
 
 			// Move old repository files out the way
-			Files.walk(oldRepoDirPath)
-					.sorted(Comparator.reverseOrder())
+			try (Stream<Path> paths = Files.walk(oldRepoDirPath)) {
+				paths.sorted(Comparator.reverseOrder())
 					.map(Path::toFile)
 					.filter(file -> file.getPath().startsWith(dbPathname))
 					.forEach(File::delete);
+			}
 
 			try (Statement stmt = connection.createStatement()) {
 				// Now "backup" the backup back to original repository location (the parent).
@@ -455,6 +459,10 @@ public class HSQLDBRepository implements Repository {
 		if (this.sqlStatements != null)
 			this.sqlStatements.add(sql);
 
+		return cachePreparedStatement(sql);
+	}
+
+	private PreparedStatement cachePreparedStatement(String sql) throws SQLException {
 		/*
 		 * We cache a duplicate PreparedStatement for this SQL string,
 		 * which we never close, which means HSQLDB also caches a parsed,
@@ -799,7 +807,7 @@ public class HSQLDBRepository implements Repository {
 
 	/** Logs other HSQLDB sessions then returns passed exception */
 	public SQLException examineException(SQLException e) {
-		LOGGER.error(String.format("HSQLDB error (session %d): %s", this.sessionId, e.getMessage()), e);
+		LOGGER.error(() -> String.format("HSQLDB error (session %d): %s", this.sessionId, e.getMessage()), e);
 
 		logStatements();
 
@@ -833,14 +841,19 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	private void assertEmptyTransaction(String context) throws DataException {
-		try (Statement stmt = this.connection.createStatement()) {
+		String sql = "SELECT transaction, transaction_size FROM information_schema.system_sessions WHERE session_id = ?";
+
+		try {
+			PreparedStatement stmt = this.cachePreparedStatement(sql);
+			stmt.setLong(1, this.sessionId);
+
 			// Diagnostic check for uncommitted changes
-			if (!stmt.execute("SELECT transaction, transaction_size FROM information_schema.system_sessions WHERE session_id = " + this.sessionId)) // TRANSACTION_SIZE() broken?
+			if (!stmt.execute()) // TRANSACTION_SIZE() broken?
 				throw new DataException("Unable to check repository status after " + context);
 
 			try (ResultSet resultSet = stmt.getResultSet()) {
 				if (resultSet == null || !resultSet.next()) {
-					LOGGER.warn(String.format("Unable to check repository status after %s", context));
+					LOGGER.warn(() -> String.format("Unable to check repository status after %s", context));
 					return;
 				}
 
@@ -848,7 +861,11 @@ public class HSQLDBRepository implements Repository {
 				int transactionCount = resultSet.getInt(2);
 
 				if (inTransaction && transactionCount != 0) {
-					LOGGER.warn(String.format("Uncommitted changes (%d) after %s, session [%d]", transactionCount, context, this.sessionId), new Exception("Uncommitted repository changes"));
+					LOGGER.warn(() -> String.format("Uncommitted changes (%d) after %s, session [%d]",
+							transactionCount,
+							context,
+							this.sessionId),
+							new Exception("Uncommitted repository changes"));
 					logStatements();
 				}
 			}
