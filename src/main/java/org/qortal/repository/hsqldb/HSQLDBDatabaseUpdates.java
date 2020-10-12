@@ -677,6 +677,14 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX IF NOT EXISTS ATTransactionsRecipientIndex ON ATTransactions (recipient)");
 					break;
 
+				case 28:
+					// Latest AT state cache
+					stmt.execute("CREATE TEMPORARY TABLE IF NOT EXISTS LatestATStates ("
+								+ "AT_address QortalAddress NOT NULL, "
+								+ "height INT NOT NULL"
+							+ ")");
+					break;
+
 				default:
 					// nothing to do
 					return false;

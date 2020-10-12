@@ -428,32 +428,27 @@ public class HSQLDBATRepository implements ATRepository {
 	@Override
 	public void prepareForAtStateTrimming() throws DataException {
 		// Rebuild cache of latest, non-finished AT states that we can't trim
-		String dropSql = "DROP TABLE IF EXISTS LatestATStates";
-
+		String deleteSql = "DELETE FROM LatestATStates";
 		try {
-			this.repository.executeCheckedUpdate(dropSql);
+			this.repository.executeCheckedUpdate(deleteSql);
 		} catch (SQLException e) {
 			repository.examineException(e);
-			throw new DataException("Unable to drop temporary latest AT states cache from repository", e);
+			throw new DataException("Unable to delete temporary latest AT states cache from repository", e);
 		}
 
-		String createSql = "CREATE TEMPORARY TABLE LatestATStates "
-				+ "AS ("
-					+ "SELECT AT_address, height FROM ATs "
-					+ "CROSS JOIN LATERAL("
-						+ "SELECT height FROM ATStates "
-						+ "WHERE ATStates.AT_address = ATs.AT_address "
-						+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
-					+ ") "
+		String insertSql = "INSERT INTO LatestATStates ("
+				+ "SELECT AT_address, height FROM ATs "
+				+ "CROSS JOIN LATERAL("
+					+ "SELECT height FROM ATStates "
+					+ "WHERE ATStates.AT_address = ATs.AT_address "
+					+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
 				+ ") "
-				+ "WITH DATA "
-				+ "ON COMMIT PRESERVE ROWS";
-
+			+ ")";
 		try {
-			this.repository.executeCheckedUpdate(createSql);
+			this.repository.executeCheckedUpdate(insertSql);
 		} catch (SQLException e) {
 			repository.examineException(e);
-			throw new DataException("Unable to recreate temporary latest AT states cache in repository", e);
+			throw new DataException("Unable to populate temporary latest AT states cache in repository", e);
 		}
 	}
 
