@@ -30,6 +30,10 @@ public class AtStatesTrimmer implements Runnable {
 				if (chainTip == null || NTP.getTime() == null)
 					continue;
 
+				// Don't even attempt if we're mid-sync as our repository requests will be delayed for ages
+				if (Controller.getInstance().isSynchronizing())
+					continue;
+
 				long currentTrimmableTimestamp = NTP.getTime() - Settings.getInstance().getAtStatesMaxLifetime();
 				// We want to keep AT states near the tip of our copy of blockchain so we can process/orphan nearby blocks
 				long chainTrimmableTimestamp = chainTip.getTimestamp() - Settings.getInstance().getAtStatesMaxLifetime();

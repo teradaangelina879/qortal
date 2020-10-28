@@ -32,6 +32,10 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 				if (chainTip == null || NTP.getTime() == null)
 					continue;
 
+				// Don't even attempt if we're mid-sync as our repository requests will be delayed for ages
+				if (Controller.getInstance().isSynchronizing())
+					continue;
+
 				// Trim blockchain by removing 'old' online accounts signatures
 				long upperTrimmableTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
 				int upperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(upperTrimmableTimestamp);
