@@ -656,9 +656,6 @@ public class Controller extends Thread {
 				// Reset our cache of inferior chains
 				inferiorChainSignatures.clear();
 
-				// Update chain-tip, systray, notify peers, websockets, etc.
-				this.onNewBlock(newChainTip);
-
 				Network network = Network.getInstance();
 				network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newChainTip));
 			}
