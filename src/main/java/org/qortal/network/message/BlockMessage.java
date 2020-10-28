@@ -34,6 +34,7 @@ public class BlockMessage extends Message {
 		super(MessageType.BLOCK);
 
 		this.block = block;
+		this.blockData = block.getBlockData();
 		this.height = block.getBlockData().getHeight();
 	}
 

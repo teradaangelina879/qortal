@@ -568,7 +568,7 @@ public class BlockChain {
 					orphanBlockData = repository.getBlockRepository().fromHeight(height);
 
 					repository.discardChanges(); // clear transaction status to prevent deadlocks
-					Controller.getInstance().onNewBlock(orphanBlockData);
+					Controller.getInstance().onOrphanedBlock(orphanBlockData);
 				}
 
 				return true;
