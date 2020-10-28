@@ -175,7 +175,7 @@ public class Synchronizer {
 	 * @throws DataException
 	 * @throws InterruptedException
 	 */
-	private SynchronizationResult fetchSummariesFromCommonBlock(Repository repository, Peer peer, int ourHeight, boolean force, List<BlockSummaryData> blockSummariesFromCommon) throws DataException, InterruptedException {
+	public SynchronizationResult fetchSummariesFromCommonBlock(Repository repository, Peer peer, int ourHeight, boolean force, List<BlockSummaryData> blockSummariesFromCommon) throws DataException, InterruptedException {
 		// Start by asking for a few recent block hashes as this will cover a majority of reorgs
 		// Failing that, back off exponentially
 		int step = INITIAL_BLOCK_STEP;
@@ -320,11 +320,12 @@ public class Synchronizer {
 			BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries);
 			BigInteger peerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, peerBlockSummaries);
 
+			NumberFormat formatter = new DecimalFormat("0.###E0");
+			LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", formatter.format(ourChainWeight), formatter.format(peerChainWeight)));
+
 			// If our blockchain has greater weight then don't synchronize with peer
 			if (ourChainWeight.compareTo(peerChainWeight) >= 0) {
 				LOGGER.debug(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
-				NumberFormat formatter = new DecimalFormat("0.###E0");
-				LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", formatter.format(ourChainWeight), formatter.format(peerChainWeight)));
 				return SynchronizationResult.INFERIOR_CHAIN;
 			}
 		}
