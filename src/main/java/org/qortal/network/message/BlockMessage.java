@@ -94,4 +94,10 @@ public class BlockMessage extends Message {
 		}
 	}
 
+	public BlockMessage cloneWithNewId(int newId) {
+		BlockMessage clone = new BlockMessage(this.block);
+		clone.setId(newId);
+		return clone;
+	}
+
 }

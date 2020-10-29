@@ -182,6 +182,8 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public ActivitySummary summary() {
+		Security.checkApiCallAllowed(request);
+
 		ActivitySummary summary = new ActivitySummary();
 
 		LocalDate date = LocalDate.now();
@@ -193,21 +195,41 @@ public class AdminResource {
 			int startHeight = repository.getBlockRepository().getHeightFromTimestamp(start);
 			int endHeight = repository.getBlockRepository().getBlockchainHeight();
 
-			summary.blockCount = endHeight - startHeight;
+			summary.setBlockCount(endHeight - startHeight);
 
-			summary.transactionCountByType = repository.getTransactionRepository().getTransactionSummary(startHeight + 1, endHeight);
+			summary.setTransactionCountByType(repository.getTransactionRepository().getTransactionSummary(startHeight + 1, endHeight));
 
-			for (Integer count : summary.transactionCountByType.values())
-				summary.transactionCount += count;
+			summary.setAssetsIssued(repository.getAssetRepository().getRecentAssetIds(start).size());
 
-			summary.assetsIssued = repository.getAssetRepository().getRecentAssetIds(start).size();
-
-			summary.namesRegistered = repository.getNameRepository().getRecentNames(start).size();
+			summary.setNamesRegistered (repository.getNameRepository().getRecentNames(start).size());
 
 			return summary;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
+	}
+
+	@GET
+	@Path("/enginestats")
+	@Operation(
+		summary = "Fetch statistics snapshot for core engine",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = Controller.StatsSnapshot.class
+						)
+					)
+				)
+			)
+		}
+	)
+	public Controller.StatsSnapshot getEngineStats() {
+		Security.checkApiCallAllowed(request);
+
+		return Controller.getInstance().getStatsSnapshot();
 	}
 
 	@GET
