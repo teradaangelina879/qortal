@@ -406,6 +406,8 @@ public class Synchronizer {
 			Block block = new Block(repository, orphanBlockData);
 			block.orphan();
 
+			LOGGER.trace(String.format("Orphaned block height %d, sig %.8s", ourHeight, Base58.encode(orphanBlockData.getSignature())));
+
 			repository.saveChanges();
 
 			--ourHeight;
@@ -432,6 +434,8 @@ public class Synchronizer {
 			}
 
 			newBlock.process();
+
+			LOGGER.trace(String.format("Processed block height %d, sig %.8s", newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getBlockData().getSignature())));
 
 			repository.saveChanges();
 
@@ -514,6 +518,8 @@ public class Synchronizer {
 			}
 
 			newBlock.process();
+
+			LOGGER.trace(String.format("Processed block height %d, sig %.8s", newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getBlockData().getSignature())));
 
 			repository.saveChanges();
 
