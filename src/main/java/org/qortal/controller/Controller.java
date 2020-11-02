@@ -926,7 +926,7 @@ public class Controller extends Thread {
 				this.latestBlocks.addLast(latestBlockData);
 
 				// Trim if necessary
-				if (latestBlockData.getHeight() - this.latestBlocks.peekFirst().getHeight() >= BLOCK_CACHE_SIZE)
+				if (this.latestBlocks.size() >= BLOCK_CACHE_SIZE)
 					this.latestBlocks.pollFirst();
 			} else {
 				if (cachedChainTip != null)
@@ -974,9 +974,13 @@ public class Controller extends Thread {
 
 		synchronized (this.latestBlocks) {
 			BlockData cachedChainTip = this.latestBlocks.pollLast();
+			boolean refillNeeded = false;
 
 			if (cachedChainTip != null && Arrays.equals(cachedChainTip.getReference(), blockDataCopy.getSignature())) {
 				// Chain tip was parent for new latest block that has been orphaned, so we're good
+
+				// However, if we've emptied the cache then we will need to refill it
+				refillNeeded = this.latestBlocks.isEmpty();
 			} else {
 				if (cachedChainTip != null)
 					// Chain tip didn't match - potentially abnormal behaviour?
@@ -986,6 +990,10 @@ public class Controller extends Thread {
 							Base58.encode(blockDataCopy.getSignature())));
 
 				// Defensively rebuild cache
+				refillNeeded = true;
+			}
+
+			if (refillNeeded)
 				try {
 					this.stats.latestBlocksCacheRefills.incrementAndGet();
 
@@ -993,7 +1001,6 @@ public class Controller extends Thread {
 				} catch (DataException e) {
 					LOGGER.warn(() -> "Couldn't refill latest blocks cache?", e);
 				}
-			}
 		}
 
 		this.onNewOrOrphanedBlock(blockDataCopy, OrphanedBlockEvent::new);
