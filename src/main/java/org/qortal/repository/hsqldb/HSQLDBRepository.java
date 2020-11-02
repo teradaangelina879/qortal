@@ -184,8 +184,20 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void saveChanges() throws DataException {
+		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
+
 		try {
 			this.connection.commit();
+
+			if (this.slowQueryThreshold != null) {
+				long queryTime = System.currentTimeMillis() - beforeQuery;
+
+				if (queryTime > this.slowQueryThreshold) {
+					LOGGER.info(() -> String.format("[Session %d] HSQLDB COMMIT took %d ms", this.sessionId, queryTime), new SQLException("slow commit"));
+
+					logStatements();
+				}
+			}
 		} catch (SQLException e) {
 			throw new DataException("commit error", e);
 		} finally {
@@ -512,7 +524,7 @@ public class HSQLDBRepository implements Repository {
 			long queryTime = System.currentTimeMillis() - beforeQuery;
 
 			if (queryTime > this.slowQueryThreshold) {
-				LOGGER.info(() -> String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+				LOGGER.info(() -> String.format("[Session %d] HSQLDB query took %d ms: %s", this.sessionId, queryTime, sql), new SQLException("slow query"));
 
 				logStatements();
 			}
@@ -605,7 +617,7 @@ public class HSQLDBRepository implements Repository {
 			long queryTime = System.currentTimeMillis() - beforeQuery;
 
 			if (queryTime > this.slowQueryThreshold) {
-				LOGGER.info(() -> String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+				LOGGER.info(() -> String.format("[Session %d] HSQLDB query took %d ms: %s", this.sessionId, queryTime, sql), new SQLException("slow query"));
 
 				logStatements();
 			}
@@ -799,15 +811,15 @@ public class HSQLDBRepository implements Repository {
 		if (this.sqlStatements == null)
 			return;
 
-		LOGGER.info(() -> String.format("HSQLDB SQL statements (session %d) leading up to this were:", this.sessionId));
+		LOGGER.info(() -> String.format("[Session %d] HSQLDB SQL statements leading up to this were:", this.sessionId));
 
 		for (String sql : this.sqlStatements)
-			LOGGER.info(sql);
+			LOGGER.info(() -> String.format("[Session %d] %s", this.sessionId, sql));
 	}
 
 	/** Logs other HSQLDB sessions then returns passed exception */
 	public SQLException examineException(SQLException e) {
-		LOGGER.error(() -> String.format("HSQLDB error (session %d): %s", this.sessionId, e.getMessage()), e);
+		LOGGER.error(() -> String.format("[Session %d] HSQLDB error: %s", this.sessionId, e.getMessage()), e);
 
 		logStatements();
 
