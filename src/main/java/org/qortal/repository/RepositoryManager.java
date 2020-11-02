@@ -35,6 +35,14 @@ public abstract class RepositoryManager {
 		}
 	}
 
+	public static void checkpoint(boolean quick) {
+		try (final Repository repository = getRepository()) {
+			repository.checkpoint(quick);
+		} catch (DataException e) {
+			// Checkpoint is best-effort so don't complain
+		}
+	}
+
 	public static void rebuild() throws DataException {
 		RepositoryFactory oldRepositoryFactory = repositoryFactory;
 

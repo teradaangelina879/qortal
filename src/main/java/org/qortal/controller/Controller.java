@@ -156,6 +156,7 @@ public class Controller extends Thread {
 	};
 
 	private long repositoryBackupTimestamp = startTime; // ms
+	private long repositoryCheckpointTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
 
@@ -484,6 +485,7 @@ public class Controller extends Thread {
 		Thread.currentThread().setName("Controller");
 
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
+		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
 
 		ExecutorService trimExecutor = Executors.newCachedThreadPool(new DaemonThreadFactory());
 		trimExecutor.execute(new AtStatesTrimmer());
@@ -528,6 +530,18 @@ public class Controller extends Thread {
 				// Clean up arbitrary data request cache
 				final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
 				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
+
+				// Time to 'checkpoint' uncommitted repository writes?
+				if (now >= repositoryCheckpointTimestamp + repositoryCheckpointInterval) {
+					repositoryCheckpointTimestamp = now + repositoryCheckpointInterval;
+
+					if (Settings.getInstance().getShowCheckpointNotification())
+						SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_CHECKPOINT"),
+								Translator.INSTANCE.translate("SysTray", "PERFORMING_DB_CHECKPOINT"),
+								MessageType.INFO);
+
+					RepositoryManager.checkpoint(true);
+				}
 
 				// Give repository a chance to backup (if enabled)
 				if (repositoryBackupInterval > 0 && now >= repositoryBackupTimestamp + repositoryBackupInterval) {

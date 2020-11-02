@@ -685,6 +685,12 @@ public class HSQLDBDatabaseUpdates {
 							+ ")");
 					break;
 
+				case 29:
+					// Turn off HSQLDB redo-log "blockchain.log" and periodically call "CHECKPOINT" ourselves
+					stmt.execute("SET FILES LOG FALSE");
+					stmt.execute("CHECKPOINT");
+					break;
+
 				default:
 					// nothing to do
 					return false;

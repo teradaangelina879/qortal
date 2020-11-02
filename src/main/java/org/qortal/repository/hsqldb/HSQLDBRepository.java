@@ -377,6 +377,15 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
+	public void checkpoint(boolean quick) throws DataException {
+		try (Statement stmt = this.connection.createStatement()) {
+			stmt.execute(quick ? "CHECKPOINT" : "CHECKPOINT DEFRAG");
+		} catch (SQLException e) {
+			throw new DataException("Unable to perform repositor checkpoint");
+		}
+	}
+
+	@Override
 	public void performPeriodicMaintenance() throws DataException {
 		// Defrag DB - takes a while!
 		try (Statement stmt = this.connection.createStatement()) {

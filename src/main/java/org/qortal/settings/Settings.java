@@ -83,6 +83,10 @@ public class Settings {
 	private long repositoryBackupInterval = 0; // ms
 	/** Whether to show a notification when we backup repository. */
 	private boolean showBackupNotification = false;
+	/** How long between repository checkpoints (ms). */
+	private long repositoryCheckpointInterval = 60 * 60 * 1000L; // 1 hour (ms) default
+	/** Whether to show a notification when we perform repository 'checkpoint'. */
+	private boolean showCheckpointNotification = false;
 
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
@@ -428,6 +432,14 @@ public class Settings {
 
 	public boolean getShowBackupNotification() {
 		return this.showBackupNotification;
+	}
+
+	public long getRepositoryCheckpointInterval() {
+		return this.repositoryCheckpointInterval;
+	}
+
+	public boolean getShowCheckpointNotification() {
+		return this.showCheckpointNotification;
 	}
 
 	public long getAtStatesMaxLifetime() {
