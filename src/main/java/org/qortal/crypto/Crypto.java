@@ -1,5 +1,6 @@
 package org.qortal.crypto;
 
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -37,6 +38,27 @@ public abstract class Crypto {
 			// SHA2-256
 			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
 			return sha256.digest(input);
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("SHA-256 message digest not available");
+		}
+	}
+
+	/**
+	 * Returns 32-byte SHA-256 digest of message passed in input.
+	 * 
+	 * @param input
+	 *            variable-length byte[] message
+	 * @return byte[32] digest, or null if SHA-256 algorithm can't be accessed
+	 */
+	public static byte[] digest(ByteBuffer input) {
+		if (input == null)
+			return null;
+
+		try {
+			// SHA2-256
+			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+			sha256.update(input);
+			return sha256.digest();
 		} catch (NoSuchAlgorithmException e) {
 			throw new RuntimeException("SHA-256 message digest not available");
 		}
