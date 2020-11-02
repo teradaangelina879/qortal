@@ -313,12 +313,14 @@ public class Synchronizer {
 			List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository().getBlockSummaries(commonBlockHeight + 1, ourLatestBlockData.getHeight());
 
 			// Populate minter account levels for both lists of block summaries
-			populateBlockSummariesMinterLevels(repository, peerBlockSummaries);
 			populateBlockSummariesMinterLevels(repository, ourBlockSummaries);
+			populateBlockSummariesMinterLevels(repository, peerBlockSummaries);
+
+			final int mutualHeight = commonBlockHeight - 1 + Math.min(ourBlockSummaries.size(), peerBlockSummaries.size());
 
 			// Calculate cumulative chain weights of both blockchain subsets, from common block to highest mutual block.
-			BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries);
-			BigInteger peerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, peerBlockSummaries);
+			BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries, mutualHeight);
+			BigInteger peerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, peerBlockSummaries, mutualHeight);
 
 			NumberFormat formatter = new DecimalFormat("0.###E0");
 			LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", formatter.format(ourChainWeight), formatter.format(peerChainWeight)));
