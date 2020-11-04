@@ -426,7 +426,7 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	/** Returns DB pathname from passed connection URL. If memory DB, returns "mem". */
-	private static String getDbPathname(String connectionUrl) {
+	/*package*/ static String getDbPathname(String connectionUrl) {
 		Pattern pattern = Pattern.compile("hsqldb:(mem|file):(.*?)(;|$)");
 		Matcher matcher = pattern.matcher(connectionUrl);
 

@@ -660,9 +660,10 @@ public class HSQLDBDatabaseUpdates {
 					break;
 
 				case 25:
+					// DISABLED: improved version in case 30!
 					// Remove excess created_when from ATStates
-					stmt.execute("ALTER TABLE ATStates DROP created_when");
-					stmt.execute("CREATE INDEX ATStateHeightIndex on ATStates (height)");
+					// stmt.execute("ALTER TABLE ATStates DROP created_when");
+					// stmt.execute("CREATE INDEX ATStateHeightIndex on ATStates (height)");
 					break;
 
 				case 26:
@@ -688,6 +689,69 @@ public class HSQLDBDatabaseUpdates {
 				case 29:
 					// Turn off HSQLDB redo-log "blockchain.log" and periodically call "CHECKPOINT" ourselves
 					stmt.execute("SET FILES LOG FALSE");
+					stmt.execute("CHECKPOINT");
+					break;
+
+				case 30:
+					// Split AT state data off to new table for better performance/management.
+
+					if (!"mem".equals(HSQLDBRepository.getDbPathname(connection.getMetaData().getURL()))) {
+						// First, backup node-local data in case user wants to avoid long reshape and use bootstrap instead
+						stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
+						stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
+						LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
+						LOGGER.info("If following reshape takes too long, use bootstrap and import node-local data using API's POST /admin/repository");
+					}
+
+					// Create new AT-states table without full state data
+					stmt.execute("CREATE TABLE ATStatesNew ("
+							+ "AT_address QortalAddress, height INTEGER NOT NULL, state_hash ATStateHash NOT NULL, "
+							+ "fees QortalAmount NOT NULL, is_initial BOOLEAN NOT NULL, "
+							+ "PRIMARY KEY (AT_address, height), "
+							+ "FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
+					stmt.execute("SET TABLE ATStatesNew NEW SPACE");
+					stmt.execute("CHECKPOINT");
+
+					ResultSet resultSet = stmt.executeQuery("SELECT height FROM Blocks ORDER BY height DESC LIMIT 1");
+					final int blockchainHeight = resultSet.next() ? resultSet.getInt(1) : 0;
+					final int heightStep = 100;
+
+					LOGGER.info("Rebuilding AT state summaries in repository - this might take a while... (approx. 2 mins on high-spec)");
+					for (int minHeight = 1; minHeight < blockchainHeight; minHeight += heightStep) {
+						stmt.execute("INSERT INTO ATStatesNew ("
+								+ "SELECT AT_address, height, state_hash, fees, is_initial "
+								+ "FROM ATStates "
+								+ "WHERE height BETWEEN " + minHeight + " AND " + (minHeight + heightStep - 1)
+								+ ")");
+						stmt.execute("COMMIT");
+					}
+					stmt.execute("CHECKPOINT");
+
+					LOGGER.info("Rebuilding AT states height index in repository - this might take about 3x longer...");
+					stmt.execute("CREATE INDEX ATStatesHeightIndex ON ATStatesNew (height)");
+					stmt.execute("CHECKPOINT");
+
+					stmt.execute("CREATE TABLE ATStatesData ("
+							+ "AT_address QortalAddress, height INTEGER NOT NULL, state_data ATState NOT NULL, "
+							+ "PRIMARY KEY (height, AT_address), "
+							+ "FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
+					stmt.execute("SET TABLE ATStatesData NEW SPACE");
+					stmt.execute("CHECKPOINT");
+
+					LOGGER.info("Rebuilding AT state data in repository - this might take a while... (approx. 2 mins on high-spec)");
+					for (int minHeight = 1; minHeight < blockchainHeight; minHeight += heightStep) {
+						stmt.execute("INSERT INTO ATStatesData ("
+								+ "SELECT AT_address, height, state_data "
+								+ "FROM ATstates "
+								+ "WHERE state_data IS NOT NULL "
+								+ "AND height BETWEEN " + minHeight + " AND " + (minHeight + heightStep - 1)
+								+ ")");
+						stmt.execute("COMMIT");
+					}
+					stmt.execute("CHECKPOINT");
+
+					stmt.execute("DROP TABLE ATStates");
+					stmt.execute("ALTER TABLE ATStatesNew RENAME TO ATStates");
 					stmt.execute("CHECKPOINT");
 					break;
 
