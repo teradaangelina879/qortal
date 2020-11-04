@@ -415,13 +415,17 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public void setAtTrimHeight(int trimHeight) throws DataException {
-		String updateSql = "UPDATE DatabaseInfo SET AT_trim_height = ?";
+		// trimHeightsLock is to prevent concurrent update on DatabaseInfo
+		// that could result in "transaction rollback: serialization failure"
+		synchronized (this.repository.trimHeightsLock) {
+			String updateSql = "UPDATE DatabaseInfo SET AT_trim_height = ?";
 
-		try {
-			this.repository.executeCheckedUpdate(updateSql, trimHeight);
-		} catch (SQLException e) {
-			repository.examineException(e);
-			throw new DataException("Unable to set AT state trim height in repository", e);
+			try {
+				this.repository.executeCheckedUpdate(updateSql, trimHeight);
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to set AT state trim height in repository", e);
+			}
 		}
 	}
 

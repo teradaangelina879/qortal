@@ -477,13 +477,17 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public void setOnlineAccountsSignaturesTrimHeight(int trimHeight) throws DataException {
-		String updateSql = "UPDATE DatabaseInfo SET online_signatures_trim_height = ?";
+		// trimHeightsLock is to prevent concurrent update on DatabaseInfo
+		// that could result in "transaction rollback: serialization failure"
+		synchronized (this.repository.trimHeightsLock) {
+			String updateSql = "UPDATE DatabaseInfo SET online_signatures_trim_height = ?";
 
-		try {
-			this.repository.executeCheckedUpdate(updateSql, trimHeight);
-		} catch (SQLException e) {
-			repository.examineException(e);
-			throw new DataException("Unable to set online accounts signatures trim height in repository", e);
+			try {
+				this.repository.executeCheckedUpdate(updateSql, trimHeight);
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to set online accounts signatures trim height in repository", e);
+			}
 		}
 	}
 
