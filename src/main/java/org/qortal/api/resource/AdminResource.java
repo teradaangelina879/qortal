@@ -530,6 +530,87 @@ public class AdminResource {
 		}
 	}
 
+	@GET
+	@Path("/repository")
+	@Operation(
+		summary = "Export sensitive/node-local data from repository.",
+		description = "Exports data to .script files on local machine"
+	)
+	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String exportRepository() {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.exportNodeLocalData();
+				return "true";
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform export
+			return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/repository")
+	@Operation(
+		summary = "Import data into repository.",
+		description = "Imports data from file on local machine. Filename is forced to 'import.script' if apiKey is not set.",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string", example = "MintingAccounts.script"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String importRepository(String filename) {
+		Security.checkApiCallAllowed(request);
+
+		// Hard-coded because it's too dangerous to allow user-supplied filenames in weaker security contexts
+		if (Settings.getInstance().getApiKey() == null)
+			filename = "import.script";
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.importDataFromFile(filename);
+				repository.saveChanges();
+
+				return "true";
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform import
+			return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 	@DELETE
 	@Path("/repository")
 	@Operation(
