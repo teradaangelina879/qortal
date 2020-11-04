@@ -51,4 +51,8 @@ public interface Repository extends AutoCloseable {
 
 	public void performPeriodicMaintenance() throws DataException;
 
+	public void exportNodeLocalData() throws DataException;
+
+	public void importDataFromFile(String filename) throws DataException;
+
 }

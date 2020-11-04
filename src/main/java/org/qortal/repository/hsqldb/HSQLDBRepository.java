@@ -399,6 +399,32 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
+	@Override
+	public void exportNodeLocalData() throws DataException {
+		try (Statement stmt = this.connection.createStatement()) {
+			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA WITH COLUMN NAMES TO 'MintingAccounts.script'");
+			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA WITH COLUMN NAMES TO 'TradeBotStates.script'");
+			LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
+		} catch (SQLException e) {
+			throw new DataException("Unable to export sensitive/node-local data from repository");
+		}
+	}
+
+	@Override
+	public void importDataFromFile(String filename) throws DataException {
+		try (Statement stmt = this.connection.createStatement()) {
+			LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
+
+			String escapedFilename = stmt.enquoteLiteral(filename);
+			stmt.execute("PERFORM IMPORT SCRIPT DATA FROM " + escapedFilename + " STOP ON ERROR");
+
+			LOGGER.info(() -> String.format("Imported data into repository from %s", filename));
+		} catch (SQLException e) {
+			LOGGER.info(() -> String.format("Failed to import data into repository from %s: %s", filename, e.getMessage()));
+			throw new DataException("Unable to export sensitive/node-local data from repository: " + e.getMessage());
+		}
+	}
+
 	/** Returns DB pathname from passed connection URL. If memory DB, returns "mem". */
 	private static String getDbPathname(String connectionUrl) {
 		Pattern pattern = Pattern.compile("hsqldb:(mem|file):(.*?)(;|$)");
