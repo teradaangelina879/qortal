@@ -402,8 +402,8 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public void exportNodeLocalData() throws DataException {
 		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA WITH COLUMN NAMES TO 'MintingAccounts.script'");
-			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA WITH COLUMN NAMES TO 'TradeBotStates.script'");
+			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
+			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
 			LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
 		} catch (SQLException e) {
 			throw new DataException("Unable to export sensitive/node-local data from repository");
