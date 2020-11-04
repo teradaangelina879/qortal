@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.IOException;
@@ -133,6 +134,7 @@ public class AdminResource {
 			)
 		}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public NodeStatus status() {
 		Security.checkApiCallAllowed(request);
 
@@ -153,6 +155,7 @@ public class AdminResource {
 			)
 		}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String shutdown() {
 		Security.checkApiCallAllowed(request);
 
@@ -181,6 +184,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public ActivitySummary summary() {
 		Security.checkApiCallAllowed(request);
 
@@ -226,6 +230,7 @@ public class AdminResource {
 			)
 		}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public Controller.StatsSnapshot getEngineStats() {
 		Security.checkApiCallAllowed(request);
 
@@ -244,6 +249,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public List<MintingAccountData> getMintingAccounts() {
 		Security.checkApiCallAllowed(request);
 
@@ -290,6 +296,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE, ApiError.CANNOT_MINT})
+	@SecurityRequirement(name = "apiKey")
 	public String addMintingAccount(String seed58) {
 		Security.checkApiCallAllowed(request);
 
@@ -342,6 +349,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String deleteMintingAccount(String key58) {
 		Security.checkApiCallAllowed(request);
 
@@ -441,6 +449,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_HEIGHT, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String orphan(String targetHeightString) {
 		Security.checkApiCallAllowed(request);
 
@@ -482,6 +491,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String forceSync(String targetPeerAddress) {
 		Security.checkApiCallAllowed(request);
 
@@ -527,6 +537,7 @@ public class AdminResource {
 		description = "Requires enough free space to rebuild repository. This will pause your node for a while."
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public void performRepositoryMaintenance() {
 		Security.checkApiCallAllowed(request);
 

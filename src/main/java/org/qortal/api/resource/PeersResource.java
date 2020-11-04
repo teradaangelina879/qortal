@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.net.InetSocketAddress;
@@ -131,6 +132,7 @@ public class PeersResource {
 			)
 		}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public ExecuteProduceConsume.StatsSnapshot getEngineStats() {
 		Security.checkApiCallAllowed(request);
 
@@ -168,6 +170,7 @@ public class PeersResource {
 	@ApiErrors({
 		ApiError.INVALID_NETWORK_ADDRESS, ApiError.REPOSITORY_ISSUE
 	})
+	@SecurityRequirement(name = "apiKey")
 	public String addPeer(String address) {
 		Security.checkApiCallAllowed(request);
 
@@ -222,6 +225,7 @@ public class PeersResource {
 	@ApiErrors({
 		ApiError.INVALID_NETWORK_ADDRESS, ApiError.REPOSITORY_ISSUE
 	})
+	@SecurityRequirement(name = "apiKey")
 	public String removePeer(String address) {
 		Security.checkApiCallAllowed(request);
 
@@ -257,6 +261,7 @@ public class PeersResource {
 	@ApiErrors({
 		ApiError.REPOSITORY_ISSUE
 	})
+	@SecurityRequirement(name = "apiKey")
 	public String removeKnownPeers(String address) {
 		Security.checkApiCallAllowed(request);
 
@@ -296,6 +301,7 @@ public class PeersResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public List<BlockSummaryData> commonBlock(String targetPeerAddress) {
 		Security.checkApiCallAllowed(request);
 

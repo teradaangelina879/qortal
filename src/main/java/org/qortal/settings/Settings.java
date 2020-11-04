@@ -65,6 +65,7 @@ public class Settings {
 		"::1", "127.0.0.1"
 	};
 	private Boolean apiRestricted;
+	private String apiKey = null;
 	private boolean apiLoggingEnabled = false;
 	private boolean apiDocumentationEnabled = false;
 	// Both of these need to be set for API to use SSL
@@ -275,6 +276,9 @@ public class Settings {
 		// Validation goes here
 		if (this.minBlockchainPeers < 1)
 			throwValidationError("minBlockchainPeers must be at least 1");
+
+		if (this.apiKey != null && this.apiKey.trim().length() < 8)
+			throwValidationError("apiKey must be at least 8 characters");
 	}
 
 	// Getters / setters
@@ -321,6 +325,10 @@ public class Settings {
 
 		// Not set in config file, so restrict if not testnet
 		return !BlockChain.getInstance().isTestChain();
+	}
+
+	public String getApiKey() {
+		return this.apiKey;
 	}
 
 	public boolean isApiLoggingEnabled() {

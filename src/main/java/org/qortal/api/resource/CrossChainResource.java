@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
@@ -155,6 +156,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_DATA, ApiError.INVALID_REFERENCE, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String buildTrade(CrossChainBuildRequest tradeRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -250,6 +252,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String buildTradeMessage(CrossChainTradeRequest tradeRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -333,6 +336,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String buildRedeemMessage(CrossChainSecretRequest secretRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -404,6 +408,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String buildCancelMessage(CrossChainCancelRequest cancelRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -459,6 +464,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String deriveP2shA(CrossChainBitcoinTemplateRequest templateRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -485,6 +491,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String deriveP2shB(CrossChainBitcoinTemplateRequest templateRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -542,6 +549,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public CrossChainBitcoinP2SHStatus checkP2shA(CrossChainBitcoinTemplateRequest templateRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -568,6 +576,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public CrossChainBitcoinP2SHStatus checkP2shB(CrossChainBitcoinTemplateRequest templateRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -656,6 +665,7 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN,
 		ApiError.BTC_TOO_SOON, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String refundP2shA(CrossChainBitcoinRefundRequest refundRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -683,6 +693,7 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN,
 		ApiError.BTC_TOO_SOON, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String refundP2shB(CrossChainBitcoinRefundRequest refundRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -793,6 +804,7 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN,
 		ApiError.BTC_TOO_SOON, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String redeemP2shA(CrossChainBitcoinRedeemRequest redeemRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -821,6 +833,7 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN,
 		ApiError.BTC_TOO_SOON, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String redeemP2shB(CrossChainBitcoinRedeemRequest redeemRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -935,6 +948,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY})
+	@SecurityRequirement(name = "apiKey")
 	public String getBitcoinWalletBalance(String xprv58) {
 		Security.checkApiCallAllowed(request);
 
@@ -969,6 +983,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String sendBitcoin(BitcoinSendRequest bitcoinSendRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -1019,6 +1034,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public List<TradeBotData> getTradeBotStates() {
 		Security.checkApiCallAllowed(request);
 
@@ -1049,6 +1065,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -1104,6 +1121,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.BTC_BALANCE_ISSUE, ApiError.BTC_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String tradeBotResponder(TradeBotRespondRequest tradeBotRespondRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -1168,6 +1186,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String tradeBotDelete(String tradePrivateKey58) {
 		Security.checkApiCallAllowed(request);
 
