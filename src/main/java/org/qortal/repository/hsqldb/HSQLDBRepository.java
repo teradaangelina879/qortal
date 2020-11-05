@@ -382,7 +382,7 @@ public class HSQLDBRepository implements Repository {
 		try (Statement stmt = this.connection.createStatement()) {
 			stmt.execute(quick ? "CHECKPOINT" : "CHECKPOINT DEFRAG");
 		} catch (SQLException e) {
-			throw new DataException("Unable to perform repositor checkpoint");
+			throw new DataException("Unable to perform repository checkpoint");
 		}
 	}
 

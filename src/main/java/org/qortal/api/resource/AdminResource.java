@@ -531,7 +531,7 @@ public class AdminResource {
 	}
 
 	@GET
-	@Path("/repository")
+	@Path("/repository/data")
 	@Operation(
 		summary = "Export sensitive/node-local data from repository.",
 		description = "Exports data to .script files on local machine"
@@ -561,7 +561,7 @@ public class AdminResource {
 	}
 
 	@POST
-	@Path("/repository")
+	@Path("/repository/data")
 	@Operation(
 		summary = "Import data into repository.",
 		description = "Imports data from file on local machine. Filename is forced to 'import.script' if apiKey is not set.",
@@ -605,6 +605,44 @@ public class AdminResource {
 			}
 		} catch (InterruptedException e) {
 			// We couldn't lock blockchain to perform import
+			return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/repository/checkpoint")
+	@Operation(
+		summary = "Checkpoint data in repository.",
+		description = "Forces repository to checkpoint uncommitted writes.",
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String checkpointRepository() {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.checkpoint(true);
+				repository.saveChanges();
+
+				return "true";
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform checkpoint
 			return "false";
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
