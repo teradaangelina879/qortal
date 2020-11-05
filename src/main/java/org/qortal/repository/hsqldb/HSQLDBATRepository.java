@@ -425,6 +425,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 			try {
 				this.repository.executeCheckedUpdate(updateSql, trimHeight);
+				this.repository.saveChanges();
 			} catch (SQLException e) {
 				repository.examineException(e);
 				throw new DataException("Unable to set AT state trim height in repository", e);

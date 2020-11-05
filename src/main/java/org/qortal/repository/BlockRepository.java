@@ -146,7 +146,10 @@ public interface BlockRepository {
 	/** Returns height of first trimmable online accounts signatures. */
 	public int getOnlineAccountsSignaturesTrimHeight() throws DataException;
 
-	/** Sets new base height for trimming online accounts signatures. */
+	/** Sets new base height for trimming online accounts signatures.
+	 * <p>
+	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
+	 */
 	public void setOnlineAccountsSignaturesTrimHeight(int trimHeight) throws DataException;
 
 	/**

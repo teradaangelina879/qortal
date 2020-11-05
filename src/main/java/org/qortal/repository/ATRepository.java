@@ -90,7 +90,10 @@ public interface ATRepository {
 	/** Returns height of first trimmable AT state. */
 	public int getAtTrimHeight() throws DataException;
 
-	/** Sets new base height for AT state trimming. */
+	/** Sets new base height for AT state trimming.
+	 * <p>
+	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
+	 */
 	public void setAtTrimHeight(int trimHeight) throws DataException;
 
 	/** Hook to allow repository to prepare/cache info for AT state trimming. */

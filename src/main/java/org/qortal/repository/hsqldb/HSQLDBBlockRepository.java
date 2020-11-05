@@ -484,6 +484,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 			try {
 				this.repository.executeCheckedUpdate(updateSql, trimHeight);
+				this.repository.saveChanges();
 			} catch (SQLException e) {
 				repository.examineException(e);
 				throw new DataException("Unable to set online accounts signatures trim height in repository", e);
