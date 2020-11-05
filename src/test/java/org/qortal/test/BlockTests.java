@@ -1,6 +1,10 @@
 package org.qortal.test;
 
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -131,6 +135,129 @@ public class BlockTests extends Common {
 				assertEquals("Transaction serialized length differs", TransactionTransformer.toBytes(originalTransactionData).length, TransactionTransformer.toBytes(deserializedTransactionData).length);
 			}
 		}
+	}
+
+	@Test
+	public void testLatestBlockCacheWithLatestBlock() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Deque<BlockData> latestBlockCache = buildLatestBlockCache(repository, 20);
+
+			BlockData latestBlock = repository.getBlockRepository().getLastBlock();
+			byte[] parentSignature = latestBlock.getSignature();
+
+			List<BlockData> childBlocks = findCachedChildBlocks(latestBlockCache, parentSignature);
+
+			assertEquals(true, childBlocks.isEmpty());
+		}
+	}
+
+	@Test
+	public void testLatestBlockCacheWithPenultimateBlock() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Deque<BlockData> latestBlockCache = buildLatestBlockCache(repository, 20);
+
+			BlockData latestBlock = repository.getBlockRepository().getLastBlock();
+			BlockData penultimateBlock = repository.getBlockRepository().fromHeight(latestBlock.getHeight() - 1);
+			byte[] parentSignature = penultimateBlock.getSignature();
+
+			List<BlockData> childBlocks = findCachedChildBlocks(latestBlockCache, parentSignature);
+
+			assertEquals(false, childBlocks.isEmpty());
+			assertEquals(1, childBlocks.size());
+
+			BlockData expectedBlock = latestBlock;
+			BlockData actualBlock = childBlocks.get(0);
+			assertArrayEquals(expectedBlock.getSignature(), actualBlock.getSignature());
+		}
+	}
+
+	@Test
+	public void testLatestBlockCacheWithMiddleBlock() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Deque<BlockData> latestBlockCache = buildLatestBlockCache(repository, 20);
+
+			int tipOffset = 5;
+
+			BlockData latestBlock = repository.getBlockRepository().getLastBlock();
+			BlockData parentBlock = repository.getBlockRepository().fromHeight(latestBlock.getHeight() - tipOffset);
+			byte[] parentSignature = parentBlock.getSignature();
+
+			List<BlockData> childBlocks = findCachedChildBlocks(latestBlockCache, parentSignature);
+
+			assertEquals(false, childBlocks.isEmpty());
+			assertEquals(tipOffset, childBlocks.size());
+
+			BlockData expectedFirstBlock = repository.getBlockRepository().fromHeight(parentBlock.getHeight() + 1);
+			BlockData actualFirstBlock = childBlocks.get(0);
+			assertArrayEquals(expectedFirstBlock.getSignature(), actualFirstBlock.getSignature());
+
+			BlockData expectedLastBlock = latestBlock;
+			BlockData actualLastBlock = childBlocks.get(childBlocks.size() - 1);
+			assertArrayEquals(expectedLastBlock.getSignature(), actualLastBlock.getSignature());
+		}
+	}
+
+	@Test
+	public void testLatestBlockCacheWithFirstBlock() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Deque<BlockData> latestBlockCache = buildLatestBlockCache(repository, 20);
+
+			int tipOffset = latestBlockCache.size();
+
+			BlockData latestBlock = repository.getBlockRepository().getLastBlock();
+			BlockData parentBlock = repository.getBlockRepository().fromHeight(latestBlock.getHeight() - tipOffset);
+			byte[] parentSignature = parentBlock.getSignature();
+
+			List<BlockData> childBlocks = findCachedChildBlocks(latestBlockCache, parentSignature);
+
+			assertEquals(false, childBlocks.isEmpty());
+			assertEquals(tipOffset, childBlocks.size());
+
+			BlockData expectedFirstBlock = repository.getBlockRepository().fromHeight(parentBlock.getHeight() + 1);
+			BlockData actualFirstBlock = childBlocks.get(0);
+			assertArrayEquals(expectedFirstBlock.getSignature(), actualFirstBlock.getSignature());
+
+			BlockData expectedLastBlock = latestBlock;
+			BlockData actualLastBlock = childBlocks.get(childBlocks.size() - 1);
+			assertArrayEquals(expectedLastBlock.getSignature(), actualLastBlock.getSignature());
+		}
+	}
+
+	@Test
+	public void testLatestBlockCacheWithNoncachedBlock() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Deque<BlockData> latestBlockCache = buildLatestBlockCache(repository, 20);
+
+			int tipOffset = latestBlockCache.size() + 1; // outside of cache
+
+			BlockData latestBlock = repository.getBlockRepository().getLastBlock();
+			BlockData parentBlock = repository.getBlockRepository().fromHeight(latestBlock.getHeight() - tipOffset);
+			byte[] parentSignature = parentBlock.getSignature();
+
+			List<BlockData> childBlocks = findCachedChildBlocks(latestBlockCache, parentSignature);
+
+			assertEquals(true, childBlocks.isEmpty());
+		}
+	}
+
+	private Deque<BlockData> buildLatestBlockCache(Repository repository, int count) throws DataException {
+		Deque<BlockData> latestBlockCache = new LinkedList<>();
+
+		// Mint some blocks
+		for (int h = 0; h < count; ++h)
+			latestBlockCache.addLast(BlockUtils.mintBlock(repository).getBlockData());
+
+		// Reduce cache down to latest 10 blocks
+		while (latestBlockCache.size() > 10)
+			latestBlockCache.removeFirst();
+
+		return latestBlockCache;
+	}
+
+	private List<BlockData> findCachedChildBlocks(Deque<BlockData> latestBlockCache, byte[] parentSignature) {
+		return latestBlockCache.stream()
+				.dropWhile(cachedBlockData -> !Arrays.equals(cachedBlockData.getReference(), parentSignature))
+				.collect(Collectors.toList());
 	}
 
 	@Test

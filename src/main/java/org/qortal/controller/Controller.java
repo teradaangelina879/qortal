@@ -1225,12 +1225,24 @@ public class Controller extends Thread {
 		final byte[] parentSignature = getBlockSummariesMessage.getParentSignature();
 		this.stats.getBlockSummariesStats.requests.incrementAndGet();
 
+		// If peer's parent signature matches our latest block signature
+		// then we can short-circuit with an empty response
+		BlockData chainTip = getChainTip();
+		if (chainTip != null && Arrays.equals(parentSignature, chainTip.getSignature())) {
+			Message blockSummariesMessage = new BlockSummariesMessage(Collections.emptyList());
+			blockSummariesMessage.setId(message.getId());
+			if (!peer.sendMessage(blockSummariesMessage))
+				peer.disconnect("failed to send block summaries");
+
+			return;
+		}
+
 		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 
 		// Attempt to serve from our cache of latest blocks
 		synchronized (this.latestBlocks) {
 			blockSummaries = this.latestBlocks.stream()
-					.dropWhile(cachedBlockData -> Arrays.equals(cachedBlockData.getSignature(), parentSignature))
+					.dropWhile(cachedBlockData -> !Arrays.equals(cachedBlockData.getReference(), parentSignature))
 					.map(BlockSummaryData::new)
 					.collect(Collectors.toList());
 		}
@@ -1268,12 +1280,24 @@ public class Controller extends Thread {
 		final byte[] parentSignature = getSignaturesMessage.getParentSignature();
 		this.stats.getBlockSignaturesV2Stats.requests.incrementAndGet();
 
+		// If peer's parent signature matches our latest block signature
+		// then we can short-circuit with an empty response
+		BlockData chainTip = getChainTip();
+		if (chainTip != null && Arrays.equals(parentSignature, chainTip.getSignature())) {
+			Message signaturesMessage = new SignaturesMessage(Collections.emptyList());
+			signaturesMessage.setId(message.getId());
+			if (!peer.sendMessage(signaturesMessage))
+				peer.disconnect("failed to send signatures (v2)");
+
+			return;
+		}
+
 		List<byte[]> signatures = new ArrayList<>();
 
 		// Attempt to serve from our cache of latest blocks
 		synchronized (this.latestBlocks) {
 			signatures = this.latestBlocks.stream()
-					.dropWhile(cachedBlockData -> Arrays.equals(cachedBlockData.getSignature(), parentSignature))
+					.dropWhile(cachedBlockData -> !Arrays.equals(cachedBlockData.getReference(), parentSignature))
 					.map(BlockData::getSignature)
 					.collect(Collectors.toList());
 		}
