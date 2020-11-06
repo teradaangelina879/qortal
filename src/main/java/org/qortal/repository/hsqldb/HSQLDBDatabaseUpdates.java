@@ -700,7 +700,7 @@ public class HSQLDBDatabaseUpdates {
 						stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
 						stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
 						LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
-						LOGGER.info("If following reshape takes too long, use bootstrap and import node-local data using API's POST /admin/repository");
+						LOGGER.info("If following reshape takes too long, use bootstrap and import node-local data using API's POST /admin/repository/data");
 					}
 
 					// Create new AT-states table without full state data
