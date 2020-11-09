@@ -8,6 +8,13 @@ public abstract class RepositoryManager {
 		repositoryFactory = newRepositoryFactory;
 	}
 
+	public static boolean wasPristineAtOpen() throws DataException {
+		if (repositoryFactory == null)
+			throw new DataException("No repository available");
+
+		return repositoryFactory.wasPristineAtOpen();
+	}
+
 	public static Repository getRepository() throws DataException {
 		if (repositoryFactory == null)
 			throw new DataException("No repository available");

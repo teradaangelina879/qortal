@@ -18,11 +18,16 @@ public class HSQLDBDatabaseUpdates {
 	/**
 	 * Apply any incremental changes to database schema.
 	 * 
+	 * @return true if database was non-existent/empty, false otherwise
 	 * @throws SQLException
 	 */
-	public static void updateDatabase(Connection connection) throws SQLException {
-		while (databaseUpdating(connection))
+	public static boolean updateDatabase(Connection connection) throws SQLException {
+		final boolean wasPristine = fetchDatabaseVersion(connection) == 0;
+
+		while (databaseUpdating(connection, wasPristine))
 			incrementDatabaseVersion(connection);
+
+		return wasPristine;
 	}
 
 	/**
@@ -40,23 +45,21 @@ public class HSQLDBDatabaseUpdates {
 	/**
 	 * Fetch current version of database schema.
 	 * 
-	 * @return int, 0 if no schema yet
+	 * @return database version, or 0 if no schema yet
 	 * @throws SQLException
 	 */
 	private static int fetchDatabaseVersion(Connection connection) throws SQLException {
-		int databaseVersion = 0;
-
 		try (Statement stmt = connection.createStatement()) {
 			if (stmt.execute("SELECT version FROM DatabaseInfo"))
 				try (ResultSet resultSet = stmt.getResultSet()) {
 					if (resultSet.next())
-						databaseVersion = resultSet.getInt(1);
+						return resultSet.getInt(1);
 				}
 		} catch (SQLException e) {
 			// empty database
 		}
 
-		return databaseVersion;
+		return 0;
 	}
 
 	/**
@@ -65,7 +68,7 @@ public class HSQLDBDatabaseUpdates {
 	 * @return true - if a schema update happened, false otherwise
 	 * @throws SQLException
 	 */
-	private static boolean databaseUpdating(Connection connection) throws SQLException {
+	private static boolean databaseUpdating(Connection connection, boolean wasPristine) throws SQLException {
 		int databaseVersion = fetchDatabaseVersion(connection);
 
 		try (Statement stmt = connection.createStatement()) {
@@ -695,11 +698,24 @@ public class HSQLDBDatabaseUpdates {
 				case 30:
 					// Split AT state data off to new table for better performance/management.
 
-					if (!"mem".equals(HSQLDBRepository.getDbPathname(connection.getMetaData().getURL()))) {
+					if (!wasPristine && !"mem".equals(HSQLDBRepository.getDbPathname(connection.getMetaData().getURL()))) {
 						// First, backup node-local data in case user wants to avoid long reshape and use bootstrap instead
-						stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
-						stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
-						LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
+						try (ResultSet resultSet = stmt.executeQuery("SELECT COUNT(*) FROM MintingAccounts")) {
+							int rowCount = resultSet.next() ? resultSet.getInt(1) : 0;
+							if (rowCount > 0) {
+								stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
+								LOGGER.info("Exported sensitive/node-local minting keys into MintingAccounts.script");
+							}
+						}
+
+						try (ResultSet resultSet = stmt.executeQuery("SELECT COUNT(*) FROM TradeBotStates")) {
+							int rowCount = resultSet.next() ? resultSet.getInt(1) : 0;
+							if (rowCount > 0) {
+								stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
+								LOGGER.info("Exported sensitive/node-local trade-bot states into TradeBotStates.script");
+							}
+						}
+
 						LOGGER.info("If following reshape takes too long, use bootstrap and import node-local data using API's POST /admin/repository/data");
 					}
 

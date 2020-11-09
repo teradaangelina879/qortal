@@ -531,7 +531,8 @@ public class BlockChain {
 
 	private static void rebuildBlockchain() throws DataException {
 		// (Re)build repository
-		RepositoryManager.rebuild();
+		if (!RepositoryManager.wasPristineAtOpen())
+			RepositoryManager.rebuild();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			GenesisBlock genesisBlock = GenesisBlock.getInstance(repository);
