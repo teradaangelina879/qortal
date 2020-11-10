@@ -374,9 +374,10 @@ public class HSQLDBATRepository implements ATRepository {
 	@Override
 	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException {
 		String sql = "SELECT AT_address, state_hash, fees, is_initial "
-				+ "FROM ATStates "
-				+ "LEFT OUTER JOIN ATs USING (AT_address) "
-				+ "WHERE height = ? "
+				+ "FROM ATs "
+				+ "LEFT OUTER JOIN ATStates "
+				+ "ON ATStates.AT_address = ATs.AT_address AND height = ? "
+				+ "WHERE ATStates.AT_address IS NOT NULL "
 				+ "ORDER BY created_when ASC";
 
 		List<ATStateData> atStates = new ArrayList<>();
