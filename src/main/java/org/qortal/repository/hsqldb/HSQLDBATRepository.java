@@ -50,7 +50,7 @@ public class HSQLDBATRepository implements ATRepository {
 			boolean hadFatalError = resultSet.getBoolean(10);
 			boolean isFrozen = resultSet.getBoolean(11);
 
-			Long frozenBalance = resultSet.getLong(11);
+			Long frozenBalance = resultSet.getLong(12);
 			if (frozenBalance == 0 && resultSet.wasNull())
 				frozenBalance = null;
 
@@ -118,7 +118,7 @@ public class HSQLDBATRepository implements ATRepository {
 				boolean hadFatalError = resultSet.getBoolean(10);
 				boolean isFrozen = resultSet.getBoolean(11);
 
-				Long frozenBalance = resultSet.getLong(11);
+				Long frozenBalance = resultSet.getLong(12);
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
