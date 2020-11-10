@@ -98,7 +98,6 @@ public class QortalATAPI extends API {
 
 			// Can we skip?
 			if (!wakeDueToHeight && !wakeDueToMessage)
-				// this.atStateData will be null
 				return false;
 		}
 
@@ -505,7 +504,7 @@ public class QortalATAPI extends API {
 		this.atData.setSleepUntilMessageTimestamp(txTimestamp);
 
 		if (sleepUntilHeight != null)
-			this.setSleepUntilHeight(state, new Timestamp(sleepUntilHeight).blockHeight);
+			this.setSleepUntilHeight(state, sleepUntilHeight.intValue());
 	}
 
 	/** Returns AT's account */

@@ -106,6 +106,7 @@ public class AT {
 		QortalAtLoggerFactory loggerFactory = QortalAtLoggerFactory.getInstance();
 
 		if (!api.willExecute(blockHeight))
+			// this.atStateData will be null
 			return Collections.emptyList();
 
 		// Fetch latest ATStateData for this AT

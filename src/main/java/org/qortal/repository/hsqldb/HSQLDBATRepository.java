@@ -54,7 +54,7 @@ public class HSQLDBATRepository implements ATRepository {
 			if (frozenBalance == 0 && resultSet.wasNull())
 				frozenBalance = null;
 
-			Long sleepUntilMessageTimestamp = resultSet.getLong(12);
+			Long sleepUntilMessageTimestamp = resultSet.getLong(13);
 			if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
 				sleepUntilMessageTimestamp = null;
 
@@ -127,7 +127,7 @@ public class HSQLDBATRepository implements ATRepository {
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
-				Long sleepUntilMessageTimestamp = resultSet.getLong(12);
+				Long sleepUntilMessageTimestamp = resultSet.getLong(13);
 				if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
 					sleepUntilMessageTimestamp = null;
 
