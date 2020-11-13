@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.IOException;
@@ -40,7 +41,6 @@ import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
-import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.ActivitySummary;
@@ -57,6 +57,7 @@ import org.qortal.network.PeerAddress;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
@@ -118,6 +119,7 @@ public class AdminResource {
 		nodeInfo.buildVersion = Controller.getInstance().getVersionString();
 		nodeInfo.buildTimestamp = Controller.getInstance().getBuildTimestamp();
 		nodeInfo.nodeId = Network.getInstance().getOurNodeId();
+		nodeInfo.isTestNet = Settings.getInstance().isTestNet();
 
 		return nodeInfo;
 	}
@@ -132,6 +134,7 @@ public class AdminResource {
 			)
 		}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public NodeStatus status() {
 		Security.checkApiCallAllowed(request);
 
@@ -152,6 +155,7 @@ public class AdminResource {
 			)
 		}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String shutdown() {
 		Security.checkApiCallAllowed(request);
 
@@ -180,7 +184,10 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public ActivitySummary summary() {
+		Security.checkApiCallAllowed(request);
+
 		ActivitySummary summary = new ActivitySummary();
 
 		LocalDate date = LocalDate.now();
@@ -192,21 +199,42 @@ public class AdminResource {
 			int startHeight = repository.getBlockRepository().getHeightFromTimestamp(start);
 			int endHeight = repository.getBlockRepository().getBlockchainHeight();
 
-			summary.blockCount = endHeight - startHeight;
+			summary.setBlockCount(endHeight - startHeight);
 
-			summary.transactionCountByType = repository.getTransactionRepository().getTransactionSummary(startHeight + 1, endHeight);
+			summary.setTransactionCountByType(repository.getTransactionRepository().getTransactionSummary(startHeight + 1, endHeight));
 
-			for (Integer count : summary.transactionCountByType.values())
-				summary.transactionCount += count;
+			summary.setAssetsIssued(repository.getAssetRepository().getRecentAssetIds(start).size());
 
-			summary.assetsIssued = repository.getAssetRepository().getRecentAssetIds(start).size();
-
-			summary.namesRegistered = repository.getNameRepository().getRecentNames(start).size();
+			summary.setNamesRegistered (repository.getNameRepository().getRecentNames(start).size());
 
 			return summary;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
+	}
+
+	@GET
+	@Path("/enginestats")
+	@Operation(
+		summary = "Fetch statistics snapshot for core engine",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = Controller.StatsSnapshot.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public Controller.StatsSnapshot getEngineStats() {
+		Security.checkApiCallAllowed(request);
+
+		return Controller.getInstance().getStatsSnapshot();
 	}
 
 	@GET
@@ -221,6 +249,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public List<MintingAccountData> getMintingAccounts() {
 		Security.checkApiCallAllowed(request);
 
@@ -267,6 +296,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE, ApiError.CANNOT_MINT})
+	@SecurityRequirement(name = "apiKey")
 	public String addMintingAccount(String seed58) {
 		Security.checkApiCallAllowed(request);
 
@@ -319,6 +349,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String deleteMintingAccount(String key58) {
 		Security.checkApiCallAllowed(request);
 
@@ -418,6 +449,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_HEIGHT, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String orphan(String targetHeightString) {
 		Security.checkApiCallAllowed(request);
 
@@ -435,8 +467,6 @@ public class AdminResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		} catch (NumberFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
-		} catch (ApiException e) {
-			throw e;
 		}
 	}
 
@@ -461,6 +491,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String forceSync(String targetPeerAddress) {
 		Security.checkApiCallAllowed(request);
 
@@ -492,12 +523,157 @@ public class AdminResource {
 			return syncResult.name();
 		} catch (IllegalArgumentException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-		} catch (ApiException e) {
-			throw e;
 		} catch (UnknownHostException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		} catch (InterruptedException e) {
 			return SynchronizationResult.NO_BLOCKCHAIN_LOCK.name();
+		}
+	}
+
+	@GET
+	@Path("/repository/data")
+	@Operation(
+		summary = "Export sensitive/node-local data from repository.",
+		description = "Exports data to .script files on local machine"
+	)
+	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String exportRepository() {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.exportNodeLocalData();
+				return "true";
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform export
+			return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/repository/data")
+	@Operation(
+		summary = "Import data into repository.",
+		description = "Imports data from file on local machine. Filename is forced to 'import.script' if apiKey is not set.",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string", example = "MintingAccounts.script"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String importRepository(String filename) {
+		Security.checkApiCallAllowed(request);
+
+		// Hard-coded because it's too dangerous to allow user-supplied filenames in weaker security contexts
+		if (Settings.getInstance().getApiKey() == null)
+			filename = "import.script";
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.importDataFromFile(filename);
+				repository.saveChanges();
+
+				return "true";
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform import
+			return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/repository/checkpoint")
+	@Operation(
+		summary = "Checkpoint data in repository.",
+		description = "Forces repository to checkpoint uncommitted writes.",
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String checkpointRepository() {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.checkpoint(true);
+				repository.saveChanges();
+
+				return "true";
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform checkpoint
+			return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@DELETE
+	@Path("/repository")
+	@Operation(
+		summary = "Perform maintenance on repository.",
+		description = "Requires enough free space to rebuild repository. This will pause your node for a while."
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public void performRepositoryMaintenance() {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.performPeriodicMaintenance();
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// No big deal
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 

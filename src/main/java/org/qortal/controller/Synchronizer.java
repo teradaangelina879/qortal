@@ -175,7 +175,7 @@ public class Synchronizer {
 	 * @throws DataException
 	 * @throws InterruptedException
 	 */
-	private SynchronizationResult fetchSummariesFromCommonBlock(Repository repository, Peer peer, int ourHeight, boolean force, List<BlockSummaryData> blockSummariesFromCommon) throws DataException, InterruptedException {
+	public SynchronizationResult fetchSummariesFromCommonBlock(Repository repository, Peer peer, int ourHeight, boolean force, List<BlockSummaryData> blockSummariesFromCommon) throws DataException, InterruptedException {
 		// Start by asking for a few recent block hashes as this will cover a majority of reorgs
 		// Failing that, back off exponentially
 		int step = INITIAL_BLOCK_STEP;
@@ -313,18 +313,21 @@ public class Synchronizer {
 			List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository().getBlockSummaries(commonBlockHeight + 1, ourLatestBlockData.getHeight());
 
 			// Populate minter account levels for both lists of block summaries
-			populateBlockSummariesMinterLevels(repository, peerBlockSummaries);
 			populateBlockSummariesMinterLevels(repository, ourBlockSummaries);
+			populateBlockSummariesMinterLevels(repository, peerBlockSummaries);
+
+			final int mutualHeight = commonBlockHeight - 1 + Math.min(ourBlockSummaries.size(), peerBlockSummaries.size());
 
 			// Calculate cumulative chain weights of both blockchain subsets, from common block to highest mutual block.
-			BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries);
-			BigInteger peerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, peerBlockSummaries);
+			BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries, mutualHeight);
+			BigInteger peerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, peerBlockSummaries, mutualHeight);
+
+			NumberFormat formatter = new DecimalFormat("0.###E0");
+			LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", formatter.format(ourChainWeight), formatter.format(peerChainWeight)));
 
 			// If our blockchain has greater weight then don't synchronize with peer
 			if (ourChainWeight.compareTo(peerChainWeight) >= 0) {
 				LOGGER.debug(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
-				NumberFormat formatter = new DecimalFormat("0.###E0");
-				LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", formatter.format(ourChainWeight), formatter.format(peerChainWeight)));
 				return SynchronizationResult.INFERIOR_CHAIN;
 			}
 		}
@@ -405,12 +408,15 @@ public class Synchronizer {
 			Block block = new Block(repository, orphanBlockData);
 			block.orphan();
 
+			LOGGER.trace(String.format("Orphaned block height %d, sig %.8s", ourHeight, Base58.encode(orphanBlockData.getSignature())));
+
 			repository.saveChanges();
 
 			--ourHeight;
 			orphanBlockData = repository.getBlockRepository().fromHeight(ourHeight);
 
-			Controller.getInstance().onNewBlock(orphanBlockData);
+			repository.discardChanges(); // clear transaction status to prevent deadlocks
+			Controller.getInstance().onOrphanedBlock(orphanBlockData);
 		}
 
 		LOGGER.debug(String.format("Orphaned blocks back to height %d, sig %.8s - applying new blocks from peer %s", commonBlockHeight, commonBlockSig58, peer));
@@ -430,6 +436,8 @@ public class Synchronizer {
 			}
 
 			newBlock.process();
+
+			LOGGER.trace(String.format("Processed block height %d, sig %.8s", newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getBlockData().getSignature())));
 
 			repository.saveChanges();
 
@@ -512,6 +520,8 @@ public class Synchronizer {
 			}
 
 			newBlock.process();
+
+			LOGGER.trace(String.format("Processed block height %d, sig %.8s", newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getBlockData().getSignature())));
 
 			repository.saveChanges();
 

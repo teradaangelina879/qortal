@@ -306,8 +306,10 @@ public class BlockMinter extends Thread {
 				}
 
 				if (newBlockMinted) {
-					BlockData newBlockData = newBlock.getBlockData();
 					// Notify Controller and broadcast our new chain to network
+					BlockData newBlockData = newBlock.getBlockData();
+
+					repository.discardChanges(); // clear transaction status to prevent deadlocks
 					Controller.getInstance().onNewBlock(newBlockData);
 
 					Network network = Network.getInstance();

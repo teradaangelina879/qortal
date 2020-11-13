@@ -25,6 +25,7 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 
 	private String connectionUrl;
 	private HSQLDBPool connectionPool;
+	private final boolean wasPristine;
 
 	/**
 	 * Constructs new RepositoryFactory using passed <tt>connectionUrl</tt>.
@@ -65,10 +66,15 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 
 		// Perform DB updates?
 		try (final Connection connection = this.connectionPool.getConnection()) {
-			HSQLDBDatabaseUpdates.updateDatabase(connection);
+			this.wasPristine = HSQLDBDatabaseUpdates.updateDatabase(connection);
 		} catch (SQLException e) {
 			throw new DataException("Repository initialization error", e);
 		}
+	}
+
+	@Override
+	public boolean wasPristineAtOpen() {
+		return this.wasPristine;
 	}
 
 	@Override

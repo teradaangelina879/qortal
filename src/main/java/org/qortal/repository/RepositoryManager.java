@@ -8,6 +8,13 @@ public abstract class RepositoryManager {
 		repositoryFactory = newRepositoryFactory;
 	}
 
+	public static boolean wasPristineAtOpen() throws DataException {
+		if (repositoryFactory == null)
+			throw new DataException("No repository available");
+
+		return repositoryFactory.wasPristineAtOpen();
+	}
+
 	public static Repository getRepository() throws DataException {
 		if (repositoryFactory == null)
 			throw new DataException("No repository available");
@@ -32,6 +39,14 @@ public abstract class RepositoryManager {
 			repository.backup(quick);
 		} catch (DataException e) {
 			// Backup is best-effort so don't complain
+		}
+	}
+
+	public static void checkpoint(boolean quick) {
+		try (final Repository repository = getRepository()) {
+			repository.checkpoint(quick);
+		} catch (DataException e) {
+			// Checkpoint is best-effort so don't complain
 		}
 	}
 

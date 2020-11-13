@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.ArrayList;
@@ -224,6 +225,7 @@ public class CrossChainResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String cancelTrade(CrossChainCancelRequest cancelRequest) {
 		Security.checkApiCallAllowed(request);
 

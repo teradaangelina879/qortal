@@ -103,8 +103,10 @@ public class ChainWeightTests extends Common {
 			populateBlockSummariesMinterLevels(repository, shorterChain);
 			populateBlockSummariesMinterLevels(repository, longerChain);
 
-			BigInteger shorterChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockGeneratorKey, shorterChain);
-			BigInteger longerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockGeneratorKey, longerChain);
+			final int mutualHeight = commonBlockHeight - 1 + Math.min(shorterChain.size(), longerChain.size());
+
+			BigInteger shorterChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockGeneratorKey, shorterChain, mutualHeight);
+			BigInteger longerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockGeneratorKey, longerChain, mutualHeight);
 
 			assertEquals("longer chain should have greater weight", 1, longerChainWeight.compareTo(shorterChainWeight));
 		}

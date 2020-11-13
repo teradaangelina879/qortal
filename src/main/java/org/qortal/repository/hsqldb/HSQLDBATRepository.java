@@ -50,7 +50,7 @@ public class HSQLDBATRepository implements ATRepository {
 			boolean hadFatalError = resultSet.getBoolean(10);
 			boolean isFrozen = resultSet.getBoolean(11);
 
-			Long frozenBalance = resultSet.getLong(11);
+			Long frozenBalance = resultSet.getLong(12);
 			if (frozenBalance == 0 && resultSet.wasNull())
 				frozenBalance = null;
 
@@ -118,7 +118,7 @@ public class HSQLDBATRepository implements ATRepository {
 				boolean hadFatalError = resultSet.getBoolean(10);
 				boolean isFrozen = resultSet.getBoolean(11);
 
-				Long frozenBalance = resultSet.getLong(11);
+				Long frozenBalance = resultSet.getLong(12);
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
@@ -147,7 +147,7 @@ public class HSQLDBATRepository implements ATRepository {
 		bindParams.add(codeHash);
 
 		if (isExecutable != null) {
-			sql.append("AND is_finished = ? ");
+			sql.append("AND is_finished != ? ");
 			bindParams.add(isExecutable);
 		}
 
@@ -248,22 +248,22 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATStateData getATStateAtHeight(String atAddress, int height) throws DataException {
-		String sql = "SELECT created_when, state_data, state_hash, fees, is_initial "
+		String sql = "SELECT state_data, state_hash, fees, is_initial "
 				+ "FROM ATStates "
-				+ "WHERE AT_address = ? AND height = ? "
+				+ "LEFT OUTER JOIN ATStatesData USING (AT_address, height) "
+				+ "WHERE ATStates.AT_address = ? AND ATStates.height = ? "
 				+ "LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, atAddress, height)) {
 			if (resultSet == null)
 				return null;
 
-			long created = resultSet.getLong(1);
-			byte[] stateData = resultSet.getBytes(2); // Actually BLOB
-			byte[] stateHash = resultSet.getBytes(3);
-			long fees = resultSet.getLong(4);
-			boolean isInitial = resultSet.getBoolean(5);
+			byte[] stateData = resultSet.getBytes(1); // Actually BLOB
+			byte[] stateHash = resultSet.getBytes(2);
+			long fees = resultSet.getLong(3);
+			boolean isInitial = resultSet.getBoolean(4);
 
-			return new ATStateData(atAddress, height, created, stateData, stateHash, fees, isInitial);
+			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT state from repository", e);
 		}
@@ -271,12 +271,13 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATStateData getLatestATState(String atAddress) throws DataException {
-		String sql = "SELECT height, created_when, state_data, state_hash, fees, is_initial "
+		String sql = "SELECT height, state_data, state_hash, fees, is_initial "
 				+ "FROM ATStates "
-				+ "WHERE AT_address = ? "
-				// AT_address then height so the compound primary key is used as an index
-				// Both must be the same direction also
-				+ "ORDER BY AT_address DESC, height DESC "
+				+ "JOIN ATStatesData USING (AT_address, height) "
+				+ "WHERE ATStates.AT_address = ? "
+				// Order by AT_address and height to use compound primary key as index
+				// Both must be the same direction (DESC) also
+				+ "ORDER BY ATStates.AT_address DESC, ATStates.height DESC "
 				+ "LIMIT 1 ";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, atAddress)) {
@@ -284,13 +285,12 @@ public class HSQLDBATRepository implements ATRepository {
 				return null;
 
 			int height = resultSet.getInt(1);
-			long created = resultSet.getLong(2);
-			byte[] stateData = resultSet.getBytes(3); // Actually BLOB
-			byte[] stateHash = resultSet.getBytes(4);
-			long fees = resultSet.getLong(5);
-			boolean isInitial = resultSet.getBoolean(6);
+			byte[] stateData = resultSet.getBytes(2); // Actually BLOB
+			byte[] stateHash = resultSet.getBytes(3);
+			long fees = resultSet.getLong(4);
+			boolean isInitial = resultSet.getBoolean(5);
 
-			return new ATStateData(atAddress, height, created, stateData, stateHash, fees, isInitial);
+			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch latest AT state from repository", e);
 		}
@@ -303,21 +303,22 @@ public class HSQLDBATRepository implements ATRepository {
 		StringBuilder sql = new StringBuilder(1024);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT AT_address, height, created_when, state_data, state_hash, fees, is_initial "
+		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial "
 				+ "FROM ATs "
 				+ "CROSS JOIN LATERAL("
-					+ "SELECT height, created_when, state_data, state_hash, fees, is_initial "
+					+ "SELECT height, state_data, state_hash, fees, is_initial "
 					+ "FROM ATStates "
+					+ "JOIN ATStatesData USING (AT_address, height) "
 					+ "WHERE ATStates.AT_address = ATs.AT_address ");
 
 		if (minimumFinalHeight != null) {
-			sql.append("AND height >= ? ");
+			sql.append("AND ATStates.height >= ? ");
 			bindParams.add(minimumFinalHeight);
 		}
 
-		// AT_address then height so the compound primary key is used as an index
-		// Both must be the same direction also
-		sql.append("ORDER BY AT_address DESC, height DESC "
+		// Order by AT_address and height to use compound primary key as index
+		// Both must be the same direction (DESC) also
+		sql.append("ORDER BY ATStates.AT_address DESC, ATStates.height DESC "
 					+ "LIMIT 1 "
 				+ ") AS FinalATStates "
 				+ "WHERE code_hash = ? ");
@@ -339,7 +340,7 @@ public class HSQLDBATRepository implements ATRepository {
 			bindParams.add(rawExpectedValue);
 		}
 
-		sql.append(" ORDER BY height ");
+		sql.append(" ORDER BY FinalATStates.height ");
 		if (reverse != null && reverse)
 			sql.append("DESC");
 
@@ -354,13 +355,12 @@ public class HSQLDBATRepository implements ATRepository {
 			do {
 				String atAddress = resultSet.getString(1);
 				int height = resultSet.getInt(2);
-				long created = resultSet.getLong(3);
-				byte[] stateData = resultSet.getBytes(4); // Actually BLOB
-				byte[] stateHash = resultSet.getBytes(5);
-				long fees = resultSet.getLong(6);
-				boolean isInitial = resultSet.getBoolean(7);
+				byte[] stateData = resultSet.getBytes(3); // Actually BLOB
+				byte[] stateHash = resultSet.getBytes(4);
+				long fees = resultSet.getLong(5);
+				boolean isInitial = resultSet.getBoolean(6);
 
-				ATStateData atStateData = new ATStateData(atAddress, height, created, stateData, stateHash, fees, isInitial);
+				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
 
 				atStates.add(atStateData);
 			} while (resultSet.next());
@@ -374,8 +374,10 @@ public class HSQLDBATRepository implements ATRepository {
 	@Override
 	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException {
 		String sql = "SELECT AT_address, state_hash, fees, is_initial "
-				+ "FROM ATStates "
-				+ "WHERE height = ? "
+				+ "FROM ATs "
+				+ "LEFT OUTER JOIN ATStates "
+				+ "ON ATStates.AT_address = ATs.AT_address AND height = ? "
+				+ "WHERE ATStates.AT_address IS NOT NULL "
 				+ "ORDER BY created_when ASC";
 
 		List<ATStateData> atStates = new ArrayList<>();
@@ -402,22 +404,123 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
-	public void save(ATStateData atStateData) throws DataException {
-		// We shouldn't ever save partial ATStateData
-		if (atStateData.getCreation() == null || atStateData.getStateHash() == null || atStateData.getHeight() == null)
-			throw new IllegalArgumentException("Refusing to save partial AT state into repository!");
+	public int getAtTrimHeight() throws DataException {
+		String sql = "SELECT AT_trim_height FROM DatabaseInfo";
 
-		HSQLDBSaver saveHelper = new HSQLDBSaver("ATStates");
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return 0;
 
-		saveHelper.bind("AT_address", atStateData.getATAddress()).bind("height", atStateData.getHeight())
-				.bind("created_when", atStateData.getCreation()).bind("state_data", atStateData.getStateData())
-				.bind("state_hash", atStateData.getStateHash()).bind("fees", atStateData.getFees())
-				.bind("is_initial", atStateData.isInitial());
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch AT state trim height from repository", e);
+		}
+	}
+
+	@Override
+	public void setAtTrimHeight(int trimHeight) throws DataException {
+		// trimHeightsLock is to prevent concurrent update on DatabaseInfo
+		// that could result in "transaction rollback: serialization failure"
+		synchronized (this.repository.trimHeightsLock) {
+			String updateSql = "UPDATE DatabaseInfo SET AT_trim_height = ?";
+
+			try {
+				this.repository.executeCheckedUpdate(updateSql, trimHeight);
+				this.repository.saveChanges();
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to set AT state trim height in repository", e);
+			}
+		}
+	}
+
+	@Override
+	public void prepareForAtStateTrimming() throws DataException {
+		// Rebuild cache of latest AT states that we can't trim
+		String deleteSql = "DELETE FROM LatestATStates";
+		try {
+			this.repository.executeCheckedUpdate(deleteSql);
+		} catch (SQLException e) {
+			repository.examineException(e);
+			throw new DataException("Unable to delete temporary latest AT states cache from repository", e);
+		}
+
+		String insertSql = "INSERT INTO LatestATStates ("
+				+ "SELECT AT_address, height FROM ATs "
+				+ "CROSS JOIN LATERAL("
+					+ "SELECT height FROM ATStates "
+					+ "WHERE ATStates.AT_address = ATs.AT_address "
+					+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
+				+ ") "
+			+ ")";
+		try {
+			this.repository.executeCheckedUpdate(insertSql);
+		} catch (SQLException e) {
+			repository.examineException(e);
+			throw new DataException("Unable to populate temporary latest AT states cache in repository", e);
+		}
+	}
+
+	@Override
+	public int trimAtStates(int minHeight, int maxHeight, int limit) throws DataException {
+		if (minHeight >= maxHeight)
+			return 0;
+
+		// We're often called so no need to trim all states in one go.
+		// Limit updates to reduce CPU and memory load.
+		String sql = "DELETE FROM ATStatesData "
+				+ "WHERE height BETWEEN ? AND ? "
+				+ "AND NOT EXISTS("
+					+ "SELECT TRUE FROM LatestATStates "
+					+ "WHERE LatestATStates.AT_address = ATStatesData.AT_address "
+					+ "AND LatestATStates.height = ATStatesData.height"
+				+ ") "
+				+ "LIMIT ?";
 
 		try {
-			saveHelper.execute(this.repository);
+			return this.repository.executeCheckedUpdate(sql, minHeight, maxHeight, limit);
+		} catch (SQLException e) {
+			repository.examineException(e);
+			throw new DataException("Unable to trim AT states in repository", e);
+		}
+	}
+
+	@Override
+	public void save(ATStateData atStateData) throws DataException {
+		// We shouldn't ever save partial ATStateData
+		if (atStateData.getStateHash() == null || atStateData.getHeight() == null)
+			throw new IllegalArgumentException("Refusing to save partial AT state into repository!");
+
+		HSQLDBSaver atStatesSaver = new HSQLDBSaver("ATStates");
+
+		atStatesSaver.bind("AT_address", atStateData.getATAddress()).bind("height", atStateData.getHeight())
+				.bind("state_hash", atStateData.getStateHash())
+				.bind("fees", atStateData.getFees()).bind("is_initial", atStateData.isInitial());
+
+		try {
+			atStatesSaver.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save AT state into repository", e);
+		}
+
+		if (atStateData.getStateData() != null) {
+			HSQLDBSaver atStatesDataSaver = new HSQLDBSaver("ATStatesData");
+
+			atStatesDataSaver.bind("AT_address", atStateData.getATAddress()).bind("height", atStateData.getHeight())
+					.bind("state_data", atStateData.getStateData());
+
+			try {
+				atStatesDataSaver.execute(this.repository);
+			} catch (SQLException e) {
+				throw new DataException("Unable to save AT state data into repository", e);
+			}
+		} else {
+			try {
+				this.repository.delete("ATStatesData", "AT_address = ? AND height = ?",
+						atStateData.getATAddress(), atStateData.getHeight());
+			} catch (SQLException e) {
+				throw new DataException("Unable to delete AT state data from repository", e);
+			}
 		}
 	}
 
@@ -425,6 +528,7 @@ public class HSQLDBATRepository implements ATRepository {
 	public void delete(String atAddress, int height) throws DataException {
 		try {
 			this.repository.delete("ATStates", "AT_address = ? AND height = ?", atAddress, height);
+			this.repository.delete("ATStatesData", "AT_address = ? AND height = ?", atAddress, height);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete AT state from repository", e);
 		}
@@ -434,6 +538,7 @@ public class HSQLDBATRepository implements ATRepository {
 	public void deleteATStates(int height) throws DataException {
 		try {
 			this.repository.delete("ATStates", "height = ?", height);
+			this.repository.delete("ATStatesData", "height = ?", height);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete AT states from repository", e);
 		}

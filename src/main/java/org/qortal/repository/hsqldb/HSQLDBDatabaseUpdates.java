@@ -21,11 +21,16 @@ public class HSQLDBDatabaseUpdates {
 	/**
 	 * Apply any incremental changes to database schema.
 	 * 
+	 * @return true if database was non-existent/empty, false otherwise
 	 * @throws SQLException
 	 */
-	public static void updateDatabase(Connection connection) throws SQLException {
-		while (databaseUpdating(connection))
+	public static boolean updateDatabase(Connection connection) throws SQLException {
+		final boolean wasPristine = fetchDatabaseVersion(connection) == 0;
+
+		while (databaseUpdating(connection, wasPristine))
 			incrementDatabaseVersion(connection);
+
+		return wasPristine;
 	}
 
 	/**
@@ -43,23 +48,21 @@ public class HSQLDBDatabaseUpdates {
 	/**
 	 * Fetch current version of database schema.
 	 * 
-	 * @return int, 0 if no schema yet
+	 * @return database version, or 0 if no schema yet
 	 * @throws SQLException
 	 */
 	private static int fetchDatabaseVersion(Connection connection) throws SQLException {
-		int databaseVersion = 0;
-
 		try (Statement stmt = connection.createStatement()) {
 			if (stmt.execute("SELECT version FROM DatabaseInfo"))
 				try (ResultSet resultSet = stmt.getResultSet()) {
 					if (resultSet.next())
-						databaseVersion = resultSet.getInt(1);
+						return resultSet.getInt(1);
 				}
 		} catch (SQLException e) {
 			// empty database
 		}
 
-		return databaseVersion;
+		return 0;
 	}
 
 	/**
@@ -68,7 +71,7 @@ public class HSQLDBDatabaseUpdates {
 	 * @return true - if a schema update happened, false otherwise
 	 * @throws SQLException
 	 */
-	private static boolean databaseUpdating(Connection connection) throws SQLException {
+	private static boolean databaseUpdating(Connection connection, boolean wasPristine) throws SQLException {
 		int databaseVersion = fetchDatabaseVersion(connection);
 
 		try (Statement stmt = connection.createStatement()) {
@@ -215,6 +218,8 @@ public class HSQLDBDatabaseUpdates {
 							+ "PRIMARY KEY (account))");
 					// For looking up an account by public key
 					stmt.execute("CREATE INDEX AccountPublicKeyIndex on Accounts (public_key)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE Accounts NEW SPACE");
 
 					// Account balances
 					stmt.execute("CREATE TABLE AccountBalances (account QortalAddress, asset_id AssetID, balance QortalAmount NOT NULL, "
@@ -223,6 +228,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX AccountBalancesAssetBalanceIndex ON AccountBalances (asset_id, balance)");
 					// Add CHECK constraint to account balances
 					stmt.execute("ALTER TABLE AccountBalances ADD CONSTRAINT CheckBalanceNotNegative CHECK (balance >= 0)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE AccountBalances NEW SPACE");
 
 					// Keeping track of QORT gained from holding legacy QORA
 					stmt.execute("CREATE TABLE AccountQortFromQoraInfo (account QortalAddress, final_qort_from_qora QortalAmount, final_block_height INT, "
@@ -420,6 +427,8 @@ public class HSQLDBDatabaseUpdates {
 							+ "PRIMARY KEY (AT_address, height), FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
 					// For finding per-block AT states, ordered by creation timestamp
 					stmt.execute("CREATE INDEX BlockATStateIndex on ATStates (height, created_when)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE ATStates NEW SPACE");
 
 					// Deploy CIYAM AT Transactions
 					stmt.execute("CREATE TABLE DeployATTransactions (signature Signature, creator QortalPublicKey NOT NULL, AT_name ATName NOT NULL, "
@@ -658,6 +667,115 @@ public class HSQLDBDatabaseUpdates {
 					break;
 
 				case 25:
+					// DISABLED: improved version in case 30!
+					// Remove excess created_when from ATStates
+					// stmt.execute("ALTER TABLE ATStates DROP created_when");
+					// stmt.execute("CREATE INDEX ATStateHeightIndex on ATStates (height)");
+					break;
+
+				case 26:
+					// Support for trimming
+					stmt.execute("ALTER TABLE DatabaseInfo ADD AT_trim_height INT NOT NULL DEFAULT 0");
+					stmt.execute("ALTER TABLE DatabaseInfo ADD online_signatures_trim_height INT NOT NULL DEFAULT 0");
+					break;
+
+				case 27:
+					// More indexes
+					stmt.execute("CREATE INDEX IF NOT EXISTS PaymentTransactionsRecipientIndex ON PaymentTransactions (recipient)");
+					stmt.execute("CREATE INDEX IF NOT EXISTS ATTransactionsRecipientIndex ON ATTransactions (recipient)");
+					break;
+
+				case 28:
+					// Latest AT state cache
+					stmt.execute("CREATE TEMPORARY TABLE IF NOT EXISTS LatestATStates ("
+								+ "AT_address QortalAddress NOT NULL, "
+								+ "height INT NOT NULL"
+							+ ")");
+					break;
+
+				case 29:
+					// Turn off HSQLDB redo-log "blockchain.log" and periodically call "CHECKPOINT" ourselves
+					stmt.execute("SET FILES LOG FALSE");
+					stmt.execute("CHECKPOINT");
+					break;
+
+				case 30:
+					// Split AT state data off to new table for better performance/management.
+
+					if (!wasPristine && !"mem".equals(HSQLDBRepository.getDbPathname(connection.getMetaData().getURL()))) {
+						// First, backup node-local data in case user wants to avoid long reshape and use bootstrap instead
+						try (ResultSet resultSet = stmt.executeQuery("SELECT COUNT(*) FROM MintingAccounts")) {
+							int rowCount = resultSet.next() ? resultSet.getInt(1) : 0;
+							if (rowCount > 0) {
+								stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
+								LOGGER.info("Exported sensitive/node-local minting keys into MintingAccounts.script");
+							}
+						}
+
+						try (ResultSet resultSet = stmt.executeQuery("SELECT COUNT(*) FROM TradeBotStates")) {
+							int rowCount = resultSet.next() ? resultSet.getInt(1) : 0;
+							if (rowCount > 0) {
+								stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
+								LOGGER.info("Exported sensitive/node-local trade-bot states into TradeBotStates.script");
+							}
+						}
+
+						LOGGER.info("If following reshape takes too long, use bootstrap and import node-local data using API's POST /admin/repository/data");
+					}
+
+					// Create new AT-states table without full state data
+					stmt.execute("CREATE TABLE ATStatesNew ("
+							+ "AT_address QortalAddress, height INTEGER NOT NULL, state_hash ATStateHash NOT NULL, "
+							+ "fees QortalAmount NOT NULL, is_initial BOOLEAN NOT NULL, "
+							+ "PRIMARY KEY (AT_address, height), "
+							+ "FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
+					stmt.execute("SET TABLE ATStatesNew NEW SPACE");
+					stmt.execute("CHECKPOINT");
+
+					ResultSet resultSet = stmt.executeQuery("SELECT height FROM Blocks ORDER BY height DESC LIMIT 1");
+					final int blockchainHeight = resultSet.next() ? resultSet.getInt(1) : 0;
+					final int heightStep = 100;
+
+					LOGGER.info("Rebuilding AT state summaries in repository - this might take a while... (approx. 2 mins on high-spec)");
+					for (int minHeight = 1; minHeight < blockchainHeight; minHeight += heightStep) {
+						stmt.execute("INSERT INTO ATStatesNew ("
+								+ "SELECT AT_address, height, state_hash, fees, is_initial "
+								+ "FROM ATStates "
+								+ "WHERE height BETWEEN " + minHeight + " AND " + (minHeight + heightStep - 1)
+								+ ")");
+						stmt.execute("COMMIT");
+					}
+					stmt.execute("CHECKPOINT");
+
+					LOGGER.info("Rebuilding AT states height index in repository - this might take about 3x longer...");
+					stmt.execute("CREATE INDEX ATStatesHeightIndex ON ATStatesNew (height)");
+					stmt.execute("CHECKPOINT");
+
+					stmt.execute("CREATE TABLE ATStatesData ("
+							+ "AT_address QortalAddress, height INTEGER NOT NULL, state_data ATState NOT NULL, "
+							+ "PRIMARY KEY (height, AT_address), "
+							+ "FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
+					stmt.execute("SET TABLE ATStatesData NEW SPACE");
+					stmt.execute("CHECKPOINT");
+
+					LOGGER.info("Rebuilding AT state data in repository - this might take a while... (approx. 2 mins on high-spec)");
+					for (int minHeight = 1; minHeight < blockchainHeight; minHeight += heightStep) {
+						stmt.execute("INSERT INTO ATStatesData ("
+								+ "SELECT AT_address, height, state_data "
+								+ "FROM ATstates "
+								+ "WHERE state_data IS NOT NULL "
+								+ "AND height BETWEEN " + minHeight + " AND " + (minHeight + heightStep - 1)
+								+ ")");
+						stmt.execute("COMMIT");
+					}
+					stmt.execute("CHECKPOINT");
+
+					stmt.execute("DROP TABLE ATStates");
+					stmt.execute("ALTER TABLE ATStatesNew RENAME TO ATStates");
+					stmt.execute("CHECKPOINT");
+					break;
+
+				case 31:
 					// Multiple blockchains, ACCTs and trade-bots
 					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN acct_name VARCHAR(40) BEFORE trade_state");
 					stmt.execute("UPDATE TradeBotStates SET acct_name = 'BitcoinACCTv1' WHERE acct_name IS NULL");

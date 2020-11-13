@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,12 +54,27 @@ public class HSQLDBRepository implements Repository {
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
 
 	protected Connection connection;
-	protected Deque<Savepoint> savepoints = new ArrayDeque<>(3);
+	protected final Deque<Savepoint> savepoints = new ArrayDeque<>(3);
 	protected boolean debugState = false;
 	protected Long slowQueryThreshold = null;
 	protected List<String> sqlStatements;
 	protected long sessionId;
-	protected Map<String, PreparedStatement> preparedStatementCache = new HashMap<>();
+	protected final Map<String, PreparedStatement> preparedStatementCache = new HashMap<>();
+	protected final Object trimHeightsLock = new Object();
+
+	private final ATRepository atRepository = new HSQLDBATRepository(this);
+	private final AccountRepository accountRepository = new HSQLDBAccountRepository(this);
+	private final ArbitraryRepository arbitraryRepository = new HSQLDBArbitraryRepository(this);
+	private final AssetRepository assetRepository = new HSQLDBAssetRepository(this);
+	private final BlockRepository blockRepository = new HSQLDBBlockRepository(this);
+	private final ChatRepository chatRepository = new HSQLDBChatRepository(this);
+	private final CrossChainRepository crossChainRepository = new HSQLDBCrossChainRepository(this);
+	private final GroupRepository groupRepository = new HSQLDBGroupRepository(this);
+	private final MessageRepository messageRepository = new HSQLDBMessageRepository(this);
+	private final NameRepository nameRepository = new HSQLDBNameRepository(this);
+	private final NetworkRepository networkRepository = new HSQLDBNetworkRepository(this);
+	private final TransactionRepository transactionRepository = new HSQLDBTransactionRepository(this);
+	private final VotingRepository votingRepository = new HSQLDBVotingRepository(this);
 
 	// Constructors
 
@@ -92,67 +108,67 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public ATRepository getATRepository() {
-		return new HSQLDBATRepository(this);
+		return this.atRepository;
 	}
 
 	@Override
 	public AccountRepository getAccountRepository() {
-		return new HSQLDBAccountRepository(this);
+		return this.accountRepository;
 	}
 
 	@Override
 	public ArbitraryRepository getArbitraryRepository() {
-		return new HSQLDBArbitraryRepository(this);
+		return this.arbitraryRepository;
 	}
 
 	@Override
 	public AssetRepository getAssetRepository() {
-		return new HSQLDBAssetRepository(this);
+		return this.assetRepository;
 	}
 
 	@Override
 	public BlockRepository getBlockRepository() {
-		return new HSQLDBBlockRepository(this);
+		return this.blockRepository;
 	}
 
 	@Override
 	public ChatRepository getChatRepository() {
-		return new HSQLDBChatRepository(this);
+		return this.chatRepository;
 	}
 
 	@Override
 	public CrossChainRepository getCrossChainRepository() {
-		return new HSQLDBCrossChainRepository(this);
+		return this.crossChainRepository;
 	}
 
 	@Override
 	public GroupRepository getGroupRepository() {
-		return new HSQLDBGroupRepository(this);
+		return this.groupRepository;
 	}
 
 	@Override
 	public MessageRepository getMessageRepository() {
-		return new HSQLDBMessageRepository(this);
+		return this.messageRepository;
 	}
 
 	@Override
 	public NameRepository getNameRepository() {
-		return new HSQLDBNameRepository(this);
+		return this.nameRepository;
 	}
 
 	@Override
 	public NetworkRepository getNetworkRepository() {
-		return new HSQLDBNetworkRepository(this);
+		return this.networkRepository;
 	}
 
 	@Override
 	public TransactionRepository getTransactionRepository() {
-		return new HSQLDBTransactionRepository(this);
+		return this.transactionRepository;
 	}
 
 	@Override
 	public VotingRepository getVotingRepository() {
-		return new HSQLDBVotingRepository(this);
+		return this.votingRepository;
 	}
 
 	@Override
@@ -169,8 +185,20 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void saveChanges() throws DataException {
+		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
+
 		try {
 			this.connection.commit();
+
+			if (this.slowQueryThreshold != null) {
+				long queryTime = System.currentTimeMillis() - beforeQuery;
+
+				if (queryTime > this.slowQueryThreshold) {
+					LOGGER.info(() -> String.format("[Session %d] HSQLDB COMMIT took %d ms", this.sessionId, queryTime), new SQLException("slow commit"));
+
+					logStatements();
+				}
+			}
 		} catch (SQLException e) {
 			throw new DataException("commit error", e);
 		} finally {
@@ -194,7 +222,7 @@ public class HSQLDBRepository implements Repository {
 			this.savepoints.clear();
 
 			// Before clearing statements so we can log what led to assertion error
-			assertEmptyTransaction("transaction commit");
+			assertEmptyTransaction("transaction rollback");
 
 			if (this.sqlStatements != null)
 				this.sqlStatements.clear();
@@ -284,11 +312,12 @@ public class HSQLDBRepository implements Repository {
 				Path oldRepoDirPath = Paths.get(dbPathname).getParent();
 
 				// Delete old repository files
-				Files.walk(oldRepoDirPath)
-						.sorted(Comparator.reverseOrder())
+				try (Stream<Path> paths = Files.walk(oldRepoDirPath)) {
+					paths.sorted(Comparator.reverseOrder())
 						.map(Path::toFile)
 						.filter(file -> file.getPath().startsWith(dbPathname))
 						.forEach(File::delete);
+				}
 			}
 		} catch (NoSuchFileException e) {
 			// Nothing to remove
@@ -328,11 +357,12 @@ public class HSQLDBRepository implements Repository {
 			Path backupDirPath = Paths.get(backupPathname).getParent();
 			String backupDirPathname = backupDirPath.toString();
 
-			Files.walk(backupDirPath)
-					.sorted(Comparator.reverseOrder())
+			try (Stream<Path> paths = Files.walk(backupDirPath)) {
+				paths.sorted(Comparator.reverseOrder())
 					.map(Path::toFile)
 					.filter(file -> file.getPath().startsWith(backupDirPathname))
 					.forEach(File::delete);
+			}
 		} catch (NoSuchFileException e) {
 			// Nothing to remove
 		} catch (SQLException | IOException e) {
@@ -348,17 +378,55 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
+	public void checkpoint(boolean quick) throws DataException {
+		try (Statement stmt = this.connection.createStatement()) {
+			stmt.execute(quick ? "CHECKPOINT" : "CHECKPOINT DEFRAG");
+		} catch (SQLException e) {
+			throw new DataException("Unable to perform repository checkpoint");
+		}
+	}
+
+	@Override
 	public void performPeriodicMaintenance() throws DataException {
 		// Defrag DB - takes a while!
 		try (Statement stmt = this.connection.createStatement()) {
+			LOGGER.info("performing maintenance - this will take a while");
+			stmt.execute("CHECKPOINT");
 			stmt.execute("CHECKPOINT DEFRAG");
+			LOGGER.info("maintenance completed");
 		} catch (SQLException e) {
 			throw new DataException("Unable to defrag repository");
 		}
 	}
 
+	@Override
+	public void exportNodeLocalData() throws DataException {
+		try (Statement stmt = this.connection.createStatement()) {
+			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
+			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
+			LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
+		} catch (SQLException e) {
+			throw new DataException("Unable to export sensitive/node-local data from repository");
+		}
+	}
+
+	@Override
+	public void importDataFromFile(String filename) throws DataException {
+		try (Statement stmt = this.connection.createStatement()) {
+			LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
+
+			String escapedFilename = stmt.enquoteLiteral(filename);
+			stmt.execute("PERFORM IMPORT SCRIPT DATA FROM " + escapedFilename + " STOP ON ERROR");
+
+			LOGGER.info(() -> String.format("Imported data into repository from %s", filename));
+		} catch (SQLException e) {
+			LOGGER.info(() -> String.format("Failed to import data into repository from %s: %s", filename, e.getMessage()));
+			throw new DataException("Unable to export sensitive/node-local data from repository: " + e.getMessage());
+		}
+	}
+
 	/** Returns DB pathname from passed connection URL. If memory DB, returns "mem". */
-	private static String getDbPathname(String connectionUrl) {
+	/*package*/ static String getDbPathname(String connectionUrl) {
 		Pattern pattern = Pattern.compile("hsqldb:(mem|file):(.*?)(;|$)");
 		Matcher matcher = pattern.matcher(connectionUrl);
 
@@ -394,11 +462,12 @@ public class HSQLDBRepository implements Repository {
 			LOGGER.info("Attempting repository recovery using backup");
 
 			// Move old repository files out the way
-			Files.walk(oldRepoDirPath)
-					.sorted(Comparator.reverseOrder())
+			try (Stream<Path> paths = Files.walk(oldRepoDirPath)) {
+				paths.sorted(Comparator.reverseOrder())
 					.map(Path::toFile)
 					.filter(file -> file.getPath().startsWith(dbPathname))
 					.forEach(File::delete);
+			}
 
 			try (Statement stmt = connection.createStatement()) {
 				// Now "backup" the backup back to original repository location (the parent).
@@ -438,6 +507,10 @@ public class HSQLDBRepository implements Repository {
 		if (this.sqlStatements != null)
 			this.sqlStatements.add(sql);
 
+		return cachePreparedStatement(sql);
+	}
+
+	private PreparedStatement cachePreparedStatement(String sql) throws SQLException {
 		/*
 		 * We cache a duplicate PreparedStatement for this SQL string,
 		 * which we never close, which means HSQLDB also caches a parsed,
@@ -446,10 +519,21 @@ public class HSQLDBRepository implements Repository {
 		 * 
 		 * See org.hsqldb.StatementManager for more details.
 		 */
-		if (!this.preparedStatementCache.containsKey(sql))
-			this.preparedStatementCache.put(sql, this.connection.prepareStatement(sql));
+		PreparedStatement preparedStatement = this.preparedStatementCache.get(sql);
+		if (preparedStatement == null || preparedStatement.isClosed()) {
+			if (preparedStatement != null)
+				// This shouldn't occur, so log, but recompile
+				LOGGER.debug(() -> String.format("Recompiling closed PreparedStatement: %s", sql));
 
-		return this.connection.prepareStatement(sql);
+			preparedStatement =  this.connection.prepareStatement(sql);
+			this.preparedStatementCache.put(sql, preparedStatement);
+		} else {
+			// Clean up ready for reuse
+			preparedStatement.clearBatch();
+			preparedStatement.clearParameters();
+		}
+
+		return preparedStatement;
 	}
 
 	/**
@@ -465,9 +549,8 @@ public class HSQLDBRepository implements Repository {
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.prepareStatement(sql);
 
-		// Close the PreparedStatement when the ResultSet is closed otherwise there's a potential resource leak.
-		// We can't use try-with-resources here as closing the PreparedStatement on return would also prematurely close the ResultSet.
-		preparedStatement.closeOnCompletion();
+		// We don't close the PreparedStatement when the ResultSet is closed because we cached PreparedStatements now.
+		// They are cleaned up when connection/session is closed.
 
 		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
 
@@ -477,7 +560,7 @@ public class HSQLDBRepository implements Repository {
 			long queryTime = System.currentTimeMillis() - beforeQuery;
 
 			if (queryTime > this.slowQueryThreshold) {
-				LOGGER.info(() -> String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
+				LOGGER.info(() -> String.format("[Session %d] HSQLDB query took %d ms: %s", this.sessionId, queryTime, sql), new SQLException("slow query"));
 
 				logStatements();
 			}
@@ -556,36 +639,35 @@ public class HSQLDBRepository implements Repository {
 		if (batchedObjects == null || batchedObjects.isEmpty())
 			return 0;
 
-		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
-			for (Object[] objects : batchedObjects) {
-				this.bindStatementParams(preparedStatement, objects);
-				preparedStatement.addBatch();
-			}
-
-			long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
-
-			int[] updateCounts = preparedStatement.executeBatch();
-
-			if (this.slowQueryThreshold != null) {
-				long queryTime = System.currentTimeMillis() - beforeQuery;
-
-				if (queryTime > this.slowQueryThreshold) {
-					LOGGER.info(() -> String.format("HSQLDB query took %d ms: %s", queryTime, sql), new SQLException("slow query"));
-
-					logStatements();
-				}
-			}
-
-			int totalCount = 0;
-			for (int i = 0; i < updateCounts.length; ++i) {
-				if (updateCounts[i] < 0)
-					throw new SQLException("Database returned invalid row count");
-
-				totalCount += updateCounts[i];
-			}
-
-			return totalCount;
+		PreparedStatement preparedStatement = this.prepareStatement(sql);
+		for (Object[] objects : batchedObjects) {
+			this.bindStatementParams(preparedStatement, objects);
+			preparedStatement.addBatch();
 		}
+
+		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
+
+		int[] updateCounts = preparedStatement.executeBatch();
+
+		if (this.slowQueryThreshold != null) {
+			long queryTime = System.currentTimeMillis() - beforeQuery;
+
+			if (queryTime > this.slowQueryThreshold) {
+				LOGGER.info(() -> String.format("[Session %d] HSQLDB query took %d ms: %s", this.sessionId, queryTime, sql), new SQLException("slow query"));
+
+				logStatements();
+			}
+		}
+
+		int totalCount = 0;
+		for (int i = 0; i < updateCounts.length; ++i) {
+			if (updateCounts[i] < 0)
+				throw new SQLException("Database returned invalid row count");
+
+			totalCount += updateCounts[i];
+		}
+
+		return totalCount;
 	}
 
 	/**
@@ -765,15 +847,15 @@ public class HSQLDBRepository implements Repository {
 		if (this.sqlStatements == null)
 			return;
 
-		LOGGER.info(() -> String.format("HSQLDB SQL statements (session %d) leading up to this were:", this.sessionId));
+		LOGGER.info(() -> String.format("[Session %d] HSQLDB SQL statements leading up to this were:", this.sessionId));
 
 		for (String sql : this.sqlStatements)
-			LOGGER.info(sql);
+			LOGGER.info(() -> String.format("[Session %d] %s", this.sessionId, sql));
 	}
 
 	/** Logs other HSQLDB sessions then returns passed exception */
 	public SQLException examineException(SQLException e) {
-		LOGGER.error(String.format("HSQLDB error (session %d): %s", this.sessionId, e.getMessage()), e);
+		LOGGER.error(() -> String.format("[Session %d] HSQLDB error: %s", this.sessionId, e.getMessage()), e);
 
 		logStatements();
 
@@ -807,14 +889,19 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	private void assertEmptyTransaction(String context) throws DataException {
-		try (Statement stmt = this.connection.createStatement()) {
+		String sql = "SELECT transaction, transaction_size FROM information_schema.system_sessions WHERE session_id = ?";
+
+		try {
+			PreparedStatement stmt = this.cachePreparedStatement(sql);
+			stmt.setLong(1, this.sessionId);
+
 			// Diagnostic check for uncommitted changes
-			if (!stmt.execute("SELECT transaction, transaction_size FROM information_schema.system_sessions WHERE session_id = " + this.sessionId)) // TRANSACTION_SIZE() broken?
+			if (!stmt.execute()) // TRANSACTION_SIZE() broken?
 				throw new DataException("Unable to check repository status after " + context);
 
 			try (ResultSet resultSet = stmt.getResultSet()) {
 				if (resultSet == null || !resultSet.next()) {
-					LOGGER.warn(String.format("Unable to check repository status after %s", context));
+					LOGGER.warn(() -> String.format("Unable to check repository status after %s", context));
 					return;
 				}
 
@@ -822,7 +909,11 @@ public class HSQLDBRepository implements Repository {
 				int transactionCount = resultSet.getInt(2);
 
 				if (inTransaction && transactionCount != 0) {
-					LOGGER.warn(String.format("Uncommitted changes (%d) after %s, session [%d]", transactionCount, context, this.sessionId), new Exception("Uncommitted repository changes"));
+					LOGGER.warn(() -> String.format("Uncommitted changes (%d) after %s, session [%d]",
+							transactionCount,
+							context,
+							this.sessionId),
+							new Exception("Uncommitted repository changes"));
 					logStatements();
 				}
 			}

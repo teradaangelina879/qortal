@@ -6,6 +6,8 @@ import static java.util.stream.Collectors.toMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -15,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
@@ -791,15 +794,46 @@ public class Block {
 		return BigInteger.valueOf(blockSummaryData.getOnlineAccountsCount()).shiftLeft(ACCOUNTS_COUNT_SHIFT).add(keyDistance);
 	}
 
-	public static BigInteger calcChainWeight(int commonBlockHeight, byte[] commonBlockSignature, List<BlockSummaryData> blockSummaries) {
+	public static BigInteger calcChainWeight(int commonBlockHeight, byte[] commonBlockSignature, List<BlockSummaryData> blockSummaries, int maxHeight) {
 		BigInteger cumulativeWeight = BigInteger.ZERO;
 		int parentHeight = commonBlockHeight;
 		byte[] parentBlockSignature = commonBlockSignature;
+		NumberFormat formatter = new DecimalFormat("0.###E0");
+		boolean isLogging = LOGGER.getLevel().isLessSpecificThan(Level.TRACE);
 
 		for (BlockSummaryData blockSummaryData : blockSummaries) {
-			cumulativeWeight = cumulativeWeight.shiftLeft(CHAIN_WEIGHT_SHIFT).add(calcBlockWeight(parentHeight, parentBlockSignature, blockSummaryData));
+			StringBuilder stringBuilder = isLogging ? new StringBuilder(512) : null;
+
+			if (isLogging)
+				stringBuilder.append(formatter.format(cumulativeWeight)).append(" -> ");
+
+			cumulativeWeight = cumulativeWeight.shiftLeft(CHAIN_WEIGHT_SHIFT);
+			if (isLogging)
+				stringBuilder.append(formatter.format(cumulativeWeight)).append(" + ");
+
+			BigInteger blockWeight = calcBlockWeight(parentHeight, parentBlockSignature, blockSummaryData);
+			if (isLogging)
+				stringBuilder.append("(height: ")
+						.append(parentHeight + 1)
+						.append(", online: ")
+						.append(blockSummaryData.getOnlineAccountsCount())
+						.append(") ")
+						.append(formatter.format(blockWeight));
+
+			cumulativeWeight = cumulativeWeight.add(blockWeight);
+			if (isLogging)
+				stringBuilder.append(" -> ").append(formatter.format(cumulativeWeight));
+
+			if (isLogging && blockSummaries.size() > 1)
+				LOGGER.debug(() -> stringBuilder.toString()); //NOSONAR S1612 (false positive?)
+
 			parentHeight = blockSummaryData.getHeight();
 			parentBlockSignature = blockSummaryData.getSignature();
+
+			/* Potential future consensus change: only comparing the same number of blocks.
+			if (parentHeight >= maxHeight)
+				break;
+			*/
 		}
 
 		return cumulativeWeight;

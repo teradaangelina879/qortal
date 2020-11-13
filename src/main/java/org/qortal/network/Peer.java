@@ -33,6 +33,7 @@ import org.qortal.settings.Settings;
 import org.qortal.utils.ExecuteProduceConsume;
 import org.qortal.utils.NTP;
 
+import com.google.common.hash.HashCode;
 import com.google.common.net.HostAndPort;
 import com.google.common.net.InetAddresses;
 
@@ -348,21 +349,37 @@ public class Peer {
 				if (this.byteBuffer == null)
 					this.byteBuffer = ByteBuffer.allocate(Network.getInstance().getMaxMessageSize());
 
+				final int priorPosition = this.byteBuffer.position();
 				final int bytesRead = this.socketChannel.read(this.byteBuffer);
 				if (bytesRead == -1) {
 					this.disconnect("EOF");
 					return;
 				}
 
-				LOGGER.trace(() -> String.format("Received %d bytes from peer %s", bytesRead, this));
+				LOGGER.trace(() -> {
+					if (bytesRead > 0) {
+						byte[] leadingBytes = new byte[Math.min(bytesRead, 8)];
+						this.byteBuffer.asReadOnlyBuffer().position(priorPosition).get(leadingBytes);
+						String leadingHex = HashCode.fromBytes(leadingBytes).toString();
+
+						return String.format("Received %d bytes, starting %s, into byteBuffer[%d] from peer %s",
+								bytesRead,
+								leadingHex,
+								priorPosition,
+								this);
+					} else {
+						return String.format("Received %d bytes into byteBuffer[%d] from peer %s", bytesRead, priorPosition, this);
+					}
+				});
 				final boolean wasByteBufferFull = !this.byteBuffer.hasRemaining();
 
 				while (true) {
 					final Message message;
 
 					// Can we build a message from buffer now?
+					ByteBuffer readOnlyBuffer = this.byteBuffer.asReadOnlyBuffer().flip();
 					try {
-						message = Message.fromByteBuffer(this.byteBuffer);
+						message = Message.fromByteBuffer(readOnlyBuffer);
 					} catch (MessageException e) {
 						LOGGER.debug(String.format("%s, from peer %s", e.getMessage(), this));
 						this.disconnect(e.getMessage());
@@ -387,6 +404,13 @@ public class Peer {
 
 					LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
 
+					// Tidy up buffers:
+					this.byteBuffer.flip();
+					// Read-only, flipped buffer's position will be after end of message, so copy that
+					this.byteBuffer.position(readOnlyBuffer.position());
+					// Copy bytes after read message to front of buffer, adjusting position accordingly, reset limit to capacity
+					this.byteBuffer.compact();
+
 					BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
 					if (queue != null) {
 						// Adding message to queue will unblock thread waiting for response
@@ -399,7 +423,7 @@ public class Peer {
 
 					// Add message to pending queue
 					if (!this.pendingMessages.offer(message)) {
-						LOGGER.info(String.format("No room to queue message from peer %s - discarding", this));
+						LOGGER.info(() -> String.format("No room to queue message from peer %s - discarding", this));
 						return;
 					}
 
@@ -454,10 +478,24 @@ public class Peer {
 				while (outputBuffer.hasRemaining()) {
 					int bytesWritten = this.socketChannel.write(outputBuffer);
 
+					LOGGER.trace(() -> String.format("Sent %d bytes of %s message with ID %d to peer %s",
+							bytesWritten,
+							message.getType().name(),
+							message.getId(),
+							this));
+
 					if (bytesWritten == 0)
 						// Underlying socket's internal buffer probably full,
 						// so wait a short while for bytes to actually be transmitted over the wire
-						this.socketChannel.wait(1L);
+
+						/*
+						 * NOSONAR squid:S2276 - we don't want to use this.socketChannel.wait()
+						 * as this releases the lock held by synchronized() above
+						 * and would allow another thread to send another message,
+						 * potentially interleaving them on-the-wire, causing checksum failures
+						 * and connection loss.
+						 */
+						Thread.sleep(1L); //NOSONAR squid:S2276
 				}
 			}
 		} catch (MessageException e) {

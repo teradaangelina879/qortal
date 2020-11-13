@@ -531,7 +531,8 @@ public class BlockChain {
 
 	private static void rebuildBlockchain() throws DataException {
 		// (Re)build repository
-		RepositoryManager.rebuild();
+		if (!RepositoryManager.wasPristineAtOpen())
+			RepositoryManager.rebuild();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			GenesisBlock genesisBlock = GenesisBlock.getInstance(repository);
@@ -567,7 +568,8 @@ public class BlockChain {
 					--height;
 					orphanBlockData = repository.getBlockRepository().fromHeight(height);
 
-					Controller.getInstance().onNewBlock(orphanBlockData);
+					repository.discardChanges(); // clear transaction status to prevent deadlocks
+					Controller.getInstance().onOrphanedBlock(orphanBlockData);
 				}
 
 				return true;

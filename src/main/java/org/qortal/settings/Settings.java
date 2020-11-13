@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.Locale;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -42,6 +43,9 @@ public class Settings {
 	// Settings, and other config files
 	private String userPath;
 
+	// General
+	private String localeLang = Locale.getDefault().getLanguage();
+
 	// Common to all networking (API/P2P)
 	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
 
@@ -62,6 +66,7 @@ public class Settings {
 		"::1", "127.0.0.1"
 	};
 	private Boolean apiRestricted;
+	private String apiKey = null;
 	private boolean apiLoggingEnabled = false;
 	private boolean apiDocumentationEnabled = false;
 	// Both of these need to be set for API to use SSL
@@ -80,6 +85,26 @@ public class Settings {
 	private long repositoryBackupInterval = 0; // ms
 	/** Whether to show a notification when we backup repository. */
 	private boolean showBackupNotification = false;
+	/** How long between repository checkpoints (ms). */
+	private long repositoryCheckpointInterval = 60 * 60 * 1000L; // 1 hour (ms) default
+	/** Whether to show a notification when we perform repository 'checkpoint'. */
+	private boolean showCheckpointNotification = false;
+
+	/** How long to keep old, full, AT state data (ms). */
+	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
+	/** How often to attempt AT state trimming (ms). */
+	private long atStatesTrimInterval = 5678L; // milliseconds
+	/** Block height range to scan for trimmable AT states.<br>
+	 * This has a significant effect on execution time. */
+	private int atStatesTrimBatchSize = 100; // blocks
+	/** Max number of AT states to trim in one go. */
+	private int atStatesTrimLimit = 4000; // records
+
+	/** How often to attempt online accounts signatures trimming (ms). */
+	private long onlineSignaturesTrimInterval = 9876L; // milliseconds
+	/** Block height range to scan for trimmable online accounts signatures.<br>
+	 * This has a significant effect on execution time. */
+	private int onlineSignaturesTrimBatchSize = 100; // blocks
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
@@ -253,12 +278,19 @@ public class Settings {
 		// Validation goes here
 		if (this.minBlockchainPeers < 1)
 			throwValidationError("minBlockchainPeers must be at least 1");
+
+		if (this.apiKey != null && this.apiKey.trim().length() < 8)
+			throwValidationError("apiKey must be at least 8 characters");
 	}
 
 	// Getters / setters
 
 	public String getUserPath() {
 		return this.userPath;
+	}
+
+	public String getLocaleLang() {
+		return this.localeLang;
 	}
 
 	public int getUiServerPort() {
@@ -295,6 +327,10 @@ public class Settings {
 
 		// Not set in config file, so restrict if not testnet
 		return !BlockChain.getInstance().isTestChain();
+	}
+
+	public String getApiKey() {
+		return this.apiKey;
 	}
 
 	public boolean isApiLoggingEnabled() {
@@ -410,6 +446,38 @@ public class Settings {
 
 	public boolean getShowBackupNotification() {
 		return this.showBackupNotification;
+	}
+
+	public long getRepositoryCheckpointInterval() {
+		return this.repositoryCheckpointInterval;
+	}
+
+	public boolean getShowCheckpointNotification() {
+		return this.showCheckpointNotification;
+	}
+
+	public long getAtStatesMaxLifetime() {
+		return this.atStatesMaxLifetime;
+	}
+
+	public long getAtStatesTrimInterval() {
+		return this.atStatesTrimInterval;
+	}
+
+	public int getAtStatesTrimBatchSize() {
+		return this.atStatesTrimBatchSize;
+	}
+
+	public int getAtStatesTrimLimit() {
+		return this.atStatesTrimLimit;
+	}
+
+	public long getOnlineSignaturesTrimInterval() {
+		return this.onlineSignaturesTrimInterval;
+	}
+
+	public int getOnlineSignaturesTrimBatchSize() {
+		return this.onlineSignaturesTrimBatchSize;
 	}
 
 }

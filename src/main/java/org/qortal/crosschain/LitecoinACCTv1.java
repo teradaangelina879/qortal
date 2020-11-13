@@ -561,38 +561,26 @@ public class LitecoinACCTv1 implements ACCT {
 
 	/**
 	 * Returns CrossChainTradeData with useful info extracted from AT.
-	 * 
-	 * @param repository
-	 * @param atAddress
-	 * @throws DataException
 	 */
 	@Override
 	public CrossChainTradeData populateTradeData(Repository repository, ATData atData) throws DataException {
 		ATStateData atStateData = repository.getATRepository().getLatestATState(atData.getATAddress());
-		return populateTradeData(repository, atData.getCreatorPublicKey(), atStateData);
+		return populateTradeData(repository, atData.getCreatorPublicKey(), atData.getCreation(), atStateData);
 	}
 
 	/**
 	 * Returns CrossChainTradeData with useful info extracted from AT.
-	 * 
-	 * @param repository
-	 * @param atAddress
-	 * @throws DataException
 	 */
 	@Override
 	public CrossChainTradeData populateTradeData(Repository repository, ATStateData atStateData) throws DataException {
-		byte[] creatorPublicKey = repository.getATRepository().getCreatorPublicKey(atStateData.getATAddress());
-		return populateTradeData(repository, creatorPublicKey, atStateData);
+		ATData atData = repository.getATRepository().fromATAddress(atStateData.getATAddress());
+		return populateTradeData(repository, atData.getCreatorPublicKey(), atData.getCreation(), atStateData);
 	}
 
 	/**
 	 * Returns CrossChainTradeData with useful info extracted from AT.
-	 * 
-	 * @param repository
-	 * @param atAddress
-	 * @throws DataException
 	 */
-	public CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, ATStateData atStateData) throws DataException {
+	public CrossChainTradeData populateTradeData(Repository repository, byte[] creatorPublicKey, long creationTimestamp, ATStateData atStateData) throws DataException {
 		byte[] addressBytes = new byte[25]; // for general use
 		String atAddress = atStateData.getATAddress();
 
@@ -600,7 +588,7 @@ public class LitecoinACCTv1 implements ACCT {
 
 		tradeData.qortalAtAddress = atAddress;
 		tradeData.qortalCreator = Crypto.toAddress(creatorPublicKey);
-		tradeData.creationTimestamp = atStateData.getCreation();
+		tradeData.creationTimestamp = creationTimestamp;
 
 		Account atAccount = new Account(repository, atAddress);
 		tradeData.qortBalance = atAccount.getConfirmedBalance(Asset.QORT);
