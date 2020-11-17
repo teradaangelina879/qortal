@@ -4,6 +4,10 @@ public abstract class RepositoryManager {
 
 	private static RepositoryFactory repositoryFactory = null;
 
+	public static RepositoryFactory getRepositoryFactory() {
+		return repositoryFactory;
+	}
+
 	public static void setRepositoryFactory(RepositoryFactory newRepositoryFactory) {
 		repositoryFactory = newRepositoryFactory;
 	}

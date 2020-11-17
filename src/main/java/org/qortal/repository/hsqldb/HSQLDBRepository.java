@@ -60,7 +60,8 @@ public class HSQLDBRepository implements Repository {
 	protected List<String> sqlStatements;
 	protected long sessionId;
 	protected final Map<String, PreparedStatement> preparedStatementCache = new HashMap<>();
-	protected final Object trimHeightsLock = new Object();
+	// We want the same object corresponding to the actual DB
+	protected final Object trimHeightsLock = RepositoryManager.getRepositoryFactory();
 
 	private final ATRepository atRepository = new HSQLDBATRepository(this);
 	private final AccountRepository accountRepository = new HSQLDBAccountRepository(this);

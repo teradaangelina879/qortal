@@ -18,6 +18,8 @@ public class AtStatesTrimmer implements Runnable {
 		Thread.currentThread().setName("AT States trimmer");
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			int trimStartHeight = repository.getATRepository().getAtTrimHeight();
+
 			repository.getATRepository().prepareForAtStateTrimming();
 			repository.saveChanges();
 
@@ -41,8 +43,6 @@ public class AtStatesTrimmer implements Runnable {
 				long upperTrimmableTimestamp = Math.min(currentTrimmableTimestamp, chainTrimmableTimestamp);
 				int upperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(upperTrimmableTimestamp);
 
-				int trimStartHeight = repository.getATRepository().getAtTrimHeight();
-
 				int upperBatchHeight = trimStartHeight + Settings.getInstance().getAtStatesTrimBatchSize();
 				int upperTrimHeight = Math.min(upperBatchHeight, upperTrimmableHeight);
 
@@ -53,17 +53,20 @@ public class AtStatesTrimmer implements Runnable {
 				repository.saveChanges();
 
 				if (numAtStatesTrimmed > 0) {
+					final int finalTrimStartHeight = trimStartHeight;
 					LOGGER.debug(() -> String.format("Trimmed %d AT state%s between blocks %d and %d",
 							numAtStatesTrimmed, (numAtStatesTrimmed != 1 ? "s" : ""),
-							trimStartHeight, upperTrimHeight));
+							finalTrimStartHeight, upperTrimHeight));
 				} else {
 					// Can we move onto next batch?
 					if (upperTrimmableHeight > upperBatchHeight) {
-						repository.getATRepository().setAtTrimHeight(upperBatchHeight);
+						trimStartHeight = upperBatchHeight;
+						repository.getATRepository().setAtTrimHeight(trimStartHeight);
 						repository.getATRepository().prepareForAtStateTrimming();
 						repository.saveChanges();
 
-						LOGGER.debug(() -> String.format("Bumping AT state trim height to %d", upperBatchHeight));
+						final int finalTrimStartHeight = trimStartHeight;
+						LOGGER.debug(() -> String.format("Bumping AT state base trim height to %d", finalTrimStartHeight));
 					}
 				}
 			}
