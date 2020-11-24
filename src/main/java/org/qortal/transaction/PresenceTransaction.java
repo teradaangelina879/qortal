@@ -4,24 +4,24 @@ import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
-import org.qortal.data.transaction.ChatTransactionData;
+import org.qortal.data.transaction.PresenceTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
-import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
 import org.qortal.transform.TransformationException;
-import org.qortal.transform.transaction.ChatTransactionTransformer;
+import org.qortal.transform.transaction.PresenceTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 
-public class ChatTransaction extends Transaction {
+import com.google.common.primitives.Longs;
+
+public class PresenceTransaction extends Transaction {
 
 	// Properties
-	private ChatTransactionData chatTransactionData;
+	private PresenceTransactionData presenceTransactionData;
 
 	// Other useful constants
 	public static final int MAX_DATA_SIZE = 256;
@@ -31,35 +31,23 @@ public class ChatTransaction extends Transaction {
 
 	// Constructors
 
-	public ChatTransaction(Repository repository, TransactionData transactionData) {
+	public PresenceTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
 
-		this.chatTransactionData = (ChatTransactionData) this.transactionData;
+		this.presenceTransactionData = (PresenceTransactionData) this.transactionData;
 	}
 
 	// More information
 
 	@Override
 	public List<String> getRecipientAddresses() throws DataException {
-		String recipientAddress = this.chatTransactionData.getRecipient();
-		if (recipientAddress == null)
-			return Collections.emptyList();
-
-		return Collections.singletonList(recipientAddress);
+		return Collections.emptyList();
 	}
 
 	// Navigation
 
 	public Account getSender() {
 		return this.getCreator();
-	}
-
-	public Account getRecipient() {
-		String recipientAddress = chatTransactionData.getRecipient();
-		if (recipientAddress == null)
-			return null;
-
-		return new Account(this.repository, recipientAddress);
 	}
 
 	// Processing
@@ -74,51 +62,24 @@ public class ChatTransaction extends Transaction {
 		}
 
 		// Clear nonce from transactionBytes
-		ChatTransactionTransformer.clearNonce(transactionBytes);
+		PresenceTransactionTransformer.clearNonce(transactionBytes);
 
 		int difficulty = this.getSender().getConfirmedBalance(Asset.QORT) > 0 ? POW_DIFFICULTY_WITH_QORT : POW_DIFFICULTY_NO_QORT;
 
 		// Calculate nonce
-		this.chatTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
+		this.presenceTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
 	}
 
 	/**
-	 * Returns whether CHAT transaction has valid txGroupId.
+	 * Returns whether PRESENCE transaction has valid txGroupId.
 	 * <p>
-	 * For CHAT transactions, a non-NO_GROUP txGroupId represents
-	 * sending to a group, rather than to everyone.
-	 * <p>
-	 * If txGroupId is not NO_GROUP, then the sender needs to be
-	 * a member of that group. The recipient, if supplied, also
-	 * needs to be a member of that group.
+	 * We insist on NO_GROUP.
 	 */
 	@Override
 	protected boolean isValidTxGroupId() throws DataException {
 		int txGroupId = this.transactionData.getTxGroupId();
 
-		// txGroupId represents recipient group, unless NO_GROUP
-
-		// Anyone can use NO_GROUP
-		if (txGroupId == Group.NO_GROUP)
-			return true;
-
-		// Group even exist?
-		if (!this.repository.getGroupRepository().groupExists(txGroupId))
-			return false;
-
-		GroupRepository groupRepository = this.repository.getGroupRepository();
-
-		// Is transaction's creator is group member?
-		PublicKeyAccount creator = this.getCreator();
-		if (!groupRepository.memberExists(txGroupId, creator.getAddress()))
-			return false;
-
-		// If recipient address present, check they belong to group too.
-		String recipient = this.chatTransactionData.getRecipient();
-		if (recipient != null && !groupRepository.memberExists(txGroupId, recipient))
-			return false;
-
-		return true;
+		return txGroupId == Group.NO_GROUP;
 	}
 
 	@Override
@@ -140,17 +101,14 @@ public class ChatTransaction extends Transaction {
 
 		// If we exist in the repository then we've been imported as unconfirmed,
 		// but we don't want to make it into a block, so return fake non-OK result.
-		if (this.repository.getTransactionRepository().exists(this.chatTransactionData.getSignature()))
+		if (this.repository.getTransactionRepository().exists(this.presenceTransactionData.getSignature()))
 			return ValidationResult.INVALID_BUT_OK;
 
-		// If we have a recipient, check it is a valid address
-		String recipientAddress = chatTransactionData.getRecipient();
-		if (recipientAddress != null && !Crypto.isValidAddress(recipientAddress))
-			return ValidationResult.INVALID_ADDRESS;
-
-		// Check data length
-		if (chatTransactionData.getData().length < 1 || chatTransactionData.getData().length > MAX_DATA_SIZE)
-			return ValidationResult.INVALID_DATA_LENGTH;
+		// Check timestamp signature
+		byte[] timestampSignature = this.presenceTransactionData.getTimestampSignature();
+		byte[] timestampBytes = Longs.toByteArray(this.presenceTransactionData.getTimestamp());
+		if (!Crypto.verify(this.transactionData.getCreatorPublicKey(), timestampSignature, timestampBytes))
+			return ValidationResult.INVALID_TIMESTAMP_SIGNATURE;
 
 		return ValidationResult.OK;
 	}
@@ -164,7 +122,7 @@ public class ChatTransaction extends Transaction {
 		byte[] transactionBytes;
 
 		try {
-			transactionBytes = ChatTransactionTransformer.toBytesForSigning(this.transactionData);
+			transactionBytes = PresenceTransactionTransformer.toBytesForSigning(this.transactionData);
 		} catch (TransformationException e) {
 			throw new RuntimeException("Unable to transform transaction to byte array for verification", e);
 		}
@@ -172,10 +130,10 @@ public class ChatTransaction extends Transaction {
 		if (!Crypto.verify(this.transactionData.getCreatorPublicKey(), signature, transactionBytes))
 			return false;
 
-		int nonce = this.chatTransactionData.getNonce();
+		int nonce = this.presenceTransactionData.getNonce();
 
 		// Clear nonce from transactionBytes
-		ChatTransactionTransformer.clearNonce(transactionBytes);
+		PresenceTransactionTransformer.clearNonce(transactionBytes);
 
 		int difficulty;
 		try {
@@ -190,12 +148,12 @@ public class ChatTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		throw new DataException("CHAT transactions should never be processed");
+		throw new DataException("PRESENCE transactions should never be processed");
 	}
 
 	@Override
 	public void orphan() throws DataException {
-		throw new DataException("CHAT transactions should never be orphaned");
+		throw new DataException("PRESENCE transactions should never be orphaned");
 	}
 
 }

@@ -83,7 +83,8 @@ public abstract class Transaction {
 		ENABLE_FORGING(37, false),
 		REWARD_SHARE(38, false),
 		ACCOUNT_LEVEL(39, false),
-		TRANSFER_PRIVS(40, false);
+		TRANSFER_PRIVS(40, false),
+		PRESENCE(41, false);
 
 		public final int value;
 		public final boolean needsApproval;
@@ -244,7 +245,8 @@ public abstract class Transaction {
 		ACCOUNT_ALREADY_EXISTS(92),
 		INVALID_GROUP_BLOCK_DELAY(93),
 		INCORRECT_NONCE(94),
-		CHAT(999),
+		INVALID_TIMESTAMP_SIGNATURE(95),
+		INVALID_BUT_OK(999),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
