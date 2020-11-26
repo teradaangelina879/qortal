@@ -188,6 +188,16 @@ public class ChatTransaction extends Transaction {
 		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
 	}
 
+	/**
+	 * Ensure there's at least a skeleton account so people
+	 * can retrieve sender's public key using address, even if all their messages
+	 * expire.
+	 */
+	@Override
+	protected void onImportAsUnconfirmed() throws DataException {
+		this.getCreator().ensureAccount();
+	}
+
 	@Override
 	public void process() throws DataException {
 		throw new DataException("CHAT transactions should never be processed");

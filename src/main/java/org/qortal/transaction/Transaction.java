@@ -800,13 +800,7 @@ public abstract class Transaction {
 			repository.getTransactionRepository().save(transactionData);
 			repository.getTransactionRepository().unconfirmTransaction(transactionData);
 
-			/*
-			 * If CHAT transaction then ensure there's at least a skeleton account so people
-			 * can retrieve sender's public key using address, even if all their messages
-			 * expire.
-			 */
-			if (transactionData.getType() == TransactionType.CHAT)
-				this.getCreator().ensureAccount();
+			this.onImportAsUnconfirmed();
 
 			repository.saveChanges();
 
@@ -814,6 +808,17 @@ public abstract class Transaction {
 		} finally {
 			blockchainLock.unlock();
 		}
+	}
+
+	/**
+	 * Callback for when a transaction is imported as unconfirmed.
+	 * <p>
+	 * Called after transaction is added to repository, but before commit.
+	 * <p>
+	 * Blockchain lock is being held during this time.
+	 */
+	protected void onImportAsUnconfirmed() throws DataException {
+		/* To be optionally overridden */
 	}
 
 	/**
