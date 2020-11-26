@@ -4,24 +4,34 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.asset.Asset;
+import org.qortal.crosschain.BTCACCT;
 import org.qortal.data.transaction.BaseTransactionData;
+import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.PresenceTransactionData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.PresenceTransactionData.PresenceType;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
+import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.PresenceTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ValidationResult;
+import org.qortal.utils.NTP;
 
 import com.google.common.primitives.Longs;
 
 import static org.junit.Assert.*;
 
 public class PresenceTests extends Common {
+
+	private static final byte[] BITCOIN_PKH = new byte[20];
+	private static final byte[] HASH_OF_SECRET_B = new byte[32];
 
 	private PrivateKeyAccount signer;
 	private Repository repository;
@@ -32,6 +42,31 @@ public class PresenceTests extends Common {
 
 		this.repository = RepositoryManager.getRepository();
 		this.signer = Common.getTestAccount(this.repository, "bob");
+
+		// We need to create corresponding test trade offer
+		byte[] creationBytes = BTCACCT.buildQortalAT(this.signer.getAddress(), BITCOIN_PKH, HASH_OF_SECRET_B,
+				0L, 0L,
+				7 * 24 * 60 * 60);
+
+		long txTimestamp = NTP.getTime();
+		byte[] lastReference = this.signer.getLastReference();
+
+		long fee = 0;
+		String name = "QORT-BTC cross-chain trade";
+		String description = "Qortal-Bitcoin cross-chain trade";
+		String atType = "ACCT";
+		String tags = "QORT-BTC ACCT";
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, this.signer.getPublicKey(), fee, null);
+		TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, 1L, Asset.QORT);
+
+		Transaction deployAtTransaction = new DeployAtTransaction(repository, deployAtTransactionData);
+
+		fee = deployAtTransaction.calcRecommendedFee();
+		deployAtTransactionData.setFee(fee);
+
+		TransactionUtils.signAndImportValid(this.repository, deployAtTransactionData, this.signer);
+		BlockUtils.mintBlock(this.repository);
 	}
 
 	@After
@@ -50,6 +85,9 @@ public class PresenceTests extends Common {
 		byte[] timestampSignature = this.signer.sign(timestampBytes);
 
 		assertTrue(isValid(Group.NO_GROUP, this.signer, timestamp, timestampSignature));
+
+		PrivateKeyAccount nonTrader = Common.getTestAccount(repository, "alice");
+		assertFalse(isValid(Group.NO_GROUP, nonTrader, timestamp, timestampSignature));
 	}
 
 	@Test
@@ -87,7 +125,7 @@ public class PresenceTests extends Common {
 			timestampSignature = this.signer.sign(Longs.toByteArray(timestamp));
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, null);
-		PresenceTransactionData transactionData = new PresenceTransactionData(baseTransactionData, nonce, PresenceType.REWARD_SHARE, timestampSignature);
+		PresenceTransactionData transactionData = new PresenceTransactionData(baseTransactionData, nonce, PresenceType.TRADE_BOT, timestampSignature);
 
 		return new PresenceTransaction(this.repository, transactionData);
 	}

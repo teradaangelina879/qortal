@@ -6,10 +6,14 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
+import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
+import org.qortal.data.at.ATData;
+import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.transaction.PresenceTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.data.transaction.PresenceTransactionData.PresenceType;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -104,13 +108,32 @@ public class PresenceTransaction extends Transaction {
 		if (this.repository.getTransactionRepository().exists(this.presenceTransactionData.getSignature()))
 			return ValidationResult.INVALID_BUT_OK;
 
+		// We only support TRADE_BOT-type PRESENCE at this time
+		if (PresenceType.TRADE_BOT != this.presenceTransactionData.getPresenceType())
+			return ValidationResult.NOT_YET_RELEASED;
+
 		// Check timestamp signature
 		byte[] timestampSignature = this.presenceTransactionData.getTimestampSignature();
 		byte[] timestampBytes = Longs.toByteArray(this.presenceTransactionData.getTimestamp());
 		if (!Crypto.verify(this.transactionData.getCreatorPublicKey(), timestampSignature, timestampBytes))
 			return ValidationResult.INVALID_TIMESTAMP_SIGNATURE;
 
-		return ValidationResult.OK;
+		// Check signer is known trade address
+		String signerAddress = Crypto.toAddress(this.transactionData.getCreatorPublicKey());
+
+		byte[] codeHash = BTCACCT.CODE_BYTES_HASH;
+		boolean isExecutable = true;
+
+		List<ATData> atsData = repository.getATRepository().getATsByFunctionality(codeHash, isExecutable, null, null, null);
+
+		for (ATData atData : atsData) {
+			CrossChainTradeData crossChainTradeData = BTCACCT.populateTradeData(repository, atData);
+
+			if (crossChainTradeData.qortalCreatorTradeAddress.equals(signerAddress))
+				return ValidationResult.OK;
+		}
+
+		return ValidationResult.AT_UNKNOWN;
 	}
 
 	@Override
