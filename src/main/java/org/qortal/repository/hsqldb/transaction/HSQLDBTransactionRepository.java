@@ -1125,6 +1125,63 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public List<TransactionData> getUnconfirmedTransactions(TransactionType txType, byte[] creatorPublicKey) throws DataException {
+		if (txType == null && creatorPublicKey == null)
+			throw new IllegalArgumentException("At least one of txType or creatorPublicKey must be non-null");
+
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT signature FROM UnconfirmedTransactions ");
+		sql.append("JOIN Transactions USING (signature) ");
+		sql.append("WHERE ");
+
+		List<String> whereClauses = new ArrayList<>();
+		List<Object> bindParams = new ArrayList<>();
+
+		if (txType != null) {
+			whereClauses.add("type = ?");
+			bindParams.add(Integer.valueOf(txType.value));
+		}
+
+		if (creatorPublicKey != null) {
+			whereClauses.add("creator = ?");
+			bindParams.add(creatorPublicKey);
+		}
+
+		final int whereClausesSize = whereClauses.size();
+		for (int wci = 0; wci < whereClausesSize; ++wci) {
+			if (wci != 0)
+				sql.append(" AND ");
+
+			sql.append(whereClauses.get(wci));
+		}
+
+		sql.append("ORDER BY created_when, signature");
+
+		List<TransactionData> transactions = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return transactions;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				TransactionData transactionData = this.fromSignature(signature);
+
+				if (transactionData == null)
+					// Something inconsistent with the repository
+					throw new DataException(String.format("Unable to fetch unconfirmed transaction %s from repository?", Base58.encode(signature)));
+
+				transactions.add(transactionData);
+			} while (resultSet.next());
+
+			return transactions;
+		} catch (SQLException | DataException e) {
+			throw new DataException("Unable to fetch unconfirmed transactions from repository", e);
+		}
+	}
+
+	@Override
 	public void confirmTransaction(byte[] signature) throws DataException {
 		try {
 			this.repository.delete("UnconfirmedTransactions", "signature = ?", signature);
