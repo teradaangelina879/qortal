@@ -24,9 +24,6 @@ public class PresenceTransactionData extends TransactionData {
 	private byte[] senderPublicKey;
 
 	@Schema(accessMode = AccessMode.READ_ONLY)
-	private String sender;
-
-	@Schema(accessMode = AccessMode.READ_ONLY)
 	private int nonce;
 
 	public enum PresenceType {

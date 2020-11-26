@@ -771,6 +771,13 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CHECKPOINT");
 					break;
 
+				case 31:
+					// PRESENCE transactions
+					stmt.execute("CREATE TABLE IF NOT EXISTS PresenceTransactions ("
+							+ "signature Signature, nonce INT NOT NULL, presence_type INT NOT NULL, "
+							+ "timestamp_signature Signature NOT NULL, " + TRANSACTION_KEYS + ")");
+					break;
+
 				default:
 					// nothing to do
 					return false;

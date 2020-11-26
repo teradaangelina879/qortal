@@ -3,8 +3,9 @@ package org.qortal.transaction;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
-import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.transaction.PresenceTransactionData;
@@ -15,19 +16,20 @@ import org.qortal.repository.Repository;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.PresenceTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.Base58;
 
 import com.google.common.primitives.Longs;
 
 public class PresenceTransaction extends Transaction {
 
+	private static final Logger LOGGER = LogManager.getLogger(PresenceTransaction.class);
+
 	// Properties
 	private PresenceTransactionData presenceTransactionData;
 
 	// Other useful constants
-	public static final int MAX_DATA_SIZE = 256;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	public static final int POW_DIFFICULTY_WITH_QORT = 8; // leading zero bits
-	public static final int POW_DIFFICULTY_NO_QORT = 14; // leading zero bits
+	public static final int POW_DIFFICULTY = 8; // leading zero bits
 
 	// Constructors
 
@@ -64,10 +66,8 @@ public class PresenceTransaction extends Transaction {
 		// Clear nonce from transactionBytes
 		PresenceTransactionTransformer.clearNonce(transactionBytes);
 
-		int difficulty = this.getSender().getConfirmedBalance(Asset.QORT) > 0 ? POW_DIFFICULTY_WITH_QORT : POW_DIFFICULTY_NO_QORT;
-
 		// Calculate nonce
-		this.presenceTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
+		this.presenceTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY));
 	}
 
 	/**
@@ -135,15 +135,27 @@ public class PresenceTransaction extends Transaction {
 		// Clear nonce from transactionBytes
 		PresenceTransactionTransformer.clearNonce(transactionBytes);
 
-		int difficulty;
-		try {
-			difficulty = this.getSender().getConfirmedBalance(Asset.QORT) > 0 ? POW_DIFFICULTY_WITH_QORT : POW_DIFFICULTY_NO_QORT;
-		} catch (DataException e) {
-			return false;
-		}
-
 		// Check nonce
-		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+	}
+
+	/**
+	 * Remove any PRESENCE transactions by the same signer that have older timestamps.
+	 */
+	@Override
+	protected void onImportAsUnconfirmed() throws DataException {
+		byte[] creatorPublicKey = this.transactionData.getCreatorPublicKey();
+		List<TransactionData> creatorsPresenceTransactions = this.repository.getTransactionRepository().getUnconfirmedTransactions(TransactionType.PRESENCE, creatorPublicKey);
+
+		if (creatorsPresenceTransactions.isEmpty())
+			return;
+
+		// List should contain oldest transaction first, so remove all but last from repository.
+		creatorsPresenceTransactions.remove(creatorsPresenceTransactions.size() - 1);
+		for (TransactionData transactionData : creatorsPresenceTransactions) {
+			LOGGER.info(() -> String.format("Deleting older PRESENCE transaction %s", Base58.encode(transactionData.getSignature())));
+			this.repository.getTransactionRepository().delete(transactionData);
+		}
 	}
 
 	@Override
