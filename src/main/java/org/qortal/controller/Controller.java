@@ -799,11 +799,14 @@ public class Controller extends Thread {
 
 			List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
-			for (TransactionData transactionData : transactions)
-				if (now >= Transaction.getDeadline(transactionData)) {
-					LOGGER.info(String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
+			for (TransactionData transactionData : transactions) {
+				Transaction transaction = Transaction.fromData(repository, transactionData);
+
+				if (now >= transaction.getDeadline()) {
+					LOGGER.info(() -> String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
 					repository.getTransactionRepository().delete(transactionData);
 				}
+			}
 
 			repository.saveChanges();
 		} catch (DataException e) {
