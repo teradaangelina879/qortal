@@ -3,7 +3,10 @@ package org.qortal.controller;
 import java.awt.TrayIcon.MessageType;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.apache.logging.log4j.LogManager;
@@ -32,6 +35,7 @@ import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
+import org.qortal.data.transaction.PresenceTransactionData;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
 import org.qortal.event.Listener;
@@ -43,12 +47,17 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.MessageTransaction;
+import org.qortal.transaction.PresenceTransaction;
+import org.qortal.transaction.PresenceTransaction.PresenceType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
+import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
+
+import com.google.common.primitives.Longs;
 
 /**
  * Performing cross-chain trading steps on behalf of user.
@@ -85,6 +94,8 @@ public class TradeBot implements Listener {
 	private static final long P2SH_B_OUTPUT_AMOUNT = 1000L; // P2SH-B output amount needs to be higher than the dust threshold (3000 sats/kB).
 
 	private static TradeBot instance;
+
+	private final Map<String, Long> presenceTimestampsByAtAddress = Collections.synchronizedMap(new HashMap<>());
 
 	private TradeBot() {
 		EventBus.INSTANCE.addListener(event -> TradeBot.getInstance().listen(event));
@@ -348,26 +359,32 @@ public class TradeBot implements Listener {
 								break;
 
 							case ALICE_WAITING_FOR_P2SH_A:
+								updatePresence(repository, tradeBotData);
 								handleAliceWaitingForP2shA(repository, tradeBotData);
 								break;
 
 							case BOB_WAITING_FOR_MESSAGE:
+								updatePresence(repository, tradeBotData);
 								handleBobWaitingForMessage(repository, tradeBotData);
 								break;
 
 							case ALICE_WAITING_FOR_AT_LOCK:
+								updatePresence(repository, tradeBotData);
 								handleAliceWaitingForAtLock(repository, tradeBotData);
 								break;
 
 							case BOB_WAITING_FOR_P2SH_B:
+								updatePresence(repository, tradeBotData);
 								handleBobWaitingForP2shB(repository, tradeBotData);
 								break;
 
 							case ALICE_WATCH_P2SH_B:
+								updatePresence(repository, tradeBotData);
 								handleAliceWatchingP2shB(repository, tradeBotData);
 								break;
 
 							case BOB_WAITING_FOR_AT_REDEEM:
+								updatePresence(repository, tradeBotData);
 								handleBobWaitingForAtRedeem(repository, tradeBotData);
 								break;
 
@@ -376,10 +393,12 @@ public class TradeBot implements Listener {
 								break;
 
 							case ALICE_REFUNDING_B:
+								updatePresence(repository, tradeBotData);
 								handleAliceRefundingP2shB(repository, tradeBotData);
 								break;
 
 							case ALICE_REFUNDING_A:
+								updatePresence(repository, tradeBotData);
 								handleAliceRefundingP2shA(repository, tradeBotData);
 								break;
 
@@ -1247,6 +1266,43 @@ public class TradeBot implements Listener {
 	private static void notifyStateChange(TradeBotData tradeBotData) {
 		StateChangeEvent stateChangeEvent = new StateChangeEvent(tradeBotData);
 		EventBus.INSTANCE.notify(stateChangeEvent);
+	}
+
+	// PRESENCE-related
+	private void updatePresence(Repository repository, TradeBotData tradeBotData) throws DataException {
+		String key = tradeBotData.getAtAddress();
+
+		long now = NTP.getTime();
+		long threshold = now - PresenceType.TRADE_BOT.getLifetime();
+
+		long timestamp = presenceTimestampsByAtAddress.compute(key, (k, v) -> (v == null || v < threshold) ? now : v);
+
+		// If timestamp hasn't been updated then nothing to do
+		if (timestamp != now)
+			return;
+
+		PrivateKeyAccount tradeNativeAccount = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
+
+		int txGroupId = Group.NO_GROUP;
+		byte[] reference = new byte[TransactionTransformer.SIGNATURE_LENGTH];
+		byte[] creatorPublicKey = tradeNativeAccount.getPublicKey();
+		long fee = 0L;
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, null);
+
+		int nonce = 0;
+		byte[] timestampSignature = tradeNativeAccount.sign(Longs.toByteArray(timestamp));
+
+		PresenceTransactionData transactionData = new PresenceTransactionData(baseTransactionData, nonce, PresenceType.TRADE_BOT, timestampSignature);
+
+		PresenceTransaction presenceTransaction = new PresenceTransaction(repository, transactionData);
+		presenceTransaction.computeNonce();
+
+		presenceTransaction.sign(tradeNativeAccount);
+
+		ValidationResult result = presenceTransaction.importAsUnconfirmed();
+		if (result != ValidationResult.OK)
+			LOGGER.debug(() -> String.format("Unable to build trade-bot PRESENCE transaction for %s: %s", tradeBotData.getAtAddress(), result.name()));
 	}
 
 }

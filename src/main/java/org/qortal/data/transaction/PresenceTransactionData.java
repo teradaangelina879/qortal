@@ -1,14 +1,10 @@
 package org.qortal.data.transaction;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
-
-import java.util.Map;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
+import org.qortal.transaction.PresenceTransaction.PresenceType;
 import org.qortal.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -26,20 +22,6 @@ public class PresenceTransactionData extends TransactionData {
 	@Schema(accessMode = AccessMode.READ_ONLY)
 	private int nonce;
 
-	public enum PresenceType {
-		REWARD_SHARE(0), TRADE_BOT(1);
-
-		public final int value;
-		private static final Map<Integer, PresenceType> map = stream(PresenceType.values()).collect(toMap(type -> type.value, type -> type));
-
-		PresenceType(int value) {
-			this.value = value;
-		}
-
-		public static PresenceType valueOf(int value) {
-			return map.get(value);
-		}
-	}
 	private PresenceType presenceType;
 
 	@Schema(description = "timestamp signature", example = "2yGEbwRFyhPZZckKA")

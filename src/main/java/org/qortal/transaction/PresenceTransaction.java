@@ -1,11 +1,16 @@
 package org.qortal.transaction;
 
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
+
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
+import org.qortal.controller.Controller;
 import org.qortal.crosschain.BTCACCT;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
@@ -13,7 +18,6 @@ import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.transaction.PresenceTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.data.transaction.PresenceTransactionData.PresenceType;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -35,6 +39,34 @@ public class PresenceTransaction extends Transaction {
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
 	public static final int POW_DIFFICULTY = 8; // leading zero bits
 
+	public enum PresenceType {
+		REWARD_SHARE(0) {
+			@Override
+			public long getLifetime() {
+				return Controller.ONLINE_TIMESTAMP_MODULUS;
+			}
+		},
+		TRADE_BOT(1) {
+			@Override
+			public long getLifetime() {
+				return 30 * 60 * 1000L; // 30 minutes in milliseconds
+			}
+		};
+
+		public final int value;
+		private static final Map<Integer, PresenceType> map = stream(PresenceType.values()).collect(toMap(type -> type.value, type -> type));
+
+		PresenceType(int value) {
+			this.value = value;
+		}
+
+		public abstract long getLifetime();
+
+		public static PresenceType valueOf(int value) {
+			return map.get(value);
+		}
+	}
+
 	// Constructors
 
 	public PresenceTransaction(Repository repository, TransactionData transactionData) {
@@ -44,6 +76,11 @@ public class PresenceTransaction extends Transaction {
 	}
 
 	// More information
+
+	@Override
+	public long getDeadline() {
+		return this.transactionData.getTimestamp() + this.presenceTransactionData.getPresenceType().getLifetime();
+	}
 
 	@Override
 	public List<String> getRecipientAddresses() throws DataException {

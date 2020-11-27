@@ -6,8 +6,8 @@ import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.PresenceTransactionData;
-import org.qortal.data.transaction.PresenceTransactionData.PresenceType;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.transaction.PresenceTransaction.PresenceType;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;

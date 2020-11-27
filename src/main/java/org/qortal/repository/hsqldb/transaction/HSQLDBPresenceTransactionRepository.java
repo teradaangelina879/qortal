@@ -5,11 +5,11 @@ import java.sql.SQLException;
 
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.PresenceTransactionData;
-import org.qortal.data.transaction.PresenceTransactionData.PresenceType;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.repository.hsqldb.HSQLDBSaver;
+import org.qortal.transaction.PresenceTransaction.PresenceType;
 
 public class HSQLDBPresenceTransactionRepository extends HSQLDBTransactionRepository {
 
