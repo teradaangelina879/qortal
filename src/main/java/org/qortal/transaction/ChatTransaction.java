@@ -141,7 +141,7 @@ public class ChatTransaction extends Transaction {
 		// If we exist in the repository then we've been imported as unconfirmed,
 		// but we don't want to make it into a block, so return fake non-OK result.
 		if (this.repository.getTransactionRepository().exists(this.chatTransactionData.getSignature()))
-			return ValidationResult.CHAT;
+			return ValidationResult.INVALID_BUT_OK;
 
 		// If we have a recipient, check it is a valid address
 		String recipientAddress = chatTransactionData.getRecipient();
@@ -186,6 +186,16 @@ public class ChatTransaction extends Transaction {
 
 		// Check nonce
 		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+	}
+
+	/**
+	 * Ensure there's at least a skeleton account so people
+	 * can retrieve sender's public key using address, even if all their messages
+	 * expire.
+	 */
+	@Override
+	protected void onImportAsUnconfirmed() throws DataException {
+		this.getCreator().ensureAccount();
 	}
 
 	@Override

@@ -2,6 +2,7 @@ package org.qortal.controller.tradebot;
 
 import java.awt.TrayIcon.MessageType;
 import java.security.SecureRandom;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,15 +24,24 @@ import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
+import org.qortal.data.transaction.BaseTransactionData;
+import org.qortal.data.transaction.PresenceTransactionData;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
 import org.qortal.event.Listener;
+import org.qortal.group.Group;
 import org.qortal.gui.SysTray;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.transaction.PresenceTransaction;
+import org.qortal.transaction.PresenceTransaction.PresenceType;
+import org.qortal.transaction.Transaction.ValidationResult;
+import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.NTP;
+
+import com.google.common.primitives.Longs;
 
 /**
  * Performing cross-chain trading steps on behalf of user.
@@ -72,6 +82,8 @@ public class TradeBot implements Listener {
 	}
 
 	private static TradeBot instance;
+
+	private final Map<String, Long> presenceTimestampsByAtAddress = Collections.synchronizedMap(new HashMap<>());
 
 	private TradeBot() {
 		EventBus.INSTANCE.addListener(event -> TradeBot.getInstance().listen(event));
@@ -290,6 +302,43 @@ public class TradeBot implements Listener {
 			return null;
 
 		return acctTradeBotSupplier.get();
+	}
+
+	// PRESENCE-related
+	/*package*/ void updatePresence(Repository repository, TradeBotData tradeBotData) throws DataException {
+		String key = tradeBotData.getAtAddress();
+
+		long now = NTP.getTime();
+		long threshold = now - PresenceType.TRADE_BOT.getLifetime();
+
+		long timestamp = presenceTimestampsByAtAddress.compute(key, (k, v) -> (v == null || v < threshold) ? now : v);
+
+		// If timestamp hasn't been updated then nothing to do
+		if (timestamp != now)
+			return;
+
+		PrivateKeyAccount tradeNativeAccount = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
+
+		int txGroupId = Group.NO_GROUP;
+		byte[] reference = new byte[TransactionTransformer.SIGNATURE_LENGTH];
+		byte[] creatorPublicKey = tradeNativeAccount.getPublicKey();
+		long fee = 0L;
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, null);
+
+		int nonce = 0;
+		byte[] timestampSignature = tradeNativeAccount.sign(Longs.toByteArray(timestamp));
+
+		PresenceTransactionData transactionData = new PresenceTransactionData(baseTransactionData, nonce, PresenceType.TRADE_BOT, timestampSignature);
+
+		PresenceTransaction presenceTransaction = new PresenceTransaction(repository, transactionData);
+		presenceTransaction.computeNonce();
+
+		presenceTransaction.sign(tradeNativeAccount);
+
+		ValidationResult result = presenceTransaction.importAsUnconfirmed();
+		if (result != ValidationResult.OK)
+			LOGGER.debug(() -> String.format("Unable to build trade-bot PRESENCE transaction for %s: %s", tradeBotData.getAtAddress(), result.name()));
 	}
 
 }

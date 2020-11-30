@@ -387,26 +387,32 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 				break;
 
 			case ALICE_WAITING_FOR_P2SH_A:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleAliceWaitingForP2shA(repository, tradeBotData, atData, tradeData);
 				break;
 
 			case BOB_WAITING_FOR_MESSAGE:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleBobWaitingForMessage(repository, tradeBotData, atData, tradeData);
 				break;
 
 			case ALICE_WAITING_FOR_AT_LOCK:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleAliceWaitingForAtLock(repository, tradeBotData, atData, tradeData);
 				break;
 
 			case BOB_WAITING_FOR_P2SH_B:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleBobWaitingForP2shB(repository, tradeBotData, atData, tradeData);
 				break;
 
 			case ALICE_WATCH_P2SH_B:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleAliceWatchingP2shB(repository, tradeBotData, atData, tradeData);
 				break;
 
 			case BOB_WAITING_FOR_AT_REDEEM:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleBobWaitingForAtRedeem(repository, tradeBotData, atData, tradeData);
 				break;
 
@@ -415,10 +421,12 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 				break;
 
 			case ALICE_REFUNDING_B:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleAliceRefundingP2shB(repository, tradeBotData, atData, tradeData);
 				break;
 
 			case ALICE_REFUNDING_A:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleAliceRefundingP2shA(repository, tradeBotData, atData, tradeData);
 				break;
 

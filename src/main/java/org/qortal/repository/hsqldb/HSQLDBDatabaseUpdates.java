@@ -807,6 +807,13 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN hash_of_secret SET NULL");
 					break;
 
+				case 32:
+					// PRESENCE transactions
+					stmt.execute("CREATE TABLE IF NOT EXISTS PresenceTransactions ("
+							+ "signature Signature, nonce INT NOT NULL, presence_type INT NOT NULL, "
+							+ "timestamp_signature Signature NOT NULL, " + TRANSACTION_KEYS + ")");
+					break;
+
 				default:
 					// nothing to do
 					return false;

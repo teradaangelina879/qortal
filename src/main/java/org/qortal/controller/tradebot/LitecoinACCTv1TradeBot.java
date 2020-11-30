@@ -384,14 +384,17 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 				break;
 
 			case BOB_WAITING_FOR_MESSAGE:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleBobWaitingForMessage(repository, tradeBotData, atData, tradeData);
 				break;
 
 			case ALICE_WAITING_FOR_AT_LOCK:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleAliceWaitingForAtLock(repository, tradeBotData, atData, tradeData);
 				break;
 
 			case BOB_WAITING_FOR_AT_REDEEM:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleBobWaitingForAtRedeem(repository, tradeBotData, atData, tradeData);
 				break;
 
@@ -400,6 +403,7 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 				break;
 
 			case ALICE_REFUNDING_A:
+				TradeBot.getInstance().updatePresence(repository, tradeBotData);
 				handleAliceRefundingP2shA(repository, tradeBotData, atData, tradeData);
 				break;
 

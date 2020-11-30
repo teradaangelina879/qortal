@@ -294,8 +294,12 @@ public class BlockMinter extends Thread {
 									newBlock.getMinter().getAddress()));
 						}
 
-						// Notify controller after we're released blockchain lock
+						// Notify network after we're released blockchain lock
 						newBlockMinted = true;
+
+						// Notify Controller
+						repository.discardChanges(); // clear transaction status to prevent deadlocks
+						Controller.getInstance().onNewBlock(newBlock.getBlockData());
 					} catch (DataException e) {
 						// Unable to process block - report and discard
 						LOGGER.error("Unable to process newly minted block?", e);
@@ -306,11 +310,8 @@ public class BlockMinter extends Thread {
 				}
 
 				if (newBlockMinted) {
-					// Notify Controller and broadcast our new chain to network
+					// Broadcast our new chain to network
 					BlockData newBlockData = newBlock.getBlockData();
-
-					repository.discardChanges(); // clear transaction status to prevent deadlocks
-					Controller.getInstance().onNewBlock(newBlockData);
 
 					Network network = Network.getInstance();
 					network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newBlockData));
