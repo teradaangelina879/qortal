@@ -93,19 +93,17 @@ public class CrossChainResource {
 		List<CrossChainTradeData> crossChainTradesData = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			for (SupportedBlockchain blockchain : SupportedBlockchain.values()) {
-				Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = blockchain.getAcctMap();
+			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getAcctMap();
 
-				for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
-					byte[] codeHash = acctInfo.getKey().value;
-					ACCT acct = acctInfo.getValue().get();
+			for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
+				byte[] codeHash = acctInfo.getKey().value;
+				ACCT acct = acctInfo.getValue().get();
 
-					List<ATData> atsData = repository.getATRepository().getATsByFunctionality(codeHash, isExecutable, limit, offset, reverse);
+				List<ATData> atsData = repository.getATRepository().getATsByFunctionality(codeHash, isExecutable, limit, offset, reverse);
 
-					for (ATData atData : atsData) {
-						CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
-						crossChainTradesData.add(crossChainTradeData);
-					}
+				for (ATData atData : atsData) {
+					CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+					crossChainTradesData.add(crossChainTradeData);
 				}
 			}
 
@@ -168,26 +166,24 @@ public class CrossChainResource {
 
 			List<CrossChainTradeSummary> crossChainTrades = new ArrayList<>();
 
-			for (SupportedBlockchain blockchain : SupportedBlockchain.values()) {
-				Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = blockchain.getAcctMap();
+			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getAcctMap();
 
-				for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
-					byte[] codeHash = acctInfo.getKey().value;
-					ACCT acct = acctInfo.getValue().get();
+			for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
+				byte[] codeHash = acctInfo.getKey().value;
+				ACCT acct = acctInfo.getValue().get();
 
-					List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(codeHash,
-							isFinished, acct.getModeByteOffset(), (long) AcctMode.REDEEMED.value, minimumFinalHeight,
-							limit, offset, reverse);
+				List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(codeHash,
+						isFinished, acct.getModeByteOffset(), (long) AcctMode.REDEEMED.value, minimumFinalHeight,
+						limit, offset, reverse);
 
-					for (ATStateData atState : atStates) {
-						CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atState);
+				for (ATStateData atState : atStates) {
+					CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atState);
 
-						// We also need block timestamp for use as trade timestamp
-						long timestamp = repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
+					// We also need block timestamp for use as trade timestamp
+					long timestamp = repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
 
-						CrossChainTradeSummary crossChainTradeSummary = new CrossChainTradeSummary(crossChainTradeData, timestamp);
-						crossChainTrades.add(crossChainTradeSummary);
-					}
+					CrossChainTradeSummary crossChainTradeSummary = new CrossChainTradeSummary(crossChainTradeData, timestamp);
+					crossChainTrades.add(crossChainTradeSummary);
 				}
 			}
 
