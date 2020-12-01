@@ -1036,11 +1036,26 @@ public class Controller extends Thread {
 		}
 	}
 
+	public static class NewTransactionEvent implements Event {
+		private final TransactionData transactionData;
+
+		public NewTransactionEvent(TransactionData transactionData) {
+			this.transactionData = transactionData;
+		}
+
+		public TransactionData getTransactionData() {
+			return this.transactionData;
+		}
+	}
+
 	/** Callback for when we've received a new transaction via API or peer. */
 	public void onNewTransaction(TransactionData transactionData, Peer peer) {
 		this.callbackExecutor.execute(() -> {
 			// Notify all peers (except maybe peer that sent it to us if applicable)
 			Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(Arrays.asList(transactionData.getSignature())));
+
+			// Notify listeners
+			EventBus.INSTANCE.notify(new NewTransactionEvent(transactionData));
 
 			// If this is a CHAT transaction, there may be extra listeners to notify
 			if (transactionData.getType() == TransactionType.CHAT)
