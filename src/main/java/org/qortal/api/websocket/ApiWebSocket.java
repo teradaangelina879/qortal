@@ -107,7 +107,9 @@ abstract class ApiWebSocket extends WebSocketServlet {
 
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
 		synchronized (SESSIONS_BY_CLASS) {
-			SESSIONS_BY_CLASS.get(this.getClass()).remove(session);
+			List<Session> sessions = SESSIONS_BY_CLASS.get(this.getClass());
+			if (sessions != null)
+				sessions.remove(session);
 		}
 	}
 
