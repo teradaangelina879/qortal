@@ -1,5 +1,7 @@
 package org.qortal.utils;
 
+import java.math.BigInteger;
+
 public class ByteArray implements Comparable<ByteArray> {
 
 	private int hash;
@@ -63,4 +65,7 @@ public class ByteArray implements Comparable<ByteArray> {
 		return 0;
 	}
 
+	public String toString() {
+		return String.format("%x", new BigInteger(1, this.value));
+	}
 }
