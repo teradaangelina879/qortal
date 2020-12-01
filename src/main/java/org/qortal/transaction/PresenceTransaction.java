@@ -6,12 +6,15 @@ import static java.util.stream.Collectors.toMap;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.controller.Controller;
-import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.ACCT;
+import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.at.ATData;
@@ -25,6 +28,7 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.PresenceTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ByteArray;
 
 import com.google.common.primitives.Longs;
 
@@ -158,13 +162,19 @@ public class PresenceTransaction extends Transaction {
 		// Check signer is known trade address
 		String signerAddress = Crypto.toAddress(this.transactionData.getCreatorPublicKey());
 
-		byte[] codeHash = BitcoinACCTv1.CODE_BYTES_HASH;
+		Map<ByteArray, Supplier<ACCT>> acctSuppliersByCodeHash = SupportedBlockchain.getAcctMap();
+		Set<ByteArray> codeHashes = acctSuppliersByCodeHash.keySet();
 		boolean isExecutable = true;
 
-		List<ATData> atsData = repository.getATRepository().getATsByFunctionality(codeHash, isExecutable, null, null, null);
+		List<ATData> atsData = repository.getATRepository().getAllATsByFunctionality(codeHashes, isExecutable);
 
 		for (ATData atData : atsData) {
-			CrossChainTradeData crossChainTradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atData);
+			ByteArray atCodeHash = new ByteArray(atData.getCodeHash());
+			Supplier<ACCT> acctSupplier = acctSuppliersByCodeHash.get(atCodeHash);
+			if (acctSupplier == null)
+				continue;
+
+			CrossChainTradeData crossChainTradeData = acctSupplier.get().populateTradeData(repository, atData);
 
 			if (crossChainTradeData.qortalCreatorTradeAddress.equals(signerAddress))
 				return ValidationResult.OK;
