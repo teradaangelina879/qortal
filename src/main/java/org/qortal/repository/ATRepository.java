@@ -1,9 +1,11 @@
 package org.qortal.repository;
 
 import java.util.List;
+import java.util.Set;
 
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
+import org.qortal.utils.ByteArray;
 
 public interface ATRepository {
 
@@ -23,6 +25,9 @@ public interface ATRepository {
 
 	/** Returns list of ATs with matching code hash, optionally executable only. */
 	public List<ATData> getATsByFunctionality(byte[] codeHash, Boolean isExecutable, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/** Returns list of all ATs matching one of passed code hashes, optionally executable only. */
+	public List<ATData> getAllATsByFunctionality(Set<ByteArray> codeHashes, Boolean isExecutable) throws DataException;
 
 	/** Returns creation block height given AT's address or null if not found */
 	public Integer getATCreationBlockHeight(String atAddress) throws DataException;

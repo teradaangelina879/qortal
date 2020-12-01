@@ -4,11 +4,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.DataException;
+import org.qortal.utils.ByteArray;
 
 import com.google.common.primitives.Longs;
 
@@ -184,6 +186,80 @@ public class HSQLDBATRepository implements ATRepository {
 				Long frozenBalance = resultSet.getLong(12);
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
+
+				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+
+				matchingATs.add(atData);
+			} while (resultSet.next());
+
+			return matchingATs;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching ATs from repository", e);
+		}
+	}
+
+	@Override
+	public List<ATData> getAllATsByFunctionality(Set<ByteArray> codeHashes, Boolean isExecutable) throws DataException {
+		StringBuilder sql = new StringBuilder(512);
+		List<Object> bindParams = new ArrayList<>();
+
+		sql.append("SELECT AT_address, creator, created_when, version, asset_id, code_bytes, ")
+				.append("is_sleeping, sleep_until_height, is_finished, had_fatal_error, ")
+				.append("is_frozen, frozen_balance, code_hash ")
+				.append("FROM ");
+
+		// (VALUES (?), (?), ...) AS ATCodeHashes (code_hash)
+		sql.append("(VALUES ");
+
+		boolean isFirst = true;
+		for (ByteArray codeHash : codeHashes) {
+			if (!isFirst)
+				sql.append(", ");
+			else
+				isFirst = false;
+
+			sql.append("(CAST(? AS VARBINARY(256)))");
+			bindParams.add(codeHash.value);
+		}
+		sql.append(") AS ATCodeHashes (code_hash) ");
+
+		sql.append("JOIN ATs ON ATs.code_hash = ATCodeHashes.code_hash ");
+
+		if (isExecutable != null) {
+			sql.append("AND is_finished != ? ");
+			bindParams.add(isExecutable);
+		}
+
+		List<ATData> matchingATs = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return matchingATs;
+
+			do {
+				String atAddress = resultSet.getString(1);
+				byte[] creatorPublicKey = resultSet.getBytes(2);
+				long created = resultSet.getLong(3);
+				int version = resultSet.getInt(4);
+				long assetId = resultSet.getLong(5);
+				byte[] codeBytes = resultSet.getBytes(6); // Actually BLOB
+				boolean isSleeping = resultSet.getBoolean(7);
+
+				Integer sleepUntilHeight = resultSet.getInt(8);
+				if (sleepUntilHeight == 0 && resultSet.wasNull())
+					sleepUntilHeight = null;
+
+				boolean isFinished = resultSet.getBoolean(9);
+
+				boolean hadFatalError = resultSet.getBoolean(10);
+				boolean isFrozen = resultSet.getBoolean(11);
+
+				Long frozenBalance = resultSet.getLong(12);
+				if (frozenBalance == 0 && resultSet.wasNull())
+					frozenBalance = null;
+
+				byte[] codeHash = resultSet.getBytes(13);
 
 				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
 						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
