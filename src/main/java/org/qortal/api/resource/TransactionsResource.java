@@ -539,6 +539,8 @@ public class TransactionsResource {
 			} finally {
 				blockchainLock.unlock();
 			}
+
+			return "true";
 		} catch (NumberFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		} catch (DataException e) {
@@ -546,11 +548,6 @@ public class TransactionsResource {
 		} catch (InterruptedException e) {
 			throw createTransactionInvalidException(request, ValidationResult.NO_BLOCKCHAIN_LOCK);
 		}
-
-		// Notify controller of new transaction
-		Controller.getInstance().onNewTransaction(transactionData, null);
-
-		return "true";
 	}
 
 	@POST

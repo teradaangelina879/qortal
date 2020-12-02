@@ -765,7 +765,13 @@ public abstract class Transaction {
 	/**
 	 * Import into our repository as a new, unconfirmed transaction.
 	 * <p>
-	 * Calls <tt>repository.saveChanges()</tt>
+	 * @implSpec <i>tries</i> to obtain blockchain lock
+	 * <p>
+	 * If transaction is valid, then:
+	 * <ul>
+	 * <li>calls {@link Repository#discardChanges()}</li>
+	 * <li>calls {@link Controller#onNewTransaction(TransactionData, Peer)}</li>
+	 * </ul>
 	 * 
 	 * @throws DataException
 	 */
@@ -803,6 +809,9 @@ public abstract class Transaction {
 			this.onImportAsUnconfirmed();
 
 			repository.saveChanges();
+
+			// Notify controller of new transaction
+			Controller.getInstance().onNewTransaction(transactionData);
 
 			return ValidationResult.OK;
 		} finally {
