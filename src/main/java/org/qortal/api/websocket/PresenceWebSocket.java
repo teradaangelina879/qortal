@@ -100,10 +100,10 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 
 		// Put/replace for this publickey making sure we keep newest timestamp
 		String pubKey58 = Base58.encode(presenceData.getCreatorPublicKey());
-		Long ourTimestamp = presenceData.getTimestamp();
-		Long computedTimestamp = mergePresence(presenceType, pubKey58, ourTimestamp);
+		long ourTimestamp = presenceData.getTimestamp();
+		long computedTimestamp = mergePresence(presenceType, pubKey58, ourTimestamp);
 
-		if (!computedTimestamp.equals(ourTimestamp))
+		if (computedTimestamp != ourTimestamp)
 			// nothing changed
 			return;
 
@@ -176,13 +176,13 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 
 			// Put/replace for this publickey making sure we keep newest timestamp
 			String pubKey58 = Base58.encode(presenceData.getCreatorPublicKey());
-			Long ourTimestamp = presenceData.getTimestamp();
+			long ourTimestamp = presenceData.getTimestamp();
 
 			mergePresence(presenceType, pubKey58, ourTimestamp);
 		}
 	}
 
-	private static Long mergePresence(PresenceType presenceType, String pubKey58, Long ourTimestamp) {
+	private static long mergePresence(PresenceType presenceType, String pubKey58, long ourTimestamp) {
 		Map<String, Long> typedPubkeyTimestamps = currentEntries.computeIfAbsent(presenceType, someType -> Collections.synchronizedMap(new HashMap<>()));
 		return typedPubkeyTimestamps.compute(pubKey58, (somePubKey58, currentTimestamp) -> (currentTimestamp == null || currentTimestamp < ourTimestamp) ? ourTimestamp : currentTimestamp);
 	}
