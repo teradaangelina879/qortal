@@ -635,6 +635,9 @@ public class BitcoinACCTv1 implements ACCT {
 
 		CrossChainTradeData tradeData = new CrossChainTradeData();
 
+		tradeData.foreignBlockchain = SupportedBlockchain.BITCOIN.name();
+		tradeData.acctName = NAME;
+
 		tradeData.qortalAtAddress = atAddress;
 		tradeData.qortalCreator = Crypto.toAddress(creatorPublicKey);
 		tradeData.creationTimestamp = creationTimestamp;

@@ -90,6 +90,10 @@ public class CrossChainTradeData {
 	@Schema(description = "Trade partner's Qortal receiving address")
 	public String qortalPartnerReceivingAddress;
 
+	public String foreignBlockchain;
+
+	public String acctName;
+
 	// Constructors
 
 	// Necessary for JAXB

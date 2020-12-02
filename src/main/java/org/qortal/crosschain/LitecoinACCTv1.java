@@ -586,6 +586,9 @@ public class LitecoinACCTv1 implements ACCT {
 
 		CrossChainTradeData tradeData = new CrossChainTradeData();
 
+		tradeData.foreignBlockchain = SupportedBlockchain.LITECOIN.name();
+		tradeData.acctName = NAME;
+
 		tradeData.qortalAtAddress = atAddress;
 		tradeData.qortalCreator = Crypto.toAddress(creatorPublicKey);
 		tradeData.creationTimestamp = creationTimestamp;
