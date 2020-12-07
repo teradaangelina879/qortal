@@ -1,11 +1,14 @@
 package org.qortal.api.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.POST;
@@ -19,6 +22,7 @@ import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.crosschain.LitecoinSendRequest;
+import org.qortal.crosschain.BitcoinyTransaction;
 import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.Litecoin;
 
@@ -65,6 +69,44 @@ public class CrossChainLitecoinResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 
 		return balance.toString();
+	}
+
+	@POST
+	@Path("/wallettransactions")
+	@Operation(
+		summary = "Returns transactions for hierarchical, deterministic BIP32 wallet",
+		description = "Supply BIP32 'm' private/public key in base58, starting with 'xprv'/'xpub' for mainnet, 'tprv'/'tpub' for testnet",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string",
+					description = "BIP32 'm' private/public key in base58",
+					example = "tpub___________________________________________________________________________________________________________"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(array = @ArraySchema( schema = @Schema( implementation = BitcoinyTransaction.class ) ) )
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	public Set<BitcoinyTransaction> getLitecoinWalletTransactions(String key58) {
+		Security.checkApiCallAllowed(request);
+
+		Litecoin litecoin = Litecoin.getInstance();
+
+		if (!litecoin.isValidDeterministicKey(key58))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+
+		try {
+			return litecoin.getWalletTransactions(key58);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
 	}
 
 	@POST

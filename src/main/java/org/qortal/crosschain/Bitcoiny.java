@@ -330,6 +330,69 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return balance.value;
 	}
 
+	public Set<BitcoinyTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
+		Context.propagate(bitcoinjContext);
+
+		final DeterministicKey watchKey = DeterministicKey.deserializeB58(null, key58, this.params);
+
+		Wallet wallet;
+		if (watchKey.hasPrivKey())
+			wallet = Wallet.fromSpendingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+		else
+			wallet = Wallet.fromWatchingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+
+		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
+
+		keyChain.setLookaheadSize(WalletAwareUTXOProvider.LOOKAHEAD_INCREMENT);
+		keyChain.maybeLookAhead();
+
+		List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
+
+		Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
+
+		int ki = 0;
+		do {
+			boolean areAllKeysUnused = true;
+
+			for (; ki < keys.size(); ++ki) {
+				DeterministicKey dKey = keys.get(ki);
+
+				// Check for transactions
+				Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
+				byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
+
+				// Ask for transaction history - if it's empty then key has never been used
+				List<TransactionHash> historicTransactionHashes = this.blockchain.getAddressTransactions(script, false);
+
+				if (!historicTransactionHashes.isEmpty()) {
+					areAllKeysUnused = false;
+
+					for (TransactionHash transactionHash : historicTransactionHashes)
+						walletTransactions.add(this.getTransaction(transactionHash.txHash));
+				}
+			}
+
+			if (!areAllKeysUnused) {
+				// Generate some more keys
+				keyChain.setLookaheadSize(keyChain.getLookaheadSize() + WalletAwareUTXOProvider.LOOKAHEAD_INCREMENT);
+				keyChain.maybeLookAhead();
+
+				// This returns all keys, including those already in 'keys'
+				List<DeterministicKey> allLeafKeys = keyChain.getLeafKeys();
+				// Add only new keys onto our list of keys to search
+				List<DeterministicKey> newKeys = allLeafKeys.subList(ki, allLeafKeys.size());
+				keys.addAll(newKeys);
+				// Fall-through to checking more keys as now 'ki' is smaller than 'keys.size()' again
+
+				// Process new keys
+			}
+
+			// If we have processed all keys, then we're done
+		} while (ki < keys.size());
+
+		return walletTransactions;
+	}
+
 	/**
 	 * Returns first unused receive address given 'm' BIP32 key.
 	 *

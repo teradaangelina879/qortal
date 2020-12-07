@@ -1,11 +1,14 @@
 package org.qortal.api.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.POST;
@@ -20,6 +23,7 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.crosschain.BitcoinSendRequest;
 import org.qortal.crosschain.Bitcoin;
+import org.qortal.crosschain.BitcoinyTransaction;
 import org.qortal.crosschain.ForeignBlockchainException;
 
 @Path("/crosschain/btc")
@@ -65,6 +69,44 @@ public class CrossChainBitcoinResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 
 		return balance.toString();
+	}
+
+	@POST
+	@Path("/wallettransactions")
+	@Operation(
+		summary = "Returns transactions for hierarchical, deterministic BIP32 wallet",
+		description = "Supply BIP32 'm' private/public key in base58, starting with 'xprv'/'xpub' for mainnet, 'tprv'/'tpub' for testnet",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string",
+					description = "BIP32 'm' private/public key in base58",
+					example = "tpub___________________________________________________________________________________________________________"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(array = @ArraySchema( schema = @Schema( implementation = BitcoinyTransaction.class ) ) )
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	public Set<BitcoinyTransaction> getBitcoinWalletTransactions(String key58) {
+		Security.checkApiCallAllowed(request);
+
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
+		if (!bitcoin.isValidDeterministicKey(key58))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+
+		try {
+			return bitcoin.getWalletTransactions(key58);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
 	}
 
 	@POST

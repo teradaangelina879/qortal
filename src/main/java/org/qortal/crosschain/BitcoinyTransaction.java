@@ -3,6 +3,10 @@ package org.qortal.crosschain;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+@XmlAccessorType(XmlAccessType.FIELD)
 public class BitcoinyTransaction {
 
 	public final String txHash;
@@ -16,6 +20,14 @@ public class BitcoinyTransaction {
 		public final int sequence;
 		public final String outputTxHash;
 		public final int outputVout;
+
+		// For JAXB
+		protected Input() {
+			this.scriptSig = null;
+			this.sequence = 0;
+			this.outputTxHash = null;
+			this.outputVout = 0;
+		}
 
 		public Input(String scriptSig, int sequence, String outputTxHash, int outputVout) {
 			this.scriptSig = scriptSig;
@@ -35,6 +47,12 @@ public class BitcoinyTransaction {
 		public final String scriptPubKey;
 		public final long value;
 
+		// For JAXB
+		protected Output() {
+			this.scriptPubKey = null;
+			this.value = 0;
+		}
+
 		public Output(String scriptPubKey, long value) {
 			this.scriptPubKey = scriptPubKey;
 			this.value = value;
@@ -45,6 +63,16 @@ public class BitcoinyTransaction {
 		}
 	}
 	public final List<Output> outputs;
+
+	// For JAXB
+	protected BitcoinyTransaction() {
+		this.txHash = null;
+		this.size = 0;
+		this.locktime = 0;
+		this.timestamp = 0;
+		this.inputs = null;
+		this.outputs = null;
+	}
 
 	public BitcoinyTransaction(String txHash, int size, int locktime, Integer timestamp,
 			List<Input> inputs, List<Output> outputs) {
@@ -67,4 +95,23 @@ public class BitcoinyTransaction {
 				this.inputs.stream().map(Input::toString).collect(Collectors.joining(",\n\t\t")),
 				this.outputs.stream().map(Output::toString).collect(Collectors.joining(",\n\t\t")));
 	}
+
+	@Override
+	public boolean equals(Object other) {
+		if (other == this)
+			return true;
+
+		if (!(other instanceof BitcoinyTransaction))
+			return false;
+
+		BitcoinyTransaction otherTransaction = (BitcoinyTransaction) other;
+
+		return this.txHash.equals(otherTransaction.txHash);
+	}
+
+	@Override
+	public int hashCode() {
+		return this.txHash.hashCode();
+	}
+
 }
