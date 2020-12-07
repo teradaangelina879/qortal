@@ -98,7 +98,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	@Override
 	public boolean isValidWalletKey(String walletKey) {
-		return this.isValidXprv(walletKey);
+		return this.isValidDeterministicKey(walletKey);
 	}
 
 	// Actual useful methods for use by other classes
@@ -111,10 +111,10 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return Amounts.prettyAmount(amount) + " " + this.currencyCode;
 	}
 
-	public boolean isValidXprv(String xprv58) {
+	public boolean isValidDeterministicKey(String key58) {
 		try {
 			Context.propagate(this.bitcoinjContext);
-			DeterministicKey.deserializeB58(null, xprv58, this.params);
+			DeterministicKey.deserializeB58(null, key58, this.params);
 			return true;
 		} catch (IllegalArgumentException e) {
 			return false;
@@ -307,13 +307,20 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	/**
 	 * Returns unspent Bitcoin balance given 'm' BIP32 key.
 	 *
-	 * @param xprv58 BIP32 extended Bitcoin private key
+	 * @param key58 BIP32/HD extended Bitcoin private/public key
 	 * @return unspent BTC balance, or null if unable to determine balance
 	 */
-	public Long getWalletBalance(String xprv58) {
+	public Long getWalletBalance(String key58) {
 		Context.propagate(bitcoinjContext);
 
-		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+		final DeterministicKey watchKey = DeterministicKey.deserializeB58(null, key58, this.params);
+
+		Wallet wallet;
+		if (watchKey.hasPrivKey())
+			wallet = Wallet.fromSpendingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+		else
+			wallet = Wallet.fromWatchingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+
 		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet));
 
 		Coin balance = wallet.getBalance();

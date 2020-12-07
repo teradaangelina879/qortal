@@ -33,15 +33,15 @@ public class CrossChainBitcoinResource {
 	@Path("/walletbalance")
 	@Operation(
 		summary = "Returns BTC balance for hierarchical, deterministic BIP32 wallet",
-		description = "Supply BIP32 'm' private key in base58, starting with 'xprv' for mainnet, 'tprv' for testnet",
+		description = "Supply BIP32 'm' private/public key in base58, starting with 'xprv'/'xpub' for mainnet, 'tprv'/'tpub' for testnet",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
 					type = "string",
-					description = "BIP32 'm' private key in base58",
-					example = "tprv___________________________________________________________________________________________________________"
+					description = "BIP32 'm' private/public key in base58",
+					example = "tpub___________________________________________________________________________________________________________"
 				)
 			)
 		),
@@ -52,15 +52,15 @@ public class CrossChainBitcoinResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
-	public String getBitcoinWalletBalance(String xprv58) {
+	public String getBitcoinWalletBalance(String key58) {
 		Security.checkApiCallAllowed(request);
 
 		Bitcoin bitcoin = Bitcoin.getInstance();
 
-		if (!bitcoin.isValidXprv(xprv58))
+		if (!bitcoin.isValidDeterministicKey(key58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
-		Long balance = bitcoin.getWalletBalance(xprv58);
+		Long balance = bitcoin.getWalletBalance(key58);
 		if (balance == null)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 
@@ -102,7 +102,7 @@ public class CrossChainBitcoinResource {
 		if (!bitcoin.isValidAddress(bitcoinSendRequest.receivingAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		if (!bitcoin.isValidXprv(bitcoinSendRequest.xprv58))
+		if (!bitcoin.isValidDeterministicKey(bitcoinSendRequest.xprv58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 		Transaction spendTransaction = bitcoin.buildSpend(bitcoinSendRequest.xprv58,

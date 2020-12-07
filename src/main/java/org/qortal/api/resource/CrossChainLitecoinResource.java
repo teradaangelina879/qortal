@@ -33,15 +33,15 @@ public class CrossChainLitecoinResource {
 	@Path("/walletbalance")
 	@Operation(
 		summary = "Returns LTC balance for hierarchical, deterministic BIP32 wallet",
-		description = "Supply BIP32 'm' private key in base58, starting with 'xprv' for mainnet, 'tprv' for testnet",
+		description = "Supply BIP32 'm' private/public key in base58, starting with 'xprv'/'xpub' for mainnet, 'tprv'/'tpub' for testnet",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
 					type = "string",
-					description = "BIP32 'm' private key in base58",
-					example = "tprv___________________________________________________________________________________________________________"
+					description = "BIP32 'm' private/public key in base58",
+					example = "tpub___________________________________________________________________________________________________________"
 				)
 			)
 		),
@@ -52,15 +52,15 @@ public class CrossChainLitecoinResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
-	public String getLitecoinWalletBalance(String xprv58) {
+	public String getLitecoinWalletBalance(String key58) {
 		Security.checkApiCallAllowed(request);
 
 		Litecoin litecoin = Litecoin.getInstance();
 
-		if (!litecoin.isValidXprv(xprv58))
+		if (!litecoin.isValidDeterministicKey(key58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
-		Long balance = litecoin.getWalletBalance(xprv58);
+		Long balance = litecoin.getWalletBalance(key58);
 		if (balance == null)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 
@@ -102,7 +102,7 @@ public class CrossChainLitecoinResource {
 		if (!litecoin.isValidAddress(litecoinSendRequest.receivingAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		if (!litecoin.isValidXprv(litecoinSendRequest.xprv58))
+		if (!litecoin.isValidDeterministicKey(litecoinSendRequest.xprv58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 		Transaction spendTransaction = litecoin.buildSpend(litecoinSendRequest.xprv58,

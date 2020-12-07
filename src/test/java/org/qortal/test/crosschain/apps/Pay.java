@@ -53,7 +53,7 @@ public class Pay {
 			params = bitcoiny.getNetworkParameters();
 
 			xprv58 = args[argIndex++];
-			if (!bitcoiny.isValidXprv(xprv58))
+			if (!bitcoiny.isValidDeterministicKey(xprv58))
 				usage("xprv invalid");
 
 			address = Address.fromString(params, args[argIndex++]);
