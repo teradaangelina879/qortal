@@ -1,6 +1,7 @@
 package org.qortal.crosschain;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -49,8 +50,12 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	protected final NetworkParameters params;
 
-	/** Keys that have been previously partially, or fully, spent */
-	protected final Set<ECKey> spentKeys = new HashSet<>();
+	/** Keys that have been previously marked as fully spent,<br>
+	 * i.e. keys with transactions but with no unspent outputs. */
+	protected final Set<ECKey> spentKeys = Collections.synchronizedSet(new HashSet<>());
+
+	/** How many bitcoinj wallet keys to generate in each batch. */
+	private static final int WALLET_KEY_LOOKAHEAD_INCREMENT = 3;
 
 	/** Byte offset into raw block headers to block timestamp. */
 	private static final int TIMESTAMP_OFFSET = 4 + 32 + 32;
@@ -186,6 +191,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	 * @return list of unspent outputs, or empty list if address unknown
 	 * @throws ForeignBlockchainException if there was an error.
 	 */
+	// TODO: don't return bitcoinj-based objects like TransactionOutput, use BitcoinyTransaction.Output instead
 	public List<TransactionOutput> getUnspentOutputs(String base58Address) throws ForeignBlockchainException {
 		List<UnspentOutput> unspentOutputs = this.blockchain.getUnspentOutputs(addressToScriptPubKey(base58Address), false);
 
@@ -205,10 +211,10 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	 * @return list of outputs, or empty list if transaction unknown
 	 * @throws ForeignBlockchainException if there was an error.
 	 */
+	// TODO: don't return bitcoinj-based objects like TransactionOutput, use BitcoinyTransaction.Output instead
 	public List<TransactionOutput> getOutputs(byte[] txHash) throws ForeignBlockchainException {
 		byte[] rawTransactionBytes = this.blockchain.getRawTransaction(txHash);
 
-		// XXX bitcoinj: replace with getTransaction() below
 		Context.propagate(bitcoinjContext);
 		Transaction transaction = new Transaction(this.params, rawTransactionBytes);
 		return transaction.getOutputs();
@@ -313,14 +319,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	public Long getWalletBalance(String key58) {
 		Context.propagate(bitcoinjContext);
 
-		final DeterministicKey watchKey = DeterministicKey.deserializeB58(null, key58, this.params);
-
-		Wallet wallet;
-		if (watchKey.hasPrivKey())
-			wallet = Wallet.fromSpendingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
-		else
-			wallet = Wallet.fromWatchingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
-
+		Wallet wallet = walletFromDeterministicKey58(key58);
 		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet));
 
 		Coin balance = wallet.getBalance();
@@ -333,17 +332,10 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	public Set<BitcoinyTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
 		Context.propagate(bitcoinjContext);
 
-		final DeterministicKey watchKey = DeterministicKey.deserializeB58(null, key58, this.params);
-
-		Wallet wallet;
-		if (watchKey.hasPrivKey())
-			wallet = Wallet.fromSpendingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
-		else
-			wallet = Wallet.fromWatchingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
-
+		Wallet wallet = walletFromDeterministicKey58(key58);
 		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
 
-		keyChain.setLookaheadSize(WalletAwareUTXOProvider.LOOKAHEAD_INCREMENT);
+		keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
 		keyChain.maybeLookAhead();
 
 		List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
@@ -372,41 +364,31 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				}
 			}
 
-			if (!areAllKeysUnused) {
-				// Generate some more keys
-				keyChain.setLookaheadSize(keyChain.getLookaheadSize() + WalletAwareUTXOProvider.LOOKAHEAD_INCREMENT);
-				keyChain.maybeLookAhead();
+			if (areAllKeysUnused)
+				// No transactions for this batch of keys so assume we're done searching.
+				return walletTransactions;
 
-				// This returns all keys, including those already in 'keys'
-				List<DeterministicKey> allLeafKeys = keyChain.getLeafKeys();
-				// Add only new keys onto our list of keys to search
-				List<DeterministicKey> newKeys = allLeafKeys.subList(ki, allLeafKeys.size());
-				keys.addAll(newKeys);
-				// Fall-through to checking more keys as now 'ki' is smaller than 'keys.size()' again
+			// Generate some more keys
+			keys.addAll(generateMoreKeys(keyChain));
 
-				// Process new keys
-			}
-
-			// If we have processed all keys, then we're done
-		} while (ki < keys.size());
-
-		return walletTransactions;
+			// Process new keys
+		} while (true);
 	}
 
 	/**
 	 * Returns first unused receive address given 'm' BIP32 key.
 	 *
-	 * @param xprv58 BIP32 extended Bitcoin private key
-	 * @return Bitcoin P2PKH address
+	 * @param key58 BIP32/HD extended Bitcoin private/public key
+	 * @return P2PKH address
 	 * @throws ForeignBlockchainException if something went wrong
 	 */
-	public String getUnusedReceiveAddress(String xprv58) throws ForeignBlockchainException {
+	public String getUnusedReceiveAddress(String key58) throws ForeignBlockchainException {
 		Context.propagate(bitcoinjContext);
 
-		Wallet wallet = Wallet.fromSpendingKeyB58(this.params, xprv58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+		Wallet wallet = walletFromDeterministicKey58(key58);
 		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
 
-		keyChain.setLookaheadSize(WalletAwareUTXOProvider.LOOKAHEAD_INCREMENT);
+		keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
 		keyChain.maybeLookAhead();
 
 		final int keyChainPathSize = keyChain.getAccountPath().size();
@@ -418,7 +400,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				DeterministicKey dKey = keys.get(ki);
 				List<ChildNumber> dKeyPath = dKey.getPath();
 
-				// If keyChain is based on 'm', then make sure dKey is m/0/ki
+				// If keyChain is based on 'm', then make sure dKey is m/0/ki - i.e. a 'receive' address, not 'change' (m/1/ki)
 				if (dKeyPath.size() != keyChainPathSize + 2 || dKeyPath.get(dKeyPath.size() - 2) != ChildNumber.ZERO)
 					continue;
 
@@ -439,7 +421,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				if (unspentOutputs.isEmpty()) {
 					// If this is a known key that has been spent before, then we can skip asking for transaction history
 					if (this.spentKeys.contains(dKey)) {
-						wallet.getActiveKeyChain().markKeyAsUsed((DeterministicKey) dKey);
+						wallet.getActiveKeyChain().markKeyAsUsed(dKey);
 						continue;
 					}
 
@@ -450,10 +432,11 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 						// Fully spent key - case (a)
 						this.spentKeys.add(dKey);
 						wallet.getActiveKeyChain().markKeyAsUsed(dKey);
-					} else {
-						// Key never been used - case (b)
-						return address.toString();
+						continue;
 					}
+
+					// Key never been used - case (b)
+					return address.toString();
 				}
 
 				// Key has unspent outputs, hence used, so no good to us
@@ -461,15 +444,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			}
 
 			// Generate some more keys
-			keyChain.setLookaheadSize(keyChain.getLookaheadSize() + WalletAwareUTXOProvider.LOOKAHEAD_INCREMENT);
-			keyChain.maybeLookAhead();
-
-			// This returns all keys, including those already in 'keys'
-			List<DeterministicKey> allLeafKeys = keyChain.getLeafKeys();
-			// Add only new keys onto our list of keys to search
-			List<DeterministicKey> newKeys = allLeafKeys.subList(ki, allLeafKeys.size());
-			keys.addAll(newKeys);
-			// Fall-through to checking more keys as now 'ki' is smaller than 'keys.size()' again
+			keys.addAll(generateMoreKeys(keyChain));
 
 			// Process new keys
 		} while (true);
@@ -478,8 +453,6 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	// UTXOProvider support
 
 	static class WalletAwareUTXOProvider implements UTXOProvider {
-		private static final int LOOKAHEAD_INCREMENT = 3;
-
 		private final Bitcoiny bitcoiny;
 		private final Wallet wallet;
 
@@ -491,7 +464,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			this.keyChain = this.wallet.getActiveKeyChain();
 
 			// Set up wallet's key chain
-			this.keyChain.setLookaheadSize(LOOKAHEAD_INCREMENT);
+			this.keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
 			this.keyChain.maybeLookAhead();
 		}
 
@@ -575,23 +548,15 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 					}
 				}
 
-				if (!areAllKeysUnspent) {
-					// Generate some more keys
-					this.keyChain.setLookaheadSize(this.keyChain.getLookaheadSize() + LOOKAHEAD_INCREMENT);
-					this.keyChain.maybeLookAhead();
+				if (areAllKeysUnspent)
+					// No transactions for this batch of keys so assume we're done searching.
+					return allUnspentOutputs;
 
-					// This returns all keys, including those already in 'keys'
-					List<DeterministicKey> allLeafKeys = this.keyChain.getLeafKeys();
-					// Add only new keys onto our list of keys to search
-					List<DeterministicKey> newKeys = allLeafKeys.subList(ki, allLeafKeys.size());
-					keys.addAll(newKeys);
-					// Fall-through to checking more keys as now 'ki' is smaller than 'keys.size()' again
-				}
+				// Generate some more keys
+				keys.addAll(Bitcoiny.generateMoreKeys(this.keyChain));
 
-				// If we have processed all keys, then we're done
-			} while (ki < keys.size());
-
-			return allUnspentOutputs;
+				// Process new keys
+			} while (true);
 		}
 
 		@Override
@@ -611,10 +576,34 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	// Utility methods for us
 
+	protected static List<DeterministicKey> generateMoreKeys(DeterministicKeyChain keyChain) {
+		int existingLeafKeyCount = keyChain.getLeafKeys().size();
+
+		// Increase lookahead size so that...
+		keyChain.setLookaheadSize(keyChain.getLookaheadSize() + Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
+		// ...this call will generate more keys
+		keyChain.maybeLookAhead();
+
+		// This returns *all* keys
+		List<DeterministicKey> allLeafKeys = keyChain.getLeafKeys();
+
+		// Only return newly generated keys
+		return allLeafKeys.subList(existingLeafKeyCount, allLeafKeys.size());
+	}
+
 	protected byte[] addressToScriptPubKey(String base58Address) {
-		Context.propagate(bitcoinjContext);
+		Context.propagate(this.bitcoinjContext);
 		Address address = Address.fromString(this.params, base58Address);
 		return ScriptBuilder.createOutputScript(address).getProgram();
+	}
+
+	protected Wallet walletFromDeterministicKey58(String key58) {
+		DeterministicKey dKey = DeterministicKey.deserializeB58(null, key58, this.params);
+
+		if (dKey.hasPrivKey())
+			return Wallet.fromSpendingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+		else
+			return Wallet.fromWatchingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
 	}
 
 }

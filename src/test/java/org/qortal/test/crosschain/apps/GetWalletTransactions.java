@@ -1,4 +1,4 @@
-package org.qortal.test.crosschain;
+package org.qortal.test.crosschain.apps;
 
 import java.security.Security;
 import java.util.Comparator;
@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.bitcoinj.core.AddressFormatException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.crosschain.Bitcoin;
 import org.qortal.crosschain.Bitcoiny;
 import org.qortal.crosschain.BitcoinyTransaction;
 import org.qortal.crosschain.ForeignBlockchainException;
@@ -25,13 +26,13 @@ public class GetWalletTransactions {
 		if (error != null)
 			System.err.println(error);
 
-		System.err.println(String.format("usage: GetWalletTransactions <xprv/xpub>"));
-		System.err.println(String.format("example (testnet): GetWalletTransactions tpubD6NzVbkrYhZ4X3jV96Wo3Kr8Au2v9cUUEmPRk1smwduFrRVfBjkkw49rRYjgff1fGSktFMfabbvv8b1dmfyLjjbDax6QGyxpsNsx5PXukCB"));
+		System.err.println(String.format("usage: GetWalletTransactions (-b | -l) <xprv/xpub>"));
+		System.err.println(String.format("example (testnet): GetWalletTransactions -l tpubD6NzVbkrYhZ4X3jV96Wo3Kr8Au2v9cUUEmPRk1smwduFrRVfBjkkw49rRYjgff1fGSktFMfabbvv8b1dmfyLjjbDax6QGyxpsNsx5PXukCB"));
 		System.exit(1);
 	}
 
 	public static void main(String[] args) {
-		if (args.length != 1)
+		if (args.length != 2)
 			usage(null);
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
@@ -39,12 +40,23 @@ public class GetWalletTransactions {
 
 		Settings.fileInstance("settings-test.json");
 
-		Bitcoiny bitcoiny = Litecoin.getInstance();
-
+		Bitcoiny bitcoiny = null;
 		String key58 = null;
 
+		int argIndex = 0;
 		try {
-			int argIndex = 0;
+			switch (args[argIndex++]) {
+				case "-b":
+					bitcoiny = Bitcoin.getInstance();
+					break;
+
+				case "-l":
+					bitcoiny = Litecoin.getInstance();
+					break;
+
+				default:
+					usage("Only Bitcoin (-b) or Litecoin (-l) supported");
+			}
 
 			key58 = args[argIndex++];
 
@@ -53,6 +65,8 @@ public class GetWalletTransactions {
 		} catch (NumberFormatException | AddressFormatException e) {
 			usage(String.format("Argument format exception: %s", e.getMessage()));
 		}
+
+		System.out.println(String.format("Using %s", bitcoiny.getBlockchainProvider().getNetId()));
 
 		// Grab all outputs from transaction
 		Set<BitcoinyTransaction> transactions = null;

@@ -63,6 +63,8 @@ public class Pay {
 			usage(String.format("Invalid argument %d: %s", argIndex, e.getMessage()));
 		}
 
+		System.out.println(String.format("Using %s", bitcoiny.getBlockchainProvider().getNetId()));
+
 		System.out.println(String.format("Address: %s", address));
 		System.out.println(String.format("Amount: %s", amount.toPlainString()));
 

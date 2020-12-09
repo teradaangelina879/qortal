@@ -85,6 +85,8 @@ public class BuildHTLC {
 			usage(String.format("Invalid argument %d: %s", argIndex, e.getMessage()));
 		}
 
+		System.out.println(String.format("Using %s", bitcoiny.getBlockchainProvider().getNetId()));
+
 		Coin p2shFee = Coin.valueOf(Common.getP2shFee(bitcoiny));
 		if (p2shFee.isZero())
 			return;
