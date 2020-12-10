@@ -59,7 +59,8 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 		String tradePrivateKey58 = Base58.encode(tradeBotData.getTradePrivateKey());
 
 		synchronized (PREVIOUS_STATES) {
-			if (PREVIOUS_STATES.get(tradePrivateKey58) == tradeBotData.getStateValue())
+			Integer previousStateValue = PREVIOUS_STATES.get(tradePrivateKey58);
+			if (previousStateValue != null && previousStateValue == tradeBotData.getStateValue())
 				// Not changed
 				return;
 
