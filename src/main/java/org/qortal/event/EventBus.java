@@ -3,8 +3,13 @@ package org.qortal.event;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public enum EventBus {
 	INSTANCE;
+
+	private static final Logger LOGGER = LogManager.getLogger(EventBus.class);
 
 	private static final List<Listener> LISTENERS = new ArrayList<>();
 
@@ -50,6 +55,11 @@ public enum EventBus {
 		}
 
 		for (Listener listener : clonedListeners)
-			listener.listen(event);
+			try {
+				listener.listen(event);
+			} catch (Exception e) {
+				// We don't want one listener to break other listeners, or caller
+				LOGGER.warn(() -> String.format("Caught %s from a listener processing %s", e.getClass().getSimpleName(), event.getClass().getSimpleName()), e);
+			}
 	}
 }
