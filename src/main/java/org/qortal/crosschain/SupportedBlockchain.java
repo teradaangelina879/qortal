@@ -67,6 +67,10 @@ public enum SupportedBlockchain {
 		return supportedAcctsByCodeHash;
 	}
 
+	public static SupportedBlockchain fromString(String name) {
+		return blockchainsByName.get(name);
+	}
+
 	public static Map<ByteArray, Supplier<ACCT>> getFilteredAcctMap(SupportedBlockchain blockchain) {
 		if (blockchain == null)
 			return getAcctMap();
