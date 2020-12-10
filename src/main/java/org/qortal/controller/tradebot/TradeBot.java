@@ -196,8 +196,10 @@ public class TradeBot implements Listener {
 			canDelete = acctTradeBot == null || acctTradeBot.canDelete(repository, tradeBotData);
 		}
 
-		if (canDelete)
+		if (canDelete) {
 			repository.getCrossChainRepository().delete(tradePrivateKey);
+			repository.saveChanges();
+		}
 
 		return canDelete;
 	}
