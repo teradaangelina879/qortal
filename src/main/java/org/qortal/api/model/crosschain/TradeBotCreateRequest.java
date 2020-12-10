@@ -27,7 +27,7 @@ public class TradeBotCreateRequest {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	public Long bitcoinAmount;
 
-	@Schema(description = "Foreign blockchain. Note: default (BITCOIN) to be removed in the future", example = "BITCOIN", defaultValue = "BITCOIN")
+	@Schema(description = "Foreign blockchain. Note: default (BITCOIN) to be removed in the future", example = "BITCOIN", implementation = SupportedBlockchain.class)
 	public SupportedBlockchain foreignBlockchain;
 
 	@Schema(description = "Foreign blockchain amount wanted in return", example = "0.00864200", type = "number")

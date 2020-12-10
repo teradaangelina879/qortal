@@ -1,6 +1,7 @@
 package org.qortal.crosschain;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -50,6 +51,9 @@ public enum SupportedBlockchain {
 			.flatMap(List::stream)
 			.collect(Collectors.toUnmodifiableMap(Triple::getA, Triple::getC));
 
+	private static final Map<String, SupportedBlockchain> blockchainsByName = Arrays.stream(SupportedBlockchain.values())
+			.collect(Collectors.toUnmodifiableMap(Enum::name, blockchain -> blockchain));
+
 	private final List<Triple<String, byte[], Supplier<ACCT>>> supportedAccts;
 
 	SupportedBlockchain(List<Triple<String, byte[], Supplier<ACCT>>> supportedAccts) {
@@ -61,6 +65,25 @@ public enum SupportedBlockchain {
 
 	public static Map<ByteArray, Supplier<ACCT>> getAcctMap() {
 		return supportedAcctsByCodeHash;
+	}
+
+	public static Map<ByteArray, Supplier<ACCT>> getFilteredAcctMap(SupportedBlockchain blockchain) {
+		if (blockchain == null)
+			return getAcctMap();
+
+		return blockchain.supportedAccts.stream()
+				.collect(Collectors.toUnmodifiableMap(triple -> new ByteArray(triple.getB()), Triple::getC));
+	}
+
+	public static Map<ByteArray, Supplier<ACCT>> getFilteredAcctMap(String specificBlockchain) {
+		if (specificBlockchain == null)
+			return getAcctMap();
+
+		SupportedBlockchain blockchain = blockchainsByName.get(specificBlockchain);
+		if (blockchain == null)
+			return Collections.emptyMap();
+
+		return getFilteredAcctMap(blockchain);
 	}
 
 	public static ACCT getAcctByCodeHash(byte[] codeHash) {

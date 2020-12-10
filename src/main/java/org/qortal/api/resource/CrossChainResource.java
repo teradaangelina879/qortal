@@ -80,7 +80,11 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	public List<CrossChainTradeData> getTradeOffers(
-			// TODO: we need a param to limit to specific foreign blockchain(s)
+			@Parameter(
+				description = "Limit to specific blockchain",
+				example = "LITECOIN",
+				schema = @Schema(implementation = SupportedBlockchain.class)
+			) @QueryParam("foreignBlockchain") SupportedBlockchain foreignBlockchain,
 			@Parameter( ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter( ref = "offset" ) @QueryParam("offset") Integer offset,
 			@Parameter( ref = "reverse" ) @QueryParam("reverse") Boolean reverse) {
@@ -92,7 +96,7 @@ public class CrossChainResource {
 		List<CrossChainTradeData> crossChainTradesData = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getAcctMap();
+			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getFilteredAcctMap(foreignBlockchain);
 
 			for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
 				byte[] codeHash = acctInfo.getKey().value;
@@ -132,6 +136,11 @@ public class CrossChainResource {
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	public List<CrossChainTradeSummary> getCompletedTrades(
 			@Parameter(
+					description = "Limit to specific blockchain",
+					example = "LITECOIN",
+					schema = @Schema(implementation = SupportedBlockchain.class)
+				) @QueryParam("foreignBlockchain") SupportedBlockchain foreignBlockchain,
+			@Parameter(
 				description = "Only return trades that completed on/after this timestamp (milliseconds since epoch)",
 				example = "1597310000000"
 			) @QueryParam("minimumTimestamp") Long minimumTimestamp,
@@ -165,7 +174,7 @@ public class CrossChainResource {
 
 			List<CrossChainTradeSummary> crossChainTrades = new ArrayList<>();
 
-			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getAcctMap();
+			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getFilteredAcctMap(foreignBlockchain);
 
 			for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
 				byte[] codeHash = acctInfo.getKey().value;
