@@ -13,24 +13,44 @@ public class ForeignBlockchainException extends Exception {
 
 	public static class NetworkException extends ForeignBlockchainException {
 		private final Integer daemonErrorCode;
+		private final transient Object server;
 
 		public NetworkException() {
 			super();
 			this.daemonErrorCode = null;
+			this.server = null;
 		}
 
 		public NetworkException(String message) {
 			super(message);
 			this.daemonErrorCode = null;
+			this.server = null;
 		}
 
 		public NetworkException(int errorCode, String message) {
 			super(message);
 			this.daemonErrorCode = errorCode;
+			this.server = null;
+		}
+
+		public NetworkException(String message, Object server) {
+			super(message);
+			this.daemonErrorCode = null;
+			this.server = server;
+		}
+
+		public NetworkException(int errorCode, String message, Object server) {
+			super(message);
+			this.daemonErrorCode = errorCode;
+			this.server = server;
 		}
 
 		public Integer getDaemonErrorCode() {
 			return this.daemonErrorCode;
+		}
+
+		public Object getServer() {
+			return this.server;
 		}
 	}
 

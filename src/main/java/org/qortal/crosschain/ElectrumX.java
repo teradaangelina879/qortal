@@ -7,6 +7,7 @@ import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,6 +43,9 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 
 	// "message": "daemon error: DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})"
 	private static final Pattern DAEMON_ERROR_REGEX = Pattern.compile("DaemonError\\(\\{.*'code': ?(-?[0-9]+).*\\}\\)\\z"); // Capture 'code' inside curly-brace content
+
+	/** Error message sent by some ElectrumX servers when they don't support returning verbose transactions. */
+	private static final String VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE = "verbose transactions are currently unsupported";
 
 	public static class Server {
 		String hostname;
@@ -84,11 +88,13 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	}
 	private Set<Server> servers = new HashSet<>();
 	private List<Server> remainingServers = new ArrayList<>();
+	private Set<Server> uselessServers = Collections.synchronizedSet(new HashSet<>());
 
 	private final String netId;
 	private final String expectedGenesisHash;
 	private final Map<Server.ConnectionType, Integer> defaultPorts = new EnumMap<>(Server.ConnectionType.class);
 
+	private final Object serverLock = new Object();
 	private Server currentServer;
 	private Socket socket;
 	private Scanner scanner;
@@ -233,7 +239,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	public byte[] getRawTransaction(byte[] txHash) throws ForeignBlockchainException {
 		Object rawTransactionHex;
 		try {
-			rawTransactionHex = this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString());
+			rawTransactionHex = this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString(), false);
 		} catch (ForeignBlockchainException.NetworkException e) {
 			// DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})
 			if (Integer.valueOf(-5).equals(e.getDaemonErrorCode()))
@@ -256,20 +262,30 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 */
 	@Override
 	public BitcoinyTransaction getTransaction(String txHash) throws ForeignBlockchainException {
-		Object transactionObj;
-		try {
-			transactionObj = this.rpc("blockchain.transaction.get", txHash, true);
-		} catch (ForeignBlockchainException.NetworkException e) {
-			// DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})
-			if (Integer.valueOf(-5).equals(e.getDaemonErrorCode()))
-				throw new ForeignBlockchainException.NotFoundException(e.getMessage());
+		Object transactionObj = null;
 
-			// Some servers also return non-standard responses like this:
-			// {"error":"verbose transactions are currently unsupported","id":3,"jsonrpc":"2.0"}
-			// We should probably try another server for these cases
+		do {
+			try {
+				transactionObj = this.rpc("blockchain.transaction.get", txHash, true);
+			} catch (ForeignBlockchainException.NetworkException e) {
+				// DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})
+				if (Integer.valueOf(-5).equals(e.getDaemonErrorCode()))
+					throw new ForeignBlockchainException.NotFoundException(e.getMessage());
 
-			throw e;
-		}
+				// Some servers also return non-standard responses like this:
+				// {"error":"verbose transactions are currently unsupported","id":3,"jsonrpc":"2.0"}
+				// We should probably not use this server any more
+				if (e.getServer() != null && VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE.equals(e.getMessage())) {
+					Server uselessServer = (Server) e.getServer();
+					LOGGER.trace(() -> String.format("Server %s doesn't support verbose transactions - barring use of that server", uselessServer));
+					this.uselessServers.add(uselessServer);
+					this.closeServer(uselessServer);
+					continue;
+				}
+
+				throw e;
+			}
+		} while (transactionObj == null);
 
 		if (!(transactionObj instanceof JSONObject))
 			throw new ForeignBlockchainException.NetworkException("Expected JSONObject as response from ElectrumX blockchain.transaction.get RPC");
@@ -441,26 +457,23 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * @return "result" object from within JSON output
 	 * @throws ForeignBlockchainException if server returns error or something goes wrong
 	 */
-	private synchronized Object rpc(String method, Object...params) throws ForeignBlockchainException {
-		if (this.remainingServers.isEmpty())
-			this.remainingServers.addAll(this.servers);
+	private Object rpc(String method, Object...params) throws ForeignBlockchainException {
+		synchronized (this.serverLock) {
+			if (this.remainingServers.isEmpty())
+				this.remainingServers.addAll(this.servers);
 
-		while (haveConnection()) {
-			Object response = connectedRpc(method, params);
-			if (response != null)
-				return response;
+			while (haveConnection()) {
+				Object response = connectedRpc(method, params);
+				if (response != null)
+					return response;
 
-			this.currentServer = null;
-			try {
-				this.socket.close();
-			} catch (IOException e) {
-				/* ignore */
+				// Didn't work, try another server...
+				this.closeServer();
 			}
-			this.scanner = null;
-		}
 
-		// Failed to perform RPC - maybe lack of servers?
-		throw new ForeignBlockchainException.NetworkException(String.format("Failed to perform ElectrumX RPC %s", method));
+			// Failed to perform RPC - maybe lack of servers?
+			throw new ForeignBlockchainException.NetworkException(String.format("Failed to perform ElectrumX RPC %s", method));
+		}
 	}
 
 	/** Returns true if we have, or create, a connection to an ElectrumX server. */
@@ -509,16 +522,8 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				this.currentServer = server;
 				return true;
 			} catch (IOException | ForeignBlockchainException | ClassCastException | NullPointerException e) {
-				// Try another server...
-				if (this.socket != null && !this.socket.isClosed())
-					try {
-						this.socket.close();
-					} catch (IOException e1) {
-						// We did try...
-					}
-
-				this.socket = null;
-				this.scanner = null;
+				// Didn't work, try another server...
+				closeServer();
 			}
 		}
 
@@ -573,17 +578,17 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		Object errorObj = responseJson.get("error");
 		if (errorObj != null) {
 			if (errorObj instanceof String)
-				throw new ForeignBlockchainException.NetworkException(String.format("Unexpected error message from ElectrumX RPC %s: %s", method, (String) errorObj));
+				throw new ForeignBlockchainException.NetworkException(String.format("Unexpected error message from ElectrumX RPC %s: %s", method, (String) errorObj), this.currentServer);
 
 			if (!(errorObj instanceof JSONObject))
-				throw new ForeignBlockchainException.NetworkException(String.format("Unexpected error response from ElectrumX RPC %s", method));
+				throw new ForeignBlockchainException.NetworkException(String.format("Unexpected error response from ElectrumX RPC %s", method), this.currentServer);
 
 			JSONObject errorJson = (JSONObject) errorObj;
 
 			Object messageObj = errorJson.get("message");
 
 			if (!(messageObj instanceof String))
-				throw new ForeignBlockchainException.NetworkException(String.format("Missing/invalid message in error response from ElectrumX RPC %s", method));
+				throw new ForeignBlockchainException.NetworkException(String.format("Missing/invalid message in error response from ElectrumX RPC %s", method), this.currentServer);
 
 			String message = (String) messageObj;
 
@@ -594,15 +599,44 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			if (messageMatcher.find())
 				try {
 					int daemonErrorCode = Integer.parseInt(messageMatcher.group(1));
-					throw new ForeignBlockchainException.NetworkException(daemonErrorCode, message);
+					throw new ForeignBlockchainException.NetworkException(daemonErrorCode, message, this.currentServer);
 				} catch (NumberFormatException e) {
 					// We couldn't parse the error code integer? Fall-through to generic exception...
 				}
 
-			throw new ForeignBlockchainException.NetworkException(message);
+			throw new ForeignBlockchainException.NetworkException(message, this.currentServer);
 		}
 
 		return responseJson.get("result");
+	}
+
+	/**
+	 * Closes connection to <tt>server</tt> if it is currently connected server.
+	 * @param server
+	 */
+	private void closeServer(Server server) {
+		synchronized (this.serverLock) {
+			if (this.currentServer == null || !this.currentServer.equals(server))
+				return;
+
+			if (this.socket != null && !this.socket.isClosed())
+				try {
+					this.socket.close();
+				} catch (IOException e) {
+					// We did try...
+				}
+
+			this.socket = null;
+			this.scanner = null;
+			this.currentServer = null;
+		}
+	}
+
+	/** Closes connection to currently connected server (if any). */
+	private void closeServer() {
+		synchronized (this.serverLock) {
+			this.closeServer(this.currentServer);
+		}
 	}
 
 }
