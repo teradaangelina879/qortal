@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -20,7 +21,8 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.model.CrossChainOfferSummary;
 import org.qortal.controller.Controller;
-import org.qortal.crosschain.BitcoinACCTv1;
+import org.qortal.crosschain.SupportedBlockchain;
+import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.AcctMode;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.block.BlockData;
@@ -31,6 +33,7 @@ import org.qortal.event.Listener;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.utils.ByteArray;
 import org.qortal.utils.NTP;
 
 @WebSocket
@@ -76,7 +79,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		BlockData blockData = ((Controller.NewBlockEvent) event).getBlockData();
 
 		// Process any new info
-		List<CrossChainOfferSummary> crossChainOfferSummaries;
+		List<CrossChainOfferSummary> crossChainOfferSummaries = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Find any new/changed trade ATs since this block
@@ -85,14 +88,18 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 			final Long expectedValue = null;
 			final Integer minimumFinalHeight = blockData.getHeight();
 
-			List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(BitcoinACCTv1.CODE_BYTES_HASH,
-					isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
-					null, null, null);
+			// Loop for all different types of trade offer?
+			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getAcctMap();
+			for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
+				byte[] codeHash = acctInfo.getKey().value;
+				ACCT acct = acctInfo.getValue().get();
 
-			if (atStates == null)
-				return;
+				List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStates(codeHash,
+						isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
+						null, null, null);
 
-			crossChainOfferSummaries = produceSummaries(repository, atStates, blockData.getTimestamp());
+				crossChainOfferSummaries.addAll(produceSummaries(repository, acct, atStates, blockData.getTimestamp()));
+			}
 		} catch (DataException e) {
 			// No output this time
 			return;
@@ -198,22 +205,29 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 	private static void populateCurrentSummaries(Repository repository) throws DataException {
 		// We want ALL OFFERING trades
 		Boolean isFinished = Boolean.FALSE;
-		Integer dataByteOffset = BitcoinACCTv1.MODE_BYTE_OFFSET;
 		Long expectedValue = (long) AcctMode.OFFERING.value;
 		Integer minimumFinalHeight = null;
 
-		List<ATStateData> initialAtStates = repository.getATRepository().getMatchingFinalATStates(BitcoinACCTv1.CODE_BYTES_HASH,
+		Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getAcctMap();
+		for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
+			byte[] codeHash = acctInfo.getKey().value;
+			ACCT acct = acctInfo.getValue().get();
+
+			Integer dataByteOffset = acct.getModeByteOffset();
+			List<ATStateData> initialAtStates = repository.getATRepository().getMatchingFinalATStates(codeHash,
 				isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
 				null, null, null);
 
-		if (initialAtStates == null)
-			throw new DataException("Couldn't fetch current trades from repository");
+			if (initialAtStates == null)
+				throw new DataException("Couldn't fetch current trades from repository");
 
-		// Save initial AT modes
-		previousAtModes.putAll(initialAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> AcctMode.OFFERING)));
+			// Save initial AT modes
+			previousAtModes.putAll(initialAtStates.stream().collect(Collectors.toMap(ATStateData::getATAddress, atState -> AcctMode.OFFERING)));
 
-		// Convert to offer summaries
-		currentSummaries.putAll(produceSummaries(repository, initialAtStates, null).stream().collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, offerSummary -> offerSummary)));
+			// Convert to offer summaries
+			currentSummaries.putAll(produceSummaries(repository, acct, initialAtStates, null).stream()
+										.collect(Collectors.toMap(CrossChainOfferSummary::getQortalAtAddress, offerSummary -> offerSummary)));
+		}
 	}
 
 	private static void populateHistoricSummaries(Repository repository) throws DataException {
@@ -229,29 +243,35 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		Long expectedValue = null;
 		++minimumFinalHeight; // because height is just *before* timestamp
 
-		List<ATStateData> historicAtStates = repository.getATRepository().getMatchingFinalATStates(BitcoinACCTv1.CODE_BYTES_HASH,
+		Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getAcctMap();
+		for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
+			byte[] codeHash = acctInfo.getKey().value;
+			ACCT acct = acctInfo.getValue().get();
+
+			List<ATStateData> historicAtStates = repository.getATRepository().getMatchingFinalATStates(codeHash,
 				isFinished, dataByteOffset, expectedValue, minimumFinalHeight,
 				null, null, null);
 
-		if (historicAtStates == null)
-			throw new DataException("Couldn't fetch historic trades from repository");
+			if (historicAtStates == null)
+				throw new DataException("Couldn't fetch historic trades from repository");
 
-		for (ATStateData historicAtState : historicAtStates) {
-			CrossChainOfferSummary historicOfferSummary = produceSummary(repository, historicAtState, null);
+			for (ATStateData historicAtState : historicAtStates) {
+				CrossChainOfferSummary historicOfferSummary = produceSummary(repository, acct, historicAtState, null);
 
-			if (!isHistoric.test(historicOfferSummary))
-				continue;
+				if (!isHistoric.test(historicOfferSummary))
+					continue;
 
-			// Add summary to initial burst
-			historicSummaries.put(historicOfferSummary.getQortalAtAddress(), historicOfferSummary);
+				// Add summary to initial burst
+				historicSummaries.put(historicOfferSummary.getQortalAtAddress(), historicOfferSummary);
 
-			// Save initial AT mode
-			previousAtModes.put(historicOfferSummary.getQortalAtAddress(), historicOfferSummary.getMode());
+				// Save initial AT mode
+				previousAtModes.put(historicOfferSummary.getQortalAtAddress(), historicOfferSummary.getMode());
+			}
 		}
 	}
 
-	private static CrossChainOfferSummary produceSummary(Repository repository, ATStateData atState, Long timestamp) throws DataException {
-		CrossChainTradeData crossChainTradeData = BitcoinACCTv1.getInstance().populateTradeData(repository, atState);
+	private static CrossChainOfferSummary produceSummary(Repository repository, ACCT acct, ATStateData atState, Long timestamp) throws DataException {
+		CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atState);
 
 		long atStateTimestamp;
 
@@ -264,11 +284,11 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		return new CrossChainOfferSummary(crossChainTradeData, atStateTimestamp);
 	}
 
-	private static List<CrossChainOfferSummary> produceSummaries(Repository repository, List<ATStateData> atStates, Long timestamp) throws DataException {
+	private static List<CrossChainOfferSummary> produceSummaries(Repository repository, ACCT acct, List<ATStateData> atStates, Long timestamp) throws DataException {
 		List<CrossChainOfferSummary> offerSummaries = new ArrayList<>();
 
 		for (ATStateData atState : atStates)
-			offerSummaries.add(produceSummary(repository, atState, timestamp));
+			offerSummaries.add(produceSummary(repository, acct, atState, timestamp));
 
 		return offerSummaries;
 	}

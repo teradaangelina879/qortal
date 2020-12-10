@@ -32,7 +32,6 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.CrossChainCancelRequest;
 import org.qortal.api.model.CrossChainTradeSummary;
-import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.AcctMode;
@@ -266,10 +265,6 @@ public class CrossChainResource {
 		ATData atData = repository.getATRepository().fromATAddress(atAddress);
 		if (atData == null)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
-
-		// Must be correct AT - check functionality using code hash
-		if (!Arrays.equals(atData.getCodeHash(), BitcoinACCTv1.CODE_BYTES_HASH))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		// No point sending message to AT that's finished
 		if (atData.getIsFinished())

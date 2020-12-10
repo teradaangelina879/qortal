@@ -43,6 +43,10 @@ public class CrossChainOfferSummary {
 
 	private String partnerQortalReceivingAddress;
 
+	private String foreignBlockchain;
+
+	private String acctName;
+
 	protected CrossChainOfferSummary() {
 		/* For JAXB */
 	}
@@ -57,6 +61,8 @@ public class CrossChainOfferSummary {
 		this.mode = crossChainTradeData.mode;
 		this.timestamp = timestamp;
 		this.partnerQortalReceivingAddress = crossChainTradeData.qortalPartnerReceivingAddress;
+		this.foreignBlockchain = crossChainTradeData.foreignBlockchain;
+		this.acctName = crossChainTradeData.acctName;
 	}
 
 	public String getQortalAtAddress() {
@@ -93,6 +99,14 @@ public class CrossChainOfferSummary {
 
 	public String getPartnerQortalReceivingAddress() {
 		return this.partnerQortalReceivingAddress;
+	}
+
+	public String getForeignBlockchain() {
+		return this.foreignBlockchain;
+	}
+
+	public String getAcctName() {
+		return this.acctName;
 	}
 
 	// For debugging mostly
