@@ -329,7 +329,16 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				String scriptPubKey = (String) ((JSONObject) outputJson.get("scriptPubKey")).get("hex");
 				long value = (long) (((Double) outputJson.get("value")) * 1e8);
 
-				outputs.add(new BitcoinyTransaction.Output(scriptPubKey, value));
+				// address too, if present
+				Set<String> addresses = null;
+				Object addressesObj = ((JSONObject) outputJson.get("scriptPubKey")).get("addresses");
+				if (addressesObj instanceof JSONArray) {
+					addresses = new HashSet<>();
+					for (Object addressObj : (JSONArray) addressesObj)
+						addresses.add((String) addressObj);
+				}
+
+				outputs.add(new BitcoinyTransaction.Output(scriptPubKey, value, addresses));
 			}
 
 			return new BitcoinyTransaction(txHash, size, locktime, timestamp, inputs, outputs);

@@ -1,6 +1,7 @@
 package org.qortal.crosschain;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.xml.bind.annotation.XmlAccessType;
@@ -46,16 +47,25 @@ public class BitcoinyTransaction {
 	public static class Output {
 		public final String scriptPubKey;
 		public final long value;
+		public final Set<String> addresses;
 
 		// For JAXB
 		protected Output() {
 			this.scriptPubKey = null;
 			this.value = 0;
+			this.addresses = null;
 		}
 
 		public Output(String scriptPubKey, long value) {
 			this.scriptPubKey = scriptPubKey;
 			this.value = value;
+			this.addresses = null;
+		}
+
+		public Output(String scriptPubKey, long value, Set<String> addresses) {
+			this.scriptPubKey = scriptPubKey;
+			this.value = value;
+			this.addresses = addresses;
 		}
 
 		public String toString() {
