@@ -20,6 +20,9 @@ public abstract class BitcoinyBlockchainProvider {
 	public abstract long getConfirmedBalance(byte[] scriptPubKey) throws ForeignBlockchainException;
 
 	/** Returns raw, serialized, transaction bytes given <tt>txHash</tt>. */
+	public abstract byte[] getRawTransaction(String txHash) throws ForeignBlockchainException;
+
+	/** Returns raw, serialized, transaction bytes given <tt>txHash</tt>. */
 	public abstract byte[] getRawTransaction(byte[] txHash) throws ForeignBlockchainException;
 
 	/** Returns unpacked transaction given <tt>txHash</tt>. */

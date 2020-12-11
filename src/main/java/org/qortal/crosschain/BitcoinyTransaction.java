@@ -1,25 +1,35 @@
 package org.qortal.crosschain;
 
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public class BitcoinyTransaction {
 
 	public final String txHash;
+
+	@XmlTransient
 	public final int size;
+
+	@XmlTransient
 	public final int locktime;
+
 	// Not present if transaction is unconfirmed
 	public final Integer timestamp;
 
 	public static class Input {
+		@XmlTransient
 		public final String scriptSig;
+
+		@XmlTransient
 		public final int sequence;
+
 		public final String outputTxHash;
+
 		public final int outputVout;
 
 		// For JAXB
@@ -42,12 +52,16 @@ public class BitcoinyTransaction {
 					this.outputTxHash, this.outputVout, this.sequence, this.scriptSig);
 		}
 	}
+	@XmlTransient
 	public final List<Input> inputs;
 
 	public static class Output {
+		@XmlTransient
 		public final String scriptPubKey;
+
 		public final long value;
-		public final Set<String> addresses;
+
+		public final List<String> addresses;
 
 		// For JAXB
 		protected Output() {
@@ -62,7 +76,7 @@ public class BitcoinyTransaction {
 			this.addresses = null;
 		}
 
-		public Output(String scriptPubKey, long value, Set<String> addresses) {
+		public Output(String scriptPubKey, long value, List<String> addresses) {
 			this.scriptPubKey = scriptPubKey;
 			this.value = value;
 			this.addresses = addresses;
@@ -74,6 +88,8 @@ public class BitcoinyTransaction {
 	}
 	public final List<Output> outputs;
 
+	public final long totalAmount;
+
 	// For JAXB
 	protected BitcoinyTransaction() {
 		this.txHash = null;
@@ -82,6 +98,7 @@ public class BitcoinyTransaction {
 		this.timestamp = 0;
 		this.inputs = null;
 		this.outputs = null;
+		this.totalAmount = 0;
 	}
 
 	public BitcoinyTransaction(String txHash, int size, int locktime, Integer timestamp,
@@ -92,6 +109,8 @@ public class BitcoinyTransaction {
 		this.timestamp = timestamp;
 		this.inputs = inputs;
 		this.outputs = outputs;
+
+		this.totalAmount = outputs.stream().map(output -> output.value).reduce(0L, Long::sum);
 	}
 
 	public String toString() {

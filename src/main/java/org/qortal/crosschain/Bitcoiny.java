@@ -2,8 +2,10 @@ package org.qortal.crosschain;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,6 +33,7 @@ import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.wallet.DeterministicKeyChain;
 import org.bitcoinj.wallet.SendRequest;
 import org.bitcoinj.wallet.Wallet;
+import org.qortal.api.model.SimpleForeignTransaction;
 import org.qortal.crypto.Crypto;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.BitTwiddling;
@@ -329,7 +332,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return balance.value;
 	}
 
-	public Set<BitcoinyTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
+	public List<BitcoinyTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
 		Context.propagate(bitcoinjContext);
 
 		Wallet wallet = walletFromDeterministicKey58(key58);
@@ -366,13 +369,15 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 			if (areAllKeysUnused)
 				// No transactions for this batch of keys so assume we're done searching.
-				return walletTransactions;
+				break;
 
 			// Generate some more keys
 			keys.addAll(generateMoreKeys(keyChain));
 
 			// Process new keys
 		} while (true);
+
+		return walletTransactions.stream().collect(Collectors.toList());
 	}
 
 	/**
@@ -572,6 +577,94 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		public NetworkParameters getParams() {
 			return this.bitcoiny.params;
 		}
+	}
+
+	// Utility methods for others
+
+	public static List<SimpleForeignTransaction> simplifyWalletTransactions(List<BitcoinyTransaction> transactions) {
+		// Sort by oldest timestamp first
+		transactions.sort(Comparator.comparingInt(t -> t.timestamp));
+
+		// Manual 2nd-level sort same-timestamp transactions so that a transaction's input comes first
+		int fromIndex = 0;
+		do {
+			int timestamp = transactions.get(fromIndex).timestamp;
+
+			int toIndex;
+			for (toIndex = fromIndex + 1; toIndex < transactions.size(); ++toIndex)
+				if (transactions.get(toIndex).timestamp != timestamp)
+					break;
+
+			// Process same-timestamp sub-list
+			List<BitcoinyTransaction> subList = transactions.subList(fromIndex, toIndex);
+
+			// Only if necessary
+			if (subList.size() > 1) {
+				// Quick index lookup
+				Map<String, Integer> indexByTxHash = subList.stream().collect(Collectors.toMap(t -> t.txHash, t -> t.timestamp));
+
+				int restartIndex = 0;
+				boolean isSorted;
+				do {
+					isSorted = true;
+
+					for (int ourIndex = restartIndex; ourIndex < subList.size(); ++ourIndex) {
+						BitcoinyTransaction ourTx = subList.get(ourIndex);
+
+						for (BitcoinyTransaction.Input input : ourTx.inputs) {
+							Integer inputIndex = indexByTxHash.get(input.outputTxHash);
+
+							if (inputIndex != null && inputIndex > ourIndex) {
+								// Input tx is currently after current tx, so swap
+								BitcoinyTransaction tmpTx = subList.get(inputIndex);
+								subList.set(inputIndex, ourTx);
+								subList.set(ourIndex, tmpTx);
+
+								// Update index lookup too
+								indexByTxHash.put(ourTx.txHash, inputIndex);
+								indexByTxHash.put(tmpTx.txHash, ourIndex);
+
+								if (isSorted)
+									restartIndex = Math.max(restartIndex, ourIndex);
+
+								isSorted = false;
+								break;
+							}
+						}
+					}
+				} while (!isSorted);
+			}
+
+			fromIndex = toIndex;
+		} while (fromIndex < transactions.size());
+
+		// Simplify
+		List<SimpleForeignTransaction> simpleTransactions = new ArrayList<>();
+
+		// Quick lookup of txs in our wallet
+		Set<String> walletTxHashes = transactions.stream().map(t -> t.txHash).collect(Collectors.toSet());
+
+		for (BitcoinyTransaction transaction : transactions) {
+			SimpleForeignTransaction.Builder builder = new SimpleForeignTransaction.Builder();
+			builder.txHash(transaction.txHash);
+			builder.timestamp(transaction.timestamp);
+
+			builder.isSentNotReceived(false);
+
+			for (BitcoinyTransaction.Input input : transaction.inputs) {
+				// TODO: add input via builder
+
+				if (walletTxHashes.contains(input.outputTxHash))
+					builder.isSentNotReceived(true);
+			}
+
+			for (BitcoinyTransaction.Output output : transaction.outputs)
+				builder.output(output.addresses, output.value);
+
+			simpleTransactions.add(builder.build());
+		}
+
+		return simpleTransactions;
 	}
 
 	// Utility methods for us

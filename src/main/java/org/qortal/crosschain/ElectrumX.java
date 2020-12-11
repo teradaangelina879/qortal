@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -99,6 +100,16 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private Socket socket;
 	private Scanner scanner;
 	private int nextId = 1;
+
+	private static final int TX_CACHE_SIZE = 100;
+	@SuppressWarnings("serial")
+	private final Map<String, BitcoinyTransaction> transactionCache = Collections.synchronizedMap(new LinkedHashMap<>(TX_CACHE_SIZE + 1, 0.75F, true) {
+		// This method is called just after a new entry has been added
+		@Override
+		public boolean removeEldestEntry(Map.Entry<String, BitcoinyTransaction> eldest) {
+			return size() > TX_CACHE_SIZE;
+		}
+	});
 
 	// Constructors
 
@@ -232,14 +243,16 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	/**
 	 * Returns raw transaction for passed transaction hash.
 	 * <p>
+	 * NOTE: Do not mutate returned byte[]!
+	 * 
 	 * @throws ForeignBlockchainException.NotFoundException if transaction not found
 	 * @throws ForeignBlockchainException if error occurs
 	 */
 	@Override
-	public byte[] getRawTransaction(byte[] txHash) throws ForeignBlockchainException {
+	public byte[] getRawTransaction(String txHash) throws ForeignBlockchainException {
 		Object rawTransactionHex;
 		try {
-			rawTransactionHex = this.rpc("blockchain.transaction.get", HashCode.fromBytes(txHash).toString(), false);
+			rawTransactionHex = this.rpc("blockchain.transaction.get", txHash, false);
 		} catch (ForeignBlockchainException.NetworkException e) {
 			// DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})
 			if (Integer.valueOf(-5).equals(e.getDaemonErrorCode()))
@@ -255,6 +268,19 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	}
 
 	/**
+	 * Returns raw transaction for passed transaction hash.
+	 * <p>
+	 * NOTE: Do not mutate returned byte[]!
+	 * 
+	 * @throws ForeignBlockchainException.NotFoundException if transaction not found
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	@Override
+	public byte[] getRawTransaction(byte[] txHash) throws ForeignBlockchainException {
+		return getRawTransaction(HashCode.fromBytes(txHash).toString());
+	}
+
+	/**
 	 * Returns transaction info for passed transaction hash.
 	 * <p>
 	 * @throws ForeignBlockchainException.NotFoundException if transaction not found
@@ -262,6 +288,11 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 */
 	@Override
 	public BitcoinyTransaction getTransaction(String txHash) throws ForeignBlockchainException {
+		// Check cache first
+		BitcoinyTransaction transaction = transactionCache.get(txHash);
+		if (transaction != null)
+			return transaction;
+
 		Object transactionObj = null;
 
 		do {
@@ -275,7 +306,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				// Some servers also return non-standard responses like this:
 				// {"error":"verbose transactions are currently unsupported","id":3,"jsonrpc":"2.0"}
 				// We should probably not use this server any more
-				if (e.getServer() != null && VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE.equals(e.getMessage())) {
+				if (e.getServer() != null && e.getMessage() != null && e.getMessage().contains(VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE)) {
 					Server uselessServer = (Server) e.getServer();
 					LOGGER.trace(() -> String.format("Server %s doesn't support verbose transactions - barring use of that server", uselessServer));
 					this.uselessServers.add(uselessServer);
@@ -330,10 +361,10 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				long value = (long) (((Double) outputJson.get("value")) * 1e8);
 
 				// address too, if present
-				Set<String> addresses = null;
+				List<String> addresses = null;
 				Object addressesObj = ((JSONObject) outputJson.get("scriptPubKey")).get("addresses");
 				if (addressesObj instanceof JSONArray) {
-					addresses = new HashSet<>();
+					addresses = new ArrayList<>();
 					for (Object addressObj : (JSONArray) addressesObj)
 						addresses.add((String) addressObj);
 				}
@@ -341,7 +372,12 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				outputs.add(new BitcoinyTransaction.Output(scriptPubKey, value, addresses));
 			}
 
-			return new BitcoinyTransaction(txHash, size, locktime, timestamp, inputs, outputs);
+			transaction = new BitcoinyTransaction(txHash, size, locktime, timestamp, inputs, outputs);
+
+			// Save into cache
+			transactionCache.put(txHash, transaction);
+
+			return transaction;
 		} catch (NullPointerException | ClassCastException e) {
 			// Unexpected / invalid response from ElectrumX server
 		}

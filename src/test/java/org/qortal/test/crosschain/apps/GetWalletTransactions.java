@@ -2,7 +2,7 @@ package org.qortal.test.crosschain.apps;
 
 import java.security.Security;
 import java.util.Comparator;
-import java.util.Set;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import org.bitcoinj.core.AddressFormatException;
@@ -69,7 +69,7 @@ public class GetWalletTransactions {
 		System.out.println(String.format("Using %s", bitcoiny.getBlockchainProvider().getNetId()));
 
 		// Grab all outputs from transaction
-		Set<BitcoinyTransaction> transactions = null;
+		List<BitcoinyTransaction> transactions = null;
 		try {
 			transactions = bitcoiny.getWalletTransactions(key58);
 		} catch (ForeignBlockchainException e) {
