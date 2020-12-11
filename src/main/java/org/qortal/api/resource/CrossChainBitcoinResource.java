@@ -8,7 +8,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.util.Set;
+import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.POST;
@@ -45,7 +45,7 @@ public class CrossChainBitcoinResource {
 				schema = @Schema(
 					type = "string",
 					description = "BIP32 'm' private/public key in base58",
-					example = "tpub___________________________________________________________________________________________________________"
+					example = "tpubD6NzVbkrYhZ4XTPc4btCZ6SMgn8CxmWkj6VBVZ1tfcJfMq4UwAjZbG8U74gGSypL9XBYk2R2BLbDBe8pcEyBKM1edsGQEPKXNbEskZozeZc"
 				)
 			)
 		),
@@ -83,7 +83,7 @@ public class CrossChainBitcoinResource {
 				schema = @Schema(
 					type = "string",
 					description = "BIP32 'm' private/public key in base58",
-					example = "tpub___________________________________________________________________________________________________________"
+					example = "tpubD6NzVbkrYhZ4XTPc4btCZ6SMgn8CxmWkj6VBVZ1tfcJfMq4UwAjZbG8U74gGSypL9XBYk2R2BLbDBe8pcEyBKM1edsGQEPKXNbEskZozeZc"
 				)
 			)
 		),
@@ -94,7 +94,7 @@ public class CrossChainBitcoinResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
-	public Set<BitcoinyTransaction> getBitcoinWalletTransactions(String key58) {
+	public List<BitcoinyTransaction> getBitcoinWalletTransactions(String key58) {
 		Security.checkApiCallAllowed(request);
 
 		Bitcoin bitcoin = Bitcoin.getInstance();
