@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.qortal.account.PublicKeyAccount;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.data.at.ATStateData;
@@ -23,7 +22,6 @@ import org.qortal.utils.Base58;
 import org.qortal.utils.Serialization;
 import org.qortal.utils.Triple;
 
-import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
@@ -334,27 +332,20 @@ public class BlockTransformer extends Transformer {
 
 	public static byte[] getBytesForMinterSignature(BlockData blockData) throws TransformationException {
 		byte[] minterSignature = getMinterSignatureFromReference(blockData.getReference());
-		PublicKeyAccount minter = new PublicKeyAccount(null, blockData.getMinterPublicKey());
 
-		return getBytesForMinterSignature(minterSignature, minter, blockData.getEncodedOnlineAccounts());
+		return getBytesForMinterSignature(minterSignature, blockData.getMinterPublicKey(), blockData.getEncodedOnlineAccounts());
 	}
 
-	public static byte[] getBytesForMinterSignature(byte[] minterSignature, PublicKeyAccount minter, byte[] encodedOnlineAccounts)
-			throws TransformationException {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(MINTER_SIGNATURE_LENGTH + MINTER_PUBLIC_KEY_LENGTH + encodedOnlineAccounts.length);
+	public static byte[] getBytesForMinterSignature(byte[] minterSignature, byte[] minterPublicKey, byte[] encodedOnlineAccounts) {
+		byte[] bytes = new byte[MINTER_SIGNATURE_LENGTH + MINTER_PUBLIC_KEY_LENGTH + encodedOnlineAccounts.length];
 
-			bytes.write(minterSignature);
+		System.arraycopy(minterSignature, 0, bytes, 0, MINTER_SIGNATURE_LENGTH);
 
-			// We're padding here just in case the minter is the genesis account whose public key is only 8 bytes long.
-			bytes.write(Bytes.ensureCapacity(minter.getPublicKey(), MINTER_PUBLIC_KEY_LENGTH, 0));
+		System.arraycopy(minterPublicKey, 0, bytes, MINTER_SIGNATURE_LENGTH, MINTER_PUBLIC_KEY_LENGTH);
 
-			bytes.write(encodedOnlineAccounts);
+		System.arraycopy(encodedOnlineAccounts, 0, bytes, MINTER_SIGNATURE_LENGTH + MINTER_PUBLIC_KEY_LENGTH, encodedOnlineAccounts.length);
 
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			throw new TransformationException(e);
-		}
+		return bytes;
 	}
 
 	public static byte[] getBytesForTransactionsSignature(Block block) throws TransformationException {

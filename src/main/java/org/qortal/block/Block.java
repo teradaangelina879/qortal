@@ -357,12 +357,8 @@ public class Block {
 			System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
 		}
 
-		byte[] minterSignature;
-		try {
-			minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(), minter, encodedOnlineAccounts));
-		} catch (TransformationException e) {
-			throw new DataException("Unable to calculate next block minter signature", e);
-		}
+		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(),
+				minter.getPublicKey(), encodedOnlineAccounts));
 
 		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
 		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
@@ -428,12 +424,8 @@ public class Block {
 		int version = this.blockData.getVersion();
 		byte[] reference = this.blockData.getReference();
 
-		byte[] minterSignature;
-		try {
-			minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(), minter, this.blockData.getEncodedOnlineAccounts()));
-		} catch (TransformationException e) {
-			throw new DataException("Unable to calculate next block's minter signature", e);
-		}
+		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(),
+				minter.getPublicKey(), this.blockData.getEncodedOnlineAccounts()));
 
 		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
 		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
