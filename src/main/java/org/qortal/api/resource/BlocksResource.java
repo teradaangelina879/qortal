@@ -23,7 +23,6 @@ import javax.ws.rs.core.MediaType;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
-import org.qortal.api.model.BlockInfo;
 import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
@@ -492,7 +491,7 @@ public class BlocksResource {
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
-							implementation = BlockInfo.class
+							implementation = BlockSummaryData.class
 						)
 					)
 				)
@@ -502,7 +501,7 @@ public class BlocksResource {
 	@ApiErrors({
 		ApiError.REPOSITORY_ISSUE
 	})
-	public List<BlockInfo> getBlockRange(
+	public List<BlockSummaryData> getBlockSummaries(
 			@QueryParam("start") Integer startHeight,
 			@QueryParam("end") Integer endHeight,
 			@Parameter(ref = "count") @QueryParam("count") Integer count) {
@@ -515,7 +514,7 @@ public class BlocksResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().getBlockInfos(startHeight, endHeight, count);
+			return repository.getBlockRepository().getBlockSummaries(startHeight, endHeight, count);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

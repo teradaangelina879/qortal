@@ -2,7 +2,6 @@ package org.qortal.repository;
 
 import java.util.List;
 
-import org.qortal.api.model.BlockInfo;
 import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
@@ -139,9 +138,9 @@ public interface BlockRepository {
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException;
 
 	/**
-	 * Returns block infos for the passed height range, for API use.
+	 * Returns block summaries for the passed height range, for API use.
 	 */
-	public List<BlockInfo> getBlockInfos(Integer startHeight, Integer endHeight, Integer count) throws DataException;
+	public List<BlockSummaryData> getBlockSummaries(Integer startHeight, Integer endHeight, Integer count) throws DataException;
 
 	/** Returns height of first trimmable online accounts signatures. */
 	public int getOnlineAccountsSignaturesTrimHeight() throws DataException;

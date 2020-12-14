@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.qortal.api.model.BlockInfo;
 import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
@@ -355,7 +354,8 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException {
-		String sql = "SELECT signature, height, minter, online_accounts_count FROM Blocks WHERE height BETWEEN ? AND ?";
+		String sql = "SELECT signature, height, minter, online_accounts_count, minted_when, transaction_count "
+				+ "FROM Blocks WHERE height BETWEEN ? AND ?";
 
 		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 
@@ -368,8 +368,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				int height = resultSet.getInt(2);
 				byte[] minterPublicKey = resultSet.getBytes(3);
 				int onlineAccountsCount = resultSet.getInt(4);
+				long timestamp = resultSet.getLong(5);
+				int transactionCount = resultSet.getInt(6);
 
-				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, minterPublicKey, onlineAccountsCount);
+				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, minterPublicKey, onlineAccountsCount,
+						timestamp, transactionCount);
 				blockSummaries.add(blockSummary);
 			} while (resultSet.next());
 
@@ -380,11 +383,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public List<BlockInfo> getBlockInfos(Integer startHeight, Integer endHeight, Integer count) throws DataException {
+	public List<BlockSummaryData> getBlockSummaries(Integer startHeight, Integer endHeight, Integer count) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT signature, height, minted_when, transaction_count, RewardShares.minter ");
+		sql.append("SELECT signature, height, minter, online_accounts_count, minted_when, transaction_count ");
 
 		/*
 		 * start	end		count		result
@@ -401,7 +404,6 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 		if (startHeight != null && endHeight != null) {
 			sql.append("FROM Blocks ");
-			sql.append("JOIN RewardShares ON RewardShares.reward_share_public_key = Blocks.minter ");
 			sql.append("WHERE height BETWEEN ? AND ?");
 			bindParams.add(startHeight);
 			bindParams.add(Integer.valueOf(endHeight - 1));
@@ -413,11 +415,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			if (endHeight == null) {
 				sql.append("FROM (SELECT height FROM Blocks ORDER BY height DESC LIMIT 1) AS MaxHeights (max_height) ");
 				sql.append("JOIN Blocks ON height BETWEEN (max_height - ? + 1) AND max_height ");
-				sql.append("JOIN RewardShares ON RewardShares.reward_share_public_key = Blocks.minter");
 				bindParams.add(count);
 			} else {
 				sql.append("FROM Blocks ");
-				sql.append("JOIN RewardShares ON RewardShares.reward_share_public_key = Blocks.minter ");
 				sql.append("WHERE height BETWEEN ? AND ?");
 				bindParams.add(Integer.valueOf(endHeight - count));
 				bindParams.add(Integer.valueOf(endHeight - 1));
@@ -432,32 +432,33 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				count = 50;
 
 			sql.append("FROM Blocks ");
-			sql.append("JOIN RewardShares ON RewardShares.reward_share_public_key = Blocks.minter ");
 			sql.append("WHERE height BETWEEN ? AND ?");
 			bindParams.add(startHeight);
 			bindParams.add(Integer.valueOf(startHeight + count - 1));
 		}
 
-		List<BlockInfo> blockInfos = new ArrayList<>();
+		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
-				return blockInfos;
+				return blockSummaries;
 
 			do {
 				byte[] signature = resultSet.getBytes(1);
 				int height = resultSet.getInt(2);
-				long timestamp = resultSet.getLong(3);
-				int transactionCount = resultSet.getInt(4);
-				String minterAddress = resultSet.getString(5);
+				byte[] minterPublicKey = resultSet.getBytes(3);
+				int onlineAccountsCount = resultSet.getInt(4);
+				long timestamp = resultSet.getLong(5);
+				int transactionCount = resultSet.getInt(6);
 
-				BlockInfo blockInfo = new BlockInfo(signature, height, timestamp, transactionCount, minterAddress);
-				blockInfos.add(blockInfo);
+				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, minterPublicKey, onlineAccountsCount,
+						timestamp, transactionCount);
+				blockSummaries.add(blockSummary);
 			} while (resultSet.next());
 
-			return blockInfos;
+			return blockSummaries;
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch height-ranged block infos from repository", e);
+			throw new DataException("Unable to fetch height-ranged block summaries from repository", e);
 		}
 	}
 
