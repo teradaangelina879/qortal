@@ -372,7 +372,7 @@ public class HSQLDBRepository implements Repository {
 
 		// Actually create backup
 		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute("BACKUP DATABASE TO 'backup/' NOT BLOCKING AS FILES");
+			stmt.execute("BACKUP DATABASE TO 'backup/' BLOCKING AS FILES");
 		} catch (SQLException e) {
 			throw new DataException("Unable to backup repository");
 		}
