@@ -122,25 +122,27 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 
 					// Update
 					for (CrossChainOfferSummary offerSummary : crossChainOfferSummaries) {
-						cachedInfo.previousAtModes.put(offerSummary.qortalAtAddress, offerSummary.getMode());
-						LOGGER.trace(() -> String.format("Block height: %d, AT: %s, mode: %s", blockData.getHeight(), offerSummary.qortalAtAddress, offerSummary.getMode().name()));
+						String offerAtAddress = offerSummary.getQortalAtAddress();
+
+						cachedInfo.previousAtModes.put(offerAtAddress, offerSummary.getMode());
+						LOGGER.trace(() -> String.format("Block height: %d, AT: %s, mode: %s", blockData.getHeight(), offerAtAddress, offerSummary.getMode().name()));
 
 						switch (offerSummary.getMode()) {
 							case OFFERING:
-								cachedInfo.currentSummaries.put(offerSummary.qortalAtAddress, offerSummary);
-								cachedInfo.historicSummaries.remove(offerSummary.qortalAtAddress);
+								cachedInfo.currentSummaries.put(offerAtAddress, offerSummary);
+								cachedInfo.historicSummaries.remove(offerAtAddress);
 								break;
 
 							case REDEEMED:
 							case REFUNDED:
 							case CANCELLED:
-								cachedInfo.currentSummaries.remove(offerSummary.qortalAtAddress);
-								cachedInfo.historicSummaries.put(offerSummary.qortalAtAddress, offerSummary);
+								cachedInfo.currentSummaries.remove(offerAtAddress);
+								cachedInfo.historicSummaries.put(offerAtAddress, offerSummary);
 								break;
 
 							case TRADING:
-								cachedInfo.currentSummaries.remove(offerSummary.qortalAtAddress);
-								cachedInfo.historicSummaries.remove(offerSummary.qortalAtAddress);
+								cachedInfo.currentSummaries.remove(offerAtAddress);
+								cachedInfo.historicSummaries.remove(offerAtAddress);
 								break;
 						}
 					}

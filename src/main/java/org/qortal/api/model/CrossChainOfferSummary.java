@@ -16,10 +16,13 @@ public class CrossChainOfferSummary {
 	// Properties
 
 	@Schema(description = "AT's Qortal address")
-	public String qortalAtAddress;
+	private String qortalAtAddress;
 
 	@Schema(description = "AT creator's Qortal address")
-	public String qortalCreator;
+	private String qortalCreator;
+
+	@Schema(description = "AT creator's ephemeral trading key-pair represented as Qortal address")
+	private String qortalCreatorTradeAddress;
 
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long qortAmount;
@@ -41,6 +44,7 @@ public class CrossChainOfferSummary {
 
 	private long timestamp;
 
+	@Schema(description = "Trade partner's Qortal receiving address")
 	private String partnerQortalReceivingAddress;
 
 	private String foreignBlockchain;
@@ -54,6 +58,7 @@ public class CrossChainOfferSummary {
 	public CrossChainOfferSummary(CrossChainTradeData crossChainTradeData, long timestamp) {
 		this.qortalAtAddress = crossChainTradeData.qortalAtAddress;
 		this.qortalCreator = crossChainTradeData.qortalCreator;
+		this.qortalCreatorTradeAddress = crossChainTradeData.qortalCreatorTradeAddress;
 		this.qortAmount = crossChainTradeData.qortAmount;
 		this.foreignAmount = crossChainTradeData.expectedForeignAmount;
 		this.btcAmount = this.foreignAmount; // Duplicate for deprecated field
@@ -71,6 +76,10 @@ public class CrossChainOfferSummary {
 
 	public String getQortalCreator() {
 		return this.qortalCreator;
+	}
+
+	public String getQortalCreatorTradeAddress() {
+		return this.qortalCreatorTradeAddress;
 	}
 
 	public long getQortAmount() {

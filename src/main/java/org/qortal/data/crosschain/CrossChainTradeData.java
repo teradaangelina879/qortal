@@ -20,7 +20,7 @@ public class CrossChainTradeData {
 	@Schema(description = "AT creator's Qortal address")
 	public String qortalCreator;
 
-	@Schema(description = "AT creator's Qortal trade address")
+	@Schema(description = "AT creator's ephemeral trading key-pair represented as Qortal address")
 	public String qortalCreatorTradeAddress;
 
 	@Deprecated

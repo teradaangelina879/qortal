@@ -20,6 +20,7 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.controller.Controller;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.PresenceTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.event.Event;
@@ -39,20 +40,23 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 	@XmlAccessorType(XmlAccessType.FIELD)
 	@SuppressWarnings("unused")
 	private static class PresenceInfo {
-		public final PresenceType presenceType;
-		public final String publicKey;
-		public final long timestamp;
+		private final PresenceType presenceType;
+		private final String publicKey;
+		private final long timestamp;
+		private final String address;
 
 		protected PresenceInfo() {
 			this.presenceType = null;
 			this.publicKey = null;
 			this.timestamp = 0L;
+			this.address = null;
 		}
 
 		public PresenceInfo(PresenceType presenceType, String pubKey58, long timestamp) {
 			this.presenceType = presenceType;
 			this.publicKey = pubKey58;
 			this.timestamp = timestamp;
+			this.address = Crypto.toAddress(Base58.decode(this.publicKey));
 		}
 
 		public PresenceType getPresenceType() {
@@ -65,6 +69,10 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 
 		public long getTimestamp() {
 			return this.timestamp;
+		}
+
+		public String getAddress() {
+			return this.address;
 		}
 	}
 
