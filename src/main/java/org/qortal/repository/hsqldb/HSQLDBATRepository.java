@@ -448,6 +448,92 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
+	public List<ATStateData> getMatchingFinalATStatesQuorum(byte[] codeHash, Boolean isFinished,
+			Integer dataByteOffset, Long expectedValue,
+			int minimumCount, long minimumPeriod) throws DataException {
+		// We need most recent entry first so we can use its timestamp to slice further results
+		List<ATStateData> mostRecentStates = this.getMatchingFinalATStates(codeHash, isFinished,
+				dataByteOffset, expectedValue, null,
+				1, 0, true);
+
+		if (mostRecentStates == null)
+			return null;
+
+		if (mostRecentStates.isEmpty())
+			return mostRecentStates;
+
+		ATStateData mostRecentState = mostRecentStates.get(0);
+
+		StringBuilder sql = new StringBuilder(1024);
+		List<Object> bindParams = new ArrayList<>();
+
+		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial "
+				+ "FROM ATs "
+				+ "CROSS JOIN LATERAL("
+					+ "SELECT height, state_data, state_hash, fees, is_initial "
+					+ "FROM ATStates "
+					+ "JOIN ATStatesData USING (AT_address, height) "
+					+ "WHERE ATStates.AT_address = ATs.AT_address ");
+
+		// Order by AT_address and height to use compound primary key as index
+		// Both must be the same direction (DESC) also
+		sql.append("ORDER BY ATStates.AT_address DESC, ATStates.height DESC "
+					+ "LIMIT 1 "
+				+ ") AS FinalATStates "
+				+ "WHERE code_hash = ? ");
+		bindParams.add(codeHash);
+
+		if (isFinished != null) {
+			sql.append("AND is_finished = ? ");
+			bindParams.add(isFinished);
+		}
+
+		if (dataByteOffset != null && expectedValue != null) {
+			sql.append("AND SUBSTRING(state_data FROM ? FOR 8) = ? ");
+
+			// We convert our long on Java-side to control endian
+			byte[] rawExpectedValue = Longs.toByteArray(expectedValue);
+
+			// SQL binary data offsets start at 1
+			bindParams.add(dataByteOffset + 1);
+			bindParams.add(rawExpectedValue);
+		}
+
+		// Slice so that we meet both minimumCount and minimumPeriod
+		int minimumHeight = mostRecentState.getHeight() - (int) (minimumPeriod / 60 * 1000L); // XXX assumes 60 second blocks
+
+		sql.append("AND (FinalATStates.height >= ? OR ROWNUM() < ?) ");
+		bindParams.add(minimumHeight);
+		bindParams.add(minimumCount);
+
+		sql.append("ORDER BY FinalATStates.height DESC");
+
+		List<ATStateData> atStates = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return atStates;
+
+			do {
+				String atAddress = resultSet.getString(1);
+				int height = resultSet.getInt(2);
+				byte[] stateData = resultSet.getBytes(3); // Actually BLOB
+				byte[] stateHash = resultSet.getBytes(4);
+				long fees = resultSet.getLong(5);
+				boolean isInitial = resultSet.getBoolean(6);
+
+				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+
+				atStates.add(atStateData);
+			} while (resultSet.next());
+
+			return atStates;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching AT states from repository", e);
+		}
+	}
+
+	@Override
 	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException {
 		String sql = "SELECT AT_address, state_hash, fees, is_initial "
 				+ "FROM ATs "

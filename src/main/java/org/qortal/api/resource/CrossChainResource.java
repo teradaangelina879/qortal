@@ -22,6 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -51,6 +52,7 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.MessageTransactionTransformer;
+import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
 import org.qortal.utils.ByteArray;
 import org.qortal.utils.NTP;
@@ -196,6 +198,63 @@ public class CrossChainResource {
 			}
 
 			return crossChainTrades;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/price/{blockchain}")
+	@Operation(
+		summary = "Request current estimated trading price",
+		description = "Returns price based on most recent completed trades. Price is expressed in terms of QORT per unit foreign currency.",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					schema = @Schema(
+						type = "number"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	public long getTradePriceEstimate(
+			@Parameter(
+					description = "foreign blockchain",
+					example = "LITECOIN",
+					schema = @Schema(implementation = SupportedBlockchain.class)
+				) @PathParam("blockchain") SupportedBlockchain foreignBlockchain) {
+		// foreignBlockchain is required
+		if (foreignBlockchain == null)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		// We want both a minimum of 5 trades and enough trades to span at least 4 hours
+		int minimumCount = 5;
+		long minimumPeriod = 4 * 60 * 60 * 1000L; // ms
+		Boolean isFinished = Boolean.TRUE;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getFilteredAcctMap(foreignBlockchain);
+
+			long totalForeign = 0;
+			long totalQort = 0;
+
+			for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
+				byte[] codeHash = acctInfo.getKey().value;
+				ACCT acct = acctInfo.getValue().get();
+
+				List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStatesQuorum(codeHash,
+						isFinished, acct.getModeByteOffset(), (long) AcctMode.REDEEMED.value, minimumCount, minimumPeriod);
+
+				for (ATStateData atState : atStates) {
+					CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atState);
+					totalForeign += crossChainTradeData.expectedForeignAmount;
+					totalQort += crossChainTradeData.qortAmount;
+				}
+			}
+
+			return Amounts.scaledDivide(totalQort, totalForeign);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

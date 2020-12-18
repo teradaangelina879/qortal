@@ -81,6 +81,26 @@ public interface ATRepository {
 			Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
+	 * Returns final ATStateData for ATs matching codeHash (required)
+	 * and specific data segment value (optional), returning at least
+	 * <tt>minimumCount</tt> entries over a span of at least
+	 * <tt>minimumPeriod</tt> ms, given enough entries in repository.
+	 * <p>
+	 * If searching for specific data segment value, both <tt>dataByteOffset</tt>
+	 * and <tt>expectedValue</tt> need to be non-null.
+	 * <p>
+	 * Note that <tt>dataByteOffset</tt> starts from 0 and will typically be
+	 * a multiple of <tt>MachineState.VALUE_SIZE</tt>, which is usually 8:
+	 * width of a long.
+	 * <p>
+	 * Although <tt>expectedValue</tt>, if provided, is natively an unsigned long,
+	 * the data segment comparison is done via unsigned hex string.
+	 */
+	public List<ATStateData> getMatchingFinalATStatesQuorum(byte[] codeHash, Boolean isFinished,
+			Integer dataByteOffset, Long expectedValue,
+			int minimumCount, long minimumPeriod) throws DataException;
+
+	/**
 	 * Returns all ATStateData for a given block height.
 	 * <p>
 	 * Unlike <tt>getATState</tt>, only returns ATStateData saved at the given height.
