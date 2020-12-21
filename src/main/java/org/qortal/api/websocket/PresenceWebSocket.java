@@ -79,6 +79,9 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 	/** Outer map key is PresenceType (enum), inner map key is public key in base58, inner map value is timestamp */
 	private static final Map<PresenceType, Map<String, Long>> currentEntries = Collections.synchronizedMap(new EnumMap<>(PresenceType.class));
 
+	/** (Optional) PresenceType used for filtering by that Session. */
+	private static final Map<Session, PresenceType> sessionPresenceTypes = Collections.synchronizedMap(new HashMap<>());
+
 	@Override
 	public void configure(WebSocketServletFactory factory) {
 		factory.register(PresenceWebSocket.class);
@@ -118,17 +121,40 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 		List<PresenceInfo> presenceInfo = Collections.singletonList(new PresenceInfo(presenceType, pubKey58, computedTimestamp));
 
 		// Notify sessions
-		for (Session session : getSessions())
-			sendPresenceInfo(session, presenceInfo);
+		for (Session session : getSessions()) {
+			PresenceType sessionPresenceType = sessionPresenceTypes.get(session);
+
+			if (sessionPresenceType == null || sessionPresenceType == presenceType)
+				sendPresenceInfo(session, presenceInfo);
+		}
 	}
 
 	@OnWebSocketConnect
 	@Override
 	public void onWebSocketConnect(Session session) {
+		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		List<String> presenceTypes = queryParams.get("presenceType");
+
+		// We only support ONE presenceType
+		String presenceTypeName = presenceTypes == null || presenceTypes.isEmpty() ? null : presenceTypes.get(0);
+
+		PresenceType presenceType = presenceTypeName == null ? null : PresenceType.fromString(presenceTypeName);
+
+		// Make sure that if caller does give a presenceType, that it is a valid/known one.
+		if (presenceTypeName != null && presenceType == null) {
+			session.close(4003, "unknown presenceType: " + presenceTypeName);
+			return;
+		}
+
+		// Save session's requested PresenceType, if given
+		if (presenceType != null)
+			sessionPresenceTypes.put(session, presenceType);
+
 		List<PresenceInfo> presenceInfo;
 
 		synchronized (currentEntries) {
 			presenceInfo = currentEntries.entrySet().stream()
+					.filter(entry -> presenceType == null ? true : entry.getKey() == presenceType)
 					.flatMap(entry -> entry.getValue().entrySet().stream().map(innerEntry -> new PresenceInfo(entry.getKey(), innerEntry.getKey(), innerEntry.getValue())))
 					.collect(Collectors.toList());
 		}
@@ -144,6 +170,9 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 	@OnWebSocketClose
 	@Override
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
+		// clean up
+		sessionPresenceTypes.remove(session);
+
 		super.onWebSocketClose(session, statusCode, reason);
 	}
 
