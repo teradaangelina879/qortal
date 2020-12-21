@@ -69,6 +69,15 @@ public class PresenceTransaction extends Transaction {
 		public static PresenceType valueOf(int value) {
 			return map.get(value);
 		}
+
+		/** Returns PresenceType with matching <tt>name</tt> or <tt>null</tt> (instead of throwing IllegalArgumentException). */
+		public static PresenceType fromString(String name) {
+			try {
+				return PresenceType.valueOf(name);
+			} catch (IllegalArgumentException e) {
+				return null;
+			}
+		}
 	}
 
 	// Constructors
