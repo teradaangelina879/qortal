@@ -182,8 +182,9 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 			return;
 		}
 
-		// save session's preferred blockchain (if any)
-		sessionBlockchain.put(session, foreignBlockchain);
+		// Save session's preferred blockchain, if given
+		if (foreignBlockchain != null)
+			sessionBlockchain.put(session, foreignBlockchain);
 
 		List<CrossChainOfferSummary> crossChainOfferSummaries = new ArrayList<>();
 
