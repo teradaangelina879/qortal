@@ -672,9 +672,11 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	protected static List<DeterministicKey> generateMoreKeys(DeterministicKeyChain keyChain) {
 		int existingLeafKeyCount = keyChain.getLeafKeys().size();
 
-		// Increase lookahead size so that...
+		// Increase lookahead size...
 		keyChain.setLookaheadSize(keyChain.getLookaheadSize() + Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
-		// ...this call will generate more keys
+		// ...and lookahead threshold (minimum number of keys to generate)...
+		keyChain.setLookaheadThreshold(0);
+		// ...so that this call will generate more keys
 		keyChain.maybeLookAhead();
 
 		// This returns *all* keys
