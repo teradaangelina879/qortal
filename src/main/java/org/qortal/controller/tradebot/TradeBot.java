@@ -307,19 +307,31 @@ public class TradeBot implements Listener {
 	}
 
 	// PRESENCE-related
-	/*package*/ void updatePresence(Repository repository, TradeBotData tradeBotData) throws DataException {
-		String key = tradeBotData.getAtAddress();
+	/*package*/ void updatePresence(Repository repository, TradeBotData tradeBotData, CrossChainTradeData tradeData)
+			throws DataException {
+		String atAddress = tradeBotData.getAtAddress();
+
+		PrivateKeyAccount tradeNativeAccount = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
+		String signerAddress = tradeNativeAccount.getAddress();
+
+		/*
+		 * There's no point in Alice trying to build a PRESENCE transaction
+		 * for an AT that isn't locked to her, as other peers won't be able
+		 * to validate the PRESENCE transaction as signing public key won't
+		 * be visible.
+		 */
+		if (!signerAddress.equals(tradeData.qortalCreatorTradeAddress) && !signerAddress.equals(tradeData.qortalPartnerAddress))
+			// Signer is neither Bob, nor Alice, or trade not yet locked to Alice
+			return;
 
 		long now = NTP.getTime();
 		long threshold = now - PresenceType.TRADE_BOT.getLifetime();
 
-		long timestamp = presenceTimestampsByAtAddress.compute(key, (k, v) -> (v == null || v < threshold) ? now : v);
+		long timestamp = presenceTimestampsByAtAddress.compute(atAddress, (k, v) -> (v == null || v < threshold) ? now : v);
 
 		// If timestamp hasn't been updated then nothing to do
 		if (timestamp != now)
 			return;
-
-		PrivateKeyAccount tradeNativeAccount = new PrivateKeyAccount(repository, tradeBotData.getTradePrivateKey());
 
 		int txGroupId = Group.NO_GROUP;
 		byte[] reference = new byte[TransactionTransformer.SIGNATURE_LENGTH];

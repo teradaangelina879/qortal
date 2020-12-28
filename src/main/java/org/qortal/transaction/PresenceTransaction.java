@@ -168,14 +168,14 @@ public class PresenceTransaction extends Transaction {
 		if (!Crypto.verify(this.transactionData.getCreatorPublicKey(), timestampSignature, timestampBytes))
 			return ValidationResult.INVALID_TIMESTAMP_SIGNATURE;
 
-		// Check signer is known trade address
-		String signerAddress = Crypto.toAddress(this.transactionData.getCreatorPublicKey());
-
 		Map<ByteArray, Supplier<ACCT>> acctSuppliersByCodeHash = SupportedBlockchain.getAcctMap();
 		Set<ByteArray> codeHashes = acctSuppliersByCodeHash.keySet();
 		boolean isExecutable = true;
 
 		List<ATData> atsData = repository.getATRepository().getAllATsByFunctionality(codeHashes, isExecutable);
+
+		// Convert signer's public key to address form
+		String signerAddress = Crypto.toAddress(this.transactionData.getCreatorPublicKey());
 
 		for (ATData atData : atsData) {
 			ByteArray atCodeHash = new ByteArray(atData.getCodeHash());
@@ -185,7 +185,12 @@ public class PresenceTransaction extends Transaction {
 
 			CrossChainTradeData crossChainTradeData = acctSupplier.get().populateTradeData(repository, atData);
 
-			if (crossChainTradeData.qortalCreatorTradeAddress.equals(signerAddress))
+			// OK if signer's public key (in address form) matches Bob's trade public key (in address form)
+			if (signerAddress.equals(crossChainTradeData.qortalCreatorTradeAddress))
+				return ValidationResult.OK;
+
+			// OK if signer's public key (in address form) matches Alice's trade public key (in address form)
+			if (signerAddress.equals(crossChainTradeData.qortalPartnerAddress))
 				return ValidationResult.OK;
 		}
 
