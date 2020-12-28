@@ -1,5 +1,7 @@
 package org.qortal.controller.tradebot;
 
+import java.util.List;
+
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.ForeignBlockchainException;
@@ -11,7 +13,10 @@ import org.qortal.repository.Repository;
 
 public interface AcctTradeBot {
 
-	public enum ResponseResult { OK, BALANCE_ISSUE, NETWORK_ISSUE }
+	public enum ResponseResult { OK, BALANCE_ISSUE, NETWORK_ISSUE, TRADE_ALREADY_EXISTS }
+
+	/** Returns list of state names for trade-bot entries that have ended, e.g. redeemed, refunded or cancelled. */
+	public List<String> getEndStates();
 
 	public byte[] createTrade(Repository repository, TradeBotCreateRequest tradeBotCreateRequest) throws DataException;
 

@@ -3,6 +3,7 @@ package org.qortal.repository.hsqldb;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.qortal.data.crosschain.TradeBotData;
@@ -65,6 +66,36 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 					foreignAmount, foreignKey, lastTransactionSignature, lockTimeA, receivingAccountInfo);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch trade-bot trading state from repository", e);
+		}
+	}
+
+	@Override
+	public boolean existsTradeWithAtExcludingStates(String atAddress, List<String> excludeStates) throws DataException {
+		if (excludeStates == null)
+			excludeStates = Collections.emptyList();
+
+		StringBuilder whereClause = new StringBuilder(256);
+		whereClause.append("at_address = ?");
+
+		Object[] bindParams = new Object[1 + excludeStates.size()];
+		bindParams[0] = atAddress;
+
+		if (!excludeStates.isEmpty()) {
+			whereClause.append(" AND trade_state NOT IN (?");
+			bindParams[1] = excludeStates.get(0);
+
+			for (int i = 1; i < excludeStates.size(); ++i) {
+				whereClause.append(", ?");
+				bindParams[1 + i] = excludeStates.get(i);
+			}
+
+			whereClause.append(")");
+		}
+
+		try {
+			return this.repository.exists("TradeBotStates", whereClause.toString(), bindParams);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for trade-bot state in repository", e);
 		}
 	}
 

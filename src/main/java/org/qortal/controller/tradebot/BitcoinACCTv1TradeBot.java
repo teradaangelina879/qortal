@@ -6,6 +6,7 @@ import static java.util.stream.Collectors.toMap;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -110,6 +111,10 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 
 	private static BitcoinACCTv1TradeBot instance;
 
+	private final List<String> endStates = Arrays.asList(State.BOB_DONE, State.BOB_REFUNDED, State.ALICE_DONE, State.ALICE_REFUNDING_A, State.ALICE_REFUNDING_B, State.ALICE_REFUNDED).stream()
+			.map(State::name)
+			.collect(Collectors.toUnmodifiableList());
+
 	private BitcoinACCTv1TradeBot() {
 	}
 
@@ -118,6 +123,11 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 			instance = new BitcoinACCTv1TradeBot();
 
 		return instance;
+	}
+
+	@Override
+	public List<String> getEndStates() {
+		return this.endStates;
 	}
 
 	/**

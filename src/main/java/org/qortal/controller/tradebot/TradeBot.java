@@ -176,6 +176,10 @@ public class TradeBot implements Listener {
 			return ResponseResult.NETWORK_ISSUE;
 		}
 
+		// Check Alice doesn't already have an existing, on-going trade-bot entry for this AT.
+		if (repository.getCrossChainRepository().existsTradeWithAtExcludingStates(atData.getATAddress(), acctTradeBot.getEndStates()))
+			return ResponseResult.TRADE_ALREADY_EXISTS;
+
 		return acctTradeBot.startResponse(repository, atData, acct, crossChainTradeData, foreignKey, receivingAddress);
 	}
 
