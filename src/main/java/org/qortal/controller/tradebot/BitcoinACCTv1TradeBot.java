@@ -1085,21 +1085,23 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 	 */
 	private void handleAliceRefundingP2shB(Repository repository, TradeBotData tradeBotData,
 			ATData atData, CrossChainTradeData crossChainTradeData) throws DataException, ForeignBlockchainException {
+		int lockTimeB = crossChainTradeData.lockTimeB;
+
 		// We can't refund P2SH-B until lockTime-B has passed
-		if (NTP.getTime() <= crossChainTradeData.lockTimeB * 1000L)
+		if (NTP.getTime() <= lockTimeB * 1000L)
 			return;
 
 		Bitcoin bitcoin = Bitcoin.getInstance();
 
-		// We can't refund P2SH-B until we've passed median block time
+		// We can't refund P2SH-B until median block time has passed lockTime-B (see BIP113)
 		int medianBlockTime = bitcoin.getMedianBlockTime();
-		if (NTP.getTime() <= medianBlockTime * 1000L)
+		if (medianBlockTime <= lockTimeB)
 			return;
 
-		byte[] redeemScriptB = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), crossChainTradeData.lockTimeB, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretB);
+		byte[] redeemScriptB = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeB, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretB);
 		String p2shAddressB = bitcoin.deriveP2shAddress(redeemScriptB);
 
-		long feeTimestampB = calcP2shBFeeTimestamp(crossChainTradeData.lockTimeA, crossChainTradeData.lockTimeB);
+		long feeTimestampB = calcP2shBFeeTimestamp(crossChainTradeData.lockTimeA, lockTimeB);
 		long p2shFeeB = bitcoin.getP2shFee(feeTimestampB);
 		final long minimumAmountB = P2SH_B_OUTPUT_AMOUNT + p2shFeeB;
 
@@ -1136,7 +1138,7 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 				Address receiving = Address.fromString(bitcoin.getNetworkParameters(), receiveAddress);
 
 				Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(bitcoin.getNetworkParameters(), refundAmount, refundKey,
-						fundingOutputs, redeemScriptB, crossChainTradeData.lockTimeB, receiving.getHash());
+						fundingOutputs, redeemScriptB, lockTimeB, receiving.getHash());
 
 				bitcoin.broadcastTransaction(p2shRefundTransaction);
 				break;
@@ -1153,22 +1155,24 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 	 */
 	private void handleAliceRefundingP2shA(Repository repository, TradeBotData tradeBotData,
 			ATData atData, CrossChainTradeData crossChainTradeData) throws DataException, ForeignBlockchainException {
+		int lockTimeA = tradeBotData.getLockTimeA();
+
 		// We can't refund P2SH-A until lockTime-A has passed
-		if (NTP.getTime() <= tradeBotData.getLockTimeA() * 1000L)
+		if (NTP.getTime() <= lockTimeA * 1000L)
 			return;
 
 		Bitcoin bitcoin = Bitcoin.getInstance();
 
-		// We can't refund P2SH-A until we've passed median block time
+		// We can't refund P2SH-A until median block time has passed lockTime-A (see BIP113)
 		int medianBlockTime = bitcoin.getMedianBlockTime();
-		if (NTP.getTime() <= medianBlockTime * 1000L)
+		if (medianBlockTime <= lockTimeA)
 			return;
 
-		byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getLockTimeA(), crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
+		byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
 		String p2shAddressA = bitcoin.deriveP2shAddress(redeemScriptA);
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
-		long feeTimestampA = calcP2shAFeeTimestamp(tradeBotData.getLockTimeA(), crossChainTradeData.tradeTimeout);
+		long feeTimestampA = calcP2shAFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
 		long p2shFeeA = bitcoin.getP2shFee(feeTimestampA);
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount - P2SH_B_OUTPUT_AMOUNT + p2shFeeA;
 		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
@@ -1200,7 +1204,7 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 				Address receiving = Address.fromString(bitcoin.getNetworkParameters(), receiveAddress);
 
 				Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(bitcoin.getNetworkParameters(), refundAmount, refundKey,
-						fundingOutputs, redeemScriptA, tradeBotData.getLockTimeA(), receiving.getHash());
+						fundingOutputs, redeemScriptA, lockTimeA, receiving.getHash());
 
 				bitcoin.broadcastTransaction(p2shRefundTransaction);
 				break;

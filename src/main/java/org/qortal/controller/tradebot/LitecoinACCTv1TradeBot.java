@@ -766,18 +766,19 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 	 */
 	private void handleAliceRefundingP2shA(Repository repository, TradeBotData tradeBotData,
 			ATData atData, CrossChainTradeData crossChainTradeData) throws DataException, ForeignBlockchainException {
+		int lockTimeA = tradeBotData.getLockTimeA();
+
 		// We can't refund P2SH-A until lockTime-A has passed
-		if (NTP.getTime() <= tradeBotData.getLockTimeA() * 1000L)
+		if (NTP.getTime() <= lockTimeA * 1000L)
 			return;
 
 		Litecoin litecoin = Litecoin.getInstance();
 
-		// We can't refund P2SH-A until we've passed median block time
+		// We can't refund P2SH-A until median block time has passed lockTime-A (see BIP113)
 		int medianBlockTime = litecoin.getMedianBlockTime();
-		if (NTP.getTime() <= medianBlockTime * 1000L)
+		if (medianBlockTime <= lockTimeA)
 			return;
 
-		int lockTimeA = tradeBotData.getLockTimeA();
 		byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
 		String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
 
@@ -814,7 +815,7 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 				Address receiving = Address.fromString(litecoin.getNetworkParameters(), receiveAddress);
 
 				Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(litecoin.getNetworkParameters(), refundAmount, refundKey,
-						fundingOutputs, redeemScriptA, tradeBotData.getLockTimeA(), receiving.getHash());
+						fundingOutputs, redeemScriptA, lockTimeA, receiving.getHash());
 
 				litecoin.broadcastTransaction(p2shRefundTransaction);
 				break;
