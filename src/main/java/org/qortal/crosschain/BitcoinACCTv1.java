@@ -100,7 +100,7 @@ import com.google.common.primitives.Bytes;
  */
 public class BitcoinACCTv1 implements ACCT {
 
-	public static final String NAME = "BitcoinACCTv1";
+	public static final String NAME = BitcoinACCTv1.class.getSimpleName();
 	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("f7f419522a9aaa3c671149878f8c1374dfc59d4fd86ca43ff2a4d913cfbc9e89").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;

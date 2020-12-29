@@ -89,7 +89,7 @@ import com.google.common.primitives.Bytes;
  */
 public class LitecoinACCTv1 implements ACCT {
 
-	public static final String NAME = "LitcoinACCTv1";
+	public static final String NAME = LitecoinACCTv1.class.getSimpleName();
 	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("0fb15ad9ad1867dfbcafa51155481aa15d984ff9506f2b428eca4e2a2feac2b3").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;
