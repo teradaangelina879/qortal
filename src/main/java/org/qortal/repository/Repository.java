@@ -55,4 +55,6 @@ public interface Repository extends AutoCloseable {
 
 	public void importDataFromFile(String filename) throws DataException;
 
+	public void checkConsistency() throws DataException;
+
 }

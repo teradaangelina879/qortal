@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.repository.ATRepository;
@@ -15,6 +17,8 @@ import org.qortal.utils.ByteArray;
 import com.google.common.primitives.Longs;
 
 public class HSQLDBATRepository implements ATRepository {
+
+	private static final Logger LOGGER = LogManager.getLogger(HSQLDBATRepository.class);
 
 	protected HSQLDBRepository repository;
 
@@ -739,7 +743,35 @@ public class HSQLDBATRepository implements ATRepository {
 		} catch (SQLException e) {
 			throw new DataException("Unable to find next transaction to AT from repository", e);
 		}
+	}
 
+	// Other
+
+	public void checkConsistency() throws DataException {
+		String sql = "SELECT COUNT(*) FROM ATs "
+				+ "CROSS JOIN LATERAL("
+					+ "SELECT height FROM ATStates "
+					+ "WHERE ATStates.AT_address = ATs.AT_address "
+					+ "ORDER BY AT_address DESC, height DESC "
+					+ "LIMIT 1"
+				+ ") AS LatestATState (height) "
+				+ "LEFT OUTER JOIN ATStatesData "
+				+ "ON ATStatesData.AT_address = ATs.AT_address AND ATStatesData.height = LatestATState.height "
+				+ "WHERE ATStatesData.AT_address IS NULL";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				throw new DataException("Unable to check AT repository consistency");
+
+			int atCount = resultSet.getInt(1);
+
+			if (atCount > 0) {
+				LOGGER.warn(() -> String.format("Missing %d latest AT state data row%s!", atCount, (atCount != 1 ? "s" : "")));
+				LOGGER.warn("Export key data then resync using bootstrap as soon as possible");
+			}
+		} catch (SQLException e) {
+			throw new DataException("Unable to check AT repository consistency", e);
+		}
 	}
 
 }

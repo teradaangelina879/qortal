@@ -427,6 +427,11 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
+	@Override
+	public void checkConsistency() throws DataException {
+		this.getATRepository().checkConsistency();
+	}
+
 	/** Returns DB pathname from passed connection URL. If memory DB, returns "mem". */
 	/*package*/ static String getDbPathname(String connectionUrl) {
 		Pattern pattern = Pattern.compile("hsqldb:(mem|file):(.*?)(;|$)");
