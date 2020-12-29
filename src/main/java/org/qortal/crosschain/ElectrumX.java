@@ -1,6 +1,7 @@
 package org.qortal.crosschain;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -358,7 +359,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				JSONObject outputJson = (JSONObject) outputObj;
 
 				String scriptPubKey = (String) ((JSONObject) outputJson.get("scriptPubKey")).get("hex");
-				long value = (long) (((Double) outputJson.get("value")) * 1e8);
+				long value = BigDecimal.valueOf((Double) outputJson.get("value")).setScale(8).unscaledValue().longValue();
 
 				// address too, if present
 				List<String> addresses = null;
