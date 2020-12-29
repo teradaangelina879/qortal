@@ -491,6 +491,8 @@ public class BlockChain {
 			rebuildBlockchain();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			repository.checkConsistency();
+
 			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - 1440, 1);
 
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);

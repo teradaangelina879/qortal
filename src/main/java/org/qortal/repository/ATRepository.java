@@ -148,4 +148,8 @@ public interface ATRepository {
 	 */
 	public NextTransactionInfo findNextTransaction(String recipient, int height, int sequence) throws DataException;
 
+	// Other
+
+	public void checkConsistency() throws DataException;
+
 }
