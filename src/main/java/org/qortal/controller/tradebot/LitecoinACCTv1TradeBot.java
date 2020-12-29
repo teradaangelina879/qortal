@@ -853,8 +853,16 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 
 		boolean isAtLockedToUs = tradeBotData.getTradeNativeAddress().equals(crossChainTradeData.qortalPartnerAddress);
 
-		if (!atData.getIsFinished() && crossChainTradeData.mode == AcctMode.TRADING && isAtLockedToUs)
-			return false;
+		if (!atData.getIsFinished() && crossChainTradeData.mode == AcctMode.TRADING)
+			if (isAtLockedToUs) {
+				// AT is trading with us - OK
+				return false;
+			} else {
+				TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_REFUNDING_A,
+						() -> String.format("AT %s trading with someone else: %s. Refunding & aborting trade", tradeBotData.getAtAddress(), crossChainTradeData.qortalPartnerAddress));
+
+				return true;
+			}
 
 		if (atData.getIsFinished() && crossChainTradeData.mode == AcctMode.REDEEMED && isAtLockedToUs) {
 			// We've redeemed already?
