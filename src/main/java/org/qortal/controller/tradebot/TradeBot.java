@@ -242,7 +242,7 @@ public class TradeBot implements Listener {
 				} catch (DataException e) {
 					LOGGER.error("Couldn't run trade bot due to repository issue", e);
 				} catch (ForeignBlockchainException e) {
-					LOGGER.warn(() -> String.format("Bitcoin issue processing trade-bot entry for AT %s: %s", tradeBotData.getAtAddress(), e.getMessage()));
+					LOGGER.warn(() -> String.format("Foreign blockchain issue processing trade-bot entry for AT %s: %s", tradeBotData.getAtAddress(), e.getMessage()));
 				}
 		}
 	}
