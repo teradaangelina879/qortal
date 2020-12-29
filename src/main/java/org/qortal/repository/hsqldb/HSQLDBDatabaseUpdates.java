@@ -823,6 +823,11 @@ public class HSQLDBDatabaseUpdates {
 							+ ")");
 					break;
 
+				case 34:
+					// XXX - TESTNET ONLY - NOT NEEDED IN PRODUCTION !!!
+					stmt.execute("UPDATE TradeBotStates SET acct_name = 'LitecoinACCTv1' WHERE acct_name = 'LitcoinACCTv1'");
+					break;
+
 				default:
 					// nothing to do
 					return false;
