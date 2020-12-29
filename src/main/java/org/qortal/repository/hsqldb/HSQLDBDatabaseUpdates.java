@@ -776,8 +776,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("DROP TABLE IF EXISTS LatestATStates");
 					stmt.execute("CREATE TABLE IF NOT EXISTS LatestATStates ("
 								+ "AT_address QortalAddress NOT NULL, "
-								+ "height INT NOT NULL"
-							+ ")");
+								+ "height INT NOT NULL, PRIMARY KEY (height, AT_address))");
 					break;
 
 				default:
