@@ -771,6 +771,15 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CHECKPOINT");
 					break;
 
+				case 31:
+					// Fix latest AT state cache which was previous created as TEMPORARY
+					stmt.execute("DROP TABLE IF EXISTS LatestATStates");
+					stmt.execute("CREATE TABLE IF NOT EXISTS LatestATStates ("
+								+ "AT_address QortalAddress NOT NULL, "
+								+ "height INT NOT NULL"
+							+ ")");
+					break;
+
 				default:
 					// nothing to do
 					return false;
