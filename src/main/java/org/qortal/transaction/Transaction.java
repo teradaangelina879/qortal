@@ -765,7 +765,7 @@ public abstract class Transaction {
 	/**
 	 * Import into our repository as a new, unconfirmed transaction.
 	 * <p>
-	 * @implSpec <i>tries</i> to obtain blockchain lock
+	 * @implSpec <i>blocks</i> to obtain blockchain lock
 	 * <p>
 	 * If transaction is valid, then:
 	 * <ul>
@@ -778,8 +778,7 @@ public abstract class Transaction {
 	public ValidationResult importAsUnconfirmed() throws DataException {
 		// Attempt to acquire blockchain lock
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		if (!blockchainLock.tryLock())
-			return ValidationResult.NO_BLOCKCHAIN_LOCK;
+		blockchainLock.lock();
 
 		try {
 			// Check transaction doesn't already exist
