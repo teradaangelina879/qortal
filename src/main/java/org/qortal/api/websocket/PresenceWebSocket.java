@@ -32,6 +32,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.PresenceTransaction.PresenceType;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
+import org.qortal.utils.NTP;
 
 @WebSocket
 @SuppressWarnings("serial")
@@ -98,7 +99,14 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 
 	@Override
 	public void listen(Event event) {
-		if (!(event instanceof Controller.NewTransactionEvent))
+		// We use NewBlockEvent as a proxy for 1-minute timer
+		if (!(event instanceof Controller.NewTransactionEvent) && !(event instanceof Controller.NewBlockEvent))
+			return;
+
+		removeOldEntries();
+
+		if (event instanceof Controller.NewBlockEvent)
+			// We only wanted a chance to cull old entries
 			return;
 
 		TransactionData transactionData = ((Controller.NewTransactionEvent) event).getTransactionData();
@@ -222,6 +230,15 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 	private static long mergePresence(PresenceType presenceType, String pubKey58, long ourTimestamp) {
 		Map<String, Long> typedPubkeyTimestamps = currentEntries.computeIfAbsent(presenceType, someType -> Collections.synchronizedMap(new HashMap<>()));
 		return typedPubkeyTimestamps.compute(pubKey58, (somePubKey58, currentTimestamp) -> (currentTimestamp == null || currentTimestamp < ourTimestamp) ? ourTimestamp : currentTimestamp);
+	}
+
+	private static void removeOldEntries() {
+		long now = NTP.getTime();
+
+		currentEntries.entrySet().forEach(entry -> {
+			long expiryThreshold = now - entry.getKey().getLifetime();
+			entry.getValue().entrySet().removeIf(pubkeyTimestamp -> pubkeyTimestamp.getValue() < expiryThreshold);
+		});
 	}
 
 }
