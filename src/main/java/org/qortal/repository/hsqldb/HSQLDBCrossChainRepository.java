@@ -3,6 +3,7 @@ package org.qortal.repository.hsqldb;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.qortal.data.crosschain.TradeBotData;
@@ -19,12 +20,13 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 
 	@Override
 	public TradeBotData getTradeBotData(byte[] tradePrivateKey) throws DataException {
-		String sql = "SELECT trade_state, creator_address, at_address, "
+		String sql = "SELECT acct_name, trade_state, trade_state_value, "
+				+ "creator_address, at_address, "
 				+ "updated_when, qort_amount, "
 				+ "trade_native_public_key, trade_native_public_key_hash, "
 				+ "trade_native_address, secret, hash_of_secret, "
-				+ "trade_foreign_public_key, trade_foreign_public_key_hash, "
-				+ "bitcoin_amount, xprv58, last_transaction_signature, locktime_a, receiving_account_info "
+				+ "foreign_blockchain, trade_foreign_public_key, trade_foreign_public_key_hash, "
+				+ "foreign_amount, foreign_key, last_transaction_signature, locktime_a, receiving_account_info "
 				+ "FROM TradeBotStates "
 				+ "WHERE trade_private_key = ?";
 
@@ -32,49 +34,80 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 			if (resultSet == null)
 				return null;
 
-			int tradeStateValue = resultSet.getInt(1);
-			TradeBotData.State tradeState = TradeBotData.State.valueOf(tradeStateValue);
-			if (tradeState == null)
-				throw new DataException("Illegal trade-bot trade-state fetched from repository");
-
-			String creatorAddress = resultSet.getString(2);
-			String atAddress = resultSet.getString(3);
-			long timestamp = resultSet.getLong(4);
-			long qortAmount = resultSet.getLong(5);
-			byte[] tradeNativePublicKey = resultSet.getBytes(6);
-			byte[] tradeNativePublicKeyHash = resultSet.getBytes(7);
-			String tradeNativeAddress = resultSet.getString(8);
-			byte[] secret = resultSet.getBytes(9);
-			byte[] hashOfSecret = resultSet.getBytes(10);
-			byte[] tradeForeignPublicKey = resultSet.getBytes(11);
-			byte[] tradeForeignPublicKeyHash = resultSet.getBytes(12);
-			long bitcoinAmount = resultSet.getLong(13);
-			String xprv58 = resultSet.getString(14);
-			byte[] lastTransactionSignature = resultSet.getBytes(15);
-			Integer lockTimeA = resultSet.getInt(16);
+			String acctName = resultSet.getString(1);
+			String tradeState = resultSet.getString(2);
+			int tradeStateValue = resultSet.getInt(3);
+			String creatorAddress = resultSet.getString(4);
+			String atAddress = resultSet.getString(5);
+			long timestamp = resultSet.getLong(6);
+			long qortAmount = resultSet.getLong(7);
+			byte[] tradeNativePublicKey = resultSet.getBytes(8);
+			byte[] tradeNativePublicKeyHash = resultSet.getBytes(9);
+			String tradeNativeAddress = resultSet.getString(10);
+			byte[] secret = resultSet.getBytes(11);
+			byte[] hashOfSecret = resultSet.getBytes(12);
+			String foreignBlockchain = resultSet.getString(13);
+			byte[] tradeForeignPublicKey = resultSet.getBytes(14);
+			byte[] tradeForeignPublicKeyHash = resultSet.getBytes(15);
+			long foreignAmount = resultSet.getLong(16);
+			String foreignKey = resultSet.getString(17);
+			byte[] lastTransactionSignature = resultSet.getBytes(18);
+			Integer lockTimeA = resultSet.getInt(19);
 			if (lockTimeA == 0 && resultSet.wasNull())
 				lockTimeA = null;
-			byte[] receivingAccountInfo = resultSet.getBytes(17);
+			byte[] receivingAccountInfo = resultSet.getBytes(20);
 
-			return new TradeBotData(tradePrivateKey, tradeState,
+			return new TradeBotData(tradePrivateKey, acctName,
+					tradeState, tradeStateValue,
 					creatorAddress, atAddress, timestamp, qortAmount,
 					tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 					secret, hashOfSecret,
-					tradeForeignPublicKey, tradeForeignPublicKeyHash,
-					bitcoinAmount, xprv58, lastTransactionSignature, lockTimeA, receivingAccountInfo);
+					foreignBlockchain, tradeForeignPublicKey, tradeForeignPublicKeyHash,
+					foreignAmount, foreignKey, lastTransactionSignature, lockTimeA, receivingAccountInfo);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch trade-bot trading state from repository", e);
 		}
 	}
 
 	@Override
+	public boolean existsTradeWithAtExcludingStates(String atAddress, List<String> excludeStates) throws DataException {
+		if (excludeStates == null)
+			excludeStates = Collections.emptyList();
+
+		StringBuilder whereClause = new StringBuilder(256);
+		whereClause.append("at_address = ?");
+
+		Object[] bindParams = new Object[1 + excludeStates.size()];
+		bindParams[0] = atAddress;
+
+		if (!excludeStates.isEmpty()) {
+			whereClause.append(" AND trade_state NOT IN (?");
+			bindParams[1] = excludeStates.get(0);
+
+			for (int i = 1; i < excludeStates.size(); ++i) {
+				whereClause.append(", ?");
+				bindParams[1 + i] = excludeStates.get(i);
+			}
+
+			whereClause.append(")");
+		}
+
+		try {
+			return this.repository.exists("TradeBotStates", whereClause.toString(), bindParams);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for trade-bot state in repository", e);
+		}
+	}
+
+	@Override
 	public List<TradeBotData> getAllTradeBotData() throws DataException {
-		String sql = "SELECT trade_private_key, trade_state, creator_address, at_address, "
+		String sql = "SELECT trade_private_key, acct_name, trade_state, trade_state_value, "
+				+ "creator_address, at_address, "
 				+ "updated_when, qort_amount, "
 				+ "trade_native_public_key, trade_native_public_key_hash, "
 				+ "trade_native_address, secret, hash_of_secret, "
-				+ "trade_foreign_public_key, trade_foreign_public_key_hash, "
-				+ "bitcoin_amount, xprv58, last_transaction_signature, locktime_a, receiving_account_info "
+				+ "foreign_blockchain, trade_foreign_public_key, trade_foreign_public_key_hash, "
+				+ "foreign_amount, foreign_key, last_transaction_signature, locktime_a, receiving_account_info "
 				+ "FROM TradeBotStates";
 
 		List<TradeBotData> allTradeBotData = new ArrayList<>();
@@ -85,36 +118,36 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 
 			do {
 				byte[] tradePrivateKey = resultSet.getBytes(1);
-				int tradeStateValue = resultSet.getInt(2);
-				TradeBotData.State tradeState = TradeBotData.State.valueOf(tradeStateValue);
-				if (tradeState == null)
-					throw new DataException("Illegal trade-bot trade-state fetched from repository");
-
-				String creatorAddress = resultSet.getString(3);
-				String atAddress = resultSet.getString(4);
-				long timestamp = resultSet.getLong(5);
-				long qortAmount = resultSet.getLong(6);
-				byte[] tradeNativePublicKey = resultSet.getBytes(7);
-				byte[] tradeNativePublicKeyHash = resultSet.getBytes(8);
-				String tradeNativeAddress = resultSet.getString(9);
-				byte[] secret = resultSet.getBytes(10);
-				byte[] hashOfSecret = resultSet.getBytes(11);
-				byte[] tradeForeignPublicKey = resultSet.getBytes(12);
-				byte[] tradeForeignPublicKeyHash = resultSet.getBytes(13);
-				long bitcoinAmount = resultSet.getLong(14);
-				String xprv58 = resultSet.getString(15);
-				byte[] lastTransactionSignature = resultSet.getBytes(16);
-				Integer lockTimeA = resultSet.getInt(17);
+				String acctName = resultSet.getString(2);
+				String tradeState = resultSet.getString(3);
+				int tradeStateValue = resultSet.getInt(4);
+				String creatorAddress = resultSet.getString(5);
+				String atAddress = resultSet.getString(6);
+				long timestamp = resultSet.getLong(7);
+				long qortAmount = resultSet.getLong(8);
+				byte[] tradeNativePublicKey = resultSet.getBytes(9);
+				byte[] tradeNativePublicKeyHash = resultSet.getBytes(10);
+				String tradeNativeAddress = resultSet.getString(11);
+				byte[] secret = resultSet.getBytes(12);
+				byte[] hashOfSecret = resultSet.getBytes(13);
+				String foreignBlockchain = resultSet.getString(14);
+				byte[] tradeForeignPublicKey = resultSet.getBytes(15);
+				byte[] tradeForeignPublicKeyHash = resultSet.getBytes(16);
+				long foreignAmount = resultSet.getLong(17);
+				String foreignKey = resultSet.getString(18);
+				byte[] lastTransactionSignature = resultSet.getBytes(19);
+				Integer lockTimeA = resultSet.getInt(20);
 				if (lockTimeA == 0 && resultSet.wasNull())
 					lockTimeA = null;
-				byte[] receivingAccountInfo = resultSet.getBytes(18);
+				byte[] receivingAccountInfo = resultSet.getBytes(21);
 
-				TradeBotData tradeBotData = new TradeBotData(tradePrivateKey, tradeState,
+				TradeBotData tradeBotData = new TradeBotData(tradePrivateKey, acctName,
+						tradeState, tradeStateValue,
 						creatorAddress, atAddress, timestamp, qortAmount,
 						tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 						secret, hashOfSecret,
-						tradeForeignPublicKey, tradeForeignPublicKeyHash,
-						bitcoinAmount, xprv58, lastTransactionSignature, lockTimeA, receivingAccountInfo);
+						foreignBlockchain, tradeForeignPublicKey, tradeForeignPublicKeyHash,
+						foreignAmount, foreignKey, lastTransactionSignature, lockTimeA, receivingAccountInfo);
 				allTradeBotData.add(tradeBotData);
 			} while (resultSet.next());
 
@@ -129,7 +162,9 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("TradeBotStates");
 
 		saveHelper.bind("trade_private_key", tradeBotData.getTradePrivateKey())
-				.bind("trade_state", tradeBotData.getState().value)
+				.bind("acct_name", tradeBotData.getAcctName())
+				.bind("trade_state", tradeBotData.getState())
+				.bind("trade_state_value", tradeBotData.getStateValue())
 				.bind("creator_address", tradeBotData.getCreatorAddress())
 				.bind("at_address", tradeBotData.getAtAddress())
 				.bind("updated_when", tradeBotData.getTimestamp())
@@ -137,11 +172,13 @@ public class HSQLDBCrossChainRepository implements CrossChainRepository {
 				.bind("trade_native_public_key", tradeBotData.getTradeNativePublicKey())
 				.bind("trade_native_public_key_hash", tradeBotData.getTradeNativePublicKeyHash())
 				.bind("trade_native_address", tradeBotData.getTradeNativeAddress())
-				.bind("secret", tradeBotData.getSecret()).bind("hash_of_secret", tradeBotData.getHashOfSecret())
+				.bind("secret", tradeBotData.getSecret())
+				.bind("hash_of_secret", tradeBotData.getHashOfSecret())
+				.bind("foreign_blockchain", tradeBotData.getForeignBlockchain())
 				.bind("trade_foreign_public_key", tradeBotData.getTradeForeignPublicKey())
 				.bind("trade_foreign_public_key_hash", tradeBotData.getTradeForeignPublicKeyHash())
-				.bind("bitcoin_amount", tradeBotData.getBitcoinAmount())
-				.bind("xprv58", tradeBotData.getXprv58())
+				.bind("foreign_amount", tradeBotData.getForeignAmount())
+				.bind("foreign_key", tradeBotData.getForeignKey())
 				.bind("last_transaction_signature", tradeBotData.getLastTransactionSignature())
 				.bind("locktime_a", tradeBotData.getLockTimeA())
 				.bind("receiving_account_info", tradeBotData.getReceivingAccountInfo());

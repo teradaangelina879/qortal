@@ -4,7 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -398,7 +398,7 @@ public class RepositoryTests extends Common {
 	@Test
 	public void testAtLateral() {
 		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
-			byte[] codeHash = BTCACCT.CODE_BYTES_HASH;
+			byte[] codeHash = BitcoinACCTv1.CODE_BYTES_HASH;
 			Boolean isFinished = null;
 			Integer dataByteOffset = null;
 			Long expectedValue = null;

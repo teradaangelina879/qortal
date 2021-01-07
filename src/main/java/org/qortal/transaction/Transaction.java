@@ -83,7 +83,8 @@ public abstract class Transaction {
 		ENABLE_FORGING(37, false),
 		REWARD_SHARE(38, false),
 		ACCOUNT_LEVEL(39, false),
-		TRANSFER_PRIVS(40, false);
+		TRANSFER_PRIVS(40, false),
+		PRESENCE(41, false);
 
 		public final int value;
 		public final boolean needsApproval;
@@ -244,7 +245,8 @@ public abstract class Transaction {
 		ACCOUNT_ALREADY_EXISTS(92),
 		INVALID_GROUP_BLOCK_DELAY(93),
 		INCORRECT_NONCE(94),
-		CHAT(999),
+		INVALID_TIMESTAMP_SIGNATURE(95),
+		INVALID_BUT_OK(999),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -763,15 +765,20 @@ public abstract class Transaction {
 	/**
 	 * Import into our repository as a new, unconfirmed transaction.
 	 * <p>
-	 * Calls <tt>repository.saveChanges()</tt>
+	 * @implSpec <i>blocks</i> to obtain blockchain lock
+	 * <p>
+	 * If transaction is valid, then:
+	 * <ul>
+	 * <li>calls {@link Repository#discardChanges()}</li>
+	 * <li>calls {@link Controller#onNewTransaction(TransactionData, Peer)}</li>
+	 * </ul>
 	 * 
 	 * @throws DataException
 	 */
 	public ValidationResult importAsUnconfirmed() throws DataException {
 		// Attempt to acquire blockchain lock
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		if (!blockchainLock.tryLock())
-			return ValidationResult.NO_BLOCKCHAIN_LOCK;
+		blockchainLock.lock();
 
 		try {
 			// Check transaction doesn't already exist
@@ -798,20 +805,28 @@ public abstract class Transaction {
 			repository.getTransactionRepository().save(transactionData);
 			repository.getTransactionRepository().unconfirmTransaction(transactionData);
 
-			/*
-			 * If CHAT transaction then ensure there's at least a skeleton account so people
-			 * can retrieve sender's public key using address, even if all their messages
-			 * expire.
-			 */
-			if (transactionData.getType() == TransactionType.CHAT)
-				this.getCreator().ensureAccount();
+			this.onImportAsUnconfirmed();
 
 			repository.saveChanges();
+
+			// Notify controller of new transaction
+			Controller.getInstance().onNewTransaction(transactionData);
 
 			return ValidationResult.OK;
 		} finally {
 			blockchainLock.unlock();
 		}
+	}
+
+	/**
+	 * Callback for when a transaction is imported as unconfirmed.
+	 * <p>
+	 * Called after transaction is added to repository, but before commit.
+	 * <p>
+	 * Blockchain lock is being held during this time.
+	 */
+	protected void onImportAsUnconfirmed() throws DataException {
+		/* To be optionally overridden */
 	}
 
 	/**

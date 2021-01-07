@@ -46,6 +46,7 @@ import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
@@ -799,11 +800,14 @@ public class Controller extends Thread {
 
 			List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
-			for (TransactionData transactionData : transactions)
-				if (now >= Transaction.getDeadline(transactionData)) {
-					LOGGER.info(String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
+			for (TransactionData transactionData : transactions) {
+				Transaction transaction = Transaction.fromData(repository, transactionData);
+
+				if (now >= transaction.getDeadline()) {
+					LOGGER.info(() -> String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
 					repository.getTransactionRepository().delete(transactionData);
 				}
+			}
 
 			repository.saveChanges();
 		} catch (DataException e) {
@@ -1032,11 +1036,31 @@ public class Controller extends Thread {
 		}
 	}
 
-	/** Callback for when we've received a new transaction via API or peer. */
-	public void onNewTransaction(TransactionData transactionData, Peer peer) {
+	public static class NewTransactionEvent implements Event {
+		private final TransactionData transactionData;
+
+		public NewTransactionEvent(TransactionData transactionData) {
+			this.transactionData = transactionData;
+		}
+
+		public TransactionData getTransactionData() {
+			return this.transactionData;
+		}
+	}
+
+	/**
+	 * Callback for when we've received a new transaction via API or peer.
+	 * <p>
+	 * @implSpec performs actions in a new thread
+	 */
+	public void onNewTransaction(TransactionData transactionData) {
 		this.callbackExecutor.execute(() -> {
-			// Notify all peers (except maybe peer that sent it to us if applicable)
-			Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(Arrays.asList(transactionData.getSignature())));
+			// Notify all peers
+			Message newTransactionSignatureMessage = new TransactionSignaturesMessage(Arrays.asList(transactionData.getSignature()));
+			Network.getInstance().broadcast(broadcastPeer -> newTransactionSignatureMessage);
+
+			// Notify listeners
+			EventBus.INSTANCE.notify(new NewTransactionEvent(transactionData));
 
 			// If this is a CHAT transaction, there may be extra listeners to notify
 			if (transactionData.getType() == TransactionType.CHAT)
@@ -1215,9 +1239,6 @@ public class Controller extends Thread {
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
 		}
-
-		// Notify controller so it can notify other peers, etc.
-		Controller.getInstance().onNewTransaction(transactionData, peer);
 	}
 
 	private void onNetworkGetBlockSummariesMessage(Peer peer, Message message) {

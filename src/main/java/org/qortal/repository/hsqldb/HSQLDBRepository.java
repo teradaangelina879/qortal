@@ -16,6 +16,7 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
@@ -825,15 +826,18 @@ public class HSQLDBRepository implements Repository {
 	 * <p>
 	 * (Convenience method for HSQLDB repository subclasses).
 	 */
-	/* package */ static void temporaryValuesTableSql(StringBuilder stringBuilder, List<? extends Object> values, String tableName, String columnName) {
+	/* package */ static void temporaryValuesTableSql(StringBuilder stringBuilder, Collection<?> values, String tableName, String columnName) {
 		stringBuilder.append("(VALUES ");
 
-		for (int i = 0; i < values.size(); ++i) {
-			if (i != 0)
+		boolean first = true;
+		for (Object value : values) {
+			if (first)
+				first = false;
+			else
 				stringBuilder.append(", ");
 
 			stringBuilder.append("(");
-			stringBuilder.append(values.get(i));
+			stringBuilder.append(value);
 			stringBuilder.append(")");
 		}
 
