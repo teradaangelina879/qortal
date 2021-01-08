@@ -377,7 +377,9 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			// Process new keys
 		} while (true);
 
-		return walletTransactions.stream().collect(Collectors.toList());
+		Comparator<BitcoinyTransaction> newestTimestampFirstComparator = Comparator.comparingInt((BitcoinyTransaction txn) -> txn.timestamp).reversed();
+
+		return walletTransactions.stream().sorted(newestTimestampFirstComparator).collect(Collectors.toList());
 	}
 
 	/**
