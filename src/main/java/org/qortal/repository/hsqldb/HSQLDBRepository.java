@@ -276,7 +276,7 @@ public class HSQLDBRepository implements Repository {
 			return;
 		}
 
-		try (Statement stmt = this.connection.createStatement()) {
+		try {
 			assertEmptyTransaction("connection close");
 
 			// Assume we are not going to be GC'd for a while
