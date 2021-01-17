@@ -238,7 +238,7 @@ public class PresenceTransaction extends Transaction {
 			if (transactionData.getTimestamp() >= this.transactionData.getTimestamp())
 				continue;
 
-			LOGGER.info(() -> String.format("Deleting older PRESENCE transaction %s", Base58.encode(transactionData.getSignature())));
+			LOGGER.debug(() -> String.format("Deleting older PRESENCE transaction %s", Base58.encode(transactionData.getSignature())));
 			this.repository.getTransactionRepository().delete(transactionData);
 		}
 	}
