@@ -814,6 +814,23 @@ public abstract class Transaction {
 
 			return ValidationResult.OK;
 		} finally {
+			/*
+			 * We call discardChanges() to restart repository 'transaction', discarding any
+			 * transactional table locks, hence reducing possibility of deadlock or
+			 * "serialization failure" with HSQLDB due to reads.
+			 * 
+			 * "Serialization failure" most likely caused by existing transaction check above,
+			 * where multiple threads are importing transactions
+			 * and one thread finds existing an transaction, returns (unlocking blockchain lock),
+			 * then another thread immediately obtains lock, tries to delete above existing transaction
+			 * (e.g. older PRESENCE transaction) but can't because first thread's repository
+			 * session still has row-lock on existing transaction and hasn't yet closed
+			 * repository session. Deadlock caused by race condition.
+			 * 
+			 * Hence we clear any repository-based locks before releasing blockchain lock.
+			 */
+			repository.discardChanges();
+
 			blockchainLock.unlock();
 		}
 	}

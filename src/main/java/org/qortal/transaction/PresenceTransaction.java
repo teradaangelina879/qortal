@@ -234,9 +234,10 @@ public class PresenceTransaction extends Transaction {
 		if (creatorsPresenceTransactions.isEmpty())
 			return;
 
-		// List should contain oldest transaction first, so remove all but last from repository.
-		creatorsPresenceTransactions.remove(creatorsPresenceTransactions.size() - 1);
 		for (TransactionData transactionData : creatorsPresenceTransactions) {
+			if (transactionData.getTimestamp() >= this.transactionData.getTimestamp())
+				continue;
+
 			LOGGER.info(() -> String.format("Deleting older PRESENCE transaction %s", Base58.encode(transactionData.getSignature())));
 			this.repository.getTransactionRepository().delete(transactionData);
 		}
