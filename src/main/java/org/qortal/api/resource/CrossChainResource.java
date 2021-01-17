@@ -119,6 +119,37 @@ public class CrossChainResource {
 	}
 
 	@GET
+	@Path("/trade/{ataddress}")
+	@Operation(
+		summary = "Show detailed trade info",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					schema = @Schema(
+						implementation = CrossChainTradeData.class
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.ADDRESS_UNKNOWN, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	public CrossChainTradeData getTrade(@PathParam("ataddress") String atAddress) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ATData atData = repository.getATRepository().fromATAddress(atAddress);
+			if (atData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+
+			ACCT acct = SupportedBlockchain.getAcctByCodeHash(atData.getCodeHash());
+			if (acct == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			return acct.populateTradeData(repository, atData);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
 	@Path("/trades")
 	@Operation(
 		summary = "Find completed cross-chain trades",
