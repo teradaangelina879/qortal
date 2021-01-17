@@ -475,6 +475,8 @@ public class Peer {
 			ByteBuffer outputBuffer = ByteBuffer.wrap(message.toBytes());
 
 			synchronized (this.socketChannel) {
+				final long sendStart = System.currentTimeMillis();
+
 				while (outputBuffer.hasRemaining()) {
 					int bytesWritten = this.socketChannel.write(outputBuffer);
 
@@ -484,7 +486,7 @@ public class Peer {
 							message.getId(),
 							this));
 
-					if (bytesWritten == 0)
+					if (bytesWritten == 0) {
 						// Underlying socket's internal buffer probably full,
 						// so wait a short while for bytes to actually be transmitted over the wire
 
@@ -496,6 +498,11 @@ public class Peer {
 						 * and connection loss.
 						 */
 						Thread.sleep(1L); //NOSONAR squid:S2276
+
+						if (System.currentTimeMillis() - sendStart > RESPONSE_TIMEOUT)
+							// We've taken too long to send this message
+							return false;
+					}
 				}
 			}
 		} catch (MessageException e) {
