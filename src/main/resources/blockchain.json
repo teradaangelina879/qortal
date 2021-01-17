@@ -48,6 +48,7 @@
 		"minutesPerBlock": 1
 	},
 	"featureTriggers": {
+		"atFindNextTransactionFix": 275000
 	},
 	"genesisInfo": {
 		"version": 4,

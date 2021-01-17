@@ -77,16 +77,24 @@ public class GetNextTransactionTests extends Common {
 			BlockUtils.mintBlock(repository);
 			assertTimestamp(repository, atAddress, transaction);
 
-			// Mint a few blocks, then send non-AT message, followed by AT message
+			// Mint a few blocks, then send non-AT message, followed by two AT messages (in same block)
 			for (int i = 0; i < 5; ++i)
 				BlockUtils.mintBlock(repository);
+
 			sendMessage(repository, deployer, data, deployer.getAddress());
-			transaction = sendMessage(repository, deployer, data, atAddress);
+
+			Transaction transaction1 = sendMessage(repository, deployer, data, atAddress);
+			Transaction transaction2 = sendMessage(repository, deployer, data, atAddress);
+
 			BlockUtils.mintBlock(repository);
 
-			// Confirm AT finds message
+			// Confirm AT finds first message
 			BlockUtils.mintBlock(repository);
-			assertTimestamp(repository, atAddress, transaction);
+			assertTimestamp(repository, atAddress, transaction1);
+
+			// Confirm AT finds second message
+			BlockUtils.mintBlock(repository);
+			assertTimestamp(repository, atAddress, transaction2);
 		}
 	}
 
