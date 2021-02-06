@@ -1,5 +1,19 @@
 # Auto Updates
 
+## TL;DR: how-to
+
+* Assuming you are in git 'master' branch, at HEAD
+* Shutdown local node if running
+* Build auto-update download: `tools/build-auto-update.sh` - uploads auto-update file into new git branch
+* Restart local node
+* Publish auto-update transaction using *private key* for **non-admin** member of "dev" group:
+	`tools/publish-auto-update.sh non-admin-dev-member-private-key-in-base58`
+* Wait for auto-update `ARBITRARY` transaction to be confirmed into a block
+* Have "dev" group admins 'approve' auto-update using `tools/approve-auto-update.sh`
+	This tool will prompt for *private key* of **admin** of "dev" group
+* A minimum number of admins are required for approval, and a minimum number of blocks must pass also.
+* Nodes will start to download, and apply, the update over the next 20 minutes or so (see CHECK_INTERVAL in AutoUpdate.java)
+
 ## Theory
 * Using a specific git commit (e.g. abcdef123) we produce a determinstic JAR with consistent hash.
 * To avoid issues with over-eager anti-virus / firewalls we obfuscate JAR using very simplistic XOR-based method.
@@ -25,8 +39,8 @@ The same method is used to obfuscate and de-obfuscate:
 
 ## Typical download locations
 The git SHA1 commit hash is used to replace `%s` in various download locations, e.g.:
-* https://github.com/QORT/qortal/raw/%s/qortal.update
-* https://raw.githubusercontent.com@151.101.16.133/QORT/qortal/%s/qortal.update
+* https://github.com/Qortal/qortal/raw/%s/qortal.update
+* https://raw.githubusercontent.com@151.101.16.133/Qortal/qortal/%s/qortal.update
 
 These locations are part of the org.qortal.settings.Settings class and can be overriden in settings.json like:
 ```
