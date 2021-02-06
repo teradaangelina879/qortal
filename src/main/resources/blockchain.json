@@ -49,7 +49,7 @@
 	},
 	"featureTriggers": {
 		"atFindNextTransactionFix": 275000,
-		"calcChainWeightTimestamp": 1616000000000,
+		"calcChainWeightTimestamp": 1616000000000
 	},
 	"genesisInfo": {
 		"version": 4,
