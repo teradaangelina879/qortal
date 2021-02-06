@@ -44,7 +44,9 @@
 		"powfixTimestamp": 0,
 		"qortalTimestamp": 0,
 		"newAssetPricingTimestamp": 0,
-		"groupApprovalTimestamp": 0
+		"groupApprovalTimestamp": 0,
+		"atFindNextTransactionFix": 0,
+		"calcChainWeightTimestamp": 0
 	},
 	"genesisInfo": {
 		"version": 4,

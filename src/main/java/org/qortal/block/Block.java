@@ -822,10 +822,9 @@ public class Block {
 			parentHeight = blockSummaryData.getHeight();
 			parentBlockSignature = blockSummaryData.getSignature();
 
-			/* Potential future consensus change: only comparing the same number of blocks.
-			if (parentHeight >= maxHeight)
+			// After this timestamp, we only compare the same number of blocks
+			if (NTP.getTime() >= BlockChain.getInstance().getCalcChainWeightTimestamp() && parentHeight >= maxHeight)
 				break;
-			*/
 		}
 
 		return cumulativeWeight;

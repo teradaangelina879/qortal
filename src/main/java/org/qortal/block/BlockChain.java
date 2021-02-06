@@ -70,7 +70,8 @@ public class BlockChain {
 	private GenesisBlock.GenesisInfo genesisInfo;
 
 	public enum FeatureTrigger {
-		atFindNextTransactionFix;
+		atFindNextTransactionFix,
+		calcChainWeightTimestamp;
 	}
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
@@ -374,6 +375,10 @@ public class BlockChain {
 
 	public int getAtFindNextTransactionFixHeight() {
 		return this.featureTriggers.get(FeatureTrigger.atFindNextTransactionFix.name()).intValue();
+	}
+
+	public long getCalcChainWeightTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.calcChainWeightTimestamp.name()).longValue();
 	}
 
 	// More complex getters for aspects that change by height or timestamp
