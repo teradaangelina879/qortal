@@ -16,3 +16,4 @@
 /settings*.json
 /testchain.json
 /run-testnet.sh
+DS_Store
