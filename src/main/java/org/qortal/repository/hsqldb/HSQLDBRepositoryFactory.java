@@ -94,7 +94,11 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 	@Override
 	public Repository tryRepository() throws DataException {
 		try {
-			return new HSQLDBRepository(this.tryConnection());
+			Connection connection = this.tryConnection();
+			if (connection == null)
+				return null;
+
+			return new HSQLDBRepository(connection);
 		} catch (SQLException e) {
 			throw new DataException("Repository instantiation error", e);
 		}
