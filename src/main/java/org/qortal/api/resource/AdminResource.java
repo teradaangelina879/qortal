@@ -628,25 +628,9 @@ public class AdminResource {
 	public String checkpointRepository() {
 		Security.checkApiCallAllowed(request);
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
 
-			blockchainLock.lockInterruptibly();
-
-			try {
-				repository.checkpoint(true);
-				repository.saveChanges();
-
-				return "true";
-			} finally {
-				blockchainLock.unlock();
-			}
-		} catch (InterruptedException e) {
-			// We couldn't lock blockchain to perform checkpoint
-			return "false";
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
+		return "true";
 	}
 
 	@POST

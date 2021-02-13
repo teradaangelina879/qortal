@@ -1,5 +1,6 @@
 package org.qortal.repository.hsqldb;
 
+import java.awt.TrayIcon.MessageType;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -31,6 +32,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.crypto.Crypto;
+import org.qortal.globalization.Translator;
+import org.qortal.gui.SysTray;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.AccountRepository;
 import org.qortal.repository.ArbitraryRepository;
@@ -53,6 +56,8 @@ import org.qortal.settings.Settings;
 public class HSQLDBRepository implements Repository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
+
+	private static final Object CHECKPOINT_LOCK = new Object();
 
 	protected Connection connection;
 	protected final Deque<Savepoint> savepoints = new ArrayDeque<>(3);
@@ -103,7 +108,10 @@ public class HSQLDBRepository implements Repository {
 			throw new DataException("Unable to fetch session ID from repository", e);
 		}
 
-		assertEmptyTransaction("connection creation");
+		// synchronize to block new connections if checkpointing in progress 
+		synchronized (CHECKPOINT_LOCK) {
+			assertEmptyTransaction("connection creation");
+		}
 	}
 
 	// Getters / setters
@@ -284,11 +292,66 @@ public class HSQLDBRepository implements Repository {
 			this.sqlStatements = null;
 			this.savepoints.clear();
 
+			// If a checkpoint has been requested, we could perform that now
+			this.maybeCheckpoint();
+
 			// Give connection back to the pool
 			this.connection.close();
 			this.connection = null;
 		} catch (SQLException e) {
 			throw new DataException("Error while closing repository", e);
+		}
+	}
+
+	private void maybeCheckpoint() throws DataException {
+		// To serialize checkpointing and to block new sessions when checkpointing in progress
+		synchronized (CHECKPOINT_LOCK) {
+			Boolean quickCheckpointRequest = RepositoryManager.getRequestedCheckpoint();
+			if (quickCheckpointRequest == null)
+				return;
+
+			// We can only perform a CHECKPOINT if no other HSQLDB session is mid-transaction,
+			// otherwise the CHECKPOINT blocks for COMMITs and other threads can't open HSQLDB sessions
+			// due to HSQLDB blocking until CHECKPOINT finishes - i.e. deadlock
+			String sql = "SELECT COUNT(*) "
+					+ "FROM Information_schema.system_sessions "
+					+ "WHERE transaction = TRUE";
+
+			try {
+				PreparedStatement pstmt = this.cachePreparedStatement(sql);
+
+				if (!pstmt.execute())
+					throw new DataException("Unable to check repository session status");
+
+				try (ResultSet resultSet = pstmt.getResultSet()) {
+					if (resultSet == null || !resultSet.next())
+						// Failed to even find HSQLDB session info!
+						throw new DataException("No results when checking repository session status");
+
+					int transactionCount = resultSet.getInt(1);
+
+					if (transactionCount > 0)
+						// We can't safely perform CHECKPOINT due to ongoing SQL transactions
+						return;
+				}
+
+				LOGGER.info("Performing repository CHECKPOINT...");
+
+				if (Settings.getInstance().getShowCheckpointNotification())
+					SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_CHECKPOINT"),
+							Translator.INSTANCE.translate("SysTray", "PERFORMING_DB_CHECKPOINT"),
+							MessageType.INFO);
+
+				try (Statement stmt = this.connection.createStatement()) {
+					stmt.execute(Boolean.TRUE.equals(quickCheckpointRequest) ? "CHECKPOINT" : "CHECKPOINT DEFRAG");
+				}
+
+				// Completed!
+				LOGGER.info("Repository CHECKPOINT completed!");
+				RepositoryManager.setRequestedCheckpoint(null);
+			} catch (SQLException e) {
+				throw new DataException("Unable to check repository session status", e);
+			}
 		}
 	}
 
@@ -376,15 +439,6 @@ public class HSQLDBRepository implements Repository {
 			stmt.execute("BACKUP DATABASE TO 'backup/' BLOCKING AS FILES");
 		} catch (SQLException e) {
 			throw new DataException("Unable to backup repository");
-		}
-	}
-
-	@Override
-	public void checkpoint(boolean quick) throws DataException {
-		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute(quick ? "CHECKPOINT" : "CHECKPOINT DEFRAG");
-		} catch (SQLException e) {
-			throw new DataException("Unable to perform repository checkpoint");
 		}
 	}
 
