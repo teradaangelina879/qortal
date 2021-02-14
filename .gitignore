@@ -16,4 +16,6 @@
 /settings*.json
 /testchain.json
 /run-testnet.sh
+/.idea
+/qortal.iml
 *.DS_Store
