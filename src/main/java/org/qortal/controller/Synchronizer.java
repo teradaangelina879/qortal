@@ -488,7 +488,9 @@ public class Synchronizer {
 			peerBlockSignatures.remove(0);
 			++ourHeight;
 
+			LOGGER.trace(String.format("Fetching block %d, sig %.8s from %s", ourHeight, Base58.encode(latestPeerSignature), peer));
 			Block newBlock = this.fetchBlock(repository, peer, latestPeerSignature);
+			LOGGER.trace(String.format("Fetched block %d, sig %.8s from %s", ourHeight, Base58.encode(latestPeerSignature), peer));
 
 			if (newBlock == null) {
 				LOGGER.info(String.format("Peer %s failed to respond with block for height %d, sig %.8s", peer,
