@@ -806,7 +806,10 @@ public class Controller extends Thread {
 
 			repository.saveChanges();
 		} catch (DataException e) {
-			LOGGER.error("Repository issue while deleting expired unconfirmed transactions", e);
+			if (RepositoryManager.isDeadlockRelated(e))
+				LOGGER.info("Couldn't delete some expired, unconfirmed transactions this round");
+			else
+				LOGGER.error("Repository issue while deleting expired unconfirmed transactions", e);
 		}
 	}
 

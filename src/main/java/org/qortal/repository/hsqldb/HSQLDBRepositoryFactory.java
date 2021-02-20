@@ -148,4 +148,9 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		}
 	}
 
+	@Override
+	public boolean isDeadlockException(SQLException e) {
+		return HSQLDBRepository.isDeadlockException(e);
+	}
+
 }

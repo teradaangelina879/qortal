@@ -1,5 +1,7 @@
 package org.qortal.repository;
 
+import java.sql.SQLException;
+
 public abstract class RepositoryManager {
 
 	private static RepositoryFactory repositoryFactory = null;
@@ -67,6 +69,12 @@ public abstract class RepositoryManager {
 		oldRepository.rebuild();
 
 		repositoryFactory = oldRepositoryFactory.reopen();
+	}
+
+	public static boolean isDeadlockRelated(Throwable e) {
+		Throwable cause = e.getCause();
+
+		return SQLException.class.isInstance(cause) && repositoryFactory.isDeadlockException((SQLException) cause);
 	}
 
 }

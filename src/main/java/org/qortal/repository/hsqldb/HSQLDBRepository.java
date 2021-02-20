@@ -59,6 +59,9 @@ public class HSQLDBRepository implements Repository {
 
 	private static final Object CHECKPOINT_LOCK = new Object();
 
+	// "serialization failure"
+	private static final Integer DEADLOCK_ERROR_CODE = Integer.valueOf(-4861);
+
 	protected Connection connection;
 	protected final Deque<Savepoint> savepoints = new ArrayDeque<>(3);
 	protected boolean debugState = false;
@@ -708,7 +711,16 @@ public class HSQLDBRepository implements Repository {
 
 		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
 
-		int[] updateCounts = preparedStatement.executeBatch();
+		int[] updateCounts = null;
+		try {
+			updateCounts = preparedStatement.executeBatch();
+		} catch (SQLException e) {
+			if (isDeadlockException(e))
+				// We want more info on what other DB sessions are doing to cause this
+				examineException(e);
+
+			throw e;
+		}
 
 		if (this.slowQueryThreshold != null) {
 			long queryTime = System.currentTimeMillis() - beforeQuery;
@@ -998,6 +1010,10 @@ public class HSQLDBRepository implements Repository {
 			return null;
 
 		return Crypto.toAddress(publicKey);
+	}
+
+	/*package*/ static boolean isDeadlockException(SQLException e) {
+		return DEADLOCK_ERROR_CODE.equals(e.getErrorCode());
 	}
 
 }
