@@ -357,7 +357,7 @@ public class Block {
 			System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
 		}
 
-		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(),
+		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData,
 				minter.getPublicKey(), encodedOnlineAccounts));
 
 		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
@@ -424,7 +424,7 @@ public class Block {
 		int version = this.blockData.getVersion();
 		byte[] reference = this.blockData.getReference();
 
-		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(),
+		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData,
 				minter.getPublicKey(), this.blockData.getEncodedOnlineAccounts()));
 
 		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
@@ -738,11 +738,7 @@ public class Block {
 		if (!(this.minter instanceof PrivateKeyAccount))
 			throw new IllegalStateException("Block's minter is not a PrivateKeyAccount - can't sign!");
 
-		try {
-			this.blockData.setMinterSignature(((PrivateKeyAccount) this.minter).sign(BlockTransformer.getBytesForMinterSignature(this.blockData)));
-		} catch (TransformationException e) {
-			throw new RuntimeException("Unable to calculate block's minter signature", e);
-		}
+		this.blockData.setMinterSignature(((PrivateKeyAccount) this.minter).sign(BlockTransformer.getBytesForMinterSignature(this.blockData)));
 	}
 
 	/**
