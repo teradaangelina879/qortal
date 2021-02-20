@@ -536,12 +536,7 @@ public class Controller extends Thread {
 				if (now >= repositoryCheckpointTimestamp + repositoryCheckpointInterval) {
 					repositoryCheckpointTimestamp = now + repositoryCheckpointInterval;
 
-					if (Settings.getInstance().getShowCheckpointNotification())
-						SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_CHECKPOINT"),
-								Translator.INSTANCE.translate("SysTray", "PERFORMING_DB_CHECKPOINT"),
-								MessageType.INFO);
-
-					RepositoryManager.checkpoint(true);
+					RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
 				}
 
 				// Give repository a chance to backup (if enabled)
