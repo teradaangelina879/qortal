@@ -2,6 +2,7 @@
 
 ## TL;DR: how-to
 
+* Prepare new release version (see way below for details)
 * Assuming you are in git 'master' branch, at HEAD
 * Shutdown local node if running
 * Build auto-update download: `tools/build-auto-update.sh` - uploads auto-update file into new git branch
@@ -60,3 +61,11 @@ usage: XorUpdate <input-file> <output-file>
 $ java -cp qortal.jar org.qortal.XorUpdate qortal.jar qortal.update
 $
 ```
+
+## Preparing new release version
+
+* Shutdown local node
+* Modify `pom.xml` and increase version inside `<version>` tag
+* Commit new `pom.xml` and push to github, e.g. `git commit -m 'Bumped to v1.4.2' -- pom.xml; git push`
+* Tag this new commit with same version: `git tag v1.4.2`
+* Push tag up to github: `git push origin v1.4.2`
