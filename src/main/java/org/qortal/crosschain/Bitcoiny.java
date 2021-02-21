@@ -98,8 +98,9 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		try {
 			ScriptType addressType = Address.fromString(this.params, address).getOutputScriptType();
 
-			return addressType == ScriptType.P2PKH || addressType == ScriptType.P2SH;
+			return addressType == ScriptType.P2PKH || addressType == ScriptType.P2SH || addressType == ScriptType.P2WPKH;
 		} catch (AddressFormatException e) {
+			LOGGER.error(String.format("Unrecognised address format: %s", address));
 			return false;
 		}
 	}

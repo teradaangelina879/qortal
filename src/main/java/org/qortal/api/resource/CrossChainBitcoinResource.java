@@ -113,7 +113,7 @@ public class CrossChainBitcoinResource {
 	@Path("/send")
 	@Operation(
 		summary = "Sends BTC from hierarchical, deterministic BIP32 wallet to specific address",
-		description = "Currently only supports 'legacy' P2PKH Bitcoin addresses. Supply BIP32 'm' private key in base58, starting with 'xprv' for mainnet, 'tprv' for testnet",
+		description = "Currently supports 'legacy' P2PKH Bitcoin addresses and Native SegWit (P2WPKH) addresses. Supply BIP32 'm' private key in base58, starting with 'xprv' for mainnet, 'tprv' for testnet",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
