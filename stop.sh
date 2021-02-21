@@ -21,13 +21,19 @@ fi
 read pid 2>/dev/null <run.pid
 is_pid_valid=$?
 
+# Swap out the API port if the --testnet (or -t) argument is specified
+api_port=12391
+if [[ "$@" = *"--testnet"* ]] || [[  "$@" = *"-t"* ]]; then
+  api_port=62391
+fi
+
 # Ensure curl is installed
 curl_path=$(which curl)
 
 if [[ -f $curl_path ]]; then
 
 	echo 'Calling GET /admin/stop on local Qortal node'
-	if curl --url http://localhost:12391/admin/stop 1>/dev/null 2>&1; then
+	if curl --url "http://localhost:${api_port}/admin/stop" 1>/dev/null 2>&1; then
 		echo "Qortal node responded and should be shutting down"
 
 		if [ "${is_pid_valid}" -eq 0 ]; then
@@ -42,7 +48,7 @@ if [[ -f $curl_path ]]; then
 		fi
 		exit 0
 	else
-		echo "${red}No response from Qortal node - not running?${normal}"
+		echo "${red}No response from Qortal node - not running on port ${api_port}?${normal}"
 		exit 1
 	fi
 
