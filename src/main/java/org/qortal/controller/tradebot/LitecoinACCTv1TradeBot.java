@@ -343,9 +343,13 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 	}
 
 	@Override
-	public boolean canDelete(Repository repository, TradeBotData tradeBotData) {
+	public boolean canDelete(Repository repository, TradeBotData tradeBotData) throws DataException {
 		State tradeBotState = State.valueOf(tradeBotData.getStateValue());
 		if (tradeBotState == null)
+			return true;
+
+		// If the AT doesn't exist then we might as well let the user tidy up
+		if (!repository.getATRepository().exists(tradeBotData.getAtAddress()))
 			return true;
 
 		switch (tradeBotState) {
