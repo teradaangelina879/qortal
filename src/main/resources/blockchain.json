@@ -48,7 +48,8 @@
 		"minutesPerBlock": 1
 	},
 	"featureTriggers": {
-		"atFindNextTransactionFix": 275000
+		"atFindNextTransactionFix": 275000,
+		"newBlockSigHeight": 999999
 	},
 	"genesisInfo": {
 		"version": 4,

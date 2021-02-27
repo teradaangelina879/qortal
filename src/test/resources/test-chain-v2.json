@@ -45,7 +45,8 @@
 		"qortalTimestamp": 0,
 		"newAssetPricingTimestamp": 0,
 		"groupApprovalTimestamp": 0,
-		"atFindNextTransactionFix": 0
+		"atFindNextTransactionFix": 0,
+		"newBlockSigHeight": 999999
 	},
 	"genesisInfo": {
 		"version": 4,
