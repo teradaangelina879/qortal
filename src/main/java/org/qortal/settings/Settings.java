@@ -89,6 +89,8 @@ public class Settings {
 	private long repositoryCheckpointInterval = 60 * 60 * 1000L; // 1 hour (ms) default
 	/** Whether to show a notification when we perform repository 'checkpoint'. */
 	private boolean showCheckpointNotification = false;
+	/* How many blocks to cache locally. Defaulted to 10, which covers a typical Synchronizer request + a few spare */
+	private int blockCacheSize = 10;
 
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
@@ -359,6 +361,10 @@ public class Settings {
 
 	public int getMaxTransactionTimestampFuture() {
 		return this.maxTransactionTimestampFuture;
+	}
+
+	public int getBlockCacheSize() {
+		return this.blockCacheSize;
 	}
 
 	public boolean isTestNet() {

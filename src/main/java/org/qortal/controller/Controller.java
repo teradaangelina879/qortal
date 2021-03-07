@@ -143,7 +143,6 @@ public class Controller extends Thread {
 	private ExecutorService callbackExecutor = Executors.newFixedThreadPool(3);
 	private volatile boolean notifyGroupMembershipChange = false;
 
-	private static final int BLOCK_CACHE_SIZE = 10; // To cover typical Synchronizer request + a few spare
 	/** Latest blocks on our chain. Note: tail/last is the latest block. */
 	private final Deque<BlockData> latestBlocks = new LinkedList<>();
 
@@ -152,7 +151,7 @@ public class Controller extends Thread {
 	private final LinkedHashMap<ByteArray, BlockMessage> blockMessageCache = new LinkedHashMap<>() {
 		@Override
 		protected boolean removeEldestEntry(Map.Entry<ByteArray, BlockMessage> eldest) {
-			return this.size() > BLOCK_CACHE_SIZE;
+			return this.size() > Settings.getInstance().getBlockCacheSize();
 		}
 	};
 
@@ -319,11 +318,12 @@ public class Controller extends Thread {
 		// Set initial chain height/tip
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().getLastBlock();
+			int blockCacheSize = Settings.getInstance().getBlockCacheSize();
 
 			synchronized (this.latestBlocks) {
 				this.latestBlocks.clear();
 
-				for (int i = 0; i < BLOCK_CACHE_SIZE && blockData != null; ++i) {
+				for (int i = 0; i < blockCacheSize && blockData != null; ++i) {
 					this.latestBlocks.addFirst(blockData);
 					blockData = repository.getBlockRepository().fromHeight(blockData.getHeight() - 1);
 				}
@@ -933,6 +933,7 @@ public class Controller extends Thread {
 	public void onNewBlock(BlockData latestBlockData) {
 		// Protective copy
 		BlockData blockDataCopy = new BlockData(latestBlockData);
+		int blockCacheSize = Settings.getInstance().getBlockCacheSize();
 
 		synchronized (this.latestBlocks) {
 			BlockData cachedChainTip = this.latestBlocks.peekLast();
@@ -942,7 +943,7 @@ public class Controller extends Thread {
 				this.latestBlocks.addLast(latestBlockData);
 
 				// Trim if necessary
-				if (this.latestBlocks.size() >= BLOCK_CACHE_SIZE)
+				if (this.latestBlocks.size() >= blockCacheSize)
 					this.latestBlocks.pollFirst();
 			} else {
 				if (cachedChainTip != null)
@@ -1151,6 +1152,7 @@ public class Controller extends Thread {
 		ByteArray signatureAsByteArray = new ByteArray(signature);
 
 		BlockMessage cachedBlockMessage = this.blockMessageCache.get(signatureAsByteArray);
+		int blockCacheSize = Settings.getInstance().getBlockCacheSize();
 
 		// Check cached latest block message
 		if (cachedBlockMessage != null) {
@@ -1193,7 +1195,7 @@ public class Controller extends Thread {
 				peer.disconnect("failed to send block");
 
 			// If request is for a recent block, cache it
-			if (getChainHeight() - blockData.getHeight() <= BLOCK_CACHE_SIZE) {
+			if (getChainHeight() - blockData.getHeight() <= blockCacheSize) {
 				this.stats.getBlockMessageStats.cacheFills.incrementAndGet();
 
 				this.blockMessageCache.put(new ByteArray(blockData.getSignature()), blockMessage);
