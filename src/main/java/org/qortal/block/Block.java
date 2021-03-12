@@ -176,19 +176,26 @@ public class Block {
 		 * 
 		 *  @return account-level share "bin" from blockchain config, or null if founder / none found
 		 */
-		public AccountLevelShareBin getShareBin() {
+		public AccountLevelShareBin getShareBin(int blockHeight) {
 			if (this.isMinterFounder)
 				return null;
 
 			final int accountLevel = this.mintingAccountData.getLevel();
 			if (accountLevel <= 0)
-					return null;
+				return null; // level 0 isn't included in any share bins
 
-			final AccountLevelShareBin[] shareBinsByLevel = BlockChain.getInstance().getShareBinsByAccountLevel();
+			final BlockChain blockChain = BlockChain.getInstance();
+			final AccountLevelShareBin[] shareBinsByLevel = blockChain.getShareBinsByAccountLevel();
 			if (accountLevel > shareBinsByLevel.length)
 				return null;
 
-			return shareBinsByLevel[accountLevel];
+			if (blockHeight < blockChain.getShareBinFixHeight())
+				// Off-by-one bug still in effect
+				return shareBinsByLevel[accountLevel];
+
+			// level 1 stored at index 0, level 2 stored at index 1, etc.
+			return shareBinsByLevel[accountLevel-1];
+
 		}
 
 		public long distribute(long accountAmount, Map<String, Long> balanceChanges) {
@@ -1783,7 +1790,7 @@ public class Block {
 			// Find all accounts in share bin. getShareBin() returns null for minter accounts that are also founders, so they are effectively filtered out.
 			AccountLevelShareBin accountLevelShareBin = accountLevelShareBins.get(binIndex);
 			// Object reference compare is OK as all references are read-only from blockchain config.
-			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.getShareBin() == accountLevelShareBin).collect(Collectors.toList());
+			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.getShareBin(this.blockData.getHeight()) == accountLevelShareBin).collect(Collectors.toList());
 
 			// No online accounts in this bin? Skip to next one
 			if (binnedAccounts.isEmpty())

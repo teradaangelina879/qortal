@@ -49,7 +49,8 @@
 	},
 	"featureTriggers": {
 		"atFindNextTransactionFix": 275000,
-		"newBlockSigHeight": 320000
+		"newBlockSigHeight": 320000,
+		"shareBinFix": 999999
 	},
 	"genesisInfo": {
 		"version": 4,
