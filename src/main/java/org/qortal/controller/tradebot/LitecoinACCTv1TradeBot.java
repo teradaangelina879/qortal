@@ -384,7 +384,7 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 
 				// If it has been over 24 hours since we last updated this trade-bot entry then assume AT is never coming back
 				// and so wipe the trade-bot entry
-				if (tradeBotData.getTimestamp() + MAX_AT_CONFIRMATION_PERIOD > NTP.getTime()) {
+				if (tradeBotData.getTimestamp() + MAX_AT_CONFIRMATION_PERIOD < NTP.getTime()) {
 					LOGGER.info(() -> String.format("AT %s has been gone for too long - deleting trade-bot entry", tradeBotData.getAtAddress()));
 					repository.getCrossChainRepository().delete(tradeBotData.getTradePrivateKey());
 					repository.saveChanges();
