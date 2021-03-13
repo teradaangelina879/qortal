@@ -136,6 +136,8 @@ public class Settings {
 	private Long slowQueryThreshold = null;
 	/** Repository storage path. */
 	private String repositoryPath = "db";
+	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
+	private int repositoryConnectionPoolSize = 100;
 
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
@@ -428,6 +430,10 @@ public class Settings {
 
 	public String getRepositoryPath() {
 		return this.repositoryPath;
+	}
+
+	public int getRepositoryConnectionPoolSize() {
+		return this.repositoryConnectionPoolSize;
 	}
 
 	public boolean isAutoUpdateEnabled() {
