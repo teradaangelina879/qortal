@@ -1209,6 +1209,18 @@ public class Controller extends Thread {
 		TransactionMessage transactionMessage = (TransactionMessage) message;
 		TransactionData transactionData = transactionMessage.getTransactionData();
 
+		/*
+		 *  If we can't obtain blockchain lock immediately,
+		 *  e.g. Synchronizer is active, or another transaction is taking a while to validate,
+		 *  then we're using up a network thread for ages and clogging things up
+		 *  so bail out early
+		 */
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		if (!blockchainLock.tryLock()) {
+			LOGGER.debug(() -> String.format("Too busy to import %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+			return;
+		}
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
@@ -1238,6 +1250,8 @@ public class Controller extends Thread {
 			LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
+		} finally {
+			blockchainLock.unlock();
 		}
 	}
 
