@@ -1217,7 +1217,7 @@ public class Controller extends Thread {
 		 */
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 		if (!blockchainLock.tryLock()) {
-			LOGGER.debug(() -> String.format("Too busy to import %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+			LOGGER.trace(() -> String.format("Too busy to import %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 			return;
 		}
 
