@@ -931,6 +931,8 @@ public class HSQLDBRepository implements Repository {
 
 	/** Logs other HSQLDB sessions then returns passed exception */
 	public SQLException examineException(SQLException e) {
+		// TODO: could log at DEBUG for deadlocks by checking RepositoryManager.isDeadlockRelated(e)?
+
 		LOGGER.error(() -> String.format("[Session %d] HSQLDB error: %s", this.sessionId, e.getMessage()), e);
 
 		logStatements();
