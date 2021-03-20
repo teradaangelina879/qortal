@@ -351,7 +351,9 @@ public class Synchronizer {
 		List<byte[]> peerBlockSignatures = peerBlockSummaries.stream().map(BlockSummaryData::getSignature).collect(Collectors.toList());
 
 		// Fetch remaining block signatures, if needed
-		int numberSignaturesRequired = peerBlockSignatures.size() - (peerHeight - commonBlockHeight);
+		int additionalPeerBlocksAfterCommonBlock = peerHeight - commonBlockHeight; // Calculate the total number of additional blocks this peer has beyond the common block
+		int numberSignaturesRequired = additionalPeerBlocksAfterCommonBlock - peerBlockSignatures.size(); // Subtract the number of signatures that we already have, as we don't need to request them again
+
 		if (numberSignaturesRequired > 0) {
 			byte[] latestPeerSignature = peerBlockSignatures.isEmpty() ? commonBlockSig : peerBlockSignatures.get(peerBlockSignatures.size() - 1);
 
