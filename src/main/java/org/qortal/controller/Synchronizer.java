@@ -358,15 +358,16 @@ public class Synchronizer {
 		// Fetch remaining block signatures, if needed
 		if (numberSignaturesRequired > 0) {
 			byte[] latestPeerSignature = peerBlockSignatures.isEmpty() ? commonBlockSig : peerBlockSignatures.get(peerBlockSignatures.size() - 1);
+			int lastPeerHeight = commonBlockHeight + peerBlockSignatures.size();
 
 			LOGGER.trace(String.format("Requesting %d signature%s after height %d, sig %.8s",
-					numberSignaturesRequired, (numberSignaturesRequired != 1 ? "s": ""), ourHeight, Base58.encode(latestPeerSignature)));
+					numberSignaturesRequired, (numberSignaturesRequired != 1 ? "s": ""), lastPeerHeight, Base58.encode(latestPeerSignature)));
 
 			List<byte[]> moreBlockSignatures = this.getBlockSignatures(peer, latestPeerSignature, numberSignaturesRequired);
 
 			if (moreBlockSignatures == null || moreBlockSignatures.isEmpty()) {
 				LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d, sig %.8s", peer,
-						ourHeight, Base58.encode(latestPeerSignature)));
+						lastPeerHeight, Base58.encode(latestPeerSignature)));
 				return SynchronizationResult.NO_REPLY;
 			}
 
@@ -376,21 +377,22 @@ public class Synchronizer {
 		}
 
 		// Fetch blocks using signatures
-		LOGGER.debug(String.format("Fetching new blocks from peer %s", peer));
+		LOGGER.debug(String.format("Fetching new blocks from peer %s after height %d", peer, commonBlockHeight));
 		List<Block> peerBlocks = new ArrayList<>();
 
 		for (byte[] blockSignature : peerBlockSignatures) {
+			int blockHeightToRequest = commonBlockHeight + peerBlocks.size() + 1; // +1 because we are requesting the next block, beyond what we already have in the peerBlocks array
 			Block newBlock = this.fetchBlock(repository, peer, blockSignature);
 
 			if (newBlock == null) {
 				LOGGER.info(String.format("Peer %s failed to respond with block for height %d, sig %.8s", peer,
-						ourHeight, Base58.encode(blockSignature)));
+						blockHeightToRequest, Base58.encode(blockSignature)));
 				return SynchronizationResult.NO_REPLY;
 			}
 
 			if (!newBlock.isSignatureValid()) {
 				LOGGER.info(String.format("Peer %s sent block with invalid signature for height %d, sig %.8s", peer,
-						ourHeight, Base58.encode(blockSignature)));
+						blockHeightToRequest, Base58.encode(blockSignature)));
 				return SynchronizationResult.INVALID_DATA;
 			}
 
@@ -429,7 +431,7 @@ public class Synchronizer {
 			ValidationResult blockResult = newBlock.isValid();
 			if (blockResult != ValidationResult.OK) {
 				LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
-						ourHeight, Base58.encode(newBlock.getSignature()), blockResult.name()));
+						newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getSignature()), blockResult.name()));
 				return SynchronizationResult.INVALID_DATA;
 			}
 
