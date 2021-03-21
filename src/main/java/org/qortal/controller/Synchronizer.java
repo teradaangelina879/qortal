@@ -402,7 +402,7 @@ public class Synchronizer {
 		while (peerBlocks.size() < peerBlockSignatures.size()) {
 			byte[] blockSignature = peerBlockSignatures.get(peerBlocks.size());
 
-			LOGGER.debug(String.format("Fetching block with signature %s", blockSignature));
+			LOGGER.debug(String.format("Fetching block with signature %.8s", Base58.encode(blockSignature)));
 			int blockHeightToRequest = commonBlockHeight + peerBlocks.size() + 1; // +1 because we are requesting the next block, beyond what we already have in the peerBlocks array
 			Block newBlock = this.fetchBlock(repository, peer, blockSignature);
 
@@ -431,7 +431,7 @@ public class Synchronizer {
 			// Reset retryCount because the last request succeeded
 			retryCount = 0;
 
-			LOGGER.debug(String.format("Received block with height %d, sig: %.8s", newBlock.getBlockData().getHeight(), newBlock.getSignature()));
+			LOGGER.debug(String.format("Received block with height %d, sig: %.8s", newBlock.getBlockData().getHeight(), Base58.encode(blockSignature)));
 
 			// Transactions are transmitted without approval status so determine that now
 			for (Transaction transaction : newBlock.getTransactions())
