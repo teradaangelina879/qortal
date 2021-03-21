@@ -39,11 +39,23 @@ public class Synchronizer {
 
 	private static final Logger LOGGER = LogManager.getLogger(Synchronizer.class);
 
+	/** Max number of new blocks we aim to add to chain tip in each sync round */
+	private static final int SYNC_BATCH_SIZE = 200; // XXX move to Settings?
+
+	/** Initial jump back of block height when searching for common block with peer */
 	private static final int INITIAL_BLOCK_STEP = 8;
-	private static final int MAXIMUM_BLOCK_STEP = 500;
+	/** Maximum jump back of block height when searching for common block with peer */
+	private static final int MAXIMUM_BLOCK_STEP = 80;
+
+	/** Maximum difference in block height between tip and peer's common block before peer is considered TOO DIVERGENT */
 	private static final int MAXIMUM_COMMON_DELTA = 240; // XXX move to Settings?
-	private static final int SYNC_BATCH_SIZE = 200;
-	private static final int MAXIMUM_RETRIES = 3; // Number of retry attempts if a peer fails to respond with the requested data
+
+	/** Maximum number of block signatures we ask from peer in one go */
+	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
+
+	/** Number of retry attempts if a peer fails to respond with the requested data */
+	private static final int MAXIMUM_RETRIES = 3; // XXX move to Settings?
+
 
 	private static Synchronizer instance;
 
@@ -361,7 +373,7 @@ public class Synchronizer {
 		while (numberSignaturesRequired > 0) {
 			byte[] latestPeerSignature = peerBlockSignatures.isEmpty() ? commonBlockSig : peerBlockSignatures.get(peerBlockSignatures.size() - 1);
 			int lastPeerHeight = commonBlockHeight + peerBlockSignatures.size();
-			int numberOfSignaturesToRequest = Math.min(numberSignaturesRequired, SYNC_BATCH_SIZE);
+			int numberOfSignaturesToRequest = Math.min(numberSignaturesRequired, MAXIMUM_REQUEST_SIZE);
 
 			LOGGER.trace(String.format("Requesting %d signature%s after height %d, sig %.8s",
 					numberOfSignaturesToRequest, (numberOfSignaturesToRequest != 1 ? "s": ""), lastPeerHeight, Base58.encode(latestPeerSignature)));
@@ -512,7 +524,8 @@ public class Synchronizer {
 
 			// Do we need more signatures?
 			if (peerBlockSignatures.isEmpty()) {
-				int numberRequested = maxBatchHeight - ourHeight;
+				int numberRequested = Math.min(maxBatchHeight - ourHeight, MAXIMUM_REQUEST_SIZE);
+
 				LOGGER.trace(String.format("Requesting %d signature%s after height %d, sig %.8s",
 						numberRequested, (numberRequested != 1 ? "s": ""), ourHeight, Base58.encode(latestPeerSignature)));
 
