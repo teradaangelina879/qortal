@@ -67,8 +67,8 @@ import org.qortal.gui.SysTray;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.ArbitraryDataMessage;
-import org.qortal.network.message.BlockMessage;
 import org.qortal.network.message.BlockSummariesMessage;
+import org.qortal.network.message.CachedBlockMessage;
 import org.qortal.network.message.GetArbitraryDataMessage;
 import org.qortal.network.message.GetBlockMessage;
 import org.qortal.network.message.GetBlockSummariesMessage;
@@ -148,9 +148,9 @@ public class Controller extends Thread {
 
 	/** Cache of BlockMessages, indexed by block signature */
 	@SuppressWarnings("serial")
-	private final LinkedHashMap<ByteArray, BlockMessage> blockMessageCache = new LinkedHashMap<>() {
+	private final LinkedHashMap<ByteArray, CachedBlockMessage> blockMessageCache = new LinkedHashMap<>() {
 		@Override
-		protected boolean removeEldestEntry(Map.Entry<ByteArray, BlockMessage> eldest) {
+		protected boolean removeEldestEntry(Map.Entry<ByteArray, CachedBlockMessage> eldest) {
 			return this.size() > Settings.getInstance().getBlockCacheSize();
 		}
 	};
@@ -1151,7 +1151,7 @@ public class Controller extends Thread {
 
 		ByteArray signatureAsByteArray = new ByteArray(signature);
 
-		BlockMessage cachedBlockMessage = this.blockMessageCache.get(signatureAsByteArray);
+		CachedBlockMessage cachedBlockMessage = this.blockMessageCache.get(signatureAsByteArray);
 		int blockCacheSize = Settings.getInstance().getBlockCacheSize();
 
 		// Check cached latest block message
@@ -1159,7 +1159,7 @@ public class Controller extends Thread {
 			this.stats.getBlockMessageStats.cacheHits.incrementAndGet();
 
 			// We need to duplicate it to prevent multiple threads setting ID on the same message
-			BlockMessage clonedBlockMessage = cachedBlockMessage.cloneWithNewId(message.getId());
+			CachedBlockMessage clonedBlockMessage = cachedBlockMessage.cloneWithNewId(message.getId());
 
 			if (!peer.sendMessage(clonedBlockMessage))
 				peer.disconnect("failed to send block");
@@ -1187,12 +1187,15 @@ public class Controller extends Thread {
 
 			Block block = new Block(repository, blockData);
 
-			BlockMessage blockMessage = new BlockMessage(block);
+			CachedBlockMessage blockMessage = new CachedBlockMessage(block);
 			blockMessage.setId(message.getId());
 
 			// This call also causes the other needed data to be pulled in from repository
-			if (!peer.sendMessage(blockMessage))
+			if (!peer.sendMessage(blockMessage)) {
 				peer.disconnect("failed to send block");
+				// Don't fall-through to caching because failure to send might be from failure to build message
+				return;
+			}
 
 			// If request is for a recent block, cache it
 			if (getChainHeight() - blockData.getHeight() <= blockCacheSize) {
