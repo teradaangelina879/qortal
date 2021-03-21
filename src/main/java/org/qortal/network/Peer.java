@@ -507,6 +507,7 @@ public class Peer {
 			}
 		} catch (MessageException e) {
 			LOGGER.warn(String.format("Failed to send %s message with ID %d to peer %s: %s", message.getType().name(), message.getId(), this, e.getMessage()));
+			return false;
 		} catch (IOException e) {
 			// Send failure
 			return false;
