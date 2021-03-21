@@ -44,7 +44,6 @@ public class Synchronizer {
 	private static final int MAXIMUM_COMMON_DELTA = 240; // XXX move to Settings?
 	private static final int SYNC_BATCH_SIZE = 200;
 	private static final int MAXIMUM_RETRIES = 3; // Number of retry attempts if a peer fails to respond with the requested data
-	private static final int MAXIMUM_BLOCK_SIGNATURES_PER_REQUEST = 200; // Limit the amount of block signatures in a single request
 
 	private static Synchronizer instance;
 
@@ -362,7 +361,7 @@ public class Synchronizer {
 		while (numberSignaturesRequired > 0) {
 			byte[] latestPeerSignature = peerBlockSignatures.isEmpty() ? commonBlockSig : peerBlockSignatures.get(peerBlockSignatures.size() - 1);
 			int lastPeerHeight = commonBlockHeight + peerBlockSignatures.size();
-			int numberOfSignaturesToRequest = Math.min(numberSignaturesRequired, MAXIMUM_BLOCK_SIGNATURES_PER_REQUEST);
+			int numberOfSignaturesToRequest = Math.min(numberSignaturesRequired, SYNC_BATCH_SIZE);
 
 			LOGGER.trace(String.format("Requesting %d signature%s after height %d, sig %.8s",
 					numberOfSignaturesToRequest, (numberOfSignaturesToRequest != 1 ? "s": ""), lastPeerHeight, Base58.encode(latestPeerSignature)));
