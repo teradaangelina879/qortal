@@ -43,6 +43,8 @@ public class Synchronizer {
 	private static final int MAXIMUM_BLOCK_STEP = 500;
 	private static final int MAXIMUM_COMMON_DELTA = 240; // XXX move to Settings?
 	private static final int SYNC_BATCH_SIZE = 200;
+	private static final int MAXIMUM_RETRIES = 3; // Number of retry attempts if a peer fails to respond with the requested data
+	private static final int MAXIMUM_BLOCK_SIGNATURES_PER_REQUEST = 200; // Limit the amount of block signatures in a single request
 
 	private static Synchronizer instance;
 
@@ -356,38 +358,69 @@ public class Synchronizer {
 		int numberSignaturesRequired = additionalPeerBlocksAfterCommonBlock - peerBlockSignatures.size();
 
 		// Fetch remaining block signatures, if needed
-		if (numberSignaturesRequired > 0) {
+		int retryCount = 0;
+		while (numberSignaturesRequired > 0) {
 			byte[] latestPeerSignature = peerBlockSignatures.isEmpty() ? commonBlockSig : peerBlockSignatures.get(peerBlockSignatures.size() - 1);
 			int lastPeerHeight = commonBlockHeight + peerBlockSignatures.size();
+			int numberOfSignaturesToRequest = Math.min(numberSignaturesRequired, MAXIMUM_BLOCK_SIGNATURES_PER_REQUEST);
 
 			LOGGER.trace(String.format("Requesting %d signature%s after height %d, sig %.8s",
-					numberSignaturesRequired, (numberSignaturesRequired != 1 ? "s": ""), lastPeerHeight, Base58.encode(latestPeerSignature)));
+					numberOfSignaturesToRequest, (numberOfSignaturesToRequest != 1 ? "s": ""), lastPeerHeight, Base58.encode(latestPeerSignature)));
 
-			List<byte[]> moreBlockSignatures = this.getBlockSignatures(peer, latestPeerSignature, numberSignaturesRequired);
+			List<byte[]> moreBlockSignatures = this.getBlockSignatures(peer, latestPeerSignature, numberOfSignaturesToRequest);
 
 			if (moreBlockSignatures == null || moreBlockSignatures.isEmpty()) {
 				LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d, sig %.8s", peer,
 						lastPeerHeight, Base58.encode(latestPeerSignature)));
-				return SynchronizationResult.NO_REPLY;
+
+				if (retryCount >= MAXIMUM_RETRIES) {
+					// Give up with this peer
+					return SynchronizationResult.NO_REPLY;
+				}
+				else {
+					// Retry until retryCount reaches MAXIMUM_RETRIES
+					retryCount++;
+					int triesRemaining = MAXIMUM_RETRIES - retryCount;
+					LOGGER.info(String.format("Re-issuing request to peer %s (%d attempt%s remaining)", peer, triesRemaining, (triesRemaining != 1 ? "s": "")));
+					continue;
+				}
 			}
+
+			// Reset retryCount because the last request succeeded
+			retryCount = 0;
 
 			LOGGER.trace(String.format("Received %s signature%s", peerBlockSignatures.size(), (peerBlockSignatures.size() != 1 ? "s" : "")));
 
 			peerBlockSignatures.addAll(moreBlockSignatures);
+			numberSignaturesRequired = additionalPeerBlocksAfterCommonBlock - peerBlockSignatures.size();
 		}
 
 		// Fetch blocks using signatures
 		LOGGER.debug(String.format("Fetching new blocks from peer %s after height %d", peer, commonBlockHeight));
 		List<Block> peerBlocks = new ArrayList<>();
 
-		for (byte[] blockSignature : peerBlockSignatures) {
+		retryCount = 0;
+		while (peerBlocks.size() < peerBlockSignatures.size()) {
+			byte[] blockSignature = peerBlockSignatures.get(peerBlocks.size());
+
+			LOGGER.debug(String.format("Fetching block with signature %s", blockSignature));
 			int blockHeightToRequest = commonBlockHeight + peerBlocks.size() + 1; // +1 because we are requesting the next block, beyond what we already have in the peerBlocks array
 			Block newBlock = this.fetchBlock(repository, peer, blockSignature);
 
 			if (newBlock == null) {
-				LOGGER.info(String.format("Peer %s failed to respond with block for height %d, sig %.8s", peer,
-						blockHeightToRequest, Base58.encode(blockSignature)));
-				return SynchronizationResult.NO_REPLY;
+				LOGGER.info(String.format("Peer %s failed to respond with block for height %d, sig %.8s", peer, blockHeightToRequest, Base58.encode(blockSignature)));
+
+				if (retryCount >= MAXIMUM_RETRIES) {
+					// Give up with this peer
+					return SynchronizationResult.NO_REPLY;
+				}
+				else {
+					// Retry until retryCount reaches MAXIMUM_RETRIES
+					retryCount++;
+					int triesRemaining = MAXIMUM_RETRIES - retryCount;
+					LOGGER.info(String.format("Re-issuing request to peer %s (%d attempt%s remaining)", peer, triesRemaining, (triesRemaining != 1 ? "s": "")));
+					continue;
+				}
 			}
 
 			if (!newBlock.isSignatureValid()) {
@@ -395,6 +428,11 @@ public class Synchronizer {
 						blockHeightToRequest, Base58.encode(blockSignature)));
 				return SynchronizationResult.INVALID_DATA;
 			}
+
+			// Reset retryCount because the last request succeeded
+			retryCount = 0;
+
+			LOGGER.debug(String.format("Received block with height %d, sig: %.8s", newBlock.getBlockData().getHeight(), newBlock.getSignature()));
 
 			// Transactions are transmitted without approval status so determine that now
 			for (Transaction transaction : newBlock.getTransactions())
