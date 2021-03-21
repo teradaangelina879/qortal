@@ -45,7 +45,7 @@ public class Synchronizer {
 	/** Initial jump back of block height when searching for common block with peer */
 	private static final int INITIAL_BLOCK_STEP = 8;
 	/** Maximum jump back of block height when searching for common block with peer */
-	private static final int MAXIMUM_BLOCK_STEP = 80;
+	private static final int MAXIMUM_BLOCK_STEP = 128;
 
 	/** Maximum difference in block height between tip and peer's common block before peer is considered TOO DIVERGENT */
 	private static final int MAXIMUM_COMMON_DELTA = 240; // XXX move to Settings?
