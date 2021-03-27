@@ -57,7 +57,7 @@ public class Synchronizer {
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
 
 	/** Number of retry attempts if a peer fails to respond with the requested data */
-	private static final int MAXIMUM_RETRIES = 3; // XXX move to Settings?
+	private static final int MAXIMUM_RETRIES = 1; // XXX move to Settings?
 
 	/* Minimum peer version that supports syncing multiple blocks at once via GetBlocksMessage */
 	private static final long PEER_VERSION_150 = 0x0100050000L;
