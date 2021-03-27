@@ -34,6 +34,7 @@ import org.qortal.network.message.Message.MessageType;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 
@@ -370,12 +371,11 @@ public class Synchronizer {
 		int additionalPeerBlocksAfterCommonBlock = peerHeight - commonBlockHeight;
 
 
-		// Firstly, attempt to retrieve the blocks themselves, rather than signatures. This is supported by newer peers.
-		// We could optionally check for a version here if we didn't want to make unnecessary requests
+		// Firstly, attempt to retrieve the blocks themselves, rather than signatures. This is supported by newer peers (version 1.5.0 and above).
 		List<Block> peerBlocks = new ArrayList<>();
 
-		if (peer.getPeersVersion() >= PEER_VERSION_150) {
-			// This peer supports syncing multiple blocks at once via GetBlocksMessage
+		if (Settings.getInstance().isFastSyncEnabledWhenResolvingFork() && peer.getPeersVersion() >= PEER_VERSION_150) {
+			// This peer supports syncing multiple blocks at once via GetBlocksMessage, and it is enabled in the settings
 			int numberBlocksRequired = additionalPeerBlocksAfterCommonBlock - peerBlocks.size();
 			while (numberBlocksRequired > 0) {
 				if (Controller.isStopping())
@@ -422,7 +422,7 @@ public class Synchronizer {
 			}
 		}
 		else {
-			// Older peer version - use slow sync
+			// Older peer version, or fast sync is disabled in the settings - use slow sync
 
 			// Convert any leftover (post-common) block summaries into signatures to request from peer
 			List<byte[]> peerBlockSignatures = peerBlockSummaries.stream().map(BlockSummaryData::getSignature).collect(Collectors.toList());
