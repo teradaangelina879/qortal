@@ -315,6 +315,10 @@ public abstract class Transaction {
 		return this.transactionData;
 	}
 
+	public void setRepository(Repository repository) {
+		this.repository = repository;
+	}
+
 	// More information
 
 	public static long getDeadline(TransactionData transactionData) {

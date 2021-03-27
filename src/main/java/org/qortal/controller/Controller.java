@@ -68,9 +68,11 @@ import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.ArbitraryDataMessage;
 import org.qortal.network.message.BlockSummariesMessage;
+import org.qortal.network.message.BlocksMessage;
 import org.qortal.network.message.CachedBlockMessage;
 import org.qortal.network.message.GetArbitraryDataMessage;
 import org.qortal.network.message.GetBlockMessage;
+import org.qortal.network.message.GetBlocksMessage;
 import org.qortal.network.message.GetBlockSummariesMessage;
 import org.qortal.network.message.GetOnlineAccountsMessage;
 import org.qortal.network.message.GetPeersMessage;
@@ -215,6 +217,18 @@ public class Controller extends Thread {
 			}
 		}
 		public GetBlockMessageStats getBlockMessageStats = new GetBlockMessageStats();
+
+		public static class GetBlocksMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong cacheHits = new AtomicLong();
+			public AtomicLong unknownBlocks = new AtomicLong();
+			public AtomicLong cacheFills = new AtomicLong();
+			public AtomicLong fullyFromCache = new AtomicLong();
+
+			public GetBlocksMessageStats() {
+			}
+		}
+		public GetBlocksMessageStats getBlocksMessageStats = new GetBlocksMessageStats();
 
 		public static class GetBlockSummariesStats {
 			public AtomicLong requests = new AtomicLong();
@@ -1094,6 +1108,10 @@ public class Controller extends Thread {
 				onNetworkGetBlockMessage(peer, message);
 				break;
 
+			case GET_BLOCKS:
+				onNetworkGetBlocksMessage(peer, message);
+				break;
+
 			case TRANSACTION:
 				onNetworkTransactionMessage(peer, message);
 				break;
@@ -1205,6 +1223,68 @@ public class Controller extends Thread {
 			}
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);
+		}
+	}
+
+	private void onNetworkGetBlocksMessage(Peer peer, Message message) {
+		GetBlocksMessage getBlocksMessage = (GetBlocksMessage) message;
+		byte[] parentSignature = getBlocksMessage.getParentSignature();
+		this.stats.getBlocksMessageStats.requests.incrementAndGet();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			// If peer's parent signature matches our latest block signature
+			// then we can short-circuit with an empty response
+			BlockData chainTip = getChainTip();
+			if (chainTip != null && Arrays.equals(parentSignature, chainTip.getSignature())) {
+				Message blocksMessage = new BlocksMessage(Collections.emptyList());
+				blocksMessage.setId(message.getId());
+				if (!peer.sendMessage(blocksMessage))
+					peer.disconnect("failed to send blocks");
+
+				return;
+			}
+
+			List<BlockData> blockDataList = new ArrayList<>();
+
+			// Attempt to serve from our cache of latest blocks
+			synchronized (this.latestBlocks) {
+				blockDataList = this.latestBlocks.stream()
+						.dropWhile(cachedBlockData -> !Arrays.equals(cachedBlockData.getReference(), parentSignature))
+						.map(BlockData::new)
+						.collect(Collectors.toList());
+			}
+
+			if (blockDataList.isEmpty()) {
+				int numberRequested = Math.min(Network.MAX_BLOCKS_PER_REPLY, getBlocksMessage.getNumberRequested());
+
+				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+
+				while (blockData != null && blockDataList.size() < numberRequested) {
+					blockDataList.add(blockData);
+
+					blockData = repository.getBlockRepository().fromReference(blockData.getSignature());
+				}
+			} else {
+				this.stats.getBlocksMessageStats.cacheHits.incrementAndGet();
+
+				if (blockDataList.size() >= getBlocksMessage.getNumberRequested())
+					this.stats.getBlocksMessageStats.fullyFromCache.incrementAndGet();
+			}
+
+			List<Block> blocks = new ArrayList<>();
+			for (BlockData blockData : blockDataList) {
+				Block block = new Block(repository, blockData);
+				blocks.add(block);
+			}
+
+			Message blocksMessage = new BlocksMessage(blocks);
+			blocksMessage.setId(message.getId());
+			if (!peer.sendMessage(blocksMessage))
+				peer.disconnect("failed to send blocks");
+
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while sending blocks after %s to peer %s", Base58.encode(parentSignature), peer), e);
 		}
 	}
 

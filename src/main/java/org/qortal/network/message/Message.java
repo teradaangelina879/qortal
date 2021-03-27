@@ -80,7 +80,10 @@ public abstract class Message {
 		GET_ONLINE_ACCOUNTS(81),
 
 		ARBITRARY_DATA(90),
-		GET_ARBITRARY_DATA(91);
+		GET_ARBITRARY_DATA(91),
+
+		BLOCKS(100),
+		GET_BLOCKS(101);
 
 		public final int value;
 		public final Method fromByteBufferMethod;
