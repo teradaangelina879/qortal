@@ -123,6 +123,11 @@ public class Settings {
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
 	private int networkPoWComputePoolSize = 2;
 
+	/** Whether to sync multiple blocks at once in normal operation */
+	private boolean fastSyncEnabled = false;
+	/** Whether to sync multiple blocks at once when the peer has a different chain */
+	private boolean fastSyncEnabledWhenResolvingFork = true;
+
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
 	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
@@ -434,6 +439,14 @@ public class Settings {
 
 	public int getRepositoryConnectionPoolSize() {
 		return this.repositoryConnectionPoolSize;
+	}
+
+	public boolean isFastSyncEnabled() {
+		return this.fastSyncEnabled;
+	}
+
+	public boolean isFastSyncEnabledWhenResolvingFork() {
+		return this.fastSyncEnabledWhenResolvingFork;
 	}
 
 	public boolean isAutoUpdateEnabled() {
