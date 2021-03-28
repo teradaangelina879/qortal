@@ -127,6 +127,10 @@ public class Settings {
 	private boolean fastSyncEnabled = false;
 	/** Whether to sync multiple blocks at once when the peer has a different chain */
 	private boolean fastSyncEnabledWhenResolvingFork = true;
+	/** Maximum number of blocks to request at once */
+	private int maxBlocksPerRequest = 1;
+	/** Maximum number of blocks this node will serve in a single response */
+	private int maxBlocksPerResponse = 5;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
@@ -448,6 +452,10 @@ public class Settings {
 	public boolean isFastSyncEnabledWhenResolvingFork() {
 		return this.fastSyncEnabledWhenResolvingFork;
 	}
+
+	public int getMaxBlocksPerRequest() { return this.maxBlocksPerRequest; }
+
+	public int getMaxBlocksPerResponse() { return this.maxBlocksPerResponse; }
 
 	public boolean isAutoUpdateEnabled() {
 		return this.autoUpdateEnabled;

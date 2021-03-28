@@ -1245,6 +1245,10 @@ public class Controller extends Thread {
 				return;
 			}
 
+			// Ensure that we don't serve more blocks than the amount specified in the settings
+			// Serializing multiple blocks is very slow, so by default we are using a low limit
+			int blockLimitPerRequest = Settings.getInstance().getMaxBlocksPerResponse();
+
 			List<BlockData> blockDataList = new ArrayList<>();
 
 			// Attempt to serve from our cache of latest blocks
@@ -1256,7 +1260,7 @@ public class Controller extends Thread {
 			}
 
 			if (blockDataList.isEmpty()) {
-				int numberRequested = Math.min(Network.MAX_BLOCKS_PER_REPLY, getBlocksMessage.getNumberRequested());
+				int numberRequested = Math.min(blockLimitPerRequest, getBlocksMessage.getNumberRequested());
 
 				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
 
@@ -1274,8 +1278,10 @@ public class Controller extends Thread {
 
 			List<Block> blocks = new ArrayList<>();
 			for (BlockData blockData : blockDataList) {
-				Block block = new Block(repository, blockData);
-				blocks.add(block);
+				if (blocks.size() < blockLimitPerRequest) {
+					Block block = new Block(repository, blockData);
+					blocks.add(block);
+				}
 			}
 
 			Message blocksMessage = new BlocksMessage(blocks);

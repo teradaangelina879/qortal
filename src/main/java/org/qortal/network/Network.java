@@ -89,7 +89,6 @@ public class Network {
 
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
 	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
-	public static final int MAX_BLOCKS_PER_REPLY = 500;
 
 	// Generate our node keys / ID
 	private final Ed25519PrivateKeyParameters edPrivateKeyParams = new Ed25519PrivateKeyParameters(new SecureRandom());

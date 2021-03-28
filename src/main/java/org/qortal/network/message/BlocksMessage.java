@@ -78,6 +78,7 @@ public class BlocksMessage extends Message {
 				bytes.write(Ints.toByteArray(block.getBlockData().getHeight()));
 				bytes.write(BlockTransformer.toBytes(block));
 			}
+			LOGGER.trace(String.format("Total length of %d blocks is %d bytes", this.blocks.size(), bytes.size()));
 
 			return bytes.toByteArray();
 		} catch (IOException e) {
