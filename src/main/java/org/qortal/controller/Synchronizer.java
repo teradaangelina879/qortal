@@ -56,6 +56,9 @@ public class Synchronizer {
 	/** Maximum number of block signatures we ask from peer in one go */
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
 
+	/** Maximum number of blocks we ask from peer in one go */
+	private static final int MAXIMUM_BLOCKS_REQUEST_SIZE = 1; // XXX move to Settings?
+
 	/** Number of retry attempts if a peer fails to respond with the requested data */
 	private static final int MAXIMUM_RETRIES = 1; // XXX move to Settings?
 
@@ -383,7 +386,7 @@ public class Synchronizer {
 
 				byte[] latestPeerSignature = peerBlocks.isEmpty() ? commonBlockSig : peerBlocks.get(peerBlocks.size() - 1).getSignature();
 				int lastPeerHeight = commonBlockHeight + peerBlocks.size();
-				int numberOfBlocksToRequest = Math.min(numberBlocksRequired, MAXIMUM_REQUEST_SIZE);
+				int numberOfBlocksToRequest = Math.min(numberBlocksRequired, MAXIMUM_BLOCKS_REQUEST_SIZE);
 
 				LOGGER.trace(String.format("Requesting %d block%s after height %d, sig %.8s",
 						numberOfBlocksToRequest, (numberOfBlocksToRequest != 1 ? "s" : ""), lastPeerHeight, Base58.encode(latestPeerSignature)));
@@ -600,7 +603,7 @@ public class Synchronizer {
 			if (Controller.isStopping())
 				return SynchronizationResult.SHUTTING_DOWN;
 
-			int numberRequested = Math.min(maxBatchHeight - ourHeight, MAXIMUM_REQUEST_SIZE);
+			int numberRequested = Math.min(maxBatchHeight - ourHeight, MAXIMUM_BLOCKS_REQUEST_SIZE);
 
 			LOGGER.trace(String.format("Fetching %d blocks after height %d, sig %.8s from %s", numberRequested, ourHeight, Base58.encode(latestPeerSignature), peer));
 			List<Block> blocks = this.fetchBlocks(repository, peer, latestPeerSignature, numberRequested);
