@@ -607,6 +607,7 @@ public class Synchronizer {
 			if (blocks == null || blocks.isEmpty()) {
 				LOGGER.info(String.format("Peer %s failed to respond with more blocks after height %d, sig %.8s", peer,
 						ourHeight, Base58.encode(latestPeerSignature)));
+				return SynchronizationResult.NO_REPLY;
 			}
 			LOGGER.trace(String.format("Received %d blocks after height %d, sig %.8s from %s", blocks.size(), ourHeight, Base58.encode(latestPeerSignature), peer));
 
