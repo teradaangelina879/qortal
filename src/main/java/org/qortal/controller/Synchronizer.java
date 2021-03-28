@@ -399,6 +399,7 @@ public class Synchronizer {
 					if (peerBlocks.isEmpty()) {
 						return SynchronizationResult.NO_REPLY;
 					}
+					break;
 				}
 
 				LOGGER.debug(String.format("Received %d blocks from peer %s", blocks.size(), peer));
