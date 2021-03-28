@@ -46,7 +46,7 @@ public class Peer {
 	private static final int CONNECT_TIMEOUT = 2000; // ms
 
 	/** Maximum time to wait for a message reply to arrive from peer. (ms) */
-	private static final int RESPONSE_TIMEOUT = 3000; // ms
+	private static final int RESPONSE_TIMEOUT = 4000; // ms
 
 	/**
 	 * Interval between PING messages to a peer. (ms)
