@@ -257,9 +257,13 @@ public class Synchronizer {
 		// Currently we work forward from common block until we hit a block we don't have
 		// TODO: rewrite as modified binary search!
 		int i;
-		for (i = 1; i < blockSummariesFromCommon.size(); ++i)
+		for (i = 1; i < blockSummariesFromCommon.size(); ++i) {
+			if (Controller.isStopping())
+				return SynchronizationResult.SHUTTING_DOWN;
+
 			if (!repository.getBlockRepository().exists(blockSummariesFromCommon.get(i).getSignature()))
 				break;
+		}
 
 		// Note: index i - 1 isn't cleared: List.subList is fromIndex inclusive to toIndex exclusive
 		blockSummariesFromCommon.subList(0, i - 1).clear();
@@ -308,6 +312,9 @@ public class Synchronizer {
 
 				// Check peer sent valid heights
 				for (int i = 0; i < moreBlockSummaries.size(); ++i) {
+					if (Controller.isStopping())
+						return SynchronizationResult.SHUTTING_DOWN;
+
 					++lastSummaryHeight;
 
 					BlockSummaryData blockSummary = moreBlockSummaries.get(i);
@@ -645,6 +652,9 @@ public class Synchronizer {
 		final int firstBlockHeight = blockSummaries.get(0).getHeight();
 
 		for (int i = 0; i < blockSummaries.size(); ++i) {
+			if (Controller.isStopping())
+				return;
+
 			BlockSummaryData blockSummary = blockSummaries.get(i);
 
 			// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
