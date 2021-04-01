@@ -58,6 +58,7 @@ $timestamp *= 1000; # Convert to milliseconds
 # locate sha256 utility
 my $SHA256 = `which sha256sum || which sha256`;
 chomp $SHA256;
+die("Can't find sha256sum or sha256\n") unless length($SHA256) > 0;
 
 # SHA256 of actual update file
 my $sha256 = `git show auto-update-${commit_hash}:${project}.update | ${SHA256} | head -c 64`;
