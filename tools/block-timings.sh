@@ -8,7 +8,7 @@ if [ -z "${start_height}" ]; then
   echo "Error: missing start height."
   echo
   echo "Usage:"
-  echo "block-timings.sh <startheight> <count> [target] [deviation] [power]"
+  echo "block-timings.sh <startheight> [count] [target] [deviation] [power]"
   echo
   echo "startheight: a block height, preferably within the untrimmed range, to avoid data gaps"
   echo "count: the number of blocks to request and analyse after the start height. Default: 100"
