@@ -8,6 +8,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,10 +23,13 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.qortal.account.Account;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
+import org.qortal.api.model.BlockMintingInfo;
 import org.qortal.api.model.BlockSignerSummary;
+import org.qortal.block.Block;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
@@ -323,6 +329,58 @@ public class BlocksResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 
 			return blockData;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/byheight/{height}/mintinginfo")
+	@Operation(
+			summary = "Fetch block minter info using block height",
+			description = "Returns the minter info for the block with given height",
+			responses = {
+					@ApiResponse(
+							description = "the block",
+							content = @Content(
+									schema = @Schema(
+											implementation = BlockData.class
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({
+			ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
+	})
+	public BlockMintingInfo getBlockMintingInfoByHeight(@PathParam("height") int height) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromHeight(height);
+			if (blockData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+
+			Block block = new Block(repository, blockData);
+			BlockData parentBlockData = repository.getBlockRepository().fromSignature(blockData.getReference());
+			int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, blockData.getMinterPublicKey());
+			if (minterLevel == 0)
+				// This may be unavailable when requesting a trimmed block
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			BigInteger distance = block.calcKeyDistance(parentBlockData.getHeight(), parentBlockData.getSignature(), blockData.getMinterPublicKey(), minterLevel);
+			double ratio = new BigDecimal(distance).divide(new BigDecimal(block.MAX_DISTANCE), 40, RoundingMode.DOWN).doubleValue();
+			long timestamp = block.calcTimestamp(parentBlockData, blockData.getMinterPublicKey(), minterLevel);
+			long timeDelta = timestamp - parentBlockData.getTimestamp();
+
+			BlockMintingInfo blockMintingInfo = new BlockMintingInfo();
+			blockMintingInfo.minterPublicKey = blockData.getMinterPublicKey();
+			blockMintingInfo.minterLevel = minterLevel;
+			blockMintingInfo.maxDistance = new BigDecimal(block.MAX_DISTANCE);
+			blockMintingInfo.keyDistance = distance;
+			blockMintingInfo.keyDistanceRatio = ratio;
+			blockMintingInfo.timestamp = timestamp;
+			blockMintingInfo.timeDelta = timeDelta;
+
+			return blockMintingInfo;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
