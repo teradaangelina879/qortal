@@ -2,6 +2,9 @@
 
 start_height=$1
 count=$2
+target=$3
+deviation=$4
+power=$5
 
 if [ -z "${start_height}" ]; then
   echo
@@ -18,10 +21,6 @@ if [ -z "${start_height}" ]; then
   echo
   exit
 fi
-
-target=$3
-deviation=$4
-power=$5
 
 count=${count:=100}
 target=${target:=60000}
