@@ -52,6 +52,7 @@ import org.qortal.repository.TransactionRepository;
 import org.qortal.repository.VotingRepository;
 import org.qortal.repository.hsqldb.transaction.HSQLDBTransactionRepository;
 import org.qortal.settings.Settings;
+import org.qortal.utils.NTP;
 
 public class HSQLDBRepository implements Repository {
 
@@ -459,10 +460,44 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
-	public void exportNodeLocalData() throws DataException {
+	public void exportNodeLocalData(boolean keepArchivedCopy) throws DataException {
+
+		// Create the qortal-backup folder if it doesn't exist
+		Path backupPath = Paths.get("qortal-backup");
+		try {
+			Files.createDirectories(backupPath);
+		} catch (IOException e) {
+			LOGGER.info("Unable to create backup folder");
+			throw new DataException("Unable to create backup folder");
+		}
+
+		// We need to rename or delete an existing TradeBotStates backup before creating a new one
+		File tradeBotStatesBackupFile = new File("qortal-backup/TradeBotStates.script");
+		if (tradeBotStatesBackupFile.exists()) {
+			if (keepArchivedCopy) {
+				// Rename existing TradeBotStates backup, to make sure that we're not overwriting any keys
+				File archivedBackupFile = new File(String.format("qortal-backup/TradeBotStates-archive-%d.script", NTP.getTime()));
+				if (tradeBotStatesBackupFile.renameTo(archivedBackupFile))
+					LOGGER.info(String.format("Moved existing TradeBotStates backup file to %s", archivedBackupFile.getPath()));
+				else
+					throw new DataException("Unable to rename existing TradeBotStates backup");
+			} else {
+				// Delete existing copy
+				LOGGER.info("Deleting existing TradeBotStates backup because it is being replaced with a new one");
+				tradeBotStatesBackupFile.delete();
+			}
+		}
+
+		// There's currently no need to take an archived copy of the MintingAccounts data - just delete the old one if it exists
+		File mintingAccountsBackupFile = new File("qortal-backup/MintingAccounts.script");
+		if (mintingAccountsBackupFile.exists()) {
+			LOGGER.info("Deleting existing MintingAccounts backup because it is being replaced with a new one");
+			mintingAccountsBackupFile.delete();
+		}
+
 		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
-			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
+			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'qortal-backup/MintingAccounts.script'");
+			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'qortal-backup/TradeBotStates.script'");
 			LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
 		} catch (SQLException e) {
 			throw new DataException("Unable to export sensitive/node-local data from repository");
@@ -475,12 +510,12 @@ public class HSQLDBRepository implements Repository {
 			LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
 
 			String escapedFilename = stmt.enquoteLiteral(filename);
-			stmt.execute("PERFORM IMPORT SCRIPT DATA FROM " + escapedFilename + " STOP ON ERROR");
+			stmt.execute("PERFORM IMPORT SCRIPT DATA FROM " + escapedFilename + " CONTINUE ON ERROR");
 
 			LOGGER.info(() -> String.format("Imported data into repository from %s", filename));
 		} catch (SQLException e) {
 			LOGGER.info(() -> String.format("Failed to import data into repository from %s: %s", filename, e.getMessage()));
-			throw new DataException("Unable to export sensitive/node-local data from repository: " + e.getMessage());
+			throw new DataException("Unable to import sensitive/node-local data to repository: " + e.getMessage());
 		}
 	}
 
@@ -681,7 +716,7 @@ public class HSQLDBRepository implements Repository {
 	/**
 	 * Execute PreparedStatement and return changed row count.
 	 * 
-	 * @param preparedStatement
+	 * @param sql
 	 * @param objects
 	 * @return number of changed rows
 	 * @throws SQLException
@@ -693,8 +728,8 @@ public class HSQLDBRepository implements Repository {
 	/**
 	 * Execute batched PreparedStatement
 	 * 
-	 * @param preparedStatement
-	 * @param objects
+	 * @param sql
+	 * @param batchedObjects
 	 * @return number of changed rows
 	 * @throws SQLException
 	 */
@@ -818,7 +853,7 @@ public class HSQLDBRepository implements Repository {
 	 * 
 	 * @param tableName
 	 * @param whereClause
-	 * @param objects
+	 * @param batchedObjects
 	 * @throws SQLException
 	 */
 	public int deleteBatch(String tableName, String whereClause, List<Object[]> batchedObjects) throws SQLException {
