@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -265,6 +266,22 @@ public class TradeBot implements Listener {
 		byte[] secret = new byte[32];
 		RANDOM.nextBytes(secret);
 		return secret;
+	}
+
+	/*package*/ static void backupTradeBotData(Repository repository) {
+		// Attempt to backup the trade bot data. This an optional step and doesn't impact trading, so don't throw an exception on failure
+		try {
+			LOGGER.info("About to backup trade bot data...");
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+			blockchainLock.lockInterruptibly();
+			try {
+				repository.exportNodeLocalData(true);
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException | DataException e) {
+			LOGGER.info(String.format("Failed to obtain blockchain lock when exporting trade bot data: %s", e.getMessage()));
+		}
 	}
 
 	/** Updates trade-bot entry to new state, with current timestamp, logs message and notifies state-change listeners. */
