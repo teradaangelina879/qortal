@@ -761,11 +761,7 @@ public class Synchronizer {
                     LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d, sig %.8s", peer,
                             height, Base58.encode(latestPeerSignature)));
 
-                    // If we have already received blocks from this peer, go ahead and apply them
-                    if (peerBlocks.size() > 0) {
-                        break;
-                    }
-                    // Otherwise, give up and move on to the next peer
+                    // We need to fully synchronize, so give up and move on to the next peer
                     return SynchronizationResult.NO_REPLY;
                 }
 
@@ -790,11 +786,7 @@ public class Synchronizer {
 
 				if (retryCount >= MAXIMUM_RETRIES) {
 
-					// If we have already received blocks from this peer, go ahead and apply them
-					if (peerBlocks.size() > 0) {
-						break;
-					}
-					// Otherwise, give up and move on to the next peer
+					// We need to fully synchronize, so give up and move on to the next peer
 					return SynchronizationResult.NO_REPLY;
 
 				} else {
