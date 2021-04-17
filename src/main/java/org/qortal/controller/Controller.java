@@ -639,6 +639,21 @@ public class Controller extends Thread {
 		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
 		peers.removeIf(hasInferiorChainTip);
 
+		final int peersBeforeComparison = peers.size();
+
+		// Request recent block summaries from the remaining peers, and locate our common block with each
+		Synchronizer.getInstance().findCommonBlocksWithPeers(peers);
+
+		// Compare the peers against each other, and against our chain, which will return an updated list excluding those without common blocks
+		peers = Synchronizer.getInstance().comparePeers(peers);
+
+		// We may have added more inferior chain tips when comparing peers, so remove any peers that are currently on those chains
+		peers.removeIf(hasInferiorChainTip);
+
+		final int peersRemoved = peersBeforeComparison - peers.size();
+		if (peersRemoved > 0)
+			LOGGER.debug(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
+
 		if (peers.isEmpty())
 			return;
 
@@ -742,6 +757,13 @@ public class Controller extends Thread {
 		} finally {
 			isSynchronizing = false;
 		}
+	}
+
+	public void addInferiorChainSignature(byte[] inferiorSignature) {
+		// Update our list of inferior chain tips
+		ByteArray inferiorChainSignature = new ByteArray(inferiorSignature);
+		if (!inferiorChainSignatures.contains(inferiorChainSignature))
+			inferiorChainSignatures.add(inferiorChainSignature);
 	}
 
 	public static class StatusChangeEvent implements Event {
