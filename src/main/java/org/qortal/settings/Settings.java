@@ -52,7 +52,7 @@ public class Settings {
 	// UI servers
 	private int uiPort = 12388;
 	private String[] uiLocalServers = new String[] {
-		"localhost", "127.0.0.1", "172.24.1.1", "qor.tal"
+		"localhost", "127.0.0.1"
 	};
 	private String[] uiRemoteServers = new String[] {
 		"node1.qortal.org", "node2.qortal.org", "node3.qortal.org", "node4.qortal.org", "node5.qortal.org",
