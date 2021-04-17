@@ -547,7 +547,7 @@ public class AdminResource {
 			blockchainLock.lockInterruptibly();
 
 			try {
-				repository.exportNodeLocalData();
+				repository.exportNodeLocalData(true);
 				return "true";
 			} finally {
 				blockchainLock.unlock();
