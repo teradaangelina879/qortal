@@ -277,6 +277,10 @@ public class Synchronizer {
 					// Fetch block summaries from each peer
 					for (Peer peer : peersSharingCommonBlock) {
 
+						// If we're shutting down, just return the latest peer list
+						if (Controller.isStopping())
+							return peers;
+
 						// Count the number of blocks this peer has beyond our common block
 						final int peerHeight = peer.getChainTipData().getLastHeight();
 						final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
