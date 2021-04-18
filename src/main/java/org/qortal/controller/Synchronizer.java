@@ -110,6 +110,7 @@ public class Synchronizer {
 
 				LOGGER.debug(String.format("Searching for common blocks with %d peers...", peers.size()));
 				final long startTime = System.currentTimeMillis();
+				int commonBlocksFound = 0;
 
 				for (Peer peer : peers) {
 					// Are we shutting down?
@@ -135,10 +136,12 @@ public class Synchronizer {
 
 					// Search for the common block
 					Synchronizer.getInstance().findCommonBlockWithPeer(peer, repository);
+					if (peer.getCommonBlockData() != null)
+						commonBlocksFound++;
 				}
 
 				final long totalTimeTaken = System.currentTimeMillis() - startTime;
-				LOGGER.info(String.format("Finished searching for common blocks with %d peer%s. Total time taken: %d ms", peers.size(), (peers.size() != 1 ? "s" : ""), totalTimeTaken));
+				LOGGER.info(String.format("Finished searching for common blocks with %d peer%s. Found: %d. Total time taken: %d ms", peers.size(), (peers.size() != 1 ? "s" : ""), commonBlocksFound, totalTimeTaken));
 
 				return SynchronizationResult.OK;
 			} finally {
