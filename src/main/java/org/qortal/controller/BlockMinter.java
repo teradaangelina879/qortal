@@ -290,15 +290,17 @@ public class BlockMinter extends Thread {
 						RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(newBlock.getBlockData().getMinterPublicKey());
 
 						if (rewardShareData != null) {
-							LOGGER.info(String.format("Minted block %d, sig %.8s by %s on behalf of %s",
+							LOGGER.info(String.format("Minted block %d, sig %.8s, parent sig: %.8s by %s on behalf of %s",
 									newBlock.getBlockData().getHeight(),
 									Base58.encode(newBlock.getBlockData().getSignature()),
+									Base58.encode(newBlock.getParent().getSignature()),
 									rewardShareData.getMinter(),
 									rewardShareData.getRecipient()));
 						} else {
-							LOGGER.info(String.format("Minted block %d, sig %.8s by %s",
+							LOGGER.info(String.format("Minted block %d, sig %.8s, parent sig: %.8s by %s",
 									newBlock.getBlockData().getHeight(),
 									Base58.encode(newBlock.getBlockData().getSignature()),
+									Base58.encode(newBlock.getParent().getSignature()),
 									newBlock.getMinter().getAddress()));
 						}
 
