@@ -121,7 +121,7 @@ public class Controller extends Thread {
 	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms
 	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000L; // ms
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
-	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000;
+	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000L; // ms
 
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
@@ -776,7 +776,7 @@ public class Controller extends Thread {
 		}
 	}
 
-	public boolean checkRecoveryModeForPeers(List<Peer> qualifiedPeers) {
+	private boolean checkRecoveryModeForPeers(List<Peer> qualifiedPeers) {
 		List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
 
 		if (handshakedPeers.size() > 0) {
