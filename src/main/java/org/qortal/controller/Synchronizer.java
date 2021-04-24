@@ -361,8 +361,8 @@ public class Synchronizer {
 						// Compare against our chain - if our blockchain has greater weight then don't synchronize with peer (or any others in this group)
 						if (ourChainWeight.compareTo(peerChainWeight) > 0) {
 							// This peer is on an inferior chain - remove it
-							LOGGER.debug(String.format("Peer %s is on an inferior chain to us - added %.8s to inferior chain signatures list", peer, Base58.encode(peer.getChainTipData().getLastBlockSignature())));
-							Controller.getInstance().addInferiorChainSignature(peer.getChainTipData().getLastBlockSignature());
+							LOGGER.debug(String.format("Peer %s is on an inferior chain to us - removing it from this round", peer));
+							peers.remove(peer);
 						}
 						else {
 							// Our chain is inferior
@@ -384,7 +384,7 @@ public class Synchronizer {
 							// Check if we should discard an inferior peer
 							if (peer.getCommonBlockData().getChainWeight().compareTo(bestChainWeight) < 0) {
 								LOGGER.debug(String.format("Peer %s has a lower chain weight than other peer(s) in this group - removing it from this round.", peer));
-								Controller.getInstance().addInferiorChainSignature(peer.getChainTipData().getLastBlockSignature());
+								peers.remove(peer);
 							}
 						}
 					}
