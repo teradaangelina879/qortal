@@ -337,10 +337,7 @@ public class Synchronizer {
 					LOGGER.debug(String.format("Our chain weight based on %d blocks is %s", ourBlockSummaries.size(), formatter.format(ourChainWeight)));
 
 					LOGGER.debug(String.format("Listing peers with common block %.8s...", Base58.encode(commonBlockSummary.getSignature())));
-					iterator = peersSharingCommonBlock.iterator();
-					while (iterator.hasNext()) {
-						Peer peer = (Peer)iterator.next();
-
+					for (Peer peer : peersSharingCommonBlock) {
 						final int peerHeight = peer.getChainTipData().getLastHeight();
 						final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
 						final CommonBlockData peerCommonBlockData = peer.getCommonBlockData();
@@ -348,7 +345,7 @@ public class Synchronizer {
 						if (peerCommonBlockData == null || peerCommonBlockData.getBlockSummariesAfterCommonBlock() == null || peerCommonBlockData.getBlockSummariesAfterCommonBlock().isEmpty()) {
 							// No response - remove this peer for now
 							LOGGER.debug(String.format("Peer %s doesn't have any block summaries - removing it from this round", peer));
-							iterator.remove();
+							peers.remove(peer);
 							continue;
 						}
 
