@@ -252,7 +252,7 @@ public class Synchronizer {
 				while (iterator.hasNext()) {
 					Peer peer = (Peer) iterator.next();
 					if (peer.getCommonBlockData() == null) {
-						LOGGER.debug(String.format("Removed peer %s because it has no common block data"));
+						LOGGER.debug(String.format("Removed peer %s because it has no common block data", peer));
 						iterator.remove();
 					}
 				}
