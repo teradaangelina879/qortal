@@ -669,10 +669,17 @@ public class Controller extends Thread {
 
 		final int peersRemoved = peersBeforeComparison - peers.size();
 		if (peersRemoved > 0)
-			LOGGER.debug(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
+			LOGGER.info(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
 
 		if (peers.isEmpty())
 			return;
+
+		if (peers.size() > 1) {
+			StringBuilder finalPeersString = new StringBuilder();
+			for (Peer peer : peers)
+				finalPeersString = finalPeersString.length() > 0 ? finalPeersString.append(", ").append(peer) : finalPeersString.append(peer);
+			LOGGER.info(String.format("Choosing random peer from: [%s]", finalPeersString.toString()));
+		}
 
 		// Pick random peer to sync with
 		int index = new SecureRandom().nextInt(peers.size());

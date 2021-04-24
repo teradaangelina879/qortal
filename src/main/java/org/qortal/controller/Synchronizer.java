@@ -334,6 +334,7 @@ public class Synchronizer {
 						ourChainWeight = Block.calcChainWeight(commonBlockSummary.getHeight(), commonBlockSummary.getSignature(), ourBlockSummaries, minChainLength);
 
 					NumberFormat formatter = new DecimalFormat("0.###E0");
+					NumberFormat accurateFormatter = new DecimalFormat("0.################E0");
 					LOGGER.debug(String.format("Our chain weight based on %d blocks is %s", ourBlockSummaries.size(), formatter.format(ourChainWeight)));
 
 					LOGGER.debug(String.format("Listing peers with common block %.8s...", Base58.encode(commonBlockSummary.getSignature())));
@@ -383,7 +384,8 @@ public class Synchronizer {
 						for (Peer peer : superiorPeersForComparison) {
 							// Check if we should discard an inferior peer
 							if (peer.getCommonBlockData().getChainWeight().compareTo(bestChainWeight) < 0) {
-								LOGGER.debug(String.format("Peer %s has a lower chain weight than other peer(s) in this group - removing it from this round.", peer));
+								BigInteger difference = bestChainWeight.subtract(peer.getCommonBlockData().getChainWeight());
+								LOGGER.debug(String.format("Peer %s has a lower chain weight (difference: %s) than other peer(s) in this group - removing it from this round.", peer, accurateFormatter.format(difference)));
 								peers.remove(peer);
 							}
 						}
