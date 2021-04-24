@@ -403,10 +403,7 @@ public class Synchronizer {
 	private List<BlockSummaryData> uniqueCommonBlocks(List<Peer> peers) {
 		List<BlockSummaryData> commonBlocks = new ArrayList<>();
 
-		Iterator<Peer> iterator = peers.iterator();
-		while (iterator.hasNext()) {
-			Peer peer = iterator.next();
-
+		for (Peer peer : peers) {
 			if (peer.getCommonBlockData() != null && peer.getCommonBlockData().getCommonBlockSummary() != null) {
 				LOGGER.debug(String.format("Peer %s has common block %.8s", peer, Base58.encode(peer.getCommonBlockData().getCommonBlockSummary().getSignature())));
 
@@ -416,7 +413,6 @@ public class Synchronizer {
 			}
 			else {
 				LOGGER.debug(String.format("Peer %s has no common block data. Skipping...", peer));
-				iterator.remove();
 			}
 		}
 
