@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -631,6 +632,25 @@ public class Peer {
 			}
 		}
 	}
+
+
+	// Common block data
+
+	public boolean canUseCachedCommonBlockData() {
+		PeerChainTipData peerChainTipData = this.getChainTipData();
+		CommonBlockData commonBlockData = this.getCommonBlockData();
+
+		if (peerChainTipData != null && commonBlockData != null) {
+			PeerChainTipData commonBlockChainTipData = commonBlockData.getChainTipData();
+			if (peerChainTipData.getLastBlockSignature() != null && commonBlockChainTipData != null && commonBlockChainTipData.getLastBlockSignature() != null) {
+				if (Arrays.equals(peerChainTipData.getLastBlockSignature(), commonBlockChainTipData.getLastBlockSignature())) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 
 	// Utility methods
 

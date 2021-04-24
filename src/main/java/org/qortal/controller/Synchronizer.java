@@ -118,17 +118,9 @@ public class Synchronizer {
 						return SynchronizationResult.SHUTTING_DOWN;
 
 					// Check if we can use the cached common block data, by comparing the peer's current chain tip against the peer's chain tip when we last found our common block
-					PeerChainTipData peerChainTipData = peer.getChainTipData();
-					CommonBlockData commonBlockData = peer.getCommonBlockData();
-
-					if (peerChainTipData != null && commonBlockData != null) {
-						PeerChainTipData commonBlockChainTipData = commonBlockData.getChainTipData();
-						if (peerChainTipData.getLastBlockSignature() != null && commonBlockChainTipData != null && commonBlockChainTipData.getLastBlockSignature() != null) {
-							if (Arrays.equals(peerChainTipData.getLastBlockSignature(), commonBlockChainTipData.getLastBlockSignature())) {
-								LOGGER.debug(String.format("Skipping peer %s because we already have the latest common block data in our cache. Cached common block sig is %.08s", peer, Base58.encode(commonBlockData.getCommonBlockSummary().getSignature())));
-								continue;
-							}
-						}
+					if (peer.canUseCachedCommonBlockData()) {
+						LOGGER.debug(String.format("Skipping peer %s because we already have the latest common block data in our cache. Cached common block sig is %.08s", peer, Base58.encode(peer.getCommonBlockData().getCommonBlockSummary().getSignature())));
+						continue;
 					}
 
 					// Cached data is stale, so clear it and repopulate
@@ -288,31 +280,43 @@ public class Synchronizer {
 						final int peerHeight = peer.getChainTipData().getLastHeight();
 						final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
 						// Limit the number of blocks we are comparing. FUTURE: we could request more in batches, but there may not be a case when this is needed
-						final int summariesRequired = Math.min(peerAdditionalBlocksAfterCommonBlock, MAXIMUM_REQUEST_SIZE);
+						int summariesRequired = Math.min(peerAdditionalBlocksAfterCommonBlock, MAXIMUM_REQUEST_SIZE);
 
-						if (summariesRequired > 0) {
-							LOGGER.trace(String.format("Requesting %d block summar%s from peer %s after common block %.8s. Peer height: %d", summariesRequired, (summariesRequired != 1 ? "ies" : "y"), peer, Base58.encode(commonBlockSummary.getSignature()), peerHeight));
-
-							List<BlockSummaryData> blockSummaries = this.getBlockSummaries(peer, commonBlockSummary.getSignature(), summariesRequired);
-							peer.getCommonBlockData().setBlockSummariesAfterCommonBlock(blockSummaries);
-
-							if (blockSummaries != null) {
-								LOGGER.trace(String.format("Peer %s returned %d block summar%s", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y")));
-
-								// We need to adjust minChainLength if peers fail to return all expected block summaries
-								if (blockSummaries.size() < summariesRequired) {
-									// This could mean that the peer has re-orged. But we still have the same common block, so it's safe to proceed with this set of signatures instead.
-									LOGGER.debug(String.format("Peer %s returned %d block summar%s instead of expected %d", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y"), summariesRequired));
-
-									// Update minChainLength if we have at least 1 block for this peer. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
-									if (blockSummaries.size() > 0)
-										minChainLength = blockSummaries.size();
+						// Check if we can use the cached common block summaries, by comparing the peer's current chain tip against the peer's chain tip when we last found our common block
+						boolean useCachedSummaries = false;
+						if (peer.canUseCachedCommonBlockData()) {
+							if (peer.getCommonBlockData().getBlockSummariesAfterCommonBlock() != null) {
+								if (peer.getCommonBlockData().getBlockSummariesAfterCommonBlock().size() == summariesRequired) {
+									LOGGER.debug(String.format("Using cached block summaries for peer %s", peer));
+									useCachedSummaries = true;
 								}
 							}
 						}
-						else {
-							// There are no block summaries after this common block
-							peer.getCommonBlockData().setBlockSummariesAfterCommonBlock(null);
+
+						if (useCachedSummaries == false) {
+							if (summariesRequired > 0) {
+								LOGGER.trace(String.format("Requesting %d block summar%s from peer %s after common block %.8s. Peer height: %d", summariesRequired, (summariesRequired != 1 ? "ies" : "y"), peer, Base58.encode(commonBlockSummary.getSignature()), peerHeight));
+
+								List<BlockSummaryData> blockSummaries = this.getBlockSummaries(peer, commonBlockSummary.getSignature(), summariesRequired);
+								peer.getCommonBlockData().setBlockSummariesAfterCommonBlock(blockSummaries);
+
+								if (blockSummaries != null) {
+									LOGGER.trace(String.format("Peer %s returned %d block summar%s", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y")));
+
+									// We need to adjust minChainLength if peers fail to return all expected block summaries
+									if (blockSummaries.size() < summariesRequired) {
+										// This could mean that the peer has re-orged. But we still have the same common block, so it's safe to proceed with this set of signatures instead.
+										LOGGER.debug(String.format("Peer %s returned %d block summar%s instead of expected %d", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y"), summariesRequired));
+
+										// Update minChainLength if we have at least 1 block for this peer. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
+										if (blockSummaries.size() > 0)
+											minChainLength = blockSummaries.size();
+									}
+								}
+							} else {
+								// There are no block summaries after this common block
+								peer.getCommonBlockData().setBlockSummariesAfterCommonBlock(null);
+							}
 						}
 					}
 
