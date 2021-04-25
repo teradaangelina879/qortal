@@ -766,6 +766,11 @@ public class Synchronizer {
                     LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d, sig %.8s", peer,
                             height, Base58.encode(latestPeerSignature)));
 
+					// Clear our cache of common block summaries for this peer, as they are likely to be invalid
+					CommonBlockData cachedCommonBlockData = peer.getCommonBlockData();
+					if (cachedCommonBlockData != null)
+						cachedCommonBlockData.setBlockSummariesAfterCommonBlock(null);
+
                     // If we have already received RECENT blocks from this peer, go ahead and apply them
                     if (peerBlocks.size() > 0) {
                     	final Block peerLatestBlock = peerBlocks.get(peerBlocks.size() - 1);
