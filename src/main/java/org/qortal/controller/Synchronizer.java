@@ -474,9 +474,12 @@ public class Synchronizer {
 
 					List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
 					SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, force, peerBlockSummaries);
-					if (findCommonBlockResult != SynchronizationResult.OK)
+					if (findCommonBlockResult != SynchronizationResult.OK) {
 						// Logging performed by fetchSummariesFromCommonBlock() above
+						// Clear our common block cache for this peer
+						peer.setCommonBlockData(null);
 						return findCommonBlockResult;
+					}
 
 					// First summary is common block
 					final BlockData commonBlockData = repository.getBlockRepository().fromSignature(peerBlockSummaries.get(0).getSignature());
