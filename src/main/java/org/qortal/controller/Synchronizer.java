@@ -824,14 +824,31 @@ public class Synchronizer {
 
 				if (retryCount >= MAXIMUM_RETRIES) {
 
-					// If we have already received RECENT blocks from this peer, go ahead and apply them
+					// If we have already received recent or newer blocks from this peer, go ahead and apply them
 					if (peerBlocks.size() > 0) {
 						final Block peerLatestBlock = peerBlocks.get(peerBlocks.size() - 1);
 						final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+
+						// If we have received at least one recent block, we can apply them
 						if (peerLatestBlock != null && minLatestBlockTimestamp != null
 								&& peerLatestBlock.getBlockData().getTimestamp() > minLatestBlockTimestamp) {
 							LOGGER.debug("Newly received blocks are recent, so we will apply them");
 							break;
+						}
+
+						// If our latest block is very old....
+						final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
+						if (minLatestBlockTimestamp != null && ourLatestBlockData.getTimestamp() < minLatestBlockTimestamp) {
+							// ... and we have received a block that is more recent than our latest block ...
+							if (peerLatestBlock.getBlockData().getTimestamp() > ourLatestBlockData.getTimestamp()) {
+								// ... then apply the blocks, as it takes us a step forward.
+								// This is particularly useful when starting up a node that was on a small fork when it was last shut down.
+								// In these cases, we now allow the node to sync forward, and get onto the main chain again.
+								// Without this, we would require that the node syncs ENTIRELY with this peer,
+								// and any problems downloading a block would cause all progress to be lost.
+								LOGGER.debug(String.format("Newly received blocks are %d ms newer than our latest block - so we will apply them", peerLatestBlock.getBlockData().getTimestamp() - ourLatestBlockData.getTimestamp()));
+								break;
+							}
 						}
 					}
 					// Otherwise, give up and move on to the next peer, to avoid putting our chain into an outdated state
