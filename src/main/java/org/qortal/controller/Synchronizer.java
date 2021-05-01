@@ -308,9 +308,10 @@ public class Synchronizer {
 										// This could mean that the peer has re-orged. But we still have the same common block, so it's safe to proceed with this set of signatures instead.
 										LOGGER.debug(String.format("Peer %s returned %d block summar%s instead of expected %d", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y"), summariesRequired));
 
-										// Update minChainLength if we have at least 1 block for this peer. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
+										// Reduce minChainLength if we have at least 1 block for this peer. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
 										if (blockSummaries.size() > 0)
-											minChainLength = blockSummaries.size();
+											if (blockSummaries.size() < minChainLength)
+												minChainLength = blockSummaries.size();
 									}
 								}
 							} else {
