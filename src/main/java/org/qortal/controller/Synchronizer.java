@@ -709,7 +709,7 @@ public class Synchronizer {
 			populateBlockSummariesMinterLevels(repository, ourBlockSummaries);
 			populateBlockSummariesMinterLevels(repository, peerBlockSummaries);
 
-			final int mutualHeight = commonBlockHeight - 1 + Math.min(ourBlockSummaries.size(), peerBlockSummaries.size());
+			final int mutualHeight = commonBlockHeight + Math.min(ourBlockSummaries.size(), peerBlockSummaries.size());
 
 			// Calculate cumulative chain weights of both blockchain subsets, from common block to highest mutual block.
 			BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries, mutualHeight);
