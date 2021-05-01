@@ -267,7 +267,7 @@ public class Synchronizer {
 
 					// Calculate the length of the shortest peer chain sharing this common block, including our chain
 					final int ourAdditionalBlocksAfterCommonBlock = ourHeight - commonBlockSummary.getHeight();
-					int minChainLength = this.calculateMinChainLength(commonBlockSummary, ourAdditionalBlocksAfterCommonBlock, peersSharingCommonBlock);
+					int minChainLength = this.calculateMinChainLengthOfPeers(peersSharingCommonBlock, commonBlockSummary);
 
 					// Fetch block summaries from each peer
 					for (Peer peer : peersSharingCommonBlock) {
@@ -325,10 +325,15 @@ public class Synchronizer {
 					final int ourSummariesRequired = Math.min(ourAdditionalBlocksAfterCommonBlock, MAXIMUM_REQUEST_SIZE);
 					LOGGER.trace(String.format("About to fetch our block summaries from %d to %d. Our height: %d", commonBlockSummary.getHeight() + 1, commonBlockSummary.getHeight() + ourSummariesRequired, ourHeight));
 					List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository().getBlockSummaries(commonBlockSummary.getHeight() + 1, commonBlockSummary.getHeight() + ourSummariesRequired);
-					if (ourBlockSummaries.isEmpty())
+					if (ourBlockSummaries.isEmpty()) {
 						LOGGER.debug(String.format("We don't have any block summaries so can't compare our chain against peers with this common block. We can still compare them against each other."));
-					else
+					}
+					else {
 						populateBlockSummariesMinterLevels(repository, ourBlockSummaries);
+						// Reduce minChainLength if we have less summaries
+						if (ourBlockSummaries.size() < minChainLength)
+							minChainLength = ourBlockSummaries.size();
+					}
 
 					// Create array to hold peers for comparison
 					List<Peer> superiorPeersForComparison = new ArrayList<>();
@@ -426,14 +431,14 @@ public class Synchronizer {
 		return commonBlocks;
 	}
 
-	private int calculateMinChainLength(BlockSummaryData commonBlockSummary, int ourAdditionalBlocksAfterCommonBlock, List<Peer> peersSharingCommonBlock) {
+	private int calculateMinChainLengthOfPeers(List<Peer> peersSharingCommonBlock, BlockSummaryData commonBlockSummary) {
 		// Calculate the length of the shortest peer chain sharing this common block, including our chain
-		int minChainLength = ourAdditionalBlocksAfterCommonBlock;
+		int minChainLength = 0;
 		for (Peer peer : peersSharingCommonBlock) {
 			final int peerHeight = peer.getChainTipData().getLastHeight();
 			final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
 
-			if (peerAdditionalBlocksAfterCommonBlock < minChainLength)
+			if (peerAdditionalBlocksAfterCommonBlock < minChainLength || minChainLength == 0)
 				minChainLength = peerAdditionalBlocksAfterCommonBlock;
 		}
 		return minChainLength;
