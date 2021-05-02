@@ -52,7 +52,7 @@ public class Settings {
 	// UI servers
 	private int uiPort = 12388;
 	private String[] uiLocalServers = new String[] {
-		"localhost", "127.0.0.1", "172.24.1.1", "qor.tal"
+		"localhost", "127.0.0.1"
 	};
 	private String[] uiRemoteServers = new String[] {
 		"node1.qortal.org", "node2.qortal.org", "node3.qortal.org", "node4.qortal.org", "node5.qortal.org",
@@ -89,6 +89,8 @@ public class Settings {
 	private long repositoryCheckpointInterval = 60 * 60 * 1000L; // 1 hour (ms) default
 	/** Whether to show a notification when we perform repository 'checkpoint'. */
 	private boolean showCheckpointNotification = false;
+	/* How many blocks to cache locally. Defaulted to 10, which covers a typical Synchronizer request + a few spare */
+	private int blockCacheSize = 10;
 
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
@@ -134,6 +136,8 @@ public class Settings {
 	private Long slowQueryThreshold = null;
 	/** Repository storage path. */
 	private String repositoryPath = "db";
+	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
+	private int repositoryConnectionPoolSize = 100;
 
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
@@ -361,6 +365,10 @@ public class Settings {
 		return this.maxTransactionTimestampFuture;
 	}
 
+	public int getBlockCacheSize() {
+		return this.blockCacheSize;
+	}
+
 	public boolean isTestNet() {
 		return this.isTestNet;
 	}
@@ -422,6 +430,10 @@ public class Settings {
 
 	public String getRepositoryPath() {
 		return this.repositoryPath;
+	}
+
+	public int getRepositoryConnectionPoolSize() {
+		return this.repositoryConnectionPoolSize;
 	}
 
 	public boolean isAutoUpdateEnabled() {

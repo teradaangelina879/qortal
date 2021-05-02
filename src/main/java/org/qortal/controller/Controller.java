@@ -67,8 +67,8 @@ import org.qortal.gui.SysTray;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.ArbitraryDataMessage;
-import org.qortal.network.message.BlockMessage;
 import org.qortal.network.message.BlockSummariesMessage;
+import org.qortal.network.message.CachedBlockMessage;
 import org.qortal.network.message.GetArbitraryDataMessage;
 import org.qortal.network.message.GetBlockMessage;
 import org.qortal.network.message.GetBlockSummariesMessage;
@@ -121,6 +121,7 @@ public class Controller extends Thread {
 	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms
 	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000L; // ms
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
+	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000L; // ms
 
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
@@ -143,16 +144,15 @@ public class Controller extends Thread {
 	private ExecutorService callbackExecutor = Executors.newFixedThreadPool(3);
 	private volatile boolean notifyGroupMembershipChange = false;
 
-	private static final int BLOCK_CACHE_SIZE = 10; // To cover typical Synchronizer request + a few spare
 	/** Latest blocks on our chain. Note: tail/last is the latest block. */
 	private final Deque<BlockData> latestBlocks = new LinkedList<>();
 
 	/** Cache of BlockMessages, indexed by block signature */
 	@SuppressWarnings("serial")
-	private final LinkedHashMap<ByteArray, BlockMessage> blockMessageCache = new LinkedHashMap<>() {
+	private final LinkedHashMap<ByteArray, CachedBlockMessage> blockMessageCache = new LinkedHashMap<>() {
 		@Override
-		protected boolean removeEldestEntry(Map.Entry<ByteArray, BlockMessage> eldest) {
-			return this.size() > BLOCK_CACHE_SIZE;
+		protected boolean removeEldestEntry(Map.Entry<ByteArray, CachedBlockMessage> eldest) {
+			return this.size() > Settings.getInstance().getBlockCacheSize();
 		}
 	};
 
@@ -175,6 +175,11 @@ public class Controller extends Thread {
 
 	/** Latest block signatures from other peers that we know are on inferior chains. */
 	List<ByteArray> inferiorChainSignatures = new ArrayList<>();
+
+	/** Recovery mode, which is used to bring back a stalled network */
+	private boolean recoveryMode = false;
+	private boolean peersAvailable = true; // peersAvailable must default to true
+	private long timePeersLastAvailable = 0;
 
 	/**
 	 * Map of recent requests for ARBITRARY transaction data payloads.
@@ -319,11 +324,12 @@ public class Controller extends Thread {
 		// Set initial chain height/tip
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().getLastBlock();
+			int blockCacheSize = Settings.getInstance().getBlockCacheSize();
 
 			synchronized (this.latestBlocks) {
 				this.latestBlocks.clear();
 
-				for (int i = 0; i < BLOCK_CACHE_SIZE && blockData != null; ++i) {
+				for (int i = 0; i < blockCacheSize && blockData != null; ++i) {
 					this.latestBlocks.addFirst(blockData);
 					blockData = repository.getBlockRepository().fromHeight(blockData.getHeight() - 1);
 				}
@@ -356,6 +362,10 @@ public class Controller extends Thread {
 		synchronized (this.syncLock) {
 			return this.isSynchronizing ? this.syncPercent : null;
 		}
+	}
+
+	public boolean getRecoveryMode() {
+		return this.recoveryMode;
 	}
 
 	// Entry point
@@ -536,12 +546,7 @@ public class Controller extends Thread {
 				if (now >= repositoryCheckpointTimestamp + repositoryCheckpointInterval) {
 					repositoryCheckpointTimestamp = now + repositoryCheckpointInterval;
 
-					if (Settings.getInstance().getShowCheckpointNotification())
-						SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_CHECKPOINT"),
-								Translator.INSTANCE.translate("SysTray", "PERFORMING_DB_CHECKPOINT"),
-								MessageType.INFO);
-
-					RepositoryManager.checkpoint(true);
+					RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
 				}
 
 				// Give repository a chance to backup (if enabled)
@@ -634,6 +639,13 @@ public class Controller extends Thread {
 		// Disregard peers that don't have a recent block
 		peers.removeIf(hasNoRecentBlock);
 
+		checkRecoveryModeForPeers(peers);
+		if (recoveryMode) {
+			peers = Network.getInstance().getHandshakedPeers();
+			peers.removeIf(hasOnlyGenesisBlock);
+			peers.removeIf(hasMisbehaved);
+		}
+
 		// Check we have enough peers to potentially synchronize
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 			return;
@@ -644,8 +656,30 @@ public class Controller extends Thread {
 		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
 		peers.removeIf(hasInferiorChainTip);
 
+		final int peersBeforeComparison = peers.size();
+
+		// Request recent block summaries from the remaining peers, and locate our common block with each
+		Synchronizer.getInstance().findCommonBlocksWithPeers(peers);
+
+		// Compare the peers against each other, and against our chain, which will return an updated list excluding those without common blocks
+		peers = Synchronizer.getInstance().comparePeers(peers);
+
+		// We may have added more inferior chain tips when comparing peers, so remove any peers that are currently on those chains
+		peers.removeIf(hasInferiorChainTip);
+
+		final int peersRemoved = peersBeforeComparison - peers.size();
+		if (peersRemoved > 0)
+			LOGGER.info(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
+
 		if (peers.isEmpty())
 			return;
+
+		if (peers.size() > 1) {
+			StringBuilder finalPeersString = new StringBuilder();
+			for (Peer peer : peers)
+				finalPeersString = finalPeersString.length() > 0 ? finalPeersString.append(", ").append(peer) : finalPeersString.append(peer);
+			LOGGER.info(String.format("Choosing random peer from: [%s]", finalPeersString.toString()));
+		}
 
 		// Pick random peer to sync with
 		int index = new SecureRandom().nextInt(peers.size());
@@ -749,6 +783,46 @@ public class Controller extends Thread {
 		}
 	}
 
+	private boolean checkRecoveryModeForPeers(List<Peer> qualifiedPeers) {
+		List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
+
+		if (handshakedPeers.size() > 0) {
+			// There is at least one handshaked peer
+			if (qualifiedPeers.isEmpty()) {
+				// There are no 'qualified' peers - i.e. peers that have a recent block we can sync to
+				boolean werePeersAvailable = peersAvailable;
+				peersAvailable = false;
+
+				// If peers only just became unavailable, update our record of the time they were last available
+				if (werePeersAvailable)
+					timePeersLastAvailable = NTP.getTime();
+
+				// If enough time has passed, enter recovery mode, which lifts some restrictions on who we can sync with and when we can mint
+				if (NTP.getTime() - timePeersLastAvailable > RECOVERY_MODE_TIMEOUT) {
+					if (recoveryMode == false) {
+						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", RECOVERY_MODE_TIMEOUT/60/1000));
+						recoveryMode = true;
+					}
+				}
+			} else {
+				// We now have at least one peer with a recent block, so we can exit recovery mode and sync normally
+				peersAvailable = true;
+				if (recoveryMode) {
+					LOGGER.info("Peers have become available again. Exiting recovery mode...");
+					recoveryMode = false;
+				}
+			}
+		}
+		return recoveryMode;
+	}
+
+	public void addInferiorChainSignature(byte[] inferiorSignature) {
+		// Update our list of inferior chain tips
+		ByteArray inferiorChainSignature = new ByteArray(inferiorSignature);
+		if (!inferiorChainSignatures.contains(inferiorChainSignature))
+			inferiorChainSignatures.add(inferiorChainSignature);
+	}
+
 	public static class StatusChangeEvent implements Event {
 		public StatusChangeEvent() {
 		}
@@ -780,7 +854,7 @@ public class Controller extends Thread {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_DISABLED");
 		}
 
-		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height);
+		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height) + "\n" + String.format("Build version: %s", this.buildVersion);
 		SysTray.getInstance().setToolTipText(tooltip);
 
 		this.callbackExecutor.execute(() -> {
@@ -811,7 +885,10 @@ public class Controller extends Thread {
 
 			repository.saveChanges();
 		} catch (DataException e) {
-			LOGGER.error("Repository issue while deleting expired unconfirmed transactions", e);
+			if (RepositoryManager.isDeadlockRelated(e))
+				LOGGER.info("Couldn't delete some expired, unconfirmed transactions this round");
+			else
+				LOGGER.error("Repository issue while deleting expired unconfirmed transactions", e);
 		}
 	}
 
@@ -935,6 +1012,7 @@ public class Controller extends Thread {
 	public void onNewBlock(BlockData latestBlockData) {
 		// Protective copy
 		BlockData blockDataCopy = new BlockData(latestBlockData);
+		int blockCacheSize = Settings.getInstance().getBlockCacheSize();
 
 		synchronized (this.latestBlocks) {
 			BlockData cachedChainTip = this.latestBlocks.peekLast();
@@ -944,7 +1022,7 @@ public class Controller extends Thread {
 				this.latestBlocks.addLast(latestBlockData);
 
 				// Trim if necessary
-				if (this.latestBlocks.size() >= BLOCK_CACHE_SIZE)
+				if (this.latestBlocks.size() >= blockCacheSize)
 					this.latestBlocks.pollFirst();
 			} else {
 				if (cachedChainTip != null)
@@ -1152,14 +1230,15 @@ public class Controller extends Thread {
 
 		ByteArray signatureAsByteArray = new ByteArray(signature);
 
-		BlockMessage cachedBlockMessage = this.blockMessageCache.get(signatureAsByteArray);
+		CachedBlockMessage cachedBlockMessage = this.blockMessageCache.get(signatureAsByteArray);
+		int blockCacheSize = Settings.getInstance().getBlockCacheSize();
 
 		// Check cached latest block message
 		if (cachedBlockMessage != null) {
 			this.stats.getBlockMessageStats.cacheHits.incrementAndGet();
 
 			// We need to duplicate it to prevent multiple threads setting ID on the same message
-			BlockMessage clonedBlockMessage = cachedBlockMessage.cloneWithNewId(message.getId());
+			CachedBlockMessage clonedBlockMessage = cachedBlockMessage.cloneWithNewId(message.getId());
 
 			if (!peer.sendMessage(clonedBlockMessage))
 				peer.disconnect("failed to send block");
@@ -1187,15 +1266,18 @@ public class Controller extends Thread {
 
 			Block block = new Block(repository, blockData);
 
-			BlockMessage blockMessage = new BlockMessage(block);
+			CachedBlockMessage blockMessage = new CachedBlockMessage(block);
 			blockMessage.setId(message.getId());
 
 			// This call also causes the other needed data to be pulled in from repository
-			if (!peer.sendMessage(blockMessage))
+			if (!peer.sendMessage(blockMessage)) {
 				peer.disconnect("failed to send block");
+				// Don't fall-through to caching because failure to send might be from failure to build message
+				return;
+			}
 
 			// If request is for a recent block, cache it
-			if (getChainHeight() - blockData.getHeight() <= BLOCK_CACHE_SIZE) {
+			if (getChainHeight() - blockData.getHeight() <= blockCacheSize) {
 				this.stats.getBlockMessageStats.cacheFills.incrementAndGet();
 
 				this.blockMessageCache.put(new ByteArray(blockData.getSignature()), blockMessage);
@@ -1208,6 +1290,18 @@ public class Controller extends Thread {
 	private void onNetworkTransactionMessage(Peer peer, Message message) {
 		TransactionMessage transactionMessage = (TransactionMessage) message;
 		TransactionData transactionData = transactionMessage.getTransactionData();
+
+		/*
+		 *  If we can't obtain blockchain lock immediately,
+		 *  e.g. Synchronizer is active, or another transaction is taking a while to validate,
+		 *  then we're using up a network thread for ages and clogging things up
+		 *  so bail out early
+		 */
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		if (!blockchainLock.tryLock()) {
+			LOGGER.trace(() -> String.format("Too busy to import %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+			return;
+		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
@@ -1238,6 +1332,8 @@ public class Controller extends Thread {
 			LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
+		} finally {
+			blockchainLock.unlock();
 		}
 	}
 

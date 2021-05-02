@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -1160,6 +1161,51 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		List<TransactionData> transactions = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return transactions;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				TransactionData transactionData = this.fromSignature(signature);
+
+				if (transactionData == null)
+					// Something inconsistent with the repository
+					throw new DataException(String.format("Unable to fetch unconfirmed transaction %s from repository?", Base58.encode(signature)));
+
+				transactions.add(transactionData);
+			} while (resultSet.next());
+
+			return transactions;
+		} catch (SQLException | DataException e) {
+			throw new DataException("Unable to fetch unconfirmed transactions from repository", e);
+		}
+	}
+
+	@Override
+	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes) throws DataException {
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT signature FROM UnconfirmedTransactions ");
+		sql.append("JOIN Transactions USING (signature) ");
+		sql.append("WHERE type NOT IN (");
+
+		boolean firstTxType = true;
+		for (TransactionType txType : excludedTxTypes) {
+			if (firstTxType)
+				firstTxType = false;
+			else
+				sql.append(", ");
+
+			sql.append(txType.value);
+		}
+
+		sql.append(")");
+		sql.append("ORDER BY created_when, signature");
+
+		List<TransactionData> transactions = new ArrayList<>();
+
+		// Find transactions with no corresponding row in BlockTransactions
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
 				return transactions;
 

@@ -46,6 +46,8 @@
 		"newAssetPricingTimestamp": 0,
 		"groupApprovalTimestamp": 0,
 		"atFindNextTransactionFix": 0,
+		"newBlockSigHeight": 999999,
+		"shareBinFix": 999999,
 		"calcChainWeightTimestamp": 0
 	},
 	"genesisInfo": {

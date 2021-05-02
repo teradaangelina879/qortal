@@ -211,6 +211,9 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 
 		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Built AT %s. Waiting for deployment", atAddress));
 
+		// Attempt to backup the trade bot data
+		TradeBot.backupTradeBotData(repository);
+
 		// Return to user for signing and broadcast as we don't have their Qortal private key
 		try {
 			return DeployAtTransactionTransformer.toBytes(deployAtTransactionData);
@@ -283,6 +286,9 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				crossChainTradeData.expectedForeignAmount, xprv58, null, lockTimeA, receivingPublicKeyHash);
 
+		// Attempt to backup the trade bot data
+		TradeBot.backupTradeBotData(repository);
+
 		// Check we have enough funds via xprv58 to fund P2SH to cover expectedForeignAmount
 		long p2shFee;
 		try {
@@ -343,9 +349,13 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 	}
 
 	@Override
-	public boolean canDelete(Repository repository, TradeBotData tradeBotData) {
+	public boolean canDelete(Repository repository, TradeBotData tradeBotData) throws DataException {
 		State tradeBotState = State.valueOf(tradeBotData.getStateValue());
 		if (tradeBotState == null)
+			return true;
+
+		// If the AT doesn't exist then we might as well let the user tidy up
+		if (!repository.getATRepository().exists(tradeBotData.getAtAddress()))
 			return true;
 
 		switch (tradeBotState) {
@@ -376,7 +386,16 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 			// Attempt to fetch AT data
 			atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 			if (atData == null) {
-				LOGGER.warn(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
+				LOGGER.debug(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
+
+				// If it has been over 24 hours since we last updated this trade-bot entry then assume AT is never coming back
+				// and so wipe the trade-bot entry
+				if (tradeBotData.getTimestamp() + MAX_AT_CONFIRMATION_PERIOD < NTP.getTime()) {
+					LOGGER.info(() -> String.format("AT %s has been gone for too long - deleting trade-bot entry", tradeBotData.getAtAddress()));
+					repository.getCrossChainRepository().delete(tradeBotData.getTradePrivateKey());
+					repository.saveChanges();
+				}
+
 				return;
 			}
 

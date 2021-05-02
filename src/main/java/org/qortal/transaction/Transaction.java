@@ -4,6 +4,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -605,7 +606,8 @@ public abstract class Transaction {
 	public static List<TransactionData> getUnconfirmedTransactions(Repository repository) throws DataException {
 		BlockData latestBlockData = repository.getBlockRepository().getLastBlock();
 
-		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+		EnumSet<TransactionType> excludedTxTypes = EnumSet.of(TransactionType.CHAT, TransactionType.PRESENCE);
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions(excludedTxTypes);
 
 		unconfirmedTransactions.sort(getDataComparator());
 

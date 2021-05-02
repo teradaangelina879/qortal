@@ -14,11 +14,11 @@ import org.hsqldb.jdbc.HSQLDBPool;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryFactory;
+import org.qortal.settings.Settings;
 
 public class HSQLDBRepositoryFactory implements RepositoryFactory {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepositoryFactory.class);
-	private static final int POOL_SIZE = 100;
 
 	/** Log getConnection() calls that take longer than this. (ms) */
 	private static final long SLOW_CONNECTION_THRESHOLD = 1000L;
@@ -57,7 +57,7 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 			HSQLDBRepository.attemptRecovery(connectionUrl);
 		}
 
-		this.connectionPool = new HSQLDBPool(POOL_SIZE);
+		this.connectionPool = new HSQLDBPool(Settings.getInstance().getRepositoryConnectionPoolSize());
 		this.connectionPool.setUrl(this.connectionUrl);
 
 		Properties properties = new Properties();
@@ -94,7 +94,11 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 	@Override
 	public Repository tryRepository() throws DataException {
 		try {
-			return new HSQLDBRepository(this.tryConnection());
+			Connection connection = this.tryConnection();
+			if (connection == null)
+				return null;
+
+			return new HSQLDBRepository(connection);
 		} catch (SQLException e) {
 			throw new DataException("Repository instantiation error", e);
 		}
@@ -142,6 +146,11 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		} catch (SQLException e) {
 			throw new DataException("Error during repository shutdown", e);
 		}
+	}
+
+	@Override
+	public boolean isDeadlockException(SQLException e) {
+		return HSQLDBRepository.isDeadlockException(e);
 	}
 
 }

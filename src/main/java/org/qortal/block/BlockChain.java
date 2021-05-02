@@ -71,6 +71,8 @@ public class BlockChain {
 
 	public enum FeatureTrigger {
 		atFindNextTransactionFix,
+		newBlockSigHeight,
+		shareBinFix,
 		calcChainWeightTimestamp;
 	}
 
@@ -375,6 +377,14 @@ public class BlockChain {
 
 	public int getAtFindNextTransactionFixHeight() {
 		return this.featureTriggers.get(FeatureTrigger.atFindNextTransactionFix.name()).intValue();
+	}
+
+	public int getNewBlockSigHeight() {
+		return this.featureTriggers.get(FeatureTrigger.newBlockSigHeight.name()).intValue();
+	}
+
+	public int getShareBinFixHeight() {
+		return this.featureTriggers.get(FeatureTrigger.shareBinFix.name()).intValue();
 	}
 
 	public long getCalcChainWeightTimestamp() {

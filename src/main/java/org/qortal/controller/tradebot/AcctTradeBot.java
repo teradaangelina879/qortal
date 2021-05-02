@@ -23,7 +23,7 @@ public interface AcctTradeBot {
 	public ResponseResult startResponse(Repository repository, ATData atData, ACCT acct,
 			CrossChainTradeData crossChainTradeData, String foreignKey, String receivingAddress) throws DataException;
 
-	public boolean canDelete(Repository repository, TradeBotData tradeBotData);
+	public boolean canDelete(Repository repository, TradeBotData tradeBotData) throws DataException;
 
 	public void progress(Repository repository, TradeBotData tradeBotData) throws DataException, ForeignBlockchainException;
 
