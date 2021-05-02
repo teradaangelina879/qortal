@@ -122,6 +122,7 @@ public class Synchronizer {
 					// Check if we can use the cached common block data, by comparing the peer's current chain tip against the peer's chain tip when we last found our common block
 					if (peer.canUseCachedCommonBlockData()) {
 						LOGGER.debug(String.format("Skipping peer %s because we already have the latest common block data in our cache. Cached common block sig is %.08s", peer, Base58.encode(peer.getCommonBlockData().getCommonBlockSummary().getSignature())));
+						commonBlocksFound++;
 						continue;
 					}
 
