@@ -796,7 +796,9 @@ public class Block {
 		NumberFormat formatter = new DecimalFormat("0.###E0");
 		boolean isLogging = LOGGER.getLevel().isLessSpecificThan(Level.TRACE);
 
+		int blockCount = 0;
 		for (BlockSummaryData blockSummaryData : blockSummaries) {
+			blockCount++;
 			StringBuilder stringBuilder = isLogging ? new StringBuilder(512) : null;
 
 			if (isLogging)
@@ -829,6 +831,7 @@ public class Block {
 			if (NTP.getTime() >= BlockChain.getInstance().getCalcChainWeightTimestamp() && parentHeight >= maxHeight)
 				break;
 		}
+		LOGGER.debug(String.format("Chain weight calculation was based on %d blocks", blockCount));
 
 		return cumulativeWeight;
 	}
