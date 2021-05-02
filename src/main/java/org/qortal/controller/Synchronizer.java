@@ -309,22 +309,21 @@ public class Synchronizer {
 								if (blockSummaries != null) {
 									LOGGER.trace(String.format("Peer %s returned %d block summar%s", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y")));
 
-									// We need to adjust minChainLength if peers fail to return all expected block summaries
-									if (blockSummaries.size() < summariesRequired) {
+									if (blockSummaries.size() < summariesRequired)
 										// This could mean that the peer has re-orged. But we still have the same common block, so it's safe to proceed with this set of signatures instead.
 										LOGGER.debug(String.format("Peer %s returned %d block summar%s instead of expected %d", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y"), summariesRequired));
-
-										// Reduce minChainLength if we have at least 1 block for this peer. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
-										if (blockSummaries.size() > 0)
-											if (blockSummaries.size() < minChainLength)
-												minChainLength = blockSummaries.size();
-									}
 								}
 							} else {
 								// There are no block summaries after this common block
 								peer.getCommonBlockData().setBlockSummariesAfterCommonBlock(null);
 							}
 						}
+
+						// Reduce minChainLength if needed. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
+						List <BlockSummaryData> peerBlockSummaries = peer.getCommonBlockData().getBlockSummariesAfterCommonBlock();
+						if (peerBlockSummaries != null && peerBlockSummaries.size() > 0)
+							if (peerBlockSummaries.size() < minChainLength)
+								minChainLength = peerBlockSummaries.size();
 					}
 
 					// Fetch our corresponding block summaries. Limit to MAXIMUM_REQUEST_SIZE, in order to make the comparison fairer, as peers have been limited too
@@ -441,7 +440,7 @@ public class Synchronizer {
 	}
 
 	private int calculateMinChainLengthOfPeers(List<Peer> peersSharingCommonBlock, BlockSummaryData commonBlockSummary) {
-		// Calculate the length of the shortest peer chain sharing this common block, including our chain
+		// Calculate the length of the shortest peer chain sharing this common block
 		int minChainLength = 0;
 		for (Peer peer : peersSharingCommonBlock) {
 			final int peerHeight = peer.getChainTipData().getLastHeight();
