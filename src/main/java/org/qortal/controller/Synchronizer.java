@@ -338,10 +338,13 @@ public class Synchronizer {
 					// Create array to hold peers for comparison
 					List<Peer> superiorPeersForComparison = new ArrayList<>();
 
+					// Calculate max height for chain weight comparisons
+					int maxHeightForChainWeightComparisons = commonBlockSummary.getHeight() + minChainLength;
+
 					// Calculate our chain weight
 					BigInteger ourChainWeight = BigInteger.valueOf(0);
 					if (ourBlockSummaries.size() > 0)
-						ourChainWeight = Block.calcChainWeight(commonBlockSummary.getHeight(), commonBlockSummary.getSignature(), ourBlockSummaries, minChainLength);
+						ourChainWeight = Block.calcChainWeight(commonBlockSummary.getHeight(), commonBlockSummary.getSignature(), ourBlockSummaries, maxHeightForChainWeightComparisons);
 
 					NumberFormat formatter = new DecimalFormat("0.###E0");
 					NumberFormat accurateFormatter = new DecimalFormat("0.################E0");
@@ -365,7 +368,7 @@ public class Synchronizer {
 
 						// Calculate cumulative chain weight of this blockchain subset, from common block to highest mutual block held by all peers in this group.
 						LOGGER.debug(String.format("About to calculate chain weight based on %d blocks for peer %s with common block %.8s (peer has %d blocks after common block)", peerBlockSummariesAfterCommonBlock.size(), peer, Base58.encode(commonBlockSummary.getSignature()), peerAdditionalBlocksAfterCommonBlock));
-						BigInteger peerChainWeight = Block.calcChainWeight(commonBlockSummary.getHeight(), commonBlockSummary.getSignature(), peerBlockSummariesAfterCommonBlock, minChainLength);
+						BigInteger peerChainWeight = Block.calcChainWeight(commonBlockSummary.getHeight(), commonBlockSummary.getSignature(), peerBlockSummariesAfterCommonBlock, maxHeightForChainWeightComparisons);
 						peer.getCommonBlockData().setChainWeight(peerChainWeight);
 						LOGGER.debug(String.format("Chain weight of peer %s based on %d blocks (%d - %d) is %s", peer, peerBlockSummariesAfterCommonBlock.size(), peerBlockSummariesAfterCommonBlock.get(0).getHeight(), peerBlockSummariesAfterCommonBlock.get(peerBlockSummariesAfterCommonBlock.size()-1).getHeight(), formatter.format(peerChainWeight)));
 
