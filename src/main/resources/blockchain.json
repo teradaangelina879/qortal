@@ -51,7 +51,7 @@
 		"atFindNextTransactionFix": 275000,
 		"newBlockSigHeight": 320000,
 		"shareBinFix": 399000,
-		"calcChainWeightTimestamp": 1616000000000
+		"calcChainWeightTimestamp": 1620579600000
 	},
 	"genesisInfo": {
 		"version": 4,
