@@ -35,6 +35,7 @@ import org.qortal.network.message.Message.MessageType;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
@@ -56,9 +57,6 @@ public class Synchronizer {
 
 	/** Maximum number of block signatures we ask from peer in one go */
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
-
-	/** Number of retry attempts if a peer fails to respond with the requested data */
-	private static final int MAXIMUM_RETRIES = 2; // XXX move to Settings?
 
 
 	private static Synchronizer instance;
@@ -748,6 +746,7 @@ public class Synchronizer {
 
 		LOGGER.debug(() -> String.format("Fetching peer %s chain from height %d, sig %.8s", peer, commonBlockHeight, commonBlockSig58));
 
+		final int maxRetries = Settings.getInstance().getMaxRetries();
 
 		// Overall plan: fetch peer's blocks first, then orphan, then apply
 
@@ -837,7 +836,7 @@ public class Synchronizer {
 				LOGGER.info(String.format("Peer %s failed to respond with block for height %d, sig %.8s", peer,
 						nextHeight, Base58.encode(nextPeerSignature)));
 
-				if (retryCount >= MAXIMUM_RETRIES) {
+				if (retryCount >= maxRetries) {
 
 					// If we have already received recent or newer blocks from this peer, go ahead and apply them
 					if (peerBlocks.size() > 0) {
@@ -875,9 +874,9 @@ public class Synchronizer {
 					peerBlockSignatures.clear();
 					numberSignaturesRequired = peerHeight - height;
 
-					// Retry until retryCount reaches MAXIMUM_RETRIES
+					// Retry until retryCount reaches maxRetries
 					retryCount++;
-					int triesRemaining = MAXIMUM_RETRIES - retryCount;
+					int triesRemaining = maxRetries - retryCount;
 					LOGGER.info(String.format("Re-issuing request to peer %s (%d attempt%s remaining)", peer, triesRemaining, (triesRemaining != 1 ? "s" : "")));
 					continue;
 				}
