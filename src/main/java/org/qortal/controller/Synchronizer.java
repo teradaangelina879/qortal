@@ -63,6 +63,9 @@ public class Synchronizer {
 	/* Minimum peer version that supports syncing multiple blocks at once via GetBlocksMessage */
 	private static final long PEER_VERSION_160 = 0x0100060000L;
 
+	/** Maximum time to wait for a peer to respond with blocks (ms) */
+	private static final int FETCH_BLOCKS_TIMEOUT = 10000;
+
 
 	private static Synchronizer instance;
 
@@ -1189,7 +1192,7 @@ public class Synchronizer {
 	private List<Block> fetchBlocks(Repository repository, Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
 		Message getBlocksMessage = new GetBlocksMessage(parentSignature, numberRequested);
 
-		Message message = peer.getResponse(getBlocksMessage);
+		Message message = peer.getResponseWithTimeout(getBlocksMessage, FETCH_BLOCKS_TIMEOUT);
 		if (message == null || message.getType() != MessageType.BLOCKS) {
 			return null;
 		}

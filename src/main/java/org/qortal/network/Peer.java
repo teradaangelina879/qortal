@@ -538,7 +538,23 @@ public class Peer {
 	}
 
 	/**
-	 * Send message to peer and await response.
+	 * Send message to peer and await response, using default RESPONSE_TIMEOUT.
+	 * <p>
+	 * Message is assigned a random ID and sent. If a response with matching ID is received then it is returned to caller.
+	 * <p>
+	 * If no response with matching ID within timeout, or some other error/exception occurs, then return <code>null</code>.<br>
+	 * (Assume peer will be rapidly disconnected after this).
+	 *
+	 * @param message
+	 * @return <code>Message</code> if valid response received; <code>null</code> if not or error/exception occurs
+	 * @throws InterruptedException
+	 */
+	public Message getResponse(Message message) throws InterruptedException {
+		return getResponseWithTimeout(message, RESPONSE_TIMEOUT);
+	}
+
+	/**
+	 * Send message to peer and await response, using custom timeout.
 	 * <p>
 	 * Message is assigned a random ID and sent. If a response with matching ID is received then it is returned to caller.
 	 * <p>
@@ -546,10 +562,11 @@ public class Peer {
 	 * (Assume peer will be rapidly disconnected after this).
 	 * 
 	 * @param message
+	 * @param timeout
 	 * @return <code>Message</code> if valid response received; <code>null</code> if not or error/exception occurs
 	 * @throws InterruptedException
 	 */
-	public Message getResponse(Message message) throws InterruptedException {
+	public Message getResponseWithTimeout(Message message, int timeout) throws InterruptedException {
 		BlockingQueue<Message> blockingQueue = new ArrayBlockingQueue<>(1);
 
 		// Assign random ID to this message
@@ -570,7 +587,7 @@ public class Peer {
 		}
 
 		try {
-			return blockingQueue.poll(RESPONSE_TIMEOUT, TimeUnit.MILLISECONDS);
+			return blockingQueue.poll(timeout, TimeUnit.MILLISECONDS);
 		} finally {
 			this.replyQueues.remove(id);
 		}
