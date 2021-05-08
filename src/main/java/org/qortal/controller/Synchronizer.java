@@ -61,7 +61,7 @@ public class Synchronizer {
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
 
 	/* Minimum peer version that supports syncing multiple blocks at once via GetBlocksMessage */
-	private static final long PEER_VERSION_150 = 0x0100050000L;
+	private static final long PEER_VERSION_160 = 0x0100060000L;
 
 
 	private static Synchronizer instance;
@@ -967,7 +967,7 @@ public class Synchronizer {
 	private SynchronizationResult applyNewBlocks(Repository repository, BlockData commonBlockData, int ourInitialHeight,
 												 Peer peer, int peerHeight, List<BlockSummaryData> peerBlockSummaries) throws InterruptedException, DataException {
 
-		if (Settings.getInstance().isFastSyncEnabled() && peer.getPeersVersion() >= PEER_VERSION_150)
+		if (Settings.getInstance().isFastSyncEnabled() && peer.getPeersVersion() >= PEER_VERSION_160)
 			// This peer supports syncing multiple blocks at once via GetBlocksMessage, and it is enabled in the settings
 			return this.applyNewBlocksUsingFastSync(repository, commonBlockData, ourInitialHeight, peer, peerHeight, peerBlockSummaries);
 		else
