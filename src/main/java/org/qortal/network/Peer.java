@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.data.block.CommonBlockData;
 import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
 import org.qortal.network.message.ChallengeMessage;
@@ -105,6 +107,9 @@ public class Peer {
 
 	/** Latest block info as reported by peer. */
 	private PeerChainTipData peersChainTipData;
+
+	/** Our common block with this peer */
+	private CommonBlockData commonBlockData;
 
 	// Constructors
 
@@ -269,6 +274,18 @@ public class Peer {
 	public void setChainTipData(PeerChainTipData chainTipData) {
 		synchronized (this.peerInfoLock) {
 			this.peersChainTipData = chainTipData;
+		}
+	}
+
+	public CommonBlockData getCommonBlockData() {
+		synchronized (this.peerInfoLock) {
+			return this.commonBlockData;
+		}
+	}
+
+	public void setCommonBlockData(CommonBlockData commonBlockData) {
+		synchronized (this.peerInfoLock) {
+			this.commonBlockData = commonBlockData;
 		}
 	}
 
@@ -615,6 +632,25 @@ public class Peer {
 			}
 		}
 	}
+
+
+	// Common block data
+
+	public boolean canUseCachedCommonBlockData() {
+		PeerChainTipData peerChainTipData = this.getChainTipData();
+		CommonBlockData commonBlockData = this.getCommonBlockData();
+
+		if (peerChainTipData != null && commonBlockData != null) {
+			PeerChainTipData commonBlockChainTipData = commonBlockData.getChainTipData();
+			if (peerChainTipData.getLastBlockSignature() != null && commonBlockChainTipData != null && commonBlockChainTipData.getLastBlockSignature() != null) {
+				if (Arrays.equals(peerChainTipData.getLastBlockSignature(), commonBlockChainTipData.getLastBlockSignature())) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 
 	// Utility methods
 

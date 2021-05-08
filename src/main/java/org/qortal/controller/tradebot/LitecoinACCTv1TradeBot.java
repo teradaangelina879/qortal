@@ -211,6 +211,9 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 
 		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Built AT %s. Waiting for deployment", atAddress));
 
+		// Attempt to backup the trade bot data
+		TradeBot.backupTradeBotData(repository);
+
 		// Return to user for signing and broadcast as we don't have their Qortal private key
 		try {
 			return DeployAtTransactionTransformer.toBytes(deployAtTransactionData);
@@ -282,6 +285,9 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 				SupportedBlockchain.LITECOIN.name(),
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				crossChainTradeData.expectedForeignAmount, xprv58, null, lockTimeA, receivingPublicKeyHash);
+
+		// Attempt to backup the trade bot data
+		TradeBot.backupTradeBotData(repository);
 
 		// Check we have enough funds via xprv58 to fund P2SH to cover expectedForeignAmount
 		long p2shFee;

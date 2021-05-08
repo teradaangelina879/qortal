@@ -123,6 +123,7 @@ public class Controller extends Thread {
 	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms
 	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000L; // ms
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
+	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000L; // ms
 
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
@@ -176,6 +177,11 @@ public class Controller extends Thread {
 
 	/** Latest block signatures from other peers that we know are on inferior chains. */
 	List<ByteArray> inferiorChainSignatures = new ArrayList<>();
+
+	/** Recovery mode, which is used to bring back a stalled network */
+	private boolean recoveryMode = false;
+	private boolean peersAvailable = true; // peersAvailable must default to true
+	private long timePeersLastAvailable = 0;
 
 	/**
 	 * Map of recent requests for ARBITRARY transaction data payloads.
@@ -370,6 +376,10 @@ public class Controller extends Thread {
 		synchronized (this.syncLock) {
 			return this.isSynchronizing ? this.syncPercent : null;
 		}
+	}
+
+	public boolean getRecoveryMode() {
+		return this.recoveryMode;
 	}
 
 	// Entry point
@@ -643,6 +653,13 @@ public class Controller extends Thread {
 		// Disregard peers that don't have a recent block
 		peers.removeIf(hasNoRecentBlock);
 
+		checkRecoveryModeForPeers(peers);
+		if (recoveryMode) {
+			peers = Network.getInstance().getHandshakedPeers();
+			peers.removeIf(hasOnlyGenesisBlock);
+			peers.removeIf(hasMisbehaved);
+		}
+
 		// Check we have enough peers to potentially synchronize
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 			return;
@@ -653,8 +670,30 @@ public class Controller extends Thread {
 		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
 		peers.removeIf(hasInferiorChainTip);
 
+		final int peersBeforeComparison = peers.size();
+
+		// Request recent block summaries from the remaining peers, and locate our common block with each
+		Synchronizer.getInstance().findCommonBlocksWithPeers(peers);
+
+		// Compare the peers against each other, and against our chain, which will return an updated list excluding those without common blocks
+		peers = Synchronizer.getInstance().comparePeers(peers);
+
+		// We may have added more inferior chain tips when comparing peers, so remove any peers that are currently on those chains
+		peers.removeIf(hasInferiorChainTip);
+
+		final int peersRemoved = peersBeforeComparison - peers.size();
+		if (peersRemoved > 0)
+			LOGGER.info(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
+
 		if (peers.isEmpty())
 			return;
+
+		if (peers.size() > 1) {
+			StringBuilder finalPeersString = new StringBuilder();
+			for (Peer peer : peers)
+				finalPeersString = finalPeersString.length() > 0 ? finalPeersString.append(", ").append(peer) : finalPeersString.append(peer);
+			LOGGER.info(String.format("Choosing random peer from: [%s]", finalPeersString.toString()));
+		}
 
 		// Pick random peer to sync with
 		int index = new SecureRandom().nextInt(peers.size());
@@ -758,6 +797,46 @@ public class Controller extends Thread {
 		}
 	}
 
+	private boolean checkRecoveryModeForPeers(List<Peer> qualifiedPeers) {
+		List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
+
+		if (handshakedPeers.size() > 0) {
+			// There is at least one handshaked peer
+			if (qualifiedPeers.isEmpty()) {
+				// There are no 'qualified' peers - i.e. peers that have a recent block we can sync to
+				boolean werePeersAvailable = peersAvailable;
+				peersAvailable = false;
+
+				// If peers only just became unavailable, update our record of the time they were last available
+				if (werePeersAvailable)
+					timePeersLastAvailable = NTP.getTime();
+
+				// If enough time has passed, enter recovery mode, which lifts some restrictions on who we can sync with and when we can mint
+				if (NTP.getTime() - timePeersLastAvailable > RECOVERY_MODE_TIMEOUT) {
+					if (recoveryMode == false) {
+						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", RECOVERY_MODE_TIMEOUT/60/1000));
+						recoveryMode = true;
+					}
+				}
+			} else {
+				// We now have at least one peer with a recent block, so we can exit recovery mode and sync normally
+				peersAvailable = true;
+				if (recoveryMode) {
+					LOGGER.info("Peers have become available again. Exiting recovery mode...");
+					recoveryMode = false;
+				}
+			}
+		}
+		return recoveryMode;
+	}
+
+	public void addInferiorChainSignature(byte[] inferiorSignature) {
+		// Update our list of inferior chain tips
+		ByteArray inferiorChainSignature = new ByteArray(inferiorSignature);
+		if (!inferiorChainSignatures.contains(inferiorChainSignature))
+			inferiorChainSignatures.add(inferiorChainSignature);
+	}
+
 	public static class StatusChangeEvent implements Event {
 		public StatusChangeEvent() {
 		}
@@ -789,7 +868,7 @@ public class Controller extends Thread {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_DISABLED");
 		}
 
-		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height);
+		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height) + "\n" + String.format("Build version: %s", this.buildVersion);
 		SysTray.getInstance().setToolTipText(tooltip);
 
 		this.callbackExecutor.execute(() -> {

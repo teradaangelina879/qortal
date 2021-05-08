@@ -52,7 +52,7 @@ public class Settings {
 	// UI servers
 	private int uiPort = 12388;
 	private String[] uiLocalServers = new String[] {
-		"localhost", "127.0.0.1", "172.24.1.1", "qor.tal"
+		"localhost", "127.0.0.1"
 	};
 	private String[] uiRemoteServers = new String[] {
 		"node1.qortal.org", "node2.qortal.org", "node3.qortal.org", "node4.qortal.org", "node5.qortal.org",
@@ -122,6 +122,8 @@ public class Settings {
 	private int maxNetworkThreadPoolSize = 20;
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
 	private int networkPoWComputePoolSize = 2;
+	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
+	private int maxRetries = 2;
 
 	/** Whether to sync multiple blocks at once in normal operation */
 	private boolean fastSyncEnabled = false;
@@ -416,6 +418,8 @@ public class Settings {
 	public int getNetworkPoWComputePoolSize() {
 		return this.networkPoWComputePoolSize;
 	}
+
+	public int getMaxRetries() { return this.maxRetries; }
 
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;

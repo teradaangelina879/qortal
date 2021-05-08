@@ -2,6 +2,7 @@ package org.qortal.data.block;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import java.util.Arrays;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public class BlockSummaryData {
@@ -82,6 +83,23 @@ public class BlockSummaryData {
 
 	public void setMinterLevel(Integer minterLevel) {
 		this.minterLevel = minterLevel;
+	}
+
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o)
+			return true;
+
+		if (o == null || getClass() != o.getClass())
+			return false;
+
+		BlockSummaryData otherBlockSummary = (BlockSummaryData) o;
+		if (this.getSignature() == null || otherBlockSummary.getSignature() == null)
+			return false;
+
+		// Treat two block summaries as equal if they have matching signatures
+		return Arrays.equals(this.getSignature(), otherBlockSummary.getSignature());
 	}
 
 }
