@@ -644,11 +644,15 @@ public class Controller extends Thread {
 		// Disregard peers that don't have a recent block
 		peers.removeIf(hasNoRecentBlock);
 
+		// Disregard peers that are on an old version
+		peers.removeIf(hasOldVersion);
+
 		checkRecoveryModeForPeers(peers);
 		if (recoveryMode) {
 			peers = Network.getInstance().getHandshakedPeers();
 			peers.removeIf(hasOnlyGenesisBlock);
 			peers.removeIf(hasMisbehaved);
+			peers.removeIf(hasOldVersion);
 		}
 
 		// Check we have enough peers to potentially synchronize
@@ -660,9 +664,6 @@ public class Controller extends Thread {
 
 		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
 		peers.removeIf(hasInferiorChainTip);
-
-		// Disregard peers that are on an old version
-		peers.removeIf(hasOldVersion);
 
 		final int peersBeforeComparison = peers.size();
 
