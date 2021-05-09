@@ -262,6 +262,7 @@ public class CrossChainResource {
 
 		// We want both a minimum of 5 trades and enough trades to span at least 4 hours
 		int minimumCount = 5;
+		int maximumCount = 10;
 		long minimumPeriod = 4 * 60 * 60 * 1000L; // ms
 		Boolean isFinished = Boolean.TRUE;
 
@@ -276,7 +277,7 @@ public class CrossChainResource {
 				ACCT acct = acctInfo.getValue().get();
 
 				List<ATStateData> atStates = repository.getATRepository().getMatchingFinalATStatesQuorum(codeHash,
-						isFinished, acct.getModeByteOffset(), (long) AcctMode.REDEEMED.value, minimumCount, minimumPeriod);
+						isFinished, acct.getModeByteOffset(), (long) AcctMode.REDEEMED.value, minimumCount, maximumCount, minimumPeriod);
 
 				for (ATStateData atState : atStates) {
 					CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atState);
