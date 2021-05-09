@@ -374,6 +374,7 @@ public class BlocksResource {
 			BlockMintingInfo blockMintingInfo = new BlockMintingInfo();
 			blockMintingInfo.minterPublicKey = blockData.getMinterPublicKey();
 			blockMintingInfo.minterLevel = minterLevel;
+			blockMintingInfo.onlineAccountsCount = blockData.getOnlineAccountsCount();
 			blockMintingInfo.maxDistance = new BigDecimal(block.MAX_DISTANCE);
 			blockMintingInfo.keyDistance = distance;
 			blockMintingInfo.keyDistanceRatio = ratio;

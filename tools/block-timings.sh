@@ -66,6 +66,7 @@ function fetch_and_process_blocks {
 
     # Parse minting info
     minter_level=$(echo "${block_minting_info}" | jq -r .minterLevel)
+    online_accounts_count=$(echo "${block_minting_info}" | jq -r .onlineAccountsCount)
     key_distance_ratio=$(echo "${block_minting_info}" | jq -r .keyDistanceRatio)
     time_delta=$(echo "${block_minting_info}" | jq -r .timeDelta)
 
@@ -74,6 +75,7 @@ function fetch_and_process_blocks {
 
     echo "=== BLOCK ${height} ==="
     echo "Minter level: ${minter_level}"
+    echo "Online accounts: ${online_accounts_count}"
     echo "Key distance ratio: ${key_distance_ratio}"
     echo "Time offset: ${time_offset}"
     echo "Block time (real): ${time_delta}"

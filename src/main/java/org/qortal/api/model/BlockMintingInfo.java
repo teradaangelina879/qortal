@@ -10,6 +10,7 @@ public class BlockMintingInfo {
 
 	public byte[] minterPublicKey;
 	public int minterLevel;
+	public int onlineAccountsCount;
 	public BigDecimal maxDistance;
 	public BigInteger keyDistance;
 	public double keyDistanceRatio;
