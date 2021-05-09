@@ -623,6 +623,11 @@ public class Controller extends Thread {
 		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || inferiorChainTips.contains(new ByteArray(peerChainTipData.getLastBlockSignature()));
 	};
 
+	public static final Predicate<Peer> hasOldVersion = peer -> {
+		final String minPeerVersion = Settings.getInstance().getMinPeerVersion();
+		return peer.isAtLeastVersion(minPeerVersion) == false;
+	};
+
 	private void potentiallySynchronize() throws InterruptedException {
 		// Already synchronizing via another thread?
 		if (this.isSynchronizing)
@@ -655,6 +660,9 @@ public class Controller extends Thread {
 
 		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
 		peers.removeIf(hasInferiorChainTip);
+
+		// Disregard peers that are on an old version
+		peers.removeIf(hasOldVersion);
 
 		final int peersBeforeComparison = peers.size();
 

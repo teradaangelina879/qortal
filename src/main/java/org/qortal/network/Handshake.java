@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,7 +50,7 @@ public enum Handshake {
 
 			String versionString = helloMessage.getVersionString();
 
-			Matcher matcher = VERSION_PATTERN.matcher(versionString);
+			Matcher matcher = peer.VERSION_PATTERN.matcher(versionString);
 			if (!matcher.lookingAt()) {
 				LOGGER.debug(() -> String.format("Peer %s sent invalid HELLO version string '%s'", peer, versionString));
 				return null;
@@ -243,8 +242,6 @@ public enum Handshake {
 
 	/** Maximum allowed difference between peer's reported timestamp and when they connected, in milliseconds. */
 	private static final long MAX_TIMESTAMP_DELTA = 30 * 1000L; // ms
-
-	private static final Pattern VERSION_PATTERN = Pattern.compile(Controller.VERSION_PREFIX + "(\\d{1,3})\\.(\\d{1,5})\\.(\\d{1,5})");
 
 	private static final long PEER_VERSION_131 = 0x0100030001L;
 

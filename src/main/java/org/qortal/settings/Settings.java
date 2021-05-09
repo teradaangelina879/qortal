@@ -124,6 +124,8 @@ public class Settings {
 	private int networkPoWComputePoolSize = 2;
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
 	private int maxRetries = 2;
+	/** Minimum peer version number required in order to sync with them */
+	private String minPeerVersion = "1.5.0";
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
@@ -411,6 +413,8 @@ public class Settings {
 	}
 
 	public int getMaxRetries() { return this.maxRetries; }
+
+	public String getMinPeerVersion() { return this.minPeerVersion; }
 
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;
