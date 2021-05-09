@@ -1998,6 +1998,10 @@ public class Block {
 
 	private void logDebugInfo() {
 		try {
+			// Avoid calculations if possible. We have to check against INFO here, since Level.isMoreSpecificThan() confusingly uses <= rather than just <
+			if (LOGGER.getLevel().isMoreSpecificThan(Level.INFO))
+				return;
+
 			if (this.repository == null || this.getMinter() == null || this.getBlockData() == null)
 				return;
 
