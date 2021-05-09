@@ -970,7 +970,8 @@ public class Synchronizer {
 	private SynchronizationResult applyNewBlocks(Repository repository, BlockData commonBlockData, int ourInitialHeight,
 												 Peer peer, int peerHeight, List<BlockSummaryData> peerBlockSummaries) throws InterruptedException, DataException {
 
-		if (Settings.getInstance().isFastSyncEnabled() && peer.getPeersVersion() >= PEER_VERSION_160)
+		final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
+		if (Settings.getInstance().isFastSyncEnabled() && peer.getPeersVersion() >= PEER_VERSION_160 && ourLatestBlockData.isTrimmed())
 			// This peer supports syncing multiple blocks at once via GetBlocksMessage, and it is enabled in the settings
 			return this.applyNewBlocksUsingFastSync(repository, commonBlockData, ourInitialHeight, peer, peerHeight, peerBlockSummaries);
 		else
