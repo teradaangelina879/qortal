@@ -2021,7 +2021,7 @@ public class Block {
 			LOGGER.debug(String.format("Online accounts: %d", this.getBlockData().getOnlineAccountsCount()));
 
 			BlockSummaryData blockSummaryData = new BlockSummaryData(this.getBlockData());
-			if (this.getParent() == null || this.getParent().getSignature() == null || blockSummaryData == null)
+			if (this.getParent() == null || this.getParent().getSignature() == null || blockSummaryData == null || minterLevel == 0)
 				return;
 
 			blockSummaryData.setMinterLevel(minterLevel);
