@@ -75,7 +75,7 @@ public enum Handshake {
 				// Ensure the peer is running at least the minimum version allowed for connections
 				final String minPeerVersion = Settings.getInstance().getMinPeerVersion();
 				if (peer.isAtLeastVersion(minPeerVersion) == false) {
-					LOGGER.info(String.format("Ignoring peer %s because it is on an old version (%s)", peer, versionString));
+					LOGGER.debug(String.format("Ignoring peer %s because it is on an old version (%s)", peer, versionString));
 					return null;
 				}
 			}
