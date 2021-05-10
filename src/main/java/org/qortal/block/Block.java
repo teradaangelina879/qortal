@@ -232,7 +232,7 @@ public class Block {
 
 	// Other useful constants
 
-	private static final BigInteger MAX_DISTANCE;
+	public static final BigInteger MAX_DISTANCE;
 	static {
 		byte[] maxValue = new byte[Transformer.PUBLIC_KEY_LENGTH];
 		Arrays.fill(maxValue, (byte) 0xFF);

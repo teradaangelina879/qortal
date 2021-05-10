@@ -98,7 +98,7 @@ public interface ATRepository {
 	 */
 	public List<ATStateData> getMatchingFinalATStatesQuorum(byte[] codeHash, Boolean isFinished,
 			Integer dataByteOffset, Long expectedValue,
-			int minimumCount, long minimumPeriod) throws DataException;
+			int minimumCount, int maximumCount, long minimumPeriod) throws DataException;
 
 	/**
 	 * Returns all ATStateData for a given block height.

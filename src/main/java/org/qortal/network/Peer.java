@@ -20,9 +20,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
 import org.qortal.data.block.CommonBlockData;
 import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
@@ -86,6 +89,9 @@ public class Peer {
 	private Long lastPingSent;
 
 	byte[] ourChallenge;
+
+	// Versioning
+	public static final Pattern VERSION_PATTERN = Pattern.compile(Controller.VERSION_PREFIX + "(\\d{1,3})\\.(\\d{1,5})\\.(\\d{1,5})");
 
 	// Peer info
 
@@ -648,6 +654,35 @@ public class Peer {
 				LOGGER.debug(String.format("IOException while trying to close peer %s", this));
 			}
 		}
+	}
+
+
+	// Minimum version
+
+	public boolean isAtLeastVersion(String minVersionString) {
+		if (minVersionString == null)
+			return false;
+
+		// Add the version prefix
+		minVersionString = Controller.VERSION_PREFIX + minVersionString;
+
+		Matcher matcher = VERSION_PATTERN.matcher(minVersionString);
+		if (!matcher.lookingAt())
+			return false;
+
+		// We're expecting 3 positive shorts, so we can convert 1.2.3 into 0x0100020003
+		long minVersion = 0;
+		for (int g = 1; g <= 3; ++g) {
+			long value = Long.parseLong(matcher.group(g));
+
+			if (value < 0 || value > Short.MAX_VALUE)
+				return false;
+
+			minVersion <<= 16;
+			minVersion |= value;
+		}
+
+		return this.getPeersVersion() >= minVersion;
 	}
 
 

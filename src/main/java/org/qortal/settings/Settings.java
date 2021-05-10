@@ -125,6 +125,13 @@ public class Settings {
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
 	private int maxRetries = 2;
 
+	/** Minimum peer version number required in order to sync with them */
+	private String minPeerVersion = "1.5.0";
+	/** Whether to allow connections with peers below minPeerVersion
+	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
+	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
+	private boolean allowConnectionsWithOlderPeerVersions = true;
+
 	/** Whether to sync multiple blocks at once in normal operation */
 	private boolean fastSyncEnabled = false;
 	/** Whether to sync multiple blocks at once when the peer has a different chain */
@@ -420,6 +427,10 @@ public class Settings {
 	}
 
 	public int getMaxRetries() { return this.maxRetries; }
+
+	public String getMinPeerVersion() { return this.minPeerVersion; }
+
+	public boolean getAllowConnectionsWithOlderPeerVersions() { return this.allowConnectionsWithOlderPeerVersions; }
 
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;
