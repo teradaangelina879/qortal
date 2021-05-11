@@ -831,7 +831,7 @@ public class Block {
 			if (NTP.getTime() >= BlockChain.getInstance().getCalcChainWeightTimestamp() && parentHeight >= maxHeight)
 				break;
 		}
-		LOGGER.debug(String.format("Chain weight calculation was based on %d blocks", blockCount));
+		LOGGER.trace(String.format("Chain weight calculation was based on %d blocks", blockCount));
 
 		return cumulativeWeight;
 	}
