@@ -542,19 +542,8 @@ public class AdminResource {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-
-			blockchainLock.lockInterruptibly();
-
-			try {
-				repository.exportNodeLocalData(true);
-				return "true";
-			} finally {
-				blockchainLock.unlock();
-			}
-		} catch (InterruptedException e) {
-			// We couldn't lock blockchain to perform export
-			return "false";
+			repository.exportNodeLocalData();
+			return "true";
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -564,7 +553,7 @@ public class AdminResource {
 	@Path("/repository/data")
 	@Operation(
 		summary = "Import data into repository.",
-		description = "Imports data from file on local machine. Filename is forced to 'import.script' if apiKey is not set.",
+		description = "Imports data from file on local machine. Filename is forced to 'import.json' if apiKey is not set.",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -588,7 +577,7 @@ public class AdminResource {
 
 		// Hard-coded because it's too dangerous to allow user-supplied filenames in weaker security contexts
 		if (Settings.getInstance().getApiKey() == null)
-			filename = "import.script";
+			filename = "import.json";
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();

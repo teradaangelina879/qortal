@@ -2,6 +2,7 @@ package org.qortal.repository.hsqldb;
 
 import java.awt.TrayIcon.MessageType;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -15,23 +16,19 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.globalization.Translator;
 import org.qortal.gui.SysTray;
 import org.qortal.repository.ATRepository;
@@ -52,7 +49,7 @@ import org.qortal.repository.TransactionRepository;
 import org.qortal.repository.VotingRepository;
 import org.qortal.repository.hsqldb.transaction.HSQLDBTransactionRepository;
 import org.qortal.settings.Settings;
-import org.qortal.utils.NTP;
+import org.qortal.utils.Base58;
 
 public class HSQLDBRepository implements Repository {
 
@@ -460,8 +457,7 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
-	public void exportNodeLocalData(boolean keepArchivedCopy) throws DataException {
-
+	public void exportNodeLocalData() throws DataException {
 		// Create the qortal-backup folder if it doesn't exist
 		Path backupPath = Paths.get("qortal-backup");
 		try {
@@ -471,52 +467,59 @@ public class HSQLDBRepository implements Repository {
 			throw new DataException("Unable to create backup folder");
 		}
 
-		// We need to rename or delete an existing TradeBotStates backup before creating a new one
-		File tradeBotStatesBackupFile = new File("qortal-backup/TradeBotStates.script");
-		if (tradeBotStatesBackupFile.exists()) {
-			if (keepArchivedCopy) {
-				// Rename existing TradeBotStates backup, to make sure that we're not overwriting any keys
-				File archivedBackupFile = new File(String.format("qortal-backup/TradeBotStates-archive-%d.script", NTP.getTime()));
-				if (tradeBotStatesBackupFile.renameTo(archivedBackupFile))
-					LOGGER.info(String.format("Moved existing TradeBotStates backup file to %s", archivedBackupFile.getPath()));
-				else
-					throw new DataException("Unable to rename existing TradeBotStates backup");
-			} else {
-				// Delete existing copy
-				LOGGER.info("Deleting existing TradeBotStates backup because it is being replaced with a new one");
-				tradeBotStatesBackupFile.delete();
+		try {
+			// Load trade bot data
+			List<TradeBotData> allTradeBotData = this.getCrossChainRepository().getAllTradeBotData();
+			JSONArray allTradeBotDataJson = new JSONArray();
+			for (TradeBotData tradeBotData : allTradeBotData) {
+				JSONObject tradeBotDataJson = tradeBotData.toJson();
+				allTradeBotDataJson.put(tradeBotDataJson);
 			}
-		}
 
-		// There's currently no need to take an archived copy of the MintingAccounts data - just delete the old one if it exists
-		File mintingAccountsBackupFile = new File("qortal-backup/MintingAccounts.script");
-		if (mintingAccountsBackupFile.exists()) {
-			LOGGER.info("Deleting existing MintingAccounts backup because it is being replaced with a new one");
-			mintingAccountsBackupFile.delete();
-		}
+			// We need to combine existing TradeBotStates data before overwriting
+			String fileName = "qortal-backup/TradeBotStates.json";
+			File tradeBotStatesBackupFile = new File(fileName);
+			if (tradeBotStatesBackupFile.exists()) {
+				String jsonString = new String(Files.readAllBytes(Paths.get(fileName)));
+				JSONArray allExistingTradeBotData = new JSONArray(jsonString);
+				Iterator<Object> iterator = allExistingTradeBotData.iterator();
+				while(iterator.hasNext()) {
+					JSONObject existingTradeBotData = (JSONObject)iterator.next();
+					String existingTradePrivateKey = (String) existingTradeBotData.get("tradePrivateKey");
+						// Check if we already have an entry for this trade
+						boolean found = allTradeBotData.stream().anyMatch(tradeBotData -> Base58.encode(tradeBotData.getTradePrivateKey()).equals(existingTradePrivateKey));
+						if (found == false)
+							// We need to add this to our list
+							allTradeBotDataJson.put(existingTradeBotData);
+				}
+			}
 
-		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'qortal-backup/MintingAccounts.script'");
-			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'qortal-backup/TradeBotStates.script'");
-			LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
-		} catch (SQLException e) {
-			throw new DataException("Unable to export sensitive/node-local data from repository");
+			FileWriter writer = new FileWriter(fileName);
+			writer.write(allTradeBotDataJson.toString());
+			writer.close();
+			LOGGER.info("Exported sensitive/node-local data: trade bot states");
+
+		} catch (DataException | IOException e) {
+			throw new DataException("Unable to export trade bot states from repository");
 		}
 	}
 
 	@Override
 	public void importDataFromFile(String filename) throws DataException {
-		try (Statement stmt = this.connection.createStatement()) {
-			LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
-
-			String escapedFilename = stmt.enquoteLiteral(filename);
-			stmt.execute("PERFORM IMPORT SCRIPT DATA FROM " + escapedFilename + " CONTINUE ON ERROR");
-
-			LOGGER.info(() -> String.format("Imported data into repository from %s", filename));
-		} catch (SQLException e) {
-			LOGGER.info(() -> String.format("Failed to import data into repository from %s: %s", filename, e.getMessage()));
-			throw new DataException("Unable to import sensitive/node-local data to repository: " + e.getMessage());
+		LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
+		try {
+			String jsonString = new String(Files.readAllBytes(Paths.get(filename)));
+			JSONArray tradeBotDataToImport = new JSONArray(jsonString);
+			Iterator<Object> iterator = tradeBotDataToImport.iterator();
+			while(iterator.hasNext()) {
+				JSONObject tradeBotDataJson = (JSONObject)iterator.next();
+				TradeBotData tradeBotData = TradeBotData.fromJson(tradeBotDataJson);
+				this.getCrossChainRepository().save(tradeBotData);
+			}
+		} catch (IOException e) {
+			throw new DataException("Unable to import sensitive/node-local trade bot states to repository: " + e.getMessage());
 		}
+		LOGGER.info(() -> String.format("Imported trade bot states into repository from %s", filename));
 	}
 
 	@Override
