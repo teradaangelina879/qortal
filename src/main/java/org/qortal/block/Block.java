@@ -2011,6 +2011,7 @@ public class Block {
 			LOGGER.debug(String.format("Timestamp: %d", this.getBlockData().getTimestamp()));
 			LOGGER.debug(String.format("Minter level: %d", minterLevel));
 			LOGGER.debug(String.format("Online accounts: %d", this.getBlockData().getOnlineAccountsCount()));
+			LOGGER.debug(String.format("AT count: %d", this.getBlockData().getATCount()));
 
 			BlockSummaryData blockSummaryData = new BlockSummaryData(this.getBlockData());
 			if (this.getParent() == null || this.getParent().getSignature() == null || blockSummaryData == null || minterLevel == 0)
