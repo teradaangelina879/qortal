@@ -677,7 +677,7 @@ public class Controller extends Thread {
 		peers.removeIf(hasInferiorChainTip);
 
 		final int peersRemoved = peersBeforeComparison - peers.size();
-		if (peersRemoved > 0)
+		if (peersRemoved > 0 && peers.size() > 0)
 			LOGGER.info(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
 
 		if (peers.isEmpty())

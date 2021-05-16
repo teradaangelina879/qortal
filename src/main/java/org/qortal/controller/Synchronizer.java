@@ -111,6 +111,7 @@ public class Synchronizer {
 				LOGGER.debug(String.format("Searching for common blocks with %d peers...", peers.size()));
 				final long startTime = System.currentTimeMillis();
 				int commonBlocksFound = 0;
+				boolean wereNewRequestsMade = false;
 
 				for (Peer peer : peers) {
 					// Are we shutting down?
@@ -131,10 +132,15 @@ public class Synchronizer {
 					Synchronizer.getInstance().findCommonBlockWithPeer(peer, repository);
 					if (peer.getCommonBlockData() != null)
 						commonBlocksFound++;
+
+					// This round wasn't served entirely from the cache, so we may want to log the results
+					wereNewRequestsMade = true;
 				}
 
-				final long totalTimeTaken = System.currentTimeMillis() - startTime;
-				LOGGER.info(String.format("Finished searching for common blocks with %d peer%s. Found: %d. Total time taken: %d ms", peers.size(), (peers.size() != 1 ? "s" : ""), commonBlocksFound, totalTimeTaken));
+				if (wereNewRequestsMade) {
+					final long totalTimeTaken = System.currentTimeMillis() - startTime;
+					LOGGER.info(String.format("Finished searching for common blocks with %d peer%s. Found: %d. Total time taken: %d ms", peers.size(), (peers.size() != 1 ? "s" : ""), commonBlocksFound, totalTimeTaken));
+				}
 
 				return SynchronizationResult.OK;
 			} finally {
@@ -294,7 +300,7 @@ public class Synchronizer {
 						if (peer.canUseCachedCommonBlockData()) {
 							if (peer.getCommonBlockData().getBlockSummariesAfterCommonBlock() != null) {
 								if (peer.getCommonBlockData().getBlockSummariesAfterCommonBlock().size() == summariesRequired) {
-									LOGGER.debug(String.format("Using cached block summaries for peer %s", peer));
+									LOGGER.trace(String.format("Using cached block summaries for peer %s", peer));
 									useCachedSummaries = true;
 								}
 							}
@@ -434,14 +440,14 @@ public class Synchronizer {
 
 		for (Peer peer : peers) {
 			if (peer.getCommonBlockData() != null && peer.getCommonBlockData().getCommonBlockSummary() != null) {
-				LOGGER.debug(String.format("Peer %s has common block %.8s", peer, Base58.encode(peer.getCommonBlockData().getCommonBlockSummary().getSignature())));
+				LOGGER.trace(String.format("Peer %s has common block %.8s", peer, Base58.encode(peer.getCommonBlockData().getCommonBlockSummary().getSignature())));
 
 				BlockSummaryData commonBlockSummary = peer.getCommonBlockData().getCommonBlockSummary();
 				if (!commonBlocks.contains(commonBlockSummary))
 					commonBlocks.add(commonBlockSummary);
 			}
 			else {
-				LOGGER.debug(String.format("Peer %s has no common block data. Skipping...", peer));
+				LOGGER.trace(String.format("Peer %s has no common block data. Skipping...", peer));
 			}
 		}
 
