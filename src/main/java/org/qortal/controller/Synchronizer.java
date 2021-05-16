@@ -785,18 +785,12 @@ public class Synchronizer {
 					if (cachedCommonBlockData != null)
 						cachedCommonBlockData.setBlockSummariesAfterCommonBlock(null);
 
-                    // If we have already received recent or newer blocks from this peer, go ahead and apply them
+                    // If we have already received newer blocks from this peer that what we have already, go ahead and apply them
                     if (peerBlocks.size() > 0) {
 						final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
                     	final Block peerLatestBlock = peerBlocks.get(peerBlocks.size() - 1);
 						final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 						if (ourLatestBlockData != null && peerLatestBlock != null && minLatestBlockTimestamp != null) {
-
-							// If we have received at least one recent block, we can apply them
-							if (peerLatestBlock.getBlockData().getTimestamp() > minLatestBlockTimestamp) {
-								LOGGER.debug("Newly received blocks are recent, so we will apply them");
-								break;
-							}
 
 							// If our latest block is very old....
 							if (ourLatestBlockData.getTimestamp() < minLatestBlockTimestamp) {
@@ -813,7 +807,7 @@ public class Synchronizer {
 							}
 						}
                     }
-                    // Otherwise, give up and move on to the next peer, to avoid putting our chain into an outdated state
+					// Otherwise, give up and move on to the next peer, to avoid putting our chain into an outdated or incomplete state
                     return SynchronizationResult.NO_REPLY;
                 }
 
@@ -837,19 +831,12 @@ public class Synchronizer {
 						nextHeight, Base58.encode(nextPeerSignature)));
 
 				if (retryCount >= maxRetries) {
-
-					// If we have already received recent or newer blocks from this peer, go ahead and apply them
+					// If we have already received newer blocks from this peer that what we have already, go ahead and apply them
 					if (peerBlocks.size() > 0) {
 						final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
 						final Block peerLatestBlock = peerBlocks.get(peerBlocks.size() - 1);
 						final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 						if (ourLatestBlockData != null && peerLatestBlock != null && minLatestBlockTimestamp != null) {
-
-							// If we have received at least one recent block, we can apply them
-							if (peerLatestBlock.getBlockData().getTimestamp() > minLatestBlockTimestamp) {
-								LOGGER.debug("Newly received blocks are recent, so we will apply them");
-								break;
-							}
 
 							// If our latest block is very old....
 							if (ourLatestBlockData.getTimestamp() < minLatestBlockTimestamp) {
@@ -866,7 +853,7 @@ public class Synchronizer {
 							}
 						}
 					}
-					// Otherwise, give up and move on to the next peer, to avoid putting our chain into an outdated state
+					// Otherwise, give up and move on to the next peer, to avoid putting our chain into an outdated or incomplete state
 					return SynchronizationResult.NO_REPLY;
 
 				} else {
