@@ -282,7 +282,9 @@ public class Synchronizer {
 							return peers;
 
 						// Count the number of blocks this peer has beyond our common block
-						final int peerHeight = peer.getChainTipData().getLastHeight();
+						final PeerChainTipData peerChainTipData = peer.getChainTipData();
+						final int peerHeight = peerChainTipData.getLastHeight();
+						final byte[] peerLastBlockSignature = peerChainTipData.getLastBlockSignature();
 						final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
 						// Limit the number of blocks we are comparing. FUTURE: we could request more in batches, but there may not be a case when this is needed
 						int summariesRequired = Math.min(peerAdditionalBlocksAfterCommonBlock, MAXIMUM_REQUEST_SIZE);
@@ -302,15 +304,23 @@ public class Synchronizer {
 							if (summariesRequired > 0) {
 								LOGGER.trace(String.format("Requesting %d block summar%s from peer %s after common block %.8s. Peer height: %d", summariesRequired, (summariesRequired != 1 ? "ies" : "y"), peer, Base58.encode(commonBlockSummary.getSignature()), peerHeight));
 
-								List<BlockSummaryData> blockSummaries = this.getBlockSummaries(peer, commonBlockSummary.getSignature(), summariesRequired);
-								peer.getCommonBlockData().setBlockSummariesAfterCommonBlock(blockSummaries);
+								// Forget any cached summaries
+								peer.getCommonBlockData().setBlockSummariesAfterCommonBlock(null);
 
+								// Request new block summaries
+								List<BlockSummaryData> blockSummaries = this.getBlockSummaries(peer, commonBlockSummary.getSignature(), summariesRequired);
 								if (blockSummaries != null) {
 									LOGGER.trace(String.format("Peer %s returned %d block summar%s", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y")));
 
 									if (blockSummaries.size() < summariesRequired)
-										// This could mean that the peer has re-orged. But we still have the same common block, so it's safe to proceed with this set of signatures instead.
-										LOGGER.debug(String.format("Peer %s returned %d block summar%s instead of expected %d", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y"), summariesRequired));
+										// This could mean that the peer has re-orged. Exclude this peer until they return the summaries we expect.
+										LOGGER.debug(String.format("Peer %s returned %d block summar%s instead of expected %d - excluding them from this round", peer, blockSummaries.size(), (blockSummaries.size() != 1 ? "ies" : "y"), summariesRequired));
+									else if (blockSummaryWithSignature(peerLastBlockSignature, blockSummaries) == null)
+										// We don't have a block summary for the peer's reported chain tip, so should exclude it
+										LOGGER.debug(String.format("Peer %s didn't return a block summary with signature %.8s - excluding them from this round", peer, Base58.encode(peerLastBlockSignature)));
+									else
+										// All looks good, so store the retrieved block summaries in the peer's cache
+										peer.getCommonBlockData().setBlockSummariesAfterCommonBlock(blockSummaries);
 								}
 							} else {
 								// There are no block summaries after this common block
@@ -449,6 +459,12 @@ public class Synchronizer {
 				minChainLength = peerAdditionalBlocksAfterCommonBlock;
 		}
 		return minChainLength;
+	}
+
+	private BlockSummaryData blockSummaryWithSignature(byte[] signature, List<BlockSummaryData> blockSummaries) {
+		if (blockSummaries != null)
+			return blockSummaries.stream().filter(blockSummary -> Arrays.equals(blockSummary.getSignature(), signature)).findAny().orElse(null);
+		return null;
 	}
 
 
