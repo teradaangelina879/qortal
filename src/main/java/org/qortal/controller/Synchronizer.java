@@ -178,7 +178,7 @@ public class Synchronizer {
 					ourInitialHeight, Base58.encode(ourLastBlockSignature), ourLatestBlockData.getTimestamp()));
 
 			List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
-			SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, false, peerBlockSummaries);
+			SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, false, peerBlockSummaries, false);
 			if (findCommonBlockResult != SynchronizationResult.OK) {
 				// Logging performed by fetchSummariesFromCommonBlock() above
 				peer.setCommonBlockData(null);
@@ -508,7 +508,7 @@ public class Synchronizer {
 							ourInitialHeight, Base58.encode(ourLastBlockSignature), ourLatestBlockData.getTimestamp()));
 
 					List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
-					SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, force, peerBlockSummaries);
+					SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, force, peerBlockSummaries, true);
 					if (findCommonBlockResult != SynchronizationResult.OK) {
 						// Logging performed by fetchSummariesFromCommonBlock() above
 						// Clear our common block cache for this peer
@@ -590,7 +590,7 @@ public class Synchronizer {
 	 * @throws DataException
 	 * @throws InterruptedException
 	 */
-	public SynchronizationResult fetchSummariesFromCommonBlock(Repository repository, Peer peer, int ourHeight, boolean force, List<BlockSummaryData> blockSummariesFromCommon) throws DataException, InterruptedException {
+	public SynchronizationResult fetchSummariesFromCommonBlock(Repository repository, Peer peer, int ourHeight, boolean force, List<BlockSummaryData> blockSummariesFromCommon, boolean infoLogWhenNotFound) throws DataException, InterruptedException {
 		// Start by asking for a few recent block hashes as this will cover a majority of reorgs
 		// Failing that, back off exponentially
 		int step = INITIAL_BLOCK_STEP;
@@ -619,8 +619,12 @@ public class Synchronizer {
 			blockSummariesBatch = this.getBlockSummaries(peer, testSignature, step);
 
 			if (blockSummariesBatch == null) {
+				if (infoLogWhenNotFound)
+					LOGGER.info(String.format("Error while trying to find common block with peer %s", peer));
+				else
+					LOGGER.debug(String.format("Error while trying to find common block with peer %s", peer));
+				
 				// No response - give up this time
-				LOGGER.info(String.format("Error while trying to find common block with peer %s", peer));
 				return SynchronizationResult.NO_REPLY;
 			}
 
