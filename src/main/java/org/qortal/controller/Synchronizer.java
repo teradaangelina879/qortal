@@ -399,8 +399,8 @@ public class Synchronizer {
 							peers.remove(peer);
 						}
 						else {
-							// Our chain is inferior
-							LOGGER.debug(String.format("Peer %s is on a better chain to us. We will compare the other peers sharing this common block against each other, and drop all peers sharing higher common blocks.", peer));
+							// Our chain is inferior or equal
+							LOGGER.debug(String.format("Peer %s is on an equal or better chain to us. We will compare the other peers sharing this common block against each other, and drop all peers sharing higher common blocks.", peer));
 							dropPeersAfterCommonBlockHeight = commonBlockSummary.getHeight();
 							superiorPeersForComparison.add(peer);
 						}
@@ -422,6 +422,9 @@ public class Synchronizer {
 								peers.remove(peer);
 							}
 						}
+						// FUTURE: we may want to prefer peers with additional blocks, and compare the additional blocks against each other.
+						// This would fast track us to the best candidate for the latest block.
+						// Right now, peers with the exact same chain as us are treated equally to those with an additional block.
 					}
 				}
 
