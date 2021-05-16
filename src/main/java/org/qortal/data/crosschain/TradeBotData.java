@@ -6,6 +6,9 @@ import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.json.JSONObject;
+
+import org.qortal.utils.Base58;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -203,6 +206,58 @@ public class TradeBotData {
 
 	public byte[] getReceivingAccountInfo() {
 		return this.receivingAccountInfo;
+	}
+
+	public JSONObject toJson() {
+		JSONObject jsonObject = new JSONObject();
+		jsonObject.put("tradePrivateKey", Base58.encode(this.getTradePrivateKey()));
+		jsonObject.put("acctName", this.getAcctName());
+		jsonObject.put("tradeState", this.getState());
+		jsonObject.put("tradeStateValue", this.getStateValue());
+		jsonObject.put("creatorAddress", this.getCreatorAddress());
+		jsonObject.put("atAddress", this.getAtAddress());
+		jsonObject.put("timestamp", this.getTimestamp());
+		jsonObject.put("qortAmount", this.getQortAmount());
+		if (this.getTradeNativePublicKey() != null) jsonObject.put("tradeNativePublicKey", Base58.encode(this.getTradeNativePublicKey()));
+		if (this.getTradeNativePublicKeyHash() != null) jsonObject.put("tradeNativePublicKeyHash", Base58.encode(this.getTradeNativePublicKeyHash()));
+		jsonObject.put("tradeNativeAddress", this.getTradeNativeAddress());
+		if (this.getSecret() != null) jsonObject.put("secret", Base58.encode(this.getSecret()));
+		if (this.getHashOfSecret() != null) jsonObject.put("hashOfSecret", Base58.encode(this.getHashOfSecret()));
+		jsonObject.put("foreignBlockchain", this.getForeignBlockchain());
+		if (this.getTradeForeignPublicKey() != null) jsonObject.put("tradeForeignPublicKey", Base58.encode(this.getTradeForeignPublicKey()));
+		if (this.getTradeForeignPublicKeyHash() != null) jsonObject.put("tradeForeignPublicKeyHash", Base58.encode(this.getTradeForeignPublicKeyHash()));
+		jsonObject.put("foreignKey", this.getForeignKey());
+        jsonObject.put("foreignAmount", this.getForeignAmount());
+		if (this.getLastTransactionSignature() != null) jsonObject.put("lastTransactionSignature", Base58.encode(this.getLastTransactionSignature()));
+        jsonObject.put("lockTimeA", this.getLockTimeA());
+		if (this.getReceivingAccountInfo() != null) jsonObject.put("receivingAccountInfo", Base58.encode(this.getReceivingAccountInfo()));
+		return jsonObject;
+	}
+
+	public static TradeBotData fromJson(JSONObject json) {
+		return new TradeBotData(
+				json.isNull("tradePrivateKey") ? null : Base58.decode(json.getString("tradePrivateKey")),
+				json.isNull("acctName") ? null : json.getString("acctName"),
+				json.isNull("tradeState") ? null : json.getString("tradeState"),
+				json.isNull("tradeStateValue") ? null : json.getInt("tradeStateValue"),
+				json.isNull("creatorAddress") ? null : json.getString("creatorAddress"),
+				json.isNull("atAddress") ? null : json.getString("atAddress"),
+				json.isNull("timestamp") ? null : json.getLong("timestamp"),
+				json.isNull("qortAmount") ? null : json.getLong("qortAmount"),
+				json.isNull("tradeNativePublicKey") ? null : Base58.decode(json.getString("tradeNativePublicKey")),
+				json.isNull("tradeNativePublicKeyHash") ? null : Base58.decode(json.getString("tradeNativePublicKeyHash")),
+				json.isNull("tradeNativeAddress") ? null : json.getString("tradeNativeAddress"),
+				json.isNull("secret") ? null : Base58.decode(json.getString("secret")),
+				json.isNull("hashOfSecret") ? null : Base58.decode(json.getString("hashOfSecret")),
+				json.isNull("foreignBlockchain") ? null : json.getString("foreignBlockchain"),
+				json.isNull("tradeForeignPublicKey") ? null : Base58.decode(json.getString("tradeForeignPublicKey")),
+				json.isNull("tradeForeignPublicKeyHash") ? null : Base58.decode(json.getString("tradeForeignPublicKeyHash")),
+				json.isNull("foreignAmount") ? null : json.getLong("foreignAmount"),
+				json.isNull("foreignKey") ? null : json.getString("foreignKey"),
+				json.isNull("lastTransactionSignature") ? null : Base58.decode(json.getString("lastTransactionSignature")),
+				json.isNull("lockTimeA") ? null : json.getInt("lockTimeA"),
+				json.isNull("receivingAccountInfo") ? null : Base58.decode(json.getString("receivingAccountInfo"))
+		);
 	}
 
 	// Mostly for debugging

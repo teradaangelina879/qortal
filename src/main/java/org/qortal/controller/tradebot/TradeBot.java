@@ -272,15 +272,9 @@ public class TradeBot implements Listener {
 		// Attempt to backup the trade bot data. This an optional step and doesn't impact trading, so don't throw an exception on failure
 		try {
 			LOGGER.info("About to backup trade bot data...");
-			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-			blockchainLock.lockInterruptibly();
-			try {
-				repository.exportNodeLocalData(true);
-			} finally {
-				blockchainLock.unlock();
-			}
-		} catch (InterruptedException | DataException e) {
-			LOGGER.info(String.format("Failed to obtain blockchain lock when exporting trade bot data: %s", e.getMessage()));
+			repository.exportNodeLocalData();
+		} catch (DataException e) {
+			LOGGER.info(String.format("Repository issue when exporting trade bot data: %s", e.getMessage()));
 		}
 	}
 
