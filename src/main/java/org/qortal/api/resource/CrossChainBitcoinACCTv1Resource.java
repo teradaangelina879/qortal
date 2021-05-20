@@ -22,7 +22,7 @@ import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.CrossChainBuildRequest;
-import org.qortal.api.model.CrossChainSecretRequest;
+import org.qortal.api.model.CrossChainDualSecretRequest;
 import org.qortal.api.model.CrossChainTradeRequest;
 import org.qortal.asset.Asset;
 import org.qortal.crosschain.BitcoinACCTv1;
@@ -242,7 +242,7 @@ public class CrossChainBitcoinACCTv1Resource {
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
 				schema = @Schema(
-					implementation = CrossChainSecretRequest.class
+					implementation = CrossChainDualSecretRequest.class
 				)
 			)
 		),
@@ -257,7 +257,7 @@ public class CrossChainBitcoinACCTv1Resource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
-	public String buildRedeemMessage(CrossChainSecretRequest secretRequest) {
+	public String buildRedeemMessage(CrossChainDualSecretRequest secretRequest) {
 		Security.checkApiCallAllowed(request);
 
 		byte[] partnerPublicKey = secretRequest.partnerPublicKey;
