@@ -224,7 +224,9 @@ public class CrossChainHtlcResource {
 	@Path("/redeem/LITECOIN/{ataddress}")
 	@Operation(
 			summary = "Redeems HTLC associated with supplied AT",
-			description = "To be used by a seller (Bob) who needs to redeem LTC proceeds that are stuck in a P2SH.",
+			description = "To be used by a QORT seller (Bob) who needs to redeem LTC proceeds that are stuck in a P2SH.<br>" +
+					"This requires Bob's trade bot data to be present in the database for this AT.<br>" +
+					"It will fail if the buyer has yet to redeem the QORT held in the AT.",
 			responses = {
 					@ApiResponse(
 							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
@@ -359,6 +361,9 @@ public class CrossChainHtlcResource {
 	@Path("/refund/LITECOIN/{ataddress}")
 	@Operation(
 			summary = "Refunds HTLC associated with supplied AT",
+			description = "To be used by a QORT buyer (Alice) who needs to refund their LTC that is stuck in a P2SH.<br>" +
+					"This requires Alice's trade bot data to be present in the database for this AT.<br>" +
+					"It will fail if it's already redeemed by the seller, or if the lockTime (60 minutes) hasn't passed yet.",
 			responses = {
 					@ApiResponse(
 							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
