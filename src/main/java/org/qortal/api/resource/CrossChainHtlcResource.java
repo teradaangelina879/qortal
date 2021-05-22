@@ -178,8 +178,10 @@ public class CrossChainHtlcResource {
 	@GET
 	@Path("/redeem/LITECOIN/{ataddress}/{tradePrivateKey}/{secret}/{receivingAddress}")
 	@Operation(
-			summary = "Redeems HTLC associated with supplied AT",
-			description = "Secret should be 32 bytes (base58 encoded).",
+			summary = "Redeems HTLC associated with supplied AT, using private key, secret, and receiving address",
+			description = "Secret and private key should be 32 bytes (base58 encoded). Receiving address must be a valid LTC P2PKH address.<br>" +
+					"The secret can be found in Alice's trade bot data or in the message to Bob's AT.<br>" +
+					"The trade private key and receiving address can be found in Bob's trade bot data.",
 			responses = {
 					@ApiResponse(
 							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
@@ -191,6 +193,46 @@ public class CrossChainHtlcResource {
 							  @PathParam("tradePrivateKey") String tradePrivateKey,
 							  @PathParam("secret") String secret,
 							  @PathParam("receivingAddress") String receivingAddress) {
+		Security.checkApiCallAllowed(request);
+
+		// base58 decode the trade private key
+		byte[] decodedTradePrivateKey = null;
+		if (tradePrivateKey != null)
+			decodedTradePrivateKey = Base58.decode(tradePrivateKey);
+
+		// base58 decode the secret
+		byte[] decodedSecret = null;
+		if (secret != null)
+			decodedSecret = Base58.decode(secret);
+
+		// Convert supplied Litecoin receiving address into public key hash (we only support P2PKH at this time)
+		Address litecoinReceivingAddress;
+		try {
+			litecoinReceivingAddress = Address.fromString(Litecoin.getInstance().getNetworkParameters(), receivingAddress);
+		} catch (AddressFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
+		if (litecoinReceivingAddress.getOutputScriptType() != Script.ScriptType.P2PKH)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		byte[] litecoinReceivingAccountInfo = litecoinReceivingAddress.getHash();
+
+		return this.doRedeemHtlc(atAddress, decodedTradePrivateKey, decodedSecret, litecoinReceivingAccountInfo);
+	}
+
+	@GET
+	@Path("/redeem/LITECOIN/{ataddress}")
+	@Operation(
+			summary = "Redeems HTLC associated with supplied AT",
+			description = "To be used by a seller (Bob) who needs to redeem LTC proceeds that are stuck in a P2SH.",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	public boolean redeemHtlc(@PathParam("ataddress") String atAddress) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -206,26 +248,58 @@ public class CrossChainHtlcResource {
 			if (crossChainTradeData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] decodedSecret = Base58.decode(secret);
-			if (decodedSecret.length != 32)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-
-			byte[] decodedPrivateKey = Base58.decode(tradePrivateKey);
-			if (decodedPrivateKey.length != 32)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-
-			// Convert Litecoin receiving address into public key hash (we only support P2PKH at this time)
-			Address litecoinReceivingAddress;
-			try {
-				litecoinReceivingAddress = Address.fromString(Litecoin.getInstance().getNetworkParameters(), receivingAddress);
-			} catch (AddressFormatException e) {
+			// Attempt to find secret from the buyer's message to AT
+			byte[] decodedSecret = LitecoinACCTv1.findSecretA(repository, crossChainTradeData);
+			if (decodedSecret == null) {
+				LOGGER.info(() -> String.format("Unable to find secret-A from redeem message to AT %s", atAddress));
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 			}
-			if (litecoinReceivingAddress.getOutputScriptType() != Script.ScriptType.P2PKH)
+
+			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
+			TradeBotData tradeBotData = allTradeBotData.stream().filter(tradeBotDataItem -> tradeBotDataItem.getAtAddress().equals(atAddress)).findFirst().orElse(null);
+
+			// Search for the tradePrivateKey in the tradebot data
+			byte[] decodedPrivateKey = null;
+			if (tradeBotData != null)
+				decodedPrivateKey = tradeBotData.getTradePrivateKey();
+
+			// Search for the litecoin receiving address in the tradebot data
+			byte[] litecoinReceivingAccountInfo = null;
+				if (tradeBotData != null)
+					// Use receiving address PKH from tradebot data
+					litecoinReceivingAccountInfo = tradeBotData.getReceivingAccountInfo();
+
+			return this.doRedeemHtlc(atAddress, decodedPrivateKey, decodedSecret, litecoinReceivingAccountInfo);
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	private boolean doRedeemHtlc(String atAddress, byte[] decodedTradePrivateKey, byte[] decodedSecret, byte[] litecoinReceivingAccountInfo) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ATData atData = repository.getATRepository().fromATAddress(atAddress);
+			if (atData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+
+			ACCT acct = SupportedBlockchain.getAcctByCodeHash(atData.getCodeHash());
+			if (acct == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			byte[] litecoinReceivingAccountInfo = litecoinReceivingAddress.getHash();
-			if (litecoinReceivingAccountInfo.length != 20)
+			CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+			if (crossChainTradeData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			// Validate trade private key
+			if (decodedTradePrivateKey == null || decodedTradePrivateKey.length != 32)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			// Validate secret
+			if (decodedSecret == null || decodedSecret.length != 32)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			// Validate receiving address
+			if (litecoinReceivingAccountInfo == null || litecoinReceivingAccountInfo.length != 20)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 
@@ -261,7 +335,7 @@ public class CrossChainHtlcResource {
 
 				case FUNDED: {
 					Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedForeignAmount);
-					ECKey redeemKey = ECKey.fromPrivate(decodedPrivateKey);
+					ECKey redeemKey = ECKey.fromPrivate(decodedTradePrivateKey);
 					List<TransactionOutput> fundingOutputs = litecoin.getUnspentOutputs(p2shAddressA);
 
 					Transaction p2shRedeemTransaction = BitcoinyHTLC.buildRedeemTransaction(litecoin.getNetworkParameters(), redeemAmount, redeemKey,
