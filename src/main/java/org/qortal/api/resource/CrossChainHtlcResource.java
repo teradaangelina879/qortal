@@ -28,6 +28,7 @@ import org.qortal.api.model.CrossChainBitcoinyHTLCStatus;
 import org.qortal.crosschain.*;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
+import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -174,8 +175,6 @@ public class CrossChainHtlcResource {
 		}
 	}
 
-	// TODO: refund
-
 	@GET
 	@Path("/redeem/LITECOIN/{ataddress}/{tradePrivateKey}/{secret}/{receivingAddress}")
 	@Operation(
@@ -269,6 +268,100 @@ public class CrossChainHtlcResource {
 							fundingOutputs, redeemScriptA, decodedSecret, litecoinReceivingAccountInfo);
 
 					litecoin.broadcastTransaction(p2shRedeemTransaction);
+					return true; // TODO: validate?
+				}
+			}
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_BALANCE_ISSUE, e);
+		}
+
+		return false;
+	}
+
+	@GET
+	@Path("/refund/LITECOIN/{ataddress}")
+	@Operation(
+			summary = "Refunds HTLC associated with supplied AT",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	public boolean refundHtlc(@PathParam("ataddress") String atAddress) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ATData atData = repository.getATRepository().fromATAddress(atAddress);
+			if (atData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+
+			ACCT acct = SupportedBlockchain.getAcctByCodeHash(atData.getCodeHash());
+			if (acct == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+			if (crossChainTradeData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
+			TradeBotData tradeBotData = allTradeBotData.stream().filter(tradeBotDataItem -> tradeBotDataItem.getAtAddress().equals(atAddress)).findFirst().orElse(null);
+			if (tradeBotData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+
+			int lockTime = tradeBotData.getLockTimeA();
+
+			// We can't refund P2SH-A until lockTime-A has passed
+			if (NTP.getTime() <= lockTime * 1000L)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_TOO_SOON);
+
+			Litecoin litecoin = Litecoin.getInstance();
+
+			// We can't refund P2SH-A until median block time has passed lockTime-A (see BIP113)
+			int medianBlockTime = litecoin.getMedianBlockTime();
+			if (medianBlockTime <= lockTime)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_TOO_SOON);
+
+			byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTime, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
+			String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
+
+			// Fee for redeem/refund is subtracted from P2SH-A balance.
+			long feeTimestamp = calcFeeTimestamp(lockTime, crossChainTradeData.tradeTimeout);
+			long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
+			long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
+			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+
+			switch (htlcStatusA) {
+				case UNFUNDED:
+				case FUNDING_IN_PROGRESS:
+					// Still waiting for P2SH-A to be funded...
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_TOO_SOON);
+
+				case REDEEM_IN_PROGRESS:
+				case REDEEMED:
+				case REFUND_IN_PROGRESS:
+				case REFUNDED:
+					// Too late!
+					return false;
+
+				case FUNDED:{
+					Coin refundAmount = Coin.valueOf(crossChainTradeData.expectedForeignAmount);
+					ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
+					List<TransactionOutput> fundingOutputs = litecoin.getUnspentOutputs(p2shAddressA);
+
+					// Determine receive address for refund
+					String receiveAddress = litecoin.getUnusedReceiveAddress(tradeBotData.getForeignKey());
+					Address receiving = Address.fromString(litecoin.getNetworkParameters(), receiveAddress);
+
+					Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(litecoin.getNetworkParameters(), refundAmount, refundKey,
+							fundingOutputs, redeemScriptA, lockTime, receiving.getHash());
+
+					litecoin.broadcastTransaction(p2shRefundTransaction);
 					return true; // TODO: validate?
 				}
 			}
