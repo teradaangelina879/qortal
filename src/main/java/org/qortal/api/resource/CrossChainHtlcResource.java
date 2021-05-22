@@ -16,24 +16,29 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
-import org.bitcoinj.core.TransactionOutput;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.bitcoinj.core.*;
+import org.bitcoinj.script.Script;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.CrossChainBitcoinyHTLCStatus;
-import org.qortal.crosschain.Bitcoiny;
-import org.qortal.crosschain.ForeignBlockchainException;
-import org.qortal.crosschain.SupportedBlockchain;
-import org.qortal.crosschain.BitcoinyHTLC;
+import org.qortal.crosschain.*;
+import org.qortal.data.at.ATData;
+import org.qortal.data.crosschain.CrossChainTradeData;
+import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
-
-import com.google.common.hash.HashCode;
 
 @Path("/crosschain/htlc")
 @Tag(name = "Cross-Chain (Hash time-locked contracts)")
 public class CrossChainHtlcResource {
+
+	private static final Logger LOGGER = LogManager.getLogger(CrossChainHtlcResource.class);
 
 	@Context
 	HttpServletRequest request;
@@ -171,6 +176,114 @@ public class CrossChainHtlcResource {
 
 	// TODO: refund
 
-	// TODO: redeem
+	@GET
+	@Path("/redeem/LITECOIN/{ataddress}/{tradePrivateKey}/{secret}/{receivingAddress}")
+	@Operation(
+			summary = "Redeems HTLC associated with supplied AT",
+			description = "Secret should be 32 bytes (base58 encoded).",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	public boolean redeemHtlc(@PathParam("ataddress") String atAddress,
+							  @PathParam("tradePrivateKey") String tradePrivateKey,
+							  @PathParam("secret") String secret,
+							  @PathParam("receivingAddress") String receivingAddress) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ATData atData = repository.getATRepository().fromATAddress(atAddress);
+			if (atData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+
+			ACCT acct = SupportedBlockchain.getAcctByCodeHash(atData.getCodeHash());
+			if (acct == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+			if (crossChainTradeData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			byte[] decodedSecret = Base58.decode(secret);
+			if (decodedSecret.length != 32)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			byte[] decodedPrivateKey = Base58.decode(tradePrivateKey);
+			if (decodedPrivateKey.length != 32)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			// Convert Litecoin receiving address into public key hash (we only support P2PKH at this time)
+			Address litecoinReceivingAddress;
+			try {
+				litecoinReceivingAddress = Address.fromString(Litecoin.getInstance().getNetworkParameters(), receivingAddress);
+			} catch (AddressFormatException e) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
+			if (litecoinReceivingAddress.getOutputScriptType() != Script.ScriptType.P2PKH)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			byte[] litecoinReceivingAccountInfo = litecoinReceivingAddress.getHash();
+			if (litecoinReceivingAccountInfo.length != 20)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+
+			// Use secret-A to redeem P2SH-A
+
+			Litecoin litecoin = Litecoin.getInstance();
+
+			int lockTime = crossChainTradeData.lockTimeA;
+			byte[] redeemScriptA = BitcoinyHTLC.buildScript(crossChainTradeData.partnerForeignPKH, lockTime, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretA);
+			String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
+
+			// Fee for redeem/refund is subtracted from P2SH-A balance.
+			long feeTimestamp = calcFeeTimestamp(lockTime, crossChainTradeData.tradeTimeout);
+			long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
+			long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
+			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+
+			switch (htlcStatusA) {
+				case UNFUNDED:
+				case FUNDING_IN_PROGRESS:
+					// P2SH-A suddenly not funded? Our best bet at this point is to hope for AT auto-refund
+					return false;
+
+				case REDEEM_IN_PROGRESS:
+				case REDEEMED:
+					// Double-check that we have redeemed P2SH-A...
+					return false;
+
+				case REFUND_IN_PROGRESS:
+				case REFUNDED:
+					// Wait for AT to auto-refund
+					return false;
+
+				case FUNDED: {
+					Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedForeignAmount);
+					ECKey redeemKey = ECKey.fromPrivate(decodedPrivateKey);
+					List<TransactionOutput> fundingOutputs = litecoin.getUnspentOutputs(p2shAddressA);
+
+					Transaction p2shRedeemTransaction = BitcoinyHTLC.buildRedeemTransaction(litecoin.getNetworkParameters(), redeemAmount, redeemKey,
+							fundingOutputs, redeemScriptA, decodedSecret, litecoinReceivingAccountInfo);
+
+					litecoin.broadcastTransaction(p2shRedeemTransaction);
+					return true; // TODO: validate?
+				}
+			}
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_BALANCE_ISSUE, e);
+		}
+
+		return false;
+	}
+
+	private long calcFeeTimestamp(int lockTimeA, int tradeTimeout) {
+		return (lockTimeA - tradeTimeout * 60) * 1000L;
+	}
 
 }
