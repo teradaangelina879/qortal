@@ -375,6 +375,50 @@ public class CrossChainHtlcResource {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
+			TradeBotData tradeBotData = allTradeBotData.stream().filter(tradeBotDataItem -> tradeBotDataItem.getAtAddress().equals(atAddress)).findFirst().orElse(null);
+			if (tradeBotData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			if (tradeBotData.getForeignKey() == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			// Determine LTC receive address for refund
+			Litecoin litecoin = Litecoin.getInstance();
+			String receiveAddress = litecoin.getUnusedReceiveAddress(tradeBotData.getForeignKey());
+
+			return this.doRefundHtlc(atAddress, receiveAddress);
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_BALANCE_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/refund/LITECOIN/{ataddress}/{receivingAddress}")
+	@Operation(
+			summary = "Refunds HTLC associated with supplied AT, to the specified LTC receiving address",
+			description = "To be used by a QORT buyer (Alice) who needs to refund their LTC that is stuck in a P2SH.<br>" +
+					"This requires Alice's trade bot data to be present in the database for this AT.<br>" +
+					"It will fail if it's already redeemed by the seller, or if the lockTime (60 minutes) hasn't passed yet.",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	public boolean refundHtlc(@PathParam("ataddress") String atAddress,
+							  @PathParam("receivingAddress") String receivingAddress) {
+		Security.checkApiCallAllowed(request);
+		return this.doRefundHtlc(atAddress, receivingAddress);
+	}
+
+
+	private boolean doRefundHtlc(String atAddress, String receiveAddress) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
 			ATData atData = repository.getATRepository().fromATAddress(atAddress);
 			if (atData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
@@ -433,9 +477,10 @@ public class CrossChainHtlcResource {
 					ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
 					List<TransactionOutput> fundingOutputs = litecoin.getUnspentOutputs(p2shAddressA);
 
-					// Determine receive address for refund
-					String receiveAddress = litecoin.getUnusedReceiveAddress(tradeBotData.getForeignKey());
+					// Validate the destination LTC address
 					Address receiving = Address.fromString(litecoin.getNetworkParameters(), receiveAddress);
+					if (receiving.getOutputScriptType() != Script.ScriptType.P2PKH)
+						throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 					Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(litecoin.getNetworkParameters(), refundAmount, refundKey,
 							fundingOutputs, redeemScriptA, lockTime, receiving.getHash());
