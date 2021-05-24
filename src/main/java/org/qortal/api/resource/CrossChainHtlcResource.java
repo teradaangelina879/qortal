@@ -26,6 +26,7 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.CrossChainBitcoinyHTLCStatus;
 import org.qortal.crosschain.*;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
@@ -267,9 +268,9 @@ public class CrossChainHtlcResource {
 
 			// Search for the litecoin receiving address in the tradebot data
 			byte[] litecoinReceivingAccountInfo = null;
-				if (tradeBotData != null)
-					// Use receiving address PKH from tradebot data
-					litecoinReceivingAccountInfo = tradeBotData.getReceivingAccountInfo();
+			if (tradeBotData != null)
+				// Use receiving address PKH from tradebot data
+				litecoinReceivingAccountInfo = tradeBotData.getReceivingAccountInfo();
 
 			return this.doRedeemHtlc(atAddress, decodedPrivateKey, decodedSecret, litecoinReceivingAccountInfo);
 
@@ -303,6 +304,12 @@ public class CrossChainHtlcResource {
 			// Validate receiving address
 			if (litecoinReceivingAccountInfo == null || litecoinReceivingAccountInfo.length != 20)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			// Make sure the receiving address isn't a QORT address, given that we can share the same field for both QORT and LTC
+			if (Crypto.isValidAddress(litecoinReceivingAccountInfo))
+				if (Base58.encode(litecoinReceivingAccountInfo).startsWith("Q"))
+					// This is likely a QORT address, not an LTC
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 
 			// Use secret-A to redeem P2SH-A
