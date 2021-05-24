@@ -319,6 +319,7 @@ public class CrossChainHtlcResource {
 			int lockTime = crossChainTradeData.lockTimeA;
 			byte[] redeemScriptA = BitcoinyHTLC.buildScript(crossChainTradeData.partnerForeignPKH, lockTime, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretA);
 			String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
+			LOGGER.info(String.format("Redeeming P2SH address: %s", p2shAddressA));
 
 			// Fee for redeem/refund is subtracted from P2SH-A balance.
 			long feeTimestamp = calcFeeTimestamp(lockTime, crossChainTradeData.tradeTimeout);
@@ -459,6 +460,7 @@ public class CrossChainHtlcResource {
 
 			byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTime, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
 			String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
+			LOGGER.info(String.format("Refunding P2SH address: %s", p2shAddressA));
 
 			// Fee for redeem/refund is subtracted from P2SH-A balance.
 			long feeTimestamp = calcFeeTimestamp(lockTime, crossChainTradeData.tradeTimeout);
