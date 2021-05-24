@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.function.Function;
 
 import org.bitcoinj.core.Address;
-import org.bitcoinj.core.Base58;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.ECKey;
 import org.bitcoinj.core.LegacyAddress;
@@ -25,6 +24,7 @@ import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
 import org.bitcoinj.script.ScriptOpCodes;
 import org.qortal.crypto.Crypto;
+import org.qortal.utils.Base58;
 import org.qortal.utils.BitTwiddling;
 
 import com.google.common.hash.HashCode;

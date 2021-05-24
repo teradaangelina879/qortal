@@ -6,12 +6,12 @@ import org.qortal.block.BlockChain;
 import org.qortal.crypto.BouncyCastle25519;
 import org.qortal.crypto.Crypto;
 import org.qortal.test.common.Common;
+import org.qortal.utils.Base58;
 
 import static org.junit.Assert.*;
 
 import java.security.SecureRandom;
 
-import org.bitcoinj.core.Base58;
 import org.bouncycastle.crypto.agreement.X25519Agreement;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
