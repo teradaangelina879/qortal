@@ -18,4 +18,9 @@
 /run-testnet.sh
 /.idea
 /qortal.iml
-*.DS_Store
+.DS_Store
+/src/main/resources/resources
+/src/main/resources/log*.properties
+/*.jar
+/run.pid
+/run.log

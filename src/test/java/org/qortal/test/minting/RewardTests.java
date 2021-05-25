@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.bitcoinj.core.Base58;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,6 +24,7 @@ import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
 import org.qortal.utils.Amounts;
+import org.qortal.utils.Base58;
 
 public class RewardTests extends Common {
 

@@ -1,5 +1,6 @@
 package org.qortal.api.resource;
 
+import com.google.common.primitives.Ints;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -8,6 +9,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -38,6 +41,8 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.transform.TransformationException;
+import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.Base58;
 
 @Path("/blocks")
@@ -82,6 +87,48 @@ public class BlocksResource {
 
 			return blockData;
 		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/signature/{signature}/data")
+	@Operation(
+			summary = "Fetch serialized, base58 encoded block data using base58 signature",
+			description = "Returns serialized data for the block that matches the given signature",
+			responses = {
+					@ApiResponse(
+							description = "the block data",
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	@ApiErrors({
+			ApiError.INVALID_SIGNATURE, ApiError.BLOCK_UNKNOWN, ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE
+	})
+	public String getSerializedBlockData(@PathParam("signature") String signature58) {
+		// Decode signature
+		byte[] signature;
+		try {
+			signature = Base58.decode(signature58);
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE, e);
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
+			if (blockData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+
+			Block block = new Block(repository, blockData);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+			bytes.write(Ints.toByteArray(block.getBlockData().getHeight()));
+			bytes.write(BlockTransformer.toBytes(block));
+			return Base58.encode(bytes.toByteArray());
+
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
+		} catch (DataException | IOException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
