@@ -23,8 +23,8 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.crosschain.BitcoinSendRequest;
 import org.qortal.crosschain.Bitcoin;
-import org.qortal.crosschain.BitcoinyTransaction;
 import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.SimpleTransaction;
 
 @Path("/crosschain/btc")
 @Tag(name = "Cross-Chain (Bitcoin)")
@@ -89,12 +89,12 @@ public class CrossChainBitcoinResource {
 		),
 		responses = {
 			@ApiResponse(
-				content = @Content(array = @ArraySchema( schema = @Schema( implementation = BitcoinyTransaction.class ) ) )
+				content = @Content(array = @ArraySchema( schema = @Schema( implementation = SimpleTransaction.class ) ) )
 			)
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
-	public List<BitcoinyTransaction> getBitcoinWalletTransactions(String key58) {
+	public List<SimpleTransaction> getBitcoinWalletTransactions(String key58) {
 		Security.checkApiCallAllowed(request);
 
 		Bitcoin bitcoin = Bitcoin.getInstance();
