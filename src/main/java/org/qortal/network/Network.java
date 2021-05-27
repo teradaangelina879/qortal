@@ -662,9 +662,9 @@ public class Network {
         // Notify Controller
         Controller.getInstance().onPeerDisconnect(peer);
         if (peer.getConnectionEstablishedTime() > 0L) {
-            LOGGER.info("[{}] Disconnected from peer {}", peer.getPeerConnectionId(), peer);
+            LOGGER.debug("[{}] Disconnected from peer {}", peer.getPeerConnectionId(), peer);
         } else {
-            LOGGER.warn("[{}] Failed to connect to peer {}", peer.getPeerConnectionId(), peer);
+            LOGGER.debug("[{}] Failed to connect to peer {}", peer.getPeerConnectionId(), peer);
         }
 
         synchronized (this.connectedPeers) {
@@ -817,7 +817,7 @@ public class Network {
     }
 
     protected void onHandshakeCompleted(Peer peer) {
-        LOGGER.info("[{}] Handshake completed with peer {} on {}", peer.getPeerConnectionId(), peer,
+        LOGGER.debug("[{}] Handshake completed with peer {} on {}", peer.getPeerConnectionId(), peer,
                 peer.getPeersVersionString());
 
         // Are we already connected to this peer?
