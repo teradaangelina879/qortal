@@ -35,8 +35,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.qortal.controller.Controller.MISBEHAVIOUR_COOLOFF;
-
 // For managing peers
 public class Network {
     private static final Logger LOGGER = LogManager.getLogger(Network.class);
@@ -265,11 +263,6 @@ public class Network {
     private final Predicate<PeerData> isConnectedPeer = peerData -> {
         PeerAddress peerAddress = peerData.getAddress();
         return this.connectedPeers.stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
-    };
-
-    private static final Predicate<PeerData> hasMisbehaved = peerData -> {
-        final Long lastMisbehaved = peerData.getLastMisbehaved();
-        return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
     };
 
     /**
@@ -570,8 +563,6 @@ public class Network {
                     && (peerData.getLastConnected() == null
                     || peerData.getLastConnected() < peerData.getLastAttempted())
                     && peerData.getLastAttempted() > lastAttemptedThreshold);
-
-            peers.removeIf(hasMisbehaved);
 
             // Don't consider peers that we know loop back to ourself
             synchronized (this.selfPeers) {
