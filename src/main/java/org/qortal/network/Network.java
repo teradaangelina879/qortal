@@ -522,14 +522,24 @@ public class Network {
         if (socketChannel == null) {
             return;
         }
+        PeerAddress address = PeerAddress.fromSocket(socketChannel.socket());
+        List<String> fixedNetwork = Settings.getInstance().getFixedNetwork();
+        if (fixedNetwork != null && !fixedNetwork.isEmpty() && ipNotInFixedList(address, fixedNetwork)) {
+            try {
+                socketChannel.close();
+                LOGGER.debug("Connection discarded from peer {} as not in the fixed network list", address);
+            } catch (IOException e) {
+                // IGNORE
+            }
+            return;
+        }
 
         final Long now = NTP.getTime();
         Peer newPeer;
 
         try {
             if (now == null) {
-                LOGGER.debug("Connection discarded from peer {} due to lack of NTP sync",
-                        PeerAddress.fromSocket(socketChannel.socket()));
+                LOGGER.debug("Connection discarded from peer {} due to lack of NTP sync", address);
                 socketChannel.close();
                 return;
             }
@@ -537,12 +547,12 @@ public class Network {
             synchronized (this.connectedPeers) {
                 if (connectedPeers.size() >= maxPeers) {
                     // We have enough peers
-                    LOGGER.debug("Connection discarded from peer {}", PeerAddress.fromSocket(socketChannel.socket()));
+                    LOGGER.debug("Connection discarded from peer {}", address);
                     socketChannel.close();
                     return;
                 }
 
-                LOGGER.debug("Connection accepted from peer {}", PeerAddress.fromSocket(socketChannel.socket()));
+                LOGGER.debug("Connection accepted from peer {}", address);
 
                 newPeer = new Peer(socketChannel, channelSelector);
                 this.connectedPeers.add(newPeer);
@@ -559,6 +569,16 @@ public class Network {
         }
 
         this.onPeerReady(newPeer);
+    }
+
+    private boolean ipNotInFixedList(PeerAddress address, List<String> fixedNetwork) {
+        for (String ipAddress : fixedNetwork) {
+            String[] bits = ipAddress.split(":");
+            if (bits.length >= 1 && bits.length <= 2 && address.getHost().equals(bits[0])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Peer getConnectablePeer(final Long now) throws InterruptedException {
