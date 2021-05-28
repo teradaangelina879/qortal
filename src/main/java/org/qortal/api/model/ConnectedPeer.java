@@ -58,7 +58,7 @@ public class ConnectedPeer {
             long age = (System.currentTimeMillis() - peer.getConnectionEstablishedTime());
             long minutes = TimeUnit.MILLISECONDS.toMinutes(age);
             long seconds = TimeUnit.MILLISECONDS.toSeconds(age) - TimeUnit.MINUTES.toSeconds(minutes);
-            this.age = String.format("%02d min, %02d sec", minutes, seconds);
+            this.age = String.format("%dm %ds", minutes, seconds);
         } else {
             this.age = "connecting...";
         }
