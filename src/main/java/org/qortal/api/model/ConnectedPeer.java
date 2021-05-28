@@ -9,6 +9,7 @@ import org.qortal.network.Peer;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public class ConnectedPeer {
@@ -34,6 +35,7 @@ public class ConnectedPeer {
     public byte[] lastBlockSignature;
     public Long lastBlockTimestamp;
     public UUID connectionId;
+    public String age;
 
     protected ConnectedPeer() {
     }
@@ -52,6 +54,14 @@ public class ConnectedPeer {
         this.version = peer.getPeersVersionString();
         this.nodeId = peer.getPeersNodeId();
         this.connectionId = peer.getPeerConnectionId();
+        if (peer.getConnectionEstablishedTime() > 0) {
+            long age = (System.currentTimeMillis() - peer.getConnectionEstablishedTime());
+            long minutes = TimeUnit.MILLISECONDS.toMinutes(age);
+            long seconds = TimeUnit.MILLISECONDS.toSeconds(age) - TimeUnit.MINUTES.toSeconds(minutes);
+            this.age = String.format("%02d min, %02d sec", minutes, seconds);
+        } else {
+            this.age = "connecting...";
+        }
 
         PeerChainTipData peerChainTipData = peer.getChainTipData();
         if (peerChainTipData != null) {
