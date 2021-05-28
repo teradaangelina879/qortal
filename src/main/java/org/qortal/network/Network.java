@@ -526,8 +526,8 @@ public class Network {
         List<String> fixedNetwork = Settings.getInstance().getFixedNetwork();
         if (fixedNetwork != null && !fixedNetwork.isEmpty() && ipNotInFixedList(address, fixedNetwork)) {
             try {
-                socketChannel.close();
                 LOGGER.debug("Connection discarded from peer {} as not in the fixed network list", address);
+                socketChannel.close();
             } catch (IOException e) {
                 // IGNORE
             }
@@ -547,7 +547,7 @@ public class Network {
             synchronized (this.connectedPeers) {
                 if (connectedPeers.size() >= maxPeers) {
                     // We have enough peers
-                    LOGGER.debug("Connection discarded from peer {}", address);
+                    LOGGER.debug("Connection discarded from peer {} because the server is full", address);
                     socketChannel.close();
                     return;
                 }
@@ -560,6 +560,7 @@ public class Network {
         } catch (IOException e) {
             if (socketChannel.isOpen()) {
                 try {
+                    LOGGER.debug("Connection failed from peer {} while connecting/closing", address);
                     socketChannel.close();
                 } catch (IOException ce) {
                     // Couldn't close?
