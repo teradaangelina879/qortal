@@ -150,9 +150,23 @@ public class Network {
         }
 
         // Load all known peers from repository
-        try (Repository repository = RepositoryManager.getRepository()) {
-            synchronized (this.allKnownPeers) {
-                this.allKnownPeers.addAll(repository.getNetworkRepository().getAllPeers());
+        synchronized (this.allKnownPeers) { List<String> fixedNetwork = Settings.getInstance().getFixedNetwork();
+            if (fixedNetwork != null && !fixedNetwork.isEmpty()) {
+                Long addedWhen = NTP.getTime();
+                String addedBy = "fixedNetwork";
+                List<PeerAddress> peerAddresses = new ArrayList<>();
+                for (String address : fixedNetwork) {
+                    PeerAddress peerAddress = PeerAddress.fromString(address);
+                    peerAddresses.add(peerAddress);
+                }
+                List<PeerData> peers = peerAddresses.stream()
+                        .map(peerAddress -> new PeerData(peerAddress, addedWhen, addedBy))
+                        .collect(Collectors.toList());
+                this.allKnownPeers.addAll(peers);
+            } else {
+                try (Repository repository = RepositoryManager.getRepository()) {
+                    this.allKnownPeers.addAll(repository.getNetworkRepository().getAllPeers());
+                }
             }
         }
 
@@ -1115,6 +1129,10 @@ public class Network {
 
     private boolean mergePeers(Repository repository, String addedBy, long addedWhen, List<PeerAddress> peerAddresses)
             throws DataException {
+        List<String> fixedNetwork = Settings.getInstance().getFixedNetwork();
+        if (fixedNetwork != null && !fixedNetwork.isEmpty()) {
+            return false;
+        }
         List<PeerData> newPeers;
         synchronized (this.allKnownPeers) {
             for (PeerData knownPeerData : this.allKnownPeers) {
