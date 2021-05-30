@@ -49,7 +49,7 @@ public class Synchronizer {
 	private static final Logger LOGGER = LogManager.getLogger(Synchronizer.class);
 
 	/** Max number of new blocks we aim to add to chain tip in each sync round */
-	private static final int SYNC_BATCH_SIZE = 200; // XXX move to Settings?
+	private static final int SYNC_BATCH_SIZE = 1000; // XXX move to Settings?
 
 	/** Initial jump back of block height when searching for common block with peer */
 	private static final int INITIAL_BLOCK_STEP = 8;
