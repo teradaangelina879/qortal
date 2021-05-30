@@ -524,12 +524,22 @@ public class Peer {
     }
 
     /**
-     * Attempt to send Message to peer.
+     * Attempt to send Message to peer, using default RESPONSE_TIMEOUT.
      *
      * @param message message to be sent
      * @return <code>true</code> if message successfully sent; <code>false</code> otherwise
      */
     public boolean sendMessage(Message message) {
+        return this.sendMessageWithTimeout(message, RESPONSE_TIMEOUT);
+    }
+
+    /**
+     * Attempt to send Message to peer, using custom timeout.
+     *
+     * @param message message to be sent
+     * @return <code>true</code> if message successfully sent; <code>false</code> otherwise
+     */
+    public boolean sendMessageWithTimeout(Message message, int timeout) {
         if (!this.socketChannel.isOpen()) {
             return false;
         }
@@ -563,7 +573,7 @@ public class Peer {
                          */
                         Thread.sleep(1L); //NOSONAR squid:S2276
 
-                        if (System.currentTimeMillis() - sendStart > RESPONSE_TIMEOUT) {
+                        if (System.currentTimeMillis() - sendStart > timeout) {
                             // We've taken too long to send this message
                             return false;
                         }
@@ -630,7 +640,7 @@ public class Peer {
         message.setId(id);
 
         // Try to send message
-        if (!this.sendMessage(message)) {
+        if (!this.sendMessageWithTimeout(message, timeout)) {
             this.replyQueues.remove(id);
             return null;
         }

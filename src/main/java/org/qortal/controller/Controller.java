@@ -103,6 +103,8 @@ import org.qortal.utils.Triple;
 
 import com.google.common.primitives.Longs;
 
+import static org.qortal.network.Peer.FETCH_BLOCKS_TIMEOUT;
+
 public class Controller extends Thread {
 
 	static {
@@ -1374,7 +1376,7 @@ public class Controller extends Thread {
 
 			Message blocksMessage = new BlocksMessage(blocks);
 			blocksMessage.setId(message.getId());
-			if (!peer.sendMessage(blocksMessage))
+			if (!peer.sendMessageWithTimeout(blocksMessage, FETCH_BLOCKS_TIMEOUT))
 				peer.disconnect("failed to send blocks");
 
 		} catch (DataException e) {
