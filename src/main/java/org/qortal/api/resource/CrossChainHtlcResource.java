@@ -20,10 +20,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.*;
 import org.bitcoinj.script.Script;
-import org.qortal.api.ApiError;
-import org.qortal.api.ApiErrors;
-import org.qortal.api.ApiExceptionFactory;
-import org.qortal.api.Security;
+import org.qortal.api.*;
 import org.qortal.api.model.CrossChainBitcoinyHTLCStatus;
 import org.qortal.crosschain.*;
 import org.qortal.crypto.Crypto;
@@ -277,6 +274,97 @@ public class CrossChainHtlcResource {
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
+	}
+
+	@GET
+	@Path("/redeemAll/LITECOIN")
+	@Operation(
+			summary = "Redeems HTLC for all applicable ATs in tradebot data",
+			description = "To be used by a QORT seller (Bob) who needs to redeem LTC proceeds that are stuck in P2SH transactions.<br>" +
+					"This requires Bob's trade bot data to be present in the database for any ATs that need redeeming.<br>" +
+					"Returns true if at least one trade is redeemed. More detail is available in the log.txt.* file.",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	public boolean redeemAllHtlc() {
+		Security.checkApiCallAllowed(request);
+		boolean success = false;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
+
+			for (TradeBotData tradeBotData : allTradeBotData) {
+				String atAddress = tradeBotData.getAtAddress();
+				if (atAddress == null) {
+					LOGGER.info("Missing AT address in tradebot data", atAddress);
+					continue;
+				}
+
+				String tradeState = tradeBotData.getState();
+				if (tradeState == null) {
+					LOGGER.info("Missing trade state for AT {}", atAddress);
+					continue;
+				}
+
+				if (tradeState.startsWith("ALICE")) {
+					LOGGER.info("AT {} isn't redeemable because it is a buy order", atAddress);
+					continue;
+				}
+
+				ATData atData = repository.getATRepository().fromATAddress(atAddress);
+				if (atData == null) {
+					LOGGER.info("Couldn't find AT with address {}", atAddress);
+					continue;
+				}
+
+				ACCT acct = SupportedBlockchain.getAcctByCodeHash(atData.getCodeHash());
+				if (acct == null) {
+					continue;
+				}
+
+				CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+				if (crossChainTradeData == null) {
+					LOGGER.info("Couldn't find crosschain trade data for AT {}", atAddress);
+					continue;
+				}
+
+				// Attempt to find secret from the buyer's message to AT
+				byte[] decodedSecret = LitecoinACCTv1.findSecretA(repository, crossChainTradeData);
+				if (decodedSecret == null) {
+					LOGGER.info("Unable to find secret-A from redeem message to AT {}", atAddress);
+					continue;
+				}
+
+				// Search for the tradePrivateKey in the tradebot data
+				byte[] decodedPrivateKey = tradeBotData.getTradePrivateKey();
+
+				// Search for the litecoin receiving address PKH in the tradebot data
+				byte[] litecoinReceivingAccountInfo = tradeBotData.getReceivingAccountInfo();
+
+				try {
+					LOGGER.info("Attempting to redeem P2SH balance associated with AT {}...", atAddress);
+					boolean redeemed = this.doRedeemHtlc(atAddress, decodedPrivateKey, decodedSecret, litecoinReceivingAccountInfo);
+					if (redeemed) {
+						LOGGER.info("Redeemed P2SH balance associated with AT {}", atAddress);
+						success = true;
+					}
+					else {
+						LOGGER.info("Couldn't redeem P2SH balance associated with AT {}. Already redeemed?", atAddress);
+					}
+				} catch (ApiException e) {
+					LOGGER.info("Couldn't redeem P2SH balance associated with AT {}. Missing data?", atAddress);
+				}
+			}
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+
+		return success;
 	}
 
 	private boolean doRedeemHtlc(String atAddress, byte[] decodedTradePrivateKey, byte[] decodedSecret, byte[] litecoinReceivingAccountInfo) {
