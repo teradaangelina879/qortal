@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.List;
 import java.util.Locale;
 
 import javax.xml.bind.JAXBContext;
@@ -156,6 +157,7 @@ public class Settings {
 	private String repositoryPath = "db";
 	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
 	private int repositoryConnectionPoolSize = 100;
+	private List<String> fixedNetwork;
 
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
@@ -528,4 +530,7 @@ public class Settings {
 		return this.onlineSignaturesTrimBatchSize;
 	}
 
+	public List<String> getFixedNetwork() {
+		return fixedNetwork;
+	}
 }

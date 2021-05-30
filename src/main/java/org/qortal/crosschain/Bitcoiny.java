@@ -91,7 +91,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return this.params;
 	}
 
-	// Interface obligations 
+	// Interface obligations
 
 	@Override
 	public boolean isValidAddress(String address) {
@@ -171,7 +171,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	/**
 	 * Returns fixed P2SH spending fee, in sats per 1000bytes, optionally for historic timestamp.
-	 * 
+	 *
 	 * @param timestamp optional milliseconds since epoch, or null for 'now'
 	 * @return sats per 1000bytes
 	 * @throws ForeignBlockchainException if something went wrong
@@ -271,7 +271,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	/**
 	 * Returns bitcoinj transaction sending <tt>amount</tt> to <tt>recipient</tt>.
-	 * 
+	 *
 	 * @param xprv58 BIP32 private key
 	 * @param recipient P2PKH address
 	 * @param amount unscaled amount
@@ -303,7 +303,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	/**
 	 * Returns bitcoinj transaction sending <tt>amount</tt> to <tt>recipient</tt> using default fees.
-	 * 
+	 *
 	 * @param xprv58 BIP32 private key
 	 * @param recipient P2PKH address
 	 * @param amount unscaled amount
@@ -332,7 +332,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return balance.value;
 	}
 
-	public List<BitcoinyTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
+	public List<SimpleTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
 		Context.propagate(bitcoinjContext);
 
 		Wallet wallet = walletFromDeterministicKey58(key58);
@@ -344,6 +344,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
 
 		Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
+		Set<String> keySet = new HashSet<>();
 
 		int ki = 0;
 		do {
@@ -354,6 +355,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 				// Check for transactions
 				Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
+				keySet.add(address.toString());
 				byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
 
 				// Ask for transaction history - if it's empty then key has never been used
@@ -377,9 +379,41 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			// Process new keys
 		} while (true);
 
-		Comparator<BitcoinyTransaction> newestTimestampFirstComparator = Comparator.comparingInt((BitcoinyTransaction txn) -> txn.timestamp).reversed();
+		Comparator<SimpleTransaction> newestTimestampFirstComparator = Comparator.comparingInt(SimpleTransaction::getTimestamp).reversed();
 
-		return walletTransactions.stream().sorted(newestTimestampFirstComparator).collect(Collectors.toList());
+		return walletTransactions.stream().map(t -> convertToSimpleTransaction(t, keySet)).sorted(newestTimestampFirstComparator).collect(Collectors.toList());
+	}
+
+	protected SimpleTransaction convertToSimpleTransaction(BitcoinyTransaction t, Set<String> keySet) {
+		long amount = 0;
+		long total = 0L;
+		for (BitcoinyTransaction.Input input : t.inputs) {
+			try {
+				BitcoinyTransaction t2 = getTransaction(input.outputTxHash);
+				List<String> senders = t2.outputs.get(input.outputVout).addresses;
+				for (String sender : senders) {
+					if (keySet.contains(sender)) {
+						total += t2.outputs.get(input.outputVout).value;
+					}
+				}
+			} catch (ForeignBlockchainException e) {
+				LOGGER.trace("Failed to retrieve transaction information {}", input.outputTxHash);
+			}
+		}
+		if (t.outputs != null && !t.outputs.isEmpty()) {
+			for (BitcoinyTransaction.Output output : t.outputs) {
+				for (String address : output.addresses) {
+					if (keySet.contains(address)) {
+						if (total > 0L) {
+							amount -= (total - output.value);
+						} else {
+							amount += output.value;
+						}
+					}
+				}
+			}
+		}
+		return new SimpleTransaction(t.txHash, t.timestamp, amount);
 	}
 
 	/**
@@ -421,7 +455,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				 * If there are no unspent outputs then either:
 				 * a) all the outputs have been spent
 				 * b) address has never been used
-				 * 
+				 *
 				 * For case (a) we want to remember not to check this address (key) again.
 				 */
 
@@ -501,7 +535,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 					 * If there are no unspent outputs then either:
 					 * a) all the outputs have been spent
 					 * b) address has never been used
-					 * 
+					 *
 					 * For case (a) we want to remember not to check this address (key) again.
 					 */
 

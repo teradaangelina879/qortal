@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,7 +29,7 @@ import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
 
 public class RewardTests extends Common {
-
+	private static final Logger LOGGER = LogManager.getLogger(RewardTests.class);
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useDefaultSettings();
@@ -130,19 +132,19 @@ public class RewardTests extends Common {
 
 			/*
 			 * Example:
-			 * 
+			 *
 			 * Block reward is 100 QORT, QORA-holders' share is 0.20 (20%) = 20 QORT
-			 * 
+			 *
 			 * We hold 100 QORA
 			 * Someone else holds 28 QORA
 			 * Total QORA held: 128 QORA
-			 * 
+			 *
 			 * Our portion of that is 100 QORA / 128 QORA * 20 QORT = 15.625 QORT
-			 * 
+			 *
 			 * QORA holders earn at most 1 QORT per 250 QORA held.
-			 * 
+			 *
 			 * So we can earn at most 100 QORA / 250 QORAperQORT = 0.4 QORT
-			 * 
+			 *
 			 * Thus our block earning should be capped to 0.4 QORT.
 			 */
 
@@ -289,7 +291,7 @@ public class RewardTests extends Common {
 			 * Dilbert is only account 'online'.
 			 * No founders online.
 			 * Some legacy QORA holders.
-			 * 
+			 *
 			 * So Dilbert should receive 100% - legacy QORA holder's share.
 			 */
 
@@ -348,11 +350,16 @@ public class RewardTests extends Common {
 			// Alice self share online
 			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
 			mintingAndOnlineAccounts.add(aliceSelfShare);
-
+			byte[] chloeRewardSharePrivateKey;
 			// Bob self-share NOT online
 
 			// Chloe self share online
-			byte[] chloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "chloe", "chloe", 0);
+			try {
+				chloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "chloe", "chloe", 0);
+			} catch (IllegalArgumentException ex) {
+				LOGGER.error("FAILED {}", ex.getLocalizedMessage(), ex);
+				throw ex;
+			}
 			PrivateKeyAccount chloeRewardShareAccount = new PrivateKeyAccount(repository, chloeRewardSharePrivateKey);
 			mintingAndOnlineAccounts.add(chloeRewardShareAccount);
 
@@ -486,7 +493,7 @@ public class RewardTests extends Common {
 			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", 0);
 			PrivateKeyAccount dilbertRewardShareAccount = new PrivateKeyAccount(repository, dilbertRewardSharePrivateKey);
 			mintingAndOnlineAccounts.add(dilbertRewardShareAccount);
-			
+
 			// Mint enough blocks to bump testAccount levels to 3 and 4
 			final int minterBlocksNeeded = cumulativeBlocksByLevel.get(4) - 20; // 20 blocks before level 4, so that the test accounts reach the correct levels
 			for (int bc = 0; bc < minterBlocksNeeded; ++bc)

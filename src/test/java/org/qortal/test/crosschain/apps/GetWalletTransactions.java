@@ -8,11 +8,7 @@ import java.util.stream.Collectors;
 import org.bitcoinj.core.AddressFormatException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
-import org.qortal.crosschain.Bitcoin;
-import org.qortal.crosschain.Bitcoiny;
-import org.qortal.crosschain.BitcoinyTransaction;
-import org.qortal.crosschain.ForeignBlockchainException;
-import org.qortal.crosschain.Litecoin;
+import org.qortal.crosschain.*;
 import org.qortal.settings.Settings;
 
 public class GetWalletTransactions {
@@ -69,7 +65,7 @@ public class GetWalletTransactions {
 		System.out.println(String.format("Using %s", bitcoiny.getBlockchainProvider().getNetId()));
 
 		// Grab all outputs from transaction
-		List<BitcoinyTransaction> transactions = null;
+		List<SimpleTransaction> transactions = null;
 		try {
 			transactions = bitcoiny.getWalletTransactions(key58);
 		} catch (ForeignBlockchainException e) {
@@ -79,7 +75,7 @@ public class GetWalletTransactions {
 
 		System.out.println(String.format("Found %d transaction%s", transactions.size(), (transactions.size() != 1 ? "s" : "")));
 
-		for (BitcoinyTransaction transaction : transactions.stream().sorted(Comparator.comparingInt(t -> t.timestamp)).collect(Collectors.toList()))
+		for (SimpleTransaction transaction : transactions.stream().sorted(Comparator.comparingInt(SimpleTransaction::getTimestamp)).collect(Collectors.toList()))
 			System.out.println(String.format("%s", transaction));
 	}
 
