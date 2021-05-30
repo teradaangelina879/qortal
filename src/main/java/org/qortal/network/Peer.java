@@ -48,6 +48,11 @@ public class Peer {
     private static final int RESPONSE_TIMEOUT = 3000; // ms
 
     /**
+     * Maximum time to wait for a peer to respond with blocks (ms)
+     */
+    public static final int FETCH_BLOCKS_TIMEOUT = 10000;
+
+    /**
      * Interval between PING messages to a peer. (ms)
      * <p>
      * Just under every 30s is usually ideal to keep NAT mappings refreshed.

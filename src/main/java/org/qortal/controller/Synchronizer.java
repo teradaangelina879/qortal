@@ -42,6 +42,8 @@ import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
+import static org.qortal.network.Peer.FETCH_BLOCKS_TIMEOUT;
+
 public class Synchronizer {
 
 	private static final Logger LOGGER = LogManager.getLogger(Synchronizer.class);
@@ -63,8 +65,7 @@ public class Synchronizer {
 	/* Minimum peer version that supports syncing multiple blocks at once via GetBlocksMessage */
 	private static final long PEER_VERSION_160 = 0x0100060000L;
 
-	/** Maximum time to wait for a peer to respond with blocks (ms) */
-	private static final int FETCH_BLOCKS_TIMEOUT = 10000;
+
 
 
 	private static Synchronizer instance;
