@@ -138,9 +138,9 @@ public class Settings {
 	/** Whether to sync multiple blocks at once when the peer has a different chain */
 	private boolean fastSyncEnabledWhenResolvingFork = true;
 	/** Maximum number of blocks to request at once */
-	private int maxBlocksPerRequest = 1;
+	private int maxBlocksPerRequest = 100;
 	/** Maximum number of blocks this node will serve in a single response */
-	private int maxBlocksPerResponse = 5;
+	private int maxBlocksPerResponse = 100;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
