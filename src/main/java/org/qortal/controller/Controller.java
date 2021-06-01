@@ -883,13 +883,18 @@ public class Controller extends Thread {
 
 			List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
+			int deletedCount = 0;
 			for (TransactionData transactionData : transactions) {
 				Transaction transaction = Transaction.fromData(repository, transactionData);
 
 				if (now >= transaction.getDeadline()) {
-					LOGGER.info(() -> String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
+					LOGGER.debug(() -> String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
 					repository.getTransactionRepository().delete(transactionData);
+					deletedCount++;
 				}
+			}
+			if (deletedCount > 0) {
+				LOGGER.info(String.format("Deleted %d expired, unconfirmed transaction%s", deletedCount, (deletedCount == 1 ? "" : "s")));
 			}
 
 			repository.saveChanges();
