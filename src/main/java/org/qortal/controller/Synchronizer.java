@@ -139,7 +139,7 @@ public class Synchronizer {
 
 				if (wereNewRequestsMade) {
 					final long totalTimeTaken = System.currentTimeMillis() - startTime;
-					LOGGER.info(String.format("Finished searching for common blocks with %d peer%s. Found: %d. Total time taken: %d ms", peers.size(), (peers.size() != 1 ? "s" : ""), commonBlocksFound, totalTimeTaken));
+					LOGGER.debug(String.format("Finished searching for common blocks with %d peer%s. Found: %d. Total time taken: %d ms", peers.size(), (peers.size() != 1 ? "s" : ""), commonBlocksFound, totalTimeTaken));
 				}
 
 				return SynchronizationResult.OK;

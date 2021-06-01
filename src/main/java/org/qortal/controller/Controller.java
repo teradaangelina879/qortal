@@ -678,7 +678,7 @@ public class Controller extends Thread {
 
 		final int peersRemoved = peersBeforeComparison - peers.size();
 		if (peersRemoved > 0 && peers.size() > 0)
-			LOGGER.info(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
+			LOGGER.debug(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
 
 		if (peers.isEmpty())
 			return;
@@ -687,7 +687,7 @@ public class Controller extends Thread {
 			StringBuilder finalPeersString = new StringBuilder();
 			for (Peer peer : peers)
 				finalPeersString = finalPeersString.length() > 0 ? finalPeersString.append(", ").append(peer) : finalPeersString.append(peer);
-			LOGGER.info(String.format("Choosing random peer from: [%s]", finalPeersString.toString()));
+			LOGGER.debug(String.format("Choosing random peer from: [%s]", finalPeersString.toString()));
 		}
 
 		// Pick random peer to sync with
