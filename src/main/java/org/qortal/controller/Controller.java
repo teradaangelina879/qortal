@@ -1338,40 +1338,16 @@ public class Controller extends Thread {
 			// Ensure that we don't serve more blocks than the amount specified in the settings
 			// Serializing multiple blocks is very slow, so by default we are using a low limit
 			int blockLimitPerRequest = Settings.getInstance().getMaxBlocksPerResponse();
-
-			List<BlockData> blockDataList = new ArrayList<>();
-
-			// Attempt to serve from our cache of latest blocks
-			synchronized (this.latestBlocks) {
-				blockDataList = this.latestBlocks.stream()
-						.dropWhile(cachedBlockData -> !Arrays.equals(cachedBlockData.getReference(), parentSignature))
-						.map(BlockData::new)
-						.collect(Collectors.toList());
-			}
-
-			if (blockDataList.isEmpty()) {
-				int numberRequested = Math.min(blockLimitPerRequest, getBlocksMessage.getNumberRequested());
-
-				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
-
-				while (blockData != null && blockDataList.size() < numberRequested) {
-					blockDataList.add(blockData);
-
-					blockData = repository.getBlockRepository().fromReference(blockData.getSignature());
-				}
-			} else {
-				this.stats.getBlocksMessageStats.cacheHits.incrementAndGet();
-
-				if (blockDataList.size() >= getBlocksMessage.getNumberRequested())
-					this.stats.getBlocksMessageStats.fullyFromCache.incrementAndGet();
-			}
+			int untrimmedBlockLimitPerRequest = Settings.getInstance().getMaxBlocksPerResponse();
+			int numberRequested = Math.min(blockLimitPerRequest, getBlocksMessage.getNumberRequested());
 
 			List<Block> blocks = new ArrayList<>();
-			for (BlockData blockData : blockDataList) {
-				if (blocks.size() < blockLimitPerRequest) {
-					Block block = new Block(repository, blockData);
-					blocks.add(block);
-				}
+			BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+
+			while (blockData != null && blocks.size() < numberRequested) {
+				Block block = new Block(repository, blockData);
+				blocks.add(block);
+				blockData = repository.getBlockRepository().fromReference(blockData.getSignature());
 			}
 
 			Message blocksMessage = new BlocksMessage(blocks);
