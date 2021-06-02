@@ -141,6 +141,8 @@ public class Settings {
 	private int maxBlocksPerRequest = 100;
 	/** Maximum number of blocks this node will serve in a single response */
 	private int maxBlocksPerResponse = 100;
+	/** Maximum number of untrimmed blocks this node will serve in a single response */
+	private int maxUntrimmedBlocksPerResponse = 10;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
@@ -473,6 +475,8 @@ public class Settings {
 	public int getMaxBlocksPerRequest() { return this.maxBlocksPerRequest; }
 
 	public int getMaxBlocksPerResponse() { return this.maxBlocksPerResponse; }
+
+	public int getMaxUntrimmedBlocksPerResponse() { return this.maxUntrimmedBlocksPerResponse; }
 
 	public boolean isAutoUpdateEnabled() {
 		return this.autoUpdateEnabled;

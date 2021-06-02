@@ -1345,6 +1345,10 @@ public class Controller extends Thread {
 			BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
 
 			while (blockData != null && blocks.size() < numberRequested) {
+				// If we're dealing with untrimmed blocks, ensure we don't go above the untrimmedBlockLimitPerRequest
+				if (blockData.isTrimmed() == false && blocks.size() >= untrimmedBlockLimitPerRequest) {
+					break;
+				}
 				Block block = new Block(repository, blockData);
 				blocks.add(block);
 				blockData = repository.getBlockRepository().fromReference(blockData.getSignature());
