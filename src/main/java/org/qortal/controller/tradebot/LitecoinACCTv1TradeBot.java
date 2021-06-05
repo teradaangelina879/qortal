@@ -716,9 +716,9 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 			// Not finished yet
 			return;
 
-		// If AT is not REDEEMED then something has gone wrong
-		if (crossChainTradeData.mode != AcctMode.REDEEMED) {
-			// Not redeemed so must be refunded/cancelled
+		// If AT is REFUNDED or CANCELLED then something has gone wrong
+		if (crossChainTradeData.mode == AcctMode.REFUNDED || crossChainTradeData.mode == AcctMode.CANCELLED) {
+			// Alice hasn't redeemed the QORT, so there is no point in trying to redeem the LTC
 			TradeBot.updateTradeBotState(repository, tradeBotData, State.BOB_REFUNDED,
 					() -> String.format("AT %s has auto-refunded - trade aborted", tradeBotData.getAtAddress()));
 
