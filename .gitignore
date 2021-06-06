@@ -1,6 +1,7 @@
 /db*
 /bin/
 /target/
+/qortal-backup/
 /log.txt.*
 /arbitrary*
 /Qortal-BTC*
