@@ -387,15 +387,6 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 			atData = repository.getATRepository().fromATAddress(tradeBotData.getAtAddress());
 			if (atData == null) {
 				LOGGER.debug(() -> String.format("Unable to fetch trade AT %s from repository", tradeBotData.getAtAddress()));
-
-				// If it has been over 24 hours since we last updated this trade-bot entry then assume AT is never coming back
-				// and so wipe the trade-bot entry
-				if (tradeBotData.getTimestamp() + MAX_AT_CONFIRMATION_PERIOD < NTP.getTime()) {
-					LOGGER.info(() -> String.format("AT %s has been gone for too long - deleting trade-bot entry", tradeBotData.getAtAddress()));
-					repository.getCrossChainRepository().delete(tradeBotData.getTradePrivateKey());
-					repository.saveChanges();
-				}
-
 				return;
 			}
 
@@ -725,9 +716,9 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 			// Not finished yet
 			return;
 
-		// If AT is not REDEEMED then something has gone wrong
-		if (crossChainTradeData.mode != AcctMode.REDEEMED) {
-			// Not redeemed so must be refunded/cancelled
+		// If AT is REFUNDED or CANCELLED then something has gone wrong
+		if (crossChainTradeData.mode == AcctMode.REFUNDED || crossChainTradeData.mode == AcctMode.CANCELLED) {
+			// Alice hasn't redeemed the QORT, so there is no point in trying to redeem the LTC
 			TradeBot.updateTradeBotState(repository, tradeBotData, State.BOB_REFUNDED,
 					() -> String.format("AT %s has auto-refunded - trade aborted", tradeBotData.getAtAddress()));
 
