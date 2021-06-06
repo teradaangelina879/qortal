@@ -115,6 +115,9 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 	}
 
 	private void onNotify(Session session, ChatTransactionData chatTransactionData, List<String> involvingAddresses) {
+		if (chatTransactionData == null)
+			return;
+
 		// We only want direct/non-group messages where sender/recipient match our addresses
 		String recipient = chatTransactionData.getRecipient();
 		if (recipient == null)
