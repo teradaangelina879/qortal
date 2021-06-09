@@ -69,11 +69,13 @@ function fetch_and_process_blocks {
     online_accounts_count=$(echo "${block_minting_info}" | jq -r .onlineAccountsCount)
     key_distance_ratio=$(echo "${block_minting_info}" | jq -r .keyDistanceRatio)
     time_delta=$(echo "${block_minting_info}" | jq -r .timeDelta)
+    timestamp=$(echo "${block_minting_info}" | jq -r .timestamp)
 
     time_offset=$(calculate_time_offset "${key_distance_ratio}")
     block_time=$((target-deviation+time_offset))
 
     echo "=== BLOCK ${height} ==="
+    echo "Timestamp: ${timestamp}"
     echo "Minter level: ${minter_level}"
     echo "Online accounts: ${online_accounts_count}"
     echo "Key distance ratio: ${key_distance_ratio}"
