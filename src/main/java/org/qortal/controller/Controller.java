@@ -259,17 +259,29 @@ public class Controller extends Thread {
 			throw new RuntimeException("Can't read build.properties resource", e);
 		}
 
+		// Determine build timestamp
 		String buildTimestampProperty = properties.getProperty("build.timestamp");
-		if (buildTimestampProperty == null)
+		if (buildTimestampProperty == null) {
 			throw new RuntimeException("Can't read build.timestamp from build.properties resource");
-
-		this.buildTimestamp = LocalDateTime.parse(buildTimestampProperty, DateTimeFormatter.ofPattern("yyyyMMddHHmmss")).toEpochSecond(ZoneOffset.UTC);
+		}
+		if (buildTimestampProperty.startsWith("$")) {
+			// Maven vars haven't been replaced - this was most likely built using an IDE, not via mvn package
+			this.buildTimestamp = System.currentTimeMillis();
+			buildTimestampProperty = "unknown";
+		} else {
+			this.buildTimestamp = LocalDateTime.parse(buildTimestampProperty, DateTimeFormatter.ofPattern("yyyyMMddHHmmss")).toEpochSecond(ZoneOffset.UTC);
+		}
 		LOGGER.info(String.format("Build timestamp: %s", buildTimestampProperty));
 
+		// Determine build version
 		String buildVersionProperty = properties.getProperty("build.version");
-		if (buildVersionProperty == null)
+		if (buildVersionProperty == null) {
 			throw new RuntimeException("Can't read build.version from build.properties resource");
-
+		}
+		if (buildVersionProperty.contains("${git.commit.id.abbrev}")) {
+			// Maven vars haven't been replaced - this was most likely built using an IDE, not via mvn package
+			buildVersionProperty = buildVersionProperty.replace("${git.commit.id.abbrev}", "debug");
+		}
 		this.buildVersion = VERSION_PREFIX + buildVersionProperty;
 		LOGGER.info(String.format("Build version: %s", this.buildVersion));
 
