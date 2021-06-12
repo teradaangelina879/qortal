@@ -134,13 +134,13 @@ public class Settings {
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
 	/** Whether to sync multiple blocks at once in normal operation */
-	private boolean fastSyncEnabled = false;
+	private boolean fastSyncEnabled = true;
 	/** Whether to sync multiple blocks at once when the peer has a different chain */
 	private boolean fastSyncEnabledWhenResolvingFork = true;
 	/** Maximum number of blocks to request at once */
 	private int maxBlocksPerRequest = 100;
 	/** Maximum number of blocks this node will serve in a single response */
-	private int maxBlocksPerResponse = 100;
+	private int maxBlocksPerResponse = 200;
 	/** Maximum number of untrimmed blocks this node will serve in a single response */
 	private int maxUntrimmedBlocksPerResponse = 10;
 
