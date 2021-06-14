@@ -48,6 +48,11 @@ public class Peer {
     private static final int RESPONSE_TIMEOUT = 3000; // ms
 
     /**
+     * Maximum time to wait for a peer to respond with blocks (ms)
+     */
+    public static final int FETCH_BLOCKS_TIMEOUT = 10000;
+
+    /**
      * Interval between PING messages to a peer. (ms)
      * <p>
      * Just under every 30s is usually ideal to keep NAT mappings refreshed.
@@ -519,12 +524,22 @@ public class Peer {
     }
 
     /**
-     * Attempt to send Message to peer.
+     * Attempt to send Message to peer, using default RESPONSE_TIMEOUT.
      *
      * @param message message to be sent
      * @return <code>true</code> if message successfully sent; <code>false</code> otherwise
      */
     public boolean sendMessage(Message message) {
+        return this.sendMessageWithTimeout(message, RESPONSE_TIMEOUT);
+    }
+
+    /**
+     * Attempt to send Message to peer, using custom timeout.
+     *
+     * @param message message to be sent
+     * @return <code>true</code> if message successfully sent; <code>false</code> otherwise
+     */
+    public boolean sendMessageWithTimeout(Message message, int timeout) {
         if (!this.socketChannel.isOpen()) {
             return false;
         }
@@ -558,7 +573,7 @@ public class Peer {
                          */
                         Thread.sleep(1L); //NOSONAR squid:S2276
 
-                        if (System.currentTimeMillis() - sendStart > RESPONSE_TIMEOUT) {
+                        if (System.currentTimeMillis() - sendStart > timeout) {
                             // We've taken too long to send this message
                             return false;
                         }
@@ -579,7 +594,7 @@ public class Peer {
     }
 
     /**
-     * Send message to peer and await response.
+     * Send message to peer and await response, using default RESPONSE_TIMEOUT.
      * <p>
      * Message is assigned a random ID and sent.
      * If a response with matching ID is received then it is returned to caller.
@@ -593,6 +608,24 @@ public class Peer {
      * @throws InterruptedException if interrupted while waiting
      */
     public Message getResponse(Message message) throws InterruptedException {
+        return getResponseWithTimeout(message, RESPONSE_TIMEOUT);
+    }
+
+    /**
+     * Send message to peer and await response.
+     * <p>
+     * Message is assigned a random ID and sent.
+     * If a response with matching ID is received then it is returned to caller.
+     * <p>
+     * If no response with matching ID within timeout, or some other error/exception occurs,
+     * then return <code>null</code>.<br>
+     * (Assume peer will be rapidly disconnected after this).
+     *
+     * @param message message to send
+     * @return <code>Message</code> if valid response received; <code>null</code> if not or error/exception occurs
+     * @throws InterruptedException if interrupted while waiting
+     */
+    public Message getResponseWithTimeout(Message message, int timeout) throws InterruptedException {
         BlockingQueue<Message> blockingQueue = new ArrayBlockingQueue<>(1);
 
         // Assign random ID to this message
@@ -607,13 +640,13 @@ public class Peer {
         message.setId(id);
 
         // Try to send message
-        if (!this.sendMessage(message)) {
+        if (!this.sendMessageWithTimeout(message, timeout)) {
             this.replyQueues.remove(id);
             return null;
         }
 
         try {
-            return blockingQueue.poll(RESPONSE_TIMEOUT, TimeUnit.MILLISECONDS);
+            return blockingQueue.poll(timeout, TimeUnit.MILLISECONDS);
         } finally {
             this.replyQueues.remove(id);
         }

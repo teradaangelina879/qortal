@@ -133,6 +133,17 @@ public class Settings {
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
+	/** Whether to sync multiple blocks at once in normal operation */
+	private boolean fastSyncEnabled = true;
+	/** Whether to sync multiple blocks at once when the peer has a different chain */
+	private boolean fastSyncEnabledWhenResolvingFork = true;
+	/** Maximum number of blocks to request at once */
+	private int maxBlocksPerRequest = 100;
+	/** Maximum number of blocks this node will serve in a single response */
+	private int maxBlocksPerResponse = 200;
+	/** Maximum number of untrimmed blocks this node will serve in a single response */
+	private int maxUntrimmedBlocksPerResponse = 10;
+
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
 	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
@@ -452,6 +463,20 @@ public class Settings {
 	public int getRepositoryConnectionPoolSize() {
 		return this.repositoryConnectionPoolSize;
 	}
+
+	public boolean isFastSyncEnabled() {
+		return this.fastSyncEnabled;
+	}
+
+	public boolean isFastSyncEnabledWhenResolvingFork() {
+		return this.fastSyncEnabledWhenResolvingFork;
+	}
+
+	public int getMaxBlocksPerRequest() { return this.maxBlocksPerRequest; }
+
+	public int getMaxBlocksPerResponse() { return this.maxBlocksPerResponse; }
+
+	public int getMaxUntrimmedBlocksPerResponse() { return this.maxUntrimmedBlocksPerResponse; }
 
 	public boolean isAutoUpdateEnabled() {
 		return this.autoUpdateEnabled;

@@ -9,7 +9,10 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import org.qortal.block.BlockChain;
+import org.qortal.settings.Settings;
 import org.qortal.crypto.Crypto;
+import org.qortal.utils.NTP;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -202,6 +205,13 @@ public class BlockData implements Serializable {
 
 	public byte[] getOnlineAccountsSignatures() {
 		return this.onlineAccountsSignatures;
+	}
+
+	public boolean isTrimmed() {
+		long onlineAccountSignaturesTrimmedTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
+		long currentTrimmableTimestamp = NTP.getTime() - Settings.getInstance().getAtStatesMaxLifetime();
+		long blockTimestamp = this.getTimestamp();
+		return blockTimestamp < onlineAccountSignaturesTrimmedTimestamp && blockTimestamp < currentTrimmableTimestamp;
 	}
 
 	// JAXB special

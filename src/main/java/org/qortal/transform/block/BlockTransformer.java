@@ -74,19 +74,30 @@ public class BlockTransformer extends Transformer {
 	}
 
 	/**
-	 * Extract block data and transaction data from serialized bytes.
-	 * 
+	 * Extract block data and transaction data from serialized bytes containing a single block.
+	 *
 	 * @param bytes
 	 * @return BlockData and a List of transactions.
 	 * @throws TransformationException
 	 */
 	public static Triple<BlockData, List<TransactionData>, List<ATStateData>> fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
+		return BlockTransformer.fromByteBuffer(byteBuffer, true);
+	}
+
+	/**
+	 * Extract block data and transaction data from serialized bytes containing one or more blocks.
+	 * 
+	 * @param bytes
+	 * @return the next block's BlockData and a List of transactions.
+	 * @throws TransformationException
+	 */
+	public static Triple<BlockData, List<TransactionData>, List<ATStateData>> fromByteBuffer(ByteBuffer byteBuffer, boolean finalBlockInBuffer) throws TransformationException {
 		int version = byteBuffer.getInt();
 
-		if (byteBuffer.remaining() < BASE_LENGTH + AT_BYTES_LENGTH - VERSION_LENGTH)
+		if (finalBlockInBuffer && byteBuffer.remaining() < BASE_LENGTH + AT_BYTES_LENGTH - VERSION_LENGTH)
 			throw new TransformationException("Byte data too short for Block");
 
-		if (byteBuffer.remaining() > BlockChain.getInstance().getMaxBlockSize())
+		if (finalBlockInBuffer && byteBuffer.remaining() > BlockChain.getInstance().getMaxBlockSize())
 			throw new TransformationException("Byte data too long for Block");
 
 		long timestamp = byteBuffer.getLong();
@@ -210,7 +221,8 @@ public class BlockTransformer extends Transformer {
 			byteBuffer.get(onlineAccountsSignatures);
 		}
 
-		if (byteBuffer.hasRemaining())
+		// We should only complain about excess byte data if we aren't expecting more blocks in this ByteBuffer
+		if (finalBlockInBuffer && byteBuffer.hasRemaining())
 			throw new TransformationException("Excess byte data found after parsing Block");
 
 		// We don't have a height!

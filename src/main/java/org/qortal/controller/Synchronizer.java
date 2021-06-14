@@ -25,8 +25,10 @@ import org.qortal.data.transaction.RewardShareTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Peer;
 import org.qortal.network.message.BlockMessage;
+import org.qortal.network.message.BlocksMessage;
 import org.qortal.network.message.BlockSummariesMessage;
 import org.qortal.network.message.GetBlockMessage;
+import org.qortal.network.message.GetBlocksMessage;
 import org.qortal.network.message.GetBlockSummariesMessage;
 import org.qortal.network.message.GetSignaturesV2Message;
 import org.qortal.network.message.Message;
@@ -40,12 +42,14 @@ import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
+import static org.qortal.network.Peer.FETCH_BLOCKS_TIMEOUT;
+
 public class Synchronizer {
 
 	private static final Logger LOGGER = LogManager.getLogger(Synchronizer.class);
 
 	/** Max number of new blocks we aim to add to chain tip in each sync round */
-	private static final int SYNC_BATCH_SIZE = 200; // XXX move to Settings?
+	private static final int SYNC_BATCH_SIZE = 1000; // XXX move to Settings?
 
 	/** Initial jump back of block height when searching for common block with peer */
 	private static final int INITIAL_BLOCK_STEP = 8;
@@ -57,6 +61,11 @@ public class Synchronizer {
 
 	/** Maximum number of block signatures we ask from peer in one go */
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
+
+	/* Minimum peer version that supports syncing multiple blocks at once via GetBlocksMessage */
+	private static final long PEER_VERSION_160 = 0x0100060000L;
+
+
 
 
 	private static Synchronizer instance;
@@ -765,7 +774,7 @@ public class Synchronizer {
 	}
 
 	private SynchronizationResult syncToPeerChain(Repository repository, BlockData commonBlockData, int ourInitialHeight,
-			Peer peer, final int peerHeight, List<BlockSummaryData> peerBlockSummaries) throws DataException, InterruptedException {
+												  Peer peer, final int peerHeight, List<BlockSummaryData> peerBlockSummaries) throws DataException, InterruptedException {
 		final int commonBlockHeight = commonBlockData.getHeight();
 		final byte[] commonBlockSig = commonBlockData.getSignature();
 		String commonBlockSig58 = Base58.encode(commonBlockSig);
@@ -795,19 +804,19 @@ public class Synchronizer {
 			if (Controller.isStopping())
 				return SynchronizationResult.SHUTTING_DOWN;
 
-            // Ensure we don't request more than MAXIMUM_REQUEST_SIZE
-            int numberRequested = Math.min(numberSignaturesRequired, MAXIMUM_REQUEST_SIZE);
+			// Ensure we don't request more than MAXIMUM_REQUEST_SIZE
+			int numberRequested = Math.min(numberSignaturesRequired, MAXIMUM_REQUEST_SIZE);
 
-            // Do we need more signatures?
+			// Do we need more signatures?
 			if (peerBlockSignatures.isEmpty() && numberRequested > 0) {
-                LOGGER.trace(String.format("Requesting %d signature%s after height %d, sig %.8s",
-                        numberRequested, (numberRequested != 1 ? "s" : ""), height, Base58.encode(latestPeerSignature)));
+				LOGGER.trace(String.format("Requesting %d signature%s after height %d, sig %.8s",
+						numberRequested, (numberRequested != 1 ? "s" : ""), height, Base58.encode(latestPeerSignature)));
 
-                peerBlockSignatures = this.getBlockSignatures(peer, latestPeerSignature, numberRequested);
+				peerBlockSignatures = this.getBlockSignatures(peer, latestPeerSignature, numberRequested);
 
-                if (peerBlockSignatures == null || peerBlockSignatures.isEmpty()) {
-                    LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d, sig %.8s", peer,
-                            height, Base58.encode(latestPeerSignature)));
+				if (peerBlockSignatures == null || peerBlockSignatures.isEmpty()) {
+					LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d, sig %.8s", peer,
+							height, Base58.encode(latestPeerSignature)));
 
 					// Clear our cache of common block summaries for this peer, as they are likely to be invalid
 					CommonBlockData cachedCommonBlockData = peer.getCommonBlockData();
@@ -817,7 +826,7 @@ public class Synchronizer {
                     // If we have already received newer blocks from this peer that what we have already, go ahead and apply them
                     if (peerBlocks.size() > 0) {
 						final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
-                    	final Block peerLatestBlock = peerBlocks.get(peerBlocks.size() - 1);
+						final Block peerLatestBlock = peerBlocks.get(peerBlocks.size() - 1);
 						final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 						if (ourLatestBlockData != null && peerLatestBlock != null && minLatestBlockTimestamp != null) {
 
@@ -840,8 +849,8 @@ public class Synchronizer {
                     return SynchronizationResult.NO_REPLY;
                 }
 
-                numberSignaturesRequired = peerHeight - height - peerBlockSignatures.size();
-                LOGGER.trace(String.format("Received %s signature%s", peerBlockSignatures.size(), (peerBlockSignatures.size() != 1 ? "s" : "")));
+				numberSignaturesRequired = peerHeight - height - peerBlockSignatures.size();
+				LOGGER.trace(String.format("Received %s signature%s", peerBlockSignatures.size(), (peerBlockSignatures.size() != 1 ? "s" : "")));
 			}
 
 			if (peerBlockSignatures.isEmpty()) {
@@ -976,8 +985,108 @@ public class Synchronizer {
 	}
 
 	private SynchronizationResult applyNewBlocks(Repository repository, BlockData commonBlockData, int ourInitialHeight,
+												 Peer peer, int peerHeight, List<BlockSummaryData> peerBlockSummaries) throws InterruptedException, DataException {
+
+		final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
+		if (Settings.getInstance().isFastSyncEnabled() && peer.getPeersVersion() >= PEER_VERSION_160 && ourLatestBlockData.isTrimmed())
+			// This peer supports syncing multiple blocks at once via GetBlocksMessage, and it is enabled in the settings
+			return this.applyNewBlocksUsingFastSync(repository, commonBlockData, ourInitialHeight, peer, peerHeight, peerBlockSummaries);
+		else
+			// Older peer version, or fast sync is disabled in the settings - use slow sync
+			return this.applyNewBlocksUsingSlowSync(repository, commonBlockData, ourInitialHeight, peer, peerHeight, peerBlockSummaries);
+
+	}
+
+	private SynchronizationResult applyNewBlocksUsingFastSync(Repository repository, BlockData commonBlockData, int ourInitialHeight,
+												 Peer peer, int peerHeight, List<BlockSummaryData> peerBlockSummaries) throws InterruptedException, DataException {
+		LOGGER.debug(String.format("Fetching new blocks from peer %s using fast sync", peer));
+
+		final int commonBlockHeight = commonBlockData.getHeight();
+		final byte[] commonBlockSig = commonBlockData.getSignature();
+		byte[] latestPeerSignature = commonBlockSig;
+
+		int ourHeight = ourInitialHeight;
+
+		// Fetch, and apply, blocks from peer
+		int maxBatchHeight = commonBlockHeight + SYNC_BATCH_SIZE;
+
+		// Ensure that we don't request more blocks than specified in the settings
+		int maxBlocksPerRequest = Settings.getInstance().getMaxBlocksPerRequest();
+
+		while (ourHeight < peerHeight && ourHeight < maxBatchHeight) {
+			if (Controller.isStopping())
+				return SynchronizationResult.SHUTTING_DOWN;
+
+			int numberRequested = Math.min(maxBatchHeight - ourHeight, maxBlocksPerRequest);
+
+			LOGGER.trace(String.format("Fetching %d blocks after height %d, sig %.8s from %s", numberRequested, ourHeight, Base58.encode(latestPeerSignature), peer));
+			List<Block> blocks = this.fetchBlocks(repository, peer, latestPeerSignature, numberRequested);
+			if (blocks == null || blocks.isEmpty()) {
+				LOGGER.info(String.format("Peer %s failed to respond with more blocks after height %d, sig %.8s", peer,
+						ourHeight, Base58.encode(latestPeerSignature)));
+				return SynchronizationResult.NO_REPLY;
+			}
+			LOGGER.trace(String.format("Received %d blocks after height %d, sig %.8s from %s", blocks.size(), ourHeight, Base58.encode(latestPeerSignature), peer));
+
+			for (Block newBlock : blocks) {
+				++ourHeight;
+
+				if (Controller.isStopping())
+					return SynchronizationResult.SHUTTING_DOWN;
+
+				if (newBlock == null) {
+					LOGGER.info(String.format("Peer %s failed to respond with block for height %d, sig %.8s", peer,
+							ourHeight, Base58.encode(latestPeerSignature)));
+					return SynchronizationResult.NO_REPLY;
+				}
+
+				if (!newBlock.isSignatureValid()) {
+					LOGGER.info(String.format("Peer %s sent block with invalid signature for height %d, sig %.8s", peer,
+							ourHeight, Base58.encode(latestPeerSignature)));
+					return SynchronizationResult.INVALID_DATA;
+				}
+
+				// Set the repository, because we couldn't do that when originally constructing the Block
+				newBlock.setRepository(repository);
+
+				// Transactions are transmitted without approval status so determine that now
+				for (Transaction transaction : newBlock.getTransactions()) {
+					transaction.setInitialApprovalStatus();
+				}
+
+				ValidationResult blockResult = newBlock.isValid();
+				if (blockResult != ValidationResult.OK) {
+					LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
+							ourHeight, Base58.encode(latestPeerSignature), blockResult.name()));
+					return SynchronizationResult.INVALID_DATA;
+				}
+
+				// Save transactions attached to this block
+				for (Transaction transaction : newBlock.getTransactions()) {
+					TransactionData transactionData = transaction.getTransactionData();
+					repository.getTransactionRepository().save(transactionData);
+				}
+
+				newBlock.process();
+
+				LOGGER.trace(String.format("Processed block height %d, sig %.8s", newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getBlockData().getSignature())));
+
+				repository.saveChanges();
+
+				Controller.getInstance().onNewBlock(newBlock.getBlockData());
+
+				// Update latestPeerSignature so that subsequent batches start requesting from the correct block
+				latestPeerSignature = newBlock.getSignature();
+			}
+
+		}
+
+		return SynchronizationResult.OK;
+	}
+
+	private SynchronizationResult applyNewBlocksUsingSlowSync(Repository repository, BlockData commonBlockData, int ourInitialHeight,
 			Peer peer, int peerHeight, List<BlockSummaryData> peerBlockSummaries) throws InterruptedException, DataException {
-		LOGGER.debug(String.format("Fetching new blocks from peer %s", peer));
+		LOGGER.debug(String.format("Fetching new blocks from peer %s using slow sync", peer));
 
 		final int commonBlockHeight = commonBlockData.getHeight();
 		final byte[] commonBlockSig = commonBlockData.getSignature();
@@ -1096,6 +1205,22 @@ public class Synchronizer {
 		BlockMessage blockMessage = (BlockMessage) message;
 
 		return new Block(repository, blockMessage.getBlockData(), blockMessage.getTransactions(), blockMessage.getAtStates());
+	}
+
+	private List<Block> fetchBlocks(Repository repository, Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
+		Message getBlocksMessage = new GetBlocksMessage(parentSignature, numberRequested);
+
+		Message message = peer.getResponseWithTimeout(getBlocksMessage, FETCH_BLOCKS_TIMEOUT);
+		if (message == null || message.getType() != MessageType.BLOCKS) {
+			return null;
+		}
+
+		BlocksMessage blocksMessage = (BlocksMessage) message;
+		if (blocksMessage == null || blocksMessage.getBlocks() == null) {
+			return null;
+		}
+
+		return blocksMessage.getBlocks();
 	}
 
 	private void populateBlockSummariesMinterLevels(Repository repository, List<BlockSummaryData> blockSummaries) throws DataException {
