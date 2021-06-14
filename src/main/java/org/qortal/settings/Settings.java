@@ -29,11 +29,11 @@ import org.qortal.crosschain.Litecoin.LitecoinNet;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class Settings {
 
-	private static final int MAINNET_LISTEN_PORT = 12392;
-	private static final int TESTNET_LISTEN_PORT = 62392;
+	private static final int MAINNET_LISTEN_PORT = 12394;
+	private static final int TESTNET_LISTEN_PORT = 62394;
 
-	private static final int MAINNET_API_PORT = 12391;
-	private static final int TESTNET_API_PORT = 62391;
+	private static final int MAINNET_API_PORT = 12393;
+	private static final int TESTNET_API_PORT = 62393;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
