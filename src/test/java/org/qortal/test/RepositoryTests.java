@@ -4,7 +4,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
-import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -389,25 +388,6 @@ public class RepositoryTests extends Common {
 			Boolean reverse = null;
 
 			hsqldb.getAssetRepository().getRecentTrades(assetIds, otherAssetIds, limit, offset, reverse);
-		} catch (DataException e) {
-			fail("HSQLDB bug #1580");
-		}
-	}
-
-	/** Specifically test LATERAL() usage in AT repository */
-	@Test
-	public void testAtLateral() {
-		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
-			byte[] codeHash = BitcoinACCTv1.CODE_BYTES_HASH;
-			Boolean isFinished = null;
-			Integer dataByteOffset = null;
-			Long expectedValue = null;
-			Integer minimumFinalHeight = 2;
-			Integer limit = null;
-			Integer offset = null;
-			Boolean reverse = null;
-
-			hsqldb.getATRepository().getMatchingFinalATStates(codeHash, isFinished, dataByteOffset, expectedValue, minimumFinalHeight, limit, offset, reverse);
 		} catch (DataException e) {
 			fail("HSQLDB bug #1580");
 		}

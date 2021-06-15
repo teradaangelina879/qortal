@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.controller.tradebot.BitcoinACCTv1TradeBot;
 
 public class HSQLDBDatabaseUpdates {
 
@@ -620,17 +619,6 @@ public class HSQLDBDatabaseUpdates {
 					break;
 
 				case 20:
-					// Trade bot
-					// See case 25 below for changes
-					stmt.execute("CREATE TABLE TradeBotStates (trade_private_key QortalKeySeed NOT NULL, trade_state TINYINT NOT NULL, "
-							+ "creator_address QortalAddress NOT NULL, at_address QortalAddress, updated_when BIGINT NOT NULL, qort_amount QortalAmount NOT NULL, "
-							+ "trade_native_public_key QortalPublicKey NOT NULL, trade_native_public_key_hash VARBINARY(32) NOT NULL, "
-							+ "trade_native_address QortalAddress NOT NULL, secret VARBINARY(32) NOT NULL, hash_of_secret VARBINARY(32) NOT NULL, "
-							+ "trade_foreign_public_key VARBINARY(33) NOT NULL, trade_foreign_public_key_hash VARBINARY(32) NOT NULL, "
-							+ "bitcoin_amount BIGINT NOT NULL, xprv58 VARCHAR(200), last_transaction_signature Signature, locktime_a BIGINT, "
-							+ "receiving_account_info VARBINARY(32) NOT NULL, PRIMARY KEY (trade_private_key))");
-					break;
-
 				case 21:
 					// AT functionality index
 					stmt.execute("CREATE INDEX IF NOT EXISTS ATCodeHashIndex ON ATs (code_hash, is_finished)");
@@ -712,14 +700,6 @@ public class HSQLDBDatabaseUpdates {
 							}
 						}
 
-						try (ResultSet resultSet = stmt.executeQuery("SELECT COUNT(*) FROM TradeBotStates")) {
-							int rowCount = resultSet.next() ? resultSet.getInt(1) : 0;
-							if (rowCount > 0) {
-								stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
-								LOGGER.info("Exported sensitive/node-local trade-bot states into TradeBotStates.script");
-							}
-						}
-
 						LOGGER.info("If following reshape takes too long, use bootstrap and import node-local data using API's POST /admin/repository/data");
 					}
 
@@ -784,37 +764,6 @@ public class HSQLDBDatabaseUpdates {
 					break;
 
 				case 32:
-					// Multiple blockchains, ACCTs and trade-bots
-					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN acct_name VARCHAR(40) BEFORE trade_state");
-					stmt.execute("UPDATE TradeBotStates SET acct_name = 'BitcoinACCTv1' WHERE acct_name IS NULL");
-					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN acct_name SET NOT NULL");
-
-					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN trade_state RENAME TO trade_state_value");
-
-					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN trade_state VARCHAR(40) BEFORE trade_state_value");
-					// Any existing values will be BitcoinACCTv1
-					StringBuilder updateTradeBotStatesSql = new StringBuilder(1024);
-					updateTradeBotStatesSql.append("UPDATE TradeBotStates SET (trade_state) = (")
-							.append("SELECT state_name FROM (VALUES ")
-							.append(
-									Arrays.stream(BitcoinACCTv1TradeBot.State.values())
-									.map(state -> String.format("(%d, '%s')", state.value, state.name()))
-									.collect(Collectors.joining(", ")))
-							.append(") AS BitcoinACCTv1States (state_value, state_name) ")
-							.append("WHERE state_value = trade_state_value)");
-					stmt.execute(updateTradeBotStatesSql.toString());
-					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN trade_state SET NOT NULL");
-
-					stmt.execute("ALTER TABLE TradeBotStates ADD COLUMN foreign_blockchain VARCHAR(40) BEFORE trade_foreign_public_key");
-
-					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN bitcoin_amount RENAME TO foreign_amount");
-
-					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN xprv58 RENAME TO foreign_key");
-
-					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN secret SET NULL");
-					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN hash_of_secret SET NULL");
-					break;
-
 				case 33:
 					// PRESENCE transactions
 					stmt.execute("CREATE TABLE IF NOT EXISTS PresenceTransactions ("
