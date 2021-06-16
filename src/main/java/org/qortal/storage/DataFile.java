@@ -98,8 +98,9 @@ public class DataFile {
     }
 
     protected String getOutputFilePath(String base58Digest) {
-        String base58Digest2Chars = base58Digest.substring(0, Math.min(base58Digest.length(), 2));
-        String outputDirectory = String.format("%s/%s", Settings.getInstance().getDataPath(), base58Digest2Chars);
+        String base58DigestFirst2Chars = base58Digest.substring(0, Math.min(base58Digest.length(), 2));
+        String base58DigestNext2Chars = base58Digest.substring(2, Math.min(base58Digest.length(), 4));
+        String outputDirectory = String.format("%s/%s/%s", Settings.getInstance().getDataPath(), base58DigestFirst2Chars, base58DigestNext2Chars);
         Path outputDirectoryPath = Paths.get(outputDirectory);
 
         try {
@@ -107,7 +108,7 @@ public class DataFile {
         } catch (IOException e) {
             throw new IllegalStateException("Unable to create data subdirectory");
         }
-        return String.format("%s/%s.dat", outputDirectory, base58Digest);
+        return String.format("%s/%s", outputDirectory, base58Digest);
     }
 
     public ValidationResult isValid() {
@@ -198,14 +199,20 @@ public class DataFile {
     }
 
     protected void cleanupFilesystem() {
-        Path directory = Paths.get(this.filePath).getParent().toAbsolutePath();
-        try (Stream<Path> files = Files.list(directory)) {
-            final long count = files.count();
-            if (count == 0) {
-                Files.delete(directory);
+        String path = this.filePath;
+
+        // Iterate through two levels of parent directories, and delete if empty
+        for (int i=0; i<2; i++) {
+            Path directory = Paths.get(path).getParent().toAbsolutePath();
+            try (Stream<Path> files = Files.list(directory)) {
+                final long count = files.count();
+                if (count == 0) {
+                    Files.delete(directory);
+                }
+            } catch (IOException e) {
+                LOGGER.warn("Unable to count files in directory", e);
             }
-        } catch (IOException e) {
-            LOGGER.warn("Unable to count files in directory", e);
+            path = directory.toString();
         }
     }
 
