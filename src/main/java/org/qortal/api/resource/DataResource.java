@@ -20,6 +20,7 @@ import org.qortal.storage.DataFile;
 import org.qortal.storage.DataFile.ValidationResult;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.Path;
 import javax.ws.rs.POST;
 import javax.ws.rs.core.Context;
@@ -93,6 +94,42 @@ public class DataResource {
 			LOGGER.error("Invalid upload data", e);
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		}
+	}
+
+	@DELETE
+	@Path("/file")
+	@Operation(
+			summary = "Delete file using supplied base58 encoded SHA256 digest string",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "FZdHKgF5CbN2tKihvop5Ts9vmWmA9ZyyPY6bC1zivjy4"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "true if deleted, false if not",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public String deleteFile(String base58Digest) {
+		Security.checkApiCallAllowed(request);
+
+		DataFile dataFile = DataFile.fromBase58Digest(base58Digest);
+		if (dataFile.delete()) {
+			return "true";
+		}
+		return "false";
 	}
 
 }

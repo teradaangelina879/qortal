@@ -72,6 +72,11 @@ public class DataFile {
         this(file.getPath());
     }
 
+    public static DataFile fromBase58Digest(String base58Digest) {
+        String filePath = DataFile.getOutputFilePath(base58Digest);
+        return new DataFile(filePath);
+    }
+
     private boolean createDataDirectory() {
         // Create the data directory if it doesn't exist
         String dataPath = Settings.getInstance().getDataPath();
@@ -97,7 +102,7 @@ public class DataFile {
         }
     }
 
-    protected String getOutputFilePath(String base58Digest) {
+    public static String getOutputFilePath(String base58Digest) {
         String base58DigestFirst2Chars = base58Digest.substring(0, Math.min(base58Digest.length(), 2));
         String base58DigestNext2Chars = base58Digest.substring(2, Math.min(base58Digest.length(), 4));
         String outputDirectory = String.format("%s/%s/%s", Settings.getInstance().getDataPath(), base58DigestFirst2Chars, base58DigestNext2Chars);
@@ -169,7 +174,7 @@ public class DataFile {
         return this.chunks.size();
     }
 
-    public void delete() {
+    public boolean delete() {
         // Delete the complete file
         Path path = Paths.get(this.filePath);
         if (Files.exists(path)) {
@@ -177,15 +182,17 @@ public class DataFile {
                 Files.delete(path);
                 this.cleanupFilesystem();
                 LOGGER.debug("Deleted file {}", path.toString());
+                return true;
             } catch (IOException e) {
                 LOGGER.warn("Couldn't delete DataFileChunk at path {}", this.filePath);
             }
         }
+        return false;
     }
 
-    public void deleteAll() {
+    public boolean deleteAll() {
         // Delete the complete file
-        this.delete();
+        boolean success = this.delete();
 
         // Delete the individual chunks
         if (this.chunks != null && this.chunks.size() > 0) {
@@ -194,8 +201,10 @@ public class DataFile {
                 DataFileChunk chunk = (DataFileChunk) iterator.next();
                 chunk.delete();
                 iterator.remove();
+                success = true;
             }
         }
+        return success;
     }
 
     protected void cleanupFilesystem() {
