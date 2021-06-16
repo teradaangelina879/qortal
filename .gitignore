@@ -25,3 +25,4 @@
 /run.pid
 /run.log
 /WindowsInstaller/Install Files/qortal.jar
+/data/*
