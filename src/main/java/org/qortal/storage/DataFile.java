@@ -3,6 +3,7 @@ package org.qortal.storage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.Crypto;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 
 import java.io.*;
@@ -73,7 +74,8 @@ public class DataFile {
 
     private boolean createDataDirectory() {
         // Create the data directory if it doesn't exist
-        Path dataDirectory = Paths.get("data"); // TODO: allow custom directory in settings
+        String dataPath = Settings.getInstance().getDataPath();
+        Path dataDirectory = Paths.get(dataPath);
         try {
             Files.createDirectories(dataDirectory);
         } catch (IOException e) {
@@ -97,7 +99,7 @@ public class DataFile {
 
     protected String getOutputFilePath(String base58Digest) {
         String base58Digest2Chars = base58Digest.substring(0, Math.min(base58Digest.length(), 2));
-        String outputDirectory = String.format("data/%s", base58Digest2Chars); // TODO: allow custom directory in settings
+        String outputDirectory = String.format("%s/%s", Settings.getInstance().getDataPath(), base58Digest2Chars);
         Path outputDirectoryPath = Paths.get(outputDirectory);
 
         try {
@@ -212,7 +214,8 @@ public class DataFile {
 
     private boolean isInBaseDirectory(String filePath) {
         Path path = Paths.get(filePath).toAbsolutePath();
-        String basePath = Paths.get("data").toAbsolutePath().toString(); // TODO: allow custom directory in settings
+        String dataPath = Settings.getInstance().getDataPath();
+        String basePath = Paths.get(dataPath).toAbsolutePath().toString();
         if (path.startsWith(basePath)) {
             return true;
         }

@@ -179,6 +179,14 @@ public class Settings {
 	/** Additional offset added to values returned by NTP.getTime() */
 	private Long testNtpOffset = null;
 
+
+	// Data storage
+
+	/** Data storage path. */
+	private String dataPath = "data";
+	
+
+
 	// Constructors
 
 	private Settings() {
@@ -524,5 +532,9 @@ public class Settings {
 
 	public List<String> getFixedNetwork() {
 		return fixedNetwork;
+	}
+
+	public String getDataPath() {
+		return this.dataPath;
 	}
 }
