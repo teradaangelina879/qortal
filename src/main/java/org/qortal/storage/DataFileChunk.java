@@ -21,28 +21,7 @@ public class DataFileChunk extends DataFile {
     }
 
     public DataFileChunk(byte[] fileContent) {
-        if (fileContent == null) {
-            LOGGER.error("Chunk fileContent is null");
-            return;
-        }
-
-        String base58Digest = Base58.encode(Crypto.digest(fileContent));
-        LOGGER.debug(String.format("Chunk digest: %s, size: %d bytes", base58Digest, fileContent.length));
-
-        String outputFilePath = this.getOutputFilePath(base58Digest);
-        File outputFile = new File(outputFilePath);
-        try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
-            outputStream.write(fileContent);
-            this.filePath = outputFilePath;
-            // Verify hash
-            if (!base58Digest.equals(this.base58Digest())) {
-                LOGGER.error("Digest {} does not match file digest {}", base58Digest, this.base58Digest());
-                this.delete();
-                throw new IllegalStateException("DataFileChunk digest validation failed");
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to write chunk data to file");
-        }
+        super(fileContent);
     }
 
     @Override

@@ -72,6 +72,31 @@ public class DataFile {
         this(file.getPath());
     }
 
+    public DataFile(byte[] fileContent) {
+        if (fileContent == null) {
+            LOGGER.error("fileContent is null");
+            return;
+        }
+
+        String base58Digest = Base58.encode(Crypto.digest(fileContent));
+        LOGGER.debug(String.format("File digest: %s, size: %d bytes", base58Digest, fileContent.length));
+
+        String outputFilePath = this.getOutputFilePath(base58Digest);
+        File outputFile = new File(outputFilePath);
+        try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
+            outputStream.write(fileContent);
+            this.filePath = outputFilePath;
+            // Verify hash
+            if (!base58Digest.equals(this.base58Digest())) {
+                LOGGER.error("Digest {} does not match file digest {}", base58Digest, this.base58Digest());
+                this.delete();
+                throw new IllegalStateException("Data file digest validation failed");
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to write data to file");
+        }
+    }
+
     public static DataFile fromBase58Digest(String base58Digest) {
         String filePath = DataFile.getOutputFilePath(base58Digest);
         return new DataFile(filePath);
