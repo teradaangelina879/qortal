@@ -102,6 +102,10 @@ public class DataFile {
         return new DataFile(filePath);
     }
 
+    public static DataFile fromDigest(byte[] digest) {
+        return DataFile.fromBase58Digest(Base58.encode(digest));
+    }
+
     private boolean createDataDirectory() {
         // Create the data directory if it doesn't exist
         String dataPath = Settings.getInstance().getDataPath();
@@ -153,7 +157,7 @@ public class DataFile {
             // Validate the file size
             long fileSize = Files.size(path);
             if (fileSize > MAX_FILE_SIZE) {
-                LOGGER.error(String.format("DataFile is too large: %d bytes (max chunk size: %d bytes)", fileSize, MAX_FILE_SIZE));
+                LOGGER.error(String.format("DataFile is too large: %d bytes (max size: %d bytes)", fileSize, MAX_FILE_SIZE));
                 return DataFile.ValidationResult.FILE_TOO_LARGE;
             }
 
@@ -250,6 +254,18 @@ public class DataFile {
         }
     }
 
+    public byte[] getBytes() {
+        Path path = Paths.get(this.filePath);
+        try {
+            byte[] bytes = Files.readAllBytes(path);
+            LOGGER.info("getBytes: %d", bytes);
+            return bytes;
+        } catch (IOException e) {
+            LOGGER.error("Unable to read bytes for file");
+            return null;
+        }
+    }
+
 
     /* Helper methods */
 
@@ -261,6 +277,20 @@ public class DataFile {
             return true;
         }
         return false;
+    }
+
+    public boolean exists() {
+        File file = new File(this.filePath);
+        return file.exists();
+    }
+
+    public long size() {
+        Path path = Paths.get(this.filePath);
+        try {
+            return Files.size(path);
+        } catch (IOException e) {
+            return 0;
+        }
     }
 
     private File getFile() {
@@ -298,6 +328,8 @@ public class DataFile {
         }
         return this.base58Digest().substring(0, Math.min(this.base58Digest().length(), SHORT_DIGEST_LENGTH));
     }
+
+    @Override
     public String toString() {
         return this.shortDigest();
     }
