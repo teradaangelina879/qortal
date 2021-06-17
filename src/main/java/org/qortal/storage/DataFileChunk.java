@@ -37,6 +37,7 @@ public class DataFileChunk extends DataFile {
             // Verify hash
             if (!base58Digest.equals(this.base58Digest())) {
                 LOGGER.error("Digest {} does not match file digest {}", base58Digest, this.base58Digest());
+                this.delete();
                 throw new IllegalStateException("DataFileChunk digest validation failed");
             }
         } catch (IOException e) {
