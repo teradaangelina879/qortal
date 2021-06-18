@@ -553,12 +553,14 @@ public class Peer {
 
             synchronized (this.socketChannel) {
                 final long sendStart = System.currentTimeMillis();
+                long totalBytes = 0;
 
                 while (outputBuffer.hasRemaining()) {
                     int bytesWritten = this.socketChannel.write(outputBuffer);
+                    totalBytes += bytesWritten;
 
-                    LOGGER.trace("[{}] Sent {} bytes of {} message with ID {} to peer {}", this.peerConnectionId,
-                            bytesWritten, message.getType().name(), message.getId(), this);
+                    LOGGER.trace("[{}] Sent {} bytes of {} message with ID {} to peer {} ({} total)", this.peerConnectionId,
+                            bytesWritten, message.getType().name(), message.getId(), this, totalBytes);
 
                     if (bytesWritten == 0) {
                         // Underlying socket's internal buffer probably full,
