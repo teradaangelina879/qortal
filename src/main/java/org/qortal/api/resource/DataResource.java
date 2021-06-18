@@ -8,23 +8,26 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.api.ApiError;
-import org.qortal.api.ApiErrors;
-import org.qortal.api.ApiExceptionFactory;
-import org.qortal.api.Security;
+import org.qortal.api.*;
+import org.qortal.network.Network;
+import org.qortal.network.Peer;
+import org.qortal.network.PeerAddress;
+import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
 import org.qortal.storage.DataFile.ValidationResult;
+import org.qortal.utils.Base58;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.Path;
-import javax.ws.rs.POST;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.util.List;
 
 
 @Path("/data")
@@ -121,7 +124,6 @@ public class DataResource {
 					)
 			}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public String deleteFile(String base58Digest) {
 		Security.checkApiCallAllowed(request);
 
@@ -132,4 +134,66 @@ public class DataResource {
 		return "false";
 	}
 
+	@GET
+	@Path("/file/frompeer")
+	@Operation(
+			summary = "Request file from a given peer, using supplied base58 encoded SHA256 digest string",
+			responses = {
+					@ApiResponse(
+							description = "true if retrieved, false if not",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public String getFileFromPeer(@QueryParam("base58Digest") String base58Digest,
+													@QueryParam("peer") String targetPeerAddress) {
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			if (base58Digest == null) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
+			if (targetPeerAddress == null) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
+
+			// Try to resolve passed address to make things easier
+			PeerAddress peerAddress = PeerAddress.fromString(targetPeerAddress);
+			InetSocketAddress resolvedAddress = peerAddress.toSocketAddress();
+
+			List<Peer> peers = Network.getInstance().getHandshakedPeers();
+			Peer targetPeer = peers.stream().filter(peer -> peer.getResolvedAddress().equals(resolvedAddress)).findFirst().orElse(null);
+
+			if (targetPeer == null) {
+				LOGGER.error("Peer not connected");
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+			}
+
+			DataFile dataFile = DataFile.fromBase58Digest(base58Digest);
+			if (dataFile.exists()) {
+				LOGGER.info("Data file {} already exists but we'll request it anyway", dataFile);
+			}
+			Message getDataFileMessage = new GetDataFileMessage(Base58.decode(base58Digest));
+
+			Message message = targetPeer.getResponse(getDataFileMessage);
+			if (message == null || message.getType() != Message.MessageType.DATA_FILE)
+				return "invalid file received";
+
+			DataFileMessage dataFileMessage = (DataFileMessage) message;
+
+			return String.format("Received file %s, size %d bytes", dataFileMessage.getDataFile(), dataFileMessage.getDataFile().size());
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException | InterruptedException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (UnknownHostException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+		}
+	}
 }
