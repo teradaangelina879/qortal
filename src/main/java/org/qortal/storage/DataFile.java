@@ -258,7 +258,6 @@ public class DataFile {
         Path path = Paths.get(this.filePath);
         try {
             byte[] bytes = Files.readAllBytes(path);
-            LOGGER.info("getBytes: %d", bytes);
             return bytes;
         } catch (IOException e) {
             LOGGER.error("Unable to read bytes for file");
