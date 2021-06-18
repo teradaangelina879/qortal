@@ -1,39 +1,6 @@
 package org.qortal.controller;
 
-import java.awt.TrayIcon.MessageType;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.SecureRandom;
-import java.security.Security;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-
+import com.google.common.primitives.Longs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -55,52 +22,50 @@ import org.qortal.data.network.OnlineAccountData;
 import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
+import org.qortal.data.transaction.ChatTransactionData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
-import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.globalization.Translator;
 import org.qortal.gui.Gui;
 import org.qortal.gui.SysTray;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
-import org.qortal.network.message.ArbitraryDataMessage;
-import org.qortal.network.message.BlockSummariesMessage;
-import org.qortal.network.message.BlocksMessage;
-import org.qortal.network.message.CachedBlockMessage;
-import org.qortal.network.message.GetArbitraryDataMessage;
-import org.qortal.network.message.GetBlockMessage;
-import org.qortal.network.message.GetBlocksMessage;
-import org.qortal.network.message.GetBlockSummariesMessage;
-import org.qortal.network.message.GetOnlineAccountsMessage;
-import org.qortal.network.message.GetPeersMessage;
-import org.qortal.network.message.GetSignaturesV2Message;
-import org.qortal.network.message.GetTransactionMessage;
-import org.qortal.network.message.GetUnconfirmedTransactionsMessage;
-import org.qortal.network.message.HeightV2Message;
-import org.qortal.network.message.Message;
-import org.qortal.network.message.OnlineAccountsMessage;
-import org.qortal.network.message.SignaturesMessage;
-import org.qortal.network.message.TransactionMessage;
-import org.qortal.network.message.TransactionSignaturesMessage;
+import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryFactory;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
+import org.qortal.storage.DataFile;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
-import org.qortal.utils.Base58;
-import org.qortal.utils.ByteArray;
-import org.qortal.utils.DaemonThreadFactory;
-import org.qortal.utils.NTP;
-import org.qortal.utils.Triple;
+import org.qortal.utils.*;
 
-import com.google.common.primitives.Longs;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import java.awt.TrayIcon.MessageType;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static org.qortal.network.Peer.FETCH_BLOCKS_TIMEOUT;
 
@@ -256,6 +221,15 @@ public class Controller extends Thread {
 			}
 		}
 		public GetBlockSignaturesV2Stats getBlockSignaturesV2Stats = new GetBlockSignaturesV2Stats();
+
+		public static class GetDataFileMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong unknownFiles = new AtomicLong();
+
+			public GetDataFileMessageStats() {
+			}
+		}
+		public GetDataFileMessageStats getDataFileMessageStats = new GetDataFileMessageStats();
 
 		public AtomicLong latestBlocksCacheRefills = new AtomicLong();
 
@@ -1259,6 +1233,10 @@ public class Controller extends Thread {
 				onNetworkOnlineAccountsMessage(peer, message);
 				break;
 
+			case GET_DATA_FILE:
+				onNetworkGetDataFileMessage(peer, message);
+				break;
+
 			default:
 				LOGGER.debug(() -> String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
@@ -1759,6 +1737,41 @@ public class Controller extends Thread {
 				this.verifyAndAddAccount(repository, onlineAccountData);
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while verifying online accounts from peer %s", peer), e);
+		}
+	}
+
+	private void onNetworkGetDataFileMessage(Peer peer, Message message) {
+		GetDataFileMessage getDataFileMessage = (GetDataFileMessage) message;
+		byte[] digest = getDataFileMessage.getDigest();
+		this.stats.getDataFileMessageStats.requests.incrementAndGet();
+
+		DataFile dataFile = DataFile.fromDigest(digest);
+		if (dataFile.exists()) {
+			DataFileMessage dataFileMessage = new DataFileMessage(dataFile);
+			dataFileMessage.setId(message.getId());
+			if (!peer.sendMessage(dataFileMessage)) {
+				LOGGER.info("Couldn't sent file");
+				peer.disconnect("failed to send file");
+			}
+			LOGGER.info("Sent file {}", dataFile);
+		}
+		else {
+
+			// We don't have this file
+			this.stats.getDataFileMessageStats.unknownFiles.getAndIncrement();
+
+			// Send valid, yet unexpected message type in response, so peer's synchronizer doesn't have to wait for timeout
+			LOGGER.debug(() -> String.format("Sending 'file unknown' response to peer %s for GET_FILE request for unknown file %s", peer, dataFile));
+
+			// We'll send empty block summaries message as it's very short
+			// TODO: use a different message type here
+			Message fileUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+			fileUnknownMessage.setId(message.getId());
+			if (!peer.sendMessage(fileUnknownMessage)) {
+				LOGGER.info("Couldn't sent file-unknown response");
+				peer.disconnect("failed to send file-unknown response");
+			}
+			LOGGER.info("Sent file-unknown response for file {}", dataFile);
 		}
 	}
 
