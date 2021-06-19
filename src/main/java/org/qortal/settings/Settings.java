@@ -132,6 +132,11 @@ public class Settings {
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
+	/** Minimum time (in seconds) that we should attempt to remain connected to a peer for */
+	private int minPeerConnectionTime = 2 * 60;
+	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
+	private int maxPeerConnectionTime = 60 * 60;
+
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
 	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
@@ -422,6 +427,10 @@ public class Settings {
 	public String getMinPeerVersion() { return this.minPeerVersion; }
 
 	public boolean getAllowConnectionsWithOlderPeerVersions() { return this.allowConnectionsWithOlderPeerVersions; }
+
+	public int getMinPeerConnectionTime() { return this.minPeerConnectionTime; }
+
+	public int getMaxPeerConnectionTime() { return this.maxPeerConnectionTime; }
 
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;

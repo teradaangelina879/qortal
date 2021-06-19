@@ -80,6 +80,8 @@ public class Network {
     public static final int MAX_SIGNATURES_PER_REPLY = 500;
     public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
 
+    private static final long DISCONNECTION_CHECK_INTERVAL = 10 * 1000L; // milliseconds
+
     // Generate our node keys / ID
     private final Ed25519PrivateKeyParameters edPrivateKeyParams = new Ed25519PrivateKeyParameters(new SecureRandom());
     private final Ed25519PublicKeyParameters edPublicKeyParams = edPrivateKeyParams.generatePublicKey();
@@ -88,6 +90,8 @@ public class Network {
     private final int maxMessageSize;
     private final int minOutboundPeers;
     private final int maxPeers;
+
+    private long nextDisconnectionCheck = 0L;
 
     private final List<PeerData> allKnownPeers = new ArrayList<>();
     private final List<Peer> connectedPeers = new ArrayList<>();
@@ -576,6 +580,8 @@ public class Network {
                 // Don't consider already connected peers (resolved address match)
                 // XXX This might be too slow if we end up waiting a long time for hostnames to resolve via DNS
                 peers.removeIf(isResolvedAsConnectedPeer);
+
+                this.checkLongestConnection(now);
             }
 
             // Any left?
@@ -631,6 +637,24 @@ public class Network {
         }
 
         return null;
+    }
+
+    private void checkLongestConnection(Long now) {
+        if (now == null || now < nextDisconnectionCheck) {
+            return;
+        }
+
+        // Find peers that have reached their maximum connection age, and disconnect them
+        List<Peer> peersToDisconnect = this.connectedPeers.stream().filter(peer -> peer.hasReachedMaxConnectionAge()).collect(Collectors.toList());
+        if (peersToDisconnect != null && peersToDisconnect.size() > 0) {
+            for (Peer peer : peersToDisconnect) {
+                LOGGER.debug("Forcing disconnect of peer {} because connection age ({} ms) has reached the maximum ({} ms)", peer, peer.getConnectionAge(), peer.getMaxConnectionAge());
+                peer.disconnect("Connection age too old");
+            }
+        }
+
+        // Check again after a minimum fixed interval
+        nextDisconnectionCheck = now + DISCONNECTION_CHECK_INTERVAL;
     }
 
     // Peer callbacks

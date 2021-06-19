@@ -79,6 +79,7 @@ public class Peer {
     private Handshake handshakeStatus = Handshake.STARTED;
     private volatile boolean handshakeMessagePending = false;
     private long handshakeComplete = -1L;
+    private long maxConnectionAge = 0L;
 
     /**
      * Timestamp of when socket was accepted, or connected.
@@ -192,8 +193,22 @@ public class Peer {
             this.handshakeStatus = handshakeStatus;
             if (handshakeStatus.equals(Handshake.COMPLETED)) {
                 this.handshakeComplete = System.currentTimeMillis();
+                this.generateRandomMaxConnectionAge();
             }
         }
+    }
+
+    private void generateRandomMaxConnectionAge() {
+        // Retrieve the min and max connection time from the settings, and calculate the range
+        final int minPeerConnectionTime = Settings.getInstance().getMinPeerConnectionTime();
+        final int maxPeerConnectionTime = Settings.getInstance().getMaxPeerConnectionTime();
+        final int peerConnectionTimeRange = maxPeerConnectionTime - minPeerConnectionTime;
+
+        // Generate a random number between the min and the max
+        Random random = new Random();
+        this.maxConnectionAge = (random.nextInt(peerConnectionTimeRange) + minPeerConnectionTime) * 1000L;
+        LOGGER.debug(String.format("Generated max connection age for peer %s. Min: %ds, max: %ds, range: %ds, random max: %dms", this, minPeerConnectionTime, maxPeerConnectionTime, peerConnectionTimeRange, this.maxConnectionAge));
+
     }
 
     protected void resetHandshakeMessagePending() {
@@ -776,5 +791,13 @@ public class Peer {
             return System.currentTimeMillis() - handshakeComplete;
         }
         return handshakeComplete;
+    }
+
+    public long getMaxConnectionAge() {
+        return maxConnectionAge;
+    }
+
+    public boolean hasReachedMaxConnectionAge() {
+        return this.getConnectionAge() > this.getMaxConnectionAge();
     }
 }
