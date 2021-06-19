@@ -179,7 +179,15 @@ public class DataResource {
 			if (dataFile.exists()) {
 				LOGGER.info("Data file {} already exists but we'll request it anyway", dataFile);
 			}
-			Message getDataFileMessage = new GetDataFileMessage(Base58.decode(base58Digest));
+
+			byte[] digest = null;
+			try {
+				digest = Base58.decode(base58Digest);
+			} catch (NumberFormatException e) {
+				LOGGER.info("Invalid base58 encoded string");
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+			}
+			Message getDataFileMessage = new GetDataFileMessage(digest);
 
 			Message message = targetPeer.getResponse(getDataFileMessage);
 			if (message == null || message.getType() != Message.MessageType.DATA_FILE)
