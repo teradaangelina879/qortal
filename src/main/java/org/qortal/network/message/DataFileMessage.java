@@ -15,6 +15,12 @@ public class DataFileMessage extends Message {
 		this.dataFile = dataFile;
 	}
 
+	public DataFileMessage(int id, DataFile dataFile) {
+		super(id, MessageType.DATA_FILE);
+
+		this.dataFile = dataFile;
+	}
+
 	public DataFile getDataFile() {
 		return this.dataFile;
 	}
@@ -24,7 +30,7 @@ public class DataFileMessage extends Message {
 		byteBuffer.get(bytes);
 		DataFile dataFile = new DataFile(bytes);
 
-		return new DataFileMessage(dataFile);
+		return new DataFileMessage(id, dataFile);
 	}
 
 	@Override
