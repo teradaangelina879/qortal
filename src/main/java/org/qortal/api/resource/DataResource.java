@@ -25,6 +25,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -150,9 +151,9 @@ public class DataResource {
 					)
 			}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public String getFileFromPeer(@QueryParam("base58Digest") String base58Digest,
-													@QueryParam("peer") String targetPeerAddress) {
+	@ApiErrors({ApiError.REPOSITORY_ISSUE, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.FILE_NOT_FOUND, ApiError.NO_REPLY})
+	public Response getFileFromPeer(@QueryParam("base58Digest") String base58Digest,
+									@QueryParam("peer") String targetPeerAddress) {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
@@ -190,12 +191,16 @@ public class DataResource {
 			Message getDataFileMessage = new GetDataFileMessage(digest);
 
 			Message message = targetPeer.getResponse(getDataFileMessage);
-			if (message == null || message.getType() != Message.MessageType.DATA_FILE)
-				return "invalid file received";
+			if (message == null) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NO_REPLY);
+			}
+			else if (message.getType() == Message.MessageType.BLOCK_SUMMARIES) { // TODO: use dedicated message type here
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FILE_NOT_FOUND);
+			}
 
 			DataFileMessage dataFileMessage = (DataFileMessage) message;
 
-			return String.format("Received file %s, size %d bytes", dataFileMessage.getDataFile(), dataFileMessage.getDataFile().size());
+			return Response.ok(String.format("Received file %s, size %d bytes", dataFileMessage.getDataFile(), dataFileMessage.getDataFile().size())).build();
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException | InterruptedException e) {

@@ -129,7 +129,11 @@ public enum ApiError {
 	// Foreign blockchain
 	FOREIGN_BLOCKCHAIN_NETWORK_ISSUE(1201, 500),
 	FOREIGN_BLOCKCHAIN_BALANCE_ISSUE(1202, 402),
-	FOREIGN_BLOCKCHAIN_TOO_SOON(1203, 408);
+	FOREIGN_BLOCKCHAIN_TOO_SOON(1203, 408),
+
+	// Data
+	FILE_NOT_FOUND(1301, 404),
+	NO_REPLY(1302, 404);
 
 	private static final Map<Integer, ApiError> map = stream(ApiError.values()).collect(toMap(apiError -> apiError.code, apiError -> apiError));
 
