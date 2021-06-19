@@ -44,7 +44,7 @@ public class DataFile {
     private static final Logger LOGGER = LogManager.getLogger(DataFile.class);
 
     public static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MiB
-    public static final int CHUNK_SIZE = 2 * 1024 * 1024; // 2MiB
+    public static final int CHUNK_SIZE = 1 * 1024 * 1024; // 1MiB
     public static int SHORT_DIGEST_LENGTH = 8;
 
     protected String filePath;
