@@ -133,9 +133,9 @@ public class Settings {
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
 	/** Minimum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int minPeerConnectionTime = 2 * 60;
+	private int minPeerConnectionTime = 2 * 60; // seconds
 	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int maxPeerConnectionTime = 60 * 60;
+	private int maxPeerConnectionTime = 20 * 60; // seconds
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
