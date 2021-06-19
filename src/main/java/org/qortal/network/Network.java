@@ -645,10 +645,15 @@ public class Network {
         }
 
         // Find peers that have reached their maximum connection age, and disconnect them
-        List<Peer> peersToDisconnect = this.connectedPeers.stream().filter(peer -> peer.hasReachedMaxConnectionAge()).collect(Collectors.toList());
+        List<Peer> peersToDisconnect = this.connectedPeers.stream()
+                .filter(peer -> !peer.isSyncInProgress())
+                .filter(peer -> peer.hasReachedMaxConnectionAge())
+                .collect(Collectors.toList());
+
         if (peersToDisconnect != null && peersToDisconnect.size() > 0) {
             for (Peer peer : peersToDisconnect) {
-                LOGGER.debug("Forcing disconnect of peer {} because connection age ({} ms) has reached the maximum ({} ms)", peer, peer.getConnectionAge(), peer.getMaxConnectionAge());
+                LOGGER.info("Forcing disconnection of peer {} because connection age ({} ms) " +
+                        "has reached the maximum ({} ms)", peer, peer.getConnectionAge(), peer.getMaxConnectionAge());
                 peer.disconnect("Connection age too old");
             }
         }

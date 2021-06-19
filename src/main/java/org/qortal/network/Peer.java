@@ -97,6 +97,8 @@ public class Peer {
 
     byte[] ourChallenge;
 
+    private boolean syncInProgress = false;
+
     // Versioning
     public static final Pattern VERSION_PATTERN = Pattern.compile(Controller.VERSION_PREFIX
             + "(\\d{1,3})\\.(\\d{1,5})\\.(\\d{1,5})");
@@ -338,6 +340,14 @@ public class Peer {
         if (!this.pendingMessages.offer(message)) {
             LOGGER.info("[{}] No room to queue message from peer {} - discarding", this.peerConnectionId, this);
         }
+    }
+
+    public boolean isSyncInProgress() {
+        return this.syncInProgress;
+    }
+
+    public void setSyncInProgress(boolean syncInProgress) {
+        this.syncInProgress = syncInProgress;
     }
 
     @Override
