@@ -49,7 +49,6 @@ public class DataFile {
 
     protected String filePath;
     private ArrayList<DataFileChunk> chunks;
-    protected String base58Digest;
 
     public DataFile() {
     }
@@ -315,10 +314,10 @@ public class DataFile {
     }
 
     public String base58Digest() {
-        if (this.base58Digest == null) {
-            this.base58Digest = Base58.encode(this.digest());
+        if (this.digest() != null) {
+            return Base58.encode(this.digest());
         }
-        return this.base58Digest;
+        return null;
     }
 
     public String shortDigest() {
