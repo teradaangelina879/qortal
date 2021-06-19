@@ -59,6 +59,9 @@ public class Synchronizer {
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
 
 
+	// Keep track of the size of the last re-org, so it can be logged
+	private int lastReorgSize;
+
 	private static Synchronizer instance;
 
 	public enum SynchronizationResult {
@@ -510,6 +513,9 @@ public class Synchronizer {
 							peerHeight, Base58.encode(peersLastBlockSignature), peer.getChainTipData().getLastBlockTimestamp(),
 							ourInitialHeight, Base58.encode(ourLastBlockSignature), ourLatestBlockData.getTimestamp()));
 
+					// Reset last re-org size as we are starting a new sync round
+					this.lastReorgSize = 0;
+
 					List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
 					SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, force, peerBlockSummaries, true);
 					if (findCommonBlockResult != SynchronizationResult.OK) {
@@ -567,10 +573,19 @@ public class Synchronizer {
 					// Commit
 					repository.saveChanges();
 
+					// Create string for logging
 					final BlockData newLatestBlockData = repository.getBlockRepository().getLastBlock();
-					LOGGER.info(String.format("Synchronized with peer %s to height %d, sig %.8s, ts: %d", peer,
+					String syncLog = String.format("Synchronized with peer %s to height %d, sig %.8s, ts: %d", peer,
 							newLatestBlockData.getHeight(), Base58.encode(newLatestBlockData.getSignature()),
-							newLatestBlockData.getTimestamp()));
+							newLatestBlockData.getTimestamp());
+
+					// Append re-org info
+					if (this.lastReorgSize > 0) {
+						syncLog = syncLog.concat(String.format(", size: %d", this.lastReorgSize));
+					}
+
+					// Log sync info
+					LOGGER.info(syncLog);
 
 					return SynchronizationResult.OK;
 				} finally {
@@ -924,6 +939,7 @@ public class Synchronizer {
 		// Unwind to common block (unless common block is our latest block)
 		int ourHeight = ourInitialHeight;
 		LOGGER.debug(String.format("Orphaning blocks back to common block height %d, sig %.8s. Our height: %d", commonBlockHeight, commonBlockSig58, ourHeight));
+		int reorgSize = ourHeight - commonBlockHeight;
 
 		BlockData orphanBlockData = repository.getBlockRepository().fromHeight(ourInitialHeight);
 		while (ourHeight > commonBlockHeight) {
@@ -972,6 +988,7 @@ public class Synchronizer {
 			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}
 
+		this.lastReorgSize = reorgSize;
 		return SynchronizationResult.OK;
 	}
 
