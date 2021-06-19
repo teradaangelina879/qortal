@@ -172,7 +172,7 @@ public class DataResource {
 			Peer targetPeer = peers.stream().filter(peer -> peer.getResolvedAddress().toString().contains(resolvedAddress.toString())).findFirst().orElse(null);
 
 			if (targetPeer == null) {
-				LOGGER.error("Peer not connected");
+				LOGGER.info("Peer {} isn't connected", targetPeerAddress);
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
 
