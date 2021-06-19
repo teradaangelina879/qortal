@@ -169,7 +169,7 @@ public class DataResource {
 			InetSocketAddress resolvedAddress = peerAddress.toSocketAddress();
 
 			List<Peer> peers = Network.getInstance().getHandshakedPeers();
-			Peer targetPeer = peers.stream().filter(peer -> peer.getResolvedAddress().equals(resolvedAddress)).findFirst().orElse(null);
+			Peer targetPeer = peers.stream().filter(peer -> peer.getResolvedAddress().toString().contains(resolvedAddress.toString())).findFirst().orElse(null);
 
 			if (targetPeer == null) {
 				LOGGER.error("Peer not connected");
