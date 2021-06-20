@@ -209,7 +209,7 @@ public class Peer {
         // Generate a random number between the min and the max
         Random random = new Random();
         this.maxConnectionAge = (random.nextInt(peerConnectionTimeRange) + minPeerConnectionTime) * 1000L;
-        LOGGER.debug(String.format("Generated max connection age for peer %s. Min: %ds, max: %ds, range: %ds, random max: %dms", this, minPeerConnectionTime, maxPeerConnectionTime, peerConnectionTimeRange, this.maxConnectionAge));
+        LOGGER.debug(String.format("[%s] Generated max connection age for peer %s. Min: %ds, max: %ds, range: %ds, random max: %dms", this.peerConnectionId, this, minPeerConnectionTime, maxPeerConnectionTime, peerConnectionTimeRange, this.maxConnectionAge));
 
     }
 
