@@ -80,7 +80,7 @@ public class DataFile {
         String base58Digest = Base58.encode(Crypto.digest(fileContent));
         LOGGER.debug(String.format("File digest: %s, size: %d bytes", base58Digest, fileContent.length));
 
-        String outputFilePath = this.getOutputFilePath(base58Digest);
+        String outputFilePath = this.getOutputFilePath(base58Digest, true);
         File outputFile = new File(outputFilePath);
         try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
             outputStream.write(fileContent);
@@ -97,7 +97,7 @@ public class DataFile {
     }
 
     public static DataFile fromBase58Digest(String base58Digest) {
-        String filePath = DataFile.getOutputFilePath(base58Digest);
+        String filePath = DataFile.getOutputFilePath(base58Digest, false);
         return new DataFile(filePath);
     }
 
@@ -119,7 +119,7 @@ public class DataFile {
     }
 
     private String copyToDataDirectory() {
-        String outputFilePath = this.getOutputFilePath(this.base58Digest());
+        String outputFilePath = this.getOutputFilePath(this.base58Digest(), true);
         Path source = Paths.get(this.filePath).toAbsolutePath();
         Path dest = Paths.get(outputFilePath).toAbsolutePath();
         try {
@@ -130,16 +130,18 @@ public class DataFile {
         }
     }
 
-    public static String getOutputFilePath(String base58Digest) {
+    public static String getOutputFilePath(String base58Digest, boolean createDirectories) {
         String base58DigestFirst2Chars = base58Digest.substring(0, Math.min(base58Digest.length(), 2));
         String base58DigestNext2Chars = base58Digest.substring(2, Math.min(base58Digest.length(), 4));
         String outputDirectory = String.format("%s/%s/%s", Settings.getInstance().getDataPath(), base58DigestFirst2Chars, base58DigestNext2Chars);
         Path outputDirectoryPath = Paths.get(outputDirectory);
 
-        try {
-            Files.createDirectories(outputDirectoryPath);
-        } catch (IOException e) {
-            throw new IllegalStateException("Unable to create data subdirectory");
+        if (createDirectories) {
+            try {
+                Files.createDirectories(outputDirectoryPath);
+            } catch (IOException e) {
+                throw new IllegalStateException("Unable to create data subdirectory");
+            }
         }
         return String.format("%s/%s", outputDirectory, base58Digest);
     }
