@@ -262,6 +262,10 @@ public class DataResource {
 			}
 
 			DataFileMessage dataFileMessage = (DataFileMessage) message;
+			dataFile = dataFileMessage.getDataFile();
+			if (dataFile == null || !dataFile.exists()) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FILE_NOT_FOUND);
+			}
 
 			return Response.ok(String.format("Received file %s, size %d bytes", dataFileMessage.getDataFile(), dataFileMessage.getDataFile().size())).build();
 		} catch (ApiException e) {
