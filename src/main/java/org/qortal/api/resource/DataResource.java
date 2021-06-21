@@ -20,14 +20,19 @@ import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
 import org.qortal.storage.DataFile.ValidationResult;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ZipUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.io.File;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 
 
@@ -66,7 +71,7 @@ public class DataResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public String uploadFile(String filePath) {
+	public String uploadDataAtPath(String path) {
 		Security.checkApiCallAllowed(request);
 
 		// It's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -75,7 +80,65 @@ public class DataResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			DataFile dataFile = new DataFile(filePath);
+			// Check if a file or directory has been supplied
+			File file = new File(path);
+			if (file.isFile()) {
+				return this.uploadFile(path);
+			}
+			else if (file.isDirectory()) {
+				return this.uploadDirectory(path);
+			}
+
+			LOGGER.info("No file or folder found at path: {}", path);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		} catch (DataException e) {
+			LOGGER.error("Repository issue when uploading data", e);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (IllegalStateException e) {
+			LOGGER.error("Invalid upload data", e);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
+		}
+	}
+
+	private String uploadFile(String filePath) {
+		DataFile dataFile = new DataFile(filePath);
+		ValidationResult validationResult = dataFile.isValid();
+		if (validationResult != DataFile.ValidationResult.OK) {
+			LOGGER.error("Invalid file: {}", validationResult);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+		}
+		LOGGER.info("Whole file digest: {}", dataFile.base58Digest());
+
+		int chunkCount = dataFile.split();
+		if (chunkCount > 0) {
+			LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
+			return "true";
+		}
+
+		return "false";
+	}
+
+	private String uploadDirectory(String directoryPath) {
+		// Ensure temp folder exists
+		try {
+			Files.createDirectories(Paths.get("temp"));
+		} catch (IOException e) {
+			LOGGER.error("Unable to create temp directory");
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+		}
+
+		// Firstly zip up the directory
+		String outputFilePath = "temp/zipped.zip";
+		try {
+			ZipUtils.zip(directoryPath, outputFilePath);
+		} catch (IOException e) {
+			LOGGER.info("Unable to zip directory", e);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+		}
+
+		try {
+			DataFile dataFile = new DataFile(outputFilePath);
 			ValidationResult validationResult = dataFile.isValid();
 			if (validationResult != DataFile.ValidationResult.OK) {
 				LOGGER.error("Invalid file: {}", validationResult);
@@ -90,13 +153,13 @@ public class DataResource {
 			}
 
 			return "false";
-
-		} catch (DataException e) {
-			LOGGER.error("Repository issue when uploading data", e);
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		} catch (IllegalStateException e) {
-			LOGGER.error("Invalid upload data", e);
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
+		}
+		finally {
+			// Clean up by deleting the zipped file
+			File zippedFile = new File(outputFilePath);
+			if (zippedFile.exists()) {
+				zippedFile.delete();
+			}
 		}
 	}
 
