@@ -56,6 +56,7 @@ public class DataFile {
     public DataFile(String filePath) {
         this.createDataDirectory();
         this.filePath = filePath;
+        this.chunks = new ArrayList<>();
 
         if (!this.isInBaseDirectory(filePath)) {
             // Copy file to base directory
@@ -123,8 +124,7 @@ public class DataFile {
         Path source = Paths.get(this.filePath).toAbsolutePath();
         Path dest = Paths.get(outputFilePath).toAbsolutePath();
         try {
-            Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
-            return dest.toString();
+            return Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING).toString();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to copy file to data directory");
         }
@@ -169,7 +169,10 @@ public class DataFile {
         return ValidationResult.OK;
     }
 
-    public int split() {
+    public void addChunk(DataFileChunk chunk) {
+        this.chunks.add(chunk);
+    }
+
     public int split(int chunkSize) {
         try {
 
@@ -203,6 +206,48 @@ public class DataFile {
         }
 
         return this.chunks.size();
+    }
+
+    public boolean join() {
+        // Ensure we have chunks
+        if (this.chunks != null && this.chunks.size() > 0) {
+
+            // Create temporary path for joined file
+            Path tempPath;
+            try {
+                tempPath = Files.createTempFile(this.chunks.get(0).base58Digest(), ".tmp");
+            } catch (IOException e) {
+                return false;
+            }
+            this.filePath = tempPath.toString();
+
+            // Join the chunks
+            File outputFile = new File(this.filePath);
+            try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputFile))) {
+                for (DataFileChunk chunk : this.chunks) {
+                    File sourceFile = new File(chunk.filePath);
+                    BufferedInputStream in = new BufferedInputStream(new FileInputStream(sourceFile));
+                    byte[] buffer = new byte[2048];
+                    int inSize = -1;
+                    while ((inSize = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, inSize);
+                    }
+                    in.close();
+                }
+                out.close();
+
+                // Copy temporary file to data directory
+                this.filePath = this.copyToDataDirectory();
+                Files.delete(tempPath);
+
+                return true;
+            } catch (FileNotFoundException e) {
+                return false;
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return false;
     }
 
     public boolean delete() {
@@ -294,12 +339,20 @@ public class DataFile {
         }
     }
 
+    public int chunkCount() {
+        return this.chunks.size();
+    }
+
     private File getFile() {
         File file = new File(this.filePath);
         if (file.exists()) {
             return file;
         }
         return null;
+    }
+
+    public String getFilePath() {
+        return this.filePath;
     }
 
     public byte[] digest() {
