@@ -110,7 +110,7 @@ public class DataResource {
 		}
 		LOGGER.info("Whole file digest: {}", dataFile.base58Digest());
 
-		int chunkCount = dataFile.split();
+		int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
 		if (chunkCount > 0) {
 			LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
 			return "true";
@@ -146,7 +146,7 @@ public class DataResource {
 			}
 			LOGGER.info("Whole file digest: {}", dataFile.base58Digest());
 
-			int chunkCount = dataFile.split();
+			int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
 			if (chunkCount > 0) {
 				LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
 				return "true";

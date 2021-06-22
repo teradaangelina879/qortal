@@ -170,10 +170,11 @@ public class DataFile {
     }
 
     public int split() {
+    public int split(int chunkSize) {
         try {
 
             File file = this.getFile();
-            byte[] buffer = new byte[CHUNK_SIZE];
+            byte[] buffer = new byte[chunkSize];
             this.chunks = new ArrayList<>();
 
             if (file != null) {
