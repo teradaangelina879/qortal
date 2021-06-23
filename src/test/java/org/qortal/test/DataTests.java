@@ -6,6 +6,8 @@ import org.qortal.repository.DataException;
 import org.qortal.storage.DataFile;
 import org.qortal.test.common.Common;
 
+import java.util.Random;
+
 import static org.junit.Assert.*;
 
 public class DataTests extends Common {
@@ -40,6 +42,36 @@ public class DataTests extends Common {
 		assertTrue(dataFile.exists());
 		assertEquals(62, dataFile.size());
 		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", dataFile.base58Digest());
+	}
+
+	@Test
+	public void testSplitAndJoinWithLargeFiles() {
+		int fileSize = (int) (5.5f * 1024 * 1024); // 5.5MiB
+		byte[] randomData = new byte[fileSize];
+		new Random().nextBytes(randomData); // No need for SecureRandom here
+
+		DataFile dataFile = new DataFile(randomData);
+		assertTrue(dataFile.exists());
+		assertEquals(fileSize, dataFile.size());
+		String originalFileDigest = dataFile.base58Digest();
+
+		// Split into chunks using 1MiB chunk size
+		dataFile.split(1 * 1024 * 1024);
+		assertEquals(6, dataFile.chunkCount());
+
+		// Delete the original file
+		dataFile.delete();
+		assertFalse(dataFile.exists());
+		assertEquals(0, dataFile.size());
+
+		// Now rebuild the original file from the chunks
+		assertEquals(6, dataFile.chunkCount());
+		dataFile.join();
+
+		// Validate that the original file is intact
+		assertTrue(dataFile.exists());
+		assertEquals(fileSize, dataFile.size());
+		assertEquals(originalFileDigest, dataFile.base58Digest());
 	}
 
 }
