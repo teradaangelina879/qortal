@@ -18,11 +18,14 @@ import java.util.zip.ZipOutputStream;
 
 public class ZipUtils {
 
-    public static void zip(String sourcePath, String destFilePath) throws IOException {
+    public static void zip(String sourcePath, String destFilePath, String fileName) throws IOException {
         File sourceFile = new File(sourcePath);
+        if (fileName == null) {
+            fileName = sourceFile.getName();
+        }
         FileOutputStream fileOutputStream = new FileOutputStream(destFilePath);
         ZipOutputStream zipOutputStream = new ZipOutputStream(fileOutputStream);
-        ZipUtils.zip(sourceFile, sourceFile.getName(), zipOutputStream);
+        ZipUtils.zip(sourceFile, fileName, zipOutputStream);
         zipOutputStream.close();
         fileOutputStream.close();
     }

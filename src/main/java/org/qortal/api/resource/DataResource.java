@@ -131,7 +131,7 @@ public class DataResource {
 		// Firstly zip up the directory
 		String outputFilePath = "temp/zipped.zip";
 		try {
-			ZipUtils.zip(directoryPath, outputFilePath);
+			ZipUtils.zip(directoryPath, outputFilePath, "data");
 		} catch (IOException e) {
 			LOGGER.info("Unable to zip directory", e);
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
