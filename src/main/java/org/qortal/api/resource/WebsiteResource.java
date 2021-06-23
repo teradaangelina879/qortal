@@ -69,13 +69,63 @@ public class WebsiteResource {
                     )
             }
     )
-    public String hostWebsite(String directoryPath) {
+    public String uploadWebsite(String directoryPath) {
         Security.checkApiCallAllowed(request);
 
         // It's too dangerous to allow user-supplied filenames in weaker security contexts
         if (Settings.getInstance().isApiRestricted()) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
         }
+
+        String base58Digest = this.hostWebsite(directoryPath);
+        if (base58Digest != null) {
+            // TODO: build transaction
+            return "true";
+        }
+        return "false";
+    }
+
+    @POST
+    @Path("/preview")
+    @Operation(
+            summary = "Generate preview URL based on a user-supplied path to a static website",
+            requestBody = @RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(
+                                    type = "string", example = "/Users/user/Documents/MyStaticWebsite"
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            description = "raw, unsigned, UPLOAD_DATA transaction encoded in Base58",
+                            content = @Content(
+                                    mediaType = MediaType.TEXT_PLAIN,
+                                    schema = @Schema(
+                                            type = "string"
+                                    )
+                            )
+                    )
+            }
+    )
+    public String previewWebsite(String directoryPath) {
+        Security.checkApiCallAllowed(request);
+
+        // It's too dangerous to allow user-supplied filenames in weaker security contexts
+        if (Settings.getInstance().isApiRestricted()) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+        }
+
+        String base58Digest = this.hostWebsite(directoryPath);
+        if (base58Digest != null) {
+            return "http://localhost:12393/site/" + base58Digest;
+        }
+        return "Unable to generate preview URL";
+    }
+
+    private String hostWebsite(String directoryPath) {
 
         // Check if a file or directory has been supplied
         File file = new File(directoryPath);
@@ -113,10 +163,10 @@ public class WebsiteResource {
             int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
             if (chunkCount > 0) {
                 LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
-                return "true";
+                return dataFile.base58Digest();
             }
 
-            return "false";
+            return null;
         }
         finally {
             // Clean up by deleting the zipped file
