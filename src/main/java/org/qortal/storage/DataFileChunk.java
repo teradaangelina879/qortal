@@ -3,6 +3,7 @@ package org.qortal.storage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,8 +17,21 @@ public class DataFileChunk extends DataFile {
     public DataFileChunk() {
     }
 
+    public DataFileChunk(String filePath) {
+        super(filePath);
+    }
+
+    public DataFileChunk(File file) {
+        super(file);
+    }
+
     public DataFileChunk(byte[] fileContent) {
         super(fileContent);
+    }
+
+    public static DataFileChunk fromBase58Digest(String base58Digest) {
+        String filePath = DataFile.getOutputFilePath(base58Digest, false);
+        return new DataFileChunk(filePath);
     }
 
     @Override
