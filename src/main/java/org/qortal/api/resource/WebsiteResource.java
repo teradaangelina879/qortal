@@ -1,8 +1,12 @@
 package org.qortal.api.resource;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.File;
 import java.io.IOException;
@@ -11,20 +15,117 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.qortal.api.ApiError;
+import org.qortal.api.ApiExceptionFactory;
+import org.qortal.api.Security;
+import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
 import org.qortal.utils.ZipUtils;
 
 
 @Path("/site")
+@Tag(name = "Website")
 public class WebsiteResource {
 
     private static final Logger LOGGER = LogManager.getLogger(WebsiteResource.class);
+
+    @Context
+    HttpServletRequest request;
+
+    @POST
+    @Path("/upload")
+    @Operation(
+            summary = "Build raw, unsigned, UPLOAD_DATA transaction, based on a user-supplied path to a static website",
+            requestBody = @RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.TEXT_PLAIN,
+                            schema = @Schema(
+                                    type = "string", example = "/Users/user/Documents/MyStaticWebsite"
+                            )
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            description = "raw, unsigned, UPLOAD_DATA transaction encoded in Base58",
+                            content = @Content(
+                                    mediaType = MediaType.TEXT_PLAIN,
+                                    schema = @Schema(
+                                            type = "string"
+                                    )
+                            )
+                    )
+            }
+    )
+    public String hostWebsite(String directoryPath) {
+        Security.checkApiCallAllowed(request);
+
+        // It's too dangerous to allow user-supplied filenames in weaker security contexts
+        if (Settings.getInstance().isApiRestricted()) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+        }
+
+        // Check if a file or directory has been supplied
+        File file = new File(directoryPath);
+        if (!file.isDirectory()) {
+            LOGGER.info("Not a directory: {}", directoryPath);
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+        }
+
+        // Ensure temp folder exists
+        try {
+            Files.createDirectories(Paths.get("temp"));
+        } catch (IOException e) {
+            LOGGER.error("Unable to create temp directory");
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+        }
+
+        // Firstly zip up the directory
+        String outputFilePath = "temp/zipped.zip";
+        try {
+            ZipUtils.zip(directoryPath, outputFilePath, "data");
+        } catch (IOException e) {
+            LOGGER.info("Unable to zip directory", e);
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+        }
+
+        try {
+            DataFile dataFile = new DataFile(outputFilePath);
+            DataFile.ValidationResult validationResult = dataFile.isValid();
+            if (validationResult != DataFile.ValidationResult.OK) {
+                LOGGER.error("Invalid file: {}", validationResult);
+                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+            }
+            LOGGER.info("Whole file digest: {}", dataFile.base58Digest());
+
+            int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
+            if (chunkCount > 0) {
+                LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
+                return "true";
+            }
+
+            return "false";
+        }
+        finally {
+            // Clean up by deleting the zipped file
+            File zippedFile = new File(outputFilePath);
+            if (zippedFile.exists()) {
+                zippedFile.delete();
+            }
+        }
+    }
 
     @GET
     @Path("{resource}")
