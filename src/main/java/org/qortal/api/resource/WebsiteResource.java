@@ -212,15 +212,17 @@ public class WebsiteResource {
             Elements href = document.select("[href]");
             for (Element element : href)  {
                 String elementHtml = element.attr("href");
-                if (elementHtml.startsWith("/") && !elementHtml.startsWith("//"))    {
-                    element.attr("href", "/site/" +resourceId + element.attr("href"));
+                if (!elementHtml.startsWith("http") && !elementHtml.startsWith("//")) {
+                    String slash = (elementHtml.startsWith("/") ? "" : File.separator);
+                    element.attr("href", "/site/" +resourceId + slash + element.attr("href"));
                 }
             }
             Elements src = document.select("[src]");
             for (Element element : src)  {
                 String elementHtml = element.attr("src");
-                if (elementHtml.startsWith("/") && !elementHtml.startsWith("//"))    {
-                    element.attr("src", "/site/" +resourceId + element.attr("src"));
+                if (!elementHtml.startsWith("http") && !elementHtml.startsWith("//")) {
+                    String slash = (elementHtml.startsWith("/") ? "" : File.separator);
+                    element.attr("src", "/site/" +resourceId + slash + element.attr("src"));
                 }
             }
             return document.html().getBytes();
