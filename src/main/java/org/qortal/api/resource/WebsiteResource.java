@@ -163,7 +163,8 @@ public class WebsiteResource {
 
             int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
             if (chunkCount > 0) {
-                LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
+                LOGGER.info(String.format("Successfully split into %d chunk%s:", chunkCount, (chunkCount == 1 ? "" : "s")));
+                LOGGER.info("{}", dataFile.printChunks());
                 return dataFile.base58Digest();
             }
 

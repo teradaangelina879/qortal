@@ -383,6 +383,19 @@ public class DataFile {
         return this.base58Digest().substring(0, Math.min(this.base58Digest().length(), SHORT_DIGEST_LENGTH));
     }
 
+    public String printChunks() {
+        String outputString = "";
+        if (this.chunkCount() > 0) {
+            for (DataFileChunk chunk : this.chunks) {
+                if (outputString.length() > 0) {
+                    outputString = outputString.concat(",");
+                }
+                outputString = outputString.concat(chunk.base58Digest());
+            }
+        }
+        return outputString;
+    }
+
     @Override
     public String toString() {
         return this.shortDigest();
