@@ -197,7 +197,7 @@ public class WebsiteResource {
         }
 
         String tempDirectory = System.getProperty("java.io.tmpdir");
-        String destPath = tempDirectory + "qortal-sites" + File.separator + resourceId;
+        String destPath = tempDirectory + File.separator  + "qortal-sites" + File.separator + resourceId;
         String unzippedPath = destPath + File.separator + "data";
 
         if (!Files.exists(Paths.get(unzippedPath))) {
