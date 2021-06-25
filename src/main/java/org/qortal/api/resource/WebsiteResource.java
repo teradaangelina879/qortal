@@ -209,8 +209,6 @@ public class WebsiteResource {
                 return this.get404Response();
             }
 
-            String newHash = dataFile.base58Digest();
-            LOGGER.info("newHash: {}", newHash);
             if (!dataFile.base58Digest().equals(resourceId)) {
                 LOGGER.info("Unable to validate complete file hash");
                 return this.get404Response();
