@@ -1,15 +1,15 @@
 package org.qortal.api.resource;
 
+import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -41,8 +41,9 @@ public class WebsiteResource {
 
     private static final Logger LOGGER = LogManager.getLogger(WebsiteResource.class);
 
-    @Context
-    HttpServletRequest request;
+    @Context HttpServletRequest request;
+    @Context HttpServletResponse response;
+    @Context ServletContext context;
 
     @POST
     @Path("/upload")
@@ -179,17 +180,17 @@ public class WebsiteResource {
 
     @GET
     @Path("{resource}")
-    public Response getResourceIndex(@PathParam("resource") String resourceId) {
+    public HttpServletResponse getResourceIndex(@PathParam("resource") String resourceId) {
         return this.get(resourceId, "/");
     }
 
     @GET
     @Path("{resource}/{path:.*}")
-    public Response getResourcePath(@PathParam("resource") String resourceId, @PathParam("path") String inPath) {
+    public HttpServletResponse getResourcePath(@PathParam("resource") String resourceId, @PathParam("path") String inPath) {
         return this.get(resourceId, inPath);
     }
 
-    private Response get(String resourceId, String inPath) {
+    private HttpServletResponse get(String resourceId, String inPath) {
         if (!inPath.startsWith(File.separator)) {
             inPath = File.separator + inPath;
         }
@@ -204,14 +205,14 @@ public class WebsiteResource {
             DataFile dataFile = DataFile.fromBase58Digest(resourceId);
             if (dataFile == null || !dataFile.exists()) {
                 LOGGER.info("Unable to validate complete file hash");
-                return Response.serverError().build();
+                return this.get404Response();
             }
 
             String newHash = dataFile.base58Digest();
             LOGGER.info("newHash: {}", newHash);
             if (!dataFile.base58Digest().equals(resourceId)) {
                 LOGGER.info("Unable to validate complete file hash");
-                return Response.serverError().build();
+                return this.get404Response();
             }
 
             try {
@@ -223,14 +224,36 @@ public class WebsiteResource {
 
         try {
             String filename = this.getFilename(unzippedPath, inPath);
-            byte[] data = Files.readAllBytes(Paths.get(unzippedPath + File.separator + filename)); // TODO: limit file size that can be read into memory
-            data = this.replaceRelativeLinks(filename, data, resourceId);
-            return Response.ok(data).build();
+            String filePath = unzippedPath + File.separator + filename;
+
+            if (this.isHtmlFile(filename)) {
+                // HTML file - needs to be parsed
+                byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
+                data = this.replaceRelativeLinks(filename, data, resourceId);
+                response.setContentType(context.getMimeType(filename));
+                response.setContentLength(data.length);
+                response.getOutputStream().write(data);
+            }
+            else {
+                // Regular file - can be streamed directly
+                File file = new File(filePath);
+                FileInputStream inputStream = new FileInputStream(file);
+                response.setContentType(context.getMimeType(filename));
+                int bytesRead, length = 0;
+                byte[] buffer = new byte[1024];
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    response.getOutputStream().write(buffer, 0, bytesRead);
+                    length += bytesRead;
+                }
+                response.setContentLength(length);
+                inputStream.close();
+            }
+            return response;
         } catch (IOException e) {
             LOGGER.info("Unable to serve file at path: {}", inPath);
         }
 
-        return Response.serverError().build();
+        return this.get404Response();
     }
 
     private String getFilename(String directory, String userPath) {
@@ -245,6 +268,19 @@ public class WebsiteResource {
             }
         }
         return userPath;
+    }
+
+    private HttpServletResponse get404Response() {
+        try {
+            String responseString = "404: File Not Found";
+            byte[] responseData = responseString.getBytes();
+            response.setStatus(404);
+            response.setContentLength(responseData.length);
+            response.getOutputStream().write(responseData);
+        } catch (IOException e) {
+            LOGGER.info("Error writing 404 response");
+        }
+        return response;
     }
 
     /**
