@@ -298,7 +298,7 @@ public class WebsiteResource {
             Elements href = document.select("[href]");
             for (Element element : href)  {
                 String elementHtml = element.attr("href");
-                if (!elementHtml.startsWith("http") && !elementHtml.startsWith("//")) {
+                if (this.isRelativeLink(elementHtml)) {
                     String slash = (elementHtml.startsWith("/") ? "" : File.separator);
                     element.attr("href", "/site/" +resourceId + slash + element.attr("href"));
                 }
@@ -306,14 +306,70 @@ public class WebsiteResource {
             Elements src = document.select("[src]");
             for (Element element : src)  {
                 String elementHtml = element.attr("src");
-                if (!elementHtml.startsWith("http") && !elementHtml.startsWith("//")) {
+                if (this.isRelativeLink(elementHtml)) {
                     String slash = (elementHtml.startsWith("/") ? "" : File.separator);
                     element.attr("src", "/site/" +resourceId + slash + element.attr("src"));
+                }
+            }
+            Elements srcset = document.select("[srcset]");
+            for (Element element : srcset)  {
+                String elementHtml = element.attr("srcset").trim();
+                if (this.isRelativeLink(elementHtml)) {
+                    String[] parts = element.attr("srcset").split(",");
+                    ArrayList<String> newParts = new ArrayList<>();
+                    for (String part : parts) {
+                        part = part.trim();
+                        String slash = (elementHtml.startsWith("/") ? "" : File.separator);
+                        String newPart = "/site/" +resourceId + slash + part;
+                        newParts.add(newPart);
+                    }
+                    String newString = String.join(",", newParts);
+                    element.attr("srcset", newString);
+                }
+            }
+            Elements style = document.select("[style]");
+            for (Element element : style)  {
+                String elementHtml = element.attr("style");
+                if (elementHtml.contains("url(")) {
+                    String[] parts = elementHtml.split("url\\(");
+                    String[] parts2 = parts[1].split("\\)");
+                    String link = parts2[0];
+                    if (link != null) {
+                        link = this.removeQuotes(link);
+                        if (this.isRelativeLink(link)) {
+                            String slash = (link.startsWith("/") ? "" : File.separator);
+                            String modifiedLink = "url('" + "/site/" + resourceId + slash + link + "')";
+                            element.attr("style", parts[0] + modifiedLink + parts2[1]);
+                        }
+                    }
                 }
             }
             return document.html().getBytes();
         }
         return data;
+    }
+
+    private boolean isRelativeLink(String elementHtml) {
+        List<String> prefixes = new ArrayList<>();
+        prefixes.add("http");
+        prefixes.add("//");
+        prefixes.add("javascript:");
+        for (String prefix : prefixes) {
+            if (elementHtml.startsWith(prefix)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String removeQuotes(String elementHtml) {
+        if (elementHtml.startsWith("\"") || elementHtml.startsWith("\'")) {
+            elementHtml = elementHtml.substring(1);
+        }
+        if (elementHtml.endsWith("\"") || elementHtml.endsWith("\'")) {
+            elementHtml = elementHtml.substring(0, elementHtml.length() - 1);
+        }
+        return elementHtml;
     }
 
     private List<String> indexFiles() {
