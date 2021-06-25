@@ -225,4 +225,59 @@ public class DataResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}
 	}
+	
+	@POST
+	@Path("/file/{hash}/build")
+	@Operation(
+			summary = "Join multiple chunks into a single file, using supplied comma separated base58 encoded SHA256 digest strings",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "FZdHKgF5CbN2tKihvop5Ts9vmWmA9ZyyPY6bC1zivjy4,FZdHKgF5CbN2tKihvop5Ts9vmWmA9ZyyPY6bC1zivjy4"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "true if joined, false if not",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.FILE_NOT_FOUND, ApiError.NO_REPLY})
+	public Response joinFiles(String files, @PathParam("combinedHash") String combinedHash) {
+
+		if (combinedHash == null) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
+
+		DataFile dataFile = DataFile.fromBase58Digest(combinedHash);
+		if (dataFile.exists()) {
+			LOGGER.info("We already have the combined file {}, but we'll join the chunks anyway.", combinedHash);
+		}
+
+		String base58DigestList[] = files.split(",");
+		for (String base58Digest : base58DigestList) {
+			if (base58Digest != null) {
+				DataFileChunk chunk = DataFileChunk.fromBase58Digest(base58Digest);
+				dataFile.addChunk(chunk);
+			}
+		}
+		boolean success = dataFile.join();
+		if (success) {
+			if (combinedHash.equals(dataFile.base58Digest())) {
+				LOGGER.info("Valid hash {} after joining {} files", dataFile.base58Digest(), dataFile.chunkCount());
+				return Response.ok("true").build();
+			}
+		}
+
+		return Response.ok("false").build();
+	}
 }
