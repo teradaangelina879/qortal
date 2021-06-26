@@ -337,7 +337,7 @@ public class WebsiteResource {
                     if (link != null) {
                         link = this.removeQuotes(link);
                         if (this.isRelativeLink(link)) {
-                            String slash = (link.startsWith("/") ? "" : File.separator);
+                            String slash = (link.startsWith("/") ? "" : "/");
                             String modifiedLink = "url('" + "/site/" + resourceId + slash + link + "')";
                             element.attr("style", parts[0] + modifiedLink + parts2[1]);
                         }

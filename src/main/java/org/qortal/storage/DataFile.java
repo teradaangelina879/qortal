@@ -133,7 +133,7 @@ public class DataFile {
     public static String getOutputFilePath(String base58Digest, boolean createDirectories) {
         String base58DigestFirst2Chars = base58Digest.substring(0, Math.min(base58Digest.length(), 2));
         String base58DigestNext2Chars = base58Digest.substring(2, Math.min(base58Digest.length(), 4));
-        String outputDirectory = String.format("%s/%s/%s", Settings.getInstance().getDataPath(), base58DigestFirst2Chars, base58DigestNext2Chars);
+        String outputDirectory =  Settings.getInstance().getDataPath() + File.separator + base58DigestFirst2Chars + File.separator + base58DigestNext2Chars;
         Path outputDirectoryPath = Paths.get(outputDirectory);
 
         if (createDirectories) {
@@ -143,7 +143,7 @@ public class DataFile {
                 throw new IllegalStateException("Unable to create data subdirectory");
             }
         }
-        return String.format("%s/%s", outputDirectory, base58Digest);
+        return outputDirectory + base58Digest;
     }
 
     public ValidationResult isValid() {
