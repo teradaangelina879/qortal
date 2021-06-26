@@ -136,15 +136,16 @@ public class WebsiteResource {
         }
 
         // Ensure temp folder exists
+        java.nio.file.Path tempDir = null;
         try {
-            Files.createDirectories(Paths.get("temp"));
+            tempDir = Files.createTempDirectory("qortal-zip");
         } catch (IOException e) {
             LOGGER.error("Unable to create temp directory");
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
         }
 
         // Firstly zip up the directory
-        String outputFilePath = "temp/zipped.zip";
+        String outputFilePath = tempDir.toString() + File.separator + "zipped.zip";
         try {
             ZipUtils.zip(directoryPath, outputFilePath, "data");
         } catch (IOException e) {
