@@ -101,7 +101,7 @@ public class WebsiteResource {
             ),
             responses = {
                     @ApiResponse(
-                            description = "raw, unsigned, UPLOAD_DATA transaction encoded in Base58",
+                            description = "a temporary URL to preview the website",
                             content = @Content(
                                     mediaType = MediaType.TEXT_PLAIN,
                                     schema = @Schema(
