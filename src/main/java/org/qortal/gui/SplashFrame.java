@@ -44,6 +44,9 @@ public class SplashFrame {
 		List<Image> icons = new ArrayList<>();
 		icons.add(Gui.loadImage("icons/icon16.png"));
 		icons.add(Gui.loadImage("icons/icon32.png"));
+		icons.add(Gui.loadImage("icons/icon32c.png"));
+		icons.add(Gui.loadImage("icons/icon32m.png"));
+		icons.add(Gui.loadImage("icons/icon32n.png"));
 		icons.add(Gui.loadImage("icons/icon64.png"));
 		icons.add(Gui.loadImage("icons/icon128.png"));
 		this.splashDialog.setIconImages(icons);
