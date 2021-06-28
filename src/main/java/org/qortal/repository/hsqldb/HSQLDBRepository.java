@@ -703,8 +703,11 @@ public class HSQLDBRepository implements Repository {
 	private ResultSet checkedExecuteResultSet(PreparedStatement preparedStatement, Object... objects) throws SQLException {
 		bindStatementParams(preparedStatement, objects);
 
-		if (!preparedStatement.execute())
-			throw new SQLException("Fetching from database produced no results");
+		// synchronize to block new executions if checkpointing in progress
+		synchronized (CHECKPOINT_LOCK) {
+			if (!preparedStatement.execute())
+				throw new SQLException("Fetching from database produced no results");
+		}
 
 		ResultSet resultSet = preparedStatement.getResultSet();
 		if (resultSet == null)
