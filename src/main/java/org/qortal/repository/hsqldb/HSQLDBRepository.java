@@ -55,7 +55,7 @@ public class HSQLDBRepository implements Repository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
 
-	private static final Object CHECKPOINT_LOCK = new Object();
+	public static final Object CHECKPOINT_LOCK = new Object();
 
 	// "serialization failure"
 	private static final Integer DEADLOCK_ERROR_CODE = Integer.valueOf(-4861);
