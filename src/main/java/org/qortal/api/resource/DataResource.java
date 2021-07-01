@@ -323,7 +323,7 @@ public class DataResource {
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.FILE_NOT_FOUND, ApiError.NO_REPLY})
-	public Response joinFiles(String files, @PathParam("combinedHash") String combinedHash) {
+	public Response joinFiles(String files, @PathParam("hash") String combinedHash) {
 
 		if (combinedHash == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
