@@ -298,7 +298,7 @@ public class WebsiteResource {
             Elements href = document.select("[href]");
             for (Element element : href)  {
                 String elementHtml = element.attr("href");
-                if (this.isRelativeLink(elementHtml)) {
+                if (this.shouldReplaceLink(elementHtml)) {
                     String slash = (elementHtml.startsWith("/") ? "" : File.separator);
                     element.attr("href", "/site/" +resourceId + slash + element.attr("href"));
                 }
@@ -306,7 +306,7 @@ public class WebsiteResource {
             Elements src = document.select("[src]");
             for (Element element : src)  {
                 String elementHtml = element.attr("src");
-                if (this.isRelativeLink(elementHtml)) {
+                if (this.shouldReplaceLink(elementHtml)) {
                     String slash = (elementHtml.startsWith("/") ? "" : File.separator);
                     element.attr("src", "/site/" +resourceId + slash + element.attr("src"));
                 }
@@ -314,7 +314,7 @@ public class WebsiteResource {
             Elements srcset = document.select("[srcset]");
             for (Element element : srcset)  {
                 String elementHtml = element.attr("srcset").trim();
-                if (this.isRelativeLink(elementHtml)) {
+                if (this.shouldReplaceLink(elementHtml)) {
                     String[] parts = element.attr("srcset").split(",");
                     ArrayList<String> newParts = new ArrayList<>();
                     for (String part : parts) {
@@ -336,7 +336,7 @@ public class WebsiteResource {
                     String link = parts2[0];
                     if (link != null) {
                         link = this.removeQuotes(link);
-                        if (this.isRelativeLink(link)) {
+                        if (this.shouldReplaceLink(link)) {
                             String slash = (link.startsWith("/") ? "" : "/");
                             String modifiedLink = "url('" + "/site/" + resourceId + slash + link + "')";
                             element.attr("style", parts[0] + modifiedLink + parts2[1]);
@@ -349,11 +349,12 @@ public class WebsiteResource {
         return data;
     }
 
-    private boolean isRelativeLink(String elementHtml) {
+    private boolean shouldReplaceLink(String elementHtml) {
         List<String> prefixes = new ArrayList<>();
-        prefixes.add("http");
-        prefixes.add("//");
-        prefixes.add("javascript:");
+        prefixes.add("http"); // Don't modify absolute links
+        prefixes.add("//"); // Don't modify absolute links
+        prefixes.add("javascript:"); // Don't modify javascript
+        prefixes.add("../"); // Don't modify valid relative links
         for (String prefix : prefixes) {
             if (elementHtml.startsWith(prefix)) {
                 return false;
