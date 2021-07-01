@@ -55,7 +55,7 @@ public class HSQLDBRepository implements Repository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
 
-	private static final Object CHECKPOINT_LOCK = new Object();
+	public static final Object CHECKPOINT_LOCK = new Object();
 
 	// "serialization failure"
 	private static final Integer DEADLOCK_ERROR_CODE = Integer.valueOf(-4861);
@@ -703,8 +703,11 @@ public class HSQLDBRepository implements Repository {
 	private ResultSet checkedExecuteResultSet(PreparedStatement preparedStatement, Object... objects) throws SQLException {
 		bindStatementParams(preparedStatement, objects);
 
-		if (!preparedStatement.execute())
-			throw new SQLException("Fetching from database produced no results");
+		// synchronize to block new executions if checkpointing in progress
+		synchronized (CHECKPOINT_LOCK) {
+			if (!preparedStatement.execute())
+				throw new SQLException("Fetching from database produced no results");
+		}
 
 		ResultSet resultSet = preparedStatement.getResultSet();
 		if (resultSet == null)
