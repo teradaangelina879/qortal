@@ -3,10 +3,7 @@ package org.qortal.api.resource;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import java.io.*;
@@ -30,6 +27,10 @@ import org.jsoup.select.Elements;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
+import org.qortal.data.account.AccountData;
+import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
 import org.qortal.utils.ZipUtils;
@@ -46,9 +47,9 @@ public class WebsiteResource {
     @Context ServletContext context;
 
     @POST
-    @Path("/upload")
+    @Path("/upload/creator/{address}")
     @Operation(
-            summary = "Build raw, unsigned, UPLOAD_DATA transaction, based on a user-supplied path to a static website",
+            summary = "Build raw, unsigned, HASHED_DATA transaction, based on a user-supplied path to a static website",
             requestBody = @RequestBody(
                     required = true,
                     content = @Content(
@@ -60,7 +61,7 @@ public class WebsiteResource {
             ),
             responses = {
                     @ApiResponse(
-                            description = "raw, unsigned, UPLOAD_DATA transaction encoded in Base58",
+                            description = "raw, unsigned, HASHED_DATA transaction encoded in Base58",
                             content = @Content(
                                     mediaType = MediaType.TEXT_PLAIN,
                                     schema = @Schema(
@@ -70,7 +71,7 @@ public class WebsiteResource {
                     )
             }
     )
-    public String uploadWebsite(String directoryPath) {
+    public String uploadWebsite(@PathParam("address") String creatorAddress, String path) {
         Security.checkApiCallAllowed(request);
 
         // It's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -78,10 +79,49 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
         }
 
-        String base58Digest = this.hostWebsite(directoryPath);
-        if (base58Digest != null) {
-            // TODO: build transaction
-            return "true";
+        if (creatorAddress == null || path == null) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+        }
+
+        DataFile dataFile = this.hostWebsite(path);
+        if (dataFile != null) {
+            String base58Digest = dataFile.base58Digest();
+            if (base58Digest != null) {
+                try (final Repository repository = RepositoryManager.getRepository()) {
+
+                    AccountData accountData = repository.getAccountRepository().getAccount(creatorAddress);
+                    if (accountData == null) {
+                        throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+                    }
+                    byte[] creatorPublicKey = accountData.getPublicKey();
+                    byte[] lastReference = accountData.getReference();
+
+//                    BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
+//                            lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
+//                    int size = (int)dataFile.size();
+//                    byte[] digest = dataFile.digest();
+//                    byte[] chunkHashes = dataFile.chunkHashes();
+//
+//                    HashedDataTransactionData transactionData = new HashedDataTransactionData(baseTransactionData,
+//                            1, 2, 0, size, digest, chunkHashes);
+//
+//                    HashedDataTransaction transaction = (HashedDataTransaction)Transaction.fromData(repository, transactionData);
+//                    transaction.computeNonce();
+//
+//                    Transaction.ValidationResult result = transaction.isValidUnconfirmed();
+//                    if (result != Transaction.ValidationResult.OK)
+//                        throw TransactionsResource.createTransactionInvalidException(request, result);
+//
+//                    byte[] bytes = HashedDataTransactionTransformer.toBytes(transactionData);
+//                    return Base58.encode(bytes);
+                    return "true";
+
+//                } catch (TransformationException e) {
+//                    throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+                } catch (DataException e) {
+                    throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+                }
+            }
         }
         return "false";
     }
@@ -119,14 +159,17 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
         }
 
-        String base58Digest = this.hostWebsite(directoryPath);
-        if (base58Digest != null) {
-            return "http://localhost:12393/site/" + base58Digest;
+        DataFile dataFile = this.hostWebsite(directoryPath);
+        if (dataFile != null) {
+            String base58Digest = dataFile.base58Digest();
+            if (base58Digest != null) {
+                return "http://localhost:12393/site/" + base58Digest;
+            }
         }
         return "Unable to generate preview URL";
     }
 
-    private String hostWebsite(String directoryPath) {
+    private DataFile hostWebsite(String directoryPath) {
 
         // Check if a file or directory has been supplied
         File file = new File(directoryPath);
@@ -166,7 +209,7 @@ public class WebsiteResource {
             if (chunkCount > 0) {
                 LOGGER.info(String.format("Successfully split into %d chunk%s:", chunkCount, (chunkCount == 1 ? "" : "s")));
                 LOGGER.info("{}", dataFile.printChunks());
-                return dataFile.base58Digest();
+                return dataFile;
             }
 
             return null;
