@@ -369,6 +369,31 @@ public class DataFile {
         return null;
     }
 
+    public byte[] chunkHashes() {
+        if (this.chunks != null && this.chunks.size() > 0) {
+            // Return null if we only have one chunk, with the same hash as the parent
+            if (this.digest().equals(this.chunks.get(0).digest())) {
+                return null;
+            }
+
+            try {
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                for (DataFileChunk chunk : this.chunks) {
+                    byte[] chunkHash = chunk.digest();
+                    if (chunkHash.length != 32) {
+                        LOGGER.info("Invalid chunk hash length: {}", chunkHash.length);
+                        throw new IllegalStateException("Invalid chunk hash length");
+                    }
+                    outputStream.write(chunk.digest());
+                }
+                return outputStream.toByteArray();
+            } catch (IOException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     public String base58Digest() {
         if (this.digest() != null) {
             return Base58.encode(this.digest());
