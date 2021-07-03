@@ -20,21 +20,23 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		String sql = "SELECT version, service, is_data_raw, data from ArbitraryTransactions WHERE signature = ?";
+		String sql = "SELECT version, nonce, service, size, is_data_raw, data, chunk_hashes from ArbitraryTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
 			int version = resultSet.getInt(1);
-			int service = resultSet.getInt(2);
-			boolean isDataRaw = resultSet.getBoolean(3); // NOT NULL, so no null to false
+			int nonce = resultSet.getInt(2);
+			int service = resultSet.getInt(3);
+			int size = resultSet.getInt(4);
+			boolean isDataRaw = resultSet.getBoolean(5); // NOT NULL, so no null to false
 			DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
-			byte[] data = resultSet.getBytes(4);
+			byte[] data = resultSet.getBytes(6);
+			byte[] chunkHashes = resultSet.getBytes(7);
 
 			List<PaymentData> payments = this.getPaymentsFromSignature(baseTransactionData.getSignature());
-
-			return new ArbitraryTransactionData(baseTransactionData, version, service, data, dataType, payments);
+			return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, data, dataType, chunkHashes, payments);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch arbitrary transaction from repository", e);
 		}
@@ -52,7 +54,9 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 
 		saveHelper.bind("signature", arbitraryTransactionData.getSignature()).bind("sender", arbitraryTransactionData.getSenderPublicKey())
 				.bind("version", arbitraryTransactionData.getVersion()).bind("service", arbitraryTransactionData.getService())
-				.bind("is_data_raw", arbitraryTransactionData.getDataType() == DataType.RAW_DATA).bind("data", arbitraryTransactionData.getData());
+				.bind("nonce", arbitraryTransactionData.getNonce()).bind("size", arbitraryTransactionData.getSize())
+				.bind("is_data_raw", arbitraryTransactionData.getDataType() == DataType.RAW_DATA).bind("data", arbitraryTransactionData.getData())
+				.bind("chunk_hashes", arbitraryTransactionData.getChunkHashes());
 
 		try {
 			saveHelper.execute(this.repository);

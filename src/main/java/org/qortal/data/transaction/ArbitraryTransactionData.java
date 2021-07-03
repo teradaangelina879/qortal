@@ -32,10 +32,14 @@ public class ArbitraryTransactionData extends TransactionData {
 	private byte[] senderPublicKey;
 
 	private int service;
+	private int nonce;
+	private int size;
 
 	@Schema(example = "raw_data_in_base58")
 	private byte[] data;
 	private DataType dataType;
+	@Schema(example = "chunk_hashes_in_base58")
+	private byte[] chunkHashes;
 	private List<PaymentData> payments;
 
 	// Constructors
@@ -50,14 +54,18 @@ public class ArbitraryTransactionData extends TransactionData {
 	}
 
 	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
-			int version, int service, byte[] data, DataType dataType, List<PaymentData> payments) {
+			int version, int service, int nonce, int size, byte[] data,
+			DataType dataType, byte[] chunkHashes, List<PaymentData> payments) {
 		super(TransactionType.ARBITRARY, baseTransactionData);
 
 		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.version = version;
 		this.service = service;
+		this.nonce = nonce;
+		this.size = size;
 		this.data = data;
 		this.dataType = dataType;
+		this.chunkHashes = chunkHashes;
 		this.payments = payments;
 	}
 
@@ -75,6 +83,18 @@ public class ArbitraryTransactionData extends TransactionData {
 		return this.service;
 	}
 
+	public int getNonce() {
+		return this.nonce;
+	}
+
+	public void setNonce(int nonce) {
+		this.nonce = nonce;
+	}
+
+	public int getSize() {
+		return this.size;
+	}
+
 	public byte[] getData() {
 		return this.data;
 	}
@@ -89,6 +109,14 @@ public class ArbitraryTransactionData extends TransactionData {
 
 	public void setDataType(DataType dataType) {
 		this.dataType = dataType;
+	}
+
+	public byte[] getChunkHashes() {
+		return this.chunkHashes;
+	}
+
+	public void setChunkHashes(byte[] chunkHashes) {
+		this.chunkHashes = chunkHashes;
 	}
 
 	public List<PaymentData> getPayments() {

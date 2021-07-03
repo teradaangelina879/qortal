@@ -18,6 +18,9 @@ public class ArbitraryTestTransaction extends TestTransaction {
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, boolean wantValid) throws DataException {
 		final int version = 4;
 		final int service = 123;
+		final int nonce = 0; // Version 4 doesn't need a nonce
+		final int size = 0; // Version 4 doesn't need a size
+		final byte[] chunkHashes = null; // Version 4 doesn't use chunk hashes
 
 		byte[] data = new byte[1024];
 		random.nextBytes(data);
@@ -31,7 +34,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		List<PaymentData> payments = new ArrayList<>();
 		payments.add(new PaymentData(recipient, assetId, amount));
 
-		return new ArbitraryTransactionData(generateBase(account), version, service, data, dataType, payments);
+		return new ArbitraryTransactionData(generateBase(account), version, service, nonce, size, data, dataType, chunkHashes, payments);
 	}
 
 }

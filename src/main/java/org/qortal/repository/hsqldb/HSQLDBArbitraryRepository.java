@@ -1,21 +1,14 @@
 package org.qortal.repository.hsqldb;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.DirectoryNotEmptyException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
 import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.DataException;
-import org.qortal.settings.Settings;
-import org.qortal.utils.Base58;
+import org.qortal.storage.DataFile;
 
 public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
@@ -23,34 +16,10 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	protected HSQLDBRepository repository;
 
+	private static final Logger LOGGER = LogManager.getLogger(ArbitraryRepository.class);
+
 	public HSQLDBArbitraryRepository(HSQLDBRepository repository) {
 		this.repository = repository;
-	}
-
-	/**
-	 * Returns pathname for saving arbitrary transaction data payloads.
-	 * <p>
-	 * Format: <tt>arbitrary/<sender>/<service><tx-sig>.raw</tt>
-	 * 
-	 * @param arbitraryTransactionData
-	 * @return
-	 */
-	public static String buildPathname(ArbitraryTransactionData arbitraryTransactionData) {
-		String senderAddress = Crypto.toAddress(arbitraryTransactionData.getSenderPublicKey());
-
-		StringBuilder stringBuilder = new StringBuilder(1024);
-
-		stringBuilder.append(Settings.getInstance().getUserPath());
-		stringBuilder.append("arbitrary");
-		stringBuilder.append(File.separator);
-		stringBuilder.append(senderAddress);
-		stringBuilder.append(File.separator);
-		stringBuilder.append(arbitraryTransactionData.getService());
-		stringBuilder.append(File.separator);
-		stringBuilder.append(Base58.encode(arbitraryTransactionData.getSignature()));
-		stringBuilder.append(".raw");
-
-		return stringBuilder.toString();
 	}
 
 	private ArbitraryTransactionData getTransactionData(byte[] signature) throws DataException {
@@ -64,48 +33,89 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	@Override
 	public boolean isDataLocal(byte[] signature) throws DataException {
 		ArbitraryTransactionData transactionData = getTransactionData(signature);
-		if (transactionData == null)
+		if (transactionData == null) {
 			return false;
+		}
 
 		// Raw data is always available
-		if (transactionData.getDataType() == DataType.RAW_DATA)
+		if (transactionData.getDataType() == DataType.RAW_DATA) {
 			return true;
+		}
 
-		String dataPathname = buildPathname(transactionData);
+		// Load hashes
+		byte[] digest = transactionData.getData();
+		byte[] chunkHashes = transactionData.getChunkHashes();
 
-		Path dataPath = Paths.get(dataPathname);
-		return Files.exists(dataPath);
+		// Load data file(s)
+		DataFile dataFile = DataFile.fromDigest(digest);
+		if (chunkHashes.length > 0) {
+			dataFile.addChunkHashes(chunkHashes);
+		}
+
+		// Check if we already have the complete data file
+		if (dataFile.exists()) {
+			return true;
+		}
+
+		// Alternatively, if we have all the chunks, then it's safe to assume the data is local
+		if (dataFile.allChunksExist(chunkHashes)) {
+			return true;
+		}
+
+		return false;
 	}
 
 	@Override
 	public byte[] fetchData(byte[] signature) throws DataException {
 		ArbitraryTransactionData transactionData = getTransactionData(signature);
-		if (transactionData == null)
-			return null;
-
-		// Raw data is always available
-		if (transactionData.getDataType() == DataType.RAW_DATA)
-			return transactionData.getData();
-
-		String dataPathname = buildPathname(transactionData);
-
-		Path dataPath = Paths.get(dataPathname);
-		try {
-			return Files.readAllBytes(dataPath);
-		} catch (IOException e) {
+		if (transactionData == null) {
 			return null;
 		}
+
+		// Raw data is always available
+		if (transactionData.getDataType() == DataType.RAW_DATA) {
+			return transactionData.getData();
+		}
+
+		// Load hashes
+		byte[] digest = transactionData.getData();
+		byte[] chunkHashes = transactionData.getChunkHashes();
+
+		// Load data file(s)
+		DataFile dataFile = DataFile.fromDigest(digest);
+		if (chunkHashes.length > 0) {
+			dataFile.addChunkHashes(chunkHashes);
+		}
+
+		// If we have the complete data file, return it
+		if (dataFile.exists()) {
+			return dataFile.getBytes();
+		}
+
+		// Alternatively, if we have all the chunks, combine them into a single file
+		if (dataFile.allChunksExist(chunkHashes)) {
+			dataFile.join();
+
+			// Verify that the combined hash matches the expected hash
+			if (digest.equals(dataFile.digest())) {
+				return dataFile.getBytes();
+			}
+		}
+
+		return null;
 	}
 
 	@Override
 	public void save(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
 		// Already hashed? Nothing to do
-		if (arbitraryTransactionData.getDataType() == DataType.DATA_HASH)
+		if (arbitraryTransactionData.getDataType() == DataType.DATA_HASH) {
 			return;
+		}
 
 		// Trivial-sized payloads can remain in raw form
-		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA && arbitraryTransactionData.getData().length <= MAX_RAW_DATA_SIZE)
+		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA && arbitraryTransactionData.getData().length <= MAX_RAW_DATA_SIZE) {
 			return;
+		}
 
 		// Store non-trivial payloads in filesystem and convert transaction's data to hash form
 		byte[] rawData = arbitraryTransactionData.getData();
@@ -115,48 +125,55 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		arbitraryTransactionData.setData(dataHash);
 		arbitraryTransactionData.setDataType(DataType.DATA_HASH);
 
-		String dataPathname = buildPathname(arbitraryTransactionData);
+		// Create DataFile
+		DataFile dataFile = new DataFile(rawData);
 
-		Path dataPath = Paths.get(dataPathname);
-
-		// Make sure directory structure exists
-		try {
-			Files.createDirectories(dataPath.getParent());
-		} catch (IOException e) {
-			throw new DataException("Unable to create arbitrary transaction directory", e);
+		// Verify that the data file is valid, and that it matches the expected hash
+		DataFile.ValidationResult validationResult = dataFile.isValid();
+		if (validationResult != DataFile.ValidationResult.OK) {
+			dataFile.deleteAll();
+			throw new DataException("Invalid data file when attempting to store arbitrary transaction data");
+		}
+		if (!dataHash.equals(dataFile.digest())) {
+			dataFile.deleteAll();
+			throw new DataException("Could not verify hash when attempting to store arbitrary transaction data");
 		}
 
-		// Output actual transaction data
-		try (OutputStream dataOut = Files.newOutputStream(dataPath)) {
-			dataOut.write(rawData);
-		} catch (IOException e) {
-			throw new DataException("Unable to store arbitrary transaction data", e);
+		// Now create chunks if needed
+		int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
+		if (chunkCount > 0) {
+			LOGGER.info(String.format("Successfully split into %d chunk%s:", chunkCount, (chunkCount == 1 ? "" : "s")));
+			LOGGER.info("{}", dataFile.printChunks());
+
+			// Verify that the chunk hashes match those in the transaction
+			byte[] chunkHashes = dataFile.chunkHashes();
+			if (!chunkHashes.equals(arbitraryTransactionData.getChunkHashes())) {
+				dataFile.deleteAll();
+				throw new DataException("Could not verify chunk hashes when attempting to store arbitrary transaction data");
+			}
+
 		}
 	}
 
 	@Override
 	public void delete(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
 		// No need to do anything if we still only have raw data, and hence nothing saved in filesystem
-		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA)
+		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA) {
 			return;
-
-		String dataPathname = buildPathname(arbitraryTransactionData);
-		Path dataPath = Paths.get(dataPathname);
-		try {
-			Files.deleteIfExists(dataPath);
-
-			// Also attempt to delete parent <service> directory if empty
-			Path servicePath = dataPath.getParent();
-			Files.deleteIfExists(servicePath);
-
-			// Also attempt to delete parent <sender's address> directory if empty
-			Path senderpath = servicePath.getParent();
-			Files.deleteIfExists(senderpath);
-		} catch (DirectoryNotEmptyException e) {
-			// One of the parent service/sender directories still has data from other transactions - this is OK
-		} catch (IOException e) {
-			throw new DataException("Unable to delete arbitrary transaction data", e);
 		}
+
+		// Load hashes
+		byte[] digest = arbitraryTransactionData.getData();
+		byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+
+		// Load data file(s)
+		DataFile dataFile = DataFile.fromDigest(digest);
+		if (chunkHashes.length > 0) {
+			dataFile.addChunkHashes(chunkHashes);
+		}
+
+		// Delete file and chunks
+		dataFile.deleteAll();
 	}
 
 }

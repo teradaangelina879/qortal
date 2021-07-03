@@ -4,12 +4,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.qortal.account.Account;
+import org.qortal.crypto.Crypto;
+import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.storage.DataFile;
+import org.qortal.storage.DataFileChunk;
+import org.qortal.transform.TransformationException;
+import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
+import org.qortal.transform.transaction.TransactionTransformer;
 
 public class ArbitraryTransaction extends Transaction {
 
@@ -18,6 +25,10 @@ public class ArbitraryTransaction extends Transaction {
 
 	// Other useful constants
 	public static final int MAX_DATA_SIZE = 4000;
+	public static final int MAX_CHUNK_HASHES_LENGTH = 8000;
+	public static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
+	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
+	public static final int POW_DIFFICULTY = 10; // leading zero bits
 
 	// Constructors
 
@@ -42,20 +53,122 @@ public class ArbitraryTransaction extends Transaction {
 
 	// Processing
 
+	public void computeNonce() throws DataException {
+		byte[] transactionBytes;
+
+		try {
+			transactionBytes = TransactionTransformer.toBytesForSigning(this.transactionData);
+		} catch (TransformationException e) {
+			throw new RuntimeException("Unable to transform transaction to byte array for verification", e);
+		}
+
+		// Clear nonce from transactionBytes
+		ArbitraryTransactionTransformer.clearNonce(transactionBytes);
+
+		int difficulty = POW_DIFFICULTY;
+
+		// Calculate nonce
+		this.arbitraryTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
+	}
+
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check data length
-		if (arbitraryTransactionData.getData().length < 1 || arbitraryTransactionData.getData().length > MAX_DATA_SIZE)
+		// Check that some data - or a data hash - has been supplied
+		if (arbitraryTransactionData.getData() == null) {
 			return ValidationResult.INVALID_DATA_LENGTH;
+		}
+
+		// Check data length
+		if (arbitraryTransactionData.getData().length < 1 || arbitraryTransactionData.getData().length > MAX_DATA_SIZE) {
+			return ValidationResult.INVALID_DATA_LENGTH;
+		}
+
+		// Check hashes
+		if (arbitraryTransactionData.getDataType() == ArbitraryTransactionData.DataType.DATA_HASH) {
+			// Check length of data hash
+			if (arbitraryTransactionData.getData().length != HASH_LENGTH) {
+				return ValidationResult.INVALID_DATA_LENGTH;
+			}
+
+			// Version 5+
+			if (arbitraryTransactionData.getVersion() >= 5) {
+				byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+
+				// Check maximum length of chunk hashes
+				if (chunkHashes != null && chunkHashes.length > MAX_CHUNK_HASHES_LENGTH) {
+					return ValidationResult.INVALID_DATA_LENGTH;
+				}
+
+				// Check expected length of chunk hashes
+				int chunkCount = arbitraryTransactionData.getSize() / DataFileChunk.CHUNK_SIZE;
+				int expectedChunkHashesSize = (chunkCount > 1) ? chunkCount * HASH_LENGTH : 0;
+				if (chunkHashes == null && expectedChunkHashesSize > 0) {
+					return ValidationResult.INVALID_DATA_LENGTH;
+				}
+				if (chunkHashes.length != expectedChunkHashesSize) {
+					return ValidationResult.INVALID_DATA_LENGTH;
+				}
+			}
+		}
+
+		// Check raw data
+		if (arbitraryTransactionData.getDataType() == ArbitraryTransactionData.DataType.RAW_DATA) {
+			// Version 5+
+			if (arbitraryTransactionData.getVersion() >= 5) {
+				// Check reported length of the raw data
+				// We should not download the raw data, so validation of that will be performed later
+				if (arbitraryTransactionData.getSize() > DataFile.MAX_FILE_SIZE) {
+					return ValidationResult.INVALID_DATA_LENGTH;
+				}
+			}
+		}
 
 		// Wrap and delegate final payment validity checks to Payment class
+		// TODO: we won't be able to do this if we are on the data chain where fees may start as zero
 		return new Payment(this.repository).isValid(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee());
 	}
 
 	@Override
+	public boolean isSignatureValid() {
+		byte[] signature = this.transactionData.getSignature();
+		if (signature == null) {
+			return false;
+		}
+
+		byte[] transactionBytes;
+
+		try {
+			transactionBytes = ArbitraryTransactionTransformer.toBytesForSigning(this.transactionData);
+		} catch (TransformationException e) {
+			throw new RuntimeException("Unable to transform transaction to byte array for verification", e);
+		}
+
+		if (!Crypto.verify(this.transactionData.getCreatorPublicKey(), signature, transactionBytes)) {
+			return false;
+		}
+
+		// Nonce wasn't added until version 5+
+		if (arbitraryTransactionData.getVersion() >= 5) {
+
+			int nonce = arbitraryTransactionData.getNonce();
+
+			// Clear nonce from transactionBytes
+			ArbitraryTransactionTransformer.clearNonce(transactionBytes);
+
+			int difficulty = POW_DIFFICULTY;
+
+			// Check nonce
+			return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+		}
+
+		return true;
+	}
+
+	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Wrap and delegate final payment processable checks to Payment class
+		// TODO: we won't be able to do this if we are on the data chain where fees may start as zero
 		return new Payment(this.repository).isProcessable(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee());
 	}
