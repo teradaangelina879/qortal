@@ -145,7 +145,7 @@ public class DataFile {
                 throw new IllegalStateException("Unable to create data subdirectory");
             }
         }
-        return outputDirectory + base58Digest;
+        return outputDirectory + File.separator + base58Digest;
     }
 
     public ValidationResult isValid() {
@@ -273,7 +273,7 @@ public class DataFile {
         Path path = Paths.get(this.filePath);
         String dataPath = Settings.getInstance().getDataPath();
         Path dataDirectory = Paths.get(dataPath);
-        if (!path.toAbsolutePath().startsWith(dataDirectory)) {
+        if (!path.toAbsolutePath().startsWith(dataDirectory.toAbsolutePath())) {
             return false;
         }
 
