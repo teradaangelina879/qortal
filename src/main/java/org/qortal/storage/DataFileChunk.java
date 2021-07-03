@@ -2,6 +2,7 @@ package org.qortal.storage;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.utils.Base58;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,6 +33,10 @@ public class DataFileChunk extends DataFile {
     public static DataFileChunk fromBase58Digest(String base58Digest) {
         String filePath = DataFile.getOutputFilePath(base58Digest, false);
         return new DataFileChunk(filePath);
+    }
+
+    public static DataFileChunk fromDigest(byte[] digest) {
+        return DataFileChunk.fromBase58Digest(Base58.encode(digest));
     }
 
     @Override

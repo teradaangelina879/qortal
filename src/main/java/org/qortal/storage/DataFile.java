@@ -4,9 +4,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
+import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -173,6 +175,21 @@ public class DataFile {
         this.chunks.add(chunk);
     }
 
+    public void addChunkHashes(byte[] chunks) {
+        ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
+        while (byteBuffer.remaining() > 0) {
+            byte[] chunkData = new byte[TransactionTransformer.SHA256_LENGTH];
+            byteBuffer.get(chunkData);
+            if (chunkData.length == TransactionTransformer.SHA256_LENGTH) {
+                DataFileChunk chunk = new DataFileChunk(chunkData);
+                this.addChunk(chunk);
+            }
+            else {
+                throw new IllegalStateException(String.format("Invalid chunk hash length: %d", chunkData.length));
+            }
+        }
+    }
+
     public int split(int chunkSize) {
         try {
 
@@ -252,7 +269,14 @@ public class DataFile {
 
     public boolean delete() {
         // Delete the complete file
+        // ... but only if it's inside the Qortal data directory
         Path path = Paths.get(this.filePath);
+        String dataPath = Settings.getInstance().getDataPath();
+        Path dataDirectory = Paths.get(dataPath);
+        if (!path.toAbsolutePath().startsWith(dataDirectory)) {
+            return false;
+        }
+
         if (Files.exists(path)) {
             try {
                 Files.delete(path);
@@ -328,6 +352,34 @@ public class DataFile {
     public boolean exists() {
         File file = new File(this.filePath);
         return file.exists();
+    }
+
+    public boolean chunkExists(byte[] digest) {
+        for (DataFileChunk chunk : this.chunks) {
+            if (digest.equals(chunk.digest())) { // TODO: this is too heavy on the filesystem. We need a cache
+                return chunk.exists();
+            }
+        }
+        File file = new File(this.filePath);
+        return file.exists();
+    }
+
+    public boolean allChunksExist(byte[] chunks) {
+        ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
+        while (byteBuffer.remaining() > 0) {
+            byte[] chunkDigest = new byte[TransactionTransformer.SHA256_LENGTH];
+            byteBuffer.get(chunkDigest);
+            if (chunkDigest.length == TransactionTransformer.SHA256_LENGTH) {
+                DataFileChunk chunk = DataFileChunk.fromDigest(chunkDigest);
+                if (chunk.exists() == false) {
+                    return false;
+                }
+            }
+            else {
+                throw new IllegalStateException(String.format("Invalid chunk hash length: %d", chunkDigest.length));
+            }
+        }
+        return true;
     }
 
     public long size() {
