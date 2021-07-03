@@ -100,7 +100,7 @@ public class ArbitraryTransaction extends Transaction {
 				}
 
 				// Check expected length of chunk hashes
-				int chunkCount = arbitraryTransactionData.getSize() / DataFileChunk.CHUNK_SIZE;
+				int chunkCount = (int)Math.ceil((double)arbitraryTransactionData.getSize() / (double)DataFileChunk.CHUNK_SIZE);
 				int expectedChunkHashesSize = (chunkCount > 1) ? chunkCount * HASH_LENGTH : 0;
 				if (chunkHashes == null && expectedChunkHashesSize > 0) {
 					return ValidationResult.INVALID_DATA_LENGTH;
