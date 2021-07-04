@@ -27,12 +27,23 @@ import org.jsoup.select.Elements;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
+import org.qortal.block.BlockChain;
+import org.qortal.data.PaymentData;
 import org.qortal.data.account.AccountData;
+import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.BaseTransactionData;
+import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
+import org.qortal.transaction.ArbitraryTransaction;
+import org.qortal.transaction.Transaction;
+import org.qortal.transform.TransformationException;
+import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
+import org.qortal.utils.Base58;
+import org.qortal.utils.NTP;
 import org.qortal.utils.ZipUtils;
 
 
@@ -49,7 +60,7 @@ public class WebsiteResource {
     @POST
     @Path("/upload/creator/{address}")
     @Operation(
-            summary = "Build raw, unsigned, HASHED_DATA transaction, based on a user-supplied path to a static website",
+            summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path to a static website",
             requestBody = @RequestBody(
                     required = true,
                     content = @Content(
@@ -61,7 +72,7 @@ public class WebsiteResource {
             ),
             responses = {
                     @ApiResponse(
-                            description = "raw, unsigned, HASHED_DATA transaction encoded in Base58",
+                            description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
                             content = @Content(
                                     mediaType = MediaType.TEXT_PLAIN,
                                     schema = @Schema(
@@ -90,38 +101,44 @@ public class WebsiteResource {
                 try (final Repository repository = RepositoryManager.getRepository()) {
 
                     AccountData accountData = repository.getAccountRepository().getAccount(creatorAddress);
-                    if (accountData == null) {
+                    if (accountData == null || accountData.getPublicKey() == null) {
+                        dataFile.deleteAll();
                         throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
                     }
                     byte[] creatorPublicKey = accountData.getPublicKey();
                     byte[] lastReference = accountData.getReference();
 
-//                    BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
-//                            lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
-//                    int size = (int)dataFile.size();
-//                    byte[] digest = dataFile.digest();
-//                    byte[] chunkHashes = dataFile.chunkHashes();
-//
-//                    HashedDataTransactionData transactionData = new HashedDataTransactionData(baseTransactionData,
-//                            1, 2, 0, size, digest, chunkHashes);
-//
-//                    HashedDataTransaction transaction = (HashedDataTransaction)Transaction.fromData(repository, transactionData);
-//                    transaction.computeNonce();
-//
-//                    Transaction.ValidationResult result = transaction.isValidUnconfirmed();
-//                    if (result != Transaction.ValidationResult.OK)
-//                        throw TransactionsResource.createTransactionInvalidException(request, result);
-//
-//                    byte[] bytes = HashedDataTransactionTransformer.toBytes(transactionData);
-//                    return Base58.encode(bytes);
-                    return "true";
+                    BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
+                            lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
+                    int size = (int)dataFile.size();
+                    ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
+                    byte[] digest = dataFile.digest();
+                    byte[] chunkHashes = dataFile.chunkHashes();
+                    List<PaymentData> payments = new ArrayList<>();
 
-//                } catch (TransformationException e) {
-//                    throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+                    ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
+                            5, 2, 0, size, digest, dataType, chunkHashes, payments);
+
+                    ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
+                    transaction.computeNonce();
+
+                    Transaction.ValidationResult result = transaction.isValidUnconfirmed();
+                    if (result != Transaction.ValidationResult.OK) {
+                        dataFile.deleteAll();
+                        throw TransactionsResource.createTransactionInvalidException(request, result);
+                    }
+
+                    byte[] bytes = ArbitraryTransactionTransformer.toBytes(transactionData);
+                    return Base58.encode(bytes);
+
+                } catch (TransformationException e) {
+                    throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
                 } catch (DataException e) {
                     throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
                 }
             }
+            // Something went wrong, so delete our copies of the data and chunks
+            dataFile.deleteAll();
         }
         return "false";
     }
