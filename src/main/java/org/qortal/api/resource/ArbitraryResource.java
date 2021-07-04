@@ -26,6 +26,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.api.*;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.block.BlockChain;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -225,7 +226,7 @@ public class ArbitraryResource {
 	}
 
 	@POST
-	@Path("/upload/creator/{address}")
+	@Path("/upload/creator/{publickey}")
 	@Operation(
 			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path to a single file",
 			requestBody = @RequestBody(
@@ -250,12 +251,18 @@ public class ArbitraryResource {
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public String uploadFileAtPath(@PathParam("address") String creatorAddress, String path) {
+	public String uploadFileAtPath(@PathParam("publickey") String creatorPublicKeyBase58, String path) {
 		Security.checkApiCallAllowed(request);
 
 		// It's too dangerous to allow user-supplied filenames in weaker security contexts
-		if (Settings.getInstance().isApiRestricted())
+		if (Settings.getInstance().isApiRestricted()) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+		}
+
+		if (creatorPublicKeyBase58 == null || path == null) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
+		byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
 
 		// Check if a file or directory has been supplied
 		File file = new File(path);
@@ -291,13 +298,8 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
 
-			AccountData accountData = repository.getAccountRepository().getAccount(creatorAddress);
-			if (accountData == null || accountData.getPublicKey() == null) {
-				dataFile.deleteAll();
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
-			}
-			byte[] creatorPublicKey = accountData.getPublicKey();
-			byte[] lastReference = accountData.getReference();
+			String creatorAddress = Crypto.toAddress(creatorPublicKey);
+			byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
 
 			BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
 					lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);

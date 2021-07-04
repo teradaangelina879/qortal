@@ -28,6 +28,7 @@ import org.qortal.api.ApiError;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.block.BlockChain;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -58,7 +59,7 @@ public class WebsiteResource {
     @Context ServletContext context;
 
     @POST
-    @Path("/upload/creator/{address}")
+    @Path("/upload/creator/{publickey}")
     @Operation(
             summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path to a static website",
             requestBody = @RequestBody(
@@ -82,7 +83,7 @@ public class WebsiteResource {
                     )
             }
     )
-    public String uploadWebsite(@PathParam("address") String creatorAddress, String path) {
+    public String uploadWebsite(@PathParam("publickey") String creatorPublicKeyBase58, String path) {
         Security.checkApiCallAllowed(request);
 
         // It's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -90,9 +91,10 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
         }
 
-        if (creatorAddress == null || path == null) {
+        if (creatorPublicKeyBase58 == null || path == null) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
         }
+        byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
 
         DataFile dataFile = this.hostWebsite(path);
         if (dataFile == null) {
@@ -107,13 +109,8 @@ public class WebsiteResource {
         
         try (final Repository repository = RepositoryManager.getRepository()) {
 
-            AccountData accountData = repository.getAccountRepository().getAccount(creatorAddress);
-            if (accountData == null || accountData.getPublicKey() == null) {
-                dataFile.deleteAll();
-                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
-            }
-            byte[] creatorPublicKey = accountData.getPublicKey();
-            byte[] lastReference = accountData.getReference();
+            String creatorAddress = Crypto.toAddress(creatorPublicKey);
+            byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
 
             BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
                     lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
