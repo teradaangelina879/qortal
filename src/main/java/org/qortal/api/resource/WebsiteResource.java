@@ -100,7 +100,7 @@ public class WebsiteResource {
         }
 
         String base58Digest = dataFile.base58Digest();
-        if (base58Digest != null) {
+        if (base58Digest == null) {
             LOGGER.error("Unable to calculate digest");
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
