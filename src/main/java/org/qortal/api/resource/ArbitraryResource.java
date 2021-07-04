@@ -275,50 +275,48 @@ public class ArbitraryResource {
 			LOGGER.info("Whole file digest: {}", dataFile.base58Digest());
 
 			int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
-			if (chunkCount > 0) {
-				LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
+			if (chunkCount == 0) {
+				LOGGER.error("No chunks created");
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+			}
+			LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
 
-				String base58Digest = dataFile.base58Digest();
-				if (base58Digest != null) {
-
-					AccountData accountData = repository.getAccountRepository().getAccount(creatorAddress);
-					if (accountData == null || accountData.getPublicKey() == null) {
-						dataFile.deleteAll();
-						throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
-					}
-					byte[] creatorPublicKey = accountData.getPublicKey();
-					byte[] lastReference = accountData.getReference();
-
-					BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
-							lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
-					int size = (int)dataFile.size();
-					ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
-					byte[] digest = dataFile.digest();
-					byte[] chunkHashes = dataFile.chunkHashes();
-					List<PaymentData> payments = new ArrayList<>();
-
-					ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-							5, 2, 0, size, digest, dataType, chunkHashes, payments);
-
-					ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
-					transaction.computeNonce();
-
-					Transaction.ValidationResult result = transaction.isValidUnconfirmed();
-					if (result != Transaction.ValidationResult.OK) {
-						dataFile.deleteAll();
-						throw TransactionsResource.createTransactionInvalidException(request, result);
-					}
-
-					byte[] bytes = ArbitraryTransactionTransformer.toBytes(transactionData);
-					return Base58.encode(bytes);
-
-				}
-				// Something went wrong, so delete our copies of the data and chunks
-				dataFile.deleteAll();
-
+			String base58Digest = dataFile.base58Digest();
+			if (base58Digest == null) {
+				LOGGER.error("Unable to calculate digest");
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
 
-			return "false";
+			AccountData accountData = repository.getAccountRepository().getAccount(creatorAddress);
+			if (accountData == null || accountData.getPublicKey() == null) {
+				dataFile.deleteAll();
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+			}
+			byte[] creatorPublicKey = accountData.getPublicKey();
+			byte[] lastReference = accountData.getReference();
+
+			BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
+					lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
+			int size = (int)dataFile.size();
+			ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
+			byte[] digest = dataFile.digest();
+			byte[] chunkHashes = dataFile.chunkHashes();
+			List<PaymentData> payments = new ArrayList<>();
+
+			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
+					5, 2, 0, size, digest, dataType, chunkHashes, payments);
+
+			ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
+			transaction.computeNonce();
+
+			Transaction.ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != Transaction.ValidationResult.OK) {
+				dataFile.deleteAll();
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+			}
+
+			byte[] bytes = ArbitraryTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
 
 		} catch (DataException e) {
 			LOGGER.error("Repository issue when uploading data", e);
