@@ -124,7 +124,6 @@ public class ArbitraryTransaction extends Transaction {
 		}
 
 		// Wrap and delegate final payment validity checks to Payment class
-		// TODO: we won't be able to do this if we are on the data chain where fees may start as zero
 		return new Payment(this.repository).isValid(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee());
 	}
@@ -168,7 +167,6 @@ public class ArbitraryTransaction extends Transaction {
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Wrap and delegate final payment processable checks to Payment class
-		// TODO: we won't be able to do this if we are on the data chain where fees may start as zero
 		return new Payment(this.repository).isProcessable(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee());
 	}
