@@ -78,7 +78,7 @@ public class Controller extends Thread {
 
 	/** Controller start-up time (ms) taken using <tt>System.currentTimeMillis()</tt>. */
 	public static final long startTime = System.currentTimeMillis();
-	public static final String VERSION_PREFIX = "qortal-";
+	public static final String VERSION_PREFIX = "qortaldata-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
 	private static final long MISBEHAVIOUR_COOLOFF = 10 * 60 * 1000L; // ms
