@@ -25,9 +25,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.*;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.block.BlockChain;
+import org.qortal.data.PaymentData;
+import org.qortal.data.account.AccountData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
+import org.qortal.group.Group;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.PeerAddress;
@@ -47,6 +52,7 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.NTP;
 
 @Path("/arbitrary")
 @Tag(name = "Arbitrary")
@@ -219,9 +225,9 @@ public class ArbitraryResource {
 	}
 
 	@POST
-	@Path("/upload/path")
+	@Path("/upload/creator/{address}")
 	@Operation(
-			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied file path",
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path to a single file",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
@@ -244,7 +250,7 @@ public class ArbitraryResource {
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public String uploadFileAtPath(String path) {
+	public String uploadFileAtPath(@PathParam("address") String creatorAddress, String path) {
 		Security.checkApiCallAllowed(request);
 
 		// It's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -271,7 +277,45 @@ public class ArbitraryResource {
 			int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
 			if (chunkCount > 0) {
 				LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
-				return "true";
+
+				String base58Digest = dataFile.base58Digest();
+				if (base58Digest != null) {
+
+					AccountData accountData = repository.getAccountRepository().getAccount(creatorAddress);
+					if (accountData == null || accountData.getPublicKey() == null) {
+						dataFile.deleteAll();
+						throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+					}
+					byte[] creatorPublicKey = accountData.getPublicKey();
+					byte[] lastReference = accountData.getReference();
+
+					BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
+							lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
+					int size = (int)dataFile.size();
+					ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
+					byte[] digest = dataFile.digest();
+					byte[] chunkHashes = dataFile.chunkHashes();
+					List<PaymentData> payments = new ArrayList<>();
+
+					ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
+							5, 2, 0, size, digest, dataType, chunkHashes, payments);
+
+					ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
+					transaction.computeNonce();
+
+					Transaction.ValidationResult result = transaction.isValidUnconfirmed();
+					if (result != Transaction.ValidationResult.OK) {
+						dataFile.deleteAll();
+						throw TransactionsResource.createTransactionInvalidException(request, result);
+					}
+
+					byte[] bytes = ArbitraryTransactionTransformer.toBytes(transactionData);
+					return Base58.encode(bytes);
+
+				}
+				// Something went wrong, so delete our copies of the data and chunks
+				dataFile.deleteAll();
+
 			}
 
 			return "false";
@@ -279,6 +323,8 @@ public class ArbitraryResource {
 		} catch (DataException e) {
 			LOGGER.error("Repository issue when uploading data", e);
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		} catch (IllegalStateException e) {
 			LOGGER.error("Invalid upload data", e);
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
