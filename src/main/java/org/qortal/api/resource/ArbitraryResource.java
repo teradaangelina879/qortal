@@ -257,16 +257,20 @@ public class ArbitraryResource {
 		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
+		// Check if a file or directory has been supplied
+		File file = new File(path);
+		if (!file.isFile()) {
+			LOGGER.info("Not a file: {}", path);
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
+
+		DataFile dataFile = new DataFile(path);
+		if (dataFile == null) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+		}
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			// Check if a file or directory has been supplied
-			File file = new File(path);
-			if (!file.isFile()) {
-				LOGGER.info("Not a file: {}", path);
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-			}
-
-			DataFile dataFile = new DataFile(path);
 			DataFile.ValidationResult validationResult = dataFile.isValid();
 			if (validationResult != DataFile.ValidationResult.OK) {
 				LOGGER.error("Invalid file: {}", validationResult);
@@ -319,11 +323,14 @@ public class ArbitraryResource {
 			return Base58.encode(bytes);
 
 		} catch (DataException e) {
+			dataFile.deleteAll();
 			LOGGER.error("Repository issue when uploading data", e);
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		} catch (TransformationException e) {
+			dataFile.deleteAll();
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		} catch (IllegalStateException e) {
+			dataFile.deleteAll();
 			LOGGER.error("Invalid upload data", e);
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		}

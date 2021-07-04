@@ -139,8 +139,10 @@ public class WebsiteResource {
             return Base58.encode(bytes);
 
         } catch (TransformationException e) {
+            dataFile.deleteAll();
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
         } catch (DataException e) {
+            dataFile.deleteAll();
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
         }
     }
