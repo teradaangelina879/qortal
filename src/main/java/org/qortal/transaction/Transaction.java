@@ -348,6 +348,10 @@ public abstract class Transaction {
 		long unitFee = BlockChain.getInstance().getUnitFee();
 		int maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
 
+		// If the unit fee is zero, any fee is enough to cover the byte-length of the transaction
+		if (unitFee == 0) {
+			return true;
+		}
 		return this.feePerByte() >= maxBytePerUnitFee / unitFee;
 	}
 
