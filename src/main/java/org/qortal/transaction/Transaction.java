@@ -380,7 +380,7 @@ public abstract class Transaction {
 	 * @return transaction version number
 	 */
 	public static int getVersionByTimestamp(long timestamp) {
-		return 4;
+		return 5; // TODO: hard fork timestamp!!
 	}
 
 	/**
