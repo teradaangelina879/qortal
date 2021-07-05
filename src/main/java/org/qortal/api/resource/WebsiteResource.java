@@ -10,6 +10,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,6 +39,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
+import org.qortal.storage.DataFileChunk;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
@@ -263,22 +265,48 @@ public class WebsiteResource {
 
         if (!Files.exists(Paths.get(unzippedPath))) {
 
-            // Load file
-            DataFile dataFile = DataFile.fromHash58(resourceId);
-            if (dataFile == null || !dataFile.exists()) {
-                LOGGER.info("Unable to validate complete file hash");
-                return this.get404Response();
-            }
+            // Load the full transaction data so we can access the file hashes
+            try (final Repository repository = RepositoryManager.getRepository()) {
 
-            if (!dataFile.digest58().equals(resourceId)) {
-                LOGGER.info("Unable to validate complete file hash");
-                return this.get404Response();
-            }
+                ArbitraryTransactionData transactionData = (ArbitraryTransactionData) repository.getTransactionRepository().fromSignature(Base58.decode(resourceId));
+                if (!(transactionData instanceof ArbitraryTransactionData)) {
+                    return this.get404Response();
+                }
 
-            try {
-                ZipUtils.unzip(dataFile.getFilePath(), destPath);
-            } catch (IOException e) {
-                LOGGER.info("Unable to unzip file");
+                // Load hashes
+                byte[] digest = transactionData.getData();
+                byte[] chunkHashes = transactionData.getChunkHashes();
+
+                // Load data file(s)
+                DataFile dataFile = DataFile.fromDigest(digest);
+                if (!dataFile.exists()) {
+                    if (!dataFile.allChunksExist(chunkHashes)) {
+                        // TODO: fetch them?
+                        return this.get404Response();
+                    }
+                    // We have all the chunks but not the complete file, so join them
+                    dataFile.addChunkHashes(chunkHashes);
+                    dataFile.join();
+                }
+
+                // If the complete file still doesn't exist then something went wrong
+                if (!dataFile.exists()) {
+                    return this.get404Response();
+                }
+
+                if (!Arrays.equals(dataFile.digest(), digest)) {
+                    LOGGER.info("Unable to validate complete file hash");
+                    return this.get404Response();
+                }
+
+                try {
+                    ZipUtils.unzip(dataFile.getFilePath(), destPath);
+                } catch (IOException e) {
+                    LOGGER.info("Unable to unzip file");
+                }
+
+            } catch (DataException e) {
+                return this.get500Response();
             }
         }
 
@@ -339,6 +367,19 @@ public class WebsiteResource {
             response.getOutputStream().write(responseData);
         } catch (IOException e) {
             LOGGER.info("Error writing 404 response");
+        }
+        return response;
+    }
+
+    private HttpServletResponse get500Response() {
+        try {
+            String responseString = "500: Internal Server Error";
+            byte[] responseData = responseString.getBytes();
+            response.setStatus(500);
+            response.setContentLength(responseData.length);
+            response.getOutputStream().write(responseData);
+        } catch (IOException e) {
+            LOGGER.info("Error writing 500 response");
         }
         return response;
     }
