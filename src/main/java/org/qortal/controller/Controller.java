@@ -457,8 +457,8 @@ public class Controller extends Thread {
 		blockMinter.start();
 
 		// Arbitrary transaction data manager
-		// LOGGER.info("Starting arbitrary-transaction data manager");
-		// ArbitraryDataManager.getInstance().start();
+		LOGGER.info("Starting arbitrary-transaction data manager");
+		ArbitraryDataManager.getInstance().start();
 
 		// Auto-update service?
 		if (Settings.getInstance().isAutoUpdateEnabled()) {
@@ -920,8 +920,8 @@ public class Controller extends Thread {
 				}
 
 				// Arbitrary transaction data manager
-				// LOGGER.info("Shutting down arbitrary-transaction data manager");
-				// ArbitraryDataManager.getInstance().shutdown();
+				LOGGER.info("Shutting down arbitrary-transaction data manager");
+				ArbitraryDataManager.getInstance().shutdown();
 
 				if (blockMinter != null) {
 					LOGGER.info("Shutting down block minter");
@@ -2022,13 +2022,13 @@ public class Controller extends Thread {
 		}
 	}
 
-	public byte[] fetchArbitraryData(byte[] signature) throws InterruptedException {
+	public boolean fetchArbitraryDataFile(byte[] hash) throws InterruptedException {
 		// Build request
-		Message getArbitraryDataMessage = new GetArbitraryDataMessage(signature);
+		Message getDataFileMessage = new GetDataFileMessage(hash);
 
 		// Save our request into requests map
-		String signature58 = Base58.encode(signature);
-		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
+		String hash58 = Base58.encode(hash);
+		Triple<String, Peer, Long> requestEntry = new Triple<>(hash58, null, NTP.getTime());
 
 		// Assign random ID to this message
 		int id;
@@ -2038,10 +2038,10 @@ public class Controller extends Thread {
 			// Put queue into map (keyed by message ID) so we can poll for a response
 			// If putIfAbsent() doesn't return null, then this ID is already taken
 		} while (arbitraryDataRequests.put(id, requestEntry) != null);
-		getArbitraryDataMessage.setId(id);
+		getDataFileMessage.setId(id);
 
 		// Broadcast request
-		Network.getInstance().broadcast(peer -> getArbitraryDataMessage);
+		Network.getInstance().broadcast(peer -> getDataFileMessage);
 
 		// Poll to see if data has arrived
 		final long singleWait = 100;
@@ -2051,20 +2051,14 @@ public class Controller extends Thread {
 
 			requestEntry = arbitraryDataRequests.get(id);
 			if (requestEntry == null)
-				return null;
+				return false;
 
 			if (requestEntry.getA() == null)
 				break;
 
 			totalWait += singleWait;
 		}
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getArbitraryRepository().fetchData(signature);
-		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while fetching arbitrary transaction data"), e);
-			return null;
-		}
+		return true;
 	}
 
 	/** Returns a list of peers that are not misbehaving, and have a recent block. */

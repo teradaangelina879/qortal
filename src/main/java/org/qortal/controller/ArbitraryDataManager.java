@@ -12,6 +12,8 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.storage.DataFile;
+import org.qortal.storage.DataFileChunk;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -45,20 +47,69 @@ public class ArbitraryDataManager extends Thread {
 				// Any arbitrary transactions we want to fetch data for?
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, ARBITRARY_TX_TYPE, null, null, ConfirmationStatus.BOTH, null, null, true);
-					if (signatures == null || signatures.isEmpty())
+					if (signatures == null || signatures.isEmpty()) {
 						continue;
+					}
 
 					// Filter out those that already have local data
 					signatures.removeIf(signature -> hasLocalData(repository, signature));
 
-					if (signatures.isEmpty())
+					if (signatures.isEmpty()) {
 						continue;
+					}
 
 					// Pick one at random
 					final int index = new Random().nextInt(signatures.size());
 					byte[] signature = signatures.get(index);
 
-					Controller.getInstance().fetchArbitraryData(signature);
+					// Load the full transaction data so we can access the file hashes
+					ArbitraryTransactionData transactionData = (ArbitraryTransactionData)repository.getTransactionRepository().fromSignature(signature);
+					if (!(transactionData instanceof ArbitraryTransactionData)) {
+						signatures.remove(signature);
+						continue;
+					}
+
+					// Load hashes
+					byte[] digest = transactionData.getData();
+					byte[] chunkHashes = transactionData.getChunkHashes();
+
+					// Load data file(s)
+					DataFile dataFile = DataFile.fromDigest(digest);
+					if (chunkHashes.length > 0) {
+						dataFile.addChunkHashes(chunkHashes);
+
+						// Now try and fetch each chunk in turn if we don't have them already
+						for (DataFileChunk dataFileChunk : dataFile.getChunks()) {
+							if (!dataFileChunk.exists()) {
+								LOGGER.info("Requesting chunk {}...", dataFileChunk);
+								boolean success = Controller.getInstance().fetchArbitraryDataFile(dataFileChunk.getHash());
+								if (success) {
+									LOGGER.info("Chunk {} received", dataFileChunk);
+								}
+								else {
+									LOGGER.info("Couldn't retrieve chunk {}", dataFileChunk);
+								}
+							}
+						}
+					}
+					else if (transactionData.getSize() < DataFileChunk.CHUNK_SIZE) {
+						// Fetch the complete file, as it is less than the chunk size
+						LOGGER.info("Requesting file {}...", dataFile.getHash58());
+						boolean success = Controller.getInstance().fetchArbitraryDataFile(dataFile.getHash());
+						if (success) {
+							LOGGER.info("File {} received", dataFile);
+						}
+						else {
+							LOGGER.info("Couldn't retrieve file {}", dataFile);
+						}
+					}
+					else {
+						// Invalid transaction (should have already failed validation)
+						LOGGER.info(String.format("Invalid arbitrary transaction: %.8s", signature));
+					}
+
+					signatures.remove(signature);
+
 				} catch (DataException e) {
 					LOGGER.error("Repository issue when fetching arbitrary transaction data", e);
 				}
