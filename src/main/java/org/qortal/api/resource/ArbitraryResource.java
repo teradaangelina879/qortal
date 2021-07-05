@@ -28,7 +28,6 @@ import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
-import org.qortal.data.account.AccountData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -271,7 +270,7 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 		}
 
-		DataFile dataFile = new DataFile(path);
+		DataFile dataFile = DataFile.fromPath(path);
 		if (dataFile == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}
@@ -283,7 +282,7 @@ public class ArbitraryResource {
 				LOGGER.error("Invalid file: {}", validationResult);
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
-			LOGGER.info("Whole file digest: {}", dataFile.base58Digest());
+			LOGGER.info("Whole file digest: {}", dataFile.digest58());
 
 			int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
 			if (chunkCount == 0) {
@@ -292,8 +291,8 @@ public class ArbitraryResource {
 			}
 			LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
 
-			String base58Digest = dataFile.base58Digest();
-			if (base58Digest == null) {
+			String digest58 = dataFile.digest58();
+			if (digest58 == null) {
 				LOGGER.error("Unable to calculate digest");
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
@@ -364,10 +363,10 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	public String deleteFile(String base58Digest) {
+	public String deleteFile(String hash58) {
 		Security.checkApiCallAllowed(request);
 
-		DataFile dataFile = DataFile.fromBase58Digest(base58Digest);
+		DataFile dataFile = DataFile.fromHash58(hash58);
 		if (dataFile.delete()) {
 			return "true";
 		}
@@ -377,7 +376,7 @@ public class ArbitraryResource {
 	@GET
 	@Path("/file/{hash}/frompeer/{peer}")
 	@Operation(
-			summary = "Request file from a given peer, using supplied base58 encoded SHA256 digest string",
+			summary = "Request file from a given peer, using supplied base58 encoded SHA256 hash",
 			responses = {
 					@ApiResponse(
 							description = "true if retrieved, false if not",
@@ -391,10 +390,10 @@ public class ArbitraryResource {
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.FILE_NOT_FOUND, ApiError.NO_REPLY})
-	public Response getFileFromPeer(@PathParam("hash") String base58Digest,
+	public Response getFileFromPeer(@PathParam("hash") String hash58,
 									@PathParam("peer") String targetPeerAddress) {
 		try {
-			if (base58Digest == null) {
+			if (hash58 == null) {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 			}
 			if (targetPeerAddress == null) {
@@ -412,7 +411,7 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 			}
 
-			boolean success = this.requestFile(base58Digest, targetPeer);
+			boolean success = this.requestFile(hash58, targetPeer);
 			if (success) {
 				return Response.ok("true").build();
 			}
@@ -426,7 +425,7 @@ public class ArbitraryResource {
 	@POST
 	@Path("/files/frompeer/{peer}")
 	@Operation(
-			summary = "Request multiple files from a given peer, using supplied comma separated base58 encoded SHA256 digest strings",
+			summary = "Request multiple files from a given peer, using supplied comma separated base58 encoded SHA256 hashes",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
@@ -470,12 +469,12 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 			}
 
-			String base58DigestList[] = files.split(",");
-			for (String base58Digest : base58DigestList) {
-				if (base58Digest != null) {
-					boolean success = this.requestFile(base58Digest, targetPeer);
+			String hash58List[] = files.split(",");
+			for (String hash58 : hash58List) {
+				if (hash58 != null) {
+					boolean success = this.requestFile(hash58, targetPeer);
 					if (!success) {
-						LOGGER.info("Failed to request file {} from peer {}", base58Digest, targetPeerAddress);
+						LOGGER.info("Failed to request file {} from peer {}", hash58, targetPeerAddress);
 					}
 				}
 			}
@@ -487,17 +486,17 @@ public class ArbitraryResource {
 	}
 
 
-	private boolean requestFile(String base58Digest, Peer targetPeer) {
+	private boolean requestFile(String hash58, Peer targetPeer) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			DataFile dataFile = DataFile.fromBase58Digest(base58Digest);
+			DataFile dataFile = DataFile.fromHash58(hash58);
 			if (dataFile.exists()) {
 				LOGGER.info("Data file {} already exists but we'll request it anyway", dataFile);
 			}
 
 			byte[] digest = null;
 			try {
-				digest = Base58.decode(base58Digest);
+				digest = Base58.decode(hash58);
 			} catch (NumberFormatException e) {
 				LOGGER.info("Invalid base58 encoded string");
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
@@ -558,22 +557,22 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 		}
 
-		DataFile dataFile = DataFile.fromBase58Digest(combinedHash);
+		DataFile dataFile = DataFile.fromHash58(combinedHash);
 		if (dataFile.exists()) {
 			LOGGER.info("We already have the combined file {}, but we'll join the chunks anyway.", combinedHash);
 		}
 
-		String base58DigestList[] = files.split(",");
-		for (String base58Digest : base58DigestList) {
-			if (base58Digest != null) {
-				DataFileChunk chunk = DataFileChunk.fromBase58Digest(base58Digest);
+		String hash58List[] = files.split(",");
+		for (String hash58 : hash58List) {
+			if (hash58 != null) {
+				DataFileChunk chunk = DataFileChunk.fromHash58(hash58);
 				dataFile.addChunk(chunk);
 			}
 		}
 		boolean success = dataFile.join();
 		if (success) {
-			if (combinedHash.equals(dataFile.base58Digest())) {
-				LOGGER.info("Valid hash {} after joining {} files", dataFile.base58Digest(), dataFile.chunkCount());
+			if (combinedHash.equals(dataFile.digest58())) {
+				LOGGER.info("Valid hash {} after joining {} files", dataFile.digest58(), dataFile.chunkCount());
 				return Response.ok("true").build();
 			}
 		}

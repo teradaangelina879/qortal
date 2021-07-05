@@ -13,9 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static java.util.Arrays.stream;
@@ -50,28 +48,17 @@ public class DataFile {
     public static int SHORT_DIGEST_LENGTH = 8;
 
     protected String filePath;
+    protected String hash58;
     private ArrayList<DataFileChunk> chunks;
 
     public DataFile() {
     }
 
-    public DataFile(String filePath) {
+    public DataFile(String hash58) {
         this.createDataDirectory();
-        this.filePath = filePath;
+        this.filePath = DataFile.getOutputFilePath(hash58, false);
         this.chunks = new ArrayList<>();
-
-        if (!this.isInBaseDirectory(filePath)) {
-            // Copy file to base directory
-            LOGGER.debug("Copying file to data directory...");
-            this.filePath = this.copyToDataDirectory();
-            if (this.filePath == null) {
-                throw new IllegalStateException("Invalid file path after copy");
-            }
-        }
-    }
-
-    public DataFile(File file) {
-        this(file.getPath());
+        this.hash58 = hash58;
     }
 
     public DataFile(byte[] fileContent) {
@@ -80,17 +67,17 @@ public class DataFile {
             return;
         }
 
-        String base58Digest = Base58.encode(Crypto.digest(fileContent));
-        LOGGER.debug(String.format("File digest: %s, size: %d bytes", base58Digest, fileContent.length));
+        this.hash58 = Base58.encode(Crypto.digest(fileContent));
+        LOGGER.debug(String.format("File digest: %s, size: %d bytes", this.hash58, fileContent.length));
 
-        String outputFilePath = this.getOutputFilePath(base58Digest, true);
+        String outputFilePath = getOutputFilePath(this.hash58, true);
         File outputFile = new File(outputFilePath);
         try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
             outputStream.write(fileContent);
             this.filePath = outputFilePath;
             // Verify hash
-            if (!base58Digest.equals(this.base58Digest())) {
-                LOGGER.error("Digest {} does not match file digest {}", base58Digest, this.base58Digest());
+            if (!this.hash58.equals(this.digest58())) {
+                LOGGER.error("Hash {} does not match file digest {}", this.hash58, this.digest58());
                 this.delete();
                 throw new IllegalStateException("Data file digest validation failed");
             }
@@ -99,13 +86,38 @@ public class DataFile {
         }
     }
 
-    public static DataFile fromBase58Digest(String base58Digest) {
-        String filePath = DataFile.getOutputFilePath(base58Digest, false);
-        return new DataFile(filePath);
+    public static DataFile fromHash58(String hash58) {
+        return new DataFile(hash58);
     }
 
     public static DataFile fromDigest(byte[] digest) {
-        return DataFile.fromBase58Digest(Base58.encode(digest));
+        return DataFile.fromHash58(Base58.encode(digest));
+    }
+
+    public static DataFile fromPath(String path) {
+        File file = new File(path);
+        if (file.exists()) {
+            try {
+                byte[] fileContent = Files.readAllBytes(file.toPath());
+                byte[] digest = Crypto.digest(fileContent);
+                DataFile dataFile = DataFile.fromDigest(digest);
+
+                // Copy file to base directory if needed
+                Path filePath = Paths.get(path);
+                if (Files.exists(filePath) && !dataFile.isInBaseDirectory(path)) {
+                    dataFile.copyToDataDirectory(filePath);
+                }
+                return dataFile;
+
+            } catch (IOException e) {
+                LOGGER.error("Couldn't compute digest for DataFile");
+            }
+        }
+        return null;
+    }
+
+    public static DataFile fromFile(File file) {
+        return DataFile.fromPath(file.getPath());
     }
 
     private boolean createDataDirectory() {
@@ -121,21 +133,27 @@ public class DataFile {
         return true;
     }
 
-    private String copyToDataDirectory() {
-        String outputFilePath = this.getOutputFilePath(this.base58Digest(), true);
-        Path source = Paths.get(this.filePath).toAbsolutePath();
-        Path dest = Paths.get(outputFilePath).toAbsolutePath();
+    private String copyToDataDirectory(Path sourcePath) {
+        if (this.hash58 == null || this.filePath == null) {
+            return null;
+        }
+        String outputFilePath = getOutputFilePath(this.hash58, true);
+        sourcePath = sourcePath.toAbsolutePath();
+        Path destPath = Paths.get(outputFilePath).toAbsolutePath();
         try {
-            return Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING).toString();
+            return Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING).toString();
         } catch (IOException e) {
             throw new IllegalStateException("Unable to copy file to data directory");
         }
     }
 
-    public static String getOutputFilePath(String base58Digest, boolean createDirectories) {
-        String base58DigestFirst2Chars = base58Digest.substring(0, Math.min(base58Digest.length(), 2));
-        String base58DigestNext2Chars = base58Digest.substring(2, Math.min(base58Digest.length(), 4));
-        String outputDirectory =  Settings.getInstance().getDataPath() + File.separator + base58DigestFirst2Chars + File.separator + base58DigestNext2Chars;
+    public static String getOutputFilePath(String hash58, boolean createDirectories) {
+        if (hash58 == null) {
+            return null;
+        }
+        String hash58First2Chars = hash58.substring(0, 2);
+        String hash58Next2Chars = hash58.substring(2, 4);
+        String outputDirectory =  Settings.getInstance().getDataPath() + File.separator + hash58First2Chars + File.separator + hash58Next2Chars;
         Path outputDirectoryPath = Paths.get(outputDirectory);
 
         if (createDirectories) {
@@ -145,7 +163,7 @@ public class DataFile {
                 throw new IllegalStateException("Unable to create data subdirectory");
             }
         }
-        return outputDirectory + File.separator + base58Digest;
+        return outputDirectory + File.separator + hash58;
     }
 
     public ValidationResult isValid() {
@@ -177,16 +195,11 @@ public class DataFile {
 
     public void addChunkHashes(byte[] chunks) {
         ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
-        while (byteBuffer.remaining() > 0) {
-            byte[] chunkData = new byte[TransactionTransformer.SHA256_LENGTH];
-            byteBuffer.get(chunkData);
-            if (chunkData.length == TransactionTransformer.SHA256_LENGTH) {
-                DataFileChunk chunk = new DataFileChunk(chunkData);
-                this.addChunk(chunk);
-            }
-            else {
-                throw new IllegalStateException(String.format("Invalid chunk hash length: %d", chunkData.length));
-            }
+        while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
+            byte[] chunkDigest = new byte[TransactionTransformer.SHA256_LENGTH];
+            byteBuffer.get(chunkDigest);
+            DataFileChunk chunk = DataFileChunk.fromHash(chunkDigest);
+            this.addChunk(chunk);
         }
     }
 
@@ -232,7 +245,7 @@ public class DataFile {
             // Create temporary path for joined file
             Path tempPath;
             try {
-                tempPath = Files.createTempFile(this.chunks.get(0).base58Digest(), ".tmp");
+                tempPath = Files.createTempFile(this.chunks.get(0).digest58(), ".tmp");
             } catch (IOException e) {
                 return false;
             }
@@ -245,7 +258,7 @@ public class DataFile {
                     File sourceFile = new File(chunk.filePath);
                     BufferedInputStream in = new BufferedInputStream(new FileInputStream(sourceFile));
                     byte[] buffer = new byte[2048];
-                    int inSize = -1;
+                    int inSize;
                     while ((inSize = in.read(buffer)) != -1) {
                         out.write(buffer, 0, inSize);
                     }
@@ -254,7 +267,7 @@ public class DataFile {
                 out.close();
 
                 // Copy temporary file to data directory
-                this.filePath = this.copyToDataDirectory();
+                this.filePath = this.copyToDataDirectory(tempPath);
                 Files.delete(tempPath);
 
                 return true;
@@ -328,8 +341,7 @@ public class DataFile {
     public byte[] getBytes() {
         Path path = Paths.get(this.filePath);
         try {
-            byte[] bytes = Files.readAllBytes(path);
-            return bytes;
+            return Files.readAllBytes(path);
         } catch (IOException e) {
             LOGGER.error("Unable to read bytes for file");
             return null;
@@ -343,10 +355,7 @@ public class DataFile {
         Path path = Paths.get(filePath).toAbsolutePath();
         String dataPath = Settings.getInstance().getDataPath();
         String basePath = Paths.get(dataPath).toAbsolutePath().toString();
-        if (path.startsWith(basePath)) {
-            return true;
-        }
-        return false;
+        return path.startsWith(basePath);
     }
 
     public boolean exists() {
@@ -354,9 +363,9 @@ public class DataFile {
         return file.exists();
     }
 
-    public boolean chunkExists(byte[] digest) {
+    public boolean chunkExists(byte[] hash) {
         for (DataFileChunk chunk : this.chunks) {
-            if (digest.equals(chunk.digest())) { // TODO: this is too heavy on the filesystem. We need a cache
+            if (Arrays.equals(hash, chunk.getHash())) {
                 return chunk.exists();
             }
         }
@@ -366,17 +375,12 @@ public class DataFile {
 
     public boolean allChunksExist(byte[] chunks) {
         ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
-        while (byteBuffer.remaining() > 0) {
-            byte[] chunkDigest = new byte[TransactionTransformer.SHA256_LENGTH];
-            byteBuffer.get(chunkDigest);
-            if (chunkDigest.length == TransactionTransformer.SHA256_LENGTH) {
-                DataFileChunk chunk = DataFileChunk.fromDigest(chunkDigest);
-                if (chunk.exists() == false) {
-                    return false;
-                }
-            }
-            else {
-                throw new IllegalStateException(String.format("Invalid chunk hash length: %d", chunkDigest.length));
+        while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
+            byte[] chunkHash = new byte[TransactionTransformer.SHA256_LENGTH];
+            byteBuffer.get(chunkHash);
+            DataFileChunk chunk = DataFileChunk.fromHash(chunkHash);
+            if (!chunk.exists()) {
+                return false;
             }
         }
         return true;
@@ -393,6 +397,35 @@ public class DataFile {
 
     public int chunkCount() {
         return this.chunks.size();
+    }
+
+    public List<DataFileChunk> getChunks() {
+        return this.chunks;
+    }
+
+    public byte[] chunkHashes() {
+        if (this.chunks != null && this.chunks.size() > 0) {
+            // Return null if we only have one chunk, with the same hash as the parent
+            if (Arrays.equals(this.digest(), this.chunks.get(0).digest())) {
+                return null;
+            }
+
+            try {
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                for (DataFileChunk chunk : this.chunks) {
+                    byte[] chunkHash = chunk.digest();
+                    if (chunkHash.length != 32) {
+                        LOGGER.info("Invalid chunk hash length: {}", chunkHash.length);
+                        throw new IllegalStateException("Invalid chunk hash length");
+                    }
+                    outputStream.write(chunk.digest());
+                }
+                return outputStream.toByteArray();
+            } catch (IOException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private File getFile() {
@@ -421,32 +454,7 @@ public class DataFile {
         return null;
     }
 
-    public byte[] chunkHashes() {
-        if (this.chunks != null && this.chunks.size() > 0) {
-            // Return null if we only have one chunk, with the same hash as the parent
-            if (this.digest().equals(this.chunks.get(0).digest())) {
-                return null;
-            }
-
-            try {
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                for (DataFileChunk chunk : this.chunks) {
-                    byte[] chunkHash = chunk.digest();
-                    if (chunkHash.length != 32) {
-                        LOGGER.info("Invalid chunk hash length: {}", chunkHash.length);
-                        throw new IllegalStateException("Invalid chunk hash length");
-                    }
-                    outputStream.write(chunk.digest());
-                }
-                return outputStream.toByteArray();
-            } catch (IOException e) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    public String base58Digest() {
+    public String digest58() {
         if (this.digest() != null) {
             return Base58.encode(this.digest());
         }
@@ -454,10 +462,18 @@ public class DataFile {
     }
 
     public String shortDigest() {
-        if (this.base58Digest() == null) {
+        if (this.digest58() == null) {
             return null;
         }
-        return this.base58Digest().substring(0, Math.min(this.base58Digest().length(), SHORT_DIGEST_LENGTH));
+        return this.digest58().substring(0, Math.min(this.digest58().length(), SHORT_DIGEST_LENGTH));
+    }
+
+    public String getHash58() {
+        return this.hash58;
+    }
+
+    public byte[] getHash() {
+        return Base58.decode(this.hash58);
     }
 
     public String printChunks() {
@@ -467,7 +483,7 @@ public class DataFile {
                 if (outputString.length() > 0) {
                     outputString = outputString.concat(",");
                 }
-                outputString = outputString.concat(chunk.base58Digest());
+                outputString = outputString.concat(chunk.digest58());
             }
         }
         return outputString;

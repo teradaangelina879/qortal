@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.utils.Base58;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,28 +14,20 @@ public class DataFileChunk extends DataFile {
 
     private static final Logger LOGGER = LogManager.getLogger(DataFileChunk.class);
 
-    public DataFileChunk() {
-    }
-
-    public DataFileChunk(String filePath) {
-        super(filePath);
-    }
-
-    public DataFileChunk(File file) {
-        super(file);
+    public DataFileChunk(String hash58) {
+        super(hash58);
     }
 
     public DataFileChunk(byte[] fileContent) {
         super(fileContent);
     }
 
-    public static DataFileChunk fromBase58Digest(String base58Digest) {
-        String filePath = DataFile.getOutputFilePath(base58Digest, false);
-        return new DataFileChunk(filePath);
+    public static DataFileChunk fromHash58(String hash58) {
+        return new DataFileChunk(hash58);
     }
 
-    public static DataFileChunk fromDigest(byte[] digest) {
-        return DataFileChunk.fromBase58Digest(Base58.encode(digest));
+    public static DataFileChunk fromHash(byte[] hash) {
+        return DataFileChunk.fromHash58(Base58.encode(hash));
     }
 
     @Override

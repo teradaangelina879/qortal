@@ -23,7 +23,7 @@ public class DataTests extends Common {
 		DataFile dataFile = new DataFile(dummyDataString.getBytes());
 		assertTrue(dataFile.exists());
 		assertEquals(62, dataFile.size());
-		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", dataFile.base58Digest());
+		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", dataFile.digest58());
 
 		// Split into 7 chunks, each 10 bytes long
 		dataFile.split(10);
@@ -41,7 +41,7 @@ public class DataTests extends Common {
 		// Validate that the original file is intact
 		assertTrue(dataFile.exists());
 		assertEquals(62, dataFile.size());
-		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", dataFile.base58Digest());
+		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", dataFile.digest58());
 	}
 
 	@Test
@@ -53,7 +53,7 @@ public class DataTests extends Common {
 		DataFile dataFile = new DataFile(randomData);
 		assertTrue(dataFile.exists());
 		assertEquals(fileSize, dataFile.size());
-		String originalFileDigest = dataFile.base58Digest();
+		String originalFileDigest = dataFile.digest58();
 
 		// Split into chunks using 1MiB chunk size
 		dataFile.split(1 * 1024 * 1024);
@@ -71,7 +71,7 @@ public class DataTests extends Common {
 		// Validate that the original file is intact
 		assertTrue(dataFile.exists());
 		assertEquals(fileSize, dataFile.size());
-		assertEquals(originalFileDigest, dataFile.base58Digest());
+		assertEquals(originalFileDigest, dataFile.digest58());
 	}
 
 }

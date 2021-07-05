@@ -30,7 +30,6 @@ import org.qortal.api.Security;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
-import org.qortal.data.account.AccountData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.group.Group;
@@ -101,8 +100,8 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
 
-        String base58Digest = dataFile.base58Digest();
-        if (base58Digest == null) {
+        String digest58 = dataFile.digest58();
+        if (digest58 == null) {
             LOGGER.error("Unable to calculate digest");
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
@@ -179,9 +178,9 @@ public class WebsiteResource {
 
         DataFile dataFile = this.hostWebsite(directoryPath);
         if (dataFile != null) {
-            String base58Digest = dataFile.base58Digest();
-            if (base58Digest != null) {
-                return "http://localhost:12393/site/" + base58Digest;
+            String digest58 = dataFile.digest58();
+            if (digest58 != null) {
+                return "http://localhost:12393/site/" + digest58;
             }
         }
         return "Unable to generate preview URL";
@@ -215,13 +214,13 @@ public class WebsiteResource {
         }
 
         try {
-            DataFile dataFile = new DataFile(outputFilePath);
+            DataFile dataFile = DataFile.fromPath(outputFilePath);
             DataFile.ValidationResult validationResult = dataFile.isValid();
             if (validationResult != DataFile.ValidationResult.OK) {
                 LOGGER.error("Invalid file: {}", validationResult);
                 throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
             }
-            LOGGER.info("Whole file digest: {}", dataFile.base58Digest());
+            LOGGER.info("Whole file digest: {}", dataFile.digest58());
 
             int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
             if (chunkCount > 0) {
@@ -265,13 +264,13 @@ public class WebsiteResource {
         if (!Files.exists(Paths.get(unzippedPath))) {
 
             // Load file
-            DataFile dataFile = DataFile.fromBase58Digest(resourceId);
+            DataFile dataFile = DataFile.fromHash58(resourceId);
             if (dataFile == null || !dataFile.exists()) {
                 LOGGER.info("Unable to validate complete file hash");
                 return this.get404Response();
             }
 
-            if (!dataFile.base58Digest().equals(resourceId)) {
+            if (!dataFile.digest58().equals(resourceId)) {
                 LOGGER.info("Unable to validate complete file hash");
                 return this.get404Response();
             }
