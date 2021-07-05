@@ -461,11 +461,11 @@ public class DataFile {
         return null;
     }
 
-    public String shortDigest() {
-        if (this.digest58() == null) {
+    public String shortHash58() {
+        if (this.hash58 == null) {
             return null;
         }
-        return this.digest58().substring(0, Math.min(this.digest58().length(), SHORT_DIGEST_LENGTH));
+        return this.hash58.substring(0, Math.min(this.hash58.length(), SHORT_DIGEST_LENGTH));
     }
 
     public String getHash58() {
@@ -491,6 +491,6 @@ public class DataFile {
 
     @Override
     public String toString() {
-        return this.shortDigest();
+        return this.shortHash58();
     }
 }
