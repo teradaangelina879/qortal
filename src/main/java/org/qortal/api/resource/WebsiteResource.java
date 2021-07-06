@@ -27,6 +27,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiExceptionFactory;
+import org.qortal.api.HTMLParser;
 import org.qortal.api.Security;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
@@ -245,13 +246,13 @@ public class WebsiteResource {
     @GET
     @Path("{resource}")
     public HttpServletResponse getResourceIndex(@PathParam("resource") String resourceId) {
-        return this.get(resourceId, "/");
+        return this.get(resourceId, "/", true);
     }
 
     @GET
     @Path("{resource}/{path:.*}")
     public HttpServletResponse getResourcePath(@PathParam("resource") String resourceId, @PathParam("path") String inPath) {
-        return this.get(resourceId, inPath);
+        return this.get(resourceId, inPath, true);
     }
 
     private HttpServletResponse get(String resourceId, String inPath) {
@@ -314,10 +315,11 @@ public class WebsiteResource {
             String filename = this.getFilename(unzippedPath, inPath);
             String filePath = unzippedPath + File.separator + filename;
 
-            if (this.isHtmlFile(filename)) {
+            if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
-                data = this.replaceRelativeLinks(filename, data, resourceId);
+                HTMLParser htmlParser = new HTMLParser(resourceId, usePrefix);
+                data = htmlParser.replaceRelativeLinks(filename, data);
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(data.length);
                 response.getOutputStream().write(data);
@@ -384,96 +386,6 @@ public class WebsiteResource {
         return response;
     }
 
-    /**
-     * Find relative links and prefix them with the resource ID, using Jsoup
-     * @param path
-     * @param data
-     * @param resourceId
-     * @return The data with links replaced
-     */
-    private byte[] replaceRelativeLinks(String path, byte[] data, String resourceId) {
-        if (this.isHtmlFile(path)) {
-            String fileContents = new String(data);
-            Document document = Jsoup.parse(fileContents);
-
-            Elements href = document.select("[href]");
-            for (Element element : href)  {
-                String elementHtml = element.attr("href");
-                if (this.shouldReplaceLink(elementHtml)) {
-                    String slash = (elementHtml.startsWith("/") ? "" : File.separator);
-                    element.attr("href", "/site/" +resourceId + slash + element.attr("href"));
-                }
-            }
-            Elements src = document.select("[src]");
-            for (Element element : src)  {
-                String elementHtml = element.attr("src");
-                if (this.shouldReplaceLink(elementHtml)) {
-                    String slash = (elementHtml.startsWith("/") ? "" : File.separator);
-                    element.attr("src", "/site/" +resourceId + slash + element.attr("src"));
-                }
-            }
-            Elements srcset = document.select("[srcset]");
-            for (Element element : srcset)  {
-                String elementHtml = element.attr("srcset").trim();
-                if (this.shouldReplaceLink(elementHtml)) {
-                    String[] parts = element.attr("srcset").split(",");
-                    ArrayList<String> newParts = new ArrayList<>();
-                    for (String part : parts) {
-                        part = part.trim();
-                        String slash = (elementHtml.startsWith("/") ? "" : File.separator);
-                        String newPart = "/site/" +resourceId + slash + part;
-                        newParts.add(newPart);
-                    }
-                    String newString = String.join(",", newParts);
-                    element.attr("srcset", newString);
-                }
-            }
-            Elements style = document.select("[style]");
-            for (Element element : style)  {
-                String elementHtml = element.attr("style");
-                if (elementHtml.contains("url(")) {
-                    String[] parts = elementHtml.split("url\\(");
-                    String[] parts2 = parts[1].split("\\)");
-                    String link = parts2[0];
-                    if (link != null) {
-                        link = this.removeQuotes(link);
-                        if (this.shouldReplaceLink(link)) {
-                            String slash = (link.startsWith("/") ? "" : "/");
-                            String modifiedLink = "url('" + "/site/" + resourceId + slash + link + "')";
-                            element.attr("style", parts[0] + modifiedLink + parts2[1]);
-                        }
-                    }
-                }
-            }
-            return document.html().getBytes();
-        }
-        return data;
-    }
-
-    private boolean shouldReplaceLink(String elementHtml) {
-        List<String> prefixes = new ArrayList<>();
-        prefixes.add("http"); // Don't modify absolute links
-        prefixes.add("//"); // Don't modify absolute links
-        prefixes.add("javascript:"); // Don't modify javascript
-        prefixes.add("../"); // Don't modify valid relative links
-        for (String prefix : prefixes) {
-            if (elementHtml.startsWith(prefix)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private String removeQuotes(String elementHtml) {
-        if (elementHtml.startsWith("\"") || elementHtml.startsWith("\'")) {
-            elementHtml = elementHtml.substring(1);
-        }
-        if (elementHtml.endsWith("\"") || elementHtml.endsWith("\'")) {
-            elementHtml = elementHtml.substring(0, elementHtml.length() - 1);
-        }
-        return elementHtml;
-    }
-
     private List<String> indexFiles() {
         List<String> indexFiles = new ArrayList<>();
         indexFiles.add("index.html");
@@ -483,13 +395,6 @@ public class WebsiteResource {
         indexFiles.add("home.html");
         indexFiles.add("home.htm");
         return indexFiles;
-    }
-
-    private boolean isHtmlFile(String path) {
-        if (path.endsWith(".html") || path.endsWith(".htm")) {
-            return true;
-        }
-        return false;
     }
 
 }
