@@ -12,6 +12,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,10 +22,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.HTMLParser;
@@ -40,7 +37,6 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
-import org.qortal.storage.DataFileChunk;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
@@ -255,7 +251,27 @@ public class WebsiteResource {
         return this.get(resourceId, inPath, true);
     }
 
-    private HttpServletResponse get(String resourceId, String inPath) {
+    @GET
+    @Path("/domainmap")
+    public HttpServletResponse getDomainMapIndex() {
+        Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
+        if (domainMap != null && domainMap.containsKey(request.getServerName())) {
+            return this.get(domainMap.get(request.getServerName()), "/", false);
+        }
+        return this.get404Response();
+    }
+
+    @GET
+    @Path("/domainmap/{path:.*}")
+    public HttpServletResponse getDomainMapPath(@PathParam("path") String inPath) {
+        Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
+        if (domainMap != null && domainMap.containsKey(request.getServerName())) {
+            return this.get(domainMap.get(request.getServerName()), inPath, false);
+        }
+        return this.get404Response();
+    }
+
+    private HttpServletResponse get(String resourceId, String inPath, boolean usePrefix) {
         if (!inPath.startsWith(File.separator)) {
             inPath = File.separator + inPath;
         }

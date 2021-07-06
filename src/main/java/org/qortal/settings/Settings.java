@@ -5,8 +5,10 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -32,6 +34,9 @@ public class Settings {
 
 	private static final int MAINNET_API_PORT = 12393;
 	private static final int TESTNET_API_PORT = 62393;
+
+	private static final int MAINNET_DOMAIN_MAP_SERVICE_PORT = 80;
+	private static final int TESTNET_DOMAIN_MAP_SERVICE_PORT = 8080;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -71,6 +76,12 @@ public class Settings {
 	// Both of these need to be set for API to use SSL
 	private String sslKeystorePathname = null;
 	private String sslKeystorePassword = null;
+
+	// Domain mapping
+	private Integer domainMapServicePort;
+	private boolean domainMapServiceEnabled = false;
+	private boolean domainMapLoggingEnabled = false;
+	private List<DomainMap> domainMap = null;
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -184,7 +195,32 @@ public class Settings {
 
 	/** Data storage path. */
 	private String dataPath = "data";
-	
+
+
+	// Domain mapping
+	public static class DomainMap {
+		private String domain;
+		private String signature;
+
+		private DomainMap() { // makes JAXB happy; will never be invoked
+		}
+
+		public String getDomain() {
+			return domain;
+		}
+
+		public void setDomain(String domain) {
+			this.domain = domain;
+		}
+
+		public String getSignature() {
+			return signature;
+		}
+
+		public void setSignature(String signature) {
+			this.signature = signature;
+		}
+	}
 
 
 	// Constructors
@@ -377,6 +413,33 @@ public class Settings {
 
 	public String getSslKeystorePassword() {
 		return this.sslKeystorePassword;
+	}
+
+	public int getDomainMapServicePort() {
+		if (this.domainMapServicePort != null)
+			return this.domainMapServicePort;
+
+		return this.isTestNet ? TESTNET_DOMAIN_MAP_SERVICE_PORT : MAINNET_DOMAIN_MAP_SERVICE_PORT;
+	}
+
+	public boolean isDomainMapServiceEnabled() {
+		return this.domainMapServiceEnabled;
+	}
+
+	public boolean isDomainMapLoggingEnabled() {
+		return this.domainMapLoggingEnabled;
+	}
+
+	public List<DomainMap> getDomainMap() {
+		return this.domainMap;
+	}
+
+	public Map<String, String> getSimpleDomainMap() {
+		HashMap<String, String> map = new HashMap<>();
+		for (DomainMap dMap : this.domainMap) {
+			map.put(dMap.getDomain(), dMap.getSignature());
+		}
+		return map;
 	}
 
 	public boolean getWipeUnconfirmedOnStart() {
