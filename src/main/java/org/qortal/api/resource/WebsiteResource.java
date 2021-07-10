@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.ApiError;
@@ -355,8 +356,19 @@ public class WebsiteResource {
                 inputStream.close();
             }
             return response;
+        } catch (FileNotFoundException e) {
+            LOGGER.info("File not found at path: {}", unzippedPath);
+            if (inPath.equals("/")) {
+                // Delete the unzipped folder if no index file was found
+                try {
+                    FileUtils.deleteDirectory(new File(unzippedPath));
+                } catch (IOException ioException) {
+                    LOGGER.info("Unable to delete directory: {}", unzippedPath, e);
+                }
+            }
+
         } catch (IOException e) {
-            LOGGER.info("Unable to serve file at path: {}", inPath);
+            LOGGER.info("Unable to serve file at path: {}", inPath, e);
         }
 
         return this.get404Response();
