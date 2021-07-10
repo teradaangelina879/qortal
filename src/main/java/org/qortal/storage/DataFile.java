@@ -90,8 +90,8 @@ public class DataFile {
         return new DataFile(hash58);
     }
 
-    public static DataFile fromDigest(byte[] digest) {
-        return DataFile.fromHash58(Base58.encode(digest));
+    public static DataFile fromHash(byte[] hash) {
+        return DataFile.fromHash58(Base58.encode(hash));
     }
 
     public static DataFile fromPath(String path) {
@@ -100,7 +100,7 @@ public class DataFile {
             try {
                 byte[] fileContent = Files.readAllBytes(file.toPath());
                 byte[] digest = Crypto.digest(fileContent);
-                DataFile dataFile = DataFile.fromDigest(digest);
+                DataFile dataFile = DataFile.fromHash(digest);
 
                 // Copy file to base directory if needed
                 Path filePath = Paths.get(path);
@@ -194,6 +194,9 @@ public class DataFile {
     }
 
     public void addChunkHashes(byte[] chunks) {
+        if (chunks == null || chunks.length == 0) {
+            return;
+        }
         ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
         while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
             byte[] chunkDigest = new byte[TransactionTransformer.SHA256_LENGTH];

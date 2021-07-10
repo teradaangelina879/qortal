@@ -1,5 +1,7 @@
 package org.qortal.network.message;
 
+import org.qortal.transform.transaction.TransactionTransformer;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -7,33 +9,33 @@ import java.nio.ByteBuffer;
 
 public class GetDataFileMessage extends Message {
 
-	private static final int DIGEST_LENGTH = 32;
+	private static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
 
-	private final byte[] digest;
+	private final byte[] hash;
 
-	public GetDataFileMessage(byte[] digest) {
-		this(-1, digest);
+	public GetDataFileMessage(byte[] hash) {
+		this(-1, hash);
 	}
 
-	private GetDataFileMessage(int id, byte[] digest) {
+	private GetDataFileMessage(int id, byte[] hash) {
 		super(id, MessageType.GET_DATA_FILE);
 
-		this.digest = digest;
+		this.hash = hash;
 	}
 
-	public byte[] getDigest() {
-		return this.digest;
+	public byte[] getHash() {
+		return this.hash;
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
-		if (bytes.remaining() != DIGEST_LENGTH)
+		if (bytes.remaining() != HASH_LENGTH)
 			return null;
 
-		byte[] digest = new byte[DIGEST_LENGTH];
+		byte[] hash = new byte[HASH_LENGTH];
 
-		bytes.get(digest);
+		bytes.get(hash);
 
-		return new GetDataFileMessage(id, digest);
+		return new GetDataFileMessage(id, hash);
 	}
 
 	@Override
@@ -41,7 +43,7 @@ public class GetDataFileMessage extends Message {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(this.digest);
+			bytes.write(this.hash);
 
 			return bytes.toByteArray();
 		} catch (IOException e) {

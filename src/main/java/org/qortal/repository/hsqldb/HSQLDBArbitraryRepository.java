@@ -47,7 +47,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = transactionData.getChunkHashes();
 
 		// Load data file(s)
-		DataFile dataFile = DataFile.fromDigest(digest);
+		DataFile dataFile = DataFile.fromHash(digest);
 		if (chunkHashes.length > 0) {
 			dataFile.addChunkHashes(chunkHashes);
 		}
@@ -82,7 +82,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = transactionData.getChunkHashes();
 
 		// Load data file(s)
-		DataFile dataFile = DataFile.fromDigest(digest);
+		DataFile dataFile = DataFile.fromHash(digest);
 		if (chunkHashes.length > 0) {
 			dataFile.addChunkHashes(chunkHashes);
 		}
@@ -167,7 +167,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
 
 		// Load data file(s)
-		DataFile dataFile = DataFile.fromDigest(digest);
+		DataFile dataFile = DataFile.fromHash(digest);
 		if (chunkHashes.length > 0) {
 			dataFile.addChunkHashes(chunkHashes);
 		}

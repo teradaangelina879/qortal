@@ -295,7 +295,7 @@ public class WebsiteResource {
                 byte[] chunkHashes = transactionData.getChunkHashes();
 
                 // Load data file(s)
-                DataFile dataFile = DataFile.fromDigest(digest);
+                DataFile dataFile = DataFile.fromHash(digest);
                 if (!dataFile.exists()) {
                     if (!dataFile.allChunksExist(chunkHashes)) {
                         // TODO: fetch them?
