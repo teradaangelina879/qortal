@@ -1,4 +1,10 @@
-# Qortal Project - Official Repo
+# Qortal Data Node
+
+## Important
+
+This code is unfinished, and we haven't had the official genesis block for the data chain yet.
+Therefore it is only possible to use this code if you first create your own test chain. I would
+highly recommend waiting until the code is in a more complete state before trying to run this.
 
 ## Build / run
 
