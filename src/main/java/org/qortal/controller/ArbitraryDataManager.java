@@ -53,9 +53,9 @@ public class ArbitraryDataManager extends Thread {
 	public Map<Integer, Triple<String, Peer, Long>> arbitraryDataFileListRequests = Collections.synchronizedMap(new HashMap<>());
 
 	/**
-	 * Array to keep track of in progress arbitrary data file requests
+	 * Map to keep track of in progress arbitrary data file requests
 	 */
-	private List<Object> arbitraryDataFileRequests = Collections.synchronizedList(new ArrayList<>());
+	private Map<String, Long> arbitraryDataFileRequests = Collections.synchronizedMap(new HashMap<>());
 
 	private ArbitraryDataManager() {
 	}
@@ -169,7 +169,7 @@ public class ArbitraryDataManager extends Thread {
 	private DataFile fetchArbitraryDataFile(Peer peer, byte[] hash) throws InterruptedException {
 		String hash58 = Base58.encode(hash);
 		LOGGER.info(String.format("Fetching data file %.8s from peer %s", hash58, peer));
-		arbitraryDataFileRequests.add(hash58);
+		arbitraryDataFileRequests.put(hash58, NTP.getTime());
 		Message getDataFileMessage = new GetDataFileMessage(hash);
 
 		Message message = peer.getResponse(getDataFileMessage);
@@ -187,8 +187,7 @@ public class ArbitraryDataManager extends Thread {
 	public void cleanupRequestCache(long now) {
 		final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
 		arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
-
-		// TODO: cleanup arbitraryDataFileRequests
+		arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() < requestMinimumTimestamp);
 	}
 
 
@@ -290,7 +289,7 @@ public class ArbitraryDataManager extends Thread {
 			for (byte[] hash : hashes) {
 				if (!dataFile.chunkExists(hash)) {
 					// Only request the file if we aren't already requesting it from someone else
-					if (!arbitraryDataFileRequests.contains(Base58.encode(hash))) {
+					if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
 						DataFile receivedDataFile = fetchArbitraryDataFile(peer, hash);
 						LOGGER.info("Received data file {} from peer {}", receivedDataFile, peer);
 					}
