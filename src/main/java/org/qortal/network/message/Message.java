@@ -86,7 +86,10 @@ public abstract class Message {
 		GET_BLOCKS(101),
 
 		DATA_FILE(110),
-		GET_DATA_FILE(111);
+		GET_DATA_FILE(111),
+
+		ARBITRARY_DATA_FILE_LIST(120),
+		GET_ARBITRARY_DATA_FILE_LIST(121);
 
 		public final int value;
 		public final Method fromByteBufferMethod;

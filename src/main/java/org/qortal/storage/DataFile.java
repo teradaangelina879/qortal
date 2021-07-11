@@ -372,8 +372,7 @@ public class DataFile {
                 return chunk.exists();
             }
         }
-        File file = new File(this.filePath);
-        return file.exists();
+        return false;
     }
 
     public boolean allChunksExist(byte[] chunks) {
@@ -387,6 +386,15 @@ public class DataFile {
             }
         }
         return true;
+    }
+
+    public boolean containsChunk(byte[] hash) {
+        for (DataFileChunk chunk : this.chunks) {
+            if (Arrays.equals(hash, chunk.getHash())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public long size() {
