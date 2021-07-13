@@ -1,5 +1,6 @@
 package org.qortal.transaction;
 
+import java.math.BigInteger;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,7 +29,9 @@ public class ArbitraryTransaction extends Transaction {
 	public static final int MAX_CHUNK_HASHES_LENGTH = 8000;
 	public static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	public static final int POW_DIFFICULTY = 10; // leading zero bits
+	public static final int POW_MIN_DIFFICULTY = 12; // leading zero bits
+	public static final int POW_MAX_DIFFICULTY = 19; // leading zero bits
+	public static final long MAX_FILE_SIZE = DataFile.MAX_FILE_SIZE;
 
 	// Constructors
 
@@ -65,7 +68,7 @@ public class ArbitraryTransaction extends Transaction {
 		// Clear nonce from transactionBytes
 		ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
-		int difficulty = POW_DIFFICULTY;
+		int difficulty = difficultyForFileSize(arbitraryTransactionData.getSize());
 
 		// Calculate nonce
 		this.arbitraryTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
@@ -155,7 +158,7 @@ public class ArbitraryTransaction extends Transaction {
 			// Clear nonce from transactionBytes
 			ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
-			int difficulty = POW_DIFFICULTY;
+			int difficulty = difficultyForFileSize(arbitraryTransactionData.getSize());
 
 			// Check nonce
 			return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
@@ -211,6 +214,15 @@ public class ArbitraryTransaction extends Transaction {
 
 		// TODO If not local, attempt to fetch via network?
 		return null;
+	}
+
+	// Helper methods
+
+	public int difficultyForFileSize(long size) {
+		final BigInteger powRange = BigInteger.valueOf(POW_MAX_DIFFICULTY - POW_MIN_DIFFICULTY);
+		final BigInteger multiplier = BigInteger.valueOf(100);
+		final BigInteger percentage = BigInteger.valueOf(size).multiply(multiplier).divide(BigInteger.valueOf(MAX_FILE_SIZE));
+		return POW_MIN_DIFFICULTY + powRange.multiply(percentage).divide(multiplier).intValue();
 	}
 
 }
