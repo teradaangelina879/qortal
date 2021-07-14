@@ -13,8 +13,9 @@ public class HTMLParser {
 
     private String linkPrefix;
 
-    public HTMLParser(String resourceId, boolean usePrefix) {
-        this.linkPrefix = usePrefix ? "/site/" + resourceId : "";
+    public HTMLParser(String resourceId, String inPath, boolean usePrefix) {
+        String inPathWithoutFilename = inPath.substring(0, inPath.lastIndexOf('/'));
+        this.linkPrefix = usePrefix ? String.format("/site/%s%s", resourceId, inPathWithoutFilename) : "";
     }
 
     /**

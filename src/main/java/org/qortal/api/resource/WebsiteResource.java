@@ -335,7 +335,7 @@ public class WebsiteResource {
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
-                HTMLParser htmlParser = new HTMLParser(resourceId, usePrefix);
+                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, usePrefix);
                 data = htmlParser.replaceRelativeLinks(filename, data);
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(data.length);
