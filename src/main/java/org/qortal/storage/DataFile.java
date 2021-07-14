@@ -43,7 +43,7 @@ public class DataFile {
 
     private static final Logger LOGGER = LogManager.getLogger(DataFile.class);
 
-    public static final long MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1GiB
+    public static final long MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MiB
     public static final int CHUNK_SIZE = 1 * 1024 * 1024; // 1MiB
     public static int SHORT_DIGEST_LENGTH = 8;
 
