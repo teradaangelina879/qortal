@@ -120,7 +120,7 @@ public class WebsiteResource {
             List<PaymentData> payments = new ArrayList<>();
 
             ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-                    5, 2, 0, size, digest, dataType, chunkHashes, payments);
+                    5, ArbitraryTransaction.SERVICE_WEBSITE, 0, size, digest, dataType, chunkHashes, payments);
 
             ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
             transaction.computeNonce();
