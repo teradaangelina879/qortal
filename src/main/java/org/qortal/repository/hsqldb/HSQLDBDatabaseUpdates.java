@@ -790,6 +790,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD secret VARBINARY(32)");
 					// We want to support compressed and uncompressed data, as well as different compression algorithms
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
+					break;
 
 				default:
 					// nothing to do
