@@ -114,19 +114,21 @@ public class WebsiteResource {
         
         try (final Repository repository = RepositoryManager.getRepository()) {
 
-            String creatorAddress = Crypto.toAddress(creatorPublicKey);
-            byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
+            final String creatorAddress = Crypto.toAddress(creatorPublicKey);
+            final byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
 
-            BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
+            final BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
                     lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
-            int size = (int)dataFile.size();
-            ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
-            byte[] digest = dataFile.digest();
-            byte[] chunkHashes = dataFile.chunkHashes();
-            List<PaymentData> payments = new ArrayList<>();
+            final int size = (int)dataFile.size();
+            final int version = 5;
+            final int nonce = 0;
+            final ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
+            final byte[] digest = dataFile.digest();
+            final byte[] chunkHashes = dataFile.chunkHashes();
+            final List<PaymentData> payments = new ArrayList<>();
 
             ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-                    5, service, 0, size, name, method,
+                    5, service, nonce, size, name, method,
                     secret, compression, digest, dataType, chunkHashes, payments);
 
             ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
