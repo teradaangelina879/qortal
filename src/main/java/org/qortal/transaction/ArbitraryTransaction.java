@@ -24,15 +24,6 @@ public class ArbitraryTransaction extends Transaction {
 	// Properties
 	private ArbitraryTransactionData arbitraryTransactionData;
 
-	// Services
-	public static final int SERVICE_AUTO_UPDATE = 1;
-	public static final int SERVICE_NAME_STORAGE = 10;
-	public static final int SERVICE_ARBITRARY_DATA = 100;
-	public static final int SERVICE_WEBSITE = 200;
-	public static final int SERVICE_GIT_REPOSITORY = 300;
-	public static final int SERVICE_BLOG_POST = 777;
-	public static final int SERVICE_BLOG_COMMENT = 778;
-
 	// Other useful constants
 	public static final int MAX_DATA_SIZE = 4000;
 	public static final int MAX_CHUNK_HASHES_LENGTH = 8000;

@@ -36,10 +36,14 @@ public class ArbitraryTransactionTests extends Common {
 
 			TestAccount alice = Common.getTestAccount(repository, "alice");
 			ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
+			ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.ARBITRARY_DATA;
+			ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
+			ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.NONE;
 			List<PaymentData> payments = new ArrayList<>();
 
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(TestTransaction.generateBase(alice),
-					5, ArbitraryTransaction.SERVICE_ARBITRARY_DATA, 0, 0, null, dataType, null, payments);
+					5, service, 0, 0, null, method,
+                    null, compression, null, dataType, null, payments);
 
 			ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
 			assertEquals(12, transaction.difficultyForFileSize(1));

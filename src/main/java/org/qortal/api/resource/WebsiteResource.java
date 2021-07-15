@@ -95,6 +95,12 @@ public class WebsiteResource {
         }
         byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
 
+        String name = null;
+        byte[] secret = null;
+        ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
+        ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.WEBSITE;
+        ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
+
         DataFile dataFile = this.hostWebsite(path);
         if (dataFile == null) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
@@ -120,7 +126,8 @@ public class WebsiteResource {
             List<PaymentData> payments = new ArrayList<>();
 
             ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-                    5, ArbitraryTransaction.SERVICE_WEBSITE, 0, size, digest, dataType, chunkHashes, payments);
+                    5, service, 0, size, name, method,
+                    secret, compression, digest, dataType, chunkHashes, payments);
 
             ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
             transaction.computeNonce();
@@ -318,7 +325,10 @@ public class WebsiteResource {
                 }
 
                 try {
-                    ZipUtils.unzip(dataFile.getFilePath(), destPath);
+                    // TODO: compression types
+                    //if (transactionData.getCompression() == ArbitraryTransactionData.Compression.ZIP) {
+                        ZipUtils.unzip(dataFile.getFilePath(), destPath);
+                    //}
                 } catch (IOException e) {
                     LOGGER.info("Unable to unzip file");
                 }

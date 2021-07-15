@@ -4,8 +4,6 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -781,9 +779,17 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD chunk_hashes ArbitraryDataHashes");
 					// For finding data files by hash
 					stmt.execute("CREATE INDEX ArbitraryDataIndex ON ArbitraryTransactions (is_data_raw, data)");
-
-					// TODO: resource ID, compression, layers
 					break;
+
+				case 35:
+					// We need the ability for arbitrary transactions to be associated with a name
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD name RegisteredName");
+					// A "method" specifies how the data should be applied (e.g. PUT or PATCH)
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD update_method INTEGER NOT NULL DEFAULT 0");
+					// For public data, the AES shared secret needs to be available. This is more for data obfuscation as apposed to actual encryption.
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD secret VARBINARY(32)");
+					// We want to support compressed and uncompressed data, as well as different compression algorithms
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
 
 				default:
 					// nothing to do

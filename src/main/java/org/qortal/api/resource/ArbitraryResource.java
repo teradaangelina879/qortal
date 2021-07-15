@@ -263,6 +263,12 @@ public class ArbitraryResource {
 		}
 		byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
 
+		String name = null;
+		byte[] secret = null;
+		ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
+		ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.ARBITRARY_DATA;
+		ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.NONE;
+
 		// Check if a file or directory has been supplied
 		File file = new File(path);
 		if (!file.isFile()) {
@@ -309,7 +315,8 @@ public class ArbitraryResource {
 			List<PaymentData> payments = new ArrayList<>();
 
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-					5, ArbitraryTransaction.SERVICE_ARBITRARY_DATA, 0, size, digest, dataType, chunkHashes, payments);
+					5, service, 0, size, name, method,
+					secret, compression, digest, dataType, chunkHashes, payments);
 
 			ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
 			transaction.computeNonce();

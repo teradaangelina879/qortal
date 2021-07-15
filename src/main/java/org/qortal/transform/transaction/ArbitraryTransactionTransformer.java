@@ -6,12 +6,14 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.common.base.Utf8;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
+import org.qortal.naming.Name;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -32,8 +34,12 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	private static final int RAW_DATA_SIZE_LENGTH = INT_LENGTH;
 	private static final int CHUNKS_SIZE_LENGTH = INT_LENGTH;
 	private static final int NUMBER_PAYMENTS_LENGTH = INT_LENGTH;
+	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
+	private static final int SECRET_LENGTH = AES256_LENGTH;
+	private static final int COMPRESSION_LENGTH = INT_LENGTH;
 
-	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + NONCE_LENGTH + DATA_TYPE_LENGTH + DATA_SIZE_LENGTH + RAW_DATA_SIZE_LENGTH + CHUNKS_SIZE_LENGTH;
+	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + NONCE_LENGTH + NAME_SIZE_LENGTH + SERVICE_LENGTH +
+			COMPRESSION_LENGTH + DATA_TYPE_LENGTH + DATA_SIZE_LENGTH + RAW_DATA_SIZE_LENGTH + CHUNKS_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -45,6 +51,11 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
 		layout.add("nonce", TransformationType.INT); // Version 5+
+
+		layout.add("name", TransformationType.DATA); // Version 5+
+		layout.add("method", TransformationType.INT); // Version 5+
+		layout.add("secret", TransformationType.DATA); // Version 5+
+		layout.add("compression", TransformationType.INT); // Version 5+
 
 		layout.add("number of payments", TransformationType.INT);
 		layout.add("* recipient", TransformationType.ADDRESS);
@@ -77,8 +88,22 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
 		int nonce = 0;
+		String name = null;
+		ArbitraryTransactionData.Method method = null;
+		byte[] secret = null;
+		ArbitraryTransactionData.Compression compression = null;
+
 		if (version >= 5) {
 			nonce = byteBuffer.getInt();
+
+			name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
+
+			method =  ArbitraryTransactionData.Method.valueOf(byteBuffer.getInt());
+
+			secret = new byte[SECRET_LENGTH];
+			byteBuffer.get(secret);
+
+			compression = ArbitraryTransactionData.Compression.valueOf(byteBuffer.getInt());
 		}
 
 		// Always return a list of payments, even if empty
@@ -90,7 +115,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 				payments.add(PaymentTransformer.fromByteBuffer(byteBuffer));
 		}
 
-		int service = byteBuffer.getInt();
+		ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.valueOf(byteBuffer.getInt());
 
 		// We might be receiving hash of data instead of actual raw data
 		boolean isRaw = byteBuffer.get() != 0;
@@ -124,16 +149,17 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
-		return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, data, dataType, chunkHashes, payments);
+		return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, name, method, secret, compression, data, dataType, chunkHashes, payments);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
+		int nameLength = Utf8.encodedLength(arbitraryTransactionData.getName());
 		int dataLength = (arbitraryTransactionData.getData() != null) ? arbitraryTransactionData.getData().length : 0;
 		int chunkHashesLength = (arbitraryTransactionData.getChunkHashes() != null) ? arbitraryTransactionData.getChunkHashes().length : 0;
 
-		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + dataLength + chunkHashesLength;
+		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + nameLength + dataLength + chunkHashesLength;
 
 		// Optional payments
 		length += NUMBER_PAYMENTS_LENGTH + arbitraryTransactionData.getPayments().size() * PaymentTransformer.getDataLength();
@@ -151,6 +177,14 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 			if (arbitraryTransactionData.getVersion() >= 5) {
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getNonce()));
+
+				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getName());
+
+				bytes.write(Ints.toByteArray(arbitraryTransactionData.getMethod().value));
+
+				bytes.write(arbitraryTransactionData.getSecret());
+
+				bytes.write(Ints.toByteArray(arbitraryTransactionData.getCompression().value));
 			}
 
 			List<PaymentData> payments = arbitraryTransactionData.getPayments();
@@ -159,7 +193,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			for (PaymentData paymentData : payments)
 				bytes.write(PaymentTransformer.toBytes(paymentData));
 
-			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService()));
+			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService().value));
 
 			bytes.write((byte) (arbitraryTransactionData.getDataType() == DataType.RAW_DATA ? 1 : 0));
 
@@ -204,6 +238,14 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 			if (arbitraryTransactionData.getVersion() >= 5) {
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getNonce()));
+
+				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getName());
+
+				bytes.write(Ints.toByteArray(arbitraryTransactionData.getMethod().value));
+
+				bytes.write(arbitraryTransactionData.getSecret());
+
+				bytes.write(Ints.toByteArray(arbitraryTransactionData.getCompression().value));
 			}
 
 			if (arbitraryTransactionData.getVersion() != 1) {
@@ -214,7 +256,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 					bytes.write(PaymentTransformer.toBytes(paymentData));
 			}
 
-			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService()));
+			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService().value));
 
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getData().length));
 
