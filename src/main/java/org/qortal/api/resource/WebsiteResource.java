@@ -63,6 +63,11 @@ public class WebsiteResource {
 
     private static final Logger LOGGER = LogManager.getLogger(WebsiteResource.class);
 
+    public enum ResourceIdType {
+        SIGNATURE,
+        FILE_HASH
+    };
+
     @Context HttpServletRequest request;
     @Context HttpServletResponse response;
     @Context ServletContext context;
@@ -199,7 +204,7 @@ public class WebsiteResource {
         if (dataFile != null) {
             String digest58 = dataFile.digest58();
             if (digest58 != null) {
-                return "http://localhost:12393/site/" + digest58;
+                return "http://localhost:12393/site/hash/" + digest58 + "?secret=" + Base58.encode(dataFile.getSecret());
             }
         }
         return "Unable to generate preview URL";
@@ -277,38 +282,51 @@ public class WebsiteResource {
     }
 
     @GET
-    @Path("{resource}")
-    public HttpServletResponse getResourceIndex(@PathParam("resource") String resourceId) {
-        return this.get(resourceId, "/", true);
+    @Path("{signature}")
+    public HttpServletResponse getIndexBySignature(@PathParam("signature") String signature) {
+        return this.get(signature, ResourceIdType.SIGNATURE, "/", null,true);
     }
 
     @GET
-    @Path("{resource}/{path:.*}")
-    public HttpServletResponse getResourcePath(@PathParam("resource") String resourceId, @PathParam("path") String inPath) {
-        return this.get(resourceId, inPath, true);
+    @Path("{signature}/{path:.*}")
+    public HttpServletResponse getPathBySignature(@PathParam("signature") String signature, @PathParam("path") String inPath) {
+        return this.get(signature, ResourceIdType.SIGNATURE, inPath,null,true);
+    }
+
+    @GET
+    @Path("/hash/{hash}")
+    public HttpServletResponse getIndexByHash(@PathParam("hash") String hash58, @QueryParam("secret") String secret58) {
+        return this.get(hash58, ResourceIdType.FILE_HASH, "/", secret58,true);
+    }
+
+    @GET
+    @Path("/hash/{hash}/{path:.*}")
+    public HttpServletResponse getPathByHash(@PathParam("hash") String hash58, @PathParam("path") String inPath,
+                                             @QueryParam("secret") String secret58) {
+        return this.get(hash58, ResourceIdType.FILE_HASH, inPath, secret58,true);
     }
 
     @GET
     @Path("/domainmap")
-    public HttpServletResponse getDomainMapIndex() {
-        Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
-        if (domainMap != null && domainMap.containsKey(request.getServerName())) {
-            return this.get(domainMap.get(request.getServerName()), "/", false);
-        }
-        return this.get404Response();
+    public HttpServletResponse getIndexByDomainMap() {
+        return this.getDomainMap("/");
     }
 
     @GET
     @Path("/domainmap/{path:.*}")
-    public HttpServletResponse getDomainMapPath(@PathParam("path") String inPath) {
+    public HttpServletResponse getPathByDomainMap(@PathParam("path") String inPath) {
+        return this.getDomainMap(inPath);
+    }
+
+    private HttpServletResponse getDomainMap(String inPath) {
         Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
         if (domainMap != null && domainMap.containsKey(request.getServerName())) {
-            return this.get(domainMap.get(request.getServerName()), inPath, false);
+            return this.get(domainMap.get(request.getServerName()), ResourceIdType.SIGNATURE, inPath, null, false);
         }
         return this.get404Response();
     }
 
-    private HttpServletResponse get(String resourceId, String inPath, boolean usePrefix) {
+    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, String inPath, String secret58, boolean usePrefix) {
         if (!inPath.startsWith(File.separator)) {
             inPath = File.separator + inPath;
         }
@@ -322,29 +340,41 @@ public class WebsiteResource {
 
             // Load the full transaction data so we can access the file hashes
             try (final Repository repository = RepositoryManager.getRepository()) {
+                DataFile dataFile = null;
+                byte[] digest = null;
+                byte[] secret = null;
 
-                ArbitraryTransactionData transactionData = (ArbitraryTransactionData) repository.getTransactionRepository().fromSignature(Base58.decode(resourceId));
-                if (!(transactionData instanceof ArbitraryTransactionData)) {
-                    return this.get404Response();
-                }
-
-                // Load hashes
-                byte[] digest = transactionData.getData();
-                byte[] chunkHashes = transactionData.getChunkHashes();
-
-                // Load secret
-                byte[] secret = transactionData.getSecret();
-
-                // Load data file(s)
-                DataFile dataFile = DataFile.fromHash(digest);
-                if (!dataFile.exists()) {
-                    if (!dataFile.allChunksExist(chunkHashes)) {
-                        // TODO: fetch them?
+                if (resourceIdType == ResourceIdType.SIGNATURE) {
+                    ArbitraryTransactionData transactionData = (ArbitraryTransactionData) repository.getTransactionRepository().fromSignature(Base58.decode(resourceId));
+                    if (!(transactionData instanceof ArbitraryTransactionData)) {
                         return this.get404Response();
                     }
-                    // We have all the chunks but not the complete file, so join them
-                    dataFile.addChunkHashes(chunkHashes);
-                    dataFile.join();
+
+                    // Load hashes
+                    digest = transactionData.getData();
+                    byte[] chunkHashes = transactionData.getChunkHashes();
+
+                    // Load secret
+                    secret = transactionData.getSecret();
+
+                    // Load data file(s)
+                    dataFile = DataFile.fromHash(digest);
+                    if (!dataFile.exists()) {
+                        if (!dataFile.allChunksExist(chunkHashes)) {
+                            // TODO: fetch them?
+                            return this.get404Response();
+                        }
+                        // We have all the chunks but not the complete file, so join them
+                        dataFile.addChunkHashes(chunkHashes);
+                        dataFile.join();
+                    }
+
+
+                }
+                else if (resourceIdType == ResourceIdType.FILE_HASH) {
+                    dataFile = DataFile.fromHash58(resourceId);
+                    digest = Base58.decode(resourceId);
+                    secret = secret58 != null ? Base58.decode(secret58) : null;
                 }
 
                 // If the complete file still doesn't exist then something went wrong
