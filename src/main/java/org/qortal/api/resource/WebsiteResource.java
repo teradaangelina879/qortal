@@ -436,7 +436,7 @@ public class WebsiteResource {
                 FileInputStream inputStream = new FileInputStream(file);
                 response.setContentType(context.getMimeType(filename));
                 int bytesRead, length = 0;
-                byte[] buffer = new byte[1024];
+                byte[] buffer = new byte[10240];
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     response.getOutputStream().write(buffer, 0, bytesRead);
                     length += bytesRead;
