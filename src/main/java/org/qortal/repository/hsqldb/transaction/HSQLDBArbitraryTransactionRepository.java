@@ -59,12 +59,12 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ArbitraryTransactions");
 
 		saveHelper.bind("signature", arbitraryTransactionData.getSignature()).bind("sender", arbitraryTransactionData.getSenderPublicKey())
-				.bind("version", arbitraryTransactionData.getVersion()).bind("service", arbitraryTransactionData.getService())
+				.bind("version", arbitraryTransactionData.getVersion()).bind("service", arbitraryTransactionData.getService().value)
 				.bind("nonce", arbitraryTransactionData.getNonce()).bind("size", arbitraryTransactionData.getSize())
 				.bind("is_data_raw", arbitraryTransactionData.getDataType() == DataType.RAW_DATA).bind("data", arbitraryTransactionData.getData())
 				.bind("chunk_hashes", arbitraryTransactionData.getChunkHashes()).bind("name", arbitraryTransactionData.getName())
-				.bind("method", arbitraryTransactionData.getMethod()).bind("secret", arbitraryTransactionData.getSecret())
-				.bind("compression", arbitraryTransactionData.getCompression());
+				.bind("update_method", arbitraryTransactionData.getMethod().value).bind("secret", arbitraryTransactionData.getSecret())
+				.bind("compression", arbitraryTransactionData.getCompression().value);
 
 		try {
 			saveHelper.execute(this.repository);
