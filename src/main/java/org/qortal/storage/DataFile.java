@@ -50,6 +50,7 @@ public class DataFile {
     protected String filePath;
     protected String hash58;
     private ArrayList<DataFileChunk> chunks;
+    private byte[] secret;
 
     public DataFile() {
     }
@@ -498,6 +499,14 @@ public class DataFile {
             }
         }
         return outputString;
+    }
+
+    public void setSecret(byte[] secret) {
+        this.secret = secret;
+    }
+
+    public byte[] getSecret() {
+        return this.secret;
     }
 
     @Override

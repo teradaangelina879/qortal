@@ -2,6 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2017 Eugen Paraschiv
+ * Modified in 2021 by CalDescent
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -93,15 +94,24 @@ public class AES {
         return new IvParameterSpec(iv);
     }
 
-    public static void encryptFile(String algorithm, SecretKey key, IvParameterSpec iv,
-                                   File inputFile, File outputFile) throws IOException, NoSuchPaddingException,
-            NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
+    public static void encryptFile(String algorithm, SecretKey key,
+                                   String inputFilePath, String outputFilePath) throws IOException,
+            NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
             BadPaddingException, IllegalBlockSizeException {
+
+        File inputFile = new File(inputFilePath);
+        File outputFile = new File(outputFilePath);
+
+        IvParameterSpec iv = AES.generateIv();
         Cipher cipher = Cipher.getInstance(algorithm);
         cipher.init(Cipher.ENCRYPT_MODE, key, iv);
         FileInputStream inputStream = new FileInputStream(inputFile);
         FileOutputStream outputStream = new FileOutputStream(outputFile);
-        byte[] buffer = new byte[64];
+
+        // Prepend the output stream with the 16 byte initialization vector
+        outputStream.write(iv.getIV());
+
+        byte[] buffer = new byte[1024];
         int bytesRead;
         while ((bytesRead = inputStream.read(buffer)) != -1) {
             byte[] output = cipher.update(buffer, 0, bytesRead);
@@ -117,14 +127,28 @@ public class AES {
         outputStream.close();
     }
 
-    public static void decryptFile(String algorithm, SecretKey key, IvParameterSpec iv,
-                                   File encryptedFile, File decryptedFile) throws IOException, NoSuchPaddingException,
+    public static void decryptFile(String algorithm, SecretKey key, String encryptedFilePath,
+                                   String decryptedFilePath) throws IOException, NoSuchPaddingException,
             NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException,
             BadPaddingException, IllegalBlockSizeException {
-        Cipher cipher = Cipher.getInstance(algorithm);
-        cipher.init(Cipher.DECRYPT_MODE, key, iv);
+
+        File encryptedFile = new File(encryptedFilePath);
+        File decryptedFile = new File(decryptedFilePath);
+
+        File parent = decryptedFile.getParentFile();
+        if (!parent.isDirectory() && !parent.mkdirs()) {
+            throw new IOException("Failed to create directory " + parent);
+        }
+
         FileInputStream inputStream = new FileInputStream(encryptedFile);
         FileOutputStream outputStream = new FileOutputStream(decryptedFile);
+
+        // Read the initialization vector from the first 16 bytes of the file
+        byte[] iv = new byte[16];
+        inputStream.read(iv);
+        Cipher cipher = Cipher.getInstance(algorithm);
+        cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
+
         byte[] buffer = new byte[64];
         int bytesRead;
         while ((bytesRead = inputStream.read(buffer)) != -1) {

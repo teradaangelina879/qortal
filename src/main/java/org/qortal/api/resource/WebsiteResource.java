@@ -1,5 +1,10 @@
 package org.qortal.api.resource;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -9,6 +14,9 @@ import javax.ws.rs.core.MediaType;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -28,6 +36,7 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.HTMLParser;
 import org.qortal.api.Security;
 import org.qortal.block.BlockChain;
+import org.qortal.crypto.AES;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -41,6 +50,7 @@ import org.qortal.storage.DataFile;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
+import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
@@ -96,7 +106,6 @@ public class WebsiteResource {
         byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
 
         String name = null;
-        byte[] secret = null;
         ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
         ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.WEBSITE;
         ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
@@ -122,13 +131,14 @@ public class WebsiteResource {
             final int size = (int)dataFile.size();
             final int version = 5;
             final int nonce = 0;
+            byte[] secret = dataFile.getSecret();
             final ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
             final byte[] digest = dataFile.digest();
             final byte[] chunkHashes = dataFile.chunkHashes();
             final List<PaymentData> payments = new ArrayList<>();
 
             ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-                    5, service, nonce, size, name, method,
+                    version, service, nonce, size, name, method,
                     secret, compression, digest, dataType, chunkHashes, payments);
 
             ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
@@ -214,16 +224,29 @@ public class WebsiteResource {
         }
 
         // Firstly zip up the directory
-        String outputFilePath = tempDir.toString() + File.separator + "zipped.zip";
+        String zipOutputFilePath = tempDir.toString() + File.separator + "zipped.zip";
         try {
-            ZipUtils.zip(directoryPath, outputFilePath, "data");
+            ZipUtils.zip(directoryPath, zipOutputFilePath, "data");
         } catch (IOException e) {
             LOGGER.info("Unable to zip directory", e);
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
 
+        // Next, encrypt the file with AES
+        String encryptedFilePath = tempDir.toString() + File.separator + "zipped_encrypted.zip";
+        SecretKey aesKey;
         try {
-            DataFile dataFile = DataFile.fromPath(outputFilePath);
+            aesKey = AES.generateKey(256);
+            AES.encryptFile("AES", aesKey, zipOutputFilePath, encryptedFilePath);
+            Files.delete(Paths.get(zipOutputFilePath));
+        } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
+                | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR);
+        }
+
+        try {
+            DataFile dataFile = DataFile.fromPath(encryptedFilePath);
+            dataFile.setSecret(aesKey.getEncoded());
             DataFile.ValidationResult validationResult = dataFile.isValid();
             if (validationResult != DataFile.ValidationResult.OK) {
                 LOGGER.error("Invalid file: {}", validationResult);
@@ -241,10 +264,14 @@ public class WebsiteResource {
             return null;
         }
         finally {
-            // Clean up by deleting the zipped file
-            File zippedFile = new File(outputFilePath);
+            // Clean up
+            File zippedFile = new File(zipOutputFilePath);
             if (zippedFile.exists()) {
                 zippedFile.delete();
+            }
+            File encryptedFile = new File(encryptedFilePath);
+            if (encryptedFile.exists()) {
+                encryptedFile.delete();
             }
         }
     }
@@ -288,6 +315,7 @@ public class WebsiteResource {
 
         String tempDirectory = System.getProperty("java.io.tmpdir");
         String destPath = tempDirectory + File.separator  + "qortal-sites" + File.separator + resourceId;
+        String unencryptedPath = destPath + File.separator + "zipped.zip";
         String unzippedPath = destPath + File.separator + "data";
 
         if (!Files.exists(Paths.get(unzippedPath))) {
@@ -303,6 +331,9 @@ public class WebsiteResource {
                 // Load hashes
                 byte[] digest = transactionData.getData();
                 byte[] chunkHashes = transactionData.getChunkHashes();
+
+                // Load secret
+                byte[] secret = transactionData.getSecret();
 
                 // Load data file(s)
                 DataFile dataFile = DataFile.fromHash(digest);
@@ -326,10 +357,26 @@ public class WebsiteResource {
                     return this.get404Response();
                 }
 
+                // Decrypt if we have the secret key.
+                if (secret != null && secret.length == Transformer.AES256_LENGTH) {
+                    try {
+                        SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
+                        AES.decryptFile("AES", aesKey, dataFile.getFilePath(), unencryptedPath);
+                    } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
+                            | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
+                        return this.get404Response();
+                    }
+                }
+                else {
+                    // Assume it is unencrypted. We may block this.
+                    unencryptedPath = dataFile.getFilePath();
+                }
+
+                // Unzip
                 try {
                     // TODO: compression types
                     //if (transactionData.getCompression() == ArbitraryTransactionData.Compression.ZIP) {
-                        ZipUtils.unzip(dataFile.getFilePath(), destPath);
+                        ZipUtils.unzip(unencryptedPath, destPath);
                     //}
                 } catch (IOException e) {
                     LOGGER.info("Unable to unzip file");

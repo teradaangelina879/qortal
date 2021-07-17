@@ -276,7 +276,6 @@ public class HSQLDBDatabaseUpdates {
 							+ "service SMALLINT NOT NULL, is_data_raw BOOLEAN NOT NULL, data ArbitraryData NOT NULL, "
 							+ TRANSACTION_KEYS + ")");
 					// NB: Actual data payload stored elsewhere
-					// For the future: data payload should be encrypted, at the very least with transaction's reference as the seed for the encryption key
 					break;
 
 				case 8:
