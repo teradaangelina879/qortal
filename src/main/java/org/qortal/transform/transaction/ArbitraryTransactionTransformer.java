@@ -35,7 +35,6 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	private static final int CHUNKS_SIZE_LENGTH = INT_LENGTH;
 	private static final int NUMBER_PAYMENTS_LENGTH = INT_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
-	private static final int SECRET_LENGTH = AES256_LENGTH;
 	private static final int COMPRESSION_LENGTH = INT_LENGTH;
 
 	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + NONCE_LENGTH + NAME_SIZE_LENGTH + SERVICE_LENGTH +
@@ -54,6 +53,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		layout.add("name", TransformationType.DATA); // Version 5+
 		layout.add("method", TransformationType.INT); // Version 5+
+		layout.add("secret length", TransformationType.INT); // Version 5+
 		layout.add("secret", TransformationType.DATA); // Version 5+
 		layout.add("compression", TransformationType.INT); // Version 5+
 
@@ -100,8 +100,12 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 			method =  ArbitraryTransactionData.Method.valueOf(byteBuffer.getInt());
 
-			secret = new byte[SECRET_LENGTH];
-			byteBuffer.get(secret);
+			int secretLength = byteBuffer.getInt();
+
+			if (secretLength > 0) {
+				secret = new byte[secretLength];
+				byteBuffer.get(secret);
+			}
 
 			compression = ArbitraryTransactionData.Compression.valueOf(byteBuffer.getInt());
 		}
@@ -136,10 +140,12 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		if (version >= 5) {
 			size = byteBuffer.getInt();
 
-			int chunkHashesSize = byteBuffer.getInt();
+			int chunkHashesLength = byteBuffer.getInt();
 
-			chunkHashes = new byte[chunkHashesSize];
-			byteBuffer.get(chunkHashes);
+			if (chunkHashesLength > 0) {
+				chunkHashes = new byte[chunkHashesLength];
+				byteBuffer.get(chunkHashes);
+			}
 		}
 
 		long fee = byteBuffer.getLong();
@@ -182,7 +188,13 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getMethod().value));
 
-				bytes.write(arbitraryTransactionData.getSecret());
+				byte[] secret = arbitraryTransactionData.getSecret();
+				int secretLength = (secret != null) ? secret.length : 0;
+				bytes.write(Ints.toByteArray(secretLength));
+
+				if (secretLength > 0) {
+					bytes.write(secret);
+				}
 
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getCompression().value));
 			}
@@ -207,7 +219,9 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 				int chunkHashesLength = (chunkHashes != null) ? chunkHashes.length : 0;
 				bytes.write(Ints.toByteArray(chunkHashesLength));
 
-				bytes.write(arbitraryTransactionData.getChunkHashes());
+				if (chunkHashesLength > 0) {
+					bytes.write(arbitraryTransactionData.getChunkHashes());
+				}
 			}
 
 			bytes.write(Longs.toByteArray(arbitraryTransactionData.getFee()));
@@ -243,7 +257,13 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getMethod().value));
 
-				bytes.write(arbitraryTransactionData.getSecret());
+				byte[] secret = arbitraryTransactionData.getSecret();
+				int secretLength = (secret != null) ? secret.length : 0;
+				bytes.write(Ints.toByteArray(secretLength));
+
+				if (secretLength > 0) {
+					bytes.write(secret);
+				}
 
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getCompression().value));
 			}
@@ -278,7 +298,9 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 				int chunkHashesLength = (chunkHashes != null) ? chunkHashes.length : 0;
 				bytes.write(Ints.toByteArray(chunkHashesLength));
 
-				bytes.write(arbitraryTransactionData.getChunkHashes());
+				if (chunkHashesLength > 0) {
+					bytes.write(arbitraryTransactionData.getChunkHashes());
+				}
 			}
 
 			bytes.write(Longs.toByteArray(arbitraryTransactionData.getFee()));
