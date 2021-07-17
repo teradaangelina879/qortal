@@ -78,9 +78,15 @@ public class HTMLParser {
                     }
                 }
             }
-            return document.html().getBytes();
+            String html = document.html();
+            html = this.replaceAmpersands(html);
+            return html.getBytes();
         }
         return data;
+    }
+
+    private String replaceAmpersands(String html) {
+        return html.replace("&amp;", "&");
     }
 
     private boolean shouldReplaceLink(String elementHtml) {
