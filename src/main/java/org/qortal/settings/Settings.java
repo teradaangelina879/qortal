@@ -23,6 +23,7 @@ import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.block.BlockChain;
 import org.qortal.crosschain.Bitcoin.BitcoinNet;
 import org.qortal.crosschain.Litecoin.LitecoinNet;
+import org.qortal.crosschain.Dogecoin.DogecoinNet;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -141,6 +142,7 @@ public class Settings {
 	private String blockchainConfig = null; // use default from resources
 	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
 	private LitecoinNet litecoinNet = LitecoinNet.MAIN;
+	private DogecoinNet dogecoinNet = DogecoinNet.MAIN;
 	// Also crosschain-related:
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
@@ -442,6 +444,10 @@ public class Settings {
 
 	public LitecoinNet getLitecoinNet() {
 		return this.litecoinNet;
+	}
+
+	public DogecoinNet getDogecoinNet() {
+		return this.dogecoinNet;
 	}
 
 	public boolean isTradebotSystrayEnabled() {

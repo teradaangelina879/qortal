@@ -518,6 +518,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			}
 
 			// Failed to perform RPC - maybe lack of servers?
+			LOGGER.info("Error: No connected Electrum servers when trying to make RPC call");
 			throw new ForeignBlockchainException.NetworkException(String.format("Failed to perform ElectrumX RPC %s", method));
 		}
 	}
