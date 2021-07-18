@@ -63,4 +63,4 @@ printf "{\n}\n" > ${build_dir}/settings.json
 gtouch -d ${commit_ts%%+??:??} ${build_dir} ${build_dir}/*
 
 rm -f ${saved_pwd}/${project}.zip
-(cd ${build_dir}/..; 7z a -r -tzip ${saved_pwd}/${project}-${git_tag#v}.zip ${project}/)
+(cd ${build_dir}/..; 7z a -r -tzip ${saved_pwd}/${project}.zip ${project}/)
