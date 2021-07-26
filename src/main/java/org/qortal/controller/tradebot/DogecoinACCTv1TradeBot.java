@@ -194,7 +194,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 				creator.getAddress(), atAddress, timestamp, tradeBotCreateRequest.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				null, null,
-				SupportedBlockchain.LITECOIN.name(),
+				SupportedBlockchain.DOGECOIN.name(),
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				tradeBotCreateRequest.foreignAmount, null, null, null, dogecoinReceivingAccountInfo);
 
@@ -271,7 +271,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 				receivingAddress, crossChainTradeData.qortalAtAddress, now, crossChainTradeData.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				secretA, hashOfSecretA,
-				SupportedBlockchain.LITECOIN.name(),
+				SupportedBlockchain.DOGECOIN.name(),
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				crossChainTradeData.expectedForeignAmount, xprv58, null, lockTimeA, receivingPublicKeyHash);
 

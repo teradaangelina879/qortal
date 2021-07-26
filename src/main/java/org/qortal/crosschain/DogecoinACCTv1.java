@@ -587,7 +587,7 @@ public class DogecoinACCTv1 implements ACCT {
 
 		CrossChainTradeData tradeData = new CrossChainTradeData();
 
-		tradeData.foreignBlockchain = SupportedBlockchain.LITECOIN.name();
+		tradeData.foreignBlockchain = SupportedBlockchain.DOGECOIN.name();
 		tradeData.acctName = NAME;
 
 		tradeData.qortalAtAddress = atAddress;
