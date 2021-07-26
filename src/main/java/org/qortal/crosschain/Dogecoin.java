@@ -19,11 +19,11 @@ public class Dogecoin extends Bitcoiny {
 
 	public static final String CURRENCY_CODE = "DOGE";
 
-	private static final Coin DEFAULT_FEE_PER_KB = Coin.valueOf(10000); // 0.0001 LTC per 1000 bytes
+	private static final Coin DEFAULT_FEE_PER_KB = Coin.valueOf(500000000); // 5 DOGE per 1000 bytes
 
 	// Temporary values until a dynamic fee system is written.
-	private static final long MAINNET_FEE = 1000L;
-	private static final long NON_MAINNET_FEE = 1000L; // enough for TESTNET3 and should be OK for REGTEST
+	private static final long MAINNET_FEE = 110000000L;
+	private static final long NON_MAINNET_FEE = 10000L; // TODO: calibrate this
 
 	private static final Map<ConnectionType, Integer> DEFAULT_ELECTRUMX_PORTS = new EnumMap<>(ConnectionType.class);
 	static {
@@ -145,14 +145,13 @@ public class Dogecoin extends Bitcoiny {
 
 	// Actual useful methods for use by other classes
 
-	/** Default Dogecoin fee is lower than Bitcoin: only 10sats/byte. */
 	@Override
 	public Coin getFeePerKb() {
 		return DEFAULT_FEE_PER_KB;
 	}
 
 	/**
-	 * Returns estimated LTC fee, in sats per 1000bytes, optionally for historic timestamp.
+	 * Returns estimated DOGE fee, in sats per 1000bytes, optionally for historic timestamp.
 	 * 
 	 * @param timestamp optional milliseconds since epoch, or null for 'now'
 	 * @return sats per 1000bytes, or throws ForeignBlockchainException if something went wrong
