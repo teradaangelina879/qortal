@@ -169,6 +169,11 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return this.bitcoinjContext.getFeePerKb();
 	}
 
+	/** Returns minimum order size in sats. To be overridden for coins that need to restrict order size. */
+	public long getMinimumOrderAmount() {
+		return 0L;
+	}
+
 	/**
 	 * Returns fixed P2SH spending fee, in sats per 1000bytes, optionally for historic timestamp.
 	 *
