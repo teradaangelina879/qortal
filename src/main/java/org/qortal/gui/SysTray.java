@@ -289,6 +289,25 @@ public class SysTray {
 			this.trayIcon.setToolTip(text);
 	}
 
+	public void setTrayIcon(int iconid) {
+		if (trayIcon != null) {
+			switch (iconid) {
+				case 1:
+					this.trayIcon.setImage(Gui.loadImage("icons/icon32c.png"));
+					break;
+				case 2:
+					this.trayIcon.setImage(Gui.loadImage("icons/icon32m.png"));
+					break;
+				case 3:
+					this.trayIcon.setImage(Gui.loadImage("icons/icon32n.png"));
+					break;
+				case 4:
+					this.trayIcon.setImage(Gui.loadImage("icons/icon32.png"));
+					break;
+			}
+		}
+	}
+
 	public void dispose() {
 		if (trayIcon != null)
 			SystemTray.getSystemTray().remove(this.trayIcon);

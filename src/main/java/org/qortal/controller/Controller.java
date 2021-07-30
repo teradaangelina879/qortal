@@ -854,6 +854,7 @@ public class Controller extends Thread {
 	private void updateSysTray() {
 		if (NTP.getTime() == null) {
 			SysTray.getInstance().setToolTipText(Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_CLOCK"));
+			SysTray.getInstance().setTrayIcon(1);
 			return;
 		}
 
@@ -867,14 +868,22 @@ public class Controller extends Thread {
 		String actionText;
 
 		synchronized (this.syncLock) {
-			if (this.isMintingPossible)
+			if (this.isMintingPossible) {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
-			else if (this.isSynchronizing)
+				SysTray.getInstance().setTrayIcon(2);
+			}
+			else if (this.isSynchronizing) {
 				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), this.syncPercent);
-			else if (numberOfPeers < Settings.getInstance().getMinBlockchainPeers())
+				SysTray.getInstance().setTrayIcon(3);
+			}
+			else if (numberOfPeers < Settings.getInstance().getMinBlockchainPeers()) {
 				actionText = Translator.INSTANCE.translate("SysTray", "CONNECTING");
-			else
+				SysTray.getInstance().setTrayIcon(3);
+			}
+			else {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_DISABLED");
+				SysTray.getInstance().setTrayIcon(4);
+			}
 		}
 
 		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height) + "\n" + String.format("Build version: %s", this.buildVersion);
