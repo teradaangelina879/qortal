@@ -47,12 +47,12 @@ public class SplashFrame {
 
 		List<Image> icons = new ArrayList<>();
 		icons.add(Gui.loadImage("icons/icon16.png"));
-		icons.add(Gui.loadImage("icons/icon32.png"));
-		icons.add(Gui.loadImage("icons/icon32c.png"));
-		icons.add(Gui.loadImage("icons/icon32m.png"));
-		icons.add(Gui.loadImage("icons/icon32n.png"));
+		icons.add(Gui.loadImage("icons/qortal_ui_tray_synced.png"));
+		icons.add(Gui.loadImage("icons/qortal_ui_tray_syncing_time-alt.png"));
+		icons.add(Gui.loadImage("icons/qortal_ui_tray_minting.png"));
+		icons.add(Gui.loadImage("icons/qortal_ui_tray_syncing.png"));
 		icons.add(Gui.loadImage("icons/icon64.png"));
-		icons.add(Gui.loadImage("icons/icon128.png"));
+		icons.add(Gui.loadImage("icons/Qlogo_128.png"));
 		this.splashDialog.setIconImages(icons);
 
 		this.splashDialog.getContentPane().add(new SplashPanel());
