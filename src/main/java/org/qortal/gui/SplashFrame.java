@@ -1,15 +1,11 @@
 package org.qortal.gui;
 
-import java.awt.BorderLayout;
-import java.awt.Image;
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.awt.Dimension;
-import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 
-import javax.swing.JDialog;
-import javax.swing.JPanel;
+import javax.swing.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,46 +15,53 @@ public class SplashFrame {
 	protected static final Logger LOGGER = LogManager.getLogger(SplashFrame.class);
 
 	private static SplashFrame instance;
-	private JDialog splashDialog;
+	private JFrame splashDialog;
 
 	@SuppressWarnings("serial")
 	public static class SplashPanel extends JPanel {
 		private BufferedImage image;
 
+		private String defaultSplash = "Qlogo_512.png";
+
 		public SplashPanel() {
-			image = Gui.loadImage("splash.png");
-			this.setPreferredSize(new Dimension(image.getWidth(), image.getHeight()));
-			this.setLayout(new BorderLayout());
+			image = Gui.loadImage(defaultSplash);
+
+			setOpaque(false);
+			setLayout(new GridBagLayout());
 		}
 
 		@Override
 		protected void paintComponent(Graphics g) {
 			super.paintComponent(g);
-			g.drawImage(image, 0, 0, null);
+			g.drawImage(image, 0, 0, getWidth(), getHeight(), this);
+		}
+
+		@Override
+		public Dimension getPreferredSize() {
+			return new Dimension(500, 500);
 		}
 	}
 
 	private SplashFrame() {
-		this.splashDialog = new JDialog();
+		this.splashDialog = new JFrame();
 
 		List<Image> icons = new ArrayList<>();
 		icons.add(Gui.loadImage("icons/icon16.png"));
 		icons.add(Gui.loadImage("icons/icon32.png"));
+		icons.add(Gui.loadImage("icons/icon32c.png"));
+		icons.add(Gui.loadImage("icons/icon32m.png"));
+		icons.add(Gui.loadImage("icons/icon32n.png"));
 		icons.add(Gui.loadImage("icons/icon64.png"));
 		icons.add(Gui.loadImage("icons/icon128.png"));
 		this.splashDialog.setIconImages(icons);
 
-		this.splashDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
-		this.splashDialog.setTitle("qortal");
-		this.splashDialog.setContentPane(new SplashPanel());
-
+		this.splashDialog.getContentPane().add(new SplashPanel());
+		this.splashDialog.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.splashDialog.setUndecorated(true);
-		this.splashDialog.setModal(false);
 		this.splashDialog.pack();
 		this.splashDialog.setLocationRelativeTo(null);
-		this.splashDialog.toFront();
+		this.splashDialog.setBackground(new Color(0,0,0,0));
 		this.splashDialog.setVisible(true);
-		this.splashDialog.repaint();
 	}
 
 	public static SplashFrame getInstance() {
