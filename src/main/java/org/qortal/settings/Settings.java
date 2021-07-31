@@ -24,6 +24,8 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.block.BlockChain;
+import org.qortal.crosschain.Bitcoin.BitcoinNet;
+import org.qortal.crosschain.Litecoin.LitecoinNet;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -155,6 +157,8 @@ public class Settings {
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
+	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
+	private LitecoinNet litecoinNet = LitecoinNet.MAIN;
 	// Also crosschain-related:
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
@@ -505,6 +509,14 @@ public class Settings {
 
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;
+	}
+
+	public BitcoinNet getBitcoinNet() {
+		return this.bitcoinNet;
+	}
+
+	public LitecoinNet getLitecoinNet() {
+		return this.litecoinNet;
 	}
 
 	public boolean isTradebotSystrayEnabled() {

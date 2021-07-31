@@ -28,6 +28,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.globalization.Translator;
 import org.qortal.gui.SysTray;
 import org.qortal.repository.ATRepository;
@@ -36,6 +37,7 @@ import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.AssetRepository;
 import org.qortal.repository.BlockRepository;
 import org.qortal.repository.ChatRepository;
+import org.qortal.repository.CrossChainRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.MessageRepository;
@@ -74,6 +76,7 @@ public class HSQLDBRepository implements Repository {
 	private final AssetRepository assetRepository = new HSQLDBAssetRepository(this);
 	private final BlockRepository blockRepository = new HSQLDBBlockRepository(this);
 	private final ChatRepository chatRepository = new HSQLDBChatRepository(this);
+	private final CrossChainRepository crossChainRepository = new HSQLDBCrossChainRepository(this);
 	private final GroupRepository groupRepository = new HSQLDBGroupRepository(this);
 	private final MessageRepository messageRepository = new HSQLDBMessageRepository(this);
 	private final NameRepository nameRepository = new HSQLDBNameRepository(this);
@@ -142,6 +145,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public ChatRepository getChatRepository() {
 		return this.chatRepository;
+	}
+
+	@Override
+	public CrossChainRepository getCrossChainRepository() {
+		return this.crossChainRepository;
 	}
 
 	@Override
@@ -450,12 +458,68 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void exportNodeLocalData() throws DataException {
-		// TODO
+		// Create the qortal-backup folder if it doesn't exist
+		Path backupPath = Paths.get("qortal-backup");
+		try {
+			Files.createDirectories(backupPath);
+		} catch (IOException e) {
+			LOGGER.info("Unable to create backup folder");
+			throw new DataException("Unable to create backup folder");
+		}
+
+		try {
+			// Load trade bot data
+			List<TradeBotData> allTradeBotData = this.getCrossChainRepository().getAllTradeBotData();
+			JSONArray allTradeBotDataJson = new JSONArray();
+			for (TradeBotData tradeBotData : allTradeBotData) {
+				JSONObject tradeBotDataJson = tradeBotData.toJson();
+				allTradeBotDataJson.put(tradeBotDataJson);
+			}
+
+			// We need to combine existing TradeBotStates data before overwriting
+			String fileName = "qortal-backup/TradeBotStates.json";
+			File tradeBotStatesBackupFile = new File(fileName);
+			if (tradeBotStatesBackupFile.exists()) {
+				String jsonString = new String(Files.readAllBytes(Paths.get(fileName)));
+				JSONArray allExistingTradeBotData = new JSONArray(jsonString);
+				Iterator<Object> iterator = allExistingTradeBotData.iterator();
+				while(iterator.hasNext()) {
+					JSONObject existingTradeBotData = (JSONObject)iterator.next();
+					String existingTradePrivateKey = (String) existingTradeBotData.get("tradePrivateKey");
+						// Check if we already have an entry for this trade
+						boolean found = allTradeBotData.stream().anyMatch(tradeBotData -> Base58.encode(tradeBotData.getTradePrivateKey()).equals(existingTradePrivateKey));
+						if (found == false)
+							// We need to add this to our list
+							allTradeBotDataJson.put(existingTradeBotData);
+				}
+			}
+
+			FileWriter writer = new FileWriter(fileName);
+			writer.write(allTradeBotDataJson.toString());
+			writer.close();
+			LOGGER.info("Exported sensitive/node-local data: trade bot states");
+
+		} catch (DataException | IOException e) {
+			throw new DataException("Unable to export trade bot states from repository");
+		}
 	}
 
 	@Override
 	public void importDataFromFile(String filename) throws DataException {
-		// TODO
+		LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
+		try {
+			String jsonString = new String(Files.readAllBytes(Paths.get(filename)));
+			JSONArray tradeBotDataToImport = new JSONArray(jsonString);
+			Iterator<Object> iterator = tradeBotDataToImport.iterator();
+			while(iterator.hasNext()) {
+				JSONObject tradeBotDataJson = (JSONObject)iterator.next();
+				TradeBotData tradeBotData = TradeBotData.fromJson(tradeBotDataJson);
+				this.getCrossChainRepository().save(tradeBotData);
+			}
+		} catch (IOException e) {
+			throw new DataException("Unable to import sensitive/node-local trade bot states to repository: " + e.getMessage());
+		}
+		LOGGER.info(() -> String.format("Imported trade bot states into repository from %s", filename));
 	}
 
 	@Override

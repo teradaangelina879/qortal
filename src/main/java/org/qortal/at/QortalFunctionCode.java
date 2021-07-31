@@ -10,8 +10,10 @@ import org.ciyam.at.ExecutionException;
 import org.ciyam.at.FunctionData;
 import org.ciyam.at.IllegalFunctionCodeException;
 import org.ciyam.at.MachineState;
+import org.qortal.crosschain.Bitcoin;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.settings.Settings;
 
 /**
  * Qortal-specific CIYAM-AT Functions.
@@ -96,6 +98,19 @@ public enum QortalFunctionCode {
 			System.arraycopy(getB(state), 32 - 20 - 4, pkh, 32 - 20, 20);
 
 			setB(state, pkh);
+		}
+	},
+	/**
+	 * Convert 20-byte value in LSB of B1, and all of B2 & B3 to P2SH.<br>
+	 * <tt>0x0511</tt><br>
+	 * P2SH stored in lower 25 bytes of B.
+	 */
+	CONVERT_B_TO_P2SH(0x0511, 0, false) {
+		@Override
+		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+			byte addressPrefix = Settings.getInstance().getBitcoinNet() == Bitcoin.BitcoinNet.MAIN ? 0x05 : (byte) 0xc4;
+
+			convertAddressInB(addressPrefix, state);
 		}
 	},
 	/**

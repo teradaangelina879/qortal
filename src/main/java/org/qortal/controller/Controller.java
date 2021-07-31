@@ -14,6 +14,8 @@ import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.tradebot.TradeBot;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.block.BlockData;
@@ -440,6 +442,9 @@ public class Controller extends Thread {
 		LOGGER.info("Starting block minter");
 		blockMinter = new BlockMinter();
 		blockMinter.start();
+
+		LOGGER.info("Starting trade-bot");
+		TradeBot.getInstance();
 
 		// Arbitrary transaction data manager
 		LOGGER.info("Starting arbitrary-transaction data manager");
