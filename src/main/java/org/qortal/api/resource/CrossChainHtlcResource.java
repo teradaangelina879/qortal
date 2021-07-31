@@ -463,6 +463,96 @@ public class CrossChainHtlcResource {
 	}
 
 
+	@GET
+	@Path("/refundAll")
+	@Operation(
+			summary = "Refunds HTLC for all applicable ATs in tradebot data",
+			description = "To be used by a QORT buyer (Alice) who needs to refund their LTC/DOGE/etc proceeds that are stuck in P2SH transactions.<br>" +
+					"This requires Alice's trade bot data to be present in the database for this AT.<br>" +
+					"It will fail if it's already redeemed by the seller, or if the lockTime (60 minutes) hasn't passed yet.",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	public boolean refundAllHtlc() {
+		Security.checkApiCallAllowed(request);
+
+		Security.checkApiCallAllowed(request);
+		boolean success = false;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
+
+			for (TradeBotData tradeBotData : allTradeBotData) {
+				String atAddress = tradeBotData.getAtAddress();
+				if (atAddress == null) {
+					LOGGER.info("Missing AT address in tradebot data", atAddress);
+					continue;
+				}
+
+				String tradeState = tradeBotData.getState();
+				if (tradeState == null) {
+					LOGGER.info("Missing trade state for AT {}", atAddress);
+					continue;
+				}
+
+				if (tradeState.startsWith("BOB")) {
+					LOGGER.info("AT {} isn't refundable because it is a sell order", atAddress);
+					continue;
+				}
+
+				ATData atData = repository.getATRepository().fromATAddress(atAddress);
+				if (atData == null) {
+					LOGGER.info("Couldn't find AT with address {}", atAddress);
+					continue;
+				}
+
+				ACCT acct = SupportedBlockchain.getAcctByCodeHash(atData.getCodeHash());
+				if (acct == null) {
+					continue;
+				}
+
+				CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+				if (crossChainTradeData == null) {
+					LOGGER.info("Couldn't find crosschain trade data for AT {}", atAddress);
+					continue;
+				}
+
+				if (tradeBotData.getForeignKey() == null) {
+					LOGGER.info("Couldn't find foreign key for AT {}", atAddress);
+					continue;
+				}
+
+				try {
+					// Determine foreign blockchain receive address for refund
+					Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
+					String receivingAddress = bitcoiny.getUnusedReceiveAddress(tradeBotData.getForeignKey());
+
+					LOGGER.info("Attempting to refund P2SH balance associated with AT {}...", atAddress);
+					boolean refunded = this.doRefundHtlc(atAddress, receivingAddress);
+					if (refunded) {
+						LOGGER.info("Refunded P2SH balance associated with AT {}", atAddress);
+						success = true;
+					}
+					else {
+						LOGGER.info("Couldn't refund P2SH balance associated with AT {}. Already redeemed?", atAddress);
+					}
+				} catch (ApiException | ForeignBlockchainException e) {
+					LOGGER.info("Couldn't refund P2SH balance associated with AT {}. Missing data?", atAddress);
+				}
+			}
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+
+		return success;
+	}
+
+
 	private boolean doRefundHtlc(String atAddress, String receiveAddress) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
