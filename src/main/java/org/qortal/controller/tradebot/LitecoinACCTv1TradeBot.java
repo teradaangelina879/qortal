@@ -725,7 +725,7 @@ public class LitecoinACCTv1TradeBot implements AcctTradeBot {
 			return;
 		}
 
-		byte[] secretA = LitecoinACCTv1.findSecretA(repository, crossChainTradeData);
+		byte[] secretA = LitecoinACCTv1.getInstance().findSecretA(repository, crossChainTradeData);
 		if (secretA == null) {
 			LOGGER.debug(() -> String.format("Unable to find secret-A from redeem message to AT %s?", tradeBotData.getAtAddress()));
 			return;

@@ -20,4 +20,6 @@ public interface ACCT {
 
 	public byte[] buildCancelMessage(String creatorQortalAddress);
 
+	public byte[] findSecretA(Repository repository, CrossChainTradeData crossChainTradeData) throws DataException;
+
 }
