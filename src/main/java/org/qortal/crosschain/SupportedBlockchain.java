@@ -39,6 +39,20 @@ public enum SupportedBlockchain {
 		public ACCT getLatestAcct() {
 			return LitecoinACCTv1.getInstance();
 		}
+	},
+
+	DOGECOIN(Arrays.asList(
+			Triple.valueOf(DogecoinACCTv1.NAME, DogecoinACCTv1.CODE_BYTES_HASH, DogecoinACCTv1::getInstance)
+		)) {
+		@Override
+		public ForeignBlockchain getInstance() {
+			return Dogecoin.getInstance();
+		}
+
+		@Override
+		public ACCT getLatestAcct() {
+			return DogecoinACCTv1.getInstance();
+		}
 	};
 
 	private static final Map<ByteArray, Supplier<ACCT>> supportedAcctsByCodeHash = Arrays.stream(SupportedBlockchain.values())

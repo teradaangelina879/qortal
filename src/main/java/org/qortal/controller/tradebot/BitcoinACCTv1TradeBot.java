@@ -1033,7 +1033,7 @@ public class BitcoinACCTv1TradeBot implements AcctTradeBot {
 			return;
 		}
 
-		byte[] secretA = BitcoinACCTv1.findSecretA(repository, crossChainTradeData);
+		byte[] secretA = BitcoinACCTv1.getInstance().findSecretA(repository, crossChainTradeData);
 		if (secretA == null) {
 			LOGGER.debug(() -> String.format("Unable to find secret-A from redeem message to AT %s?", tradeBotData.getAtAddress()));
 			return;
