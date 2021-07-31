@@ -169,6 +169,11 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return this.bitcoinjContext.getFeePerKb();
 	}
 
+	/** Returns minimum order size in sats. To be overridden for coins that need to restrict order size. */
+	public long getMinimumOrderAmount() {
+		return 0L;
+	}
+
 	/**
 	 * Returns fixed P2SH spending fee, in sats per 1000bytes, optionally for historic timestamp.
 	 *
@@ -346,6 +351,10 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
 		Set<String> keySet = new HashSet<>();
 
+		// Set the number of consecutive empty batches required before giving up
+		final int numberOfAdditionalBatchesToSearch = 5;
+
+		int unusedCounter = 0;
 		int ki = 0;
 		do {
 			boolean areAllKeysUnused = true;
@@ -369,9 +378,19 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				}
 			}
 
-			if (areAllKeysUnused)
-				// No transactions for this batch of keys so assume we're done searching.
-				break;
+			if (areAllKeysUnused) {
+				// No transactions
+				if (unusedCounter >= numberOfAdditionalBatchesToSearch) {
+					// ... and we've hit our search limit
+					break;
+				}
+				// We haven't hit our search limit yet so increment the counter and keep looking
+				unusedCounter++;
+			}
+			else {
+				// Some keys in this batch were used, so reset the counter
+				unusedCounter = 0;
+			}
 
 			// Generate some more keys
 			keys.addAll(generateMoreKeys(keyChain));

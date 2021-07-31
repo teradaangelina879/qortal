@@ -26,6 +26,7 @@ import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.block.BlockChain;
 import org.qortal.crosschain.Bitcoin.BitcoinNet;
 import org.qortal.crosschain.Litecoin.LitecoinNet;
+import org.qortal.crosschain.Dogecoin.DogecoinNet;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -144,6 +145,11 @@ public class Settings {
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
+	/** Minimum time (in seconds) that we should attempt to remain connected to a peer for */
+	private int minPeerConnectionTime = 2 * 60; // seconds
+	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
+	private int maxPeerConnectionTime = 20 * 60; // seconds
+
 	/** Whether to sync multiple blocks at once in normal operation */
 	private boolean fastSyncEnabled = true;
 	/** Whether to sync multiple blocks at once when the peer has a different chain */
@@ -159,6 +165,7 @@ public class Settings {
 	private String blockchainConfig = null; // use default from resources
 	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
 	private LitecoinNet litecoinNet = LitecoinNet.MAIN;
+	private DogecoinNet dogecoinNet = DogecoinNet.MAIN;
 	// Also crosschain-related:
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
@@ -507,6 +514,10 @@ public class Settings {
 
 	public boolean getAllowConnectionsWithOlderPeerVersions() { return this.allowConnectionsWithOlderPeerVersions; }
 
+	public int getMinPeerConnectionTime() { return this.minPeerConnectionTime; }
+
+	public int getMaxPeerConnectionTime() { return this.maxPeerConnectionTime; }
+
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;
 	}
@@ -517,6 +528,10 @@ public class Settings {
 
 	public LitecoinNet getLitecoinNet() {
 		return this.litecoinNet;
+	}
+
+	public DogecoinNet getDogecoinNet() {
+		return this.dogecoinNet;
 	}
 
 	public boolean isTradebotSystrayEnabled() {

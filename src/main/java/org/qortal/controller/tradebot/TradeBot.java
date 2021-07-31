@@ -17,11 +17,7 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
 import org.qortal.controller.Controller;
 import org.qortal.controller.tradebot.AcctTradeBot.ResponseResult;
-import org.qortal.crosschain.ACCT;
-import org.qortal.crosschain.BitcoinACCTv1;
-import org.qortal.crosschain.ForeignBlockchainException;
-import org.qortal.crosschain.LitecoinACCTv1;
-import org.qortal.crosschain.SupportedBlockchain;
+import org.qortal.crosschain.*;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
@@ -80,6 +76,7 @@ public class TradeBot implements Listener {
 	static {
 		acctTradeBotSuppliers.put(BitcoinACCTv1.class, BitcoinACCTv1TradeBot::getInstance);
 		acctTradeBotSuppliers.put(LitecoinACCTv1.class, LitecoinACCTv1TradeBot::getInstance);
+		acctTradeBotSuppliers.put(DogecoinACCTv1.class, DogecoinACCTv1TradeBot::getInstance);
 	}
 
 	private static TradeBot instance;

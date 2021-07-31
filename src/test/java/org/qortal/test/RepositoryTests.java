@@ -261,11 +261,11 @@ public class RepositoryTests extends Common {
 	/** Check that the <i>sub-query</i> used to fetch highest block height is optimized by HSQLDB. */
 	@Test
 	public void testBlockHeightSpeed() throws DataException, SQLException {
-		final int mintBlockCount = 30000;
+		final int mintBlockCount = 10000;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Mint some blocks
-			System.out.println(String.format("Minting %d test blocks - should take approx. 30 seconds...", mintBlockCount));
+			System.out.println(String.format("Minting %d test blocks - should take approx. 10 seconds...", mintBlockCount));
 
 			long beforeBigMint = System.currentTimeMillis();
 			for (int i = 0; i < mintBlockCount; ++i)

@@ -67,7 +67,7 @@ git_url=https://github.com/${git_url##*:}
 git_url=${git_url%%.git}
 
 # Check for EXE
-exe=${project}-${git_tag#v}.exe
+exe=${project}.exe
 exe_src="${WINDOWS_INSTALLER_DIR}/${exe}"
 if [ ! -r "${exe_src}" ]; then
 	echo "Cannot find EXE installer at ${exe_src}"
@@ -75,7 +75,7 @@ if [ ! -r "${exe_src}" ]; then
 fi
 
 # Check for ZIP
-zip_filename=${project}-${git_tag#v}.zip
+zip_filename=${project}.zip
 zip_src=${saved_pwd}/${zip_filename}
 if [ ! -r "${zip_src}" ]; then
 	echo "Cannot find ZIP at ${zip_src}"

@@ -33,6 +33,7 @@ import org.qortal.crypto.TrustlessSSLSocketFactory;
 
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
+import org.qortal.utils.BitTwiddling;
 
 /** ElectrumX network support for querying Bitcoiny-related info like block headers, transaction outputs, etc. */
 public class ElectrumX extends BitcoinyBlockchainProvider {
@@ -171,13 +172,41 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		Long returnedCount = (Long) countObj;
 		String hex = (String) hexObj;
 
-		byte[] raw = HashCode.fromString(hex).asBytes();
-		if (raw.length != returnedCount * BLOCK_HEADER_LENGTH)
-			throw new ForeignBlockchainException.NetworkException("Unexpected raw header length in JSON from ElectrumX blockchain.block.headers RPC");
-
 		List<byte[]> rawBlockHeaders = new ArrayList<>(returnedCount.intValue());
-		for (int i = 0; i < returnedCount; ++i)
-			rawBlockHeaders.add(Arrays.copyOfRange(raw, i * BLOCK_HEADER_LENGTH, (i + 1) * BLOCK_HEADER_LENGTH));
+
+		byte[] raw = HashCode.fromString(hex).asBytes();
+
+		// Most chains use a fixed length 80 byte header, so block headers can be split up by dividing the hex into
+		// 80-byte segments. However, some chains such as DOGE use variable length headers due to AuxPoW or other
+		// reasons. In these cases we can identify the start of each block header by the location of the block version
+		// numbers. Each block starts with a version number, and for DOGE this is easily identifiable (6422788) at the
+		// time of writing (Jul 2021). If we encounter a chain that is using more generic version numbers (e.g. 1)
+		// and can't be used to accurately identify block indexes, then there are sufficient checks to ensure an
+		// exception is thrown.
+
+		if (raw.length == returnedCount * BLOCK_HEADER_LENGTH) {
+			// Fixed-length header (BTC, LTC, etc)
+			for (int i = 0; i < returnedCount; ++i) {
+				rawBlockHeaders.add(Arrays.copyOfRange(raw, i * BLOCK_HEADER_LENGTH, (i + 1) * BLOCK_HEADER_LENGTH));
+			}
+		}
+		else if (raw.length > returnedCount * BLOCK_HEADER_LENGTH) {
+			// Assume AuxPoW variable length header (DOGE)
+			int referenceVersion = BitTwiddling.intFromLEBytes(raw, 0); // DOGE uses 6422788 at time of commit (Jul 2021)
+			for (int i = 0; i < raw.length - 4; ++i) {
+				// Locate the start of each block by its version number
+				if (BitTwiddling.intFromLEBytes(raw, i) == referenceVersion) {
+					rawBlockHeaders.add(Arrays.copyOfRange(raw, i, i + BLOCK_HEADER_LENGTH));
+				}
+			}
+			// Ensure that we found the correct number of block headers
+			if (rawBlockHeaders.size() != count) {
+				throw new ForeignBlockchainException.NetworkException("Unexpected raw header contents in JSON from ElectrumX blockchain.block.headers RPC.");
+			}
+		}
+		else if (raw.length != returnedCount * BLOCK_HEADER_LENGTH) {
+			throw new ForeignBlockchainException.NetworkException("Unexpected raw header length in JSON from ElectrumX blockchain.block.headers RPC");
+		}
 
 		return rawBlockHeaders;
 	}
@@ -518,6 +547,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			}
 
 			// Failed to perform RPC - maybe lack of servers?
+			LOGGER.info("Error: No connected Electrum servers when trying to make RPC call");
 			throw new ForeignBlockchainException.NetworkException(String.format("Failed to perform ElectrumX RPC %s", method));
 		}
 	}

@@ -6,4 +6,6 @@ public interface ForeignBlockchain {
 
 	public boolean isValidWalletKey(String walletKey);
 
+	public long getMinimumOrderAmount();
+
 }

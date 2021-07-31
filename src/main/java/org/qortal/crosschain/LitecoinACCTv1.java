@@ -810,7 +810,8 @@ public class LitecoinACCTv1 implements ACCT {
 		return (int) ((lockTimeA - (offerMessageTimestamp / 1000L)) / 2L / 60L);
 	}
 
-	public static byte[] findSecretA(Repository repository, CrossChainTradeData crossChainTradeData) throws DataException {
+	@Override
+	public byte[] findSecretA(Repository repository, CrossChainTradeData crossChainTradeData) throws DataException {
 		String atAddress = crossChainTradeData.qortalAtAddress;
 		String redeemerAddress = crossChainTradeData.qortalPartnerAddress;
 

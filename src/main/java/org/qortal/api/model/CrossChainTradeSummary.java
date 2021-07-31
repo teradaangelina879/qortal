@@ -25,6 +25,12 @@ public class CrossChainTradeSummary {
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private long foreignAmount;
 
+	private String atAddress;
+
+	private String sellerAddress;
+
+	private String buyerReceivingAddress;
+
 	protected CrossChainTradeSummary() {
 		/* For JAXB */
 	}
@@ -34,6 +40,9 @@ public class CrossChainTradeSummary {
 		this.qortAmount = crossChainTradeData.qortAmount;
 		this.foreignAmount = crossChainTradeData.expectedForeignAmount;
 		this.btcAmount = this.foreignAmount;
+		this.sellerAddress = crossChainTradeData.qortalCreator;
+		this.buyerReceivingAddress = crossChainTradeData.qortalPartnerReceivingAddress;
+		this.atAddress = crossChainTradeData.qortalAtAddress;
 	}
 
 	public long getTradeTimestamp() {
@@ -48,7 +57,11 @@ public class CrossChainTradeSummary {
 		return this.btcAmount;
 	}
 
-	public long getForeignAmount() {
-		return this.foreignAmount;
-	}
+	public long getForeignAmount() { return this.foreignAmount; }
+
+	public String getAtAddress() { return this.atAddress; }
+
+	public String getSellerAddress() { return this.sellerAddress; }
+
+	public String getBuyerReceivingAddressAddress() { return this.buyerReceivingAddress; }
 }
