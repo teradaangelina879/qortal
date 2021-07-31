@@ -462,27 +462,6 @@ public class CrossChainHtlcResource {
 		}
 	}
 
-	@GET
-	@Path("/refund/{ataddress}/{receivingAddress}")
-	@Operation(
-			summary = "Refunds HTLC associated with supplied AT, to the specified foreign blockchain receiving address",
-			description = "To be used by a QORT buyer (Alice) who needs to refund their LTC/DOGE/etc that is stuck in a P2SH.<br>" +
-					"This requires Alice's trade bot data to be present in the database for this AT.<br>" +
-					"It will fail if it's already redeemed by the seller, or if the lockTime (60 minutes) hasn't passed yet.",
-			responses = {
-					@ApiResponse(
-							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
-					)
-			}
-	)
-	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
-	public boolean refundHtlc(@PathParam("ataddress") String atAddress,
-							  @PathParam("receivingAddress") String receivingAddress) {
-		Security.checkApiCallAllowed(request);
-
-		return this.doRefundHtlc(atAddress, receivingAddress);
-	}
-
 
 	private boolean doRefundHtlc(String atAddress, String receiveAddress) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
