@@ -1104,6 +1104,10 @@ public class Block {
 			// Create repository savepoint here so we can rollback to it after testing transactions
 			repository.setSavepoint();
 
+			if (this.blockData.getHeight() == 212937)
+				// Apply fix for block 212937 but fix will be rolled back before we exit method
+				Block212937.processFix(this);
+
 			for (Transaction transaction : this.getTransactions()) {
 				TransactionData transactionData = transaction.getTransactionData();
 
@@ -1308,6 +1312,9 @@ public class Block {
 			// Distribute block rewards, including transaction fees, before transactions processed
 			processBlockRewards();
 
+			if (this.blockData.getHeight() == 212937)
+				// Apply fix for block 212937
+				Block212937.processFix(this);
 		}
 
 		// We're about to (test-)process a batch of transactions,
@@ -1541,6 +1548,10 @@ public class Block {
 		if (this.blockData.getHeight() > 1) {
 			// Invalidate expandedAccounts as they may have changed due to orphaning TRANSFER_PRIVS transactions, etc.
 			this.cachedExpandedAccounts = null;
+
+			if (this.blockData.getHeight() == 212937)
+				// Revert fix for block 212937
+				Block212937.orphanFix(this);
 
 			// Block rewards, including transaction fees, removed after transactions undone
 			orphanBlockRewards();
