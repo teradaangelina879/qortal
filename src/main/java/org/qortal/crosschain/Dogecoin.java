@@ -21,7 +21,7 @@ public class Dogecoin extends Bitcoiny {
 
 	private static final Coin DEFAULT_FEE_PER_KB = Coin.valueOf(500000000); // 5 DOGE per 1000 bytes
 
-	private static final long MINIMUM_ORDER_AMOUNT = 200000000L; // 2 DOGE minimum order. The RPC dust threshold is around 1 DOGE
+	private static final long MINIMUM_ORDER_AMOUNT = 300000000L; // 3 DOGE minimum order. The RPC dust threshold is around 2 DOGE
 
 	// Temporary values until a dynamic fee system is written.
 	private static final long MAINNET_FEE = 110000000L;
