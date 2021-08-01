@@ -776,41 +776,6 @@ public class HSQLDBDatabaseUpdates {
 					break;
 				}
 
-				case 31: {
-					// AT sleep-until-message support
-					LOGGER.info("Altering AT table in repository - this might take a while... (approx. 20 seconds on high-spec)");
-					stmt.execute("ALTER TABLE ATs ADD sleep_until_message_timestamp BIGINT");
-
-					// Create new AT-states table with new column
-					stmt.execute("CREATE TABLE ATStatesNew ("
-							+ "AT_address QortalAddress, height INTEGER NOT NULL, state_hash ATStateHash NOT NULL, "
-							+ "fees QortalAmount NOT NULL, is_initial BOOLEAN NOT NULL, sleep_until_message_timestamp BIGINT, "
-							+ "PRIMARY KEY (AT_address, height), "
-							+ "FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
-					stmt.execute("SET TABLE ATStatesNew NEW SPACE");
-					stmt.execute("CHECKPOINT");
-
-					ResultSet resultSet = stmt.executeQuery("SELECT height FROM Blocks ORDER BY height DESC LIMIT 1");
-					final int blockchainHeight = resultSet.next() ? resultSet.getInt(1) : 0;
-					final int heightStep = 100;
-
-					LOGGER.info("Altering AT states table in repository - this might take a while... (approx. 3 mins on high-spec)");
-					for (int minHeight = 1; minHeight < blockchainHeight; minHeight += heightStep) {
-						stmt.execute("INSERT INTO ATStatesNew ("
-								+ "SELECT AT_address, height, state_hash, fees, is_initial, NULL "
-								+ "FROM ATStates "
-								+ "WHERE height BETWEEN " + minHeight + " AND " + (minHeight + heightStep - 1)
-								+ ")");
-						stmt.execute("COMMIT");
-					}
-					stmt.execute("CHECKPOINT");
-
-					stmt.execute("DROP TABLE ATStates");
-					stmt.execute("ALTER TABLE ATStatesNew RENAME TO ATStates");
-					stmt.execute("CHECKPOINT");
-					break;
-				}
-
 				case 31:
 					// Fix latest AT state cache which was previous created as TEMPORARY
 					stmt.execute("DROP TABLE IF EXISTS LatestATStates");
@@ -857,6 +822,41 @@ public class HSQLDBDatabaseUpdates {
 							+ "signature Signature, nonce INT NOT NULL, presence_type INT NOT NULL, "
 							+ "timestamp_signature Signature NOT NULL, " + TRANSACTION_KEYS + ")");
 					break;
+
+				case 34: {
+					// AT sleep-until-message support
+					LOGGER.info("Altering AT table in repository - this might take a while... (approx. 20 seconds on high-spec)");
+					stmt.execute("ALTER TABLE ATs ADD sleep_until_message_timestamp BIGINT");
+
+					// Create new AT-states table with new column
+					stmt.execute("CREATE TABLE ATStatesNew ("
+							+ "AT_address QortalAddress, height INTEGER NOT NULL, state_hash ATStateHash NOT NULL, "
+							+ "fees QortalAmount NOT NULL, is_initial BOOLEAN NOT NULL, sleep_until_message_timestamp BIGINT, "
+							+ "PRIMARY KEY (AT_address, height), "
+							+ "FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
+					stmt.execute("SET TABLE ATStatesNew NEW SPACE");
+					stmt.execute("CHECKPOINT");
+
+					ResultSet resultSet = stmt.executeQuery("SELECT height FROM Blocks ORDER BY height DESC LIMIT 1");
+					final int blockchainHeight = resultSet.next() ? resultSet.getInt(1) : 0;
+					final int heightStep = 100;
+
+					LOGGER.info("Altering AT states table in repository - this might take a while... (approx. 3 mins on high-spec)");
+					for (int minHeight = 1; minHeight < blockchainHeight; minHeight += heightStep) {
+						stmt.execute("INSERT INTO ATStatesNew ("
+								+ "SELECT AT_address, height, state_hash, fees, is_initial, NULL "
+								+ "FROM ATStates "
+								+ "WHERE height BETWEEN " + minHeight + " AND " + (minHeight + heightStep - 1)
+								+ ")");
+						stmt.execute("COMMIT");
+					}
+					stmt.execute("CHECKPOINT");
+
+					stmt.execute("DROP TABLE ATStates");
+					stmt.execute("ALTER TABLE ATStatesNew RENAME TO ATStates");
+					stmt.execute("CHECKPOINT");
+					break;
+				}
 
 				default:
 					// nothing to do
