@@ -111,7 +111,7 @@ public class QortalATAPI extends API {
 		if (sleepUntilMessageTimestamp != null) {
 			// We've passed checks, so clear sleep-related flags/values
 			this.setIsSleeping(state, false);
-			this.setSleepUntilHeight(state, null);
+			this.setSleepUntilHeight(state, 0);
 			this.atData.setSleepUntilMessageTimestamp(null);
 		}
 	}
