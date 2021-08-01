@@ -1,6 +1,7 @@
 /db*
 /bin/
 /target/
+/qortal-backup/
 /log.txt.*
 /arbitrary*
 /Qortal-BTC*
@@ -16,3 +17,11 @@
 /settings*.json
 /testchain.json
 /run-testnet.sh
+/.idea
+/qortal.iml
+.DS_Store
+/src/main/resources/resources
+/*.jar
+/run.pid
+/run.log
+/WindowsInstaller/Install Files/qortal.jar

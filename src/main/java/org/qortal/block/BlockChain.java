@@ -70,6 +70,10 @@ public class BlockChain {
 	private GenesisBlock.GenesisInfo genesisInfo;
 
 	public enum FeatureTrigger {
+		atFindNextTransactionFix,
+		newBlockSigHeight,
+		shareBinFix,
+		calcChainWeightTimestamp;
 	}
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
@@ -371,6 +375,22 @@ public class BlockChain {
 
 	// Convenience methods for specific blockchain feature triggers
 
+	public int getAtFindNextTransactionFixHeight() {
+		return this.featureTriggers.get(FeatureTrigger.atFindNextTransactionFix.name()).intValue();
+	}
+
+	public int getNewBlockSigHeight() {
+		return this.featureTriggers.get(FeatureTrigger.newBlockSigHeight.name()).intValue();
+	}
+
+	public int getShareBinFixHeight() {
+		return this.featureTriggers.get(FeatureTrigger.shareBinFix.name()).intValue();
+	}
+
+	public long getCalcChainWeightTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.calcChainWeightTimestamp.name()).longValue();
+	}
+
 	// More complex getters for aspects that change by height or timestamp
 
 	public long getRewardAtHeight(int ourHeight) {
@@ -491,6 +511,8 @@ public class BlockChain {
 			rebuildBlockchain();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			repository.checkConsistency();
+
 			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - 1440, 1);
 
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);

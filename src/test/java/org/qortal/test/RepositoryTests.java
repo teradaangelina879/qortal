@@ -4,7 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -15,12 +15,18 @@ import org.qortal.test.common.Common;
 
 import static org.junit.Assert.*;
 
+import java.lang.reflect.Field;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -127,14 +133,139 @@ public class RepositoryTests extends Common {
 		}
 	}
 
+	@Test
+	public void testTrimDeadlock() {
+		ExecutorService executor = Executors.newCachedThreadPool();
+		CountDownLatch readyLatch = new CountDownLatch(1);
+		CountDownLatch updateLatch = new CountDownLatch(1);
+		CountDownLatch syncLatch = new CountDownLatch(1);
+
+		// Open connection 1
+		try (final HSQLDBRepository repository1 = (HSQLDBRepository) RepositoryManager.getRepository()) {
+			// Read AT states trim height
+			int atTrimHeight = repository1.getATRepository().getAtTrimHeight();
+			repository1.discardChanges();
+
+			// Open connection 2
+			try (final HSQLDBRepository repository2 = (HSQLDBRepository) RepositoryManager.getRepository()) {
+				// Read online signatures trim height
+				int onlineSignaturesTrimHeight = repository2.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
+				repository2.discardChanges();
+
+				Future<Boolean> f2 = executor.submit(() -> {
+					Object trimHeightsLock = extractTrimHeightsLock(repository2);
+					System.out.println(String.format("f2: repository2's trimHeightsLock object: %s", trimHeightsLock));
+
+					// Update online signatures trim height (implicit commit)
+					synchronized (trimHeightsLock) {
+						try {
+							System.out.println("f2: updating online signatures trim height...");
+							// simulate: repository2.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(onlineSignaturesTrimHeight);
+							String updateSql = "UPDATE DatabaseInfo SET online_signatures_trim_height = ?";
+							PreparedStatement pstmt = repository2.prepareStatement(updateSql);
+							pstmt.setInt(1, onlineSignaturesTrimHeight);
+							pstmt.executeUpdate();
+							// But no commit/saveChanges yet to force HSQLDB error
+
+							System.out.println("f2: readyLatch.countDown()");
+							readyLatch.countDown();
+
+							// wait for other thread to be ready to hit sync block
+							System.out.println("f2: waiting for f1 syncLatch...");
+							syncLatch.await();
+
+							// hang on to trimHeightsLock to force other thread to wait (if code is correct), or to fail (if code is faulty)
+							System.out.println("f2: updateLatch.await(<with timeout>)");
+							if (!updateLatch.await(500L, TimeUnit.MILLISECONDS)) { // long enough for other thread to reach synchronized block
+								// wait period expired suggesting no concurrent access, i.e. code is correct
+								System.out.println("f2: updateLatch.await() timed out");
+
+								System.out.println("f2: saveChanges()");
+								repository2.saveChanges();
+
+								return Boolean.TRUE;
+							}
+
+							System.out.println("f2: saveChanges()");
+							repository2.saveChanges();
+
+							// Early exit from wait period suggests concurrent access, i.e. code faulty
+							return Boolean.FALSE;
+						} catch (InterruptedException | SQLException e) {
+							System.out.println("f2: exception: " + e.getMessage());
+							return Boolean.FALSE;
+						}
+					}
+				});
+
+				System.out.println("waiting for f2 readyLatch...");
+				readyLatch.await();
+				System.out.println("launching f1...");
+
+				Future<Boolean> f1 = executor.submit(() -> {
+					Object trimHeightsLock = extractTrimHeightsLock(repository1);
+					System.out.println(String.format("f1: repository1's trimHeightsLock object: %s", trimHeightsLock));
+
+					System.out.println("f1: syncLatch.countDown()");
+					syncLatch.countDown();
+
+					// Update AT states trim height (implicit commit)
+					synchronized (trimHeightsLock) {
+						try {
+							System.out.println("f1: updating AT trim height...");
+							// simulate: repository1.getATRepository().setAtTrimHeight(atTrimHeight);
+							String updateSql = "UPDATE DatabaseInfo SET AT_trim_height = ?";
+							PreparedStatement pstmt = repository1.prepareStatement(updateSql);
+							pstmt.setInt(1, atTrimHeight);
+							pstmt.executeUpdate();
+							System.out.println("f1: saveChanges()");
+							repository1.saveChanges();
+
+							System.out.println("f1: updateLatch.countDown()");
+							updateLatch.countDown();
+
+							return Boolean.TRUE;
+						} catch (SQLException e) {
+							System.out.println("f1: exception: " + e.getMessage());
+							return Boolean.FALSE;
+						}
+					}
+				});
+
+				if (Boolean.TRUE != f1.get())
+					fail("concurrency bug - simultaneous update of DatabaseInfo table");
+
+				if (Boolean.TRUE != f2.get())
+					fail("concurrency bug - not synchronized on same object?");
+			} catch (InterruptedException e) {
+				fail("concurrency bug: " + e.getMessage());
+			} catch (ExecutionException e) {
+				fail("concurrency bug: " + e.getMessage());
+			}
+		} catch (DataException e) {
+			fail("database bug");
+		}
+	}
+
+	private static Object extractTrimHeightsLock(HSQLDBRepository repository) {
+		try {
+			Field trimHeightsLockField = repository.getClass().getDeclaredField("trimHeightsLock");
+			trimHeightsLockField.setAccessible(true);
+			return trimHeightsLockField.get(repository);
+		} catch (IllegalArgumentException | NoSuchFieldException | SecurityException | IllegalAccessException e) {
+			fail();
+			return null;
+		}
+	}
+
 	/** Check that the <i>sub-query</i> used to fetch highest block height is optimized by HSQLDB. */
 	@Test
 	public void testBlockHeightSpeed() throws DataException, SQLException {
-		final int mintBlockCount = 30000;
+		final int mintBlockCount = 10000;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Mint some blocks
-			System.out.println(String.format("Minting %d test blocks - should take approx. 30 seconds...", mintBlockCount));
+			System.out.println(String.format("Minting %d test blocks - should take approx. 10 seconds...", mintBlockCount));
 
 			long beforeBigMint = System.currentTimeMillis();
 			for (int i = 0; i < mintBlockCount; ++i)
@@ -267,7 +398,7 @@ public class RepositoryTests extends Common {
 	@Test
 	public void testAtLateral() {
 		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
-			byte[] codeHash = BTCACCT.CODE_BYTES_HASH;
+			byte[] codeHash = BitcoinACCTv1.CODE_BYTES_HASH;
 			Boolean isFinished = null;
 			Integer dataByteOffset = null;
 			Long expectedValue = null;

@@ -43,6 +43,7 @@ import org.qortal.api.websocket.ActiveChatsWebSocket;
 import org.qortal.api.websocket.AdminStatusWebSocket;
 import org.qortal.api.websocket.BlocksWebSocket;
 import org.qortal.api.websocket.ChatMessagesWebSocket;
+import org.qortal.api.websocket.PresenceWebSocket;
 import org.qortal.api.websocket.TradeBotWebSocket;
 import org.qortal.api.websocket.TradeOffersWebSocket;
 import org.qortal.settings.Settings;
@@ -200,6 +201,7 @@ public class ApiService {
 			context.addServlet(ChatMessagesWebSocket.class, "/websockets/chat/messages");
 			context.addServlet(TradeOffersWebSocket.class, "/websockets/crosschain/tradeoffers");
 			context.addServlet(TradeBotWebSocket.class, "/websockets/crosschain/tradebot");
+			context.addServlet(PresenceWebSocket.class, "/websockets/presence");
 
 			// Start server
 			this.server.start();

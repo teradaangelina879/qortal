@@ -321,7 +321,7 @@ public class PeersResource {
 				boolean force = true;
 				List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
 
-				SynchronizationResult findCommonBlockResult = Synchronizer.getInstance().fetchSummariesFromCommonBlock(repository, targetPeer, ourInitialHeight, force, peerBlockSummaries);
+				SynchronizationResult findCommonBlockResult = Synchronizer.getInstance().fetchSummariesFromCommonBlock(repository, targetPeer, ourInitialHeight, force, peerBlockSummaries, true);
 				if (findCommonBlockResult != SynchronizationResult.OK)
 					return null;
 

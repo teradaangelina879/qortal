@@ -90,11 +90,11 @@ public class BlockApiTests extends ApiCommon {
 			for (Integer endHeight : testValues)
 				for (Integer count : testValues) {
 					if (startHeight != null && endHeight != null && count != null) {
-						assertApiError(ApiError.INVALID_CRITERIA, () -> this.blocksResource.getBlockRange(startHeight, endHeight, count));
+						assertApiError(ApiError.INVALID_CRITERIA, () -> this.blocksResource.getBlockSummaries(startHeight, endHeight, count));
 						continue;
 					}
 
-					assertNotNull(this.blocksResource.getBlockRange(startHeight, endHeight, count));
+					assertNotNull(this.blocksResource.getBlockSummaries(startHeight, endHeight, count));
 				}
 	}
 

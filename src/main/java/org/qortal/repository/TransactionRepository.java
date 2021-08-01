@@ -1,5 +1,6 @@
 package org.qortal.repository;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -238,6 +239,26 @@ public interface TransactionRepository {
 	public default List<TransactionData> getUnconfirmedTransactions() throws DataException {
 		return getUnconfirmedTransactions(null, null, null);
 	}
+
+	/**
+	 * Returns list of unconfirmed transactions with specified type and/or creator.
+	 * <p>
+	 * At least one of <tt>txType</tt> or <tt>creatorPublicKey</tt> must be non-null.
+	 * 
+	 * @param txType optional
+	 * @param creatorPublicKey optional
+	 * @return list of transactions, or empty if none.
+	 * @throws DataException
+	 */
+	public List<TransactionData> getUnconfirmedTransactions(TransactionType txType, byte[] creatorPublicKey) throws DataException;
+
+	/**
+	 * Returns list of unconfirmed transactions excluding specified type(s).
+	 * 
+	 * @return list of transactions, or empty if none.
+	 * @throws DataException
+	 */
+	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes) throws DataException;
 
 	/**
 	 * Remove transaction from unconfirmed transactions pile.

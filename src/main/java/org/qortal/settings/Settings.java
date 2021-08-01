@@ -21,7 +21,9 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.block.BlockChain;
-import org.qortal.crosschain.BTC.BitcoinNet;
+import org.qortal.crosschain.Bitcoin.BitcoinNet;
+import org.qortal.crosschain.Litecoin.LitecoinNet;
+import org.qortal.crosschain.Dogecoin.DogecoinNet;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -51,7 +53,7 @@ public class Settings {
 	// UI servers
 	private int uiPort = 12388;
 	private String[] uiLocalServers = new String[] {
-		"localhost", "127.0.0.1", "172.24.1.1", "qor.tal"
+		"localhost", "127.0.0.1"
 	};
 	private String[] uiRemoteServers = new String[] {
 		"node1.qortal.org", "node2.qortal.org", "node3.qortal.org", "node4.qortal.org", "node5.qortal.org",
@@ -88,6 +90,8 @@ public class Settings {
 	private long repositoryCheckpointInterval = 60 * 60 * 1000L; // 1 hour (ms) default
 	/** Whether to show a notification when we perform repository 'checkpoint'. */
 	private boolean showCheckpointNotification = false;
+	/* How many blocks to cache locally. Defaulted to 10, which covers a typical Synchronizer request + a few spare */
+	private int blockCacheSize = 10;
 
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
@@ -119,10 +123,26 @@ public class Settings {
 	private int maxNetworkThreadPoolSize = 20;
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
 	private int networkPoWComputePoolSize = 2;
+	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
+	private int maxRetries = 2;
+
+	/** Minimum peer version number required in order to sync with them */
+	private String minPeerVersion = "1.5.0";
+	/** Whether to allow connections with peers below minPeerVersion
+	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
+	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
+	private boolean allowConnectionsWithOlderPeerVersions = true;
+
+	/** Minimum time (in seconds) that we should attempt to remain connected to a peer for */
+	private int minPeerConnectionTime = 2 * 60; // seconds
+	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
+	private int maxPeerConnectionTime = 20 * 60; // seconds
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
 	private BitcoinNet bitcoinNet = BitcoinNet.MAIN;
+	private LitecoinNet litecoinNet = LitecoinNet.MAIN;
+	private DogecoinNet dogecoinNet = DogecoinNet.MAIN;
 	// Also crosschain-related:
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
@@ -132,6 +152,8 @@ public class Settings {
 	private Long slowQueryThreshold = null;
 	/** Repository storage path. */
 	private String repositoryPath = "db";
+	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
+	private int repositoryConnectionPoolSize = 100;
 
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
@@ -359,6 +381,10 @@ public class Settings {
 		return this.maxTransactionTimestampFuture;
 	}
 
+	public int getBlockCacheSize() {
+		return this.blockCacheSize;
+	}
+
 	public boolean isTestNet() {
 		return this.isTestNet;
 	}
@@ -398,12 +424,30 @@ public class Settings {
 		return this.networkPoWComputePoolSize;
 	}
 
+	public int getMaxRetries() { return this.maxRetries; }
+
+	public String getMinPeerVersion() { return this.minPeerVersion; }
+
+	public boolean getAllowConnectionsWithOlderPeerVersions() { return this.allowConnectionsWithOlderPeerVersions; }
+
+	public int getMinPeerConnectionTime() { return this.minPeerConnectionTime; }
+
+	public int getMaxPeerConnectionTime() { return this.maxPeerConnectionTime; }
+
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;
 	}
 
 	public BitcoinNet getBitcoinNet() {
 		return this.bitcoinNet;
+	}
+
+	public LitecoinNet getLitecoinNet() {
+		return this.litecoinNet;
+	}
+
+	public DogecoinNet getDogecoinNet() {
+		return this.dogecoinNet;
 	}
 
 	public boolean isTradebotSystrayEnabled() {
@@ -416,6 +460,10 @@ public class Settings {
 
 	public String getRepositoryPath() {
 		return this.repositoryPath;
+	}
+
+	public int getRepositoryConnectionPoolSize() {
+		return this.repositoryConnectionPoolSize;
 	}
 
 	public boolean isAutoUpdateEnabled() {

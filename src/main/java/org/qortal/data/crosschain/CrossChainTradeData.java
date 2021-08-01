@@ -4,7 +4,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import org.qortal.crosschain.BTCACCT;
+import org.qortal.crosschain.AcctMode;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -20,11 +20,15 @@ public class CrossChainTradeData {
 	@Schema(description = "AT creator's Qortal address")
 	public String qortalCreator;
 
-	@Schema(description = "AT creator's Qortal trade address")
+	@Schema(description = "AT creator's ephemeral trading key-pair represented as Qortal address")
 	public String qortalCreatorTradeAddress;
 
-	@Schema(description = "AT creator's Bitcoin trade public-key-hash (PKH)")
+	@Deprecated
+	@Schema(description = "DEPRECATED: use creatorForeignPKH instead")
 	public byte[] creatorBitcoinPKH;
+
+	@Schema(description = "AT creator's foreign blockchain trade public-key-hash (PKH)")
+	public byte[] creatorForeignPKH;
 
 	@Schema(description = "Timestamp when AT was created (milliseconds since epoch)")
 	public long creationTimestamp;
@@ -58,28 +62,48 @@ public class CrossChainTradeData {
 	@Schema(description = "Actual Qortal block height when AT will automatically refund to AT creator (after trade begins)")
 	public Integer tradeRefundHeight;
 
-	@Schema(description = "Amount, in BTC, that AT creator expects Bitcoin P2SH to pay out (excluding miner fees)")
+	@Deprecated
+	@Schema(description = "DEPRECATED: use expectedForeignAmount instread")
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	public long expectedBitcoin;
 
-	public BTCACCT.Mode mode;
+	@Schema(description = "Amount, in foreign blockchain currency, that AT creator expects trade partner to pay out (excluding miner fees)")
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	public long expectedForeignAmount;
 
-	@Schema(description = "Suggested Bitcoin P2SH-A nLockTime based on trade timeout")
+	@Schema(description = "Current AT execution mode")
+	public AcctMode mode;
+
+	@Schema(description = "Suggested P2SH-A nLockTime based on trade timeout")
 	public Integer lockTimeA;
 
-	@Schema(description = "Suggested Bitcoin P2SH-B nLockTime based on trade timeout")
+	@Schema(description = "Suggested P2SH-B nLockTime based on trade timeout")
 	public Integer lockTimeB;
 
-	@Schema(description = "Trade partner's Bitcoin public-key-hash (PKH)")
+	@Deprecated
+	@Schema(description = "DEPRECATED: use partnerForeignPKH instead")
 	public byte[] partnerBitcoinPKH;
+
+	@Schema(description = "Trade partner's foreign blockchain public-key-hash (PKH)")
+	public byte[] partnerForeignPKH;
 
 	@Schema(description = "Trade partner's Qortal receiving address")
 	public String qortalPartnerReceivingAddress;
+
+	public String foreignBlockchain;
+
+	public String acctName;
 
 	// Constructors
 
 	// Necessary for JAXB
 	public CrossChainTradeData() {
+	}
+
+	public void duplicateDeprecated() {
+		this.creatorBitcoinPKH = this.creatorForeignPKH;
+		this.expectedBitcoin = this.expectedForeignAmount;
+		this.partnerBitcoinPKH = this.partnerForeignPKH;
 	}
 
 }

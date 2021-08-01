@@ -23,6 +23,8 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 			// Don't even start trimming until initial rush has ended
 			Thread.sleep(INITIAL_SLEEP_PERIOD);
 
+			int trimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
+
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 
@@ -40,8 +42,6 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 				long upperTrimmableTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
 				int upperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(upperTrimmableTimestamp);
 
-				int trimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
-
 				int upperBatchHeight = trimStartHeight + Settings.getInstance().getOnlineSignaturesTrimBatchSize();
 				int upperTrimHeight = Math.min(upperBatchHeight, upperTrimmableHeight);
 
@@ -52,16 +52,20 @@ public class OnlineAccountsSignaturesTrimmer implements Runnable {
 				repository.saveChanges();
 
 				if (numSigsTrimmed > 0) {
+					final int finalTrimStartHeight = trimStartHeight;
 					LOGGER.debug(() -> String.format("Trimmed %d online accounts signature%s between blocks %d and %d",
 							numSigsTrimmed, (numSigsTrimmed != 1 ? "s" : ""),
-							trimStartHeight, upperTrimHeight));
+							finalTrimStartHeight, upperTrimHeight));
 				} else {
 					// Can we move onto next batch?
 					if (upperTrimmableHeight > upperBatchHeight) {
-						repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(upperBatchHeight);
+						trimStartHeight = upperBatchHeight;
+
+						repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(trimStartHeight);
 						repository.saveChanges();
 
-						LOGGER.debug(() -> String.format("Bumping online accounts signatures trim height to %d", upperBatchHeight));
+						final int finalTrimStartHeight = trimStartHeight;
+						LOGGER.debug(() -> String.format("Bumping online accounts signatures base trim height to %d", finalTrimStartHeight));
 					}
 				}
 			}

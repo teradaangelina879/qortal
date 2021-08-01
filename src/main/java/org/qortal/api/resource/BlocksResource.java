@@ -1,5 +1,6 @@
 package org.qortal.api.resource;
 
+import com.google.common.primitives.Ints;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -8,6 +9,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,11 +26,13 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.qortal.account.Account;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
-import org.qortal.api.model.BlockInfo;
+import org.qortal.api.model.BlockMintingInfo;
 import org.qortal.api.model.BlockSignerSummary;
+import org.qortal.block.Block;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
@@ -33,6 +41,8 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.transform.TransformationException;
+import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.Base58;
 
 @Path("/blocks")
@@ -77,6 +87,48 @@ public class BlocksResource {
 
 			return blockData;
 		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/signature/{signature}/data")
+	@Operation(
+			summary = "Fetch serialized, base58 encoded block data using base58 signature",
+			description = "Returns serialized data for the block that matches the given signature",
+			responses = {
+					@ApiResponse(
+							description = "the block data",
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	@ApiErrors({
+			ApiError.INVALID_SIGNATURE, ApiError.BLOCK_UNKNOWN, ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE
+	})
+	public String getSerializedBlockData(@PathParam("signature") String signature58) {
+		// Decode signature
+		byte[] signature;
+		try {
+			signature = Base58.decode(signature58);
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE, e);
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
+			if (blockData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+
+			Block block = new Block(repository, blockData);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+			bytes.write(Ints.toByteArray(block.getBlockData().getHeight()));
+			bytes.write(BlockTransformer.toBytes(block));
+			return Base58.encode(bytes.toByteArray());
+
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
+		} catch (DataException | IOException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
@@ -330,6 +382,59 @@ public class BlocksResource {
 	}
 
 	@GET
+	@Path("/byheight/{height}/mintinginfo")
+	@Operation(
+			summary = "Fetch block minter info using block height",
+			description = "Returns the minter info for the block with given height",
+			responses = {
+					@ApiResponse(
+							description = "the block",
+							content = @Content(
+									schema = @Schema(
+											implementation = BlockData.class
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({
+			ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
+	})
+	public BlockMintingInfo getBlockMintingInfoByHeight(@PathParam("height") int height) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromHeight(height);
+			if (blockData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+
+			Block block = new Block(repository, blockData);
+			BlockData parentBlockData = repository.getBlockRepository().fromSignature(blockData.getReference());
+			int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, blockData.getMinterPublicKey());
+			if (minterLevel == 0)
+				// This may be unavailable when requesting a trimmed block
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			BigInteger distance = block.calcKeyDistance(parentBlockData.getHeight(), parentBlockData.getSignature(), blockData.getMinterPublicKey(), minterLevel);
+			double ratio = new BigDecimal(distance).divide(new BigDecimal(block.MAX_DISTANCE), 40, RoundingMode.DOWN).doubleValue();
+			long timestamp = block.calcTimestamp(parentBlockData, blockData.getMinterPublicKey(), minterLevel);
+			long timeDelta = timestamp - parentBlockData.getTimestamp();
+
+			BlockMintingInfo blockMintingInfo = new BlockMintingInfo();
+			blockMintingInfo.minterPublicKey = blockData.getMinterPublicKey();
+			blockMintingInfo.minterLevel = minterLevel;
+			blockMintingInfo.onlineAccountsCount = blockData.getOnlineAccountsCount();
+			blockMintingInfo.maxDistance = new BigDecimal(block.MAX_DISTANCE);
+			blockMintingInfo.keyDistance = distance;
+			blockMintingInfo.keyDistanceRatio = ratio;
+			blockMintingInfo.timestamp = timestamp;
+			blockMintingInfo.timeDelta = timeDelta;
+
+			return blockMintingInfo;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
 	@Path("/timestamp/{timestamp}")
 	@Operation(
 		summary = "Fetch nearest block before given timestamp",
@@ -492,7 +597,7 @@ public class BlocksResource {
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
-							implementation = BlockInfo.class
+							implementation = BlockSummaryData.class
 						)
 					)
 				)
@@ -502,7 +607,7 @@ public class BlocksResource {
 	@ApiErrors({
 		ApiError.REPOSITORY_ISSUE
 	})
-	public List<BlockInfo> getBlockRange(
+	public List<BlockSummaryData> getBlockSummaries(
 			@QueryParam("start") Integer startHeight,
 			@QueryParam("end") Integer endHeight,
 			@Parameter(ref = "count") @QueryParam("count") Integer count) {
@@ -515,7 +620,7 @@ public class BlocksResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().getBlockInfos(startHeight, endHeight, count);
+			return repository.getBlockRepository().getBlockSummaries(startHeight, endHeight, count);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

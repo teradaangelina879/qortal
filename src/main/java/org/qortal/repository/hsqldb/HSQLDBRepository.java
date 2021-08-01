@@ -1,6 +1,8 @@
 package org.qortal.repository.hsqldb;
 
+import java.awt.TrayIcon.MessageType;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -14,22 +16,21 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.crosschain.TradeBotData;
+import org.qortal.globalization.Translator;
+import org.qortal.gui.SysTray;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.AccountRepository;
 import org.qortal.repository.ArbitraryRepository;
@@ -48,10 +49,16 @@ import org.qortal.repository.TransactionRepository;
 import org.qortal.repository.VotingRepository;
 import org.qortal.repository.hsqldb.transaction.HSQLDBTransactionRepository;
 import org.qortal.settings.Settings;
+import org.qortal.utils.Base58;
 
 public class HSQLDBRepository implements Repository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
+
+	public static final Object CHECKPOINT_LOCK = new Object();
+
+	// "serialization failure"
+	private static final Integer DEADLOCK_ERROR_CODE = Integer.valueOf(-4861);
 
 	protected Connection connection;
 	protected final Deque<Savepoint> savepoints = new ArrayDeque<>(3);
@@ -60,7 +67,8 @@ public class HSQLDBRepository implements Repository {
 	protected List<String> sqlStatements;
 	protected long sessionId;
 	protected final Map<String, PreparedStatement> preparedStatementCache = new HashMap<>();
-	protected final Object trimHeightsLock = new Object();
+	// We want the same object corresponding to the actual DB
+	protected final Object trimHeightsLock = RepositoryManager.getRepositoryFactory();
 
 	private final ATRepository atRepository = new HSQLDBATRepository(this);
 	private final AccountRepository accountRepository = new HSQLDBAccountRepository(this);
@@ -101,7 +109,10 @@ public class HSQLDBRepository implements Repository {
 			throw new DataException("Unable to fetch session ID from repository", e);
 		}
 
-		assertEmptyTransaction("connection creation");
+		// synchronize to block new connections if checkpointing in progress 
+		synchronized (CHECKPOINT_LOCK) {
+			assertEmptyTransaction("connection creation");
+		}
 	}
 
 	// Getters / setters
@@ -274,7 +285,7 @@ public class HSQLDBRepository implements Repository {
 			return;
 		}
 
-		try (Statement stmt = this.connection.createStatement()) {
+		try {
 			assertEmptyTransaction("connection close");
 
 			// Assume we are not going to be GC'd for a while
@@ -282,11 +293,66 @@ public class HSQLDBRepository implements Repository {
 			this.sqlStatements = null;
 			this.savepoints.clear();
 
+			// If a checkpoint has been requested, we could perform that now
+			this.maybeCheckpoint();
+
 			// Give connection back to the pool
 			this.connection.close();
 			this.connection = null;
 		} catch (SQLException e) {
 			throw new DataException("Error while closing repository", e);
+		}
+	}
+
+	private void maybeCheckpoint() throws DataException {
+		// To serialize checkpointing and to block new sessions when checkpointing in progress
+		synchronized (CHECKPOINT_LOCK) {
+			Boolean quickCheckpointRequest = RepositoryManager.getRequestedCheckpoint();
+			if (quickCheckpointRequest == null)
+				return;
+
+			// We can only perform a CHECKPOINT if no other HSQLDB session is mid-transaction,
+			// otherwise the CHECKPOINT blocks for COMMITs and other threads can't open HSQLDB sessions
+			// due to HSQLDB blocking until CHECKPOINT finishes - i.e. deadlock
+			String sql = "SELECT COUNT(*) "
+					+ "FROM Information_schema.system_sessions "
+					+ "WHERE transaction = TRUE";
+
+			try {
+				PreparedStatement pstmt = this.cachePreparedStatement(sql);
+
+				if (!pstmt.execute())
+					throw new DataException("Unable to check repository session status");
+
+				try (ResultSet resultSet = pstmt.getResultSet()) {
+					if (resultSet == null || !resultSet.next())
+						// Failed to even find HSQLDB session info!
+						throw new DataException("No results when checking repository session status");
+
+					int transactionCount = resultSet.getInt(1);
+
+					if (transactionCount > 0)
+						// We can't safely perform CHECKPOINT due to ongoing SQL transactions
+						return;
+				}
+
+				LOGGER.info("Performing repository CHECKPOINT...");
+
+				if (Settings.getInstance().getShowCheckpointNotification())
+					SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_CHECKPOINT"),
+							Translator.INSTANCE.translate("SysTray", "PERFORMING_DB_CHECKPOINT"),
+							MessageType.INFO);
+
+				try (Statement stmt = this.connection.createStatement()) {
+					stmt.execute(Boolean.TRUE.equals(quickCheckpointRequest) ? "CHECKPOINT" : "CHECKPOINT DEFRAG");
+				}
+
+				// Completed!
+				LOGGER.info("Repository CHECKPOINT completed!");
+				RepositoryManager.setRequestedCheckpoint(null);
+			} catch (SQLException e) {
+				throw new DataException("Unable to check repository session status", e);
+			}
 		}
 	}
 
@@ -371,18 +437,9 @@ public class HSQLDBRepository implements Repository {
 
 		// Actually create backup
 		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute("BACKUP DATABASE TO 'backup/' NOT BLOCKING AS FILES");
+			stmt.execute("BACKUP DATABASE TO 'backup/' BLOCKING AS FILES");
 		} catch (SQLException e) {
 			throw new DataException("Unable to backup repository");
-		}
-	}
-
-	@Override
-	public void checkpoint(boolean quick) throws DataException {
-		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute(quick ? "CHECKPOINT" : "CHECKPOINT DEFRAG");
-		} catch (SQLException e) {
-			throw new DataException("Unable to perform repository checkpoint");
 		}
 	}
 
@@ -401,28 +458,73 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void exportNodeLocalData() throws DataException {
-		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE MintingAccounts DATA TO 'MintingAccounts.script'");
-			stmt.execute("PERFORM EXPORT SCRIPT FOR TABLE TradeBotStates DATA TO 'TradeBotStates.script'");
-			LOGGER.info("Exported sensitive/node-local data: minting keys and trade bot states");
-		} catch (SQLException e) {
-			throw new DataException("Unable to export sensitive/node-local data from repository");
+		// Create the qortal-backup folder if it doesn't exist
+		Path backupPath = Paths.get("qortal-backup");
+		try {
+			Files.createDirectories(backupPath);
+		} catch (IOException e) {
+			LOGGER.info("Unable to create backup folder");
+			throw new DataException("Unable to create backup folder");
+		}
+
+		try {
+			// Load trade bot data
+			List<TradeBotData> allTradeBotData = this.getCrossChainRepository().getAllTradeBotData();
+			JSONArray allTradeBotDataJson = new JSONArray();
+			for (TradeBotData tradeBotData : allTradeBotData) {
+				JSONObject tradeBotDataJson = tradeBotData.toJson();
+				allTradeBotDataJson.put(tradeBotDataJson);
+			}
+
+			// We need to combine existing TradeBotStates data before overwriting
+			String fileName = "qortal-backup/TradeBotStates.json";
+			File tradeBotStatesBackupFile = new File(fileName);
+			if (tradeBotStatesBackupFile.exists()) {
+				String jsonString = new String(Files.readAllBytes(Paths.get(fileName)));
+				JSONArray allExistingTradeBotData = new JSONArray(jsonString);
+				Iterator<Object> iterator = allExistingTradeBotData.iterator();
+				while(iterator.hasNext()) {
+					JSONObject existingTradeBotData = (JSONObject)iterator.next();
+					String existingTradePrivateKey = (String) existingTradeBotData.get("tradePrivateKey");
+						// Check if we already have an entry for this trade
+						boolean found = allTradeBotData.stream().anyMatch(tradeBotData -> Base58.encode(tradeBotData.getTradePrivateKey()).equals(existingTradePrivateKey));
+						if (found == false)
+							// We need to add this to our list
+							allTradeBotDataJson.put(existingTradeBotData);
+				}
+			}
+
+			FileWriter writer = new FileWriter(fileName);
+			writer.write(allTradeBotDataJson.toString());
+			writer.close();
+			LOGGER.info("Exported sensitive/node-local data: trade bot states");
+
+		} catch (DataException | IOException e) {
+			throw new DataException("Unable to export trade bot states from repository");
 		}
 	}
 
 	@Override
 	public void importDataFromFile(String filename) throws DataException {
-		try (Statement stmt = this.connection.createStatement()) {
-			LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
-
-			String escapedFilename = stmt.enquoteLiteral(filename);
-			stmt.execute("PERFORM IMPORT SCRIPT DATA FROM " + escapedFilename + " STOP ON ERROR");
-
-			LOGGER.info(() -> String.format("Imported data into repository from %s", filename));
-		} catch (SQLException e) {
-			LOGGER.info(() -> String.format("Failed to import data into repository from %s: %s", filename, e.getMessage()));
-			throw new DataException("Unable to export sensitive/node-local data from repository: " + e.getMessage());
+		LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
+		try {
+			String jsonString = new String(Files.readAllBytes(Paths.get(filename)));
+			JSONArray tradeBotDataToImport = new JSONArray(jsonString);
+			Iterator<Object> iterator = tradeBotDataToImport.iterator();
+			while(iterator.hasNext()) {
+				JSONObject tradeBotDataJson = (JSONObject)iterator.next();
+				TradeBotData tradeBotData = TradeBotData.fromJson(tradeBotDataJson);
+				this.getCrossChainRepository().save(tradeBotData);
+			}
+		} catch (IOException e) {
+			throw new DataException("Unable to import sensitive/node-local trade bot states to repository: " + e.getMessage());
 		}
+		LOGGER.info(() -> String.format("Imported trade bot states into repository from %s", filename));
+	}
+
+	@Override
+	public void checkConsistency() throws DataException {
+		this.getATRepository().checkConsistency();
 	}
 
 	/** Returns DB pathname from passed connection URL. If memory DB, returns "mem". */
@@ -601,8 +703,11 @@ public class HSQLDBRepository implements Repository {
 	private ResultSet checkedExecuteResultSet(PreparedStatement preparedStatement, Object... objects) throws SQLException {
 		bindStatementParams(preparedStatement, objects);
 
-		if (!preparedStatement.execute())
-			throw new SQLException("Fetching from database produced no results");
+		// synchronize to block new executions if checkpointing in progress
+		synchronized (CHECKPOINT_LOCK) {
+			if (!preparedStatement.execute())
+				throw new SQLException("Fetching from database produced no results");
+		}
 
 		ResultSet resultSet = preparedStatement.getResultSet();
 		if (resultSet == null)
@@ -617,7 +722,7 @@ public class HSQLDBRepository implements Repository {
 	/**
 	 * Execute PreparedStatement and return changed row count.
 	 * 
-	 * @param preparedStatement
+	 * @param sql
 	 * @param objects
 	 * @return number of changed rows
 	 * @throws SQLException
@@ -629,8 +734,8 @@ public class HSQLDBRepository implements Repository {
 	/**
 	 * Execute batched PreparedStatement
 	 * 
-	 * @param preparedStatement
-	 * @param objects
+	 * @param sql
+	 * @param batchedObjects
 	 * @return number of changed rows
 	 * @throws SQLException
 	 */
@@ -647,7 +752,16 @@ public class HSQLDBRepository implements Repository {
 
 		long beforeQuery = this.slowQueryThreshold == null ? 0 : System.currentTimeMillis();
 
-		int[] updateCounts = preparedStatement.executeBatch();
+		int[] updateCounts = null;
+		try {
+			updateCounts = preparedStatement.executeBatch();
+		} catch (SQLException e) {
+			if (isDeadlockException(e))
+				// We want more info on what other DB sessions are doing to cause this
+				examineException(e);
+
+			throw e;
+		}
 
 		if (this.slowQueryThreshold != null) {
 			long queryTime = System.currentTimeMillis() - beforeQuery;
@@ -745,7 +859,7 @@ public class HSQLDBRepository implements Repository {
 	 * 
 	 * @param tableName
 	 * @param whereClause
-	 * @param objects
+	 * @param batchedObjects
 	 * @throws SQLException
 	 */
 	public int deleteBatch(String tableName, String whereClause, List<Object[]> batchedObjects) throws SQLException {
@@ -819,15 +933,18 @@ public class HSQLDBRepository implements Repository {
 	 * <p>
 	 * (Convenience method for HSQLDB repository subclasses).
 	 */
-	/* package */ static void temporaryValuesTableSql(StringBuilder stringBuilder, List<? extends Object> values, String tableName, String columnName) {
+	/* package */ static void temporaryValuesTableSql(StringBuilder stringBuilder, Collection<?> values, String tableName, String columnName) {
 		stringBuilder.append("(VALUES ");
 
-		for (int i = 0; i < values.size(); ++i) {
-			if (i != 0)
+		boolean first = true;
+		for (Object value : values) {
+			if (first)
+				first = false;
+			else
 				stringBuilder.append(", ");
 
 			stringBuilder.append("(");
-			stringBuilder.append(values.get(i));
+			stringBuilder.append(value);
 			stringBuilder.append(")");
 		}
 
@@ -855,6 +972,8 @@ public class HSQLDBRepository implements Repository {
 
 	/** Logs other HSQLDB sessions then returns passed exception */
 	public SQLException examineException(SQLException e) {
+		// TODO: could log at DEBUG for deadlocks by checking RepositoryManager.isDeadlockRelated(e)?
+
 		LOGGER.error(() -> String.format("[Session %d] HSQLDB error: %s", this.sessionId, e.getMessage()), e);
 
 		logStatements();
@@ -934,6 +1053,10 @@ public class HSQLDBRepository implements Repository {
 			return null;
 
 		return Crypto.toAddress(publicKey);
+	}
+
+	/*package*/ static boolean isDeadlockException(SQLException e) {
+		return DEADLOCK_ERROR_CODE.equals(e.getErrorCode());
 	}
 
 }

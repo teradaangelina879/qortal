@@ -1,8 +1,17 @@
 package org.qortal.repository;
 
+import java.sql.SQLException;
+
 public abstract class RepositoryManager {
 
 	private static RepositoryFactory repositoryFactory = null;
+
+	/** null if no checkpoint requested, TRUE for quick checkpoint, false for slow/full checkpoint. */
+	private static Boolean quickCheckpointRequested = null;
+
+	public static RepositoryFactory getRepositoryFactory() {
+		return repositoryFactory;
+	}
 
 	public static void setRepositoryFactory(RepositoryFactory newRepositoryFactory) {
 		repositoryFactory = newRepositoryFactory;
@@ -42,12 +51,12 @@ public abstract class RepositoryManager {
 		}
 	}
 
-	public static void checkpoint(boolean quick) {
-		try (final Repository repository = getRepository()) {
-			repository.checkpoint(quick);
-		} catch (DataException e) {
-			// Checkpoint is best-effort so don't complain
-		}
+	public static void setRequestedCheckpoint(Boolean quick) {
+		quickCheckpointRequested = quick;
+	}
+
+	public static Boolean getRequestedCheckpoint() {
+		return quickCheckpointRequested;
 	}
 
 	public static void rebuild() throws DataException {
@@ -60,6 +69,12 @@ public abstract class RepositoryManager {
 		oldRepository.rebuild();
 
 		repositoryFactory = oldRepositoryFactory.reopen();
+	}
+
+	public static boolean isDeadlockRelated(Throwable e) {
+		Throwable cause = e.getCause();
+
+		return SQLException.class.isInstance(cause) && repositoryFactory.isDeadlockException((SQLException) cause);
 	}
 
 }

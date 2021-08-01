@@ -176,19 +176,26 @@ public class Block {
 		 * 
 		 *  @return account-level share "bin" from blockchain config, or null if founder / none found
 		 */
-		public AccountLevelShareBin getShareBin() {
+		public AccountLevelShareBin getShareBin(int blockHeight) {
 			if (this.isMinterFounder)
 				return null;
 
 			final int accountLevel = this.mintingAccountData.getLevel();
 			if (accountLevel <= 0)
-					return null;
+				return null; // level 0 isn't included in any share bins
 
-			final AccountLevelShareBin[] shareBinsByLevel = BlockChain.getInstance().getShareBinsByAccountLevel();
+			final BlockChain blockChain = BlockChain.getInstance();
+			final AccountLevelShareBin[] shareBinsByLevel = blockChain.getShareBinsByAccountLevel();
 			if (accountLevel > shareBinsByLevel.length)
 				return null;
 
-			return shareBinsByLevel[accountLevel];
+			if (blockHeight < blockChain.getShareBinFixHeight())
+				// Off-by-one bug still in effect
+				return shareBinsByLevel[accountLevel];
+
+			// level 1 stored at index 0, level 2 stored at index 1, etc.
+			return shareBinsByLevel[accountLevel-1];
+
 		}
 
 		public long distribute(long accountAmount, Map<String, Long> balanceChanges) {
@@ -225,7 +232,7 @@ public class Block {
 
 	// Other useful constants
 
-	private static final BigInteger MAX_DISTANCE;
+	public static final BigInteger MAX_DISTANCE;
 	static {
 		byte[] maxValue = new byte[Transformer.PUBLIC_KEY_LENGTH];
 		Arrays.fill(maxValue, (byte) 0xFF);
@@ -357,12 +364,8 @@ public class Block {
 			System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
 		}
 
-		byte[] minterSignature;
-		try {
-			minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(), minter, encodedOnlineAccounts));
-		} catch (TransformationException e) {
-			throw new DataException("Unable to calculate next block minter signature", e);
-		}
+		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData,
+				minter.getPublicKey(), encodedOnlineAccounts));
 
 		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
 		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
@@ -428,12 +431,8 @@ public class Block {
 		int version = this.blockData.getVersion();
 		byte[] reference = this.blockData.getReference();
 
-		byte[] minterSignature;
-		try {
-			minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData.getMinterSignature(), minter, this.blockData.getEncodedOnlineAccounts()));
-		} catch (TransformationException e) {
-			throw new DataException("Unable to calculate next block's minter signature", e);
-		}
+		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData,
+				minter.getPublicKey(), this.blockData.getEncodedOnlineAccounts()));
 
 		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
 		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
@@ -746,11 +745,7 @@ public class Block {
 		if (!(this.minter instanceof PrivateKeyAccount))
 			throw new IllegalStateException("Block's minter is not a PrivateKeyAccount - can't sign!");
 
-		try {
-			this.blockData.setMinterSignature(((PrivateKeyAccount) this.minter).sign(BlockTransformer.getBytesForMinterSignature(this.blockData)));
-		} catch (TransformationException e) {
-			throw new RuntimeException("Unable to calculate block's minter signature", e);
-		}
+		this.blockData.setMinterSignature(((PrivateKeyAccount) this.minter).sign(BlockTransformer.getBytesForMinterSignature(this.blockData)));
 	}
 
 	/**
@@ -801,7 +796,9 @@ public class Block {
 		NumberFormat formatter = new DecimalFormat("0.###E0");
 		boolean isLogging = LOGGER.getLevel().isLessSpecificThan(Level.TRACE);
 
+		int blockCount = 0;
 		for (BlockSummaryData blockSummaryData : blockSummaries) {
+			blockCount++;
 			StringBuilder stringBuilder = isLogging ? new StringBuilder(512) : null;
 
 			if (isLogging)
@@ -830,11 +827,11 @@ public class Block {
 			parentHeight = blockSummaryData.getHeight();
 			parentBlockSignature = blockSummaryData.getSignature();
 
-			/* Potential future consensus change: only comparing the same number of blocks.
-			if (parentHeight >= maxHeight)
+			// After this timestamp, we only compare the same number of blocks
+			if (NTP.getTime() >= BlockChain.getInstance().getCalcChainWeightTimestamp() && parentHeight >= maxHeight)
 				break;
-			*/
 		}
+		LOGGER.trace(String.format("Chain weight calculation was based on %d blocks", blockCount));
 
 		return cumulativeWeight;
 	}
@@ -1095,6 +1092,10 @@ public class Block {
 			// Create repository savepoint here so we can rollback to it after testing transactions
 			repository.setSavepoint();
 
+			if (this.blockData.getHeight() == 212937)
+				// Apply fix for block 212937 but fix will be rolled back before we exit method
+				Block212937.processFix(this);
+
 			for (Transaction transaction : this.getTransactions()) {
 				TransactionData transactionData = transaction.getTransactionData();
 
@@ -1299,6 +1300,10 @@ public class Block {
 
 			// Distribute block rewards, including transaction fees, before transactions processed
 			processBlockRewards();
+
+			if (this.blockData.getHeight() == 212937)
+				// Apply fix for block 212937
+				Block212937.processFix(this);
 		}
 
 		// We're about to (test-)process a batch of transactions,
@@ -1333,6 +1338,9 @@ public class Block {
 
 		// Give Controller our cached, valid online accounts data (if any) to help reduce CPU load for next block
 		Controller.getInstance().pushLatestBlocksOnlineAccounts(this.cachedValidOnlineAccounts);
+
+		// Log some debugging info relating to the block weight calculation
+		this.logDebugInfo();
 	}
 
 	protected void increaseAccountLevels() throws DataException {
@@ -1514,6 +1522,9 @@ public class Block {
 	public void orphan() throws DataException {
 		LOGGER.trace(() -> String.format("Orphaning block %d", this.blockData.getHeight()));
 
+		// Log some debugging info relating to the block weight calculation
+		this.logDebugInfo();
+
 		// Return AT fees and delete AT states from repository
 		orphanAtFeesAndStates();
 
@@ -1526,6 +1537,10 @@ public class Block {
 		if (this.blockData.getHeight() > 1) {
 			// Invalidate expandedAccounts as they may have changed due to orphaning TRANSFER_PRIVS transactions, etc.
 			this.cachedExpandedAccounts = null;
+
+			if (this.blockData.getHeight() == 212937)
+				// Revert fix for block 212937
+				Block212937.orphanFix(this);
 
 			// Block rewards, including transaction fees, removed after transactions undone
 			orphanBlockRewards();
@@ -1784,7 +1799,7 @@ public class Block {
 			// Find all accounts in share bin. getShareBin() returns null for minter accounts that are also founders, so they are effectively filtered out.
 			AccountLevelShareBin accountLevelShareBin = accountLevelShareBins.get(binIndex);
 			// Object reference compare is OK as all references are read-only from blockchain config.
-			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.getShareBin() == accountLevelShareBin).collect(Collectors.toList());
+			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.getShareBin(this.blockData.getHeight()) == accountLevelShareBin).collect(Collectors.toList());
 
 			// No online accounts in this bin? Skip to next one
 			if (binnedAccounts.isEmpty())
@@ -1980,6 +1995,40 @@ public class Block {
 	/** Opportunity to tidy repository, etc. after block process/orphan. */
 	private void postBlockTidy() throws DataException {
 		this.repository.getAccountRepository().tidy();
+	}
+
+	private void logDebugInfo() {
+		try {
+			// Avoid calculations if possible. We have to check against INFO here, since Level.isMoreSpecificThan() confusingly uses <= rather than just <
+			if (LOGGER.getLevel().isMoreSpecificThan(Level.INFO))
+				return;
+
+			if (this.repository == null || this.getMinter() == null || this.getBlockData() == null)
+				return;
+
+			int minterLevel = Account.getRewardShareEffectiveMintingLevel(this.repository, this.getMinter().getPublicKey());
+
+			LOGGER.debug(String.format("======= BLOCK %d (%.8s) =======", this.getBlockData().getHeight(), Base58.encode(this.getSignature())));
+			LOGGER.debug(String.format("Timestamp: %d", this.getBlockData().getTimestamp()));
+			LOGGER.debug(String.format("Minter level: %d", minterLevel));
+			LOGGER.debug(String.format("Online accounts: %d", this.getBlockData().getOnlineAccountsCount()));
+			LOGGER.debug(String.format("AT count: %d", this.getBlockData().getATCount()));
+
+			BlockSummaryData blockSummaryData = new BlockSummaryData(this.getBlockData());
+			if (this.getParent() == null || this.getParent().getSignature() == null || blockSummaryData == null || minterLevel == 0)
+				return;
+
+			blockSummaryData.setMinterLevel(minterLevel);
+			BigInteger blockWeight = calcBlockWeight(this.getParent().getHeight(), this.getParent().getSignature(), blockSummaryData);
+			BigInteger keyDistance = calcKeyDistance(this.getParent().getHeight(), this.getParent().getSignature(), blockSummaryData.getMinterPublicKey(), blockSummaryData.getMinterLevel());
+			NumberFormat formatter = new DecimalFormat("0.###E0");
+
+			LOGGER.debug(String.format("Key distance: %s", formatter.format(keyDistance)));
+			LOGGER.debug(String.format("Weight: %s", formatter.format(blockWeight)));
+
+		} catch (DataException e) {
+			LOGGER.info(() -> String.format("Unable to log block debugging info: %s", e.getMessage()));
+		}
 	}
 
 }

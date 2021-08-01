@@ -130,6 +130,9 @@ public class AtRepositoryTests extends Common {
 
 			// Trim AT state data
 			repository.getATRepository().prepareForAtStateTrimming();
+			// COMMIT to check latest AT states persist / TEMPORARY table interaction
+			repository.saveChanges();
+
 			repository.getATRepository().trimAtStates(2, maxHeight, 1000);
 
 			ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);

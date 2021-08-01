@@ -1,9 +1,11 @@
 package org.qortal.repository;
 
 import java.util.List;
+import java.util.Set;
 
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
+import org.qortal.utils.ByteArray;
 
 public interface ATRepository {
 
@@ -23,6 +25,9 @@ public interface ATRepository {
 
 	/** Returns list of ATs with matching code hash, optionally executable only. */
 	public List<ATData> getATsByFunctionality(byte[] codeHash, Boolean isExecutable, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/** Returns list of all ATs matching one of passed code hashes, optionally executable only. */
+	public List<ATData> getAllATsByFunctionality(Set<ByteArray> codeHashes, Boolean isExecutable) throws DataException;
 
 	/** Returns creation block height given AT's address or null if not found */
 	public Integer getATCreationBlockHeight(String atAddress) throws DataException;
@@ -74,6 +79,26 @@ public interface ATRepository {
 	public List<ATStateData> getMatchingFinalATStates(byte[] codeHash, Boolean isFinished,
 			Integer dataByteOffset, Long expectedValue, Integer minimumFinalHeight,
 			Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
+	 * Returns final ATStateData for ATs matching codeHash (required)
+	 * and specific data segment value (optional), returning at least
+	 * <tt>minimumCount</tt> entries over a span of at least
+	 * <tt>minimumPeriod</tt> ms, given enough entries in repository.
+	 * <p>
+	 * If searching for specific data segment value, both <tt>dataByteOffset</tt>
+	 * and <tt>expectedValue</tt> need to be non-null.
+	 * <p>
+	 * Note that <tt>dataByteOffset</tt> starts from 0 and will typically be
+	 * a multiple of <tt>MachineState.VALUE_SIZE</tt>, which is usually 8:
+	 * width of a long.
+	 * <p>
+	 * Although <tt>expectedValue</tt>, if provided, is natively an unsigned long,
+	 * the data segment comparison is done via unsigned hex string.
+	 */
+	public List<ATStateData> getMatchingFinalATStatesQuorum(byte[] codeHash, Boolean isFinished,
+			Integer dataByteOffset, Long expectedValue,
+			int minimumCount, int maximumCount, long minimumPeriod) throws DataException;
 
 	/**
 	 * Returns all ATStateData for a given block height.
@@ -147,5 +172,9 @@ public interface ATRepository {
 	 * @return next transaction info, or null if none found
 	 */
 	public NextTransactionInfo findNextTransaction(String recipient, int height, int sequence) throws DataException;
+
+	// Other
+
+	public void checkConsistency() throws DataException;
 
 }

@@ -184,7 +184,11 @@ public class QortalATAPI extends API {
 		String atAddress = this.atData.getATAddress();
 
 		int height = timestamp.blockHeight;
-		int sequence = timestamp.transactionSequence + 1;
+		int sequence = timestamp.transactionSequence;
+
+		if (state.getCurrentBlockHeight() < BlockChain.getInstance().getAtFindNextTransactionFixHeight())
+			// Off-by-one bug still in effect
+			sequence += 1;
 
 		ATRepository.NextTransactionInfo nextTransactionInfo;
 		try {

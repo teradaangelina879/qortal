@@ -15,7 +15,8 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
-import org.qortal.controller.TradeBot;
+import org.qortal.controller.tradebot.TradeBot;
+import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
@@ -30,7 +31,9 @@ import org.qortal.utils.Base58;
 public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 
 	/** Cache of trade-bot entry states, keyed by trade-bot entry's "trade private key" (base58) */
-	private static final Map<String, TradeBotData.State> PREVIOUS_STATES = new HashMap<>();
+	private static final Map<String, Integer> PREVIOUS_STATES = new HashMap<>();
+
+	private static final Map<Session, String> sessionBlockchain = Collections.synchronizedMap(new HashMap<>());
 
 	@Override
 	public void configure(WebSocketServletFactory factory) {
@@ -42,7 +45,7 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 				// How do we properly fail here?
 				return;
 
-			PREVIOUS_STATES.putAll(tradeBotEntries.stream().collect(Collectors.toMap(entry -> Base58.encode(entry.getTradePrivateKey()), TradeBotData::getState)));
+			PREVIOUS_STATES.putAll(tradeBotEntries.stream().collect(Collectors.toMap(entry -> Base58.encode(entry.getTradePrivateKey()), TradeBotData::getStateValue)));
 		} catch (DataException e) {
 			// No output this time
 		}
@@ -59,35 +62,59 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 		String tradePrivateKey58 = Base58.encode(tradeBotData.getTradePrivateKey());
 
 		synchronized (PREVIOUS_STATES) {
-			if (PREVIOUS_STATES.get(tradePrivateKey58) == tradeBotData.getState())
+			Integer previousStateValue = PREVIOUS_STATES.get(tradePrivateKey58);
+			if (previousStateValue != null && previousStateValue == tradeBotData.getStateValue())
 				// Not changed
 				return;
 
-			PREVIOUS_STATES.put(tradePrivateKey58, tradeBotData.getState());
+			PREVIOUS_STATES.put(tradePrivateKey58, tradeBotData.getStateValue());
 		}
 
 		List<TradeBotData> tradeBotEntries = Collections.singletonList(tradeBotData);
-		for (Session session : getSessions())
-			sendEntries(session, tradeBotEntries);
+
+		for (Session session : getSessions()) {
+			// Only send if this session has this/no preferred blockchain
+			String preferredBlockchain = sessionBlockchain.get(session);
+
+			if (preferredBlockchain == null || preferredBlockchain.equals(tradeBotData.getForeignBlockchain()))
+				sendEntries(session, tradeBotEntries);
+		}
 	}
 
 	@OnWebSocketConnect
 	@Override
 	public void onWebSocketConnect(Session session) {
+		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+
+		List<String> foreignBlockchains = queryParams.get("foreignBlockchain");
+		final String foreignBlockchain = foreignBlockchains == null ? null : foreignBlockchains.get(0);
+
+		// Make sure blockchain (if any) is valid
+		if (foreignBlockchain != null && SupportedBlockchain.fromString(foreignBlockchain) == null) {
+			session.close(4003, "unknown blockchain: " + foreignBlockchain);
+			return;
+		}
+
+		// save session's preferred blockchain (if any)
+		sessionBlockchain.put(session, foreignBlockchain);
+
 		// Send all known trade-bot entries
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<TradeBotData> tradeBotEntries = repository.getCrossChainRepository().getAllTradeBotData();
-			if (tradeBotEntries == null) {
-				session.close(4001, "repository issue fetching trade-bot entries");
-				return;
-			}
+
+			// Optional filtering
+			if (foreignBlockchain != null)
+				tradeBotEntries = tradeBotEntries.stream()
+						.filter(tradeBotData -> tradeBotData.getForeignBlockchain().equals(foreignBlockchain))
+						.collect(Collectors.toList());
 
 			if (!sendEntries(session, tradeBotEntries)) {
 				session.close(4002, "websocket issue");
 				return;
 			}
 		} catch (DataException e) {
-			// No output this time
+			session.close(4001, "repository issue fetching trade-bot entries");
+			return;
 		}
 
 		super.onWebSocketConnect(session);
@@ -96,6 +123,9 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 	@OnWebSocketClose
 	@Override
 	public void onWebSocketClose(Session session, int statusCode, String reason) {
+		// clean up
+		sessionBlockchain.remove(session);
+
 		super.onWebSocketClose(session, statusCode, reason);
 	}
 

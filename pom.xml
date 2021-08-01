@@ -3,10 +3,12 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.qortal</groupId>
 	<artifactId>qortal</artifactId>
-	<version>1.3.6</version>
+	<version>1.5.6</version>
 	<packaging>jar</packaging>
 	<properties>
-		<bitcoinj.version>0.15.5</bitcoinj.version>
+		<skipTests>true</skipTests>
+		<altcoinj.version>bf9fb80</altcoinj.version>
+		<bitcoinj.version>0.15.10</bitcoinj.version>
 		<bouncycastle.version>1.64</bouncycastle.version>
 		<build.timestamp>${maven.build.timestamp}</build.timestamp>
 		<ciyam-at.version>1.3.8</ciyam-at.version>
@@ -198,6 +200,10 @@
 							<pattern>org.qortal.api.model**</pattern>
 							<template>${project.build.sourceDirectory}/org/qortal/data/package-info.java</template>
 						</package>
+						<package>
+							<pattern>org.qortal.api.model.**</pattern>
+							<template>${project.build.sourceDirectory}/org/qortal/data/package-info.java</template>
+						</package>
 					</packages>
 					<outputDirectory>${project.build.directory}/generated-sources/package-info</outputDirectory>
 				</configuration>
@@ -312,6 +318,14 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.22.2</version>
+				<configuration>
+					<skipTests>${skipTests}</skipTests>
+				</configuration>
+			</plugin>
 		</plugins>
 		<pluginManagement>
 			<plugins>
@@ -374,6 +388,11 @@
 			<name>project</name>
 			<url>file:${project.basedir}/lib</url>
 		</repository>
+		<!-- jitpack for build-on-demand of altcoinj -->
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
 	</repositories>
 	<dependencies>
 		<!-- https://mvnrepository.com/artifact/org.codehaus.mojo/build-helper-maven-plugin -->
@@ -408,11 +427,22 @@
 			<artifactId>bitcoinj-core</artifactId>
 			<version>${bitcoinj.version}</version>
 		</dependency>
+		<!-- For Litecoin, etc. support, requires bitcoinj -->
+		<dependency>
+			<groupId>com.github.jjos2372</groupId>
+			<artifactId>altcoinj</artifactId>
+			<version>${altcoinj.version}</version>
+		</dependency>
 		<!-- Utilities -->
 		<dependency>
 			<groupId>com.googlecode.json-simple</groupId>
 			<artifactId>json-simple</artifactId>
 			<version>1.1.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20210307</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>

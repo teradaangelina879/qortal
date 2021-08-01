@@ -13,9 +13,9 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.ApiError;
-import org.qortal.api.model.BlockInfo;
 import org.qortal.controller.Controller;
 import org.qortal.data.block.BlockData;
+import org.qortal.data.block.BlockSummaryData;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
 import org.qortal.event.Listener;
@@ -41,10 +41,10 @@ public class BlocksWebSocket extends ApiWebSocket implements Listener {
 			return;
 
 		BlockData blockData = ((Controller.NewBlockEvent) event).getBlockData();
-		BlockInfo blockInfo = new BlockInfo(blockData);
+		BlockSummaryData blockSummary = new BlockSummaryData(blockData);
 
 		for (Session session : getSessions())
-			sendBlockInfo(session, blockInfo);
+			sendBlockSummary(session, blockSummary);
 	}
 
 	@OnWebSocketConnect
@@ -85,13 +85,13 @@ public class BlocksWebSocket extends ApiWebSocket implements Listener {
 					return;
 				}
 
-				List<BlockInfo> blockInfos = repository.getBlockRepository().getBlockInfos(height, null, 1);
-				if (blockInfos == null || blockInfos.isEmpty()) {
+				List<BlockSummaryData> blockSummaries = repository.getBlockRepository().getBlockSummaries(height, height);
+				if (blockSummaries == null || blockSummaries.isEmpty()) {
 					sendError(session, ApiError.BLOCK_UNKNOWN);
 					return;
 				}
 
-				sendBlockInfo(session, blockInfos.get(0));
+				sendBlockSummary(session, blockSummaries.get(0));
 			} catch (DataException e) {
 				sendError(session, ApiError.REPOSITORY_ISSUE);
 			}
@@ -114,23 +114,23 @@ public class BlocksWebSocket extends ApiWebSocket implements Listener {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<BlockInfo> blockInfos = repository.getBlockRepository().getBlockInfos(height, null, 1);
-			if (blockInfos == null || blockInfos.isEmpty()) {
+			List<BlockSummaryData> blockSummaries = repository.getBlockRepository().getBlockSummaries(height, height);
+			if (blockSummaries == null || blockSummaries.isEmpty()) {
 				sendError(session, ApiError.BLOCK_UNKNOWN);
 				return;
 			}
 
-			sendBlockInfo(session, blockInfos.get(0));
+			sendBlockSummary(session, blockSummaries.get(0));
 		} catch (DataException e) {
 			sendError(session, ApiError.REPOSITORY_ISSUE);
 		}
 	}
 
-	private void sendBlockInfo(Session session, BlockInfo blockInfo) {
+	private void sendBlockSummary(Session session, BlockSummaryData blockSummary) {
 		StringWriter stringWriter = new StringWriter();
 
 		try {
-			marshall(stringWriter, blockInfo);
+			marshall(stringWriter, blockSummary);
 
 			session.getRemote().sendStringByFuture(stringWriter.toString());
 		} catch (IOException | WebSocketException e) {

@@ -47,12 +47,12 @@ public interface Repository extends AutoCloseable {
 
 	public void backup(boolean quick) throws DataException;
 
-	public void checkpoint(boolean quick) throws DataException;
-
 	public void performPeriodicMaintenance() throws DataException;
 
 	public void exportNodeLocalData() throws DataException;
 
 	public void importDataFromFile(String filename) throws DataException;
+
+	public void checkConsistency() throws DataException;
 
 }
