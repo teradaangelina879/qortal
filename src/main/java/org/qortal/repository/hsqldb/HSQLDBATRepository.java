@@ -225,7 +225,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 		sql.append("SELECT AT_address, creator, created_when, version, asset_id, code_bytes, ")
 				.append("is_sleeping, sleep_until_height, is_finished, had_fatal_error, ")
-				.append("is_frozen, frozen_balance, code_hash ")
+				.append("is_frozen, frozen_balance, code_hash, sleep_until_message_timestamp ")
 				.append("FROM ");
 
 		// (VALUES (?), (?), ...) AS ATCodeHashes (code_hash)
@@ -279,9 +279,10 @@ public class HSQLDBATRepository implements ATRepository {
 					frozenBalance = null;
 
 				byte[] codeHash = resultSet.getBytes(13);
+				Long sleepUntilMessageTimestamp = resultSet.getLong(14);
 
 				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
-						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance, sleepUntilMessageTimestamp);
 
 				matchingATs.add(atData);
 			} while (resultSet.next());
@@ -498,7 +499,7 @@ public class HSQLDBATRepository implements ATRepository {
 		StringBuilder sql = new StringBuilder(1024);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial "
+		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial, sleep_until_message_timestamp "
 				+ "FROM ATs "
 				+ "CROSS JOIN LATERAL("
 					+ "SELECT height, state_data, state_hash, fees, is_initial "
@@ -553,8 +554,10 @@ public class HSQLDBATRepository implements ATRepository {
 				byte[] stateHash = resultSet.getBytes(4);
 				long fees = resultSet.getLong(5);
 				boolean isInitial = resultSet.getBoolean(6);
+				Long sleepUntilMessageTimestamp = resultSet.getLong(7);
 
-				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial,
+						sleepUntilMessageTimestamp);
 
 				atStates.add(atStateData);
 			} while (resultSet.next());
