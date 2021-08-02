@@ -88,7 +88,7 @@ public class DogecoinACCTv2 implements ACCT {
 	private static final Logger LOGGER = LogManager.getLogger(DogecoinACCTv2.class);
 
 	public static final String NAME = DogecoinACCTv2.class.getSimpleName();
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("0eb49b0313ff3855a29d860c2a8203faa2ef62e28ea30459321f176079cfa3a6").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("6fff38d6eeb06568a9c879c5628527730319844aa0de53f5f4ffab5506efe885").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;
 
@@ -356,6 +356,9 @@ public class DogecoinACCTv2 implements ACCT {
 				/* Transaction processing loop */
 				labelTradeTxnLoop = codeByteBuffer.position();
 
+				/* Sleep until message arrives */
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.SLEEP_UNTIL_MESSAGE.value, addrLastTxnTimestamp));
+
 				// Find next transaction (if any) to this AT since the last one (referenced by addrLastTxnTimestamp)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));
 				// If no transaction found, A will be zero. If A is zero, set addrResult to 1, otherwise 0.
@@ -461,6 +464,9 @@ public class DogecoinACCTv2 implements ACCT {
 
 				/* Transaction processing loop */
 				labelRedeemTxnLoop = codeByteBuffer.position();
+
+				/* Sleep until message arrives */
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.SLEEP_UNTIL_MESSAGE.value, addrLastTxnTimestamp));
 
 				// Find next transaction to this AT since the last one (if any)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));
