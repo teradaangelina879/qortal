@@ -42,7 +42,8 @@ public enum SupportedBlockchain {
 	},
 
 	DOGECOIN(Arrays.asList(
-			Triple.valueOf(DogecoinACCTv1.NAME, DogecoinACCTv1.CODE_BYTES_HASH, DogecoinACCTv1::getInstance)
+			Triple.valueOf(DogecoinACCTv1.NAME, DogecoinACCTv1.CODE_BYTES_HASH, DogecoinACCTv1::getInstance),
+			Triple.valueOf(DogecoinACCTv2.NAME, DogecoinACCTv2.CODE_BYTES_HASH, DogecoinACCTv2::getInstance)
 		)) {
 		@Override
 		public ForeignBlockchain getInstance() {
@@ -51,7 +52,7 @@ public enum SupportedBlockchain {
 
 		@Override
 		public ACCT getLatestAcct() {
-			return DogecoinACCTv1.getInstance();
+			return DogecoinACCTv2.getInstance();
 		}
 	};
 
