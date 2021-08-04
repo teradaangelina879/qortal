@@ -354,7 +354,8 @@ public class AtRepositoryTests extends Common {
 					/*StateData*/ null,
 					atStateData.getStateHash(),
 					atStateData.getFees(),
-					atStateData.isInitial());
+					atStateData.isInitial(),
+					atStateData.getSleepUntilMessageTimestamp());
 			repository.getATRepository().save(newAtStateData);
 
 			atStateData = repository.getATRepository().getATStateAtHeight(atAddress, testHeight);

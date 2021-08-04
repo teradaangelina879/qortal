@@ -103,7 +103,7 @@ public interface ATRepository {
 	/**
 	 * Returns all ATStateData for a given block height.
 	 * <p>
-	 * Unlike <tt>getATState</tt>, only returns ATStateData saved at the given height.
+	 * Unlike <tt>getATState</tt>, only returns <i>partial</i> ATStateData saved at the given height.
 	 *
 	 * @param height
 	 *            - block height
