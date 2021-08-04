@@ -83,7 +83,7 @@ public class QortalATAPI extends API {
 			// Quicker to check height, if sleep-until-height also active
 			Integer sleepUntilHeight = this.atData.getSleepUntilHeight();
 
-			boolean wakeDueToHeight = sleepUntilHeight != null && blockHeight >= sleepUntilHeight;
+			boolean wakeDueToHeight = sleepUntilHeight != null && sleepUntilHeight != 0 && blockHeight >= sleepUntilHeight;
 
 			boolean wakeDueToMessage = false;
 			if (!wakeDueToHeight) {
