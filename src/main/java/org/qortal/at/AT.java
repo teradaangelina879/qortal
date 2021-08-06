@@ -131,8 +131,10 @@ public class AT {
 
 		// Nothing happened?
 		if (state.getSteps() == 0 && Arrays.equals(stateHash, latestAtStateData.getStateHash()))
-			// this.atStateData will be null
-			return Collections.emptyList();
+			// We currently want to execute frozen ATs, to maintain backwards support.
+			if (state.isFrozen() == false)
+				// this.atStateData will be null
+				return Collections.emptyList();
 
 		long atFees = api.calcFinalFees(state);
 		Long sleepUntilMessageTimestamp = this.atData.getSleepUntilMessageTimestamp();
