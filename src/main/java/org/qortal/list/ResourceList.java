@@ -17,6 +17,8 @@ import java.util.List;
 
 public class ResourceList {
 
+    private static final Logger LOGGER = LogManager.getLogger(ResourceList.class);
+
     private String category;
     private String resourceName;
     private List<String> list;
@@ -82,6 +84,15 @@ public class ResourceList {
         }
 
         return true;
+    }
+
+    public boolean revert() {
+        try {
+            return this.load();
+        } catch (IOException e) {
+            LOGGER.info("Unable to revert {} {}", this.resourceName, this.category);
+        }
+        return false;
     }
 
 

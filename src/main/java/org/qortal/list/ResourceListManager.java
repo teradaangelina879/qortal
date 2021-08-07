@@ -2,7 +2,6 @@ package org.qortal.list;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.eclipse.jetty.util.IO;
 
 import java.io.IOException;
 
@@ -29,10 +28,12 @@ public class ResourceListManager {
         return instance;
     }
 
-    public boolean addAddressToBlacklist(String address) {
+    public boolean addAddressToBlacklist(String address, boolean save) {
         try {
             this.addressBlacklist.add(address);
-            this.addressBlacklist.save();
+            if (save) {
+                this.addressBlacklist.save();
+            }
             return true;
 
         } catch (IllegalStateException | IOException e) {
@@ -41,10 +42,13 @@ public class ResourceListManager {
         }
     }
 
-    public boolean removeAddressFromBlacklist(String address) {
+    public boolean removeAddressFromBlacklist(String address, boolean save) {
         try {
             this.addressBlacklist.remove(address);
-            this.addressBlacklist.save();
+
+            if (save) {
+                this.addressBlacklist.save();
+            }
             return true;
 
         } catch (IllegalStateException | IOException e) {
@@ -58,6 +62,26 @@ public class ResourceListManager {
             return false;
         }
         return this.addressBlacklist.contains(address);
+    }
+
+    public void saveBlacklist() {
+        if (this.addressBlacklist == null) {
+            return;
+        }
+
+        try {
+            this.addressBlacklist.save();
+        } catch (IOException e) {
+            LOGGER.info("Unable to save blacklist - reverting back to last saved state");
+            this.addressBlacklist.revert();
+        }
+    }
+
+    public void revertBlacklist() {
+        if (this.addressBlacklist == null) {
+            return;
+        }
+        this.addressBlacklist.revert();
     }
 
 }
