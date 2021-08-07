@@ -1,4 +1,5 @@
 /db*
+/lists/
 /bin/
 /target/
 /qortal-backup/

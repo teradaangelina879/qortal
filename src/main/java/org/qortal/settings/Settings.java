@@ -161,6 +161,9 @@ public class Settings {
 		"https://raw.githubusercontent.com@151.101.16.133/Qortal/qortal/%s/qortal.update"
 	};
 
+	// Lists
+	private String listsPath = "lists";
+
 	/** Array of NTP server hostnames. */
 	private String[] ntpServers = new String[] {
 		"pool.ntp.org",
@@ -472,6 +475,10 @@ public class Settings {
 
 	public String[] getAutoUpdateRepos() {
 		return this.autoUpdateRepos;
+	}
+
+	public String getListsPath() {
+		return this.listsPath;
 	}
 
 	public String[] getNtpServers() {
