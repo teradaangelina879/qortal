@@ -849,6 +849,10 @@ public class HSQLDBDatabaseUpdates {
 								+ "WHERE height BETWEEN " + minHeight + " AND " + (minHeight + heightStep - 1)
 								+ ")");
 						stmt.execute("COMMIT");
+
+						int processed = Math.min(minHeight + heightStep - 1, blockchainHeight);
+						double percentage = (double)processed / (double)blockchainHeight * 100.0f;
+						LOGGER.info(String.format("Processed %d of %d blocks (%.1f%%)", processed, blockchainHeight, percentage));
 					}
 					stmt.execute("CHECKPOINT");
 
