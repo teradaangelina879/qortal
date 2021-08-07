@@ -11,6 +11,7 @@ import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
+import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
@@ -137,6 +138,12 @@ public class ChatTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Nonce checking is done via isSignatureValid() as that method is only called once per import
+
+		// Check for blacklisted author by address
+		ResourceListManager listManager = ResourceListManager.getInstance();
+		if (listManager.isAddressInBlacklist(this.chatTransactionData.getSender())) {
+			return ValidationResult.ADDRESS_IN_BLACKLIST;
+		}
 
 		// If we exist in the repository then we've been imported as unconfirmed,
 		// but we don't want to make it into a block, so return fake non-OK result.
