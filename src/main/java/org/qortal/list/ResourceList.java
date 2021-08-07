@@ -113,10 +113,12 @@ public class ResourceList {
     }
 
 
-
     /* Utils */
 
     public static String listToJSONString(List<String> list) {
+        if (list == null) {
+            return null;
+        }
         JSONArray items = new JSONArray();
         for (String item : list) {
             items.put(item);
@@ -125,6 +127,9 @@ public class ResourceList {
     }
 
     private static List<String> listFromJSONString(String jsonString) {
+        if (jsonString == null) {
+            return null;
+        }
         JSONArray jsonList = new JSONArray(jsonString);
         List<String> resourceList = new ArrayList<>();
         for (int i=0; i<jsonList.length(); i++) {
@@ -132,6 +137,10 @@ public class ResourceList {
             resourceList.add(item);
         }
         return resourceList;
+    }
+
+    public String getJSONString() {
+        return ResourceList.listToJSONString(this.list);
     }
 
 }

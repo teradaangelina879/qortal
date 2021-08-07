@@ -238,6 +238,21 @@ public class ListsResource {
 	}
 
 	@GET
+	@Path("/blacklist/addresses")
+	@Operation(
+			summary = "Fetch the list of blacklisted addresses",
+			responses = {
+					@ApiResponse(
+							description = "A JSON array of addresses",
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	public String getAddressBlacklist() {
+		return ResourceListManager.getInstance().getBlacklistJSONString();
+	}
+
+	@GET
 	@Path("/blacklist/address/{address}")
 	@Operation(
 			summary = "Check if an address is present in the local blacklist",

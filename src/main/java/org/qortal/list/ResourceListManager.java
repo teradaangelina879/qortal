@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.List;
 
 public class ResourceListManager {
 
@@ -82,6 +83,13 @@ public class ResourceListManager {
             return;
         }
         this.addressBlacklist.revert();
+    }
+
+    public String getBlacklistJSONString() {
+        if (this.addressBlacklist == null) {
+            return null;
+        }
+        return this.addressBlacklist.getJSONString();
     }
 
 }
