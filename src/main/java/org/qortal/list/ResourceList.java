@@ -99,7 +99,9 @@ public class ResourceList {
     /* List management */
 
     public void add(String resource) {
-        this.list.add(resource);
+        if (!this.contains(resource)) {
+            this.list.add(resource);
+        }
     }
 
     public void remove(String resource) {
