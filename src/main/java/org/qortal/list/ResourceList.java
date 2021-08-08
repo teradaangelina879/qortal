@@ -99,16 +99,25 @@ public class ResourceList {
     /* List management */
 
     public void add(String resource) {
+        if (resource == null || this.list == null) {
+            return;
+        }
         if (!this.contains(resource)) {
             this.list.add(resource);
         }
     }
 
     public void remove(String resource) {
+        if (resource == null || this.list == null) {
+            return;
+        }
         this.list.remove(resource);
     }
 
     public boolean contains(String resource) {
+        if (resource == null || this.list == null) {
+            return false;
+        }
         return this.list.contains(resource);
     }
 
