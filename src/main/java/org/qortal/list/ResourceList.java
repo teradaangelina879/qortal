@@ -36,6 +36,7 @@ public class ResourceList {
     public ResourceList(String category, String resourceName) throws IOException {
         this.category = category;
         this.resourceName = resourceName;
+        this.list = new ArrayList<>();
         this.load();
     }
 
