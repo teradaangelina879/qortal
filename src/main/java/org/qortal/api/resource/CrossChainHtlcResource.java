@@ -11,6 +11,7 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Context;
@@ -173,7 +174,7 @@ public class CrossChainHtlcResource {
 		}
 	}
 
-	@GET
+	@POST
 	@Path("/redeem/{ataddress}")
 	@Operation(
 			summary = "Redeems HTLC associated with supplied AT",
@@ -231,7 +232,7 @@ public class CrossChainHtlcResource {
 		}
 	}
 
-	@GET
+	@POST
 	@Path("/redeemAll")
 	@Operation(
 			summary = "Redeems HTLC for all applicable ATs in tradebot data",
@@ -415,7 +416,7 @@ public class CrossChainHtlcResource {
 		return false;
 	}
 
-	@GET
+	@POST
 	@Path("/refund/{ataddress}")
 	@Operation(
 			summary = "Refunds HTLC associated with supplied AT",
@@ -463,7 +464,7 @@ public class CrossChainHtlcResource {
 	}
 
 
-	@GET
+	@POST
 	@Path("/refundAll")
 	@Operation(
 			summary = "Refunds HTLC for all applicable ATs in tradebot data",
