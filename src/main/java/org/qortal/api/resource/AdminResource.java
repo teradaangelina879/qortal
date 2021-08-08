@@ -553,13 +553,13 @@ public class AdminResource {
 	@Path("/repository/data")
 	@Operation(
 		summary = "Import data into repository.",
-		description = "Imports data from file on local machine. Filename is forced to 'import.json' if apiKey is not set.",
+		description = "Imports data from file on local machine. Filename is forced to 'qortal-backup/TradeBotStates.json' if apiKey is not set.",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
-					type = "string", example = "MintingAccounts.script"
+					type = "string", example = "qortal-backup/TradeBotStates.json"
 				)
 			)
 		),
@@ -577,7 +577,7 @@ public class AdminResource {
 
 		// Hard-coded because it's too dangerous to allow user-supplied filenames in weaker security contexts
 		if (Settings.getInstance().getApiKey() == null)
-			filename = "import.json";
+			filename = "qortal-backup/TradeBotStates.json";
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
