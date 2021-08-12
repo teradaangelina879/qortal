@@ -9,9 +9,10 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.io.File;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +30,7 @@ import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
@@ -45,6 +47,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
 import org.qortal.storage.DataFileChunk;
+import org.qortal.storage.DataFileWriter;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -265,18 +268,20 @@ public class ArbitraryResource {
 
 		String name = null;
 		byte[] secret = null;
-		ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
-		ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.ARBITRARY_DATA;
-		ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.NONE;
+		Method method = Method.PUT;
+		Service service = Service.ARBITRARY_DATA;
+		Compression compression = Compression.NONE;
 
-		// Check if a file or directory has been supplied
-		File file = new File(path);
-		if (!file.isFile()) {
-			LOGGER.info("Not a file: {}", path);
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(path), method, compression);
+		try {
+			dataFileWriter.save();
+		} catch (IOException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+		} catch (IllegalStateException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}
 
-		DataFile dataFile = DataFile.fromPath(path);
+		DataFile dataFile = dataFileWriter.getDataFile();
 		if (dataFile == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}

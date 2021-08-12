@@ -1,10 +1,5 @@
 package org.qortal.api.resource;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -13,12 +8,9 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -36,10 +28,10 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.HTMLParser;
 import org.qortal.api.Security;
 import org.qortal.block.BlockChain;
-import org.qortal.crypto.AES;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
@@ -47,14 +39,15 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
+import org.qortal.storage.DataFile.*;
+import org.qortal.storage.DataFileReader;
+import org.qortal.storage.DataFileWriter;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
-import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
-import org.qortal.utils.ZipUtils;
 
 
 @Path("/site")
@@ -62,11 +55,6 @@ import org.qortal.utils.ZipUtils;
 public class WebsiteResource {
 
     private static final Logger LOGGER = LogManager.getLogger(WebsiteResource.class);
-
-    public enum ResourceIdType {
-        SIGNATURE,
-        FILE_HASH
-    };
 
     @Context HttpServletRequest request;
     @Context HttpServletResponse response;
@@ -115,7 +103,16 @@ public class WebsiteResource {
         ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.WEBSITE;
         ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
 
-        DataFile dataFile = this.hostWebsite(path);
+        DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(path), method, compression);
+        try {
+            dataFileWriter.save();
+        } catch (IOException e) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+        } catch (IllegalStateException e) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+        }
+
+        DataFile dataFile = dataFileWriter.getDataFile();
         if (dataFile == null) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
@@ -200,7 +197,19 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
         }
 
-        DataFile dataFile = this.hostWebsite(directoryPath);
+        Method method = Method.PUT;
+        Compression compression = Compression.ZIP;
+
+        DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(directoryPath), method, compression);
+        try {
+            dataFileWriter.save();
+        } catch (IOException e) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+        } catch (IllegalStateException e) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+        }
+
+        DataFile dataFile = dataFileWriter.getDataFile();
         if (dataFile != null) {
             String digest58 = dataFile.digest58();
             if (digest58 != null) {
@@ -208,77 +217,6 @@ public class WebsiteResource {
             }
         }
         return "Unable to generate preview URL";
-    }
-
-    private DataFile hostWebsite(String directoryPath) {
-
-        // Check if a file or directory has been supplied
-        File file = new File(directoryPath);
-        if (!file.isDirectory()) {
-            LOGGER.info("Not a directory: {}", directoryPath);
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-        }
-
-        // Ensure temp folder exists
-        java.nio.file.Path tempDir = null;
-        try {
-            tempDir = Files.createTempDirectory("qortal-zip");
-        } catch (IOException e) {
-            LOGGER.error("Unable to create temp directory");
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-        }
-
-        // Firstly zip up the directory
-        String zipOutputFilePath = tempDir.toString() + File.separator + "zipped.zip";
-        try {
-            ZipUtils.zip(directoryPath, zipOutputFilePath, "data");
-        } catch (IOException e) {
-            LOGGER.info("Unable to zip directory", e);
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-        }
-
-        // Next, encrypt the file with AES
-        String encryptedFilePath = tempDir.toString() + File.separator + "zipped_encrypted.zip";
-        SecretKey aesKey;
-        try {
-            aesKey = AES.generateKey(256);
-            AES.encryptFile("AES", aesKey, zipOutputFilePath, encryptedFilePath);
-            Files.delete(Paths.get(zipOutputFilePath));
-        } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
-                | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR);
-        }
-
-        try {
-            DataFile dataFile = DataFile.fromPath(encryptedFilePath);
-            dataFile.setSecret(aesKey.getEncoded());
-            DataFile.ValidationResult validationResult = dataFile.isValid();
-            if (validationResult != DataFile.ValidationResult.OK) {
-                LOGGER.error("Invalid file: {}", validationResult);
-                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-            }
-            LOGGER.info("Whole file digest: {}", dataFile.digest58());
-
-            int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
-            if (chunkCount > 0) {
-                LOGGER.info(String.format("Successfully split into %d chunk%s:", chunkCount, (chunkCount == 1 ? "" : "s")));
-                LOGGER.info("{}", dataFile.printChunks());
-                return dataFile;
-            }
-
-            return null;
-        }
-        finally {
-            // Clean up
-            File zippedFile = new File(zipOutputFilePath);
-            if (zippedFile.exists()) {
-                zippedFile.delete();
-            }
-            File encryptedFile = new File(encryptedFilePath);
-            if (encryptedFile.exists()) {
-                encryptedFile.delete();
-            }
-        }
     }
 
     @GET
@@ -331,94 +269,21 @@ public class WebsiteResource {
             inPath = File.separator + inPath;
         }
 
-        String tempDirectory = System.getProperty("java.io.tmpdir");
-        String destPath = tempDirectory + File.separator  + "qortal-sites" + File.separator + resourceId;
-        String unencryptedPath = destPath + File.separator + "zipped.zip";
-        String unzippedPath = destPath + File.separator + "data";
-
-        if (!Files.exists(Paths.get(unzippedPath))) {
-
-            // Load the full transaction data so we can access the file hashes
-            try (final Repository repository = RepositoryManager.getRepository()) {
-                DataFile dataFile = null;
-                byte[] digest = null;
-                byte[] secret = null;
-
-                if (resourceIdType == ResourceIdType.SIGNATURE) {
-                    ArbitraryTransactionData transactionData = (ArbitraryTransactionData) repository.getTransactionRepository().fromSignature(Base58.decode(resourceId));
-                    if (!(transactionData instanceof ArbitraryTransactionData)) {
-                        return this.get404Response();
-                    }
-
-                    // Load hashes
-                    digest = transactionData.getData();
-                    byte[] chunkHashes = transactionData.getChunkHashes();
-
-                    // Load secret
-                    secret = transactionData.getSecret();
-
-                    // Load data file(s)
-                    dataFile = DataFile.fromHash(digest);
-                    if (!dataFile.exists()) {
-                        if (!dataFile.allChunksExist(chunkHashes)) {
-                            // TODO: fetch them?
-                            return this.get404Response();
-                        }
-                        // We have all the chunks but not the complete file, so join them
-                        dataFile.addChunkHashes(chunkHashes);
-                        dataFile.join();
-                    }
-
-
-                }
-                else if (resourceIdType == ResourceIdType.FILE_HASH) {
-                    dataFile = DataFile.fromHash58(resourceId);
-                    digest = Base58.decode(resourceId);
-                    secret = secret58 != null ? Base58.decode(secret58) : null;
-                }
-
-                // If the complete file still doesn't exist then something went wrong
-                if (!dataFile.exists()) {
-                    return this.get404Response();
-                }
-
-                if (!Arrays.equals(dataFile.digest(), digest)) {
-                    LOGGER.info("Unable to validate complete file hash");
-                    return this.get404Response();
-                }
-
-                // Decrypt if we have the secret key.
-                if (secret != null && secret.length == Transformer.AES256_LENGTH) {
-                    try {
-                        SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
-                        AES.decryptFile("AES", aesKey, dataFile.getFilePath(), unencryptedPath);
-                    } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
-                            | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-                        return this.get404Response();
-                    }
-                }
-                else {
-                    // Assume it is unencrypted. We may block this.
-                    unencryptedPath = dataFile.getFilePath();
-                }
-
-                // Unzip
-                try {
-                    // TODO: compression types
-                    //if (transactionData.getCompression() == ArbitraryTransactionData.Compression.ZIP) {
-                        ZipUtils.unzip(unencryptedPath, destPath);
-                    //}
-                } catch (IOException e) {
-                    LOGGER.info("Unable to unzip file");
-                }
-
-            } catch (DataException e) {
-                return this.get500Response();
-            }
+        DataFileReader dataFileReader = new DataFileReader(resourceId, resourceIdType);
+        dataFileReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
+        try {
+            dataFileReader.load(false);
+        } catch (Exception e) {
+            return this.get404Response();
         }
+        java.nio.file.Path path = dataFileReader.getFilePath();
+        if (path == null) {
+            return this.get404Response();
+        }
+        String unzippedPath = path.toString();
 
         try {
-            String filename = this.getFilename(unzippedPath, inPath);
+            String filename = this.getFilename(unzippedPath.toString(), inPath);
             String filePath = unzippedPath + File.separator + filename;
 
             if (HTMLParser.isHtmlFile(filename)) {
@@ -445,7 +310,7 @@ public class WebsiteResource {
                 inputStream.close();
             }
             return response;
-        } catch (FileNotFoundException e) {
+        } catch (FileNotFoundException | NoSuchFileException e) {
             LOGGER.info("File not found at path: {}", unzippedPath);
             if (inPath.equals("/")) {
                 // Delete the unzipped folder if no index file was found
@@ -455,7 +320,6 @@ public class WebsiteResource {
                     LOGGER.info("Unable to delete directory: {}", unzippedPath, e);
                 }
             }
-
         } catch (IOException e) {
             LOGGER.info("Unable to serve file at path: {}", inPath, e);
         }
@@ -486,19 +350,6 @@ public class WebsiteResource {
             response.getOutputStream().write(responseData);
         } catch (IOException e) {
             LOGGER.info("Error writing 404 response");
-        }
-        return response;
-    }
-
-    private HttpServletResponse get500Response() {
-        try {
-            String responseString = "500: Internal Server Error";
-            byte[] responseData = responseString.getBytes();
-            response.setStatus(500);
-            response.setContentLength(responseData.length);
-            response.getOutputStream().write(responseData);
-        } catch (IOException e) {
-            LOGGER.info("Error writing 500 response");
         }
         return response;
     }

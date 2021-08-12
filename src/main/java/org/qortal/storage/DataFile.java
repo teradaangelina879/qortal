@@ -41,6 +41,12 @@ public class DataFile {
         }
     }
 
+    // Resource ID types
+    public enum ResourceIdType {
+        SIGNATURE,
+        FILE_HASH
+    };
+
     private static final Logger LOGGER = LogManager.getLogger(DataFile.class);
 
     public static final long MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MiB
@@ -69,7 +75,7 @@ public class DataFile {
         }
 
         this.hash58 = Base58.encode(Crypto.digest(fileContent));
-        LOGGER.debug(String.format("File digest: %s, size: %d bytes", this.hash58, fileContent.length));
+        LOGGER.trace(String.format("File digest: %s, size: %d bytes", this.hash58, fileContent.length));
 
         String outputFilePath = getOutputFilePath(this.hash58, true);
         File outputFile = new File(outputFilePath);
