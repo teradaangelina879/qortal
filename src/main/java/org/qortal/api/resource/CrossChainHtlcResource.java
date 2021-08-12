@@ -480,8 +480,6 @@ public class CrossChainHtlcResource {
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
 	public boolean refundAllHtlc() {
 		Security.checkApiCallAllowed(request);
-
-		Security.checkApiCallAllowed(request);
 		boolean success = false;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -561,11 +559,6 @@ public class CrossChainHtlcResource {
 			if (atData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
 
-			if (atData.getIsFinished()) {
-				LOGGER.info(String.format("Skipping finished AT %s", atAddress));
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-			}
-
 			ACCT acct = SupportedBlockchain.getAcctByCodeHash(atData.getCodeHash());
 			if (acct == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
@@ -573,6 +566,13 @@ public class CrossChainHtlcResource {
 			CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
 			if (crossChainTradeData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			// If the AT is "finished" then it will have a zero balance
+			// In these cases we should avoid HTLC refunds if tbe QORT haven't been returned to the seller
+			if (atData.getIsFinished() && crossChainTradeData.mode != AcctMode.REFUNDED && crossChainTradeData.mode != AcctMode.CANCELLED) {
+				LOGGER.info(String.format("Skipping AT %s because the QORT has already been redemed", atAddress));
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
 
 			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
 			TradeBotData tradeBotData = allTradeBotData.stream().filter(tradeBotDataItem -> tradeBotDataItem.getAtAddress().equals(atAddress)).findFirst().orElse(null);
