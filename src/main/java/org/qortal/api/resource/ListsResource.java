@@ -43,6 +43,8 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public String addAddressToBlacklist(@PathParam("address") String address) {
+		Security.checkApiCallAllowed(request);
+
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
@@ -85,6 +87,8 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public String addAddressesToBlacklist(AddressListRequest addressListRequest) {
+		Security.checkApiCallAllowed(request);
+
 		if (addressListRequest == null || addressListRequest.addresses == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 		}
@@ -147,6 +151,8 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public String removeAddressFromBlacklist(@PathParam("address") String address) {
+		Security.checkApiCallAllowed(request);
+
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
@@ -189,6 +195,8 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public String removeAddressesFromBlacklist(AddressListRequest addressListRequest) {
+		Security.checkApiCallAllowed(request);
+
 		if (addressListRequest == null || addressListRequest.addresses == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 		}
@@ -250,6 +258,7 @@ public class ListsResource {
 			}
 	)
 	public String getAddressBlacklist() {
+		Security.checkApiCallAllowed(request);
 		return ResourceListManager.getInstance().getBlacklistJSONString();
 	}
 
@@ -266,6 +275,8 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public String checkAddressInBlacklist(@PathParam("address") String address) {
+		Security.checkApiCallAllowed(request);
+
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
