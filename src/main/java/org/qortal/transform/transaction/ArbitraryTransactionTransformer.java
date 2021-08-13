@@ -36,9 +36,13 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	private static final int NUMBER_PAYMENTS_LENGTH = INT_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int COMPRESSION_LENGTH = INT_LENGTH;
+	private static final int METHOD_LENGTH = INT_LENGTH;
+	private static final int SECRET_LENGTH = INT_LENGTH;
 
-	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + NONCE_LENGTH + NAME_SIZE_LENGTH + SERVICE_LENGTH +
-			COMPRESSION_LENGTH + DATA_TYPE_LENGTH + DATA_SIZE_LENGTH + RAW_DATA_SIZE_LENGTH + CHUNKS_SIZE_LENGTH;
+	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + DATA_TYPE_LENGTH + DATA_SIZE_LENGTH;
+
+	private static final int EXTRAS_V5_LENGTH = NONCE_LENGTH + NAME_SIZE_LENGTH + METHOD_LENGTH + SECRET_LENGTH +
+			COMPRESSION_LENGTH + RAW_DATA_SIZE_LENGTH + CHUNKS_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -51,6 +55,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
 		layout.add("nonce", TransformationType.INT); // Version 5+
 
+		layout.add("name length", TransformationType.INT); // Version 5+
 		layout.add("name", TransformationType.DATA); // Version 5+
 		layout.add("method", TransformationType.INT); // Version 5+
 		layout.add("secret length", TransformationType.INT); // Version 5+
@@ -162,10 +167,15 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
 		int nameLength = Utf8.encodedLength(arbitraryTransactionData.getName());
+		int secretLength = (arbitraryTransactionData.getSecret() != null) ? arbitraryTransactionData.getSecret().length : 0;
 		int dataLength = (arbitraryTransactionData.getData() != null) ? arbitraryTransactionData.getData().length : 0;
 		int chunkHashesLength = (arbitraryTransactionData.getChunkHashes() != null) ? arbitraryTransactionData.getChunkHashes().length : 0;
 
-		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + nameLength + dataLength + chunkHashesLength;
+		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + nameLength + secretLength + dataLength + chunkHashesLength;
+
+		if (arbitraryTransactionData.getVersion() >= 5) {
+			length += EXTRAS_V5_LENGTH;
+		}
 
 		// Optional payments
 		length += NUMBER_PAYMENTS_LENGTH + arbitraryTransactionData.getPayments().size() * PaymentTransformer.getDataLength();
