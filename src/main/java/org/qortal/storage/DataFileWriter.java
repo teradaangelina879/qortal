@@ -124,7 +124,6 @@ public class DataFileWriter {
     }
 
     private void validate() throws IOException {
-        this.dataFile = DataFile.fromPath(this.filePath.toString());
         if (this.dataFile == null) {
             throw new IOException("No file available when validating");
         }
