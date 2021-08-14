@@ -119,7 +119,7 @@ public class ArbitraryDataFile {
                 return arbitraryDataFile;
 
             } catch (IOException e) {
-                LOGGER.error("Couldn't compute digest for DataFile");
+                LOGGER.error("Couldn't compute digest for ArbitraryDataFile");
             }
         }
         return null;
@@ -187,7 +187,7 @@ public class ArbitraryDataFile {
             // Validate the file size
             long fileSize = Files.size(path);
             if (fileSize > MAX_FILE_SIZE) {
-                LOGGER.error(String.format("DataFile is too large: %d bytes (max size: %d bytes)", fileSize, MAX_FILE_SIZE));
+                LOGGER.error(String.format("ArbitraryDataFile is too large: %d bytes (max size: %d bytes)", fileSize, MAX_FILE_SIZE));
                 return ArbitraryDataFile.ValidationResult.FILE_TOO_LARGE;
             }
 
@@ -468,7 +468,7 @@ public class ArbitraryDataFile {
                 return Crypto.digest(fileContent);
 
             } catch (IOException e) {
-                LOGGER.error("Couldn't compute digest for DataFile");
+                LOGGER.error("Couldn't compute digest for ArbitraryDataFile");
             }
         }
         return null;

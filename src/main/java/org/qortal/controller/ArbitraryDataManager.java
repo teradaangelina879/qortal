@@ -370,13 +370,13 @@ public class ArbitraryDataManager extends Thread {
 				ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
 				if (chunkHashes != null && chunkHashes.length > 0) {
 					arbitraryDataFile.addChunkHashes(chunkHashes);
-					for (ArbitraryDataFileChunk dataFileChunk : arbitraryDataFile.getChunks()) {
-						if (dataFileChunk.exists()) {
-							hashes.add(dataFileChunk.getHash());
-							//LOGGER.info("Added hash {}", dataFileChunk.getHash58());
+					for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
+						if (chunk.exists()) {
+							hashes.add(chunk.getHash());
+							//LOGGER.info("Added hash {}", chunk.getHash58());
 						}
 						else {
-							LOGGER.info("Couldn't add hash {} because it doesn't exist", dataFileChunk.getHash58());
+							LOGGER.info("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
 						}
 					}
 				}

@@ -166,7 +166,7 @@ public class ArbitraryDataReader {
     private void fetchFromFileHash() {
         // Load data file directly from the hash
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(resourceId);
-        // Set filePath to the location of the DataFile
+        // Set filePath to the location of the ArbitraryDataFile
         this.filePath = Paths.get(arbitraryDataFile.getFilePath());
     }
 
@@ -233,7 +233,7 @@ public class ArbitraryDataReader {
         if (!Arrays.equals(arbitraryDataFile.digest(), digest)) {
             throw new IllegalStateException("Unable to validate complete file hash");
         }
-        // Set filePath to the location of the DataFile
+        // Set filePath to the location of the ArbitraryDataFile
         this.filePath = Paths.get(arbitraryDataFile.getFilePath());
     }
 
@@ -247,7 +247,7 @@ public class ArbitraryDataReader {
                 AES.decryptFile("AES", aesKey, this.filePath.toString(), this.unencryptedPath.toString());
 
                 // Replace filePath pointer with the encrypted file path
-                // Don't delete the original DataFile, as this is handled in the cleanup phase
+                // Don't delete the original ArbitraryDataFile, as this is handled in the cleanup phase
                 this.filePath = this.unencryptedPath;
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException

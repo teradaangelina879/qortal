@@ -133,7 +133,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		arbitraryTransactionData.setData(dataHash);
 		arbitraryTransactionData.setDataType(DataType.DATA_HASH);
 
-		// Create DataFile
+		// Create ArbitraryDataFile
 		ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(rawData);
 
 		// Verify that the data file is valid, and that it matches the expected hash
