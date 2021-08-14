@@ -40,6 +40,7 @@ public class ArbitraryDataBuilder {
         this.fetchTransactions();
         this.validateTransactions();
         this.processTransactions();
+        this.validatePaths();
         this.buildLatestState();
     }
 
@@ -118,10 +119,30 @@ public class ArbitraryDataBuilder {
         }
     }
 
-    private void buildLatestState() throws IOException, DataException {
-        ArbitraryDataPatches arbitraryDataPatches = new ArbitraryDataPatches(this.paths);
-        arbitraryDataPatches.applyPatches();
-        this.finalPath = arbitraryDataPatches.getFinalPath();
+    private void validatePaths() {
+        if (this.paths == null || this.paths.isEmpty()) {
+            throw new IllegalStateException(String.format("No paths available from which to build latest state"));
+        }
+    }
+
+    private void buildLatestState() throws IOException {
+        if (this.paths.size() == 1) {
+            // No patching needed
+            this.finalPath = this.paths.get(0);
+            return;
+        }
+
+        Path pathBefore = this.paths.get(0);
+
+        // Loop from the second path onwards
+        for (int i=1; i<paths.size(); i++) {
+            Path pathAfter = this.paths.get(i);
+            ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(pathBefore, pathAfter);
+            combiner.combine();
+            combiner.cleanup();
+            pathBefore = combiner.getFinalPath();
+        }
+        this.finalPath = pathBefore;
     }
 
     public Path getFinalPath() {
