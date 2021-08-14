@@ -122,6 +122,14 @@ public class ArbitraryDataWriter {
         ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(builtPath, this.filePath);
         patch.create();
         this.filePath = patch.getFinalPath();
+
+        // Validate the patch
+        if (this.filePath == null) {
+            throw new IllegalStateException("Null path after creating patch");
+        }
+        if (FilesystemUtils.isDirectoryEmpty(this.filePath)) {
+            throw new IllegalStateException("Patch has no content. Either no files have changed, or something went wrong");
+        }
     }
 
     private void compress() {
