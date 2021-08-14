@@ -135,7 +135,7 @@ public class ArbitraryDataWriter {
     private void compress() {
         // Compress the data if requested
         if (this.compression != Compression.NONE) {
-            this.compressedPath = Paths.get(this.workingPath.toString() + File.separator + "zipped.zip");
+            this.compressedPath = Paths.get(this.workingPath.toString() + File.separator + "data.zip");
             try {
 
                 if (this.compression == Compression.ZIP) {
@@ -157,7 +157,7 @@ public class ArbitraryDataWriter {
     }
 
     private void encrypt() {
-        this.encryptedPath = Paths.get(this.workingPath.toString() + File.separator + "zipped_encrypted.zip");
+        this.encryptedPath = Paths.get(this.workingPath.toString() + File.separator + "data.zip.encrypted");
         try {
             // Encrypt the file with AES
             this.aesKey = AES.generateKey(256);
