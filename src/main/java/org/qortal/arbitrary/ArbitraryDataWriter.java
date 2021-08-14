@@ -123,6 +123,12 @@ public class ArbitraryDataWriter {
         patch.create();
         this.filePath = patch.getFinalPath();
 
+        // Delete the input directory
+        if (FilesystemUtils.pathInsideDataOrTempPath(builtPath)) {
+            File directory = new File(builtPath.toString());
+            FileUtils.deleteDirectory(directory);
+        }
+
         // Validate the patch
         if (this.filePath == null) {
             throw new IllegalStateException("Null path after creating patch");
@@ -146,8 +152,12 @@ public class ArbitraryDataWriter {
                 }
                 // FUTURE: other compression types
 
+                // Delete the input directory
+                if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
+                    File directory = new File(this.filePath.toString());
+                    FileUtils.deleteDirectory(directory);
+                }
                 // Replace filePath pointer with the zipped file path
-                // Don't delete the original file/directory, since this may be outside of our directory scope
                 this.filePath = this.compressedPath;
 
             } catch (IOException e) {
@@ -163,10 +173,11 @@ public class ArbitraryDataWriter {
             this.aesKey = AES.generateKey(256);
             AES.encryptFile("AES", this.aesKey, this.filePath.toString(), this.encryptedPath.toString());
 
-            // Replace filePath pointer with the encrypted file path
+            // Delete the input file
             if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
                 Files.delete(this.filePath);
             }
+            // Replace filePath pointer with the encrypted file path
             this.filePath = this.encryptedPath;
 
         } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
