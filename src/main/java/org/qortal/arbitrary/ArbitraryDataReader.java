@@ -299,6 +299,9 @@ public class ArbitraryDataReader {
             if (dest == null || !dest.exists()) {
                 throw new IllegalStateException("Destination directory doesn't exist");
             }
+            // Ensure destination directory doesn't exist
+            FileUtils.deleteDirectory(dest);
+            // Move files to destination
             FilesystemUtils.copyAndReplaceDirectory(source.toString(), dest.toString());
 
             try {

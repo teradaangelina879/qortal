@@ -20,6 +20,15 @@ public class FilesystemUtils {
     }
 
     public static void copyAndReplaceDirectory(String sourceDirectoryLocation, String destinationDirectoryLocation) throws IOException {
+        // Ensure parent folders exist in the destination
+        File destFile = new File(destinationDirectoryLocation);
+        if (destFile != null) {
+            destFile.mkdirs();
+        }
+        if (destFile == null || !destFile.exists()) {
+            throw new IOException("Destination directory doesn't exist");
+        }
+
         Files.walk(Paths.get(sourceDirectoryLocation))
                 .forEach(source -> {
                     Path destination = Paths.get(destinationDirectoryLocation, source.toString()
@@ -49,7 +58,6 @@ public class FilesystemUtils {
         }
 
         File sourceFile = new File(source.toString());
-        File destFile = new File(dest.toString());
         if (sourceFile == null || !sourceFile.exists()) {
             throw new IOException("Source file doesn't exist");
         }
@@ -58,6 +66,7 @@ public class FilesystemUtils {
         }
 
         // Ensure parent folders exist in the destination
+        File destFile = new File(dest.toString());
         File destParentFile = destFile.getParentFile();
         if (destParentFile != null) {
             destParentFile.mkdirs();
