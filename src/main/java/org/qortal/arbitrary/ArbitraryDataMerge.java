@@ -176,19 +176,23 @@ public class ArbitraryDataMerge {
 
         Path dest = Paths.get(base.toString(), relativePath.toString());
         LOGGER.trace("Copying {} to {}", source, dest);
-        FilesystemUtils.copyDirectory(source.toString(), dest.toString());
+        FilesystemUtils.copyAndReplaceDirectory(source.toString(), dest.toString());
     }
 
     private static void deletePathInBaseDir(Path base, Path relativePath) throws IOException {
         Path dest = Paths.get(base.toString(), relativePath.toString());
         File file = new File(dest.toString());
         if (file.exists() && file.isFile()) {
-            LOGGER.trace("Deleting file {}", dest);
-            Files.delete(dest);
+            if (FilesystemUtils.pathInsideDataOrTempPath(dest)) {
+                LOGGER.trace("Deleting file {}", dest);
+                Files.delete(dest);
+            }
         }
         if (file.exists() && file.isDirectory()) {
-            LOGGER.trace("Deleting directory {}", dest);
-            FileUtils.deleteDirectory(file);
+            if (FilesystemUtils.pathInsideDataOrTempPath(dest)) {
+                LOGGER.trace("Deleting directory {}", dest);
+                FileUtils.deleteDirectory(file);
+            }
         }
     }
 

@@ -54,7 +54,8 @@ public class ArbitraryDataPatches {
             Path pathAfter = this.paths.get(i);
             ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(pathBefore, pathAfter);
             combiner.combine();
-            pathBefore = combiner.getFinalPath(); // TODO: cleanup
+            combiner.cleanup();
+            pathBefore = combiner.getFinalPath();
         }
         this.finalPath = pathBefore;
     }

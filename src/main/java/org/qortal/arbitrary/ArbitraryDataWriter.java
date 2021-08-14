@@ -9,7 +9,7 @@ import org.qortal.crypto.AES;
 import org.qortal.repository.DataException;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.settings.Settings;
-import org.qortal.utils.Base58;
+import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.ZipUtils;
 
 import javax.crypto.BadPaddingException;
@@ -155,7 +155,9 @@ public class ArbitraryDataWriter {
             AES.encryptFile("AES", this.aesKey, this.filePath.toString(), this.encryptedPath.toString());
 
             // Replace filePath pointer with the encrypted file path
-            Files.delete(this.filePath);
+            if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
+                Files.delete(this.filePath);
+            }
             this.filePath = this.encryptedPath;
 
         } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
@@ -205,19 +207,19 @@ public class ArbitraryDataWriter {
 
     private void cleanupFilesystem() throws IOException {
         // Clean up
-        if (this.compressedPath != null) {
+        if (FilesystemUtils.pathInsideDataOrTempPath(this.compressedPath)) {
             File zippedFile = new File(this.compressedPath.toString());
             if (zippedFile.exists()) {
                 zippedFile.delete();
             }
         }
-        if (this.encryptedPath != null) {
+        if (FilesystemUtils.pathInsideDataOrTempPath(this.encryptedPath)) {
             File encryptedFile = new File(this.encryptedPath.toString());
             if (encryptedFile.exists()) {
                 encryptedFile.delete();
             }
         }
-        if (this.workingPath != null) {
+        if (FilesystemUtils.pathInsideDataOrTempPath(this.workingPath)) {
             FileUtils.deleteDirectory(new File(this.workingPath.toString()));
         }
     }

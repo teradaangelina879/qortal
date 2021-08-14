@@ -1,8 +1,11 @@
 package org.qortal.arbitrary;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.utils.FilesystemUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +30,35 @@ public class ArbitraryDataCombiner {
 
         } finally {
             this.postExecute();
+        }
+    }
+
+    public void cleanup() {
+        this.cleanupPath(this.pathBefore);
+        this.cleanupPath(this.pathAfter);
+    }
+
+    private void cleanupPath(Path path) {
+        // Delete pathBefore, if it exists in our data/temp directory
+        if (FilesystemUtils.pathInsideDataOrTempPath(path)) {
+            File directory = new File(path.toString());
+            try {
+                FileUtils.deleteDirectory(directory);
+            } catch (IOException e) {
+                // This will eventually be cleaned up by a maintenance process, so log the error and continue
+                LOGGER.info("Unable to cleanup directory {}", directory.toString());
+            }
+        }
+
+        // Delete the parent directory of pathBefore if it is empty (and exists in our data/temp directory)
+        Path parentDirectory = path.getParent();
+        if (FilesystemUtils.pathInsideDataOrTempPath(parentDirectory)) {
+            try {
+                Files.deleteIfExists(parentDirectory);
+            } catch (IOException e) {
+                // This will eventually be cleaned up by a maintenance process, so log the error and continue
+                LOGGER.info("Unable to cleanup parent directory {}", parentDirectory.toString());
+            }
         }
     }
 

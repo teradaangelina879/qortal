@@ -1,5 +1,6 @@
 package org.qortal.arbitrary;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.AES;
@@ -77,8 +78,8 @@ public class ArbitraryDataReader {
         this.createUncompressedDirectory();
     }
 
-    private void postExecute() throws IOException {
-        this.cleanupFilesystem();
+    private void postExecute() {
+
     }
 
     private void createWorkingDirectory() {
@@ -104,7 +105,7 @@ public class ArbitraryDataReader {
 
     private void deleteExistingFiles() {
         final Path uncompressedPath = this.uncompressedPath;
-        if (uncompressedPath != null) {
+        if (FilesystemUtils.pathInsideDataOrTempPath(uncompressedPath)) {
             if (Files.exists(uncompressedPath)) {
                 LOGGER.trace("Attempting to delete path {}", this.uncompressedPath);
                 try {
@@ -268,7 +269,7 @@ public class ArbitraryDataReader {
         if (file.isDirectory()) {
             // Already a directory - nothing to uncompress
             // We still need to copy the directory to its final destination if it's not already there
-            this.copyFilePathToFinalDestination();
+            this.moveFilePathToFinalDestination();
             return;
         }
 
@@ -282,11 +283,13 @@ public class ArbitraryDataReader {
         }
 
         // Replace filePath pointer with the uncompressed file path
-        Files.delete(this.filePath);
+        if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
+            Files.delete(this.filePath);
+        }
         this.filePath = this.uncompressedPath;
     }
 
-    private void copyFilePathToFinalDestination() throws IOException {
+    private void moveFilePathToFinalDestination() throws IOException {
         if (this.filePath.compareTo(this.uncompressedPath) != 0) {
             File source = new File(this.filePath.toString());
             File dest = new File(this.uncompressedPath.toString());
@@ -296,17 +299,28 @@ public class ArbitraryDataReader {
             if (dest == null || !dest.exists()) {
                 throw new IllegalStateException("Destination directory doesn't exist");
             }
-            FilesystemUtils.copyDirectory(source.toString(), dest.toString());
-        }
-    }
+            FilesystemUtils.copyAndReplaceDirectory(source.toString(), dest.toString());
 
-    private void cleanupFilesystem() throws IOException {
-        // Clean up
-        if (this.uncompressedPath != null) {
-            File unzippedFile = new File(this.uncompressedPath.toString());
-            if (unzippedFile.exists()) {
-                unzippedFile.delete();
+            try {
+                // Delete existing
+                if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
+                    File directory = new File(this.filePath.toString());
+                    FileUtils.deleteDirectory(directory);
+                }
+
+                // ... and its parent directory if empty
+                Path parentDirectory = this.filePath.getParent();
+                if (FilesystemUtils.pathInsideDataOrTempPath(parentDirectory)) {
+                    Files.deleteIfExists(parentDirectory);
+                }
+
+            } catch (IOException e) {
+                // This will eventually be cleaned up by a maintenance process, so log the error and continue
+                LOGGER.info("Unable to cleanup directories: {}", e.getMessage());
             }
+
+            // Finally, update filePath to point to uncompressedPath
+            this.filePath = this.uncompressedPath;
         }
     }
 

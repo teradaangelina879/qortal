@@ -6,6 +6,7 @@ import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.FilesystemUtils;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -282,7 +283,9 @@ public class ArbitraryDataFile {
 
                 // Copy temporary file to data directory
                 this.filePath = this.copyToDataDirectory(tempDir);
-                Files.delete(tempDir);
+                if (FilesystemUtils.pathInsideDataOrTempPath(tempDir)) {
+                    Files.delete(tempDir);
+                }
 
                 return true;
             } catch (FileNotFoundException e) {
@@ -296,22 +299,18 @@ public class ArbitraryDataFile {
 
     public boolean delete() {
         // Delete the complete file
-        // ... but only if it's inside the Qortal data directory
+        // ... but only if it's inside the Qortal data or temp directory
         Path path = Paths.get(this.filePath);
-        String dataPath = Settings.getInstance().getDataPath();
-        Path dataDirectory = Paths.get(dataPath);
-        if (!path.toAbsolutePath().startsWith(dataDirectory.toAbsolutePath())) {
-            return false;
-        }
-
-        if (Files.exists(path)) {
-            try {
-                Files.delete(path);
-                this.cleanupFilesystem();
-                LOGGER.debug("Deleted file {}", path.toString());
-                return true;
-            } catch (IOException e) {
-                LOGGER.warn("Couldn't delete DataFileChunk at path {}", this.filePath);
+        if (FilesystemUtils.pathInsideDataOrTempPath(path)) {
+            if (Files.exists(path)) {
+                try {
+                    Files.delete(path);
+                    this.cleanupFilesystem();
+                    LOGGER.debug("Deleted file {}", path.toString());
+                    return true;
+                } catch (IOException e) {
+                    LOGGER.warn("Couldn't delete DataFileChunk at path {}", this.filePath);
+                }
             }
         }
         return false;
@@ -343,7 +342,9 @@ public class ArbitraryDataFile {
             try (Stream<Path> files = Files.list(directory)) {
                 final long count = files.count();
                 if (count == 0) {
-                    Files.delete(directory);
+                    if (FilesystemUtils.pathInsideDataOrTempPath(directory)) {
+                        Files.delete(directory);
+                    }
                 }
             } catch (IOException e) {
                 LOGGER.warn("Unable to count files in directory", e);
