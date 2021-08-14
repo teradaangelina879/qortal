@@ -15,7 +15,6 @@ import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
 import org.qortal.controller.tradebot.TradeBot;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.block.BlockData;
@@ -200,14 +199,14 @@ public class Controller extends Thread {
 		}
 		public GetBlockSignaturesV2Stats getBlockSignaturesV2Stats = new GetBlockSignaturesV2Stats();
 
-		public static class GetDataFileMessageStats {
+		public static class GetArbitraryDataFileMessageStats {
 			public AtomicLong requests = new AtomicLong();
 			public AtomicLong unknownFiles = new AtomicLong();
 
-			public GetDataFileMessageStats() {
+			public GetArbitraryDataFileMessageStats() {
 			}
 		}
-		public GetDataFileMessageStats getDataFileMessageStats = new GetDataFileMessageStats();
+		public GetArbitraryDataFileMessageStats getArbitraryDataFileMessageStats = new GetArbitraryDataFileMessageStats();
 
 		public static class GetArbitraryDataFileListMessageStats {
 			public AtomicLong requests = new AtomicLong();
@@ -1247,7 +1246,7 @@ public class Controller extends Thread {
 				break;
 
 			case GET_ARBITRARY_DATA_FILE:
-				ArbitraryDataManager.getInstance().onNetworkGetDataFileMessage(peer, message);
+				ArbitraryDataManager.getInstance().onNetworkGetArbitraryDataFileMessage(peer, message);
 				break;
 
 			case GET_ARBITRARY_DATA_FILE_LIST:

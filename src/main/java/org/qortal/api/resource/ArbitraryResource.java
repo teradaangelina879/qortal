@@ -515,9 +515,9 @@ public class ArbitraryResource {
 				LOGGER.info("Invalid base58 encoded string");
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
-			Message getDataFileMessage = new GetArbitraryDataFileMessage(digest);
+			Message getArbitraryDataFileMessage = new GetArbitraryDataFileMessage(digest);
 
-			Message message = targetPeer.getResponse(getDataFileMessage);
+			Message message = targetPeer.getResponse(getArbitraryDataFileMessage);
 			if (message == null) {
 				return false;
 			}

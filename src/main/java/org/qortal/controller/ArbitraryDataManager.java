@@ -170,9 +170,9 @@ public class ArbitraryDataManager extends Thread {
 		String hash58 = Base58.encode(hash);
 		LOGGER.info(String.format("Fetching data file %.8s from peer %s", hash58, peer));
 		arbitraryDataFileRequests.put(hash58, NTP.getTime());
-		Message getDataFileMessage = new GetArbitraryDataFileMessage(hash);
+		Message getArbitraryDataFileMessage = new GetArbitraryDataFileMessage(hash);
 
-		Message message = peer.getResponse(getDataFileMessage);
+		Message message = peer.getResponse(getArbitraryDataFileMessage);
 		arbitraryDataFileRequests.remove(hash58);
 		LOGGER.info(String.format("Removed hash %.8s from arbitraryDataFileRequests", hash58));
 
@@ -313,10 +313,10 @@ public class ArbitraryDataManager extends Thread {
 		}
 	}
 
-	public void onNetworkGetDataFileMessage(Peer peer, Message message) {
+	public void onNetworkGetArbitraryDataFileMessage(Peer peer, Message message) {
 		GetArbitraryDataFileMessage getArbitraryDataFileMessage = (GetArbitraryDataFileMessage) message;
 		byte[] hash = getArbitraryDataFileMessage.getHash();
-		Controller.getInstance().stats.getDataFileMessageStats.requests.incrementAndGet();
+		Controller.getInstance().stats.getArbitraryDataFileMessageStats.requests.incrementAndGet();
 
 		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
 		if (arbitraryDataFile.exists()) {
@@ -331,7 +331,7 @@ public class ArbitraryDataManager extends Thread {
 		else {
 
 			// We don't have this file
-			Controller.getInstance().stats.getDataFileMessageStats.unknownFiles.getAndIncrement();
+			Controller.getInstance().stats.getArbitraryDataFileMessageStats.unknownFiles.getAndIncrement();
 
 			// Send valid, yet unexpected message type in response, so peer's synchronizer doesn't have to wait for timeout
 			LOGGER.debug(() -> String.format("Sending 'file unknown' response to peer %s for GET_FILE request for unknown file %s", peer, arbitraryDataFile));
