@@ -45,8 +45,8 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
-import org.qortal.storage.DataFile;
-import org.qortal.storage.DataFileChunk;
+import org.qortal.storage.ArbitraryDataFile;
+import org.qortal.storage.ArbitraryDataFileChunk;
 import org.qortal.storage.ArbitraryDataWriter;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
@@ -281,28 +281,28 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}
 
-		DataFile dataFile = arbitraryDataWriter.getDataFile();
-		if (dataFile == null) {
+		ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
+		if (arbitraryDataFile == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			DataFile.ValidationResult validationResult = dataFile.isValid();
-			if (validationResult != DataFile.ValidationResult.OK) {
+			ArbitraryDataFile.ValidationResult validationResult = arbitraryDataFile.isValid();
+			if (validationResult != ArbitraryDataFile.ValidationResult.OK) {
 				LOGGER.error("Invalid file: {}", validationResult);
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
-			LOGGER.info("Whole file digest: {}", dataFile.digest58());
+			LOGGER.info("Whole file digest: {}", arbitraryDataFile.digest58());
 
-			int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
+			int chunkCount = arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
 			if (chunkCount == 0) {
 				LOGGER.error("No chunks created");
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
 			LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
 
-			String digest58 = dataFile.digest58();
+			String digest58 = arbitraryDataFile.digest58();
 			if (digest58 == null) {
 				LOGGER.error("Unable to calculate digest");
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
@@ -313,12 +313,12 @@ public class ArbitraryResource {
 
 			final BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
 					lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
-			final int size = (int)dataFile.size();
+			final int size = (int) arbitraryDataFile.size();
 			final int version = 5;
 			final int nonce = 0;
 			final ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
-			final byte[] digest = dataFile.digest();
-			final byte[] chunkHashes = dataFile.chunkHashes();
+			final byte[] digest = arbitraryDataFile.digest();
+			final byte[] chunkHashes = arbitraryDataFile.chunkHashes();
 			final List<PaymentData> payments = new ArrayList<>();
 
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
@@ -330,7 +330,7 @@ public class ArbitraryResource {
 
 			Transaction.ValidationResult result = transaction.isValidUnconfirmed();
 			if (result != Transaction.ValidationResult.OK) {
-				dataFile.deleteAll();
+				arbitraryDataFile.deleteAll();
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 			}
 
@@ -338,14 +338,14 @@ public class ArbitraryResource {
 			return Base58.encode(bytes);
 
 		} catch (DataException e) {
-			dataFile.deleteAll();
+			arbitraryDataFile.deleteAll();
 			LOGGER.error("Repository issue when uploading data", e);
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		} catch (TransformationException e) {
-			dataFile.deleteAll();
+			arbitraryDataFile.deleteAll();
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		} catch (IllegalStateException e) {
-			dataFile.deleteAll();
+			arbitraryDataFile.deleteAll();
 			LOGGER.error("Invalid upload data", e);
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		}
@@ -380,8 +380,8 @@ public class ArbitraryResource {
 	public String deleteFile(String hash58) {
 		Security.checkApiCallAllowed(request);
 
-		DataFile dataFile = DataFile.fromHash58(hash58);
-		if (dataFile.delete()) {
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(hash58);
+		if (arbitraryDataFile.delete()) {
 			return "true";
 		}
 		return "false";
@@ -503,9 +503,9 @@ public class ArbitraryResource {
 	private boolean requestFile(String hash58, Peer targetPeer) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			DataFile dataFile = DataFile.fromHash58(hash58);
-			if (dataFile.exists()) {
-				LOGGER.info("Data file {} already exists but we'll request it anyway", dataFile);
+			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(hash58);
+			if (arbitraryDataFile.exists()) {
+				LOGGER.info("Data file {} already exists but we'll request it anyway", arbitraryDataFile);
 			}
 
 			byte[] digest = null;
@@ -526,11 +526,11 @@ public class ArbitraryResource {
 			}
 
 			DataFileMessage dataFileMessage = (DataFileMessage) message;
-			dataFile = dataFileMessage.getDataFile();
-			if (dataFile == null || !dataFile.exists()) {
+			arbitraryDataFile = dataFileMessage.getArbitraryDataFile();
+			if (arbitraryDataFile == null || !arbitraryDataFile.exists()) {
 				return false;
 			}
-			LOGGER.info(String.format("Received file %s, size %d bytes", dataFileMessage.getDataFile(), dataFileMessage.getDataFile().size()));
+			LOGGER.info(String.format("Received file %s, size %d bytes", dataFileMessage.getArbitraryDataFile(), dataFileMessage.getArbitraryDataFile().size()));
 			return true;
 		} catch (ApiException e) {
 			throw e;
@@ -571,22 +571,22 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 		}
 
-		DataFile dataFile = DataFile.fromHash58(combinedHash);
-		if (dataFile.exists()) {
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(combinedHash);
+		if (arbitraryDataFile.exists()) {
 			LOGGER.info("We already have the combined file {}, but we'll join the chunks anyway.", combinedHash);
 		}
 
 		String hash58List[] = files.split(",");
 		for (String hash58 : hash58List) {
 			if (hash58 != null) {
-				DataFileChunk chunk = DataFileChunk.fromHash58(hash58);
-				dataFile.addChunk(chunk);
+				ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash58(hash58);
+				arbitraryDataFile.addChunk(chunk);
 			}
 		}
-		boolean success = dataFile.join();
+		boolean success = arbitraryDataFile.join();
 		if (success) {
-			if (combinedHash.equals(dataFile.digest58())) {
-				LOGGER.info("Valid hash {} after joining {} files", dataFile.digest58(), dataFile.chunkCount());
+			if (combinedHash.equals(arbitraryDataFile.digest58())) {
+				LOGGER.info("Valid hash {} after joining {} files", arbitraryDataFile.digest58(), arbitraryDataFile.chunkCount());
 				return Response.ok("true").build();
 			}
 		}

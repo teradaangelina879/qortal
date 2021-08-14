@@ -38,8 +38,8 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
-import org.qortal.storage.DataFile;
-import org.qortal.storage.DataFile.*;
+import org.qortal.storage.ArbitraryDataFile;
+import org.qortal.storage.ArbitraryDataFile.*;
 import org.qortal.storage.ArbitraryDataReader;
 import org.qortal.storage.ArbitraryDataWriter;
 import org.qortal.transaction.ArbitraryTransaction;
@@ -112,12 +112,12 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
 
-        DataFile dataFile = arbitraryDataWriter.getDataFile();
-        if (dataFile == null) {
+        ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
+        if (arbitraryDataFile == null) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
 
-        String digest58 = dataFile.digest58();
+        String digest58 = arbitraryDataFile.digest58();
         if (digest58 == null) {
             LOGGER.error("Unable to calculate digest");
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
@@ -130,13 +130,13 @@ public class WebsiteResource {
 
             final BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
                     lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
-            final int size = (int)dataFile.size();
+            final int size = (int) arbitraryDataFile.size();
             final int version = 5;
             final int nonce = 0;
-            byte[] secret = dataFile.getSecret();
+            byte[] secret = arbitraryDataFile.getSecret();
             final ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
-            final byte[] digest = dataFile.digest();
-            final byte[] chunkHashes = dataFile.chunkHashes();
+            final byte[] digest = arbitraryDataFile.digest();
+            final byte[] chunkHashes = arbitraryDataFile.chunkHashes();
             final List<PaymentData> payments = new ArrayList<>();
 
             ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
@@ -149,7 +149,7 @@ public class WebsiteResource {
 
             Transaction.ValidationResult result = transaction.isValidUnconfirmed();
             if (result != Transaction.ValidationResult.OK) {
-                dataFile.deleteAll();
+                arbitraryDataFile.deleteAll();
                 throw TransactionsResource.createTransactionInvalidException(request, result);
             }
 
@@ -157,10 +157,10 @@ public class WebsiteResource {
             return Base58.encode(bytes);
 
         } catch (TransformationException e) {
-            dataFile.deleteAll();
+            arbitraryDataFile.deleteAll();
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
         } catch (DataException e) {
-            dataFile.deleteAll();
+            arbitraryDataFile.deleteAll();
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
         }
     }
@@ -212,11 +212,11 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
 
-        DataFile dataFile = arbitraryDataWriter.getDataFile();
-        if (dataFile != null) {
-            String digest58 = dataFile.digest58();
+        ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
+        if (arbitraryDataFile != null) {
+            String digest58 = arbitraryDataFile.digest58();
             if (digest58 != null) {
-                return "http://localhost:12393/site/hash/" + digest58 + "?secret=" + Base58.encode(dataFile.getSecret());
+                return "http://localhost:12393/site/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
             }
         }
         return "Unable to generate preview URL";

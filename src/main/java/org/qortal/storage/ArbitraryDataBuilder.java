@@ -8,7 +8,7 @@ import org.qortal.data.transaction.ArbitraryTransactionData.Service;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.storage.DataFile.ResourceIdType;
+import org.qortal.storage.ArbitraryDataFile.ResourceIdType;
 import org.qortal.utils.Base58;
 
 import java.io.IOException;

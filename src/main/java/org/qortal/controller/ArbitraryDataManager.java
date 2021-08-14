@@ -13,8 +13,8 @@ import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.storage.DataFile;
-import org.qortal.storage.DataFileChunk;
+import org.qortal.storage.ArbitraryDataFile;
+import org.qortal.storage.ArbitraryDataFileChunk;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
@@ -166,7 +166,7 @@ public class ArbitraryDataManager extends Thread {
 		return true;
 	}
 
-	private DataFile fetchArbitraryDataFile(Peer peer, byte[] hash) throws InterruptedException {
+	private ArbitraryDataFile fetchArbitraryDataFile(Peer peer, byte[] hash) throws InterruptedException {
 		String hash58 = Base58.encode(hash);
 		LOGGER.info(String.format("Fetching data file %.8s from peer %s", hash58, peer));
 		arbitraryDataFileRequests.put(hash58, NTP.getTime());
@@ -181,7 +181,7 @@ public class ArbitraryDataManager extends Thread {
 		}
 
 		DataFileMessage dataFileMessage = (DataFileMessage) message;
-		return dataFileMessage.getDataFile();
+		return dataFileMessage.getArbitraryDataFile();
 	}
 
 	public void cleanupRequestCache(long now) {
@@ -269,13 +269,13 @@ public class ArbitraryDataManager extends Thread {
 			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
 			// Load data file(s)
-			DataFile dataFile = DataFile.fromHash(arbitraryTransactionData.getData());
-			dataFile.addChunkHashes(arbitraryTransactionData.getChunkHashes());
+			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData());
+			arbitraryDataFile.addChunkHashes(arbitraryTransactionData.getChunkHashes());
 
 			// Check all hashes exist
 			for (byte[] hash : hashes) {
 				//LOGGER.info("Received hash {}", Base58.encode(hash));
-				if (!dataFile.containsChunk(hash)) {
+				if (!arbitraryDataFile.containsChunk(hash)) {
 					LOGGER.info("Received non-matching chunk hash {} for signature {}", Base58.encode(hash), signature58);
 					return;
 				}
@@ -287,14 +287,14 @@ public class ArbitraryDataManager extends Thread {
 
 			// Now fetch actual data from this peer
 			for (byte[] hash : hashes) {
-				if (!dataFile.chunkExists(hash)) {
+				if (!arbitraryDataFile.chunkExists(hash)) {
 					// Only request the file if we aren't already requesting it from someone else
 					if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
-						DataFile receivedDataFile = fetchArbitraryDataFile(peer, hash);
-						LOGGER.info("Received data file {} from peer {}", receivedDataFile, peer);
+						ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, hash);
+						LOGGER.info("Received data file {} from peer {}", receivedArbitraryDataFile, peer);
 					}
 					else {
-						LOGGER.info("Already requesting data file {}", dataFile);
+						LOGGER.info("Already requesting data file {}", arbitraryDataFile);
 					}
 				}
 			}
@@ -318,15 +318,15 @@ public class ArbitraryDataManager extends Thread {
 		byte[] hash = getDataFileMessage.getHash();
 		Controller.getInstance().stats.getDataFileMessageStats.requests.incrementAndGet();
 
-		DataFile dataFile = DataFile.fromHash(hash);
-		if (dataFile.exists()) {
-			DataFileMessage dataFileMessage = new DataFileMessage(dataFile);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
+		if (arbitraryDataFile.exists()) {
+			DataFileMessage dataFileMessage = new DataFileMessage(arbitraryDataFile);
 			dataFileMessage.setId(message.getId());
 			if (!peer.sendMessage(dataFileMessage)) {
 				LOGGER.info("Couldn't sent file");
 				peer.disconnect("failed to send file");
 			}
-			LOGGER.info("Sent file {}", dataFile);
+			LOGGER.info("Sent file {}", arbitraryDataFile);
 		}
 		else {
 
@@ -334,7 +334,7 @@ public class ArbitraryDataManager extends Thread {
 			Controller.getInstance().stats.getDataFileMessageStats.unknownFiles.getAndIncrement();
 
 			// Send valid, yet unexpected message type in response, so peer's synchronizer doesn't have to wait for timeout
-			LOGGER.debug(() -> String.format("Sending 'file unknown' response to peer %s for GET_FILE request for unknown file %s", peer, dataFile));
+			LOGGER.debug(() -> String.format("Sending 'file unknown' response to peer %s for GET_FILE request for unknown file %s", peer, arbitraryDataFile));
 
 			// We'll send empty block summaries message as it's very short
 			// TODO: use a different message type here
@@ -344,7 +344,7 @@ public class ArbitraryDataManager extends Thread {
 				LOGGER.info("Couldn't sent file-unknown response");
 				peer.disconnect("failed to send file-unknown response");
 			}
-			LOGGER.info("Sent file-unknown response for file {}", dataFile);
+			LOGGER.info("Sent file-unknown response for file {}", arbitraryDataFile);
 		}
 	}
 
@@ -367,10 +367,10 @@ public class ArbitraryDataManager extends Thread {
 				byte[] chunkHashes = transactionData.getChunkHashes();
 
 				// Load file(s) and add any that exist to the list of hashes
-				DataFile dataFile = DataFile.fromHash(hash);
+				ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
 				if (chunkHashes != null && chunkHashes.length > 0) {
-					dataFile.addChunkHashes(chunkHashes);
-					for (DataFileChunk dataFileChunk : dataFile.getChunks()) {
+					arbitraryDataFile.addChunkHashes(chunkHashes);
+					for (ArbitraryDataFileChunk dataFileChunk : arbitraryDataFile.getChunks()) {
 						if (dataFileChunk.exists()) {
 							hashes.add(dataFileChunk.getHash());
 							//LOGGER.info("Added hash {}", dataFileChunk.getHash58());

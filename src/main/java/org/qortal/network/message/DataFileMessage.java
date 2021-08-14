@@ -1,7 +1,7 @@
 package org.qortal.network.message;
 
 import com.google.common.primitives.Ints;
-import org.qortal.storage.DataFile;
+import org.qortal.storage.ArbitraryDataFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -10,22 +10,22 @@ import java.nio.ByteBuffer;
 
 public class DataFileMessage extends Message {
 	
-	private final DataFile dataFile;
+	private final ArbitraryDataFile arbitraryDataFile;
 
-	public DataFileMessage(DataFile dataFile) {
+	public DataFileMessage(ArbitraryDataFile arbitraryDataFile) {
 		super(MessageType.DATA_FILE);
 
-		this.dataFile = dataFile;
+		this.arbitraryDataFile = arbitraryDataFile;
 	}
 
-	public DataFileMessage(int id, DataFile dataFile) {
+	public DataFileMessage(int id, ArbitraryDataFile arbitraryDataFile) {
 		super(id, MessageType.DATA_FILE);
 
-		this.dataFile = dataFile;
+		this.arbitraryDataFile = arbitraryDataFile;
 	}
 
-	public DataFile getDataFile() {
-		return this.dataFile;
+	public ArbitraryDataFile getArbitraryDataFile() {
+		return this.arbitraryDataFile;
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
@@ -36,18 +36,18 @@ public class DataFileMessage extends Message {
 
 		byte[] data = new byte[dataLength];
 		byteBuffer.get(data);
-		DataFile dataFile = new DataFile(data);
+		ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(data);
 
-		return new DataFileMessage(id, dataFile);
+		return new DataFileMessage(id, arbitraryDataFile);
 	}
 
 	@Override
 	protected byte[] toData() {
-		if (this.dataFile == null) {
+		if (this.arbitraryDataFile == null) {
 			return null;
 		}
 
-		byte[] data = this.dataFile.getBytes();
+		byte[] data = this.arbitraryDataFile.getBytes();
 		if (data == null) {
 			return null;
 		}
@@ -66,7 +66,7 @@ public class DataFileMessage extends Message {
 	}
 
 	public DataFileMessage cloneWithNewId(int newId) {
-		DataFileMessage clone = new DataFileMessage(this.dataFile);
+		DataFileMessage clone = new DataFileMessage(this.arbitraryDataFile);
 		clone.setId(newId);
 		return clone;
 	}

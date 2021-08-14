@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.crypto.AES;
 import org.qortal.repository.DataException;
-import org.qortal.storage.DataFile.*;
+import org.qortal.storage.ArbitraryDataFile.*;
 import org.qortal.utils.ZipUtils;
 
 import javax.crypto.BadPaddingException;
@@ -33,7 +33,7 @@ public class ArbitraryDataWriter {
     private Compression compression;
 
     private SecretKey aesKey;
-    private DataFile dataFile;
+    private ArbitraryDataFile arbitraryDataFile;
 
     // Intermediate paths to cleanup
     private Path workingPath;
@@ -160,20 +160,20 @@ public class ArbitraryDataWriter {
     }
 
     private void validate() throws IOException {
-        if (this.dataFile == null) {
+        if (this.arbitraryDataFile == null) {
             throw new IOException("No file available when validating");
         }
-        this.dataFile.setSecret(this.aesKey.getEncoded());
+        this.arbitraryDataFile.setSecret(this.aesKey.getEncoded());
 
         // Validate the file
-        ValidationResult validationResult = this.dataFile.isValid();
+        ValidationResult validationResult = this.arbitraryDataFile.isValid();
         if (validationResult != ValidationResult.OK) {
-            throw new IllegalStateException(String.format("File %s failed validation: %s", this.dataFile, validationResult));
+            throw new IllegalStateException(String.format("File %s failed validation: %s", this.arbitraryDataFile, validationResult));
         }
-        LOGGER.info("Whole file hash is valid: {}", this.dataFile.digest58());
+        LOGGER.info("Whole file hash is valid: {}", this.arbitraryDataFile.digest58());
 
         // Validate each chunk
-        for (DataFileChunk chunk : this.dataFile.getChunks()) {
+        for (ArbitraryDataFileChunk chunk : this.arbitraryDataFile.getChunks()) {
             validationResult = chunk.isValid();
             if (validationResult != ValidationResult.OK) {
                 throw new IllegalStateException(String.format("Chunk %s failed validation: %s", chunk, validationResult));
@@ -184,12 +184,12 @@ public class ArbitraryDataWriter {
     }
 
     private void split() throws IOException {
-        this.dataFile = DataFile.fromPath(this.filePath.toString());
-        if (this.dataFile == null) {
+        this.arbitraryDataFile = ArbitraryDataFile.fromPath(this.filePath.toString());
+        if (this.arbitraryDataFile == null) {
             throw new IOException("No file available when trying to split");
         }
 
-        int chunkCount = this.dataFile.split(DataFile.CHUNK_SIZE);
+        int chunkCount = this.arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
         if (chunkCount > 0) {
             LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
         }
@@ -218,8 +218,8 @@ public class ArbitraryDataWriter {
     }
 
 
-    public DataFile getDataFile() {
-        return this.dataFile;
+    public ArbitraryDataFile getArbitraryDataFile() {
+        return this.arbitraryDataFile;
     }
 
 }

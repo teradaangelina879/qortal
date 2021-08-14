@@ -10,24 +10,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 
-public class DataFileChunk extends DataFile {
+public class ArbitraryDataFileChunk extends ArbitraryDataFile {
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFileChunk.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFileChunk.class);
 
-    public DataFileChunk(String hash58) {
+    public ArbitraryDataFileChunk(String hash58) {
         super(hash58);
     }
 
-    public DataFileChunk(byte[] fileContent) {
+    public ArbitraryDataFileChunk(byte[] fileContent) {
         super(fileContent);
     }
 
-    public static DataFileChunk fromHash58(String hash58) {
-        return new DataFileChunk(hash58);
+    public static ArbitraryDataFileChunk fromHash58(String hash58) {
+        return new ArbitraryDataFileChunk(hash58);
     }
 
-    public static DataFileChunk fromHash(byte[] hash) {
-        return DataFileChunk.fromHash58(Base58.encode(hash));
+    public static ArbitraryDataFileChunk fromHash(byte[] hash) {
+        return ArbitraryDataFileChunk.fromHash58(Base58.encode(hash));
     }
 
     @Override

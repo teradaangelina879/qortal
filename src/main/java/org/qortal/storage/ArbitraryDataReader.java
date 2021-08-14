@@ -8,7 +8,7 @@ import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.storage.DataFile.*;
+import org.qortal.storage.ArbitraryDataFile.*;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
@@ -165,9 +165,9 @@ public class ArbitraryDataReader {
 
     private void fetchFromFileHash() {
         // Load data file directly from the hash
-        DataFile dataFile = DataFile.fromHash58(resourceId);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(resourceId);
         // Set filePath to the location of the DataFile
-        this.filePath = Paths.get(dataFile.getFilePath());
+        this.filePath = Paths.get(arbitraryDataFile.getFilePath());
     }
 
     private void fetchFromName() throws IllegalStateException, IOException, DataException {
@@ -214,27 +214,27 @@ public class ArbitraryDataReader {
         }
 
         // Load data file(s)
-        DataFile dataFile = DataFile.fromHash(digest);
-        if (!dataFile.exists()) {
-            if (!dataFile.allChunksExist(chunkHashes)) {
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+        if (!arbitraryDataFile.exists()) {
+            if (!arbitraryDataFile.allChunksExist(chunkHashes)) {
                 // TODO: fetch them?
-                throw new IllegalStateException(String.format("Missing chunks for file {}", dataFile));
+                throw new IllegalStateException(String.format("Missing chunks for file {}", arbitraryDataFile));
             }
             // We have all the chunks but not the complete file, so join them
-            dataFile.addChunkHashes(chunkHashes);
-            dataFile.join();
+            arbitraryDataFile.addChunkHashes(chunkHashes);
+            arbitraryDataFile.join();
         }
 
         // If the complete file still doesn't exist then something went wrong
-        if (!dataFile.exists()) {
-            throw new IOException(String.format("File doesn't exist: %s", dataFile));
+        if (!arbitraryDataFile.exists()) {
+            throw new IOException(String.format("File doesn't exist: %s", arbitraryDataFile));
         }
         // Ensure the complete hash matches the joined chunks
-        if (!Arrays.equals(dataFile.digest(), digest)) {
+        if (!Arrays.equals(arbitraryDataFile.digest(), digest)) {
             throw new IllegalStateException("Unable to validate complete file hash");
         }
         // Set filePath to the location of the DataFile
-        this.filePath = Paths.get(dataFile.getFilePath());
+        this.filePath = Paths.get(arbitraryDataFile.getFilePath());
     }
 
     private void decrypt() {

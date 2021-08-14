@@ -3,7 +3,7 @@ package org.qortal.test;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.repository.DataException;
-import org.qortal.storage.DataFile;
+import org.qortal.storage.ArbitraryDataFile;
 import org.qortal.test.common.Common;
 
 import java.util.Random;
@@ -20,28 +20,28 @@ public class DataTests extends Common {
 	@Test
 	public void testSplitAndJoin() {
 		String dummyDataString = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-		DataFile dataFile = new DataFile(dummyDataString.getBytes());
-		assertTrue(dataFile.exists());
-		assertEquals(62, dataFile.size());
-		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", dataFile.digest58());
+		ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(dummyDataString.getBytes());
+		assertTrue(arbitraryDataFile.exists());
+		assertEquals(62, arbitraryDataFile.size());
+		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", arbitraryDataFile.digest58());
 
 		// Split into 7 chunks, each 10 bytes long
-		dataFile.split(10);
-		assertEquals(7, dataFile.chunkCount());
+		arbitraryDataFile.split(10);
+		assertEquals(7, arbitraryDataFile.chunkCount());
 
 		// Delete the original file
-		dataFile.delete();
-		assertFalse(dataFile.exists());
-		assertEquals(0, dataFile.size());
+		arbitraryDataFile.delete();
+		assertFalse(arbitraryDataFile.exists());
+		assertEquals(0, arbitraryDataFile.size());
 
 		// Now rebuild the original file from the chunks
-		assertEquals(7, dataFile.chunkCount());
-		dataFile.join();
+		assertEquals(7, arbitraryDataFile.chunkCount());
+		arbitraryDataFile.join();
 
 		// Validate that the original file is intact
-		assertTrue(dataFile.exists());
-		assertEquals(62, dataFile.size());
-		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", dataFile.digest58());
+		assertTrue(arbitraryDataFile.exists());
+		assertEquals(62, arbitraryDataFile.size());
+		assertEquals("3eyjYjturyVe61grRX42bprGr3Cvw6ehTy4iknVnosDj", arbitraryDataFile.digest58());
 	}
 
 	@Test
@@ -50,28 +50,28 @@ public class DataTests extends Common {
 		byte[] randomData = new byte[fileSize];
 		new Random().nextBytes(randomData); // No need for SecureRandom here
 
-		DataFile dataFile = new DataFile(randomData);
-		assertTrue(dataFile.exists());
-		assertEquals(fileSize, dataFile.size());
-		String originalFileDigest = dataFile.digest58();
+		ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(randomData);
+		assertTrue(arbitraryDataFile.exists());
+		assertEquals(fileSize, arbitraryDataFile.size());
+		String originalFileDigest = arbitraryDataFile.digest58();
 
 		// Split into chunks using 1MiB chunk size
-		dataFile.split(1 * 1024 * 1024);
-		assertEquals(6, dataFile.chunkCount());
+		arbitraryDataFile.split(1 * 1024 * 1024);
+		assertEquals(6, arbitraryDataFile.chunkCount());
 
 		// Delete the original file
-		dataFile.delete();
-		assertFalse(dataFile.exists());
-		assertEquals(0, dataFile.size());
+		arbitraryDataFile.delete();
+		assertFalse(arbitraryDataFile.exists());
+		assertEquals(0, arbitraryDataFile.size());
 
 		// Now rebuild the original file from the chunks
-		assertEquals(6, dataFile.chunkCount());
-		dataFile.join();
+		assertEquals(6, arbitraryDataFile.chunkCount());
+		arbitraryDataFile.join();
 
 		// Validate that the original file is intact
-		assertTrue(dataFile.exists());
-		assertEquals(fileSize, dataFile.size());
-		assertEquals(originalFileDigest, dataFile.digest58());
+		assertTrue(arbitraryDataFile.exists());
+		assertEquals(fileSize, arbitraryDataFile.size());
+		assertEquals(originalFileDigest, arbitraryDataFile.digest58());
 	}
 
 }

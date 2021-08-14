@@ -20,7 +20,7 @@ import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
 
-public class DataFile {
+public class ArbitraryDataFile {
 
     // Validation results
     public enum ValidationResult {
@@ -30,13 +30,13 @@ public class DataFile {
 
         public final int value;
 
-        private static final Map<Integer, DataFile.ValidationResult> map = stream(DataFile.ValidationResult.values()).collect(toMap(result -> result.value, result -> result));
+        private static final Map<Integer, ArbitraryDataFile.ValidationResult> map = stream(ArbitraryDataFile.ValidationResult.values()).collect(toMap(result -> result.value, result -> result));
 
         ValidationResult(int value) {
             this.value = value;
         }
 
-        public static DataFile.ValidationResult valueOf(int value) {
+        public static ArbitraryDataFile.ValidationResult valueOf(int value) {
             return map.get(value);
         }
     }
@@ -49,7 +49,7 @@ public class DataFile {
         NAME
     };
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFile.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFile.class);
 
     public static final long MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MiB
     public static final int CHUNK_SIZE = 1 * 1024 * 1024; // 1MiB
@@ -57,20 +57,20 @@ public class DataFile {
 
     protected String filePath;
     protected String hash58;
-    private ArrayList<DataFileChunk> chunks;
+    private ArrayList<ArbitraryDataFileChunk> chunks;
     private byte[] secret;
 
-    public DataFile() {
+    public ArbitraryDataFile() {
     }
 
-    public DataFile(String hash58) {
+    public ArbitraryDataFile(String hash58) {
         this.createDataDirectory();
-        this.filePath = DataFile.getOutputFilePath(hash58, false);
+        this.filePath = ArbitraryDataFile.getOutputFilePath(hash58, false);
         this.chunks = new ArrayList<>();
         this.hash58 = hash58;
     }
 
-    public DataFile(byte[] fileContent) {
+    public ArbitraryDataFile(byte[] fileContent) {
         if (fileContent == null) {
             LOGGER.error("fileContent is null");
             return;
@@ -95,28 +95,28 @@ public class DataFile {
         }
     }
 
-    public static DataFile fromHash58(String hash58) {
-        return new DataFile(hash58);
+    public static ArbitraryDataFile fromHash58(String hash58) {
+        return new ArbitraryDataFile(hash58);
     }
 
-    public static DataFile fromHash(byte[] hash) {
-        return DataFile.fromHash58(Base58.encode(hash));
+    public static ArbitraryDataFile fromHash(byte[] hash) {
+        return ArbitraryDataFile.fromHash58(Base58.encode(hash));
     }
 
-    public static DataFile fromPath(String path) {
+    public static ArbitraryDataFile fromPath(String path) {
         File file = new File(path);
         if (file.exists()) {
             try {
                 byte[] fileContent = Files.readAllBytes(file.toPath());
                 byte[] digest = Crypto.digest(fileContent);
-                DataFile dataFile = DataFile.fromHash(digest);
+                ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
 
                 // Copy file to base directory if needed
                 Path filePath = Paths.get(path);
-                if (Files.exists(filePath) && !dataFile.isInBaseDirectory(path)) {
-                    dataFile.copyToDataDirectory(filePath);
+                if (Files.exists(filePath) && !arbitraryDataFile.isInBaseDirectory(path)) {
+                    arbitraryDataFile.copyToDataDirectory(filePath);
                 }
-                return dataFile;
+                return arbitraryDataFile;
 
             } catch (IOException e) {
                 LOGGER.error("Couldn't compute digest for DataFile");
@@ -125,8 +125,8 @@ public class DataFile {
         return null;
     }
 
-    public static DataFile fromFile(File file) {
-        return DataFile.fromPath(file.getPath());
+    public static ArbitraryDataFile fromFile(File file) {
+        return ArbitraryDataFile.fromPath(file.getPath());
     }
 
     private boolean createDataDirectory() {
@@ -188,7 +188,7 @@ public class DataFile {
             long fileSize = Files.size(path);
             if (fileSize > MAX_FILE_SIZE) {
                 LOGGER.error(String.format("DataFile is too large: %d bytes (max size: %d bytes)", fileSize, MAX_FILE_SIZE));
-                return DataFile.ValidationResult.FILE_TOO_LARGE;
+                return ArbitraryDataFile.ValidationResult.FILE_TOO_LARGE;
             }
 
         } catch (IOException e) {
@@ -198,7 +198,7 @@ public class DataFile {
         return ValidationResult.OK;
     }
 
-    public void addChunk(DataFileChunk chunk) {
+    public void addChunk(ArbitraryDataFileChunk chunk) {
         this.chunks.add(chunk);
     }
 
@@ -210,7 +210,7 @@ public class DataFile {
         while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
             byte[] chunkDigest = new byte[TransactionTransformer.SHA256_LENGTH];
             byteBuffer.get(chunkDigest);
-            DataFileChunk chunk = DataFileChunk.fromHash(chunkDigest);
+            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkDigest);
             this.addChunk(chunk);
         }
     }
@@ -232,7 +232,7 @@ public class DataFile {
                             out.write(buffer, 0, numberOfBytes);
                             out.flush();
 
-                            DataFileChunk chunk = new DataFileChunk(out.toByteArray());
+                            ArbitraryDataFileChunk chunk = new ArbitraryDataFileChunk(out.toByteArray());
                             ValidationResult validationResult = chunk.isValid();
                             if (validationResult == ValidationResult.OK) {
                                 this.chunks.add(chunk);
@@ -266,7 +266,7 @@ public class DataFile {
             // Join the chunks
             File outputFile = new File(this.filePath);
             try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputFile))) {
-                for (DataFileChunk chunk : this.chunks) {
+                for (ArbitraryDataFileChunk chunk : this.chunks) {
                     File sourceFile = new File(chunk.filePath);
                     BufferedInputStream in = new BufferedInputStream(new FileInputStream(sourceFile));
                     byte[] buffer = new byte[2048];
@@ -323,7 +323,7 @@ public class DataFile {
         if (this.chunks != null && this.chunks.size() > 0) {
             Iterator iterator = this.chunks.iterator();
             while (iterator.hasNext()) {
-                DataFileChunk chunk = (DataFileChunk) iterator.next();
+                ArbitraryDataFileChunk chunk = (ArbitraryDataFileChunk) iterator.next();
                 chunk.delete();
                 iterator.remove();
                 success = true;
@@ -376,7 +376,7 @@ public class DataFile {
     }
 
     public boolean chunkExists(byte[] hash) {
-        for (DataFileChunk chunk : this.chunks) {
+        for (ArbitraryDataFileChunk chunk : this.chunks) {
             if (Arrays.equals(hash, chunk.getHash())) {
                 return chunk.exists();
             }
@@ -389,7 +389,7 @@ public class DataFile {
         while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
             byte[] chunkHash = new byte[TransactionTransformer.SHA256_LENGTH];
             byteBuffer.get(chunkHash);
-            DataFileChunk chunk = DataFileChunk.fromHash(chunkHash);
+            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash);
             if (!chunk.exists()) {
                 return false;
             }
@@ -398,7 +398,7 @@ public class DataFile {
     }
 
     public boolean containsChunk(byte[] hash) {
-        for (DataFileChunk chunk : this.chunks) {
+        for (ArbitraryDataFileChunk chunk : this.chunks) {
             if (Arrays.equals(hash, chunk.getHash())) {
                 return true;
             }
@@ -419,7 +419,7 @@ public class DataFile {
         return this.chunks.size();
     }
 
-    public List<DataFileChunk> getChunks() {
+    public List<ArbitraryDataFileChunk> getChunks() {
         return this.chunks;
     }
 
@@ -432,7 +432,7 @@ public class DataFile {
 
             try {
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                for (DataFileChunk chunk : this.chunks) {
+                for (ArbitraryDataFileChunk chunk : this.chunks) {
                     byte[] chunkHash = chunk.digest();
                     if (chunkHash.length != 32) {
                         LOGGER.info("Invalid chunk hash length: {}", chunkHash.length);
@@ -499,7 +499,7 @@ public class DataFile {
     public String printChunks() {
         String outputString = "";
         if (this.chunkCount() > 0) {
-            for (DataFileChunk chunk : this.chunks) {
+            for (ArbitraryDataFileChunk chunk : this.chunks) {
                 if (outputString.length() > 0) {
                     outputString = outputString.concat(",");
                 }

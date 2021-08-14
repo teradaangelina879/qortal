@@ -13,8 +13,8 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
-import org.qortal.storage.DataFile;
-import org.qortal.storage.DataFileChunk;
+import org.qortal.storage.ArbitraryDataFile;
+import org.qortal.storage.ArbitraryDataFileChunk;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
@@ -31,7 +31,7 @@ public class ArbitraryTransaction extends Transaction {
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
 	public static final int POW_MIN_DIFFICULTY = 12; // leading zero bits
 	public static final int POW_MAX_DIFFICULTY = 19; // leading zero bits
-	public static final long MAX_FILE_SIZE = DataFile.MAX_FILE_SIZE;
+	public static final long MAX_FILE_SIZE = ArbitraryDataFile.MAX_FILE_SIZE;
 
 	// Constructors
 
@@ -103,7 +103,7 @@ public class ArbitraryTransaction extends Transaction {
 				}
 
 				// Check expected length of chunk hashes
-				int chunkCount = (int)Math.ceil((double)arbitraryTransactionData.getSize() / (double)DataFileChunk.CHUNK_SIZE);
+				int chunkCount = (int)Math.ceil((double)arbitraryTransactionData.getSize() / (double) ArbitraryDataFileChunk.CHUNK_SIZE);
 				int expectedChunkHashesSize = (chunkCount > 1) ? chunkCount * HASH_LENGTH : 0;
 				if (chunkHashes == null && expectedChunkHashesSize > 0) {
 					return ValidationResult.INVALID_DATA_LENGTH;
@@ -121,7 +121,7 @@ public class ArbitraryTransaction extends Transaction {
 			if (arbitraryTransactionData.getVersion() >= 5) {
 				// Check reported length of the raw data
 				// We should not download the raw data, so validation of that will be performed later
-				if (arbitraryTransactionData.getSize() > DataFile.MAX_FILE_SIZE) {
+				if (arbitraryTransactionData.getSize() > ArbitraryDataFile.MAX_FILE_SIZE) {
 					return ValidationResult.INVALID_DATA_LENGTH;
 				}
 			}

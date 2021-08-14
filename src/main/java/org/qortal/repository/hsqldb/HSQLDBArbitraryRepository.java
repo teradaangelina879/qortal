@@ -10,7 +10,7 @@ import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.DataException;
-import org.qortal.storage.DataFile;
+import org.qortal.storage.ArbitraryDataFile;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 
 import java.sql.ResultSet;
@@ -55,18 +55,18 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = transactionData.getChunkHashes();
 
 		// Load data file(s)
-		DataFile dataFile = DataFile.fromHash(digest);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
 		if (chunkHashes != null && chunkHashes.length > 0) {
-			dataFile.addChunkHashes(chunkHashes);
+			arbitraryDataFile.addChunkHashes(chunkHashes);
 		}
 
 		// Check if we already have the complete data file
-		if (dataFile.exists()) {
+		if (arbitraryDataFile.exists()) {
 			return true;
 		}
 
 		// Alternatively, if we have all the chunks, then it's safe to assume the data is local
-		if (dataFile.allChunksExist(chunkHashes)) {
+		if (arbitraryDataFile.allChunksExist(chunkHashes)) {
 			return true;
 		}
 
@@ -90,23 +90,23 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = transactionData.getChunkHashes();
 
 		// Load data file(s)
-		DataFile dataFile = DataFile.fromHash(digest);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
 		if (chunkHashes != null && chunkHashes.length > 0) {
-			dataFile.addChunkHashes(chunkHashes);
+			arbitraryDataFile.addChunkHashes(chunkHashes);
 		}
 
 		// If we have the complete data file, return it
-		if (dataFile.exists()) {
-			return dataFile.getBytes();
+		if (arbitraryDataFile.exists()) {
+			return arbitraryDataFile.getBytes();
 		}
 
 		// Alternatively, if we have all the chunks, combine them into a single file
-		if (dataFile.allChunksExist(chunkHashes)) {
-			dataFile.join();
+		if (arbitraryDataFile.allChunksExist(chunkHashes)) {
+			arbitraryDataFile.join();
 
 			// Verify that the combined hash matches the expected hash
-			if (digest.equals(dataFile.digest())) {
-				return dataFile.getBytes();
+			if (digest.equals(arbitraryDataFile.digest())) {
+				return arbitraryDataFile.getBytes();
 			}
 		}
 
@@ -134,29 +134,29 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		arbitraryTransactionData.setDataType(DataType.DATA_HASH);
 
 		// Create DataFile
-		DataFile dataFile = new DataFile(rawData);
+		ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(rawData);
 
 		// Verify that the data file is valid, and that it matches the expected hash
-		DataFile.ValidationResult validationResult = dataFile.isValid();
-		if (validationResult != DataFile.ValidationResult.OK) {
-			dataFile.deleteAll();
+		ArbitraryDataFile.ValidationResult validationResult = arbitraryDataFile.isValid();
+		if (validationResult != ArbitraryDataFile.ValidationResult.OK) {
+			arbitraryDataFile.deleteAll();
 			throw new DataException("Invalid data file when attempting to store arbitrary transaction data");
 		}
-		if (!dataHash.equals(dataFile.digest())) {
-			dataFile.deleteAll();
+		if (!dataHash.equals(arbitraryDataFile.digest())) {
+			arbitraryDataFile.deleteAll();
 			throw new DataException("Could not verify hash when attempting to store arbitrary transaction data");
 		}
 
 		// Now create chunks if needed
-		int chunkCount = dataFile.split(DataFile.CHUNK_SIZE);
+		int chunkCount = arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
 		if (chunkCount > 0) {
 			LOGGER.info(String.format("Successfully split into %d chunk%s:", chunkCount, (chunkCount == 1 ? "" : "s")));
-			LOGGER.info("{}", dataFile.printChunks());
+			LOGGER.info("{}", arbitraryDataFile.printChunks());
 
 			// Verify that the chunk hashes match those in the transaction
-			byte[] chunkHashes = dataFile.chunkHashes();
+			byte[] chunkHashes = arbitraryDataFile.chunkHashes();
 			if (!chunkHashes.equals(arbitraryTransactionData.getChunkHashes())) {
-				dataFile.deleteAll();
+				arbitraryDataFile.deleteAll();
 				throw new DataException("Could not verify chunk hashes when attempting to store arbitrary transaction data");
 			}
 
@@ -175,13 +175,13 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
 
 		// Load data file(s)
-		DataFile dataFile = DataFile.fromHash(digest);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
 		if (chunkHashes != null && chunkHashes.length > 0) {
-			dataFile.addChunkHashes(chunkHashes);
+			arbitraryDataFile.addChunkHashes(chunkHashes);
 		}
 
 		// Delete file and chunks
-		dataFile.deleteAll();
+		arbitraryDataFile.deleteAll();
 	}
 
 	@Override
