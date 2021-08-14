@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.crypto.AES;
+import org.qortal.repository.DataException;
 import org.qortal.storage.DataFile.*;
 import org.qortal.utils.ZipUtils;
 
@@ -26,6 +27,8 @@ public class DataFileWriter {
     private static final Logger LOGGER = LogManager.getLogger(DataFileWriter.class);
 
     private Path filePath;
+    private String name;
+    private Service service;
     private Method method;
     private Compression compression;
 
@@ -37,15 +40,18 @@ public class DataFileWriter {
     private Path compressedPath;
     private Path encryptedPath;
 
-    public DataFileWriter(Path filePath, Method method, Compression compression) {
+    public DataFileWriter(Path filePath, String name, Service service, Method method, Compression compression) {
         this.filePath = filePath;
+        this.name = name;
+        this.service = service;
         this.method = method;
         this.compression = compression;
     }
 
-    public void save() throws IllegalStateException, IOException {
+    public void save() throws IllegalStateException, IOException, DataException {
         try {
             this.preExecute();
+            this.process();
             this.compress();
             this.encrypt();
             this.split();
@@ -80,6 +86,36 @@ public class DataFileWriter {
             throw new IllegalStateException("Unable to create temp directory");
         }
         this.workingPath = tempDir;
+    }
+
+    private void process() throws DataException, IOException {
+        switch (this.method) {
+
+            case PUT:
+                // Nothing to do
+                break;
+
+            case PATCH:
+                this.processPatch();
+                break;
+
+            default:
+                throw new IllegalStateException(String.format("Unknown method specified: %s", method.toString()));
+        }
+    }
+
+    private void processPatch() throws DataException, IOException {
+
+        // Build the existing state using past transactions
+        DataFileBuilder builder = new DataFileBuilder(this.name, this.service);
+        builder.build();
+        Path builtPath = builder.getFinalPath();
+
+        // Compute a diff of the latest changes on top of the previous state
+        // Then use only the differences as our data payload
+        DataFileCreatePatch patch = new DataFileCreatePatch(builtPath, this.filePath);
+        patch.create();
+        this.filePath = patch.getFinalPath();
     }
 
     private void compress() {

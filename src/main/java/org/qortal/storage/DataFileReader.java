@@ -1,13 +1,17 @@
 package org.qortal.storage;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.storage.DataFile.*;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.ZipUtils;
 
 import javax.crypto.BadPaddingException;
@@ -17,9 +21,8 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -27,33 +30,38 @@ import java.util.Arrays;
 
 public class DataFileReader {
 
+    private static final Logger LOGGER = LogManager.getLogger(DataFileReader.class);
+
     private String resourceId;
     private ResourceIdType resourceIdType;
+    private Service service;
+    private ArbitraryTransactionData transactionData;
     private String secret58;
     private Path filePath;
-    private DataFile dataFile;
 
     // Intermediate paths
     private Path workingPath;
     private Path uncompressedPath;
     private Path unencryptedPath;
 
-    public DataFileReader(String resourceId, ResourceIdType resourceIdType) {
+    public DataFileReader(String resourceId, ResourceIdType resourceIdType, Service service) {
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
+        this.service = service;
     }
 
     public void load(boolean overwrite) throws IllegalStateException, IOException, DataException {
-
         try {
             this.preExecute();
 
             // Do nothing if files already exist and overwrite is set to false
-            if (Files.exists(this.uncompressedPath) && !overwrite) {
+            if (!overwrite && Files.exists(this.uncompressedPath)
+                    && !FilesystemUtils.isDirectoryEmpty(this.uncompressedPath)) {
                 this.filePath = this.uncompressedPath;
                 return;
             }
 
+            this.deleteExistingFiles();
             this.fetch();
             this.decrypt();
             this.uncompress();
@@ -65,8 +73,7 @@ public class DataFileReader {
 
     private void preExecute() {
         this.createWorkingDirectory();
-        // Initialize unzipped path as it's used in a few places
-        this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
+        this.createUncompressedDirectory();
     }
 
     private void postExecute() throws IOException {
@@ -85,15 +92,70 @@ public class DataFileReader {
         this.workingPath = tempDir;
     }
 
+    private void createUncompressedDirectory() {
+        // Use the system tmpdir as our base, as it is deterministic
+        this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
+        try {
+            Files.createDirectories(this.uncompressedPath);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to create temp directory");
+        }
+    }
+
+    private void deleteExistingFiles() {
+        final Path uncompressedPath = this.uncompressedPath;
+        if (uncompressedPath != null) {
+            if (Files.exists(uncompressedPath)) {
+                LOGGER.trace("Attempting to delete path {}", this.uncompressedPath);
+                try {
+                    Files.walkFileTree(uncompressedPath, new SimpleFileVisitor<Path>() {
+
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            Files.delete(file);
+                            return FileVisitResult.CONTINUE;
+                        }
+
+                        @Override
+                        public FileVisitResult postVisitDirectory(Path dir, IOException e) throws IOException {
+                            // Don't delete the parent directory, as we want to leave an empty folder
+                            if (dir.compareTo(uncompressedPath) == 0) {
+                                return FileVisitResult.CONTINUE;
+                            }
+
+                            if (e == null) {
+                                Files.delete(dir);
+                                return FileVisitResult.CONTINUE;
+                            } else {
+                                throw e;
+                            }
+                        }
+
+                    });
+                } catch (IOException e) {
+                    LOGGER.info("Unable to delete file or directory: {}", e.getMessage());
+                }
+            }
+        }
+    }
+
     private void fetch() throws IllegalStateException, IOException, DataException {
         switch (resourceIdType) {
+
+            case FILE_HASH:
+                this.fetchFromFileHash();
+                break;
+
+            case NAME:
+                this.fetchFromName();
+                break;
 
             case SIGNATURE:
                 this.fetchFromSignature();
                 break;
 
-            case FILE_HASH:
-                this.fetchFromFileHash();
+            case TRANSACTION_DATA:
+                this.fetchFromTransactionData(this.transactionData);
                 break;
 
             default:
@@ -101,13 +163,42 @@ public class DataFileReader {
         }
     }
 
+    private void fetchFromFileHash() {
+        // Load data file directly from the hash
+        DataFile dataFile = DataFile.fromHash58(resourceId);
+        // Set filePath to the location of the DataFile
+        this.filePath = Paths.get(dataFile.getFilePath());
+    }
+
+    private void fetchFromName() throws IllegalStateException, IOException, DataException {
+
+        // Build the existing state using past transactions
+        DataFileBuilder builder = new DataFileBuilder(this.resourceId, this.service);
+        builder.build();
+        Path builtPath = builder.getFinalPath();
+        if (builtPath == null) {
+            throw new IllegalStateException("Unable to build path");
+        }
+
+        // Set filePath to the builtPath
+        this.filePath = builtPath;
+    }
+
     private void fetchFromSignature() throws IllegalStateException, IOException, DataException {
 
-        // Load the full transaction data so we can access the file hashes
+        // Load the full transaction data from the database so we can access the file hashes
         ArbitraryTransactionData transactionData;
         try (final Repository repository = RepositoryManager.getRepository()) {
             transactionData = (ArbitraryTransactionData) repository.getTransactionRepository().fromSignature(Base58.decode(resourceId));
         }
+        if (!(transactionData instanceof ArbitraryTransactionData)) {
+            throw new IllegalStateException(String.format("Transaction data not found for signature %s", this.resourceId));
+        }
+
+        this.fetchFromTransactionData(transactionData);
+    }
+
+    private void fetchFromTransactionData(ArbitraryTransactionData transactionData) throws IllegalStateException, IOException, DataException {
         if (!(transactionData instanceof ArbitraryTransactionData)) {
             throw new IllegalStateException(String.format("Transaction data not found for signature %s", this.resourceId));
         }
@@ -123,32 +214,25 @@ public class DataFileReader {
         }
 
         // Load data file(s)
-        this.dataFile = DataFile.fromHash(digest);
-        if (!this.dataFile.exists()) {
-            if (!this.dataFile.allChunksExist(chunkHashes)) {
+        DataFile dataFile = DataFile.fromHash(digest);
+        if (!dataFile.exists()) {
+            if (!dataFile.allChunksExist(chunkHashes)) {
                 // TODO: fetch them?
                 throw new IllegalStateException(String.format("Missing chunks for file {}", dataFile));
             }
             // We have all the chunks but not the complete file, so join them
-            this.dataFile.addChunkHashes(chunkHashes);
-            this.dataFile.join();
+            dataFile.addChunkHashes(chunkHashes);
+            dataFile.join();
         }
 
         // If the complete file still doesn't exist then something went wrong
-        if (!this.dataFile.exists()) {
+        if (!dataFile.exists()) {
             throw new IOException(String.format("File doesn't exist: %s", dataFile));
         }
         // Ensure the complete hash matches the joined chunks
         if (!Arrays.equals(dataFile.digest(), digest)) {
             throw new IllegalStateException("Unable to validate complete file hash");
         }
-        // Set filePath to the location of the DataFile
-        this.filePath = Paths.get(dataFile.getFilePath());
-    }
-
-    private void fetchFromFileHash() {
-        // Load data file directly from the hash
-        this.dataFile = DataFile.fromHash58(resourceId);
         // Set filePath to the location of the DataFile
         this.filePath = Paths.get(dataFile.getFilePath());
     }
@@ -168,15 +252,26 @@ public class DataFileReader {
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-                throw new IllegalStateException(String.format("Unable to decrypt file %s: %s", dataFile, e.getMessage()));
+                throw new IllegalStateException(String.format("Unable to decrypt file at path %s: %s", this.filePath, e.getMessage()));
             }
         } else {
-            // Assume it is unencrypted. We may block this in the future.
-            this.filePath = Paths.get(this.dataFile.getFilePath());
+            // Assume it is unencrypted. This will be the case when we have built a custom path by combining
+            // multiple decrypted archives into a single state.
         }
     }
 
     private void uncompress() throws IOException {
+        if (this.filePath == null || !Files.exists(this.filePath)) {
+            throw new IllegalStateException("Can't uncompress non-existent file path");
+        }
+        File file = new File(this.filePath.toString());
+        if (file.isDirectory()) {
+            // Already a directory - nothing to uncompress
+            // We still need to copy the directory to its final destination if it's not already there
+            this.copyFilePathToFinalDestination();
+            return;
+        }
+
         try {
             // TODO: compression types
             //if (transactionData.getCompression() == ArbitraryTransactionData.Compression.ZIP) {
@@ -191,6 +286,20 @@ public class DataFileReader {
         this.filePath = this.uncompressedPath;
     }
 
+    private void copyFilePathToFinalDestination() throws IOException {
+        if (this.filePath.compareTo(this.uncompressedPath) != 0) {
+            File source = new File(this.filePath.toString());
+            File dest = new File(this.uncompressedPath.toString());
+            if (source == null || !source.exists()) {
+                throw new IllegalStateException("Source directory doesn't exist");
+            }
+            if (dest == null || !dest.exists()) {
+                throw new IllegalStateException("Destination directory doesn't exist");
+            }
+            FilesystemUtils.copyDirectory(source.toString(), dest.toString());
+        }
+    }
+
     private void cleanupFilesystem() throws IOException {
         // Clean up
         if (this.uncompressedPath != null) {
@@ -201,6 +310,10 @@ public class DataFileReader {
         }
     }
 
+
+    public void setTransactionData(ArbitraryTransactionData transactionData) {
+        this.transactionData = transactionData;
+    }
 
     public void setSecret58(String secret58) {
         this.secret58 = secret58;

@@ -44,7 +44,9 @@ public class DataFile {
     // Resource ID types
     public enum ResourceIdType {
         SIGNATURE,
-        FILE_HASH
+        FILE_HASH,
+        TRANSACTION_DATA,
+        NAME
     };
 
     private static final Logger LOGGER = LogManager.getLogger(DataFile.class);

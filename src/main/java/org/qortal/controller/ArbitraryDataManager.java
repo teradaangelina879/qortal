@@ -368,7 +368,7 @@ public class ArbitraryDataManager extends Thread {
 
 				// Load file(s) and add any that exist to the list of hashes
 				DataFile dataFile = DataFile.fromHash(hash);
-				if (chunkHashes.length > 0) {
+				if (chunkHashes != null && chunkHashes.length > 0) {
 					dataFile.addChunkHashes(chunkHashes);
 					for (DataFileChunk dataFileChunk : dataFile.getChunks()) {
 						if (dataFileChunk.exists()) {

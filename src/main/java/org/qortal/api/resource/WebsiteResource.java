@@ -98,15 +98,15 @@ public class WebsiteResource {
         }
         byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
 
-        String name = null;
-        ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
+        String name = "CalDescentTest1"; // TODO: dynamic
+        ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PATCH;
         ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.WEBSITE;
         ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
 
-        DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(path), method, compression);
+        DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(path), name, service, method, compression);
         try {
             dataFileWriter.save();
-        } catch (IOException e) {
+        } catch (IOException | DataException e) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
         } catch (IllegalStateException e) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
@@ -144,6 +144,7 @@ public class WebsiteResource {
                     secret, compression, digest, dataType, chunkHashes, payments);
 
             ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
+            LOGGER.info("Computing nonce...");
             transaction.computeNonce();
 
             Transaction.ValidationResult result = transaction.isValidUnconfirmed();
@@ -197,13 +198,15 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
         }
 
+        String name = null;
+        Service service = Service.WEBSITE;
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
 
-        DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(directoryPath), method, compression);
+        DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(directoryPath), name, service, method, compression);
         try {
             dataFileWriter.save();
-        } catch (IOException e) {
+        } catch (IOException | DataException e) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
         } catch (IllegalStateException e) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
@@ -222,26 +225,38 @@ public class WebsiteResource {
     @GET
     @Path("{signature}")
     public HttpServletResponse getIndexBySignature(@PathParam("signature") String signature) {
-        return this.get(signature, ResourceIdType.SIGNATURE, "/", null,true);
+        return this.get(signature, ResourceIdType.SIGNATURE, "/", null, "/site", true);
     }
 
     @GET
     @Path("{signature}/{path:.*}")
     public HttpServletResponse getPathBySignature(@PathParam("signature") String signature, @PathParam("path") String inPath) {
-        return this.get(signature, ResourceIdType.SIGNATURE, inPath,null,true);
+        return this.get(signature, ResourceIdType.SIGNATURE, inPath,null, "/site", true);
     }
 
     @GET
     @Path("/hash/{hash}")
     public HttpServletResponse getIndexByHash(@PathParam("hash") String hash58, @QueryParam("secret") String secret58) {
-        return this.get(hash58, ResourceIdType.FILE_HASH, "/", secret58,true);
+        return this.get(hash58, ResourceIdType.FILE_HASH, "/", secret58, "/site/hash", true);
+    }
+
+    @GET
+    @Path("/name/{name}/{path:.*}")
+    public HttpServletResponse getPathByName(@PathParam("name") String name, @PathParam("path") String inPath) {
+        return this.get(name, ResourceIdType.NAME, inPath, null, "/site/name", true);
+    }
+
+    @GET
+    @Path("/name/{name}")
+    public HttpServletResponse getIndexByName(@PathParam("name") String name) {
+        return this.get(name, ResourceIdType.NAME, "/", null, "/site/name", true);
     }
 
     @GET
     @Path("/hash/{hash}/{path:.*}")
     public HttpServletResponse getPathByHash(@PathParam("hash") String hash58, @PathParam("path") String inPath,
                                              @QueryParam("secret") String secret58) {
-        return this.get(hash58, ResourceIdType.FILE_HASH, inPath, secret58,true);
+        return this.get(hash58, ResourceIdType.FILE_HASH, inPath, secret58, "/site/hash", true);
     }
 
     @GET
@@ -259,19 +274,23 @@ public class WebsiteResource {
     private HttpServletResponse getDomainMap(String inPath) {
         Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
         if (domainMap != null && domainMap.containsKey(request.getServerName())) {
-            return this.get(domainMap.get(request.getServerName()), ResourceIdType.SIGNATURE, inPath, null, false);
+            return this.get(domainMap.get(request.getServerName()), ResourceIdType.SIGNATURE, inPath, null, "", false);
         }
         return this.get404Response();
     }
 
-    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, String inPath, String secret58, boolean usePrefix) {
+    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, String inPath, String secret58,
+                                    String prefix, boolean usePrefix) {
         if (!inPath.startsWith(File.separator)) {
             inPath = File.separator + inPath;
         }
 
-        DataFileReader dataFileReader = new DataFileReader(resourceId, resourceIdType);
+        Service service = Service.WEBSITE;
+        DataFileReader dataFileReader = new DataFileReader(resourceId, resourceIdType, service);
         dataFileReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {
+            // TODO: overwrite if new transaction arrives, to invalidate cache
+            // We could store the latest transaction signature in the extracted folder
             dataFileReader.load(false);
         } catch (Exception e) {
             return this.get404Response();
@@ -289,7 +308,7 @@ public class WebsiteResource {
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
-                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, usePrefix);
+                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix);
                 data = htmlParser.replaceRelativeLinks(filename, data);
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(data.length);
@@ -311,7 +330,7 @@ public class WebsiteResource {
             }
             return response;
         } catch (FileNotFoundException | NoSuchFileException e) {
-            LOGGER.info("File not found at path: {}", unzippedPath);
+            LOGGER.info("Unable to serve file: {}", e.getMessage());
             if (inPath.equals("/")) {
                 // Delete the unzipped folder if no index file was found
                 try {

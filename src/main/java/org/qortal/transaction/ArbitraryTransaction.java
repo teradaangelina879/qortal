@@ -108,7 +108,8 @@ public class ArbitraryTransaction extends Transaction {
 				if (chunkHashes == null && expectedChunkHashesSize > 0) {
 					return ValidationResult.INVALID_DATA_LENGTH;
 				}
-				if (chunkHashes.length != expectedChunkHashesSize) {
+				int chunkHashesLength = chunkHashes != null ? chunkHashes.length : 0;
+				if (chunkHashesLength != expectedChunkHashesSize) {
 					return ValidationResult.INVALID_DATA_LENGTH;
 				}
 			}

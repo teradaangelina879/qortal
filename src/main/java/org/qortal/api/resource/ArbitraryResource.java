@@ -272,10 +272,10 @@ public class ArbitraryResource {
 		Service service = Service.ARBITRARY_DATA;
 		Compression compression = Compression.NONE;
 
-		DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(path), method, compression);
+		DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(path), name, service, method, compression);
 		try {
 			dataFileWriter.save();
-		} catch (IOException e) {
+		} catch (IOException | DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
 		} catch (IllegalStateException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
