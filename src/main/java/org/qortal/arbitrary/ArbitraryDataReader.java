@@ -1,4 +1,4 @@
-package org.qortal.storage;
+package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -8,7 +8,7 @@ import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.storage.ArbitraryDataFile.*;
+import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;

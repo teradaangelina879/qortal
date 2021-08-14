@@ -1,4 +1,4 @@
-package org.qortal.storage;
+package org.qortal.arbitrary;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.crypto.AES;
 import org.qortal.repository.DataException;
-import org.qortal.storage.ArbitraryDataFile.*;
+import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.utils.ZipUtils;
 
 import javax.crypto.BadPaddingException;

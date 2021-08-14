@@ -1,7 +1,7 @@
 package org.qortal.network.message;
 
 import com.google.common.primitives.Ints;
-import org.qortal.storage.ArbitraryDataFile;
+import org.qortal.arbitrary.ArbitraryDataFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

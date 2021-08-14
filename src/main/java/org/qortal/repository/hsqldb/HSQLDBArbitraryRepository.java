@@ -10,7 +10,7 @@ import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.DataException;
-import org.qortal.storage.ArbitraryDataFile;
+import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 
 import java.sql.ResultSet;

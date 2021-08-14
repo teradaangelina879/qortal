@@ -3,7 +3,7 @@ package org.qortal.test;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.repository.DataException;
-import org.qortal.storage.ArbitraryDataFile;
+import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.test.common.Common;
 
 import java.util.Random;
