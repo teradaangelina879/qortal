@@ -8,17 +8,17 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
-public class DataFileMessage extends Message {
+public class ArbitraryDataFileMessage extends Message {
 	
 	private final ArbitraryDataFile arbitraryDataFile;
 
-	public DataFileMessage(ArbitraryDataFile arbitraryDataFile) {
+	public ArbitraryDataFileMessage(ArbitraryDataFile arbitraryDataFile) {
 		super(MessageType.DATA_FILE);
 
 		this.arbitraryDataFile = arbitraryDataFile;
 	}
 
-	public DataFileMessage(int id, ArbitraryDataFile arbitraryDataFile) {
+	public ArbitraryDataFileMessage(int id, ArbitraryDataFile arbitraryDataFile) {
 		super(id, MessageType.DATA_FILE);
 
 		this.arbitraryDataFile = arbitraryDataFile;
@@ -38,7 +38,7 @@ public class DataFileMessage extends Message {
 		byteBuffer.get(data);
 		ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(data);
 
-		return new DataFileMessage(id, arbitraryDataFile);
+		return new ArbitraryDataFileMessage(id, arbitraryDataFile);
 	}
 
 	@Override
@@ -65,8 +65,8 @@ public class DataFileMessage extends Message {
 		}
 	}
 
-	public DataFileMessage cloneWithNewId(int newId) {
-		DataFileMessage clone = new DataFileMessage(this.arbitraryDataFile);
+	public ArbitraryDataFileMessage cloneWithNewId(int newId) {
+		ArbitraryDataFileMessage clone = new ArbitraryDataFileMessage(this.arbitraryDataFile);
 		clone.setId(newId);
 		return clone;
 	}

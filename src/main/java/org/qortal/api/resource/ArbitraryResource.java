@@ -38,8 +38,8 @@ import org.qortal.group.Group;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.PeerAddress;
-import org.qortal.network.message.DataFileMessage;
-import org.qortal.network.message.GetDataFileMessage;
+import org.qortal.network.message.ArbitraryDataFileMessage;
+import org.qortal.network.message.GetArbitraryDataFileMessage;
 import org.qortal.network.message.Message;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -515,7 +515,7 @@ public class ArbitraryResource {
 				LOGGER.info("Invalid base58 encoded string");
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
-			Message getDataFileMessage = new GetDataFileMessage(digest);
+			Message getDataFileMessage = new GetArbitraryDataFileMessage(digest);
 
 			Message message = targetPeer.getResponse(getDataFileMessage);
 			if (message == null) {
@@ -525,12 +525,12 @@ public class ArbitraryResource {
 				return false;
 			}
 
-			DataFileMessage dataFileMessage = (DataFileMessage) message;
-			arbitraryDataFile = dataFileMessage.getArbitraryDataFile();
+			ArbitraryDataFileMessage arbitraryDataFileMessage = (ArbitraryDataFileMessage) message;
+			arbitraryDataFile = arbitraryDataFileMessage.getArbitraryDataFile();
 			if (arbitraryDataFile == null || !arbitraryDataFile.exists()) {
 				return false;
 			}
-			LOGGER.info(String.format("Received file %s, size %d bytes", dataFileMessage.getArbitraryDataFile(), dataFileMessage.getArbitraryDataFile().size()));
+			LOGGER.info(String.format("Received file %s, size %d bytes", arbitraryDataFileMessage.getArbitraryDataFile(), arbitraryDataFileMessage.getArbitraryDataFile().size()));
 			return true;
 		} catch (ApiException e) {
 			throw e;

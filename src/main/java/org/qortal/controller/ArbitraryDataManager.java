@@ -170,7 +170,7 @@ public class ArbitraryDataManager extends Thread {
 		String hash58 = Base58.encode(hash);
 		LOGGER.info(String.format("Fetching data file %.8s from peer %s", hash58, peer));
 		arbitraryDataFileRequests.put(hash58, NTP.getTime());
-		Message getDataFileMessage = new GetDataFileMessage(hash);
+		Message getDataFileMessage = new GetArbitraryDataFileMessage(hash);
 
 		Message message = peer.getResponse(getDataFileMessage);
 		arbitraryDataFileRequests.remove(hash58);
@@ -180,8 +180,8 @@ public class ArbitraryDataManager extends Thread {
 			return null;
 		}
 
-		DataFileMessage dataFileMessage = (DataFileMessage) message;
-		return dataFileMessage.getArbitraryDataFile();
+		ArbitraryDataFileMessage arbitraryDataFileMessage = (ArbitraryDataFileMessage) message;
+		return arbitraryDataFileMessage.getArbitraryDataFile();
 	}
 
 	public void cleanupRequestCache(long now) {
@@ -314,15 +314,15 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	public void onNetworkGetDataFileMessage(Peer peer, Message message) {
-		GetDataFileMessage getDataFileMessage = (GetDataFileMessage) message;
-		byte[] hash = getDataFileMessage.getHash();
+		GetArbitraryDataFileMessage getArbitraryDataFileMessage = (GetArbitraryDataFileMessage) message;
+		byte[] hash = getArbitraryDataFileMessage.getHash();
 		Controller.getInstance().stats.getDataFileMessageStats.requests.incrementAndGet();
 
 		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
 		if (arbitraryDataFile.exists()) {
-			DataFileMessage dataFileMessage = new DataFileMessage(arbitraryDataFile);
-			dataFileMessage.setId(message.getId());
-			if (!peer.sendMessage(dataFileMessage)) {
+			ArbitraryDataFileMessage arbitraryDataFileMessage = new ArbitraryDataFileMessage(arbitraryDataFile);
+			arbitraryDataFileMessage.setId(message.getId());
+			if (!peer.sendMessage(arbitraryDataFileMessage)) {
 				LOGGER.info("Couldn't sent file");
 				peer.disconnect("failed to send file");
 			}
