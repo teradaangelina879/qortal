@@ -112,10 +112,16 @@ public class ArbitraryDataFile {
                 byte[] digest = Crypto.digest(fileContent);
                 ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
 
-                // Copy file to base directory if needed
+                // Copy file to data directory if needed
                 Path filePath = Paths.get(path);
                 if (Files.exists(filePath) && !arbitraryDataFile.isInBaseDirectory(path)) {
                     arbitraryDataFile.copyToDataDirectory(filePath);
+                }
+                // Or, if it's already in the data directory, we may need to move it
+                else if (!filePath.equals(arbitraryDataFile.getFilePath())) {
+                    // Wrong path, so relocate
+                    Path dest = Paths.get(arbitraryDataFile.getFilePath());
+                    FilesystemUtils.moveFile(filePath, dest, true);
                 }
                 return arbitraryDataFile;
 
