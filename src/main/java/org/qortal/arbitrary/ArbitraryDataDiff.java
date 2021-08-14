@@ -127,6 +127,7 @@ public class ArbitraryDataDiff {
 
             });
         } catch (IOException e) {
+            // TODO: throw exception?
             LOGGER.info("IOException when walking through file tree: {}", e.getMessage());
         }
     }
@@ -202,7 +203,14 @@ public class ArbitraryDataDiff {
             throw new IOException(String.format("File not found: %s", source.toString()));
         }
 
+        // Ensure parent folders exist in the destination
         Path dest = Paths.get(base.toString(), relativePath.toString());
+        File file = new File(dest.toString());
+        File parent = file.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
+
         LOGGER.trace("Copying {} to {}", source, dest);
         Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
     }
