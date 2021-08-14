@@ -13,13 +13,13 @@ public class ArbitraryDataFileMessage extends Message {
 	private final ArbitraryDataFile arbitraryDataFile;
 
 	public ArbitraryDataFileMessage(ArbitraryDataFile arbitraryDataFile) {
-		super(MessageType.DATA_FILE);
+		super(MessageType.ARBITRARY_DATA_FILE);
 
 		this.arbitraryDataFile = arbitraryDataFile;
 	}
 
 	public ArbitraryDataFileMessage(int id, ArbitraryDataFile arbitraryDataFile) {
-		super(id, MessageType.DATA_FILE);
+		super(id, MessageType.ARBITRARY_DATA_FILE);
 
 		this.arbitraryDataFile = arbitraryDataFile;
 	}

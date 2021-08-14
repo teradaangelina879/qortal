@@ -176,7 +176,7 @@ public class ArbitraryDataManager extends Thread {
 		arbitraryDataFileRequests.remove(hash58);
 		LOGGER.info(String.format("Removed hash %.8s from arbitraryDataFileRequests", hash58));
 
-		if (message == null || message.getType() != Message.MessageType.DATA_FILE) {
+		if (message == null || message.getType() != Message.MessageType.ARBITRARY_DATA_FILE) {
 			return null;
 		}
 

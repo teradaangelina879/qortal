@@ -18,7 +18,7 @@ public class GetArbitraryDataFileMessage extends Message {
 	}
 
 	private GetArbitraryDataFileMessage(int id, byte[] hash) {
-		super(id, MessageType.GET_DATA_FILE);
+		super(id, MessageType.GET_ARBITRARY_DATA_FILE);
 
 		this.hash = hash;
 	}

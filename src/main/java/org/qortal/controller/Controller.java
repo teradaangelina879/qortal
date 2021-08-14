@@ -1246,7 +1246,7 @@ public class Controller extends Thread {
 				ArbitraryDataManager.getInstance().onNetworkArbitraryDataFileListMessage(peer, message);
 				break;
 
-			case GET_DATA_FILE:
+			case GET_ARBITRARY_DATA_FILE:
 				ArbitraryDataManager.getInstance().onNetworkGetDataFileMessage(peer, message);
 				break;
 
