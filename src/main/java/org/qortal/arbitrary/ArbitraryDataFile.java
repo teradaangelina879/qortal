@@ -255,13 +255,15 @@ public class ArbitraryDataFile {
         if (this.chunks != null && this.chunks.size() > 0) {
 
             // Create temporary path for joined file
-            Path tempPath;
+            // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
+            String baseDir = Settings.getInstance().getTempDataPath();
+            Path tempDir = Paths.get(baseDir, "join", this.chunks.get(0).digest58());
             try {
-                tempPath = Files.createTempFile(this.chunks.get(0).digest58(), ".tmp");
+                Files.createDirectories(tempDir);
             } catch (IOException e) {
                 return false;
             }
-            this.filePath = tempPath.toString();
+            this.filePath = tempDir.toString();
 
             // Join the chunks
             File outputFile = new File(this.filePath);
@@ -279,8 +281,8 @@ public class ArbitraryDataFile {
                 out.close();
 
                 // Copy temporary file to data directory
-                this.filePath = this.copyToDataDirectory(tempPath);
-                Files.delete(tempPath);
+                this.filePath = this.copyToDataDirectory(tempDir);
+                Files.delete(tempDir);
 
                 return true;
             } catch (FileNotFoundException e) {

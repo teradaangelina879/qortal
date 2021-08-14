@@ -3,12 +3,14 @@ package org.qortal.arbitrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.Crypto;
+import org.qortal.settings.Settings;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.UUID;
 
 public class ArbitraryDataDiff {
 
@@ -17,6 +19,7 @@ public class ArbitraryDataDiff {
     private Path pathBefore;
     private Path pathAfter;
     private Path diffPath;
+    private String identifier;
 
     public ArbitraryDataDiff(Path pathBefore, Path pathAfter) {
         this.pathBefore = pathBefore;
@@ -35,6 +38,7 @@ public class ArbitraryDataDiff {
     }
 
     private void preExecute() {
+        this.createRandomIdentifier();
         this.createOutputDirectory();
     }
 
@@ -42,11 +46,16 @@ public class ArbitraryDataDiff {
 
     }
 
+    private void createRandomIdentifier() {
+        this.identifier = UUID.randomUUID().toString();
+    }
+
     private void createOutputDirectory() {
-        // Ensure temp folder exists
-        Path tempDir;
+        // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
+        String baseDir = Settings.getInstance().getTempDataPath();
+        Path tempDir = Paths.get(baseDir, "diff", this.identifier);
         try {
-            tempDir = Files.createTempDirectory("qortal-diff");
+            Files.createDirectories(tempDir);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to create temp directory");
         }

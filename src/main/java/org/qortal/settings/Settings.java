@@ -206,6 +206,8 @@ public class Settings {
 
 	/** Data storage path. */
 	private String dataPath = "data";
+	/** Data storage path (for temporary data). */
+	private String tempDataPath = "data/_temp";
 
 
 	// Domain mapping
@@ -626,5 +628,9 @@ public class Settings {
 
 	public String getDataPath() {
 		return this.dataPath;
+	}
+
+	public String getTempDataPath() {
+		return this.tempDataPath;
 	}
 }

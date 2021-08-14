@@ -9,6 +9,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
+import org.qortal.settings.Settings;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
@@ -81,9 +82,9 @@ public class ArbitraryDataReader {
     }
 
     private void createWorkingDirectory() {
-        // Use the system tmpdir as our base, as it is deterministic
-        String baseDir = System.getProperty("java.io.tmpdir");
-        Path tempDir = Paths.get(baseDir + File.separator  + "qortal" + File.separator + this.resourceId);
+        // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
+        String baseDir = Settings.getInstance().getTempDataPath();
+        Path tempDir = Paths.get(baseDir, "reader", this.resourceId);
         try {
             Files.createDirectories(tempDir);
         } catch (IOException e) {
@@ -93,7 +94,6 @@ public class ArbitraryDataReader {
     }
 
     private void createUncompressedDirectory() {
-        // Use the system tmpdir as our base, as it is deterministic
         this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
         try {
             Files.createDirectories(this.uncompressedPath);

@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.Crypto;
+import org.qortal.settings.Settings;
 import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+import java.util.UUID;
 
 public class ArbitraryDataMerge {
 
@@ -19,6 +21,7 @@ public class ArbitraryDataMerge {
     private Path pathBefore;
     private Path pathAfter;
     private Path mergePath;
+    private String identifier;
 
     public ArbitraryDataMerge(Path pathBefore, Path pathAfter) {
         this.pathBefore = pathBefore;
@@ -37,6 +40,7 @@ public class ArbitraryDataMerge {
     }
 
     private void preExecute() {
+        this.createRandomIdentifier();
         this.createOutputDirectory();
     }
 
@@ -44,11 +48,16 @@ public class ArbitraryDataMerge {
 
     }
 
+    private void createRandomIdentifier() {
+        this.identifier = UUID.randomUUID().toString();
+    }
+
     private void createOutputDirectory() {
-        // Ensure temp folder exists
-        Path tempDir;
+        // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
+        String baseDir = Settings.getInstance().getTempDataPath();
+        Path tempDir = Paths.get(baseDir, "merge", this.identifier);
         try {
-            tempDir = Files.createTempDirectory("qortal-diff");
+            Files.createDirectories(tempDir);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to create temp directory");
         }
