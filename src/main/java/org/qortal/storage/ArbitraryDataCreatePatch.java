@@ -2,25 +2,26 @@ package org.qortal.storage;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.repository.DataException;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class DataFileCombiner {
+public class ArbitraryDataCreatePatch {
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFileCombiner.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataCreatePatch.class);
 
     private Path pathBefore;
     private Path pathAfter;
     private Path finalPath;
 
-    public DataFileCombiner(Path pathBefore, Path pathAfter) {
+    public ArbitraryDataCreatePatch(Path pathBefore, Path pathAfter) {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
     }
 
-    public void combine() throws IOException {
+    public void create() throws DataException, IOException {
         try {
             this.preExecute();
             this.process();
@@ -43,10 +44,11 @@ public class DataFileCombiner {
 
     }
 
-    private void process() throws IOException {
-        DataFileMerge merge = new DataFileMerge(this.pathBefore, this.pathAfter);
-        merge.compute();
-        this.finalPath = merge.getMergePath();
+    private void process() {
+
+        ArbitraryDataDiff diff = new ArbitraryDataDiff(this.pathBefore, this.pathAfter);
+        diff.compute();
+        this.finalPath = diff.getDiffPath();
     }
 
     public Path getFinalPath() {

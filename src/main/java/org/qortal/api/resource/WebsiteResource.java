@@ -40,8 +40,8 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
 import org.qortal.storage.DataFile.*;
-import org.qortal.storage.DataFileReader;
-import org.qortal.storage.DataFileWriter;
+import org.qortal.storage.ArbitraryDataReader;
+import org.qortal.storage.ArbitraryDataWriter;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
@@ -103,16 +103,16 @@ public class WebsiteResource {
         ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.WEBSITE;
         ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
 
-        DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(path), name, service, method, compression);
+        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(path), name, service, method, compression);
         try {
-            dataFileWriter.save();
+            arbitraryDataWriter.save();
         } catch (IOException | DataException e) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
         } catch (IllegalStateException e) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
 
-        DataFile dataFile = dataFileWriter.getDataFile();
+        DataFile dataFile = arbitraryDataWriter.getDataFile();
         if (dataFile == null) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
@@ -203,16 +203,16 @@ public class WebsiteResource {
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
 
-        DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(directoryPath), name, service, method, compression);
+        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), name, service, method, compression);
         try {
-            dataFileWriter.save();
+            arbitraryDataWriter.save();
         } catch (IOException | DataException e) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
         } catch (IllegalStateException e) {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
 
-        DataFile dataFile = dataFileWriter.getDataFile();
+        DataFile dataFile = arbitraryDataWriter.getDataFile();
         if (dataFile != null) {
             String digest58 = dataFile.digest58();
             if (digest58 != null) {
@@ -286,16 +286,16 @@ public class WebsiteResource {
         }
 
         Service service = Service.WEBSITE;
-        DataFileReader dataFileReader = new DataFileReader(resourceId, resourceIdType, service);
-        dataFileReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
+        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service);
+        arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {
             // TODO: overwrite if new transaction arrives, to invalidate cache
             // We could store the latest transaction signature in the extracted folder
-            dataFileReader.load(false);
+            arbitraryDataReader.load(false);
         } catch (Exception e) {
             return this.get404Response();
         }
-        java.nio.file.Path path = dataFileReader.getFilePath();
+        java.nio.file.Path path = arbitraryDataReader.getFilePath();
         if (path == null) {
             return this.get404Response();
         }

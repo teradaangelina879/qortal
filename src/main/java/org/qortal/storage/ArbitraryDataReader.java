@@ -28,9 +28,9 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-public class DataFileReader {
+public class ArbitraryDataReader {
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFileReader.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataReader.class);
 
     private String resourceId;
     private ResourceIdType resourceIdType;
@@ -44,7 +44,7 @@ public class DataFileReader {
     private Path uncompressedPath;
     private Path unencryptedPath;
 
-    public DataFileReader(String resourceId, ResourceIdType resourceIdType, Service service) {
+    public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service) {
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;
@@ -173,7 +173,7 @@ public class DataFileReader {
     private void fetchFromName() throws IllegalStateException, IOException, DataException {
 
         // Build the existing state using past transactions
-        DataFileBuilder builder = new DataFileBuilder(this.resourceId, this.service);
+        ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.resourceId, this.service);
         builder.build();
         Path builtPath = builder.getFinalPath();
         if (builtPath == null) {

@@ -10,15 +10,15 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 
-public class DataFileDiff {
+public class ArbitraryDataDiff {
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFileDiff.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataDiff.class);
 
     private Path pathBefore;
     private Path pathAfter;
     private Path diffPath;
 
-    public DataFileDiff(Path pathBefore, Path pathAfter) {
+    public ArbitraryDataDiff(Path pathBefore, Path pathAfter) {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
     }
@@ -91,14 +91,14 @@ public class DataFileDiff {
                         LOGGER.info("File size was modified: {}", after.toString());
                         wasModified = true;
                     }
-                    else if (!Arrays.equals(DataFileDiff.digestFromPath(after), DataFileDiff.digestFromPath(filePathBefore))) {
+                    else if (!Arrays.equals(ArbitraryDataDiff.digestFromPath(after), ArbitraryDataDiff.digestFromPath(filePathBefore))) {
                         // Check hashes as a last resort
                         LOGGER.info("File contents were modified: {}", after.toString());
                         wasModified = true;
                     }
 
                     if (wasAdded | wasModified) {
-                        DataFileDiff.copyFilePathToBaseDir(after, diffPathAbsolute, filePathAfter);
+                        ArbitraryDataDiff.copyFilePathToBaseDir(after, diffPathAbsolute, filePathAfter);
                     }
 
                     return FileVisitResult.CONTINUE;
@@ -138,7 +138,7 @@ public class DataFileDiff {
                     if (!Files.exists(directoryPathAfter)) {
                         LOGGER.info("Directory was removed: {}", directoryPathAfter.toString());
 
-                        DataFileDiff.markFilePathAsRemoved(diffPathAbsolute, directoryPathBefore);
+                        ArbitraryDataDiff.markFilePathAsRemoved(diffPathAbsolute, directoryPathBefore);
                         // TODO: we might need to mark directories differently to files
                         // TODO: add path to manifest JSON
                     }
@@ -154,7 +154,7 @@ public class DataFileDiff {
                     if (!Files.exists(filePathAfter)) {
                         LOGGER.trace("File was removed: {}", before.toString());
 
-                        DataFileDiff.markFilePathAsRemoved(diffPathAbsolute, filePathBefore);
+                        ArbitraryDataDiff.markFilePathAsRemoved(diffPathAbsolute, filePathBefore);
                         // TODO: add path to manifest JSON
                     }
 

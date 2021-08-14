@@ -9,14 +9,14 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
-public class DataFilePatches {
+public class ArbitraryDataPatches {
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFilePatches.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataPatches.class);
 
     private List<Path> paths;
     private Path finalPath;
 
-    public DataFilePatches(List<Path> paths) {
+    public ArbitraryDataPatches(List<Path> paths) {
         this.paths = paths;
     }
 
@@ -52,7 +52,7 @@ public class DataFilePatches {
         // Loop from the second path onwards
         for (int i=1; i<paths.size(); i++) {
             Path pathAfter = this.paths.get(i);
-            DataFileCombiner combiner = new DataFileCombiner(pathBefore, pathAfter);
+            ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(pathBefore, pathAfter);
             combiner.combine();
             pathBefore = combiner.getFinalPath(); // TODO: cleanup
         }

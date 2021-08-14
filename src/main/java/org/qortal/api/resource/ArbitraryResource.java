@@ -47,7 +47,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.storage.DataFile;
 import org.qortal.storage.DataFileChunk;
-import org.qortal.storage.DataFileWriter;
+import org.qortal.storage.ArbitraryDataWriter;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -272,16 +272,16 @@ public class ArbitraryResource {
 		Service service = Service.ARBITRARY_DATA;
 		Compression compression = Compression.NONE;
 
-		DataFileWriter dataFileWriter = new DataFileWriter(Paths.get(path), name, service, method, compression);
+		ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(path), name, service, method, compression);
 		try {
-			dataFileWriter.save();
+			arbitraryDataWriter.save();
 		} catch (IOException | DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
 		} catch (IllegalStateException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}
 
-		DataFile dataFile = dataFileWriter.getDataFile();
+		DataFile dataFile = arbitraryDataWriter.getDataFile();
 		if (dataFile == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}

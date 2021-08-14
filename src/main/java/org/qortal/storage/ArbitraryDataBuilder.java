@@ -18,9 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class DataFileBuilder {
+public class ArbitraryDataBuilder {
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFileBuilder.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataBuilder.class);
 
     private String name;
     private Service service;
@@ -30,7 +30,7 @@ public class DataFileBuilder {
     private List<Path> paths;
     private Path finalPath;
 
-    public DataFileBuilder(String name, Service service) {
+    public ArbitraryDataBuilder(String name, Service service) {
         this.name = name;
         this.service = service;
         this.paths = new ArrayList<>();
@@ -104,10 +104,10 @@ public class DataFileBuilder {
 
             // Build the data file, overwriting anything that was previously there
             String sig58 = Base58.encode(transactionData.getSignature());
-            DataFileReader dataFileReader = new DataFileReader(sig58, ResourceIdType.TRANSACTION_DATA, this.service);
-            dataFileReader.setTransactionData(transactionData);
-            dataFileReader.load(true);
-            Path path = dataFileReader.getFilePath();
+            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(sig58, ResourceIdType.TRANSACTION_DATA, this.service);
+            arbitraryDataReader.setTransactionData(transactionData);
+            arbitraryDataReader.load(true);
+            Path path = arbitraryDataReader.getFilePath();
             if (path == null) {
                 throw new IllegalStateException(String.format("Null path when building data from transaction %s", sig58));
             }
@@ -119,9 +119,9 @@ public class DataFileBuilder {
     }
 
     private void buildLatestState() throws IOException, DataException {
-        DataFilePatches dataFilePatches = new DataFilePatches(this.paths);
-        dataFilePatches.applyPatches();
-        this.finalPath = dataFilePatches.getFinalPath();
+        ArbitraryDataPatches arbitraryDataPatches = new ArbitraryDataPatches(this.paths);
+        arbitraryDataPatches.applyPatches();
+        this.finalPath = arbitraryDataPatches.getFinalPath();
     }
 
     public Path getFinalPath() {

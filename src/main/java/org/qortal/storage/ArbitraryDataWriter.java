@@ -22,9 +22,9 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
-public class DataFileWriter {
+public class ArbitraryDataWriter {
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFileWriter.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataWriter.class);
 
     private Path filePath;
     private String name;
@@ -40,7 +40,7 @@ public class DataFileWriter {
     private Path compressedPath;
     private Path encryptedPath;
 
-    public DataFileWriter(Path filePath, String name, Service service, Method method, Compression compression) {
+    public ArbitraryDataWriter(Path filePath, String name, Service service, Method method, Compression compression) {
         this.filePath = filePath;
         this.name = name;
         this.service = service;
@@ -107,13 +107,13 @@ public class DataFileWriter {
     private void processPatch() throws DataException, IOException {
 
         // Build the existing state using past transactions
-        DataFileBuilder builder = new DataFileBuilder(this.name, this.service);
+        ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.name, this.service);
         builder.build();
         Path builtPath = builder.getFinalPath();
 
         // Compute a diff of the latest changes on top of the previous state
         // Then use only the differences as our data payload
-        DataFileCreatePatch patch = new DataFileCreatePatch(builtPath, this.filePath);
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(builtPath, this.filePath);
         patch.create();
         this.filePath = patch.getFinalPath();
     }

@@ -12,15 +12,15 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 
-public class DataFileMerge {
+public class ArbitraryDataMerge {
 
-    private static final Logger LOGGER = LogManager.getLogger(DataFileMerge.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataMerge.class);
 
     private Path pathBefore;
     private Path pathAfter;
     private Path mergePath;
 
-    public DataFileMerge(Path pathBefore, Path pathAfter) {
+    public ArbitraryDataMerge(Path pathBefore, Path pathAfter) {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
     }
@@ -56,7 +56,7 @@ public class DataFileMerge {
     }
 
     private void copyPreviousStateToMergePath() throws IOException {
-        DataFileMerge.copyDirPathToBaseDir(this.pathBefore, this.mergePath, Paths.get(""));
+        ArbitraryDataMerge.copyDirPathToBaseDir(this.pathBefore, this.mergePath, Paths.get(""));
     }
 
     private void findDifferences() {
@@ -102,21 +102,21 @@ public class DataFileMerge {
                         LOGGER.trace("File size was modified: {}", after.toString());
                         wasModified = true;
                     }
-                    else if (!Arrays.equals(DataFileMerge.digestFromPath(after), DataFileMerge.digestFromPath(filePathBefore))) {
+                    else if (!Arrays.equals(ArbitraryDataMerge.digestFromPath(after), ArbitraryDataMerge.digestFromPath(filePathBefore))) {
                         // Check hashes as a last resort
                         LOGGER.trace("File contents were modified: {}", after.toString());
                         wasModified = true;
                     }
 
                     if (wasAdded | wasModified) {
-                        DataFileMerge.copyFilePathToBaseDir(after, mergePathAbsolute, filePathAfter);
+                        ArbitraryDataMerge.copyFilePathToBaseDir(after, mergePathAbsolute, filePathAfter);
                     }
 
                     if (wasRemoved) {
                         if (filePathAfter.toString().endsWith(".removed")) {
                             // Trim the ".removed"
                             Path filePathAfterTrimmed = Paths.get(filePathAfter.toString().substring(0, filePathAfter.toString().length()-8));
-                            DataFileMerge.deletePathInBaseDir(mergePathAbsolute, filePathAfterTrimmed);
+                            ArbitraryDataMerge.deletePathInBaseDir(mergePathAbsolute, filePathAfterTrimmed);
                         }
                     }
 
