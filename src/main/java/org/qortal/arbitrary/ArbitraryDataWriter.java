@@ -9,6 +9,7 @@ import org.qortal.crypto.AES;
 import org.qortal.repository.DataException;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.settings.Settings;
+import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.ZipUtils;
 
@@ -83,7 +84,7 @@ public class ArbitraryDataWriter {
     private void createWorkingDirectory() {
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
-        String identifier = Crypto.digest(this.filePath.toString().getBytes()).toString();
+        String identifier = Base58.encode(Crypto.digest(this.filePath.toString().getBytes()));
         Path tempDir = Paths.get(baseDir, "writer", identifier);
         try {
             Files.createDirectories(tempDir);
