@@ -3,6 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.repository.DataException;
+import org.qortal.utils.FilesystemUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,17 +15,23 @@ public class ArbitraryDataCreatePatch {
 
     private Path pathBefore;
     private Path pathAfter;
+    private byte[] previousSignature;
     private Path finalPath;
 
-    public ArbitraryDataCreatePatch(Path pathBefore, Path pathAfter) {
+    public ArbitraryDataCreatePatch(Path pathBefore, Path pathAfter, byte[] previousSignature) {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
+        this.previousSignature = previousSignature;
     }
 
     public void create() throws DataException, IOException {
         try {
             this.preExecute();
             this.process();
+
+        } catch (Exception e) {
+            this.cleanupOnFailure();
+            throw e;
 
         } finally {
             this.postExecute();
@@ -44,11 +51,19 @@ public class ArbitraryDataCreatePatch {
 
     }
 
-    private void process() {
+    private void cleanupOnFailure() {
+        try {
+            FilesystemUtils.safeDeleteDirectory(this.finalPath, true);
+        } catch (IOException e) {
+            LOGGER.info("Unable to cleanup diff directory on failure");
+        }
+    }
 
-        ArbitraryDataDiff diff = new ArbitraryDataDiff(this.pathBefore, this.pathAfter);
-        diff.compute();
+    private void process() throws IOException {
+
+        ArbitraryDataDiff diff = new ArbitraryDataDiff(this.pathBefore, this.pathAfter, this.previousSignature);
         this.finalPath = diff.getDiffPath();
+        diff.compute();
     }
 
     public Path getFinalPath() {

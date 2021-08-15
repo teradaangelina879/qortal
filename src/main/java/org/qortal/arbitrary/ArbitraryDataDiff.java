@@ -9,7 +9,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 public class ArbitraryDataDiff {
@@ -18,19 +20,33 @@ public class ArbitraryDataDiff {
 
     private Path pathBefore;
     private Path pathAfter;
+    private byte[] previousSignature;
     private Path diffPath;
     private String identifier;
 
-    public ArbitraryDataDiff(Path pathBefore, Path pathAfter) {
+    private List<Path> addedPaths;
+    private List<Path> modifiedPaths;
+    private List<Path> removedPaths;
+
+    public ArbitraryDataDiff(Path pathBefore, Path pathAfter, byte[] previousSignature) {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
+        this.previousSignature = previousSignature;
+
+        this.addedPaths = new ArrayList<>();
+        this.modifiedPaths = new ArrayList<>();
+        this.removedPaths = new ArrayList<>();
+
+        this.createRandomIdentifier();
+        this.createOutputDirectory();
     }
 
-    public void compute() {
+    public void compute() throws IOException {
         try {
             this.preExecute();
             this.findAddedOrModifiedFiles();
             this.findRemovedFiles();
+            this.writeMetadata();
 
         } finally {
             this.postExecute();
@@ -38,8 +54,7 @@ public class ArbitraryDataDiff {
     }
 
     private void preExecute() {
-        this.createRandomIdentifier();
-        this.createOutputDirectory();
+
     }
 
     private void postExecute() {
@@ -63,18 +78,12 @@ public class ArbitraryDataDiff {
     }
 
     private void findAddedOrModifiedFiles() {
-        final Path pathBeforeAbsolute = this.pathBefore.toAbsolutePath();
-        final Path pathAfterAbsolute = this.pathAfter.toAbsolutePath();
-        final Path diffPathAbsolute = this.diffPath.toAbsolutePath();
-
-//        LOGGER.info("this.pathBefore: {}", this.pathBefore);
-//        LOGGER.info("this.pathAfter: {}", this.pathAfter);
-//        LOGGER.info("pathBeforeAbsolute: {}", pathBeforeAbsolute);
-//        LOGGER.info("pathAfterAbsolute: {}", pathAfterAbsolute);
-//        LOGGER.info("diffPathAbsolute: {}", diffPathAbsolute);
-
-
         try {
+            final Path pathBeforeAbsolute = this.pathBefore.toAbsolutePath();
+            final Path pathAfterAbsolute = this.pathAfter.toAbsolutePath();
+            final Path diffPathAbsolute = this.diffPath.toAbsolutePath();
+            final ArbitraryDataDiff diff = this;
+
             // Check for additions or modifications
             Files.walkFileTree(this.pathAfter, new FileVisitor<Path>() {
 
@@ -93,16 +102,19 @@ public class ArbitraryDataDiff {
 
                     if (!Files.exists(filePathBefore)) {
                         LOGGER.info("File was added: {}", after.toString());
+                        diff.addedPaths.add(filePathAfter);
                         wasAdded = true;
                     }
                     else if (Files.size(after) != Files.size(filePathBefore)) {
                         // Check file size first because it's quicker
                         LOGGER.info("File size was modified: {}", after.toString());
+                        diff.modifiedPaths.add(filePathAfter);
                         wasModified = true;
                     }
                     else if (!Arrays.equals(ArbitraryDataDiff.digestFromPath(after), ArbitraryDataDiff.digestFromPath(filePathBefore))) {
                         // Check hashes as a last resort
                         LOGGER.info("File contents were modified: {}", after.toString());
+                        diff.modifiedPaths.add(filePathAfter);
                         wasModified = true;
                     }
 
@@ -133,10 +145,12 @@ public class ArbitraryDataDiff {
     }
 
     private void findRemovedFiles() {
-        final Path pathBeforeAbsolute = this.pathBefore.toAbsolutePath();
-        final Path pathAfterAbsolute = this.pathAfter.toAbsolutePath();
-        final Path diffPathAbsolute = this.diffPath.toAbsolutePath();
         try {
+            final Path pathBeforeAbsolute = this.pathBefore.toAbsolutePath();
+            final Path pathAfterAbsolute = this.pathAfter.toAbsolutePath();
+            final Path diffPathAbsolute = this.diffPath.toAbsolutePath();
+            final ArbitraryDataDiff diff = this;
+
             // Check for removals
             Files.walkFileTree(this.pathBefore, new FileVisitor<Path>() {
 
@@ -147,10 +161,9 @@ public class ArbitraryDataDiff {
 
                     if (!Files.exists(directoryPathAfter)) {
                         LOGGER.info("Directory was removed: {}", directoryPathAfter.toString());
-
+                        diff.removedPaths.add(directoryPathBefore);
                         ArbitraryDataDiff.markFilePathAsRemoved(diffPathAbsolute, directoryPathBefore);
                         // TODO: we might need to mark directories differently to files
-                        // TODO: add path to manifest JSON
                     }
 
                     return FileVisitResult.CONTINUE;
@@ -163,9 +176,9 @@ public class ArbitraryDataDiff {
 
                     if (!Files.exists(filePathAfter)) {
                         LOGGER.trace("File was removed: {}", before.toString());
+                        diff.removedPaths.add(filePathBefore);
 
                         ArbitraryDataDiff.markFilePathAsRemoved(diffPathAbsolute, filePathBefore);
-                        // TODO: add path to manifest JSON
                     }
 
                     return FileVisitResult.CONTINUE;
@@ -187,6 +200,12 @@ public class ArbitraryDataDiff {
         } catch (IOException e) {
             LOGGER.info("IOException when walking through file tree: {}", e.getMessage());
         }
+    }
+
+    private void writeMetadata() throws IOException {
+        ArbitraryDataMetadata metadata = new ArbitraryDataMetadata(this.addedPaths, this.modifiedPaths,
+                this.removedPaths, this.diffPath, this.previousSignature);
+        metadata.write();
     }
 
 

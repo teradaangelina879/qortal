@@ -117,9 +117,12 @@ public class ArbitraryDataWriter {
         builder.build();
         Path builtPath = builder.getFinalPath();
 
+        // Obtain the latest signature, so this can be included in the patch
+        byte[] latestSignature = builder.getLatestSignature();
+
         // Compute a diff of the latest changes on top of the previous state
         // Then use only the differences as our data payload
-        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(builtPath, this.filePath);
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(builtPath, this.filePath, latestSignature);
         patch.create();
         this.filePath = patch.getFinalPath();
 

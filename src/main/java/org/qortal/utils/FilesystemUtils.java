@@ -80,7 +80,6 @@ public class FilesystemUtils {
 
         // Delete existing
         if (FilesystemUtils.pathInsideDataOrTempPath(source)) {
-            System.out.println(String.format("Deleting file %s", source.toString()));
             Files.delete(source);
         }
 
@@ -138,6 +137,26 @@ public class FilesystemUtils {
             Path parentDirectory = source.getParent();
             if (FilesystemUtils.pathInsideDataOrTempPath(parentDirectory)) {
                 Files.deleteIfExists(parentDirectory);
+            }
+        }
+    }
+
+    public static void safeDeleteDirectory(Path path, boolean cleanup) throws IOException {
+        // Delete path, if it exists in our data/temp directory
+        if (FilesystemUtils.pathInsideDataOrTempPath(path)) {
+            File directory = new File(path.toString());
+            FileUtils.deleteDirectory(directory);
+        }
+
+        if (cleanup) {
+            // Delete the parent directory if it is empty (and exists in our data/temp directory)
+            Path parentDirectory = path.getParent();
+            if (FilesystemUtils.pathInsideDataOrTempPath(parentDirectory)) {
+                try {
+                    Files.deleteIfExists(parentDirectory);
+                } catch (IOException e) {
+                    // This part is optional, so ignore failures
+                }
             }
         }
     }

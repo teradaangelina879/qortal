@@ -28,6 +28,7 @@ public class ArbitraryDataBuilder {
     private List<ArbitraryTransactionData> transactions;
     private ArbitraryTransactionData latestPutTransaction;
     private List<Path> paths;
+    private byte[] latestSignature;
     private Path finalPath;
 
     public ArbitraryDataBuilder(String name, Service service) {
@@ -41,6 +42,7 @@ public class ArbitraryDataBuilder {
         this.validateTransactions();
         this.processTransactions();
         this.validatePaths();
+        this.findLatestSignature();
         this.buildLatestState();
     }
 
@@ -119,6 +121,20 @@ public class ArbitraryDataBuilder {
         }
     }
 
+    private void findLatestSignature() {
+        if (this.transactions.size() == 0) {
+            throw new IllegalStateException("Unable to find latest signature from empty transaction list");
+        }
+
+        // Find the latest signature
+        ArbitraryTransactionData latestTransaction = this.transactions.get(this.transactions.size() - 1);
+        if (latestTransaction == null) {
+            throw new IllegalStateException("Unable to find latest signature from null transaction");
+        }
+
+        this.latestSignature = latestTransaction.getSignature();
+    }
+
     private void validatePaths() {
         if (this.paths == null || this.paths.isEmpty()) {
             throw new IllegalStateException(String.format("No paths available from which to build latest state"));
@@ -147,6 +163,10 @@ public class ArbitraryDataBuilder {
 
     public Path getFinalPath() {
         return this.finalPath;
+    }
+
+    public byte[] getLatestSignature() {
+        return this.latestSignature;
     }
 
 }
