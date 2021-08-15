@@ -3,15 +3,13 @@ package org.qortal.arbitrary;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 public class ArbitraryDataMerge {
@@ -22,6 +20,7 @@ public class ArbitraryDataMerge {
     private Path pathAfter;
     private Path mergePath;
     private String identifier;
+    private ArbitraryDataMetadata metadata;
 
     public ArbitraryDataMerge(Path pathBefore, Path pathAfter) {
         this.pathBefore = pathBefore;
@@ -32,7 +31,8 @@ public class ArbitraryDataMerge {
         try {
             this.preExecute();
             this.copyPreviousStateToMergePath();
-            this.findDifferences();
+            this.loadMetadata();
+            this.applyDifferences();
 
         } finally {
             this.postExecute();
@@ -68,96 +68,34 @@ public class ArbitraryDataMerge {
         ArbitraryDataMerge.copyDirPathToBaseDir(this.pathBefore, this.mergePath, Paths.get(""));
     }
 
-    private void findDifferences() {
-        final Path pathBeforeAbsolute = this.pathBefore.toAbsolutePath();
-        final Path pathAfterAbsolute = this.pathAfter.toAbsolutePath();
-        final Path mergePathAbsolute = this.mergePath.toAbsolutePath();
+    private void loadMetadata() throws IOException {
+        this.metadata = new ArbitraryDataMetadata(this.pathAfter);
+        this.metadata.read();
+    }
 
-//        LOGGER.info("this.pathBefore: {}", this.pathBefore);
-//        LOGGER.info("this.pathAfter: {}", this.pathAfter);
-//        LOGGER.info("pathBeforeAbsolute: {}", pathBeforeAbsolute);
-//        LOGGER.info("pathAfterAbsolute: {}", pathAfterAbsolute);
-//        LOGGER.info("mergePathAbsolute: {}", mergePathAbsolute);
+    private void applyDifferences() throws IOException {
 
+        List<Path> addedPaths = this.metadata.getAddedPaths();
+        for (Path path : addedPaths) {
+            LOGGER.info("File was added: {}", path.toString());
+            Path filePath = Paths.get(this.pathAfter.toString(), path.toString());
+            ArbitraryDataMerge.copyFilePathToBaseDir(filePath, this.mergePath, path);
+        }
 
-        try {
-            // Check for additions or modifications
-            Files.walkFileTree(this.pathAfter, new FileVisitor<Path>() {
+        List<Path> modifiedPaths = this.metadata.getModifiedPaths();
+        for (Path path : modifiedPaths) {
+            LOGGER.info("File was modified: {}", path.toString());
+            Path filePath = Paths.get(this.pathAfter.toString(), path.toString());
+            ArbitraryDataMerge.copyFilePathToBaseDir(filePath, this.mergePath, path);
+        }
 
-                @Override
-                public FileVisitResult preVisitDirectory(Path after, BasicFileAttributes attrs) {
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path after, BasicFileAttributes attrs) throws IOException {
-                    Path filePathAfter = pathAfterAbsolute.relativize(after.toAbsolutePath());
-                    Path filePathBefore = pathBeforeAbsolute.resolve(filePathAfter);
-
-                    boolean wasAdded = false;
-                    boolean wasModified = false;
-                    boolean wasRemoved = false;
-
-                    if (after.toString().endsWith(".removed")) {
-                        LOGGER.trace("File was removed: {}", after.toString());
-                        wasRemoved = true;
-                    }
-                    else if (!Files.exists(filePathBefore)) {
-                        LOGGER.trace("File was added: {}", after.toString());
-                        wasAdded = true;
-                    }
-                    else if (Files.size(after) != Files.size(filePathBefore)) {
-                        // Check file size first because it's quicker
-                        LOGGER.trace("File size was modified: {}", after.toString());
-                        wasModified = true;
-                    }
-                    else if (!Arrays.equals(ArbitraryDataMerge.digestFromPath(after), ArbitraryDataMerge.digestFromPath(filePathBefore))) {
-                        // Check hashes as a last resort
-                        LOGGER.trace("File contents were modified: {}", after.toString());
-                        wasModified = true;
-                    }
-
-                    if (wasAdded | wasModified) {
-                        ArbitraryDataMerge.copyFilePathToBaseDir(after, mergePathAbsolute, filePathAfter);
-                    }
-
-                    if (wasRemoved) {
-                        if (filePathAfter.toString().endsWith(".removed")) {
-                            // Trim the ".removed"
-                            Path filePathAfterTrimmed = Paths.get(filePathAfter.toString().substring(0, filePathAfter.toString().length()-8));
-                            ArbitraryDataMerge.deletePathInBaseDir(mergePathAbsolute, filePathAfterTrimmed);
-                        }
-                    }
-
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFileFailed(Path file, IOException e){
-                    LOGGER.info("File visit failed: {}, error: {}", file.toString(), e.getMessage());
-                    // TODO: throw exception?
-                    return FileVisitResult.TERMINATE;
-                }
-
-                @Override
-                public FileVisitResult postVisitDirectory(Path dir, IOException e) {
-                    return FileVisitResult.CONTINUE;
-                }
-
-            });
-        } catch (IOException e) {
-            LOGGER.info("IOException when walking through file tree: {}", e.getMessage());
+        List<Path> removedPaths = this.metadata.getRemovedPaths();
+        for (Path path : removedPaths) {
+            LOGGER.info("File was removed: {}", path.toString());
+            ArbitraryDataMerge.deletePathInBaseDir(this.mergePath, path);
         }
     }
 
-
-    private static byte[] digestFromPath(Path path) {
-        try {
-            return Crypto.digest(Files.readAllBytes(path));
-        } catch (IOException e) {
-            return null;
-        }
-    }
 
     private static void copyFilePathToBaseDir(Path source, Path base, Path relativePath) throws IOException {
         if (!Files.exists(source)) {

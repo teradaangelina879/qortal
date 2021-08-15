@@ -200,8 +200,11 @@ public class ArbitraryDataDiff {
     }
 
     private void writeMetadata() throws IOException {
-        ArbitraryDataMetadata metadata = new ArbitraryDataMetadata(this.addedPaths, this.modifiedPaths,
-                this.removedPaths, this.diffPath, this.previousSignature);
+        ArbitraryDataMetadata metadata = new ArbitraryDataMetadata(this.diffPath);
+        metadata.setAddedPaths(this.addedPaths);
+        metadata.setModifiedPaths(this.modifiedPaths);
+        metadata.setRemovedPaths(this.removedPaths);
+        metadata.setPreviousSignature(this.previousSignature);
         metadata.write();
     }
 

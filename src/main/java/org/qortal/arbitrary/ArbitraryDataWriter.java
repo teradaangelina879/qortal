@@ -133,11 +133,28 @@ public class ArbitraryDataWriter {
         }
 
         // Validate the patch
+        this.validatePatch();
+    }
+
+    private void validatePatch() throws IOException {
         if (this.filePath == null) {
             throw new IllegalStateException("Null path after creating patch");
         }
-        if (FilesystemUtils.isDirectoryEmpty(this.filePath)) {
-            throw new IllegalStateException("Patch has no content. Either no files have changed, or something went wrong");
+
+        File qortalMetadataDirectoryFile = Paths.get(this.filePath.toString(), ".qortal").toFile();
+        if (!qortalMetadataDirectoryFile.exists()) {
+            throw new IllegalStateException("Qortal metadata folder doesn't exist in patch");
+        }
+        if (!qortalMetadataDirectoryFile.isDirectory()) {
+            throw new IllegalStateException("Qortal metadata folder isn't a directory");
+        }
+
+        File qortalPatchMetadataFile = Paths.get(this.filePath.toString(), ".qortal", "patch").toFile();
+        if (!qortalPatchMetadataFile.exists()) {
+            throw new IllegalStateException("Qortal patch metadata file doesn't exist in patch");
+        }
+        if (!qortalPatchMetadataFile.isFile()) {
+            throw new IllegalStateException("Qortal patch metadata file isn't a file");
         }
     }
 
