@@ -54,7 +54,7 @@ public class ArbitraryDataDiff {
     }
 
     private void preExecute() {
-
+        LOGGER.info("Generating diff...");
     }
 
     private void postExecute() {
@@ -97,23 +97,28 @@ public class ArbitraryDataDiff {
                     Path filePathAfter = pathAfterAbsolute.relativize(after.toAbsolutePath());
                     Path filePathBefore = pathBeforeAbsolute.resolve(filePathAfter);
 
+                    if (filePathAfter.startsWith(".qortal")) {
+                        // Ignore the .qortal metadata folder
+                        return FileVisitResult.CONTINUE;
+                    }
+
                     boolean wasAdded = false;
                     boolean wasModified = false;
 
                     if (!Files.exists(filePathBefore)) {
-                        LOGGER.info("File was added: {}", after.toString());
+                        LOGGER.info("File was added: {}", filePathAfter.toString());
                         diff.addedPaths.add(filePathAfter);
                         wasAdded = true;
                     }
                     else if (Files.size(after) != Files.size(filePathBefore)) {
                         // Check file size first because it's quicker
-                        LOGGER.info("File size was modified: {}", after.toString());
+                        LOGGER.info("File size was modified: {}", filePathAfter.toString());
                         diff.modifiedPaths.add(filePathAfter);
                         wasModified = true;
                     }
                     else if (!Arrays.equals(ArbitraryDataDiff.digestFromPath(after), ArbitraryDataDiff.digestFromPath(filePathBefore))) {
                         // Check hashes as a last resort
-                        LOGGER.info("File contents were modified: {}", after.toString());
+                        LOGGER.info("File contents were modified: {}", filePathAfter.toString());
                         diff.modifiedPaths.add(filePathAfter);
                         wasModified = true;
                     }
@@ -148,7 +153,6 @@ public class ArbitraryDataDiff {
         try {
             final Path pathBeforeAbsolute = this.pathBefore.toAbsolutePath();
             final Path pathAfterAbsolute = this.pathAfter.toAbsolutePath();
-            final Path diffPathAbsolute = this.diffPath.toAbsolutePath();
             final ArbitraryDataDiff diff = this;
 
             // Check for removals
@@ -158,6 +162,11 @@ public class ArbitraryDataDiff {
                 public FileVisitResult preVisitDirectory(Path before, BasicFileAttributes attrs) throws IOException {
                     Path directoryPathBefore = pathBeforeAbsolute.relativize(before.toAbsolutePath());
                     Path directoryPathAfter = pathAfterAbsolute.resolve(directoryPathBefore);
+
+                    if (directoryPathBefore.startsWith(".qortal")) {
+                        // Ignore the .qortal metadata folder
+                        return FileVisitResult.CONTINUE;
+                    }
 
                     if (!Files.exists(directoryPathAfter)) {
                         LOGGER.info("Directory was removed: {}", directoryPathAfter.toString());
@@ -173,8 +182,13 @@ public class ArbitraryDataDiff {
                     Path filePathBefore = pathBeforeAbsolute.relativize(before.toAbsolutePath());
                     Path filePathAfter = pathAfterAbsolute.resolve(filePathBefore);
 
+                    if (filePathBefore.startsWith(".qortal")) {
+                        // Ignore the .qortal metadata folder
+                        return FileVisitResult.CONTINUE;
+                    }
+
                     if (!Files.exists(filePathAfter)) {
-                        LOGGER.trace("File was removed: {}", before.toString());
+                        LOGGER.trace("File was removed: {}", filePathBefore.toString());
                         diff.removedPaths.add(filePathBefore);
                     }
 
