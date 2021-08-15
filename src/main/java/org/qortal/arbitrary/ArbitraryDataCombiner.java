@@ -7,6 +7,7 @@ import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -55,6 +56,8 @@ public class ArbitraryDataCombiner {
         if (FilesystemUtils.pathInsideDataOrTempPath(parentDirectory)) {
             try {
                 Files.deleteIfExists(parentDirectory);
+            } catch (DirectoryNotEmptyException e) {
+                // No need to log anything
             } catch (IOException e) {
                 // This will eventually be cleaned up by a maintenance process, so log the error and continue
                 LOGGER.info("Unable to cleanup parent directory {}", parentDirectory.toString());

@@ -219,7 +219,8 @@ public class ArbitraryDataReader {
         if (!arbitraryDataFile.exists()) {
             if (!arbitraryDataFile.allChunksExist(chunkHashes)) {
                 // TODO: fetch them?
-                throw new IllegalStateException(String.format("Missing chunks for file {}", arbitraryDataFile));
+                LOGGER.info(String.format("Missing chunks for file {}", arbitraryDataFile));
+                throw new IllegalStateException(String.format("Missing chunks for file %s", arbitraryDataFile));
             }
             // We have all the chunks but not the complete file, so join them
             arbitraryDataFile.addChunkHashes(chunkHashes);
@@ -317,6 +318,8 @@ public class ArbitraryDataReader {
                     Files.deleteIfExists(parentDirectory);
                 }
 
+            } catch (DirectoryNotEmptyException e) {
+                    // No need to log anything
             } catch (IOException e) {
                 // This will eventually be cleaned up by a maintenance process, so log the error and continue
                 LOGGER.info("Unable to cleanup directories: {}", e.getMessage());
