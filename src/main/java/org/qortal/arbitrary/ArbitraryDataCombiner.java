@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 public class ArbitraryDataCombiner {
 
@@ -17,16 +18,19 @@ public class ArbitraryDataCombiner {
 
     private Path pathBefore;
     private Path pathAfter;
+    private byte[] signatureBefore;
     private Path finalPath;
 
-    public ArbitraryDataCombiner(Path pathBefore, Path pathAfter) {
+    public ArbitraryDataCombiner(Path pathBefore, Path pathAfter, byte[] signatureBefore) {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
+        this.signatureBefore = signatureBefore;
     }
 
     public void combine() throws IOException {
         try {
             this.preExecute();
+            this.validatePreviousSignature();
             this.process();
 
         } finally {
@@ -76,6 +80,24 @@ public class ArbitraryDataCombiner {
 
     private void postExecute() {
 
+    }
+
+    private void validatePreviousSignature() throws IOException {
+        if (this.signatureBefore == null) {
+            throw new IllegalStateException("No previous signature passed to the combiner");
+        }
+
+        ArbitraryDataMetadata metadata = new ArbitraryDataMetadata(this.pathAfter);
+        metadata.read();
+        byte[] previousSignature = metadata.getPreviousSignature();
+        if (previousSignature == null) {
+            throw new IllegalStateException("Unable to extract previous signature from patch metadata");
+        }
+
+        // Compare the signatures
+        if (!Arrays.equals(previousSignature, this.signatureBefore)) {
+            throw new IllegalStateException("Previous signatures do not match - transactions out of order?");
+        }
     }
 
     private void process() throws IOException {

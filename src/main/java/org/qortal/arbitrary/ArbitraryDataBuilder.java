@@ -154,7 +154,8 @@ public class ArbitraryDataBuilder {
         for (int i=1; i<paths.size(); i++) {
             LOGGER.info(String.format("[%s][%s] Applying layer %d...", this.service, this.name, i));
             Path pathAfter = this.paths.get(i);
-            ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(pathBefore, pathAfter);
+            byte[] signatureBefore = this.transactions.get(i-1).getSignature();
+            ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(pathBefore, pathAfter, signatureBefore);
             combiner.combine();
             combiner.cleanup();
             pathBefore = combiner.getFinalPath();
