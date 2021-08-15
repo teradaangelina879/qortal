@@ -15,6 +15,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFileChunk;
+import org.qortal.settings.Settings;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
@@ -74,6 +75,16 @@ public class ArbitraryDataManager extends Thread {
 		try {
 			while (!isStopping) {
 				Thread.sleep(2000);
+
+				List<Peer> peers = Network.getInstance().getHandshakedPeers();
+
+				// Disregard peers that have "misbehaved" recently
+				peers.removeIf(Controller.hasMisbehaved);
+
+				// Don't fetch data if we don't have enough up-to-date peers
+				if (peers.size() < Settings.getInstance().getMinBlockchainPeers()) {
+					continue;
+				}
 
 				// Any arbitrary transactions we want to fetch data for?
 				try (final Repository repository = RepositoryManager.getRepository()) {
