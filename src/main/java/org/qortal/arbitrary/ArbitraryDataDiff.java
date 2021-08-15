@@ -214,7 +214,7 @@ public class ArbitraryDataDiff {
     }
 
     private void writeMetadata() throws IOException {
-        ArbitraryDataMetadata metadata = new ArbitraryDataMetadata(this.diffPath);
+        ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.diffPath);
         metadata.setAddedPaths(this.addedPaths);
         metadata.setModifiedPaths(this.modifiedPaths);
         metadata.setRemovedPaths(this.removedPaths);

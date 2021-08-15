@@ -20,7 +20,7 @@ public class ArbitraryDataMerge {
     private Path pathAfter;
     private Path mergePath;
     private String identifier;
-    private ArbitraryDataMetadata metadata;
+    private ArbitraryDataMetadataPatch metadata;
 
     public ArbitraryDataMerge(Path pathBefore, Path pathAfter) {
         this.pathBefore = pathBefore;
@@ -70,7 +70,7 @@ public class ArbitraryDataMerge {
     }
 
     private void loadMetadata() throws IOException {
-        this.metadata = new ArbitraryDataMetadata(this.pathAfter);
+        this.metadata = new ArbitraryDataMetadataPatch(this.pathAfter);
         this.metadata.read();
     }
 

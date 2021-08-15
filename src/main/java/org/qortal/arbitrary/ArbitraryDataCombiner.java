@@ -87,7 +87,7 @@ public class ArbitraryDataCombiner {
             throw new IllegalStateException("No previous signature passed to the combiner");
         }
 
-        ArbitraryDataMetadata metadata = new ArbitraryDataMetadata(this.pathAfter);
+        ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.pathAfter);
         metadata.read();
         byte[] previousSignature = metadata.getPreviousSignature();
         if (previousSignature == null) {

@@ -10,6 +10,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.utils.Base58;
+import org.qortal.utils.NTP;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -44,6 +45,7 @@ public class ArbitraryDataBuilder {
         this.validatePaths();
         this.findLatestSignature();
         this.buildLatestState();
+        this.cacheLatestSignature();
     }
 
     private void fetchTransactions() throws DataException {
@@ -161,6 +163,18 @@ public class ArbitraryDataBuilder {
             pathBefore = combiner.getFinalPath();
         }
         this.finalPath = pathBefore;
+    }
+
+    private void cacheLatestSignature() throws IOException {
+        byte[] latestTransactionSignature = this.transactions.get(this.transactions.size()-1).getSignature();
+        if (latestTransactionSignature == null) {
+            throw new IllegalStateException("Missing latest transaction signature");
+        }
+
+        ArbitraryDataMetadataCache cache = new ArbitraryDataMetadataCache(this.finalPath);
+        cache.setSignature(latestTransactionSignature);
+        cache.setTimestamp(NTP.getTime());
+        cache.write();
     }
 
     public Path getFinalPath() {
