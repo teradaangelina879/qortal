@@ -33,6 +33,7 @@ public class ArbitraryDataMerge {
             this.copyPreviousStateToMergePath();
             this.loadMetadata();
             this.applyDifferences();
+            this.copyMetadata();
 
         } finally {
             this.postExecute();
@@ -79,14 +80,14 @@ public class ArbitraryDataMerge {
         for (Path path : addedPaths) {
             LOGGER.info("File was added: {}", path.toString());
             Path filePath = Paths.get(this.pathAfter.toString(), path.toString());
-            ArbitraryDataMerge.copyFilePathToBaseDir(filePath, this.mergePath, path);
+            ArbitraryDataMerge.copyPathToBaseDir(filePath, this.mergePath, path);
         }
 
         List<Path> modifiedPaths = this.metadata.getModifiedPaths();
         for (Path path : modifiedPaths) {
             LOGGER.info("File was modified: {}", path.toString());
             Path filePath = Paths.get(this.pathAfter.toString(), path.toString());
-            ArbitraryDataMerge.copyFilePathToBaseDir(filePath, this.mergePath, path);
+            ArbitraryDataMerge.copyPathToBaseDir(filePath, this.mergePath, path);
         }
 
         List<Path> removedPaths = this.metadata.getRemovedPaths();
@@ -96,15 +97,30 @@ public class ArbitraryDataMerge {
         }
     }
 
+    private void copyMetadata() throws IOException {
+        Path filePath = Paths.get(this.pathAfter.toString(), ".qortal");
+        ArbitraryDataMerge.copyPathToBaseDir(filePath, this.mergePath, Paths.get(".qortal"));
+    }
 
-    private static void copyFilePathToBaseDir(Path source, Path base, Path relativePath) throws IOException {
+
+    private static void copyPathToBaseDir(Path source, Path base, Path relativePath) throws IOException {
         if (!Files.exists(source)) {
             throw new IOException(String.format("File not found: %s", source.toString()));
         }
 
+        File sourceFile = source.toFile();
         Path dest = Paths.get(base.toString(), relativePath.toString());
         LOGGER.trace("Copying {} to {}", source, dest);
-        Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
+
+        if (sourceFile.isFile()) {
+            Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
+        }
+        else if (sourceFile.isDirectory()) {
+            FilesystemUtils.copyAndReplaceDirectory(source.toString(), dest.toString());
+        }
+        else {
+            throw new IOException(String.format("Invalid file: %s", source.toString()));
+        }
     }
 
     private static void copyDirPathToBaseDir(Path source, Path base, Path relativePath) throws IOException {
