@@ -163,7 +163,7 @@ public class ArbitraryDataMetadata {
     }
 
     public byte[] getPreviousSignature() {
-        return this.getPreviousSignature();
+        return this.previousSignature;
     }
 
     public String getJsonString() {
