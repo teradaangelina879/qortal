@@ -29,6 +29,12 @@ public class FilesystemUtils {
             throw new IOException("Destination directory doesn't exist");
         }
 
+        // If the destination directory isn't empty, delete its contents
+        if (!FilesystemUtils.isDirectoryEmpty(destFile.toPath())) {
+            FileUtils.deleteDirectory(destFile);
+            destFile.mkdirs();
+        }
+
         Files.walk(Paths.get(sourceDirectoryLocation))
                 .forEach(source -> {
                     Path destination = Paths.get(destinationDirectoryLocation, source.toString()
