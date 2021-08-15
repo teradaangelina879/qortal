@@ -162,7 +162,6 @@ public class ArbitraryDataDiff {
                     if (!Files.exists(directoryPathAfter)) {
                         LOGGER.info("Directory was removed: {}", directoryPathAfter.toString());
                         diff.removedPaths.add(directoryPathBefore);
-                        ArbitraryDataDiff.markFilePathAsRemoved(diffPathAbsolute, directoryPathBefore);
                         // TODO: we might need to mark directories differently to files
                     }
 
@@ -177,8 +176,6 @@ public class ArbitraryDataDiff {
                     if (!Files.exists(filePathAfter)) {
                         LOGGER.trace("File was removed: {}", before.toString());
                         diff.removedPaths.add(filePathBefore);
-
-                        ArbitraryDataDiff.markFilePathAsRemoved(diffPathAbsolute, filePathBefore);
                     }
 
                     return FileVisitResult.CONTINUE;
@@ -233,19 +230,7 @@ public class ArbitraryDataDiff {
         LOGGER.trace("Copying {} to {}", source, dest);
         Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
     }
-
-    private static void markFilePathAsRemoved(Path base, Path relativePath) throws IOException {
-        String newFilename = relativePath.toString().concat(".removed");
-        Path dest = Paths.get(base.toString(), newFilename);
-        File file = new File(dest.toString());
-        File parent = file.getParentFile();
-        if (parent != null) {
-            parent.mkdirs();
-        }
-        LOGGER.info("Creating file {}", dest);
-        file.createNewFile();
-    }
-
+    
 
     public Path getDiffPath() {
         return this.diffPath;
