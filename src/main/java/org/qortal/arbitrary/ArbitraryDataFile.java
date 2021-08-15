@@ -390,6 +390,9 @@ public class ArbitraryDataFile {
                 return chunk.exists();
             }
         }
+        if (Arrays.equals(this.getHash(), hash)) {
+            return this.exists();
+        }
         return false;
     }
 

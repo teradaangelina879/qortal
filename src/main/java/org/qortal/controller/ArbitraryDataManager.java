@@ -287,8 +287,11 @@ public class ArbitraryDataManager extends Thread {
 			for (byte[] hash : hashes) {
 				//LOGGER.info("Received hash {}", Base58.encode(hash));
 				if (!arbitraryDataFile.containsChunk(hash)) {
-					LOGGER.info("Received non-matching chunk hash {} for signature {}", Base58.encode(hash), signature58);
-					return;
+					// Check the hash against the complete file
+					if (!Arrays.equals(arbitraryDataFile.getHash(), hash)) {
+						LOGGER.info("Received non-matching chunk hash {} for signature {}", Base58.encode(hash), signature58);
+						return;
+					}
 				}
 			}
 
@@ -391,6 +394,12 @@ public class ArbitraryDataManager extends Thread {
 						}
 					}
 				}
+				else {
+					// This transaction has no chunks, so include the complete file if we have it
+					if (arbitraryDataFile.exists()) {
+						hashes.add(arbitraryDataFile.getHash());
+					}
+				}
 			}
 
 		} catch (DataException e) {
@@ -403,7 +412,7 @@ public class ArbitraryDataManager extends Thread {
 			LOGGER.info("Couldn't send list of hashes");
 			peer.disconnect("failed to send list of hashes");
 		}
-		LOGGER.info("Sent list of hashes", hashes);
+		LOGGER.info("Sent list of hashes (count: {})", hashes.size());
 	}
 
 }

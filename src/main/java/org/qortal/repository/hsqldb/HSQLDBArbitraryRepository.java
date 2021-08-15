@@ -65,6 +65,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return true;
 		}
 
+		// If this transaction doesn't have any chunks, then we require the complete file
+		if (chunkHashes == null) {
+			return false;
+		}
+
 		// Alternatively, if we have all the chunks, then it's safe to assume the data is local
 		if (arbitraryDataFile.allChunksExist(chunkHashes)) {
 			return true;
