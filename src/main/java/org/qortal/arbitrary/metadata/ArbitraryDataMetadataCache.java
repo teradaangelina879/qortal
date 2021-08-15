@@ -1,8 +1,7 @@
-package org.qortal.arbitrary;
+package org.qortal.arbitrary.metadata;
 
 import org.json.JSONObject;
 import org.qortal.utils.Base58;
-import org.qortal.utils.NTP;
 
 import java.nio.file.Path;
 

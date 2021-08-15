@@ -3,6 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;

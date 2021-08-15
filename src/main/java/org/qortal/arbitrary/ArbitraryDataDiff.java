@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 

@@ -1,4 +1,4 @@
-package org.qortal.arbitrary;
+package org.qortal.arbitrary.metadata;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
