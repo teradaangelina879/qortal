@@ -394,6 +394,9 @@ public class ArbitraryDataFile {
     }
 
     public boolean allChunksExist(byte[] chunks) {
+        if (chunks == null) {
+            return true;
+        }
         ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
         while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
             byte[] chunkHash = new byte[TransactionTransformer.SHA256_LENGTH];
