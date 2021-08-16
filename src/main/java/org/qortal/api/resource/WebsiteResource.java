@@ -280,7 +280,7 @@ public class WebsiteResource {
         if (domainMap != null && domainMap.containsKey(request.getServerName())) {
             return this.get(domainMap.get(request.getServerName()), ResourceIdType.SIGNATURE, inPath, null, "", false);
         }
-        return this.get404Response();
+        return this.getResponse(404, "Error 404: File Not Found");
     }
 
     private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, String inPath, String secret58,
@@ -296,12 +296,13 @@ public class WebsiteResource {
             // We could store the latest transaction signature in the extracted folder
             arbitraryDataReader.load(false);
         } catch (Exception e) {
-            return this.get404Response();
+            LOGGER.info(String.format("Unable to load %s %s: %s", service, resourceId, e.getMessage()));
+            return this.getResponse(500, "Error 500: Internal Server Error");
         }
 
         java.nio.file.Path path = arbitraryDataReader.getFilePath();
         if (path == null) {
-            return this.get404Response();
+            return this.getResponse(404, "Error 404: File Not Found");
         }
         String unzippedPath = path.toString();
 
@@ -347,7 +348,7 @@ public class WebsiteResource {
             LOGGER.info("Unable to serve file at path: {}", inPath, e);
         }
 
-        return this.get404Response();
+        return this.getResponse(404, "Error 404: File Not Found");
     }
 
     private String getFilename(String directory, String userPath) {
@@ -364,15 +365,14 @@ public class WebsiteResource {
         return userPath;
     }
 
-    private HttpServletResponse get404Response() {
+    private HttpServletResponse getResponse(int responseCode, String responseString) {
         try {
-            String responseString = "404: File Not Found";
             byte[] responseData = responseString.getBytes();
-            response.setStatus(404);
+            response.setStatus(responseCode);
             response.setContentLength(responseData.length);
             response.getOutputStream().write(responseData);
         } catch (IOException e) {
-            LOGGER.info("Error writing 404 response");
+            LOGGER.info("Error writing {} response", responseCode);
         }
         return response;
     }
