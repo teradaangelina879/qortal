@@ -3,6 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.metadata.ArbitraryDataMetadataCache;
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -50,19 +51,23 @@ public class ArbitraryDataReader {
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;
+
+        // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
+        String baseDir = Settings.getInstance().getTempDataPath();
+        this.workingPath = Paths.get(baseDir, "reader", this.resourceId);
+        this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
     }
 
     public void load(boolean overwrite) throws IllegalStateException, IOException, DataException {
         try {
-            this.preExecute();
-
-            // Do nothing if files already exist and overwrite is set to false
-            if (!overwrite && Files.exists(this.uncompressedPath)
-                    && !FilesystemUtils.isDirectoryEmpty(this.uncompressedPath)) {
+            ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
+                    this.resourceId, this.resourceIdType, this.service);
+            if (!cache.shouldInvalidate()) {
                 this.filePath = this.uncompressedPath;
                 return;
             }
 
+            this.preExecute();
             this.deleteExistingFiles();
             this.fetch();
             this.decrypt();
@@ -83,19 +88,14 @@ public class ArbitraryDataReader {
     }
 
     private void createWorkingDirectory() {
-        // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
-        String baseDir = Settings.getInstance().getTempDataPath();
-        Path tempDir = Paths.get(baseDir, "reader", this.resourceId);
         try {
-            Files.createDirectories(tempDir);
+            Files.createDirectories(this.workingPath);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to create temp directory");
         }
-        this.workingPath = tempDir;
     }
 
     private void createUncompressedDirectory() {
-        this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
         try {
             Files.createDirectories(this.uncompressedPath);
         } catch (IOException e) {

@@ -258,15 +258,23 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public ArbitraryTransactionData getLatestTransaction(String name, Service service, Method method) throws DataException {
-		String sql = "SELECT type, reference, signature, creator, created_when, fee, " +
+		StringBuilder sql = new StringBuilder(1024);
+
+		sql.append("SELECT type, reference, signature, creator, created_when, fee, " +
 				"tx_group_id, block_height, approval_status, approval_height, " +
 				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
 				"name, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
-				"WHERE name = ? AND service = ? AND update_method = ? " +
-				"ORDER BY created_when DESC LIMIT 1";
+				"WHERE name = ? AND service = ?");
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, name, service.value, method.value)) {
+		if (method != null) {
+			sql.append(" AND update_method = ");
+			sql.append(method.value);
+		}
+
+		sql.append("ORDER BY created_when DESC LIMIT 1");
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), name, service.value)) {
 			if (resultSet == null)
 				return null;
 

@@ -293,12 +293,12 @@ public class WebsiteResource {
         ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service);
         arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {
-            // TODO: overwrite if new transaction arrives, to invalidate cache
             // We could store the latest transaction signature in the extracted folder
             arbitraryDataReader.load(false);
         } catch (Exception e) {
             return this.get404Response();
         }
+
         java.nio.file.Path path = arbitraryDataReader.getFilePath();
         if (path == null) {
             return this.get404Response();

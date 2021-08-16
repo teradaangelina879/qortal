@@ -58,6 +58,19 @@ public class ArbitraryDataManager extends Thread {
 	 */
 	private Map<String, Long> arbitraryDataFileRequests = Collections.synchronizedMap(new HashMap<>());
 
+	/**
+	 * Map to keep track of cached arbitrary transaction resources.
+	 * When an item is present in this list with a timestamp in the future, we won't invalidate
+	 * its cache when serving that data. This reduces the amount of database lookups that are needed.
+	 */
+	private Map<String, Long> arbitraryDataCachedResources = Collections.synchronizedMap(new HashMap<>());
+
+	/**
+	 * The amount of time to cache a data resource before it is invalidated
+	 */
+	private static long ARBITRARY_DATA_CACHE_TIMEOUT = 60 * 60 * 1000L; // 60 minutes
+
+
 	private ArbitraryDataManager() {
 	}
 
@@ -197,8 +210,46 @@ public class ArbitraryDataManager extends Thread {
 
 	public void cleanupRequestCache(long now) {
 		final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
-		arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
+		arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp); // TODO: fix NPE
 		arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() < requestMinimumTimestamp);
+	}
+
+
+	// Arbitrary data resource cache
+	public boolean isResourceCached(String resourceId) {
+
+		// We don't have an entry for this resource ID, it is not cached
+		if (this.arbitraryDataCachedResources == null) {
+			return false;
+		}
+		if (!this.arbitraryDataCachedResources.containsKey(resourceId)) {
+			return false;
+		}
+		Long timestamp = this.arbitraryDataCachedResources.get(resourceId);
+		if (timestamp == null) {
+			return false;
+		}
+
+		// If the timestamp has reached the timeout, we should remove it from the cache
+		long now = NTP.getTime();
+		if (now > timestamp) {
+			this.arbitraryDataCachedResources.remove(resourceId);
+			return false;
+		}
+
+		// Current time hasn't reached the timeout, so treat it as cached
+		return true;
+	}
+
+	public void addResourceToCache(String resourceId) {
+		// Just in case
+		if (this.arbitraryDataCachedResources == null) {
+			this.arbitraryDataCachedResources = new HashMap<>();
+		}
+
+		// Set the timestamp to now + the timeout
+		Long timestamp = NTP.getTime() + ARBITRARY_DATA_CACHE_TIMEOUT;
+		this.arbitraryDataCachedResources.put(resourceId, timestamp);
 	}
 
 
@@ -309,6 +360,17 @@ public class ArbitraryDataManager extends Thread {
 					}
 					else {
 						LOGGER.info("Already requesting data file {}", arbitraryDataFile);
+					}
+				}
+			}
+
+			// If we have all the chunks for this transaction's name, we should invalidate the data cache
+			// so that it is rebuilt the next time we serve it
+			if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(arbitraryTransactionData.getChunkHashes())) {
+				if (arbitraryTransactionData.getName() != null) {
+					String resourceId = arbitraryTransactionData.getName();
+					if (this.arbitraryDataCachedResources.containsKey(resourceId)) {
+						this.arbitraryDataCachedResources.remove(resourceId);
 					}
 				}
 			}
