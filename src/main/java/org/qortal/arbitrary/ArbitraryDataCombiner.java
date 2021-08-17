@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
+import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;
@@ -32,6 +33,7 @@ public class ArbitraryDataCombiner {
         try {
             this.preExecute();
             this.validatePreviousSignature();
+            this.validatePreviousHash();
             this.process();
 
         } finally {
@@ -98,6 +100,24 @@ public class ArbitraryDataCombiner {
         // Compare the signatures
         if (!Arrays.equals(previousSignature, this.signatureBefore)) {
             throw new IllegalStateException("Previous signatures do not match - transactions out of order?");
+        }
+    }
+
+    private void validatePreviousHash() throws IOException {
+        ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.pathAfter);
+        metadata.read();
+        byte[] previousHash = metadata.getPreviousHash();
+        if (previousHash == null) {
+            throw new IllegalStateException("Unable to extract previous hash from patch metadata");
+        }
+
+        ArbitraryDataDigest digest = new ArbitraryDataDigest(this.pathBefore);
+        digest.compute();
+        boolean valid = digest.isHashValid(previousHash);
+        if (!valid) {
+            String previousHash58 = Base58.encode(previousHash);
+            throw new IllegalStateException(String.format("Previous state hash mismatch. " +
+                    "Patch prevHash: %s, actual: %s", previousHash58, digest.getHash58()));
         }
     }
 
