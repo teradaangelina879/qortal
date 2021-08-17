@@ -5,5 +5,6 @@
   "blockchainConfig": "src/test/resources/test-chain-v2.json",
   "wipeUnconfirmedOnStart": false,
   "testNtpOffset": 0,
-  "minPeers": 0
+  "minPeers": 0,
+  "dataPath": "data-test"
 }
