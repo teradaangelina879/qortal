@@ -1,4 +1,4 @@
-package org.qortal.test;
+package org.qortal.test.arbitrary;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -10,7 +10,7 @@ import java.util.Random;
 
 import static org.junit.Assert.*;
 
-public class DataTests extends Common {
+public class ArbitraryDataFileTests extends Common {
 
 	@Before
 	public void beforeTest() throws DataException {

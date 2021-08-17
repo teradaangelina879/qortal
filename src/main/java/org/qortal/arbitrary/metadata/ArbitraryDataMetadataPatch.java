@@ -1,20 +1,27 @@
 package org.qortal.arbitrary.metadata;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.qortal.utils.Base58;
 
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
+
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataMetadataPatch.class);
 
     private List<Path> addedPaths;
     private List<Path> modifiedPaths;
     private List<Path> removedPaths;
     private byte[] previousSignature;
+    private byte[] previousHash;
 
     public ArbitraryDataMetadataPatch(Path filePath) {
         super(filePath);
@@ -40,6 +47,12 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
             String prevSig = patch.getString("prevSig");
             if (prevSig != null) {
                 this.previousSignature = Base58.decode(prevSig);
+            }
+        }
+        if (patch.has("prevHash")) {
+            String prevHash = patch.getString("prevHash");
+            if (prevHash != null) {
+                this.previousHash = Base58.decode(prevHash);
             }
         }
         if (patch.has("added")) {
@@ -74,7 +87,17 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
     @Override
     protected void buildJson() {
         JSONObject patch = new JSONObject();
+        // Attempt to use a LinkedHashMap so that the order of fields is maintained
+        try {
+            Field changeMap = patch.getClass().getDeclaredField("map");
+            changeMap.setAccessible(true);
+            changeMap.set(patch, new LinkedHashMap<>());
+            changeMap.setAccessible(false);
+        } catch (IllegalAccessException | NoSuchFieldException e) {
+            // Don't worry about failures as this is for ordering only
+        }
         patch.put("prevSig", Base58.encode(this.previousSignature));
+        patch.put("prevHash", Base58.encode(this.previousHash));
         patch.put("added", new JSONArray(this.addedPaths));
         patch.put("modified", new JSONArray(this.modifiedPaths));
         patch.put("removed", new JSONArray(this.removedPaths));
@@ -114,6 +137,14 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
 
     public byte[] getPreviousSignature() {
         return this.previousSignature;
+    }
+
+    public void setPreviousHash(byte[] previousHash) {
+        this.previousHash = previousHash;
+    }
+
+    public byte[] getPreviousHash() {
+        return this.previousHash;
     }
 
 }

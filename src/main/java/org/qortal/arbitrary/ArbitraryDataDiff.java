@@ -22,6 +22,7 @@ public class ArbitraryDataDiff {
     private Path pathBefore;
     private Path pathAfter;
     private byte[] previousSignature;
+    private byte[] previousHash;
     private Path diffPath;
     private String identifier;
 
@@ -45,6 +46,7 @@ public class ArbitraryDataDiff {
     public void compute() throws IOException {
         try {
             this.preExecute();
+            this.hashPreviousState();
             this.findAddedOrModifiedFiles();
             this.findRemovedFiles();
             this.writeMetadata();
@@ -76,6 +78,12 @@ public class ArbitraryDataDiff {
             throw new IllegalStateException("Unable to create temp directory");
         }
         this.diffPath = tempDir;
+    }
+
+    private void hashPreviousState() throws IOException {
+        ArbitraryDataDigest digest = new ArbitraryDataDigest(this.pathBefore);
+        digest.compute();
+        this.previousHash = digest.getHash();
     }
 
     private void findAddedOrModifiedFiles() {
@@ -220,6 +228,7 @@ public class ArbitraryDataDiff {
         metadata.setModifiedPaths(this.modifiedPaths);
         metadata.setRemovedPaths(this.removedPaths);
         metadata.setPreviousSignature(this.previousSignature);
+        metadata.setPreviousHash(this.previousHash);
         metadata.write();
     }
 
