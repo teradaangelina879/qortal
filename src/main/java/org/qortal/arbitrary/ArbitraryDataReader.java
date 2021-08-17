@@ -3,7 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.arbitrary.metadata.ArbitraryDataMetadataCache;
+
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -24,6 +24,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.IOException;
+import java.io.InvalidObjectException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.InvalidAlgorithmParameterException;
@@ -172,17 +173,25 @@ public class ArbitraryDataReader {
     }
 
     private void fetchFromName() throws IllegalStateException, IOException, DataException {
+        try {
 
-        // Build the existing state using past transactions
-        ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.resourceId, this.service);
-        builder.build();
-        Path builtPath = builder.getFinalPath();
-        if (builtPath == null) {
-            throw new IllegalStateException("Unable to build path");
+            // Build the existing state using past transactions
+            ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.resourceId, this.service);
+            builder.build();
+            Path builtPath = builder.getFinalPath();
+            if (builtPath == null) {
+                throw new IllegalStateException("Unable to build path");
+            }
+
+            // Set filePath to the builtPath
+            this.filePath = builtPath;
+
+        } catch (InvalidObjectException e) {
+            // Hash validation failed. Invalidate the cache for this name, so it can be rebuilt
+            LOGGER.info("Deleting {}", this.workingPath.toString());
+            FilesystemUtils.safeDeleteDirectory(this.workingPath, false);
+            throw(e);
         }
-
-        // Set filePath to the builtPath
-        this.filePath = builtPath;
     }
 
     private void fetchFromSignature() throws IllegalStateException, IOException, DataException {

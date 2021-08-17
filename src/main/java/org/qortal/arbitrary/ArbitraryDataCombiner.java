@@ -9,6 +9,7 @@ import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InvalidObjectException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -116,7 +117,7 @@ public class ArbitraryDataCombiner {
         boolean valid = digest.isHashValid(previousHash);
         if (!valid) {
             String previousHash58 = Base58.encode(previousHash);
-            throw new IllegalStateException(String.format("Previous state hash mismatch. " +
+            throw new InvalidObjectException(String.format("Previous state hash mismatch. " +
                     "Patch prevHash: %s, actual: %s", previousHash58, digest.getHash58()));
         }
     }
