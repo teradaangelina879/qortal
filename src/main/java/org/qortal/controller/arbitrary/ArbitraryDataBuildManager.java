@@ -36,7 +36,9 @@ public class ArbitraryDataBuildManager implements Runnable {
 
                 // Find resources that are queued for building
                 Map.Entry<String, ArbitraryDataBuildQueueItem> next = arbitraryDataManager.arbitraryDataBuildQueue
-                        .entrySet().stream().filter(e -> e.getValue().isQueued()).findFirst().get();
+                        .entrySet().stream()
+                        .filter(e -> e.getValue().isQueued())
+                        .findFirst().get();
 
                 if (next == null) {
                     continue;
@@ -49,9 +51,16 @@ public class ArbitraryDataBuildManager implements Runnable {
 
                 String resourceId = next.getKey();
                 ArbitraryDataBuildQueueItem queueItem = next.getValue();
-                if (queueItem == null || queueItem.hasReachedBuildTimeout(now)) {
+
+                if (queueItem == null) {
                     this.removeFromQueue(resourceId);
                 }
+
+                // Ignore builds that have failed recently
+                if (ArbitraryDataManager.getInstance().isInFailedBuildsList(queueItem)) {
+                    continue;
+                }
+
 
                 try {
                     // Perform the build
@@ -62,8 +71,9 @@ public class ArbitraryDataBuildManager implements Runnable {
 
                 } catch (IOException | DataException e) {
                     LOGGER.info("Error building {}: {}", queueItem, e.getMessage());
-                    // Something went wrong - so remove it from the queue
-                    // TODO: we may want to keep track of this in a "cooloff" list to prevent frequent re-attempts
+                    // Something went wrong - so remove it from the queue, and add to failed builds list
+                    queueItem.setFailed(true);
+                    ArbitraryDataManager.getInstance().addToFailedBuildsList(queueItem);
                     this.removeFromQueue(resourceId);
                 }
 

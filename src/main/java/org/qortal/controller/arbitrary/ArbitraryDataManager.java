@@ -79,6 +79,11 @@ public class ArbitraryDataManager extends Thread {
 	 */
 	public Map<String, ArbitraryDataBuildQueueItem> arbitraryDataBuildQueue = Collections.synchronizedMap(new HashMap<>());
 
+	/**
+	 * Map to keep track of failed arbitrary transaction builds.
+	 */
+	public Map<String, ArbitraryDataBuildQueueItem> arbitraryDataFailedBuilds = Collections.synchronizedMap(new HashMap<>());
+
 
 	private ArbitraryDataManager() {
 	}
@@ -222,10 +227,21 @@ public class ArbitraryDataManager extends Thread {
 		return arbitraryDataFileMessage.getArbitraryDataFile();
 	}
 
-	public void cleanupRequestCache(long now) {
+	public void cleanupRequestCache(Long now) {
+		if (now == null) {
+			return;
+		}
 		final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
-		arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp); // TODO: fix NPE
+		arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
 		arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() < requestMinimumTimestamp);
+	}
+
+	public void cleanupQueues(Long now) {
+		if (now == null) {
+			return;
+		}
+		arbitraryDataBuildQueue.entrySet().removeIf(entry -> entry.getValue().hasReachedBuildTimeout(now));
+		arbitraryDataFailedBuilds.entrySet().removeIf(entry -> entry.getValue().hasReachedFailureTimeout(now));
 	}
 
 
@@ -272,6 +288,7 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	// Build queue
+
 	public boolean addToBuildQueue(ArbitraryDataBuildQueueItem queueItem) {
 		String resourceId = queueItem.getResourceId();
 		if (resourceId == null) {
@@ -284,6 +301,11 @@ public class ArbitraryDataManager extends Thread {
 
 		if (NTP.getTime() == null) {
 			// Can't use queues until we have synced the time
+			return false;
+		}
+
+		// Don't add builds that have failed recently
+		if (this.isInFailedBuildsList(queueItem)) {
 			return false;
 		}
 
@@ -314,6 +336,54 @@ public class ArbitraryDataManager extends Thread {
 		}
 
 		// Not in queue
+		return false;
+	}
+
+
+	// Failed builds
+
+	public boolean addToFailedBuildsList(ArbitraryDataBuildQueueItem queueItem) {
+		String resourceId = queueItem.getResourceId();
+		if (resourceId == null) {
+			return false;
+		}
+
+		if (this.arbitraryDataFailedBuilds == null) {
+			return false;
+		}
+
+		if (NTP.getTime() == null) {
+			// Can't use queues until we have synced the time
+			return false;
+		}
+
+		if (this.arbitraryDataFailedBuilds.put(resourceId, queueItem) != null) {
+			// Already in list
+			return true;
+		}
+
+		LOGGER.info("Added {} to failed builds list", resourceId);
+
+		// Added to queue
+		return true;
+	}
+
+	public boolean isInFailedBuildsList(ArbitraryDataBuildQueueItem queueItem) {
+		String resourceId = queueItem.getResourceId();
+		if (resourceId == null) {
+			return false;
+		}
+
+		if (this.arbitraryDataFailedBuilds == null) {
+			return false;
+		}
+
+		if (this.arbitraryDataFailedBuilds.containsKey(resourceId)) {
+			// Already in list
+			return true;
+		}
+
+		// Not in list
 		return false;
 	}
 

@@ -12,14 +12,22 @@ public class ArbitraryDataBuildQueueItem {
     private String resourceId;
     private ResourceIdType resourceIdType;
     private Service service;
+    private Long creationTimestamp = null;
     private Long buildStartTimestamp = null;
+    private Long buildEndTimestamp = null;
+    private boolean failed = false;
 
-    private static long BUILD_TIMEOUT = 60*1000L; // 60 seconds
+    /* The maximum amount of time to spend on a single build */
+    // TODO: interrupt an in-progress build
+    public static long BUILD_TIMEOUT = 60*1000L; // 60 seconds
+    /* The amount of time to remember that a build has failed, to avoid retries */
+    public static long FAILURE_TIMEOUT = 1*60*1000L; // 5 minutes
 
     public ArbitraryDataBuildQueueItem(String resourceId, ResourceIdType resourceIdType, Service service) {
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;
+        this.creationTimestamp = NTP.getTime();
     }
 
     public void build() throws IOException, DataException {
@@ -34,7 +42,11 @@ public class ArbitraryDataBuildQueueItem {
 
         // We do not want to overwrite the existing cache, as this will be invalidated
         // automatically if new data has arrived
-        arbitraryDataReader.loadSynchronously(false);
+        try {
+            arbitraryDataReader.loadSynchronously(false);
+        } finally {
+            this.buildEndTimestamp = NTP.getTime();
+        }
     }
 
     public boolean isBuilding() {
@@ -46,10 +58,17 @@ public class ArbitraryDataBuildQueueItem {
     }
 
     public boolean hasReachedBuildTimeout(Long now) {
+        if (now == null || this.creationTimestamp == null) {
+            return true;
+        }
+        return now - this.creationTimestamp > BUILD_TIMEOUT;
+    }
+
+    public boolean hasReachedFailureTimeout(Long now) {
         if (now == null || this.buildStartTimestamp == null) {
             return true;
         }
-        return now - this.buildStartTimestamp > BUILD_TIMEOUT;
+        return now - this.buildStartTimestamp > FAILURE_TIMEOUT;
     }
 
 
@@ -60,6 +79,11 @@ public class ArbitraryDataBuildQueueItem {
     public Long getBuildStartTimestamp() {
         return this.buildStartTimestamp;
     }
+
+    public void setFailed(boolean failed) {
+        this.failed = failed;
+    }
+
 
     @Override
     public String toString() {
