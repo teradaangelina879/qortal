@@ -1,13 +1,17 @@
 package org.qortal.arbitrary;
 
+import com.github.difflib.DiffUtils;
+import com.github.difflib.UnifiedDiffUtils;
+import com.github.difflib.patch.Patch;
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -133,8 +137,13 @@ public class ArbitraryDataDiff {
                         wasModified = true;
                     }
 
-                    if (wasAdded | wasModified) {
+                    if (wasAdded) {
                         ArbitraryDataDiff.copyFilePathToBaseDir(after, diffPathAbsolute, filePathAfter);
+                    }
+                    if (wasModified) {
+                        // Create patch using java-diff-utils
+                        Path destination = Paths.get(diffPathAbsolute.toString(), filePathAfter.toString());
+                        ArbitraryDataDiff.createAndCopyDiffUtilsPatch(filePathBefore, after, destination);
                     }
 
                     return FileVisitResult.CONTINUE;
@@ -159,7 +168,7 @@ public class ArbitraryDataDiff {
         }
     }
 
-    private void findRemovedFiles() {
+    private void findRemovedFiles() throws IOException {
         try {
             final Path pathBeforeAbsolute = this.pathBefore.toAbsolutePath();
             final Path pathAfterAbsolute = this.pathAfter.toAbsolutePath();
@@ -219,7 +228,7 @@ public class ArbitraryDataDiff {
 
             });
         } catch (IOException e) {
-            LOGGER.info("IOException when walking through file tree: {}", e.getMessage());
+            throw new IOException(String.format("IOException when walking through file tree: %s", e.getMessage()));
         }
     }
 
@@ -231,6 +240,7 @@ public class ArbitraryDataDiff {
 
     private void writeMetadata() throws IOException {
         ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.diffPath);
+        metadata.setPatchType("unified-diff");
         metadata.setAddedPaths(this.addedPaths);
         metadata.setModifiedPaths(this.modifiedPaths);
         metadata.setRemovedPaths(this.removedPaths);
@@ -263,6 +273,50 @@ public class ArbitraryDataDiff {
 
         LOGGER.trace("Copying {} to {}", source, dest);
         Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private static void createAndCopyDiffUtilsPatch(Path before, Path after, Path destination) throws IOException {
+        if (!Files.exists(before)) {
+            throw new IOException(String.format("File not found (before): %s", before.toString()));
+        }
+        if (!Files.exists(after)) {
+            throw new IOException(String.format("File not found (after): %s", after.toString()));
+        }
+
+        // Ensure parent folders exist in the destination
+        File file = new File(destination.toString());
+        File parent = file.getParentFile();
+        if (parent != null) {
+            parent.mkdirs();
+        }
+
+        // Delete an existing file if it exists
+        File destFile = destination.toFile();
+        if (destFile.exists() && destFile.isFile()) {
+            Files.delete(destination);
+        }
+
+        // Load the two files into memory
+        List<String> original = FileUtils.readLines(before.toFile(), StandardCharsets.UTF_8);
+        List<String> revised = FileUtils.readLines(after.toFile(), StandardCharsets.UTF_8);
+
+        // Generate diff information
+        Patch<String> diff = DiffUtils.diff(original, revised);
+
+        // Generate unified diff format
+        String originalFileName = before.getFileName().toString();
+        String revisedFileName = after.getFileName().toString();
+        List<String> unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff(originalFileName, revisedFileName, original, diff, 0);
+
+        // Write the diff to the destination directory
+        FileWriter fileWriter = new FileWriter(destination.toString(), true);
+        BufferedWriter writer = new BufferedWriter(fileWriter);
+        for (String line : unifiedDiff) {
+            writer.append(line);
+            writer.newLine();
+        }
+        writer.flush();
+        writer.close();
     }
     
 

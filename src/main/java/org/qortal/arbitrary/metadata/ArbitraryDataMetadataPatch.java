@@ -17,6 +17,7 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataMetadataPatch.class);
 
+    private String patchType;
     private List<Path> addedPaths;
     private List<Path> modifiedPaths;
     private List<Path> removedPaths;
@@ -43,6 +44,12 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
         }
 
         JSONObject patch = new JSONObject(this.jsonString);
+        if (patch.has("patchType")) {
+            String patchType = patch.getString("patchType");
+            if (patchType != null) {
+                this.patchType = patchType;
+            }
+        }
         if (patch.has("prevSig")) {
             String prevSig = patch.getString("prevSig");
             if (prevSig != null) {
@@ -94,8 +101,9 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
             changeMap.set(patch, new LinkedHashMap<>());
             changeMap.setAccessible(false);
         } catch (IllegalAccessException | NoSuchFieldException e) {
-            // Don't worry about failures as this is for ordering only
+            // Don't worry about failures as this is for optional ordering only
         }
+        patch.put("patchType", this.patchType);
         patch.put("prevSig", Base58.encode(this.previousSignature));
         patch.put("prevHash", Base58.encode(this.previousHash));
         patch.put("added", new JSONArray(this.addedPaths));
@@ -106,6 +114,14 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
         LOGGER.info("Patch metadata: {}", this.jsonString);
     }
 
+
+    public void setPatchType(String patchType) {
+        this.patchType = patchType;
+    }
+
+    public String getPatchType() {
+        return this.patchType;
+    }
 
     public void setAddedPaths(List<Path> addedPaths) {
         this.addedPaths = addedPaths;
