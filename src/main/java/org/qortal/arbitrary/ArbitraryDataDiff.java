@@ -49,6 +49,7 @@ public class ArbitraryDataDiff {
             this.hashPreviousState();
             this.findAddedOrModifiedFiles();
             this.findRemovedFiles();
+            this.validate();
             this.writeMetadata();
 
         } finally {
@@ -219,6 +220,12 @@ public class ArbitraryDataDiff {
             });
         } catch (IOException e) {
             LOGGER.info("IOException when walking through file tree: {}", e.getMessage());
+        }
+    }
+
+    private void validate() {
+        if (this.addedPaths.isEmpty() && this.modifiedPaths.isEmpty() && this.removedPaths.isEmpty()) {
+            throw new IllegalStateException("Current state matches previous state. Nothing to do.");
         }
     }
 
