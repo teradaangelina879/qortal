@@ -21,7 +21,7 @@ public class ArbitraryDataBuildQueueItem {
     // TODO: interrupt an in-progress build
     public static long BUILD_TIMEOUT = 60*1000L; // 60 seconds
     /* The amount of time to remember that a build has failed, to avoid retries */
-    public static long FAILURE_TIMEOUT = 1*60*1000L; // 5 minutes
+    public static long FAILURE_TIMEOUT = 5*60*1000L; // 5 minutes
 
     public ArbitraryDataBuildQueueItem(String resourceId, ResourceIdType resourceIdType, Service service) {
         this.resourceId = resourceId;
