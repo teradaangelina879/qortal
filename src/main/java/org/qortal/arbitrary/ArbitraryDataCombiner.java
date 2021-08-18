@@ -23,6 +23,7 @@ public class ArbitraryDataCombiner {
     private Path pathAfter;
     private byte[] signatureBefore;
     private Path finalPath;
+    ArbitraryDataMetadataPatch metadata;
 
     public ArbitraryDataCombiner(Path pathBefore, Path pathAfter, byte[] signatureBefore) {
         this.pathBefore = pathBefore;
@@ -33,6 +34,7 @@ public class ArbitraryDataCombiner {
     public void combine() throws IOException {
         try {
             this.preExecute();
+            this.readMetadata();
             this.validatePreviousSignature();
             this.validatePreviousHash();
             this.process();
@@ -86,14 +88,17 @@ public class ArbitraryDataCombiner {
 
     }
 
-    private void validatePreviousSignature() throws IOException {
+    private void readMetadata() throws IOException  {
+        this.metadata = new ArbitraryDataMetadataPatch(this.pathAfter);
+        this.metadata.read();
+    }
+
+    private void validatePreviousSignature() {
         if (this.signatureBefore == null) {
             throw new IllegalStateException("No previous signature passed to the combiner");
         }
 
-        ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.pathAfter);
-        metadata.read();
-        byte[] previousSignature = metadata.getPreviousSignature();
+        byte[] previousSignature = this.metadata.getPreviousSignature();
         if (previousSignature == null) {
             throw new IllegalStateException("Unable to extract previous signature from patch metadata");
         }
@@ -105,9 +110,7 @@ public class ArbitraryDataCombiner {
     }
 
     private void validatePreviousHash() throws IOException {
-        ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.pathAfter);
-        metadata.read();
-        byte[] previousHash = metadata.getPreviousHash();
+        byte[] previousHash = this.metadata.getPreviousHash();
         if (previousHash == null) {
             throw new IllegalStateException("Unable to extract previous hash from patch metadata");
         }
@@ -123,7 +126,8 @@ public class ArbitraryDataCombiner {
     }
 
     private void process() throws IOException {
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(this.pathBefore, this.pathAfter);
+        String patchType = metadata.getPatchType();
+        ArbitraryDataMerge merge = new ArbitraryDataMerge(this.pathBefore, this.pathAfter, metadata.getPatchType());
         merge.compute();
         this.finalPath = merge.getMergePath();
     }
