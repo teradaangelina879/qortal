@@ -130,7 +130,7 @@ public class ArbitraryDataCache {
 
             // Find latest transaction for name and service, with any method
             ArbitraryTransactionData latestTransaction = repository.getArbitraryRepository()
-                    .getLatestTransaction(this.resourceId, this.service, Method.PUT);
+                    .getLatestTransaction(this.resourceId, this.service, null);
 
             if (latestTransaction != null) {
                 return latestTransaction.getSignature();
