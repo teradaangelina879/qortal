@@ -290,21 +290,25 @@ public class SysTray {
 	}
 
 	public void setTrayIcon(int iconid) {
-		if (trayIcon != null) {
-			switch (iconid) {
-				case 1:
-					this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_syncing_time-alt.png"));
-					break;
-				case 2:
-					this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_minting.png"));
-					break;
-				case 3:
-					this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_syncing.png"));
-					break;
-				case 4:
-					this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_synced.png"));
-					break;
+		try {
+			if (trayIcon != null) {
+				switch (iconid) {
+					case 1:
+						this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_syncing_time-alt.png"));
+						break;
+					case 2:
+						this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_minting.png"));
+						break;
+					case 3:
+						this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_syncing.png"));
+						break;
+					case 4:
+						this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_synced.png"));
+						break;
+				}
 			}
+		} catch (Exception e) {
+			LOGGER.info("Unable to set tray icon: {}", e.getMessage());
 		}
 	}
 
