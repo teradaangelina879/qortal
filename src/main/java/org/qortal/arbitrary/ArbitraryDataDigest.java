@@ -10,9 +10,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ArbitraryDataDigest {
 
@@ -26,8 +27,8 @@ public class ArbitraryDataDigest {
     }
 
     public void compute() throws IOException {
-        List<Path> allPaths = new ArrayList<>();
-        Files.walk(path).filter(Files::isRegularFile).forEachOrdered(p -> allPaths.add(p));
+        List<Path> allPaths = Files.walk(path).filter(Files::isRegularFile).collect(Collectors.toList());
+        Collections.sort(allPaths);
         Path basePathAbsolute = this.path.toAbsolutePath();
 
         MessageDigest sha256 = null;
@@ -49,7 +50,7 @@ public class ArbitraryDataDigest {
             }
 
             // Hash path
-            byte[] filePathBytes = relativePath.toString().toLowerCase().getBytes(StandardCharsets.UTF_8);
+            byte[] filePathBytes = relativePath.toString().getBytes(StandardCharsets.UTF_8);
             sha256.update(filePathBytes);
 
             // Hash contents
