@@ -69,7 +69,7 @@ public class ArbitraryDataBuildManager implements Runnable {
                     this.removeFromQueue(resourceId);
                     LOGGER.info("Finished building {}", queueItem);
 
-                } catch (IOException | DataException e) {
+                } catch (IOException | DataException | RuntimeException e) {
                     LOGGER.info("Error building {}: {}", queueItem, e.getMessage());
                     // Something went wrong - so remove it from the queue, and add to failed builds list
                     queueItem.setFailed(true);

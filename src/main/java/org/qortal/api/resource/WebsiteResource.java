@@ -112,7 +112,7 @@ public class WebsiteResource {
         } catch (IOException | DataException e) {
             LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-        } catch (IllegalStateException e) {
+        } catch (RuntimeException e) {
             LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
@@ -214,7 +214,7 @@ public class WebsiteResource {
         } catch (IOException | DataException e) {
             LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-        } catch (IllegalStateException e) {
+        } catch (RuntimeException e) {
             LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
         }
