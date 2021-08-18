@@ -541,6 +541,8 @@ public class Controller extends Thread {
 
 				// Clean up arbitrary data request cache
 				ArbitraryDataManager.getInstance().cleanupRequestCache(now);
+				// Clean up arbitrary data queues and lists
+				ArbitraryDataManager.getInstance().cleanupQueues(now);
 
 				// Time to 'checkpoint' uncommitted repository writes?
 				if (now >= repositoryCheckpointTimestamp + repositoryCheckpointInterval) {
