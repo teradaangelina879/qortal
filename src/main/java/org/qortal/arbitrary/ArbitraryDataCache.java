@@ -2,7 +2,7 @@ package org.qortal.arbitrary;
 
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataCache;
-import org.qortal.controller.ArbitraryDataManager;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.repository.DataException;

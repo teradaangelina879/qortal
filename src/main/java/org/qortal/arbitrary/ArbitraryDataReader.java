@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -59,7 +60,54 @@ public class ArbitraryDataReader {
         this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
     }
 
-    public void load(boolean overwrite) throws IllegalStateException, IOException, DataException {
+    public boolean isCachedDataAvailable() {
+        // If this resource is in the build queue then we shouldn't attempt to serve
+        // cached data, as it may not be fully built
+        ArbitraryDataBuildQueueItem queueItem =
+                new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service);
+        if (ArbitraryDataManager.getInstance().isInBuildQueue(queueItem)) {
+            return false;
+        }
+
+        // Not in the build queue - so check the cache itself
+        ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, false,
+                this.resourceId, this.resourceIdType, this.service);
+        if (!cache.shouldInvalidate()) {
+            this.filePath = this.uncompressedPath;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * loadAsynchronously
+     *
+     * Attempts to load the resource asynchronously
+     * This adds the build task to a queue, and the result will be cached when complete
+     * To check the status of the build, periodically call isCachedDataAvailable()
+     * Once it returns true, you can then use getFilePath() to access the data itself.
+     * TODO: create API to check the status
+     * @return
+     */
+    public boolean loadAsynchronously() {
+        ArbitraryDataBuildQueueItem queueItem =
+                new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service);
+        return ArbitraryDataManager.getInstance().addToBuildQueue(queueItem);
+    }
+
+    /**
+     * loadSynchronously
+     *
+     * Attempts to load the resource synchronously
+     * Warning: this can block for a long time when building or fetching complex data
+     * If no exception is thrown, you can then use getFilePath() to access the data immediately after returning
+     *
+     * @param overwrite - set to true to force rebuild an existing cache
+     * @throws IllegalStateException
+     * @throws IOException
+     * @throws DataException
+     */
+    public void loadSynchronously(boolean overwrite) throws IllegalStateException, IOException, DataException {
         try {
             ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
                     this.resourceId, this.resourceIdType, this.service);

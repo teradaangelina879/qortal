@@ -112,7 +112,7 @@ public class ArbitraryDataBuilder {
             String sig58 = Base58.encode(transactionData.getSignature());
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(sig58, ResourceIdType.TRANSACTION_DATA, this.service);
             arbitraryDataReader.setTransactionData(transactionData);
-            arbitraryDataReader.load(true);
+            arbitraryDataReader.loadSynchronously(true);
             Path path = arbitraryDataReader.getFilePath();
             if (path == null) {
                 throw new IllegalStateException(String.format("Null path when building data from transaction %s", sig58));

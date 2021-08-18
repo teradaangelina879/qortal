@@ -14,6 +14,7 @@ import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
@@ -332,7 +333,7 @@ public class Controller extends Thread {
 		return this.savedArgs;
 	}
 
-	/* package */ static boolean isStopping() {
+	/* package */ public static boolean isStopping() {
 		return isStopping;
 	}
 

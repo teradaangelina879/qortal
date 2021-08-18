@@ -7,6 +7,8 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import java.io.*;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
@@ -14,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.io.Resources;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -293,8 +296,11 @@ public class WebsiteResource {
         ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service);
         arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {
-            // We could store the latest transaction signature in the extracted folder
-            arbitraryDataReader.load(false);
+            if (!arbitraryDataReader.isCachedDataAvailable()) {
+                arbitraryDataReader.loadAsynchronously();
+                return this.getLoadingResponse();
+            }
+
         } catch (Exception e) {
             LOGGER.info(String.format("Unable to load %s %s: %s", service, resourceId, e.getMessage()));
             return this.getResponse(500, "Error 500: Internal Server Error");
@@ -363,6 +369,17 @@ public class WebsiteResource {
             }
         }
         return userPath;
+    }
+
+    private HttpServletResponse getLoadingResponse() {
+        String responseString = null;
+        URL url = Resources.getResource("loading/index.html");
+        try {
+            responseString = Resources.toString(url, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            LOGGER.info("Unable to show loading screen: {}", e.getMessage());
+        }
+        return this.getResponse(503, responseString);
     }
 
     private HttpServletResponse getResponse(int responseCode, String responseString) {

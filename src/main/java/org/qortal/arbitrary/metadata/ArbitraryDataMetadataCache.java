@@ -45,7 +45,7 @@ public class ArbitraryDataMetadataCache extends ArbitraryDataMetadata {
         patch.put("timestamp", this.timestamp);
 
         this.jsonString = patch.toString(2);
-        LOGGER.info("Cache metadata: {}", this.jsonString);
+        LOGGER.trace("Cache metadata: {}", this.jsonString);
     }
 
 

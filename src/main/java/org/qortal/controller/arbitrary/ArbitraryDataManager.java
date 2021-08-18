@@ -1,10 +1,14 @@
-package org.qortal.controller;
+package org.qortal.controller.arbitrary;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.arbitrary.ArbitraryDataBuildQueueItem;
+import org.qortal.controller.Controller;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
@@ -70,6 +74,11 @@ public class ArbitraryDataManager extends Thread {
 	 */
 	private static long ARBITRARY_DATA_CACHE_TIMEOUT = 60 * 60 * 1000L; // 60 minutes
 
+	/**
+	 * Map to keep track of arbitrary transaction resources currently being built (or queued).
+	 */
+	public Map<String, ArbitraryDataBuildQueueItem> arbitraryDataBuildQueue = Collections.synchronizedMap(new HashMap<>());
+
 
 	private ArbitraryDataManager() {
 	}
@@ -84,6 +93,11 @@ public class ArbitraryDataManager extends Thread {
 	@Override
 	public void run() {
 		Thread.currentThread().setName("Arbitrary Data Manager");
+
+		// Use a fixed thread pool to execute the arbitrary data build actions (currently just a single thread)
+		// This can be expanded to have multiple threads processing the build queue when needed
+		ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(1);
+		arbitraryDataBuildExecutor.execute(new ArbitraryDataBuildManager());
 
 		try {
 			while (!isStopping) {
@@ -247,9 +261,60 @@ public class ArbitraryDataManager extends Thread {
 			this.arbitraryDataCachedResources = new HashMap<>();
 		}
 
+		Long now = NTP.getTime();
+		if (now == null) {
+			return;
+		}
+
 		// Set the timestamp to now + the timeout
 		Long timestamp = NTP.getTime() + ARBITRARY_DATA_CACHE_TIMEOUT;
 		this.arbitraryDataCachedResources.put(resourceId, timestamp);
+	}
+
+	// Build queue
+	public boolean addToBuildQueue(ArbitraryDataBuildQueueItem queueItem) {
+		String resourceId = queueItem.getResourceId();
+		if (resourceId == null) {
+			return false;
+		}
+
+		if (this.arbitraryDataBuildQueue == null) {
+			return false;
+		}
+
+		if (NTP.getTime() == null) {
+			// Can't use queues until we have synced the time
+			return false;
+		}
+
+		if (this.arbitraryDataBuildQueue.put(resourceId, queueItem) != null) {
+			// Already in queue
+			return true;
+		}
+
+		LOGGER.info("Added {} to build queue", resourceId);
+
+		// Added to queue
+		return true;
+	}
+
+	public boolean isInBuildQueue(ArbitraryDataBuildQueueItem queueItem) {
+		String resourceId = queueItem.getResourceId();
+		if (resourceId == null) {
+			return false;
+		}
+
+		if (this.arbitraryDataBuildQueue == null) {
+			return false;
+		}
+
+		if (this.arbitraryDataBuildQueue.containsKey(resourceId)) {
+			// Already in queue
+			return true;
+		}
+
+		// Not in queue
+		return false;
 	}
 
 
