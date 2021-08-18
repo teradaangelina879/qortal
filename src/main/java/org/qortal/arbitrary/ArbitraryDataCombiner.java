@@ -127,7 +127,7 @@ public class ArbitraryDataCombiner {
 
     private void process() throws IOException {
         String patchType = metadata.getPatchType();
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(this.pathBefore, this.pathAfter, metadata.getPatchType());
+        ArbitraryDataMerge merge = new ArbitraryDataMerge(this.pathBefore, this.pathAfter, patchType);
         merge.compute();
         this.finalPath = merge.getMergePath();
     }
