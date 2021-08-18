@@ -126,9 +126,7 @@ public class ArbitraryDataMerge {
         Path mergePath = Paths.get(this.mergePath.toString(), path.toString());
 
         if (!patchPath.toFile().exists()) {
-            // Patch file doesn't exist, but its path was included in modifiedPaths
-            // TODO: We ought to throw an exception here, but skipping for now
-            return;
+            throw new IllegalStateException("Patch file doesn't exist, but its path was included in modifiedPaths");
         }
 
         // Delete an existing file, as we are starting from a duplicate of pathBefore
