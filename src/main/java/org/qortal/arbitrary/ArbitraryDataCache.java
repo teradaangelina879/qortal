@@ -32,6 +32,10 @@ public class ArbitraryDataCache {
         this.service = service;
     }
 
+    public boolean isCachedDataAvailable() {
+        return !this.shouldInvalidate();
+    }
+
     public boolean shouldInvalidate() {
         try {
             // If the user has requested an overwrite, always invalidate the cache

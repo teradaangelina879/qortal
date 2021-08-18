@@ -72,7 +72,7 @@ public class ArbitraryDataReader {
         // Not in the build queue - so check the cache itself
         ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, false,
                 this.resourceId, this.resourceIdType, this.service);
-        if (!cache.shouldInvalidate()) {
+        if (cache.isCachedDataAvailable()) {
             this.filePath = this.uncompressedPath;
             return true;
         }
@@ -111,7 +111,8 @@ public class ArbitraryDataReader {
         try {
             ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
                     this.resourceId, this.resourceIdType, this.service);
-            if (!cache.shouldInvalidate()) {
+            if (cache.isCachedDataAvailable()) {
+                // Use cached data
                 this.filePath = this.uncompressedPath;
                 return;
             }
