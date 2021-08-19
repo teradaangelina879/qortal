@@ -52,7 +52,7 @@ public class ArbitraryDataWriter {
         this.compression = compression;
     }
 
-    public void save() throws IllegalStateException, IOException, DataException {
+    public void save() throws IllegalStateException, IOException, DataException, InterruptedException {
         try {
             this.preExecute();
             this.process();
@@ -136,7 +136,7 @@ public class ArbitraryDataWriter {
         this.validatePatch();
     }
 
-    private void validatePatch() throws IOException {
+    private void validatePatch() {
         if (this.filePath == null) {
             throw new IllegalStateException("Null path after creating patch");
         }
@@ -158,13 +158,14 @@ public class ArbitraryDataWriter {
         }
     }
 
-    private void compress() {
+    private void compress() throws InterruptedException {
         // Compress the data if requested
         if (this.compression != Compression.NONE) {
             this.compressedPath = Paths.get(this.workingPath.toString() + File.separator + "data.zip");
             try {
 
                 if (this.compression == Compression.ZIP) {
+                    LOGGER.info("Compressing...");
                     ZipUtils.zip(this.filePath.toString(), this.compressedPath.toString(), "data");
                 }
                 else {
@@ -190,6 +191,7 @@ public class ArbitraryDataWriter {
         this.encryptedPath = Paths.get(this.workingPath.toString() + File.separator + "data.zip.encrypted");
         try {
             // Encrypt the file with AES
+            LOGGER.info("Encrypting...");
             this.aesKey = AES.generateKey(256);
             AES.encryptFile("AES", this.aesKey, this.filePath.toString(), this.encryptedPath.toString());
 

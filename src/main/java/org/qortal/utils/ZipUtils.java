@@ -25,6 +25,8 @@
 
 package org.qortal.utils;
 
+import org.qortal.controller.Controller;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -35,7 +37,7 @@ import java.util.zip.ZipOutputStream;
 
 public class ZipUtils {
 
-    public static void zip(String sourcePath, String destFilePath, String fileName) throws IOException {
+    public static void zip(String sourcePath, String destFilePath, String fileName) throws IOException, InterruptedException {
         File sourceFile = new File(sourcePath);
         if (fileName == null) {
             fileName = sourceFile.getName();
@@ -47,7 +49,10 @@ public class ZipUtils {
         fileOutputStream.close();
     }
 
-    public static void zip(final File fileToZip, final String fileName, final ZipOutputStream zipOut) throws IOException {
+    public static void zip(final File fileToZip, final String fileName, final ZipOutputStream zipOut) throws IOException, InterruptedException {
+        if (Controller.isStopping()) {
+            throw new InterruptedException("Controller is stopping");
+        }
         if (fileToZip.isDirectory()) {
             if (fileName.endsWith("/")) {
                 zipOut.putNextEntry(new ZipEntry(fileName));

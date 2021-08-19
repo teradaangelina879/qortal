@@ -275,7 +275,7 @@ public class ArbitraryResource {
 		ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(path), name, service, method, compression);
 		try {
 			arbitraryDataWriter.save();
-		} catch (IOException | DataException e) {
+		} catch (IOException | DataException | InterruptedException e) {
 			LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
 		} catch (RuntimeException e) {
