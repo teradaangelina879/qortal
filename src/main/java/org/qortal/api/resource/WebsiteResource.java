@@ -96,42 +96,46 @@ public class WebsiteResource {
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
         }
 
-        if (creatorPublicKeyBase58 == null || path == null) {
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-        }
-        byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
-
-        String name = "CalDescentTest1"; // TODO: dynamic
-        ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PATCH;
-        ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.WEBSITE;
-        ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
-
-        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(path), name, service, method, compression);
-        try {
-            arbitraryDataWriter.save();
-        } catch (IOException | DataException | InterruptedException e) {
-            LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-        } catch (RuntimeException e) {
-            LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-        }
-
-        ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
-        if (arbitraryDataFile == null) {
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-        }
-
-        String digest58 = arbitraryDataFile.digest58();
-        if (digest58 == null) {
-            LOGGER.error("Unable to calculate digest");
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-        }
-        
+        ArbitraryDataFile arbitraryDataFile = null;
         try (final Repository repository = RepositoryManager.getRepository()) {
 
+            if (creatorPublicKeyBase58 == null || path == null) {
+                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+            }
+            byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
             final String creatorAddress = Crypto.toAddress(creatorPublicKey);
             final byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
+            if (lastReference == null) {
+                LOGGER.info(String.format("Qortal account %s has no last reference", creatorAddress));
+                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+            }
+
+            String name = "CalDescentTest1"; // TODO: dynamic
+            ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT; // TODO: dynamic
+            ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.WEBSITE;
+            ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
+
+            ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(path), name, service, method, compression);
+            try {
+                arbitraryDataWriter.save();
+            } catch (IOException | DataException | InterruptedException e) {
+                LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
+                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+            } catch (RuntimeException e) {
+                LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
+                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+            }
+
+            arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
+            if (arbitraryDataFile == null) {
+                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+            }
+
+            String digest58 = arbitraryDataFile.digest58();
+            if (digest58 == null) {
+                LOGGER.error("Unable to calculate digest");
+                throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+            }
 
             final BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
                     lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);

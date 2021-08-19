@@ -261,34 +261,41 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 		}
 
-		if (creatorPublicKeyBase58 == null || path == null) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-		}
-		byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
-
-		String name = null;
-		byte[] secret = null;
-		Method method = Method.PUT;
-		Service service = Service.ARBITRARY_DATA;
-		Compression compression = Compression.NONE;
-
-		ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(path), name, service, method, compression);
-		try {
-			arbitraryDataWriter.save();
-		} catch (IOException | DataException | InterruptedException e) {
-			LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-		} catch (RuntimeException e) {
-			LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-		}
-
-		ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
-		if (arbitraryDataFile == null) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-		}
-
+		ArbitraryDataFile arbitraryDataFile = null;
 		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			if (creatorPublicKeyBase58 == null || path == null) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
+			byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
+			final String creatorAddress = Crypto.toAddress(creatorPublicKey);
+			final byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
+			if (lastReference == null) {
+				LOGGER.info(String.format("Qortal account %s has no last reference", creatorAddress));
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
+
+			String name = null;
+			byte[] secret = null;
+			Method method = Method.PUT;
+			Service service = Service.ARBITRARY_DATA;
+			Compression compression = Compression.NONE;
+
+			ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(path), name, service, method, compression);
+			try {
+				arbitraryDataWriter.save();
+			} catch (IOException | DataException | InterruptedException e) {
+				LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+			} catch (RuntimeException e) {
+				LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+			}
+
+			arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
+			if (arbitraryDataFile == null) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+			}
 
 			ArbitraryDataFile.ValidationResult validationResult = arbitraryDataFile.isValid();
 			if (validationResult != ArbitraryDataFile.ValidationResult.OK) {
@@ -309,9 +316,6 @@ public class ArbitraryResource {
 				LOGGER.error("Unable to calculate digest");
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
-
-			final String creatorAddress = Crypto.toAddress(creatorPublicKey);
-			final byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
 
 			final BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
 					lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
