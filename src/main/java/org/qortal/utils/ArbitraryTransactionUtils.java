@@ -3,7 +3,6 @@ package org.qortal.utils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
-import org.qortal.controller.arbitrary.ArbitraryDataCleanupManager;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
@@ -152,31 +151,36 @@ public class ArbitraryTransactionUtils {
         return arbitraryDataFile.chunkCount();
     }
 
-    public static boolean isFileHashRecent(byte[] hash, long now, long cleanupAfter) {
+    public static boolean isFileRecent(Path filePath, long now, long cleanupAfter) {
         try {
-            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
-            if (arbitraryDataFile == null || !arbitraryDataFile.exists()) {
-                // No hash, or file doesn't exist, so it's not recent
-                return false;
-            }
-            Path filePath = arbitraryDataFile.getFilePath();
-
             BasicFileAttributes attr = Files.readAttributes(filePath, BasicFileAttributes.class);
             long timeSinceCreated = now - attr.creationTime().toMillis();
             long timeSinceModified = now - attr.lastModifiedTime().toMillis();
+            //LOGGER.info(String.format("timeSinceCreated for path %s is %d. cleanupAfter: %d", filePath, timeSinceCreated, cleanupAfter));
 
             // Check if the file has been created or modified recently
-            if (timeSinceCreated < cleanupAfter) {
-                return true;
+            if (timeSinceCreated > cleanupAfter) {
+                return false;
             }
-            if (timeSinceModified < cleanupAfter) {
-                return true;
+            if (timeSinceModified > cleanupAfter) {
+                return false;
             }
 
         } catch (IOException e) {
-            // Can't read file attributes, so assume it's not recent
+            // Can't read file attributes, so assume it's recent so that we don't delete something accidentally
         }
-        return false;
+        return true;
+    }
+
+    public static boolean isFileHashRecent(byte[] hash, long now, long cleanupAfter) {
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
+        if (arbitraryDataFile == null || !arbitraryDataFile.exists()) {
+            // No hash, or file doesn't exist, so it's not recent
+            return false;
+        }
+
+        Path filePath = arbitraryDataFile.getFilePath();
+        return ArbitraryTransactionUtils.isFileRecent(filePath, now, cleanupAfter);
     }
 
     public static void deleteCompleteFile(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) {
