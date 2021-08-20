@@ -104,6 +104,10 @@ public class ArbitraryDataManager extends Thread {
 		ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(1);
 		arbitraryDataBuildExecutor.execute(new ArbitraryDataBuildManager());
 
+		// Paginate queries when fetching arbitrary transactions
+		final int limit = 100;
+		int offset = 0;
+
 		try {
 			while (!isStopping) {
 				Thread.sleep(2000);
@@ -120,10 +124,13 @@ public class ArbitraryDataManager extends Thread {
 
 				// Any arbitrary transactions we want to fetch data for?
 				try (final Repository repository = RepositoryManager.getRepository()) {
-					List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, ARBITRARY_TX_TYPE, null, null, ConfirmationStatus.BOTH, null, null, true);
+					List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, ARBITRARY_TX_TYPE, null, null, ConfirmationStatus.BOTH, limit, offset, true);
+					// LOGGER.info("Found {} arbitrary transactions at offset: {}, limit: {}", signatures.size(), offset, limit);
 					if (signatures == null || signatures.isEmpty()) {
+						offset = 0;
 						continue;
 					}
+					offset += limit;
 
 					// Filter out those that already have local data
 					signatures.removeIf(signature -> hasLocalData(repository, signature));
