@@ -240,15 +240,15 @@ public class WebsiteResource {
     }
 
     @GET
-    @Path("{signature}")
+    @Path("/signature/{signature}")
     public HttpServletResponse getIndexBySignature(@PathParam("signature") String signature) {
-        return this.get(signature, ResourceIdType.SIGNATURE, "/", null, "/site", true);
+        return this.get(signature, ResourceIdType.SIGNATURE, "/", null, "/site/signature", true);
     }
 
     @GET
-    @Path("{signature}/{path:.*}")
+    @Path("/signature/{signature}/{path:.*}")
     public HttpServletResponse getPathBySignature(@PathParam("signature") String signature, @PathParam("path") String inPath) {
-        return this.get(signature, ResourceIdType.SIGNATURE, inPath,null, "/site", true);
+        return this.get(signature, ResourceIdType.SIGNATURE, inPath,null, "/site/signature", true);
     }
 
     @GET
@@ -258,15 +258,15 @@ public class WebsiteResource {
     }
 
     @GET
-    @Path("/name/{name}/{path:.*}")
+    @Path("{name}/{path:.*}")
     public HttpServletResponse getPathByName(@PathParam("name") String name, @PathParam("path") String inPath) {
-        return this.get(name, ResourceIdType.NAME, inPath, null, "/site/name", true);
+        return this.get(name, ResourceIdType.NAME, inPath, null, "/site", true);
     }
 
     @GET
-    @Path("/name/{name}")
+    @Path("{name}")
     public HttpServletResponse getIndexByName(@PathParam("name") String name) {
-        return this.get(name, ResourceIdType.NAME, "/", null, "/site/name", true);
+        return this.get(name, ResourceIdType.NAME, "/", null, "/site", true);
     }
 
     @GET
