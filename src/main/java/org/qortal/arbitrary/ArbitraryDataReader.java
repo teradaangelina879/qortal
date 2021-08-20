@@ -218,7 +218,7 @@ public class ArbitraryDataReader {
         // Load data file directly from the hash
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(resourceId);
         // Set filePath to the location of the ArbitraryDataFile
-        this.filePath = Paths.get(arbitraryDataFile.getFilePath());
+        this.filePath = arbitraryDataFile.getFilePath();
     }
 
     private void fetchFromName() throws IllegalStateException, IOException, DataException {
@@ -294,7 +294,7 @@ public class ArbitraryDataReader {
             throw new IllegalStateException("Unable to validate complete file hash");
         }
         // Set filePath to the location of the ArbitraryDataFile
-        this.filePath = Paths.get(arbitraryDataFile.getFilePath());
+        this.filePath = arbitraryDataFile.getFilePath();
     }
 
     private void decrypt() {

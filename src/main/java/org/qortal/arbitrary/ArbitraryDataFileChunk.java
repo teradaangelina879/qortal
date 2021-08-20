@@ -38,10 +38,9 @@ public class ArbitraryDataFileChunk extends ArbitraryDataFile {
             return superclassValidationResult;
         }
 
-        Path path = Paths.get(this.filePath);
         try {
             // Validate the file size (chunks have stricter limits)
-            long fileSize = Files.size(path);
+            long fileSize = Files.size(this.filePath);
             if (fileSize > CHUNK_SIZE) {
                 LOGGER.error(String.format("DataFileChunk is too large: %d bytes (max chunk size: %d bytes)", fileSize, CHUNK_SIZE));
                 return ValidationResult.FILE_TOO_LARGE;

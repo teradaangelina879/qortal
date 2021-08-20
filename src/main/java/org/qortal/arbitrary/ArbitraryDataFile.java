@@ -48,7 +48,7 @@ public class ArbitraryDataFile {
         FILE_HASH,
         TRANSACTION_DATA,
         NAME
-    };
+    }
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFile.class);
 
@@ -56,7 +56,7 @@ public class ArbitraryDataFile {
     public static final int CHUNK_SIZE = 1 * 1024 * 1024; // 1MiB
     public static int SHORT_DIGEST_LENGTH = 8;
 
-    protected String filePath;
+    protected Path filePath;
     protected String hash58;
     private ArrayList<ArbitraryDataFileChunk> chunks;
     private byte[] secret;
@@ -80,8 +80,8 @@ public class ArbitraryDataFile {
         this.hash58 = Base58.encode(Crypto.digest(fileContent));
         LOGGER.trace(String.format("File digest: %s, size: %d bytes", this.hash58, fileContent.length));
 
-        String outputFilePath = getOutputFilePath(this.hash58, true);
-        File outputFile = new File(outputFilePath);
+        Path outputFilePath = getOutputFilePath(this.hash58, true);
+        File outputFile = outputFilePath.toFile();
         try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
             outputStream.write(fileContent);
             this.filePath = outputFilePath;
@@ -104,8 +104,11 @@ public class ArbitraryDataFile {
         return ArbitraryDataFile.fromHash58(Base58.encode(hash));
     }
 
-    public static ArbitraryDataFile fromPath(String path) {
-        File file = new File(path);
+    public static ArbitraryDataFile fromPath(Path path) {
+        if (path == null) {
+            return null;
+        }
+        File file = path.toFile();
         if (file.exists()) {
             try {
                 byte[] fileContent = Files.readAllBytes(file.toPath());
@@ -113,15 +116,14 @@ public class ArbitraryDataFile {
                 ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
 
                 // Copy file to data directory if needed
-                Path filePath = Paths.get(path);
-                if (Files.exists(filePath) && !arbitraryDataFile.isInBaseDirectory(path)) {
-                    arbitraryDataFile.copyToDataDirectory(filePath);
+                if (Files.exists(path) && !arbitraryDataFile.isInBaseDirectory(path)) {
+                    arbitraryDataFile.copyToDataDirectory(path);
                 }
                 // Or, if it's already in the data directory, we may need to move it
-                else if (!filePath.equals(arbitraryDataFile.getFilePath())) {
+                else if (!path.equals(arbitraryDataFile.getFilePath())) {
                     // Wrong path, so relocate
-                    Path dest = Paths.get(arbitraryDataFile.getFilePath());
-                    FilesystemUtils.moveFile(filePath, dest, true);
+                    Path dest = arbitraryDataFile.getFilePath();
+                    FilesystemUtils.moveFile(path, dest, true);
                 }
                 return arbitraryDataFile;
 
@@ -133,7 +135,7 @@ public class ArbitraryDataFile {
     }
 
     public static ArbitraryDataFile fromFile(File file) {
-        return ArbitraryDataFile.fromPath(file.getPath());
+        return ArbitraryDataFile.fromPath(Paths.get(file.getPath()));
     }
 
     private boolean createDataDirectory() {
@@ -149,21 +151,21 @@ public class ArbitraryDataFile {
         return true;
     }
 
-    private String copyToDataDirectory(Path sourcePath) {
+    private Path copyToDataDirectory(Path sourcePath) {
         if (this.hash58 == null || this.filePath == null) {
             return null;
         }
-        String outputFilePath = getOutputFilePath(this.hash58, true);
+        Path outputFilePath = getOutputFilePath(this.hash58, true);
         sourcePath = sourcePath.toAbsolutePath();
-        Path destPath = Paths.get(outputFilePath).toAbsolutePath();
+        Path destPath = outputFilePath.toAbsolutePath();
         try {
-            return Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING).toString();
+            return Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to copy file to data directory");
         }
     }
 
-    public static String getOutputFilePath(String hash58, boolean createDirectories) {
+    public static Path getOutputFilePath(String hash58, boolean createDirectories) {
         if (hash58 == null) {
             return null;
         }
@@ -179,20 +181,19 @@ public class ArbitraryDataFile {
                 throw new IllegalStateException("Unable to create data subdirectory");
             }
         }
-        return outputDirectory + File.separator + hash58;
+        return Paths.get(outputDirectory, hash58);
     }
 
     public ValidationResult isValid() {
         try {
             // Ensure the file exists on disk
-            Path path = Paths.get(this.filePath);
-            if (!Files.exists(path)) {
+            if (!Files.exists(this.filePath)) {
                 LOGGER.error("File doesn't exist at path {}", this.filePath);
                 return ValidationResult.FILE_NOT_FOUND;
             }
 
             // Validate the file size
-            long fileSize = Files.size(path);
+            long fileSize = Files.size(this.filePath);
             if (fileSize > MAX_FILE_SIZE) {
                 LOGGER.error(String.format("ArbitraryDataFile is too large: %d bytes (max size: %d bytes)", fileSize, MAX_FILE_SIZE));
                 return ArbitraryDataFile.ValidationResult.FILE_TOO_LARGE;
@@ -276,7 +277,7 @@ public class ArbitraryDataFile {
             File outputFile = new File(outputPath.toString());
             try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputFile))) {
                 for (ArbitraryDataFileChunk chunk : this.chunks) {
-                    File sourceFile = new File(chunk.filePath);
+                    File sourceFile = chunk.filePath.toFile();
                     BufferedInputStream in = new BufferedInputStream(new FileInputStream(sourceFile));
                     byte[] buffer = new byte[2048];
                     int inSize;
@@ -306,13 +307,12 @@ public class ArbitraryDataFile {
     public boolean delete() {
         // Delete the complete file
         // ... but only if it's inside the Qortal data or temp directory
-        Path path = Paths.get(this.filePath);
-        if (FilesystemUtils.pathInsideDataOrTempPath(path)) {
-            if (Files.exists(path)) {
+        if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
+            if (Files.exists(this.filePath)) {
                 try {
-                    Files.delete(path);
+                    Files.delete(this.filePath);
                     this.cleanupFilesystem();
-                    LOGGER.debug("Deleted file {}", path.toString());
+                    LOGGER.debug("Deleted file {}", this.filePath);
                     return true;
                 } catch (IOException e) {
                     LOGGER.warn("Couldn't delete DataFileChunk at path {}", this.filePath);
@@ -340,11 +340,9 @@ public class ArbitraryDataFile {
     }
 
     protected void cleanupFilesystem() {
-        String path = this.filePath;
-
         // Iterate through two levels of parent directories, and delete if empty
         for (int i=0; i<2; i++) {
-            Path directory = Paths.get(path).getParent().toAbsolutePath();
+            Path directory = this.filePath.getParent().toAbsolutePath();
             try (Stream<Path> files = Files.list(directory)) {
                 final long count = files.count();
                 if (count == 0) {
@@ -355,14 +353,13 @@ public class ArbitraryDataFile {
             } catch (IOException e) {
                 LOGGER.warn("Unable to count files in directory", e);
             }
-            path = directory.toString();
+            this.filePath = directory;
         }
     }
 
     public byte[] getBytes() {
-        Path path = Paths.get(this.filePath);
         try {
-            return Files.readAllBytes(path);
+            return Files.readAllBytes(this.filePath);
         } catch (IOException e) {
             LOGGER.error("Unable to read bytes for file");
             return null;
@@ -372,15 +369,15 @@ public class ArbitraryDataFile {
 
     /* Helper methods */
 
-    private boolean isInBaseDirectory(String filePath) {
-        Path path = Paths.get(filePath).toAbsolutePath();
+    private boolean isInBaseDirectory(Path filePath) {
+        Path path = filePath.toAbsolutePath();
         String dataPath = Settings.getInstance().getDataPath();
         String basePath = Paths.get(dataPath).toAbsolutePath().toString();
         return path.startsWith(basePath);
     }
 
     public boolean exists() {
-        File file = new File(this.filePath);
+        File file = this.filePath.toFile();
         return file.exists();
     }
 
@@ -422,9 +419,8 @@ public class ArbitraryDataFile {
     }
 
     public long size() {
-        Path path = Paths.get(this.filePath);
         try {
-            return Files.size(path);
+            return Files.size(this.filePath);
         } catch (IOException e) {
             return 0;
         }
@@ -464,14 +460,14 @@ public class ArbitraryDataFile {
     }
 
     private File getFile() {
-        File file = new File(this.filePath);
+        File file = this.filePath.toFile();
         if (file.exists()) {
             return file;
         }
         return null;
     }
 
-    public String getFilePath() {
+    public Path getFilePath() {
         return this.filePath;
     }
 

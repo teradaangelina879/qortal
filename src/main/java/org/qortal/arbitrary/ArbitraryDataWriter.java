@@ -233,7 +233,7 @@ public class ArbitraryDataWriter {
     }
 
     private void split() throws IOException {
-        this.arbitraryDataFile = ArbitraryDataFile.fromPath(this.filePath.toString());
+        this.arbitraryDataFile = ArbitraryDataFile.fromPath(this.filePath);
         if (this.arbitraryDataFile == null) {
             throw new IOException("No file available when trying to split");
         }
