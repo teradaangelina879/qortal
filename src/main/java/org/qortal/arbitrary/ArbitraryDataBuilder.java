@@ -56,7 +56,8 @@ public class ArbitraryDataBuilder {
             ArbitraryTransactionData latestPut = repository.getArbitraryRepository()
                     .getLatestTransaction(this.name, this.service, Method.PUT);
             if (latestPut == null) {
-                throw new IllegalStateException("Cannot PATCH without existing PUT. Deploy using PUT first.");
+                throw new IllegalStateException(String.format(
+                        "Couldn't find PUT transaction for name %s and service %s", this.name, this.service));
             }
             this.latestPutTransaction = latestPut;
 
