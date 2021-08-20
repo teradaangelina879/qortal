@@ -169,19 +169,18 @@ public class ArbitraryDataFile {
         if (hash58 == null) {
             return null;
         }
-        String hash58First2Chars = hash58.substring(0, 2);
-        String hash58Next2Chars = hash58.substring(2, 4);
-        String outputDirectory =  Settings.getInstance().getDataPath() + File.separator + hash58First2Chars + File.separator + hash58Next2Chars;
-        Path outputDirectoryPath = Paths.get(outputDirectory);
+        String hash58First2Chars = hash58.substring(0, 2).toLowerCase();
+        String hash58Next2Chars = hash58.substring(2, 4).toLowerCase();
+        Path directory = Paths.get(Settings.getInstance().getDataPath(), hash58First2Chars, hash58Next2Chars);
 
         if (createDirectories) {
             try {
-                Files.createDirectories(outputDirectoryPath);
+                Files.createDirectories(directory);
             } catch (IOException e) {
                 throw new IllegalStateException("Unable to create data subdirectory");
             }
         }
-        return Paths.get(outputDirectory, hash58);
+        return Paths.get(directory.toString(), hash58);
     }
 
     public ValidationResult isValid() {
