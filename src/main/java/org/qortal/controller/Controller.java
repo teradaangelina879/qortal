@@ -14,6 +14,7 @@ import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.arbitrary.ArbitraryDataCleanupManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.data.account.MintingAccountData;
@@ -446,9 +447,10 @@ public class Controller extends Thread {
 		LOGGER.info("Starting trade-bot");
 		TradeBot.getInstance();
 
-		// Arbitrary transaction data manager
-		LOGGER.info("Starting arbitrary-transaction data manager");
+		// Arbitrary data controllers
+		LOGGER.info("Starting arbitrary-transaction controllers");
 		ArbitraryDataManager.getInstance().start();
+		ArbitraryDataCleanupManager.getInstance().start();
 
 		// Auto-update service?
 		if (Settings.getInstance().isAutoUpdateEnabled()) {
@@ -934,9 +936,10 @@ public class Controller extends Thread {
 					AutoUpdate.getInstance().shutdown();
 				}
 
-				// Arbitrary transaction data manager
-				LOGGER.info("Shutting down arbitrary-transaction data manager");
+				// Arbitrary data controllers
+				LOGGER.info("Shutting down arbitrary-transaction controllers");
 				ArbitraryDataManager.getInstance().shutdown();
+				ArbitraryDataCleanupManager.getInstance().shutdown();
 
 				if (blockMinter != null) {
 					LOGGER.info("Shutting down block minter");

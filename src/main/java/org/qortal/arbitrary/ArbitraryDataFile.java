@@ -315,16 +315,15 @@ public class ArbitraryDataFile {
                     LOGGER.debug("Deleted file {}", this.filePath);
                     return true;
                 } catch (IOException e) {
-                    LOGGER.warn("Couldn't delete DataFileChunk at path {}", this.filePath);
+                    LOGGER.warn("Couldn't delete file at path {}", this.filePath);
                 }
             }
         }
         return false;
     }
 
-    public boolean deleteAll() {
-        // Delete the complete file
-        boolean success = this.delete();
+    public boolean deleteAllChunks() {
+        boolean success = false;
 
         // Delete the individual chunks
         if (this.chunks != null && this.chunks.size() > 0) {
@@ -337,6 +336,16 @@ public class ArbitraryDataFile {
             }
         }
         return success;
+    }
+
+    public boolean deleteAll() {
+        // Delete the complete file
+        boolean fileDeleted = this.delete();
+
+        // Delete the individual chunks
+        boolean chunksDeleted = this.deleteAllChunks();
+
+        return fileDeleted && chunksDeleted;
     }
 
     protected void cleanupFilesystem() {
