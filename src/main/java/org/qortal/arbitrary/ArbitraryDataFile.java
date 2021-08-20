@@ -422,6 +422,22 @@ public class ArbitraryDataFile {
         return true;
     }
 
+    public boolean anyChunksExist(byte[] chunks) {
+        if (chunks == null) {
+            return false;
+        }
+        ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
+        while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
+            byte[] chunkHash = new byte[TransactionTransformer.SHA256_LENGTH];
+            byteBuffer.get(chunkHash);
+            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash);
+            if (chunk.exists()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean containsChunk(byte[] hash) {
         for (ArbitraryDataFileChunk chunk : this.chunks) {
             if (Arrays.equals(hash, chunk.getHash())) {

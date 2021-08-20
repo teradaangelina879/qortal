@@ -3,10 +3,8 @@ package org.qortal.controller.arbitrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
-import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.controller.Controller;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.repository.DataException;
@@ -14,13 +12,10 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,6 +36,14 @@ public class ArbitraryDataCleanupManager extends Thread {
 	 * being used by other parts of the system.
 	 */
 	private static long STALE_FILE_TIMEOUT = 60*60*1000; // 1 hour
+
+
+	/*
+	TODO:
+	- Discard all files relating to transactions for a name/service combination before the most recent PUT
+	- Delete old files from _temp
+	- Delete old files not associated with transactions
+	 */
 
 
 	private ArbitraryDataCleanupManager() {
@@ -104,7 +107,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 						}
 
 						// Fetch the transaction data
-						ArbitraryTransactionData arbitraryTransactionData = this.fetchTransactionData(repository, signature);
+						ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
 
 						// Raw data doesn't have any associated files to clean up
 						if (arbitraryTransactionData.getDataType() == ArbitraryTransactionData.DataType.RAW_DATA) {
@@ -112,16 +115,41 @@ public class ArbitraryDataCleanupManager extends Thread {
 						}
 
 						// Check if we have the complete file
-						boolean completeFileExists = this.completeFileExists(arbitraryTransactionData);
+						boolean completeFileExists = ArbitraryTransactionUtils.completeFileExists(arbitraryTransactionData);
 
-						// Check if we have all the chunks
-						boolean allChunksExist = this.allChunksExist(arbitraryTransactionData);
+						// Check if we have any of the chunks
+						boolean anyChunksExist = ArbitraryTransactionUtils.anyChunksExist(arbitraryTransactionData);
+						boolean transactionHasChunks = (arbitraryTransactionData.getChunkHashes() != null);
 
-						if (completeFileExists && arbitraryTransactionData.getChunkHashes() == null) {
-							// This file doesn't have any chunks because it is too small
-							// We must not delete anything
+						if (!completeFileExists && !anyChunksExist) {
+							// We don't have any files at all for this transaction - nothing to do
 							continue;
 						}
+
+						// We have at least 1 chunk or file for this transaction, so we might need to delete them...
+
+
+						// Check to see if we have had a more recent PUT
+						boolean hasMoreRecentPutTransaction = ArbitraryTransactionUtils.hasMoreRecentPutTransaction(repository, arbitraryTransactionData);
+						if (hasMoreRecentPutTransaction) {
+							// There is a more recent PUT transaction than the one we are currently processing.
+							// When a PUT is issued, it replaces any layers that would have been there before.
+							// Therefore any data relating to this older transaction is no longer needed.
+							LOGGER.info(String.format("Newer PUT found for %s %s since transaction %s. " +
+											"Deleting all files.", arbitraryTransactionData.getService(),
+									arbitraryTransactionData.getName(), Base58.encode(signature)));
+
+							ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
+						}
+
+						if (completeFileExists && !transactionHasChunks) {
+							// This file doesn't have any chunks because it is too small.
+							// We must not delete anything.
+							continue;
+						}
+
+						// Check if we have all of the chunks
+						boolean allChunksExist = ArbitraryTransactionUtils.allChunksExist(arbitraryTransactionData);
 
 						if (completeFileExists && allChunksExist) {
 							// We have the complete file and all the chunks, so we can delete
@@ -129,7 +157,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 							LOGGER.info(String.format("Transaction %s has complete file and all chunks",
 									Base58.encode(arbitraryTransactionData.getSignature())));
 
-							this.deleteCompleteFile(arbitraryTransactionData, now);
+							ArbitraryTransactionUtils.deleteCompleteFile(arbitraryTransactionData, now, STALE_FILE_TIMEOUT);
 						}
 
 						if (completeFileExists && !allChunksExist) {
@@ -137,7 +165,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 							LOGGER.info(String.format("Transaction %s has complete file but no chunks",
 									Base58.encode(arbitraryTransactionData.getSignature())));
 
-							this.createChunks(arbitraryTransactionData, now);
+							ArbitraryTransactionUtils.convertFileToChunks(arbitraryTransactionData, now, STALE_FILE_TIMEOUT);
 						}
 					}
 
@@ -153,129 +181,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 	public void shutdown() {
 		isStopping = true;
 		this.interrupt();
-	}
-
-
-	private ArbitraryTransactionData fetchTransactionData(final Repository repository, final byte[] signature) {
-		try {
-			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-			if (!(transactionData instanceof ArbitraryTransactionData))
-				return null;
-
-			return (ArbitraryTransactionData) transactionData;
-
-		} catch (DataException e) {
-			LOGGER.error("Repository issue when fetching arbitrary transaction data", e);
-			return null;
-		}
-	}
-
-	private boolean completeFileExists(ArbitraryTransactionData transactionData) {
-		if (transactionData == null) {
-			return false;
-		}
-
-		byte[] digest = transactionData.getData();
-
-		// Load complete file
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
-		return arbitraryDataFile.exists();
-
-	}
-
-	private boolean allChunksExist(ArbitraryTransactionData transactionData) {
-		if (transactionData == null) {
-			return false;
-		}
-
-		byte[] digest = transactionData.getData();
-		byte[] chunkHashes = transactionData.getChunkHashes();
-
-		if (chunkHashes == null) {
-			// This file doesn't have any chunks
-			return true;
-		}
-
-		// Load complete file and chunks
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
-		if (chunkHashes != null && chunkHashes.length > 0) {
-			arbitraryDataFile.addChunkHashes(chunkHashes);
-		}
-		return arbitraryDataFile.allChunksExist(chunkHashes);
-
-	}
-
-	private boolean isFileHashRecent(byte[] hash, long now) {
-		try {
-			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
-			if (arbitraryDataFile == null || !arbitraryDataFile.exists()) {
-				// No hash, or file doesn't exist, so it's not recent
-				return false;
-			}
-			Path filePath = arbitraryDataFile.getFilePath();
-
-			BasicFileAttributes attr = Files.readAttributes(filePath, BasicFileAttributes.class);
-			long timeSinceCreated = now - attr.creationTime().toMillis();
-			long timeSinceModified = now - attr.lastModifiedTime().toMillis();
-
-			// Check if the file has been created or modified recently
-			if (timeSinceCreated < STALE_FILE_TIMEOUT) {
-				return true;
-			}
-			if (timeSinceModified < STALE_FILE_TIMEOUT) {
-				return true;
-			}
-
-		} catch (IOException e) {
-			// Can't read file attributes, so assume it's not recent
-		}
-		return false;
-	}
-
-	private void deleteCompleteFile(ArbitraryTransactionData arbitraryTransactionData, long now) {
-		byte[] completeHash = arbitraryTransactionData.getData();
-		byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
-
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash);
-		arbitraryDataFile.addChunkHashes(chunkHashes);
-
-		if (!this.isFileHashRecent(completeHash, now)) {
-			LOGGER.info("Deleting file {} because it can be rebuilt from chunks " +
-					"if needed", Base58.encode(completeHash));
-
-			arbitraryDataFile.delete();
-		}
-	}
-
-	private void createChunks(ArbitraryTransactionData arbitraryTransactionData, long now) {
-		byte[] completeHash = arbitraryTransactionData.getData();
-		byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
-
-		// Split the file into chunks
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash);
-		int chunkCount = arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
-		if (chunkCount > 1) {
-			LOGGER.info(String.format("Successfully split %s into %d chunk%s",
-					Base58.encode(completeHash), chunkCount, (chunkCount == 1 ? "" : "s")));
-
-			// Verify that the chunk hashes match those in the transaction
-			if (chunkHashes != null && Arrays.equals(chunkHashes, arbitraryDataFile.chunkHashes())) {
-				// Ensure they exist on disk
-				if (arbitraryDataFile.allChunksExist(chunkHashes)) {
-
-					// Now delete the original file if it's not recent
-					if (!this.isFileHashRecent(completeHash, now)) {
-						LOGGER.info("Deleting file {} because it can now be rebuilt from " +
-								"chunks if needed", Base58.encode(completeHash));
-
-						this.deleteCompleteFile(arbitraryTransactionData, now);
-					}
-					else {
-						// File might be in use. It's best to leave it and it it will be cleaned up later.
-					}
-				}
-			}
-		}
 	}
 
 }

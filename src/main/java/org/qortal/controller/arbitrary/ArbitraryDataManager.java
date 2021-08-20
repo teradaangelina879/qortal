@@ -22,6 +22,7 @@ import org.qortal.arbitrary.ArbitraryDataFileChunk;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 import org.qortal.utils.Triple;
@@ -142,6 +143,21 @@ public class ArbitraryDataManager extends Thread {
 					// Pick one at random
 					final int index = new Random().nextInt(signatures.size());
 					byte[] signature = signatures.get(index);
+
+					if (signature == null) {
+						continue;
+					}
+
+					// Check to see if we have had a more recent PUT
+					ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
+					boolean hasMoreRecentPutTransaction = ArbitraryTransactionUtils.hasMoreRecentPutTransaction(repository, arbitraryTransactionData);
+					if (hasMoreRecentPutTransaction) {
+						// There is a more recent PUT transaction than the one we are currently processing.
+						// When a PUT is issued, it replaces any layers that would have been there before.
+						// Therefore any data relating to this older transaction is no longer needed and we
+						// shouldn't fetch it from the network.
+						continue;
+					}
 
 					// Ask our connected peers if they have files for this signature
 					// This process automatically then fetches the files themselves if a peer is found
