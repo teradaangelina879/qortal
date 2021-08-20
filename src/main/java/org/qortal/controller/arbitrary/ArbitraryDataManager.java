@@ -36,6 +36,8 @@ public class ArbitraryDataManager extends Thread {
 
 	private static ArbitraryDataManager instance;
 
+	private boolean buildInProgress = false;
+
 	private volatile boolean isStopping = false;
 
 
@@ -408,6 +410,15 @@ public class ArbitraryDataManager extends Thread {
 
 		// Not in list
 		return false;
+	}
+
+
+	public void setBuildInProgress(boolean buildInProgress) {
+		this.buildInProgress = buildInProgress;
+	}
+
+	public boolean getBuildInProgress() {
+		return this.buildInProgress;
 	}
 
 

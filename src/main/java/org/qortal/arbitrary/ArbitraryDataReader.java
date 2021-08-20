@@ -129,12 +129,13 @@ public class ArbitraryDataReader {
     }
 
     private void preExecute() {
+        ArbitraryDataManager.getInstance().setBuildInProgress(true);
         this.createWorkingDirectory();
         this.createUncompressedDirectory();
     }
 
     private void postExecute() {
-
+        ArbitraryDataManager.getInstance().setBuildInProgress(false);
     }
 
     private void createWorkingDirectory() {

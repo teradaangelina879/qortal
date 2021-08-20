@@ -106,6 +106,11 @@ public class ArbitraryDataCleanupManager extends Thread {
 							continue;
 						}
 
+						// Don't interfere with the filesystem whilst a build is in progress
+						if (ArbitraryDataManager.getInstance().getBuildInProgress()) {
+							Thread.sleep(5000);
+						}
+
 						// Fetch the transaction data
 						ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
 
