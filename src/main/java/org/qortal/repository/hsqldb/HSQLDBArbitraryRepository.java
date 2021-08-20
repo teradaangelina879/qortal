@@ -16,6 +16,7 @@ import org.qortal.transaction.Transaction.ApprovalStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class HSQLDBArbitraryRepository implements ArbitraryRepository {
@@ -23,9 +24,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	private static final int MAX_RAW_DATA_SIZE = 255; // size of VARBINARY
 
 	protected HSQLDBRepository repository;
-
-	private static final Logger LOGGER = LogManager.getLogger(ArbitraryRepository.class);
-
+	
 	public HSQLDBArbitraryRepository(HSQLDBRepository repository) {
 		this.repository = repository;
 	}
@@ -130,42 +129,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return;
 		}
 
-		// Store non-trivial payloads in filesystem and convert transaction's data to hash form
-		byte[] rawData = arbitraryTransactionData.getData();
-
-		// Calculate hash of data and update our transaction to use that
-		byte[] dataHash = Crypto.digest(rawData);
-		arbitraryTransactionData.setData(dataHash);
-		arbitraryTransactionData.setDataType(DataType.DATA_HASH);
-
-		// Create ArbitraryDataFile
-		ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(rawData);
-
-		// Verify that the data file is valid, and that it matches the expected hash
-		ArbitraryDataFile.ValidationResult validationResult = arbitraryDataFile.isValid();
-		if (validationResult != ArbitraryDataFile.ValidationResult.OK) {
-			arbitraryDataFile.deleteAll();
-			throw new DataException("Invalid data file when attempting to store arbitrary transaction data");
-		}
-		if (!dataHash.equals(arbitraryDataFile.digest())) {
-			arbitraryDataFile.deleteAll();
-			throw new DataException("Could not verify hash when attempting to store arbitrary transaction data");
-		}
-
-		// Now create chunks if needed
-		int chunkCount = arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
-		if (chunkCount > 0) {
-			LOGGER.info(String.format("Successfully split into %d chunk%s:", chunkCount, (chunkCount == 1 ? "" : "s")));
-			LOGGER.info("{}", arbitraryDataFile.printChunks());
-
-			// Verify that the chunk hashes match those in the transaction
-			byte[] chunkHashes = arbitraryDataFile.chunkHashes();
-			if (!chunkHashes.equals(arbitraryTransactionData.getChunkHashes())) {
-				arbitraryDataFile.deleteAll();
-				throw new DataException("Could not verify chunk hashes when attempting to store arbitrary transaction data");
-			}
-
-		}
+		throw new IllegalStateException(String.format("Supplied data is larger than maximum size (%i bytes). Please use ArbitraryDataWriter.", MAX_RAW_DATA_SIZE));
 	}
 
 	@Override
