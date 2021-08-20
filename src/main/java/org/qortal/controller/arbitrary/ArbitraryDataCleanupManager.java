@@ -40,7 +40,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 	/*
 	TODO:
-	- Discard all files relating to transactions for a name/service combination before the most recent PUT
 	- Delete old files from _temp
 	- Delete old files not associated with transactions
 	 */
@@ -77,17 +76,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 					// Don't attempt to make decisions if we haven't synced our time yet
 					continue;
 				}
-
-				List<Peer> peers = Network.getInstance().getHandshakedPeers();
-
-				// Disregard peers that have "misbehaved" recently
-				peers.removeIf(Controller.hasMisbehaved);
-
-				// Don't fetch data if we don't have enough up-to-date peers
-				if (peers.size() < Settings.getInstance().getMinBlockchainPeers()) {
-					continue;
-				}
-
+				
 				// Any arbitrary transactions we want to fetch data for?
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, ARBITRARY_TX_TYPE, null, null, ConfirmationStatus.BOTH, limit, offset, true);
