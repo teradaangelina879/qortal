@@ -330,9 +330,8 @@ public class ArbitraryDataFile {
             Iterator iterator = this.chunks.iterator();
             while (iterator.hasNext()) {
                 ArbitraryDataFileChunk chunk = (ArbitraryDataFileChunk) iterator.next();
-                chunk.delete();
+                success = chunk.delete();
                 iterator.remove();
-                success = true;
             }
         }
         return success;
