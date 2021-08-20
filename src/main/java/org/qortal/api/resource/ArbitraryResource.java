@@ -15,6 +15,7 @@ import java.net.UnknownHostException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
@@ -53,6 +54,7 @@ import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
+import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
@@ -269,10 +271,14 @@ public class ArbitraryResource {
 			}
 			byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
 			final String creatorAddress = Crypto.toAddress(creatorPublicKey);
-			final byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
+			byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
 			if (lastReference == null) {
-				LOGGER.info(String.format("Qortal account %s has no last reference", creatorAddress));
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+				// Use a random last reference on the very first transaction for an account
+				// Code copied from CrossChainResource.buildAtMessage()
+				// We already require PoW on all arbitrary transactions, so no additional logic is needed
+				Random random = new Random();
+				lastReference = new byte[Transformer.SIGNATURE_LENGTH];
+				random.nextBytes(lastReference);
 			}
 
 			String name = null;
