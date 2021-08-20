@@ -69,11 +69,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 	public void run() {
 		Thread.currentThread().setName("Arbitrary Data Cleanup Manager");
 
-		// Use a fixed thread pool to execute the arbitrary data build actions (currently just a single thread)
-		// This can be expanded to have multiple threads processing the build queue when needed
-		ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(1);
-		arbitraryDataBuildExecutor.execute(new ArbitraryDataBuildManager());
-
 		// Paginate queries when fetching arbitrary transactions
 		final int limit = 100;
 		int offset = 0;
