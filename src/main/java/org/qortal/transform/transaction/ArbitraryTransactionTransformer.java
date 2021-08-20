@@ -73,7 +73,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout.add("data", TransformationType.DATA);
 
 		layout.add("raw data size", TransformationType.INT); // Version 5+
-		layout.add("chunk count", TransformationType.INT); // Version 5+
+		layout.add("chunk hashes length", TransformationType.INT); // Version 5+
 		layout.add("chunk hashes", TransformationType.DATA); // Version 5+
 
 		layout.add("fee", TransformationType.AMOUNT);
