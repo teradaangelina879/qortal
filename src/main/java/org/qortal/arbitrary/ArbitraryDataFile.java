@@ -349,9 +349,13 @@ public class ArbitraryDataFile {
     }
 
     protected void cleanupFilesystem() {
+        // It is essential that use a separate path reference in this method
+        // as we don't want to modify this.filePath
+        Path path = this.filePath;
+        
         // Iterate through two levels of parent directories, and delete if empty
         for (int i=0; i<2; i++) {
-            Path directory = this.filePath.getParent().toAbsolutePath();
+            Path directory = path.getParent().toAbsolutePath();
             try (Stream<Path> files = Files.list(directory)) {
                 final long count = files.count();
                 if (count == 0) {
@@ -362,7 +366,7 @@ public class ArbitraryDataFile {
             } catch (IOException e) {
                 LOGGER.warn("Unable to count files in directory", e);
             }
-            this.filePath = directory;
+            path = directory;
         }
     }
 
