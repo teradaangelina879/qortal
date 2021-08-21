@@ -161,7 +161,7 @@ public class ArbitraryDataFile {
         try {
             return Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to copy file to data directory");
+            throw new IllegalStateException(String.format("Unable to copy file %s to data directory %s", sourcePath, destPath));
         }
     }
 
