@@ -298,25 +298,6 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
 
-			arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
-			if (arbitraryDataFile == null) {
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-			}
-
-			ArbitraryDataFile.ValidationResult validationResult = arbitraryDataFile.isValid();
-			if (validationResult != ArbitraryDataFile.ValidationResult.OK) {
-				LOGGER.error("Invalid file: {}", validationResult);
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-			}
-			LOGGER.info("Whole file digest: {}", arbitraryDataFile.digest58());
-
-			int chunkCount = arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
-			if (chunkCount == 0) {
-				LOGGER.error("No chunks created");
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-			}
-			LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
-
 			String digest58 = arbitraryDataFile.digest58();
 			if (digest58 == null) {
 				LOGGER.error("Unable to calculate digest");
