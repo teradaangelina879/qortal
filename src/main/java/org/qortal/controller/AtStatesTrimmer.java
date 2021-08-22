@@ -2,6 +2,7 @@ package org.qortal.controller;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.pruning.PruneManager;
 import org.qortal.data.block.BlockData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -22,6 +23,7 @@ public class AtStatesTrimmer implements Runnable {
 
 			repository.getATRepository().prepareForAtStateTrimming();
 			repository.saveChanges();
+			PruneManager.getInstance().setBuiltLatestATStates(true);
 
 			while (!Controller.isStopping()) {
 				repository.discardChanges();

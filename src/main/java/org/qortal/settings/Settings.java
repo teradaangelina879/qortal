@@ -103,6 +103,18 @@ public class Settings {
 	/** Max number of AT states to trim in one go. */
 	private int atStatesTrimLimit = 4000; // records
 
+	/** Whether we should prune old data to reduce database size
+	 * This prevents the node from being able to serve older blocks */
+	private boolean pruningEnabled = false;
+	/** The amount of recent blocks we should keep when pruning */
+	private int pruneBlockLimit = 1440;
+
+	/** How often to attempt AT state pruning (ms). */
+	private long atStatesPruneInterval = 3219L; // milliseconds
+	/** Block height range to scan for trimmable AT states.<br>
+	 * This has a significant effect on execution time. */
+	private int atStatesPruneBatchSize = 10; // blocks
+
 	/** How often to attempt online accounts signatures trimming (ms). */
 	private long onlineSignaturesTrimInterval = 9876L; // milliseconds
 	/** Block height range to scan for trimmable online accounts signatures.<br>
@@ -519,6 +531,22 @@ public class Settings {
 
 	public int getAtStatesTrimLimit() {
 		return this.atStatesTrimLimit;
+	}
+
+	public boolean isPruningEnabled() {
+		return this.pruningEnabled;
+	}
+
+	public int getPruneBlockLimit() {
+		return this.pruneBlockLimit;
+	}
+
+	public long getAtStatesPruneInterval() {
+		return this.atStatesPruneInterval;
+	}
+
+	public int getAtStatesPruneBatchSize() {
+		return this.atStatesPruneBatchSize;
 	}
 
 	public long getOnlineSignaturesTrimInterval() {

@@ -127,6 +127,23 @@ public interface ATRepository {
 	/** Trims full AT state data between passed heights. Returns number of trimmed rows. */
 	public int trimAtStates(int minHeight, int maxHeight, int limit) throws DataException;
 
+
+	/** Returns height of first prunable AT state. */
+	public int getAtPruneHeight() throws DataException;
+
+	/** Sets new base height for AT state pruning.
+	 * <p>
+	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
+	 */
+	public void setAtPruneHeight(int pruneHeight) throws DataException;
+
+	/** Hook to allow repository to prepare/cache info for AT state pruning. */
+	public void prepareForAtStatePruning() throws DataException;
+
+	/** Prunes full AT state data between passed heights. Returns number of pruned rows. */
+	public int pruneAtStates(int minHeight, int maxHeight) throws DataException;
+
+
 	/**
 	 * Save ATStateData into repository.
 	 * <p>
