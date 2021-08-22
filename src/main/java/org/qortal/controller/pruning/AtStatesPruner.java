@@ -49,12 +49,9 @@ public class AtStatesPruner implements Runnable {
 				if (Controller.getInstance().isSynchronizing())
 					continue;
 
-				long currentPrunableTimestamp = NTP.getTime() - Settings.getInstance().getAtStatesMaxLifetime();
-				// We want to keep AT states near the tip of our copy of blockchain so we can process/orphan nearby blocks
-				long chainPrunableTimestamp = chainTip.getTimestamp() - Settings.getInstance().getAtStatesMaxLifetime();
-
-				long upperPrunableTimestamp = Math.min(currentPrunableTimestamp, chainPrunableTimestamp);
-				int upperPrunableHeight = repository.getBlockRepository().getHeightFromTimestamp(upperPrunableTimestamp);
+				// Prune AT states for all blocks up until our latest minus pruneBlockLimit
+				final int ourLatestHeight = chainTip.getHeight();
+				final int upperPrunableHeight = ourLatestHeight - Settings.getInstance().getPruneBlockLimit();
 
 				int upperBatchHeight = pruneStartHeight + Settings.getInstance().getAtStatesPruneBatchSize();
 				int upperPruneHeight = Math.min(upperBatchHeight, upperPrunableHeight);
