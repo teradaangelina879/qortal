@@ -506,28 +506,51 @@ public class BlockChain {
 	 * @throws SQLException
 	 */
 	public static void validate() throws DataException {
-		// Check first block is Genesis Block
-		if (!isGenesisBlockValid())
-			rebuildBlockchain();
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
+			BlockData chainTip = repository.getBlockRepository().getLastBlock();
+			boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
+
+			if (pruningEnabled && hasBlocks) {
+				// Pruning is enabled and we have blocks, so it's possible that the genesis block has been pruned
+				// It's best not to validate it, and there's no real need to
+			}
+			else {
+				// Check first block is Genesis Block
+				if (!isGenesisBlockValid()) {
+					rebuildBlockchain();
+				}
+			}
+
 			repository.checkConsistency();
 
-			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - 1440, 1);
+			// Set the number of blocks to validate based on the pruned state of the chain
+			// If pruned, subtract an extra 10 to allow room for error
+			int blocksToValidate = pruningEnabled ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
 
+			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - blocksToValidate, 1);
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);
 
 			if (detachedBlockData != null) {
 				LOGGER.error(String.format("Block %d's reference does not match any block's signature", detachedBlockData.getHeight()));
 
-				// Wait for blockchain lock (whereas orphan() only tries to get lock)
-				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-				blockchainLock.lock();
-				try {
-					LOGGER.info(String.format("Orphaning back to block %d", detachedBlockData.getHeight() - 1));
-					orphan(detachedBlockData.getHeight() - 1);
-				} finally {
-					blockchainLock.unlock();
+				// Orphan if we aren't a pruning node
+				if (!Settings.getInstance().isPruningEnabled()) {
+
+					// Wait for blockchain lock (whereas orphan() only tries to get lock)
+					ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+					blockchainLock.lock();
+					try {
+						LOGGER.info(String.format("Orphaning back to block %d", detachedBlockData.getHeight() - 1));
+						orphan(detachedBlockData.getHeight() - 1);
+					} finally {
+						blockchainLock.unlock();
+					}
+				}
+				else {
+					LOGGER.error(String.format("Not orphaning because we are in pruning mode. You may be on an " +
+							"invalid chain and should consider bootstrapping or re-syncing from genesis."));
 				}
 			}
 		}
