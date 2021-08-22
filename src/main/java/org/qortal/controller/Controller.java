@@ -1415,10 +1415,12 @@ public class Controller extends Thread {
 
 				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
 
-				if (PruneManager.getInstance().isBlockPruned(blockData.getHeight(), repository)) {
-					// If this request contains a pruned block, we likely only have partial data, so best not to sent anything
-					// We always prune from the oldest first, so it's fine to just check the first block requested
-					blockData = null;
+				if (blockData != null) {
+					if (PruneManager.getInstance().isBlockPruned(blockData.getHeight(), repository)) {
+						// If this request contains a pruned block, we likely only have partial data, so best not to sent anything
+						// We always prune from the oldest first, so it's fine to just check the first block requested
+						blockData = null;
+					}
 				}
 
 				while (blockData != null && blockSummaries.size() < numberRequested) {
