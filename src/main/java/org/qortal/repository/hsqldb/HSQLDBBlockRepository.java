@@ -509,6 +509,53 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		}
 	}
 
+
+	@Override
+	public int getBlockPruneHeight() throws DataException {
+		String sql = "SELECT block_prune_height FROM DatabaseInfo";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return 0;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch block prune height from repository", e);
+		}
+	}
+
+	@Override
+	public void setBlockPruneHeight(int pruneHeight) throws DataException {
+		// trimHeightsLock is to prevent concurrent update on DatabaseInfo
+		// that could result in "transaction rollback: serialization failure"
+		synchronized (this.repository.trimHeightsLock) {
+			String updateSql = "UPDATE DatabaseInfo SET block_prune_height = ?";
+
+			try {
+				this.repository.executeCheckedUpdate(updateSql, pruneHeight);
+				this.repository.saveChanges();
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to set block prune height in repository", e);
+			}
+		}
+	}
+
+	@Override
+	public int pruneBlocks(int minHeight, int maxHeight) throws DataException {
+		// Don't prune the genesis block
+		if (minHeight <= 1) {
+			minHeight = 2;
+		}
+
+		try {
+			return this.repository.delete("Blocks", "height BETWEEN ? AND ?", minHeight, maxHeight);
+		} catch (SQLException e) {
+			throw new DataException("Unable to prune blocks from repository", e);
+		}
+	}
+
+
 	@Override
 	public BlockData getDetachedBlockSignature(int startHeight) throws DataException {
 		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks "

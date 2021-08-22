@@ -106,23 +106,31 @@ public class Settings {
 	/** Max number of AT states to trim in one go. */
 	private int atStatesTrimLimit = 4000; // records
 
-	/** Whether we should prune old data to reduce database size
-	 * This prevents the node from being able to serve older blocks */
-	private boolean pruningEnabled = false;
-	/** The amount of recent blocks we should keep when pruning */
-	private int pruneBlockLimit = 1440;
-
-	/** How often to attempt AT state pruning (ms). */
-	private long atStatesPruneInterval = 3219L; // milliseconds
-	/** Block height range to scan for trimmable AT states.<br>
-	 * This has a significant effect on execution time. */
-	private int atStatesPruneBatchSize = 10; // blocks
-
 	/** How often to attempt online accounts signatures trimming (ms). */
 	private long onlineSignaturesTrimInterval = 9876L; // milliseconds
 	/** Block height range to scan for trimmable online accounts signatures.<br>
 	 * This has a significant effect on execution time. */
 	private int onlineSignaturesTrimBatchSize = 100; // blocks
+
+
+	/** Whether we should prune old data to reduce database size
+	 * This prevents the node from being able to serve older blocks */
+	private boolean pruningEnabled = false;
+	/** The amount of recent blocks we should keep when pruning */
+	private int pruneBlockLimit = 1450;
+
+	/** How often to attempt AT state pruning (ms). */
+	private long atStatesPruneInterval = 3219L; // milliseconds
+	/** Block height range to scan for prunable AT states.<br>
+	 * This has a significant effect on execution time. */
+	private int atStatesPruneBatchSize = 10; // blocks
+
+	/** How often to attempt block pruning (ms). */
+	private long blockPruneInterval = 3219L; // milliseconds
+	/** Block height range to scan for prunable blocks.<br>
+	 * This has a significant effect on execution time. */
+	private int blockPruneBatchSize = 10000; // blocks
+
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
@@ -540,6 +548,15 @@ public class Settings {
 		return this.atStatesTrimLimit;
 	}
 
+	public long getOnlineSignaturesTrimInterval() {
+		return this.onlineSignaturesTrimInterval;
+	}
+
+	public int getOnlineSignaturesTrimBatchSize() {
+		return this.onlineSignaturesTrimBatchSize;
+	}
+
+
 	public boolean isPruningEnabled() {
 		return this.pruningEnabled;
 	}
@@ -556,12 +573,12 @@ public class Settings {
 		return this.atStatesPruneBatchSize;
 	}
 
-	public long getOnlineSignaturesTrimInterval() {
-		return this.onlineSignaturesTrimInterval;
+	public long getBlockPruneInterval() {
+		return this.blockPruneInterval;
 	}
 
-	public int getOnlineSignaturesTrimBatchSize() {
-		return this.onlineSignaturesTrimBatchSize;
+	public int getBlockPruneBatchSize() {
+		return this.blockPruneBatchSize;
 	}
 
 }
