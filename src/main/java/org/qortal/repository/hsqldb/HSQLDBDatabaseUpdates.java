@@ -867,6 +867,10 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CHECKPOINT");
 					break;
 				}
+				case 35:
+					// Support for pruning
+					stmt.execute("ALTER TABLE DatabaseInfo ADD AT_prune_height INT NOT NULL DEFAULT 0");
+					break;
 
 				default:
 					// nothing to do

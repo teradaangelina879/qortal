@@ -46,6 +46,7 @@ import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.pruning.PruneManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crypto.Crypto;
@@ -358,7 +359,7 @@ public class Controller extends Thread {
 		return this.savedArgs;
 	}
 
-	/* package */ static boolean isStopping() {
+	public static boolean isStopping() {
 		return isStopping;
 	}
 
@@ -1292,6 +1293,13 @@ public class Controller extends Thread {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 
+			if (blockData != null) {
+				if (PruneManager.getInstance().isBlockPruned(blockData.getHeight(), repository)) {
+					// If this is a pruned block, we likely only have partial data, so best not to sent it
+					blockData = null;
+				}
+			}
+
 			if (blockData == null) {
 				// We don't have this block
 				this.stats.getBlockMessageStats.unknownBlocks.getAndIncrement();
@@ -1412,6 +1420,12 @@ public class Controller extends Thread {
 				int numberRequested = Math.min(Network.MAX_BLOCK_SUMMARIES_PER_REPLY, getBlockSummariesMessage.getNumberRequested());
 
 				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+
+				if (PruneManager.getInstance().isBlockPruned(blockData.getHeight(), repository)) {
+					// If this request contains a pruned block, we likely only have partial data, so best not to sent anything
+					// We always prune from the oldest first, so it's fine to just check the first block requested
+					blockData = null;
+				}
 
 				while (blockData != null && blockSummaries.size() < numberRequested) {
 					BlockSummaryData blockSummary = new BlockSummaryData(blockData);

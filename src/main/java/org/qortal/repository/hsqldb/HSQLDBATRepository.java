@@ -8,6 +8,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.data.account.AccountData;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.repository.ATRepository;
@@ -681,6 +682,90 @@ public class HSQLDBATRepository implements ATRepository {
 			throw new DataException("Unable to trim AT states in repository", e);
 		}
 	}
+
+
+	@Override
+	public int getAtPruneHeight() throws DataException {
+		String sql = "SELECT AT_prune_height FROM DatabaseInfo";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return 0;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch AT state prune height from repository", e);
+		}
+	}
+
+	@Override
+	public void setAtPruneHeight(int pruneHeight) throws DataException {
+		// trimHeightsLock is to prevent concurrent update on DatabaseInfo
+		// that could result in "transaction rollback: serialization failure"
+		synchronized (this.repository.trimHeightsLock) {
+			String updateSql = "UPDATE DatabaseInfo SET AT_prune_height = ?";
+
+			try {
+				this.repository.executeCheckedUpdate(updateSql, pruneHeight);
+				this.repository.saveChanges();
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to set AT state prune height in repository", e);
+			}
+		}
+	}
+
+	@Override
+	public void prepareForAtStatePruning() throws DataException {
+		// Use LatestATStates table that was already built by AtStatesTrimmer
+		// The AtStatesPruner class checks that this process has completed first
+	}
+
+	@Override
+	public int pruneAtStates(int minHeight, int maxHeight) throws DataException {
+		int deletedCount = 0;
+
+		for (int height=minHeight; height<maxHeight; height++) {
+
+			// Get latest AT states for this height
+			List<String> atAddresses = new ArrayList<>();
+			String updateSql = "SELECT AT_address FROM LatestATStates WHERE height = ?";
+			try (ResultSet resultSet = this.repository.checkedExecute(updateSql, height)) {
+				if (resultSet != null) {
+					do {
+						String atAddress = resultSet.getString(1);
+						atAddresses.add(atAddress);
+
+					} while (resultSet.next());
+				}
+			} catch (SQLException e) {
+				throw new DataException("Unable to fetch flagged accounts from repository", e);
+			}
+
+			List<ATStateData> atStates = this.getBlockATStatesAtHeight(height);
+			for (ATStateData atState : atStates) {
+				//LOGGER.info("Found atState {} at height {}", atState.getATAddress(), atState.getHeight());
+
+				if (atAddresses.contains(atState.getATAddress())) {
+					// We don't want to delete this AT state because it is still active
+					LOGGER.info("Skipping atState {} at height {}", atState.getATAddress(), atState.getHeight());
+					continue;
+				}
+
+				// Safe to delete everything else for this height
+				try {
+					this.repository.delete("ATStates", "AT_address = ? AND height = ?",
+							atState.getATAddress(), atState.getHeight());
+					deletedCount++;
+				} catch (SQLException e) {
+					throw new DataException("Unable to delete AT state data from repository", e);
+				}
+			}
+		}
+
+		return deletedCount;
+	}
+
 
 	@Override
 	public void save(ATStateData atStateData) throws DataException {
