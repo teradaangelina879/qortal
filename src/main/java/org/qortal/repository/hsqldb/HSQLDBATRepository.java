@@ -727,6 +727,11 @@ public class HSQLDBATRepository implements ATRepository {
 
 		for (int height=minHeight; height<maxHeight; height++) {
 
+			// Give up if we're stopping
+			if (Controller.isStopping()) {
+				return deletedCount;
+			}
+
 			// Get latest AT states for this height
 			List<String> atAddresses = new ArrayList<>();
 			String updateSql = "SELECT AT_address FROM LatestATStates WHERE height = ?";
@@ -745,6 +750,11 @@ public class HSQLDBATRepository implements ATRepository {
 			List<ATStateData> atStates = this.getBlockATStatesAtHeight(height);
 			for (ATStateData atState : atStates) {
 				//LOGGER.info("Found atState {} at height {}", atState.getATAddress(), atState.getHeight());
+
+				// Give up if we're stopping
+				if (Controller.isStopping()) {
+					return deletedCount;
+				}
 
 				if (atAddresses.contains(atState.getATAddress())) {
 					// We don't want to delete this AT state because it is still active
