@@ -23,6 +23,7 @@ public class PruneManager {
         // Start individual pruning processes
         ExecutorService pruneExecutor = Executors.newCachedThreadPool(new DaemonThreadFactory());
         pruneExecutor.execute(new AtStatesPruner());
+        pruneExecutor.execute(new BlockPruner());
     }
 
     public static synchronized PruneManager getInstance() {

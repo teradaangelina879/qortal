@@ -166,6 +166,20 @@ public interface BlockRepository {
 	 */
 	public BlockData getDetachedBlockSignature(int startHeight) throws DataException;
 
+
+	/** Returns height of first prunable block. */
+	public int getBlockPruneHeight() throws DataException;
+
+	/** Sets new base height for block pruning.
+	 * <p>
+	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
+	 */
+	public void setBlockPruneHeight(int pruneHeight) throws DataException;
+
+	/** Prunes full block data between passed heights. Returns number of pruned rows. */
+	public int pruneBlocks(int minHeight, int maxHeight) throws DataException;
+
+
 	/**
 	 * Saves block into repository.
 	 * 
