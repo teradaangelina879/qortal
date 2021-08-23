@@ -1,8 +1,14 @@
 package org.qortal.repository;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.qortal.repository.hsqldb.HSQLDBDatabasePruning;
+import org.qortal.settings.Settings;
+
 import java.sql.SQLException;
 
 public abstract class RepositoryManager {
+	private static final Logger LOGGER = LogManager.getLogger(RepositoryManager.class);
 
 	private static RepositoryFactory repositoryFactory = null;
 
@@ -48,6 +54,24 @@ public abstract class RepositoryManager {
 			repository.backup(quick);
 		} catch (DataException e) {
 			// Backup is best-effort so don't complain
+		}
+	}
+
+	public static void prune() {
+		// Bulk prune the database the first time we use pruning mode
+		if (Settings.getInstance().isPruningEnabled()) {
+			try {
+				boolean prunedATStates = HSQLDBDatabasePruning.pruneATStates();
+				boolean prunedBlocks = HSQLDBDatabasePruning.pruneBlocks();
+
+				// Perform repository maintenance to shrink the db size down
+				if (prunedATStates && prunedBlocks) {
+					HSQLDBDatabasePruning.performMaintenance();
+				}
+
+			} catch (SQLException | DataException e) {
+				LOGGER.info("Unable to bulk prune AT states. The database may have been left in an inconsistent state.");
+			}
 		}
 	}
 

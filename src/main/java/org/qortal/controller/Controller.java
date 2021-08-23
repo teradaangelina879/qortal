@@ -416,6 +416,7 @@ public class Controller extends Thread {
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
+			RepositoryManager.prune();
 		} catch (DataException e) {
 			// If exception has no cause then repository is in use by some other process.
 			if (e.getCause() == null) {
