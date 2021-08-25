@@ -120,7 +120,7 @@ public class Settings {
 	private long atStatesPruneInterval = 3219L; // milliseconds
 	/** Block height range to scan for prunable AT states.<br>
 	 * This has a significant effect on execution time. */
-	private int atStatesPruneBatchSize = 10; // blocks
+	private int atStatesPruneBatchSize = 25; // blocks
 
 	/** How often to attempt block pruning (ms). */
 	private long blockPruneInterval = 3219L; // milliseconds
