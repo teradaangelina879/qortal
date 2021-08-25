@@ -24,7 +24,6 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
@@ -97,7 +96,6 @@ import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.utils.Base58;
 import org.qortal.utils.ByteArray;
-import org.qortal.utils.DaemonThreadFactory;
 import org.qortal.utils.NTP;
 import org.qortal.utils.Triple;
 

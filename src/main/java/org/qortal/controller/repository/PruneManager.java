@@ -1,9 +1,7 @@
-package org.qortal.controller.pruning;
+package org.qortal.controller.repository;
 
-import org.qortal.controller.AtStatesTrimmer;
 import org.qortal.controller.Controller;
 
-import org.qortal.controller.OnlineAccountsSignaturesTrimmer;
 import org.qortal.data.block.BlockData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
