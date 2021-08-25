@@ -75,7 +75,7 @@ public class AtRepositoryTests extends Common {
 			Integer testHeight = maxHeight - 2;
 
 			// Trim AT state data
-			repository.getATRepository().prepareForAtStateTrimming();
+			repository.getATRepository().rebuildLatestAtStates();
 			repository.getATRepository().trimAtStates(2, maxHeight, 1000);
 
 			ATStateData atStateData = repository.getATRepository().getATStateAtHeight(atAddress, testHeight);
@@ -129,7 +129,7 @@ public class AtRepositoryTests extends Common {
 			Integer testHeight = blockchainHeight;
 
 			// Trim AT state data
-			repository.getATRepository().prepareForAtStateTrimming();
+			repository.getATRepository().rebuildLatestAtStates();
 			// COMMIT to check latest AT states persist / TEMPORARY table interaction
 			repository.saveChanges();
 
@@ -280,7 +280,7 @@ public class AtRepositoryTests extends Common {
 			Integer testHeight = maxHeight - 2;
 
 			// Trim AT state data
-			repository.getATRepository().prepareForAtStateTrimming();
+			repository.getATRepository().rebuildLatestAtStates();
 			repository.getATRepository().trimAtStates(2, maxHeight, 1000);
 
 			List<ATStateData> atStates = repository.getATRepository().getBlockATStatesAtHeight(testHeight);
