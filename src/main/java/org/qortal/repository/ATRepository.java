@@ -112,6 +112,11 @@ public interface ATRepository {
 	 */
 	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException;
 
+
+	/** Rebuild the latest AT states cache, necessary for AT state trimming/pruning. */
+	public void rebuildLatestAtStates() throws DataException;
+
+
 	/** Returns height of first trimmable AT state. */
 	public int getAtTrimHeight() throws DataException;
 
@@ -120,9 +125,6 @@ public interface ATRepository {
 	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
 	 */
 	public void setAtTrimHeight(int trimHeight) throws DataException;
-
-	/** Hook to allow repository to prepare/cache info for AT state trimming. */
-	public void prepareForAtStateTrimming() throws DataException;
 
 	/** Trims full AT state data between passed heights. Returns number of trimmed rows. */
 	public int trimAtStates(int minHeight, int maxHeight, int limit) throws DataException;
@@ -136,9 +138,6 @@ public interface ATRepository {
 	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
 	 */
 	public void setAtPruneHeight(int pruneHeight) throws DataException;
-
-	/** Hook to allow repository to prepare/cache info for AT state pruning. */
-	public void prepareForAtStatePruning() throws DataException;
 
 	/** Prunes full AT state data between passed heights. Returns number of pruned rows. */
 	public int pruneAtStates(int minHeight, int maxHeight) throws DataException;

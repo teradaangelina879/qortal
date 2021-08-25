@@ -8,7 +8,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.data.account.AccountData;
+import org.qortal.controller.Controller;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.repository.ATRepository;
@@ -601,6 +601,35 @@ public class HSQLDBATRepository implements ATRepository {
 		return atStates;
 	}
 
+
+	@Override
+	public void rebuildLatestAtStates() throws DataException {
+		// Rebuild cache of latest AT states that we can't trim
+		String deleteSql = "DELETE FROM LatestATStates";
+		try {
+			this.repository.executeCheckedUpdate(deleteSql);
+		} catch (SQLException e) {
+			repository.examineException(e);
+			throw new DataException("Unable to delete temporary latest AT states cache from repository", e);
+		}
+
+		String insertSql = "INSERT INTO LatestATStates ("
+				+ "SELECT AT_address, height FROM ATs "
+				+ "CROSS JOIN LATERAL("
+				+ "SELECT height FROM ATStates "
+				+ "WHERE ATStates.AT_address = ATs.AT_address "
+				+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
+				+ ") "
+				+ ")";
+		try {
+			this.repository.executeCheckedUpdate(insertSql);
+		} catch (SQLException e) {
+			repository.examineException(e);
+			throw new DataException("Unable to populate temporary latest AT states cache in repository", e);
+		}
+	}
+
+
 	@Override
 	public int getAtTrimHeight() throws DataException {
 		String sql = "SELECT AT_trim_height FROM DatabaseInfo";
@@ -629,33 +658,6 @@ public class HSQLDBATRepository implements ATRepository {
 				repository.examineException(e);
 				throw new DataException("Unable to set AT state trim height in repository", e);
 			}
-		}
-	}
-
-	@Override
-	public void prepareForAtStateTrimming() throws DataException {
-		// Rebuild cache of latest AT states that we can't trim
-		String deleteSql = "DELETE FROM LatestATStates";
-		try {
-			this.repository.executeCheckedUpdate(deleteSql);
-		} catch (SQLException e) {
-			repository.examineException(e);
-			throw new DataException("Unable to delete temporary latest AT states cache from repository", e);
-		}
-
-		String insertSql = "INSERT INTO LatestATStates ("
-				+ "SELECT AT_address, height FROM ATs "
-				+ "CROSS JOIN LATERAL("
-					+ "SELECT height FROM ATStates "
-					+ "WHERE ATStates.AT_address = ATs.AT_address "
-					+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
-				+ ") "
-			+ ")";
-		try {
-			this.repository.executeCheckedUpdate(insertSql);
-		} catch (SQLException e) {
-			repository.examineException(e);
-			throw new DataException("Unable to populate temporary latest AT states cache in repository", e);
 		}
 	}
 
@@ -713,12 +715,6 @@ public class HSQLDBATRepository implements ATRepository {
 				throw new DataException("Unable to set AT state prune height in repository", e);
 			}
 		}
-	}
-
-	@Override
-	public void prepareForAtStatePruning() throws DataException {
-		// Use LatestATStates table that was already built by AtStatesTrimmer
-		// The AtStatesPruner class checks that this process has completed first
 	}
 
 	@Override

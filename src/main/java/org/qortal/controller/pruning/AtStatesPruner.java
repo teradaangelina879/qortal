@@ -25,21 +25,13 @@ public class AtStatesPruner implements Runnable {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int pruneStartHeight = repository.getATRepository().getAtPruneHeight();
 
-			// repository.getATRepository().prepareForAtStatePruning();
-			// repository.saveChanges();
+			repository.getATRepository().rebuildLatestAtStates();
+			repository.saveChanges();
 
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 
 				Thread.sleep(Settings.getInstance().getAtStatesPruneInterval());
-
-				if (PruneManager.getInstance().getBuiltLatestATStates() == false) {
-					// Wait for latest AT states table to be built first
-					// This has a dependency on the AtStatesTrimmer running,
-					// which should be okay, given that it isn't something
-					// is disabled in normal operation.
-					continue;
-				}
 
 				BlockData chainTip = Controller.getInstance().getChainTip();
 				if (chainTip == null || NTP.getTime() == null)
@@ -63,8 +55,11 @@ public class AtStatesPruner implements Runnable {
 
 				int numAtStatesPruned = repository.getATRepository().pruneAtStates(pruneStartHeight, upperPruneHeight);
 				repository.saveChanges();
+				int numAtStateDataRowsTrimmed = repository.getATRepository().trimAtStates(
+						pruneStartHeight, upperPruneHeight, Settings.getInstance().getAtStatesTrimLimit());
+				repository.saveChanges();
 
-				if (numAtStatesPruned > 0) {
+				if (numAtStatesPruned > 0 || numAtStateDataRowsTrimmed > 0) {
 					final int finalPruneStartHeight = pruneStartHeight;
 					LOGGER.debug(() -> String.format("Pruned %d AT state%s between blocks %d and %d",
 							numAtStatesPruned, (numAtStatesPruned != 1 ? "s" : ""),
@@ -74,11 +69,16 @@ public class AtStatesPruner implements Runnable {
 					if (upperPrunableHeight > upperBatchHeight) {
 						pruneStartHeight = upperBatchHeight;
 						repository.getATRepository().setAtPruneHeight(pruneStartHeight);
-						repository.getATRepository().prepareForAtStatePruning();
+						repository.getATRepository().rebuildLatestAtStates();
 						repository.saveChanges();
 
 						final int finalPruneStartHeight = pruneStartHeight;
 						LOGGER.debug(() -> String.format("Bumping AT state base prune height to %d", finalPruneStartHeight));
+					}
+					else {
+						// We've pruned up to the upper prunable height
+						// Back off for a while to save CPU for syncing
+						Thread.sleep(5*60*1000L);
 					}
 				}
 			}
