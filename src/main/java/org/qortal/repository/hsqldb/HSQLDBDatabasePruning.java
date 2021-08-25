@@ -2,6 +2,7 @@ package org.qortal.repository.hsqldb;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
 import org.qortal.data.block.BlockData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.RepositoryManager;
@@ -146,6 +147,70 @@ public class HSQLDBDatabasePruning {
 
             repository.executeCheckedUpdate("CHECKPOINT");
 
+            // Now prune/trim the ATStatesData, as this currently goes back over a month
+            return HSQLDBDatabasePruning.pruneATStateData();
+        }
+    }
+
+    /*
+     * Bulk prune ATStatesData to catch up with the now pruned ATStates table
+     * This uses the existing AT States trimming code but with a much higher end block
+     */
+    private static boolean pruneATStateData() throws SQLException, DataException {
+        try (final HSQLDBRepository repository = (HSQLDBRepository) RepositoryManager.getRepository()) {
+
+            BlockData latestBlock = repository.getBlockRepository().getLastBlock();
+            if (latestBlock == null) {
+                LOGGER.info("Unable to determine blockchain height, necessary for bulk ATStatesData pruning");
+                return false;
+            }
+            final int blockchainHeight = latestBlock.getHeight();
+            final int upperPrunableHeight = blockchainHeight - Settings.getInstance().getPruneBlockLimit();
+            // ATStateData is already trimmed - so carry on from where we left off in the past
+            int pruneStartHeight = repository.getATRepository().getAtTrimHeight();
+
+            LOGGER.info("Starting bulk prune of AT states data - this process could take a while... (approx. 3 mins on high spec)");
+
+            while (pruneStartHeight < upperPrunableHeight) {
+                // Prune all AT state data up until our latest minus pruneBlockLimit
+
+                if (Controller.isStopping()) {
+                    return false;
+                }
+
+                // Override batch size in the settings because this is a one-off process
+                final int batchSize = 1000;
+                final int rowLimitPerBatch = 50000;
+                int upperBatchHeight = pruneStartHeight + batchSize;
+                int upperPruneHeight = Math.min(upperBatchHeight, upperPrunableHeight);
+
+                LOGGER.trace(String.format("Pruning AT states data between %d and %d...", pruneStartHeight, upperPruneHeight));
+
+                int numATStatesPruned = repository.getATRepository().trimAtStates(pruneStartHeight, upperPruneHeight, rowLimitPerBatch);
+                repository.saveChanges();
+
+                if (numATStatesPruned > 0) {
+                    final int finalPruneStartHeight = pruneStartHeight;
+                    LOGGER.trace(() -> String.format("Pruned %d AT states data rows between blocks %d and %d",
+                            numATStatesPruned, finalPruneStartHeight, upperPruneHeight));
+                } else {
+                    // Can we move onto next batch?
+                    if (upperPrunableHeight > upperBatchHeight) {
+                        pruneStartHeight = upperBatchHeight;
+                        repository.getATRepository().setAtTrimHeight(pruneStartHeight);
+                        // No need to rebuild the latest AT states as we aren't currently synchronizing
+                        repository.saveChanges();
+
+                        final int finalPruneStartHeight = pruneStartHeight;
+                        LOGGER.debug(() -> String.format("Bumping AT states trim height to %d", finalPruneStartHeight));
+                    }
+                    else {
+                        // We've finished pruning
+                        break;
+                    }
+                }
+            }
+
             return true;
         }
     }
@@ -169,7 +234,7 @@ public class HSQLDBDatabasePruning {
             final int upperPrunableHeight = blockchainHeight - Settings.getInstance().getPruneBlockLimit();
             int pruneStartHeight = 0;
 
-            LOGGER.info("Starting bulk prune of blocks - this process could take a while... (approx. 10 mins on high spec)");
+            LOGGER.info("Starting bulk prune of blocks - this process could take a while... (approx. 5 mins on high spec)");
 
             while (pruneStartHeight < upperPrunableHeight) {
                 // Prune all blocks up until our latest minus pruneBlockLimit
