@@ -512,9 +512,8 @@ public class Controller extends Thread {
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
 		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
 
-		ExecutorService trimExecutor = Executors.newCachedThreadPool(new DaemonThreadFactory());
-		trimExecutor.execute(new AtStatesTrimmer());
-		trimExecutor.execute(new OnlineAccountsSignaturesTrimmer());
+		// Start executor service for trimming or pruning
+		PruneManager.getInstance().start();
 
 		try {
 			while (!isStopping) {
@@ -599,13 +598,7 @@ public class Controller extends Thread {
 			Thread.interrupted();
 			// Fall-through to exit
 		} finally {
-			trimExecutor.shutdownNow();
-
-			try {
-				trimExecutor.awaitTermination(2L, TimeUnit.SECONDS);
-			} catch (InterruptedException e) {
-				// We tried...
-			}
+			PruneManager.getInstance().stop();
 		}
 	}
 
