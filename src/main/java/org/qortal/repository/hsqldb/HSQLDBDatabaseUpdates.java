@@ -837,6 +837,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("SET TABLE ATStatesNew NEW SPACE");
 					stmt.execute("CHECKPOINT");
 
+					// Add the height index
+					LOGGER.info("Adding index to AT states table...");
+					stmt.execute("CREATE INDEX ATStatesNewHeightIndex ON ATStatesNew (height)");
+					stmt.execute("CHECKPOINT");
+
 					ResultSet resultSet = stmt.executeQuery("SELECT height FROM Blocks ORDER BY height DESC LIMIT 1");
 					final int blockchainHeight = resultSet.next() ? resultSet.getInt(1) : 0;
 					final int heightStep = 100;
@@ -858,6 +863,7 @@ public class HSQLDBDatabaseUpdates {
 
 					stmt.execute("DROP TABLE ATStates");
 					stmt.execute("ALTER TABLE ATStatesNew RENAME TO ATStates");
+					stmt.execute("ALTER INDEX ATStatesNewHeightIndex RENAME TO ATStatesHeightIndex");
 					stmt.execute("CHECKPOINT");
 					break;
 				}
