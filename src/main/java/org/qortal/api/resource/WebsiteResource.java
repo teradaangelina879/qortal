@@ -66,9 +66,10 @@ public class WebsiteResource {
     @Context ServletContext context;
 
     @POST
-    @Path("/upload/creator/{publickey}")
+    @Path("/upload/{method}/{publickey}/{name}")
     @Operation(
             summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path to a static website",
+            description = "Method should be PUT to create a new base layer, or PATCH to add a delta layer. This will soon be automatic. Name is not currently validated against the main chain for ownership by the public key, but it will be before launch. The request body should contain a local path to the static site, and it is essential that this folder contains an index.html or index.htm (this will be validated later).",
             requestBody = @RequestBody(
                     required = true,
                     content = @Content(
@@ -90,7 +91,7 @@ public class WebsiteResource {
                     )
             }
     )
-    public String uploadWebsite(@PathParam("publickey") String creatorPublicKeyBase58, String path) {
+    public String uploadWebsite(@PathParam("method") String methodString, @PathParam("publickey") String publicKey58, @PathParam("name") String name, String path) {
         Security.checkApiCallAllowed(request);
 
         // It's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -101,10 +102,10 @@ public class WebsiteResource {
         ArbitraryDataFile arbitraryDataFile = null;
         try (final Repository repository = RepositoryManager.getRepository()) {
 
-            if (creatorPublicKeyBase58 == null || path == null) {
+            if (publicKey58 == null || path == null) {
                 throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
             }
-            byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
+            byte[] creatorPublicKey = Base58.decode(publicKey58);
             final String creatorAddress = Crypto.toAddress(creatorPublicKey);
             byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
             if (lastReference == null) {
@@ -116,8 +117,7 @@ public class WebsiteResource {
                 random.nextBytes(lastReference);
             }
 
-            String name = "CalDescentTest1"; // TODO: dynamic
-            ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT; // TODO: dynamic
+            ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.valueOf(methodString);
             ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.WEBSITE;
             ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
 
