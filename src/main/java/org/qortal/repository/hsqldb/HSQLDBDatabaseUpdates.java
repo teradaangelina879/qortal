@@ -873,6 +873,25 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE DatabaseInfo ADD block_prune_height INT NOT NULL DEFAULT 0");
 					break;
 
+				case 36:
+					// Block archive support
+					stmt.execute("ALTER TABLE DatabaseInfo ADD block_archive_height INT NOT NULL DEFAULT 0");
+
+					// Block archive (lookup table to map signature to height)
+					// Actual data is stored in archive files outside of the database
+					stmt.execute("CREATE TABLE BlockArchive (signature BlockSignature, height INTEGER NOT NULL, "
+							+ "minted_when EpochMillis NOT NULL, minter QortalPublicKey NOT NULL, "
+							+ "PRIMARY KEY (signature))");
+					// For finding blocks by height.
+					stmt.execute("CREATE INDEX BlockArchiveHeightIndex ON BlockArchive (height)");
+					// For finding blocks by the account that minted them.
+					stmt.execute("CREATE INDEX BlockArchiveMinterIndex ON BlockArchive (minter)");
+					// For finding blocks by timestamp or finding height of latest block immediately before timestamp, etc.
+					stmt.execute("CREATE INDEX BlockArchiveTimestampHeightIndex ON BlockArchive (minted_when, height)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE BlockArchive NEW SPACE");
+					break;
+
 				default:
 					// nothing to do
 					return false;

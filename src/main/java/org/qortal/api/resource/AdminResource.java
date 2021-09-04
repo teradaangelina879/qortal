@@ -35,6 +35,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
 import org.qortal.account.Account;
@@ -66,6 +67,8 @@ import com.google.common.collect.Lists;
 @Path("/admin")
 @Tag(name = "Admin")
 public class AdminResource {
+
+	private static final Logger LOGGER = LogManager.getLogger(AdminResource.class);
 
 	private static final int MAX_LOG_LINES = 500;
 
@@ -458,6 +461,23 @@ public class AdminResource {
 
 			if (targetHeight <= 0 || targetHeight > Controller.getInstance().getChainHeight())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
+
+			// Make sure we're not orphaning as far back as the archived blocks
+			// FUTURE: we could support this by first importing earlier blocks from the archive
+			if (Settings.getInstance().isPruningEnabled() ||
+				Settings.getInstance().isArchiveEnabled()) {
+
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					// Find the first unarchived block
+					int oldestBlock = repository.getBlockArchiveRepository().getBlockArchiveHeight();
+					// Add some extra blocks just in case we're currently archiving/pruning
+					oldestBlock += 100;
+					if (targetHeight <= oldestBlock) {
+						LOGGER.info("Unable to orphan beyond block {} because it is archived", oldestBlock);
+						throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
+					}
+				}
+			}
 
 			if (BlockChain.orphan(targetHeight))
 				return "true";

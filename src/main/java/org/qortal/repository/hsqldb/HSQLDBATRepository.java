@@ -608,6 +608,7 @@ public class HSQLDBATRepository implements ATRepository {
 		// that could result in one process using a partial or empty dataset
 		// because it was in the process of being rebuilt by another thread
 		synchronized (this.repository.latestATStatesLock) {
+			LOGGER.trace("Rebuilding latest AT states...");
 
 			// Rebuild cache of latest AT states that we can't trim
 			String deleteSql = "DELETE FROM LatestATStates";
@@ -632,6 +633,8 @@ public class HSQLDBATRepository implements ATRepository {
 				repository.examineException(e);
 				throw new DataException("Unable to populate temporary latest AT states cache in repository", e);
 			}
+			this.repository.saveChanges();
+			LOGGER.trace("Rebuilt latest AT states");
 		}
 	}
 
@@ -661,7 +664,7 @@ public class HSQLDBATRepository implements ATRepository {
 				this.repository.executeCheckedUpdate(updateSql, trimHeight);
 				this.repository.saveChanges();
 			} catch (SQLException e) {
-				repository.examineException(e);
+				this.repository.examineException(e);
 				throw new DataException("Unable to set AT state trim height in repository", e);
 			}
 		}
@@ -689,7 +692,10 @@ public class HSQLDBATRepository implements ATRepository {
 					+ "LIMIT ?";
 
 			try {
-				return this.repository.executeCheckedUpdate(sql, minHeight, maxHeight, limit);
+				int modifiedRows = this.repository.executeCheckedUpdate(sql, minHeight, maxHeight, limit);
+				this.repository.saveChanges();
+				return modifiedRows;
+
 			} catch (SQLException e) {
 				repository.examineException(e);
 				throw new DataException("Unable to trim AT states in repository", e);
@@ -757,7 +763,7 @@ public class HSQLDBATRepository implements ATRepository {
 						} while (resultSet.next());
 					}
 				} catch (SQLException e) {
-					throw new DataException("Unable to fetch flagged accounts from repository", e);
+					throw new DataException("Unable to fetch latest AT states from repository", e);
 				}
 
 				List<ATStateData> atStates = this.getBlockATStatesAtHeight(height);
@@ -785,6 +791,7 @@ public class HSQLDBATRepository implements ATRepository {
 					}
 				}
 			}
+			this.repository.saveChanges();
 
 			return deletedCount;
 		}

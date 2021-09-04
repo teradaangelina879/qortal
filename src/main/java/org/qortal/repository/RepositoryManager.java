@@ -2,6 +2,7 @@ package org.qortal.repository;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.repository.hsqldb.HSQLDBDatabaseArchiving;
 import org.qortal.repository.hsqldb.HSQLDBDatabasePruning;
 import org.qortal.settings.Settings;
 
@@ -57,9 +58,23 @@ public abstract class RepositoryManager {
 		}
 	}
 
-	public static void prune() {
+	public static boolean archive() {
+		// Bulk archive the database the first time we use archive mode
+		if (Settings.getInstance().isArchiveEnabled()) {
+			try {
+				return HSQLDBDatabaseArchiving.buildBlockArchive();
+
+			} catch (DataException e) {
+				LOGGER.info("Unable to bulk prune AT states. The database may have been left in an inconsistent state.");
+			}
+		}
+		return false;
+	}
+
+	public static boolean prune() {
 		// Bulk prune the database the first time we use pruning mode
-		if (Settings.getInstance().isPruningEnabled()) {
+		if (Settings.getInstance().isPruningEnabled() ||
+			Settings.getInstance().isArchiveEnabled()) {
 			try {
 				boolean prunedATStates = HSQLDBDatabasePruning.pruneATStates();
 				boolean prunedBlocks = HSQLDBDatabasePruning.pruneBlocks();
@@ -67,12 +82,14 @@ public abstract class RepositoryManager {
 				// Perform repository maintenance to shrink the db size down
 				if (prunedATStates && prunedBlocks) {
 					HSQLDBDatabasePruning.performMaintenance();
+					return true;
 				}
 
 			} catch (SQLException | DataException e) {
 				LOGGER.info("Unable to bulk prune AT states. The database may have been left in an inconsistent state.");
 			}
 		}
+		return false;
 	}
 
 	public static void setRequestedCheckpoint(Boolean quick) {

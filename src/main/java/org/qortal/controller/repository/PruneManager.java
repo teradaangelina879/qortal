@@ -35,27 +35,68 @@ public class PruneManager {
     public void start() {
         this.executorService = Executors.newCachedThreadPool(new DaemonThreadFactory());
 
-        // Don't allow both the pruner and the trimmer to run at the same time.
-        // In pruning mode, we are already deleting far more than we would when trimming.
-        // In non-pruning mode, we still need to trim to keep the non-essential data
-        // out of the database. There isn't a case where both are needed at once.
-        // If we ever do need to enable both at once, be very careful with the AT state
-        // trimming, since both currently rely on having exclusive access to the
-        // prepareForAtStateTrimming() method. For both trimming and pruning to take place
-        // at once, we would need to synchronize this method in a way that both can't
-        // call it at the same time, as otherwise active ATs would be pruned/trimmed when
-        // they should have been kept.
-
-        if (Settings.getInstance().isPruningEnabled()) {
-            // Pruning enabled - start the pruning processes
-            this.executorService.execute(new AtStatesPruner());
-            this.executorService.execute(new BlockPruner());
+        if (Settings.getInstance().isPruningEnabled() &&
+            !Settings.getInstance().isArchiveEnabled()) {
+            // Top-only-sync
+            this.startTopOnlySyncMode();
+        }
+        else if (Settings.getInstance().isArchiveEnabled()) {
+            // Full node with block archive
+            this.startFullNodeWithBlockArchive();
         }
         else {
-            // Pruning disabled - use trimming instead
-            this.executorService.execute(new AtStatesTrimmer());
-            this.executorService.execute(new OnlineAccountsSignaturesTrimmer());
+            // Full node with full SQL support
+            this.startFullSQLNode();
         }
+    }
+
+    /**
+     * Top-only-sync
+     * In this mode, we delete (prune) all blocks except
+     * a small number of recent ones. There is no need for
+     * trimming or archiving, because all relevant blocks
+     * are deleted.
+     */
+    private void startTopOnlySyncMode() {
+        this.startPruning();
+    }
+
+    /**
+     * Full node with block archive
+     * In this mode we archive trimmed blocks, and then
+     * prune archived blocks to keep the database small
+     */
+    private void startFullNodeWithBlockArchive() {
+        this.startTrimming();
+        this.startArchiving();
+        this.startPruning();
+    }
+
+    /**
+     * Full node with full SQL support
+     * In this mode we trim the database but don't prune
+     * or archive any data, because we want to maintain
+     * full SQL support of old blocks. This mode will not
+     * be actively maintained but can be used by those who
+     * need to perform SQL analysis on older blocks.
+     */
+    private void startFullSQLNode() {
+        this.startTrimming();
+    }
+
+
+    private void startPruning() {
+        this.executorService.execute(new AtStatesPruner());
+        this.executorService.execute(new BlockPruner());
+    }
+
+    private void startTrimming() {
+        this.executorService.execute(new AtStatesTrimmer());
+        this.executorService.execute(new OnlineAccountsSignaturesTrimmer());
+    }
+
+    private void startArchiving() {
+        this.executorService.execute(new BlockArchiver());
     }
 
     public void stop() {

@@ -31,22 +31,7 @@ import org.qortal.crypto.Crypto;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.globalization.Translator;
 import org.qortal.gui.SysTray;
-import org.qortal.repository.ATRepository;
-import org.qortal.repository.AccountRepository;
-import org.qortal.repository.ArbitraryRepository;
-import org.qortal.repository.AssetRepository;
-import org.qortal.repository.BlockRepository;
-import org.qortal.repository.ChatRepository;
-import org.qortal.repository.CrossChainRepository;
-import org.qortal.repository.DataException;
-import org.qortal.repository.GroupRepository;
-import org.qortal.repository.MessageRepository;
-import org.qortal.repository.NameRepository;
-import org.qortal.repository.NetworkRepository;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
-import org.qortal.repository.TransactionRepository;
-import org.qortal.repository.VotingRepository;
+import org.qortal.repository.*;
 import org.qortal.repository.hsqldb.transaction.HSQLDBTransactionRepository;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
@@ -76,6 +61,7 @@ public class HSQLDBRepository implements Repository {
 	private final ArbitraryRepository arbitraryRepository = new HSQLDBArbitraryRepository(this);
 	private final AssetRepository assetRepository = new HSQLDBAssetRepository(this);
 	private final BlockRepository blockRepository = new HSQLDBBlockRepository(this);
+	private final BlockArchiveRepository blockArchiveRepository = new HSQLDBBlockArchiveRepository(this);
 	private final ChatRepository chatRepository = new HSQLDBChatRepository(this);
 	private final CrossChainRepository crossChainRepository = new HSQLDBCrossChainRepository(this);
 	private final GroupRepository groupRepository = new HSQLDBGroupRepository(this);
@@ -141,6 +127,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public BlockRepository getBlockRepository() {
 		return this.blockRepository;
+	}
+
+	@Override
+	public BlockArchiveRepository getBlockArchiveRepository() {
+		return this.blockArchiveRepository;
 	}
 
 	@Override

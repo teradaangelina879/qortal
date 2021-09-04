@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -33,11 +35,13 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.model.BlockMintingInfo;
 import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.block.Block;
+import org.qortal.controller.Controller;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.repository.BlockArchiveReader;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -81,11 +85,19 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+		    // Check the database first
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
-			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			if (blockData != null) {
+				return blockData;
+			}
 
-			return blockData;
+            // Not found, so try the block archive
+			blockData = repository.getBlockArchiveRepository().fromSignature(signature);
+			if (blockData != null) {
+				return blockData;
+			}
+
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -116,16 +128,24 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+
+            // Check the database first
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
-			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			if (blockData != null) {
+                Block block = new Block(repository, blockData);
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                bytes.write(Ints.toByteArray(block.getBlockData().getHeight()));
+                bytes.write(BlockTransformer.toBytes(block));
+                return Base58.encode(bytes.toByteArray());
+            }
 
-			Block block = new Block(repository, blockData);
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-			bytes.write(Ints.toByteArray(block.getBlockData().getHeight()));
-			bytes.write(BlockTransformer.toBytes(block));
-			return Base58.encode(bytes.toByteArray());
+            // Not found, so try the block archive
+            byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, repository);
+            if (bytes != null) {
+                return Base58.encode(bytes);
+            }
 
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		} catch (DataException | IOException e) {
@@ -170,8 +190,12 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			if (repository.getBlockRepository().getHeightFromSignature(signature) == 0)
+		    // Check if the block exists in either the database or archive
+			if (repository.getBlockRepository().getHeightFromSignature(signature) == 0 &&
+					repository.getBlockArchiveRepository().getHeightFromSignature(signature) == 0) {
+				// Not found in either the database or archive
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+            }
 
 			return repository.getBlockRepository().getTransactionsFromSignature(signature, limit, offset, reverse);
 		} catch (DataException e) {
@@ -200,7 +224,19 @@ public class BlocksResource {
 	})
 	public BlockData getFirstBlock() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().fromHeight(1);
+			// Check the database first
+			BlockData blockData = repository.getBlockRepository().fromHeight(1);
+			if (blockData != null) {
+				return blockData;
+			}
+
+			// Try the archive
+			blockData = repository.getBlockArchiveRepository().fromHeight(1);
+			if (blockData != null) {
+				return blockData;
+			}
+
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -262,17 +298,28 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData childBlockData = null;
+
+			// Check if block exists in database
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
+			if (blockData != null) {
+				return repository.getBlockRepository().fromReference(signature);
+			}
 
-			// Check block exists
-			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
-
-			BlockData childBlockData = repository.getBlockRepository().fromReference(signature);
+			// Not found, so try the archive
+			// This also checks that the parent block exists
+			// It will return null if either the parent or child don't exit
+			childBlockData = repository.getBlockArchiveRepository().fromReference(signature);
 
 			// Check child block exists
-			if (childBlockData == null)
+			if (childBlockData == null) {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			}
+
+			// Check child block's reference matches the supplied signature
+			if (!Arrays.equals(childBlockData.getReference(), signature)) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			}
 
 			return childBlockData;
 		} catch (DataException e) {
@@ -338,13 +385,20 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Firstly check the database
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
+			if (blockData != null) {
+				return blockData.getHeight();
+			}
 
-			// Check block exists
-			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			// Not found, so try the archive
+			blockData = repository.getBlockArchiveRepository().fromSignature(signature);
+			if (blockData != null) {
+				return blockData.getHeight();
+			}
 
-			return blockData.getHeight();
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -371,11 +425,20 @@ public class BlocksResource {
 	})
 	public BlockData getByHeight(@PathParam("height") int height) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Firstly check the database
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
-			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			if (blockData != null) {
+				return blockData;
+			}
 
-			return blockData;
+			// Not found, so try the archive
+			blockData = repository.getBlockArchiveRepository().fromHeight(height);
+			if (blockData != null) {
+				return blockData;
+			}
+
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -402,12 +465,31 @@ public class BlocksResource {
 	})
 	public BlockMintingInfo getBlockMintingInfoByHeight(@PathParam("height") int height) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Try the database
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
-			if (blockData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			if (blockData == null) {
+
+				// Not found, so try the archive
+				blockData = repository.getBlockArchiveRepository().fromHeight(height);
+				if (blockData == null) {
+
+					// Still not found
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+				}
+			}
 
 			Block block = new Block(repository, blockData);
 			BlockData parentBlockData = repository.getBlockRepository().fromSignature(blockData.getReference());
+			if (parentBlockData == null) {
+				// Parent block not found - try the archive
+				parentBlockData = repository.getBlockArchiveRepository().fromSignature(blockData.getReference());
+				if (parentBlockData == null) {
+
+					// Still not found
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+				}
+			}
+
 			int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, blockData.getMinterPublicKey());
 			if (minterLevel == 0)
 				// This may be unavailable when requesting a trimmed block
@@ -454,13 +536,26 @@ public class BlocksResource {
 	})
 	public BlockData getByTimestamp(@PathParam("timestamp") long timestamp) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			int height = repository.getBlockRepository().getHeightFromTimestamp(timestamp);
-			if (height == 0)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			BlockData blockData = null;
 
-			BlockData blockData = repository.getBlockRepository().fromHeight(height);
-			if (blockData == null)
+			// Try the Blocks table
+			int height = repository.getBlockRepository().getHeightFromTimestamp(timestamp);
+			if (height > 0) {
+				// Found match in Blocks table
+				return repository.getBlockRepository().fromHeight(height);
+			}
+
+			// Not found in Blocks table, so try the archive
+			height = repository.getBlockArchiveRepository().getHeightFromTimestamp(timestamp);
+			if (height > 0) {
+				// Found match in archive
+				blockData = repository.getBlockArchiveRepository().fromHeight(height);
+			}
+
+			// Ensure block exists
+			if (blockData == null) {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			}
 
 			return blockData;
 		} catch (DataException e) {
@@ -497,9 +592,14 @@ public class BlocksResource {
 
 			for (/* count already set */; count > 0; --count, ++height) {
 				BlockData blockData = repository.getBlockRepository().fromHeight(height);
-				if (blockData == null)
-					// Run out of blocks!
-					break;
+				if (blockData == null) {
+					// Not found - try the archive
+					blockData = repository.getBlockArchiveRepository().fromHeight(height);
+					if (blockData == null) {
+						// Run out of blocks!
+						break;
+					}
+				}
 
 				blocks.add(blockData);
 			}
@@ -544,7 +644,29 @@ public class BlocksResource {
 			if (accountData == null || accountData.getPublicKey() == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.PUBLIC_KEY_NOT_FOUND);
 
-			return repository.getBlockRepository().getBlockSummariesBySigner(accountData.getPublicKey(), limit, offset, reverse);
+
+			List<BlockSummaryData> summaries = repository.getBlockRepository()
+					.getBlockSummariesBySigner(accountData.getPublicKey(), limit, offset, reverse);
+
+			// Add any from the archive
+			List<BlockSummaryData> archivedSummaries = repository.getBlockArchiveRepository()
+					.getBlockSummariesBySigner(accountData.getPublicKey(), limit, offset, reverse);
+			if (archivedSummaries != null && !archivedSummaries.isEmpty()) {
+				summaries.addAll(archivedSummaries);
+			}
+			else {
+				summaries = archivedSummaries;
+			}
+
+			// Sort the results (because they may have been obtained from two places)
+			if (reverse != null && reverse) {
+				summaries.sort((s1, s2) -> Integer.valueOf(s2.getHeight()).compareTo(Integer.valueOf(s1.getHeight())));
+			}
+			else {
+				summaries.sort(Comparator.comparing(s -> Integer.valueOf(s.getHeight())));
+			}
+
+			return summaries;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -580,7 +702,8 @@ public class BlocksResource {
 				if (!Crypto.isValidAddress(address))
 					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-			return repository.getBlockRepository().getBlockSigners(addresses, limit, offset, reverse);
+			// This method pulls data from both Blocks and BlockArchive, so no need to query serparately
+			return repository.getBlockArchiveRepository().getBlockSigners(addresses, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -620,7 +743,76 @@ public class BlocksResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().getBlockSummaries(startHeight, endHeight, count);
+
+			/*
+			 * start	end		count		result
+			 * 10		40		null		blocks 10 to 39 (excludes end block, ignore count)
+			 *
+			 * null		null	null		blocks 1 to 50 (assume count=50, maybe start=1)
+			 * 30		null	null		blocks 30 to 79 (assume count=50)
+			 * 30		null	10			blocks 30 to 39
+			 *
+			 * null		null	50			last 50 blocks? so if max(blocks.height) is 200, then blocks 151 to 200
+			 * null		200		null		blocks 150 to 199 (excludes end block, assume count=50)
+			 * null		200		10			blocks 190 to 199 (excludes end block)
+			 */
+
+			List<BlockSummaryData> blockSummaries = new ArrayList<>();
+
+			// Use the latest X blocks if only a count is specified
+			if (startHeight == null && endHeight == null && count != null) {
+				BlockData chainTip = Controller.getInstance().getChainTip();
+				startHeight = chainTip.getHeight() - count;
+				endHeight = chainTip.getHeight();
+			}
+
+			// ... otherwise default the start height to 1
+			if (startHeight == null && endHeight == null) {
+				startHeight = 1;
+			}
+
+			// Default the count to 50
+			if (count == null) {
+				count = 50;
+			}
+
+			// If both a start and end height exist, ignore the count
+			if (startHeight != null && endHeight != null) {
+				if (startHeight > 0 && endHeight > 0) {
+					count = Integer.MAX_VALUE;
+				}
+			}
+
+			// Derive start height from end height if missing
+			if (startHeight == null || startHeight == 0) {
+				if (endHeight != null && endHeight > 0) {
+					if (count != null) {
+						startHeight = endHeight - count;
+					}
+				}
+			}
+
+			for (/* count already set */; count > 0; --count, ++startHeight) {
+				if (endHeight != null && startHeight >= endHeight) {
+					break;
+				}
+				BlockData blockData = repository.getBlockRepository().fromHeight(startHeight);
+				if (blockData == null) {
+					// Not found - try the archive
+					blockData = repository.getBlockArchiveRepository().fromHeight(startHeight);
+					if (blockData == null) {
+						// Run out of blocks!
+						break;
+					}
+				}
+
+				if (blockData != null) {
+					BlockSummaryData blockSummaryData = new BlockSummaryData(blockData);
+					blockSummaries.add(blockSummaryData);
+				}
+			}
+
+			return blockSummaries;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
