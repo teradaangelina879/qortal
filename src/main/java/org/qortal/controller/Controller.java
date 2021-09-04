@@ -83,20 +83,14 @@ import org.qortal.network.message.OnlineAccountsMessage;
 import org.qortal.network.message.SignaturesMessage;
 import org.qortal.network.message.TransactionMessage;
 import org.qortal.network.message.TransactionSignaturesMessage;
-import org.qortal.repository.DataException;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryFactory;
-import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.*;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
-import org.qortal.utils.Base58;
-import org.qortal.utils.ByteArray;
-import org.qortal.utils.NTP;
-import org.qortal.utils.Triple;
+import org.qortal.utils.*;
 
 import com.google.common.primitives.Longs;
 
@@ -414,6 +408,7 @@ public class Controller extends Thread {
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
+			RepositoryManager.archive();
 			RepositoryManager.prune();
 		} catch (DataException e) {
 			// If exception has no cause then repository is in use by some other process.
@@ -1283,6 +1278,34 @@ public class Controller extends Thread {
 				if (PruneManager.getInstance().isBlockPruned(blockData.getHeight(), repository)) {
 					// If this is a pruned block, we likely only have partial data, so best not to sent it
 					blockData = null;
+				}
+			}
+
+			// If we have no block data, we should check the archive in case it's there
+			if (blockData == null) {
+				if (Settings.getInstance().isArchiveEnabled()) {
+					byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, repository);
+					if (bytes != null) {
+						CachedBlockMessage blockMessage = new CachedBlockMessage(bytes);
+						blockMessage.setId(message.getId());
+
+						// This call also causes the other needed data to be pulled in from repository
+						if (!peer.sendMessage(blockMessage)) {
+							peer.disconnect("failed to send block");
+							// Don't fall-through to caching because failure to send might be from failure to build message
+							return;
+						}
+
+						// If request is for a recent block, cache it
+						if (getChainHeight() - blockData.getHeight() <= blockCacheSize) {
+							this.stats.getBlockMessageStats.cacheFills.incrementAndGet();
+
+							this.blockMessageCache.put(new ByteArray(blockData.getSignature()), blockMessage);
+						}
+
+						// Sent successfully from archive, so nothing more to do
+						return;
+					}
 				}
 			}
 

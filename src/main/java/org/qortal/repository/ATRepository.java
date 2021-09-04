@@ -113,7 +113,10 @@ public interface ATRepository {
 	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException;
 
 
-	/** Rebuild the latest AT states cache, necessary for AT state trimming/pruning. */
+	/** Rebuild the latest AT states cache, necessary for AT state trimming/pruning.
+	 * <p>
+	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
+	 */
 	public void rebuildLatestAtStates() throws DataException;
 
 

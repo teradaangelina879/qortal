@@ -23,7 +23,7 @@ public class CachedBlockMessage extends Message {
 		this.block = block;
 	}
 
-	private CachedBlockMessage(byte[] cachedBytes) {
+	public CachedBlockMessage(byte[] cachedBytes) {
 		super(MessageType.BLOCK);
 
 		this.block = null;

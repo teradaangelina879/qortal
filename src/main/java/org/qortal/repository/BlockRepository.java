@@ -137,11 +137,6 @@ public interface BlockRepository {
 	 */
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException;
 
-	/**
-	 * Returns block summaries for the passed height range, for API use.
-	 */
-	public List<BlockSummaryData> getBlockSummaries(Integer startHeight, Integer endHeight, Integer count) throws DataException;
-
 	/** Returns height of first trimmable online accounts signatures. */
 	public int getOnlineAccountsSignaturesTrimHeight() throws DataException;
 

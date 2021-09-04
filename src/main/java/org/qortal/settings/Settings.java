@@ -129,6 +129,15 @@ public class Settings {
 	private int blockPruneBatchSize = 10000; // blocks
 
 
+	/** Whether we should archive old data to reduce the database size */
+	private boolean archiveEnabled = true;
+	/** How often to attempt archiving (ms). */
+	private long archiveInterval = 7171L; // milliseconds
+	/** The maximum number of blocks that can exist in both the
+	 * database and the archive at the same time */
+	private int maxDuplicatedBlocksWhenArchiving = 100000;
+
+
 	// Peer-to-peer related
 	private boolean isTestNet = false;
 	/** Port number for inbound peer-to-peer connections. */
@@ -572,6 +581,19 @@ public class Settings {
 
 	public int getBlockPruneBatchSize() {
 		return this.blockPruneBatchSize;
+	}
+
+
+	public boolean isArchiveEnabled() {
+		return this.archiveEnabled;
+	}
+
+	public long getArchiveInterval() {
+		return this.archiveInterval;
+	}
+
+	public int getMaxDuplicatedBlocksWhenArchiving() {
+		return this.maxDuplicatedBlocksWhenArchiving;
 	}
 
 }

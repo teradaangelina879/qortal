@@ -21,8 +21,8 @@ public class AtStatesTrimmer implements Runnable {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int trimStartHeight = repository.getATRepository().getAtTrimHeight();
 
+			repository.discardChanges();
 			repository.getATRepository().rebuildLatestAtStates();
-			repository.saveChanges();
 
 			while (!Controller.isStopping()) {
 				repository.discardChanges();

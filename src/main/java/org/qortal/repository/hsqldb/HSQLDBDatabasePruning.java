@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
 import org.qortal.data.block.BlockData;
+import org.qortal.repository.BlockArchiveWriter;
 import org.qortal.repository.DataException;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
@@ -36,6 +37,7 @@ public class HSQLDBDatabasePruning {
 
     private static final Logger LOGGER = LogManager.getLogger(HSQLDBDatabasePruning.class);
 
+
     public static boolean pruneATStates() throws SQLException, DataException {
         try (final HSQLDBRepository repository = (HSQLDBRepository)RepositoryManager.getRepository()) {
 
@@ -46,7 +48,18 @@ public class HSQLDBDatabasePruning {
                 return false;
             }
 
-            LOGGER.info("Starting bulk prune of AT states - this process could take a while... (approx. 2 mins on high spec)");
+            if (Settings.getInstance().isArchiveEnabled()) {
+                // Only proceed if we can see that the archiver has already finished
+                // This way, if the archiver failed for any reason, we can prune once it has had
+                // some opportunities to try again
+                boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository, false);
+                if (!upToDate) {
+                    return false;
+                }
+            }
+
+            LOGGER.info("Starting bulk prune of AT states - this process could take a while... " +
+                    "(approx. 2 mins on high spec, or upwards of 30 mins in some cases)");
 
             // Create new AT-states table to hold smaller dataset
             repository.executeCheckedUpdate("DROP TABLE IF EXISTS ATStatesNew");
@@ -68,10 +81,16 @@ public class HSQLDBDatabasePruning {
 
             // Calculate some constants for later use
             final int blockchainHeight = latestBlock.getHeight();
-            final int maximumBlockToTrim = blockchainHeight - Settings.getInstance().getPruneBlockLimit();
+            int maximumBlockToTrim = blockchainHeight - Settings.getInstance().getPruneBlockLimit();
+            if (Settings.getInstance().isArchiveEnabled()) {
+                // Archive mode - don't prune anything that hasn't been archived yet
+                maximumBlockToTrim = Math.min(maximumBlockToTrim, repository.getBlockArchiveRepository().getBlockArchiveHeight() - 1);
+            }
             final int startHeight = maximumBlockToTrim;
             final int endHeight = blockchainHeight;
             final int blockStep = 10000;
+
+
 
             // Loop through all the LatestATStates and copy them to the new table
             LOGGER.info("Copying AT states...");
@@ -99,7 +118,7 @@ public class HSQLDBDatabasePruning {
                             }
 
                             if (height >= startHeight) {
-                                // Now copy this AT states for each recent block it is present in
+                                // Now copy this AT's states for each recent block they is present in
                                 for (int i = startHeight; i < endHeight; i++) {
                                     if (latestAtHeight < i) {
                                         // This AT finished before this block so there is nothing to copy
@@ -159,20 +178,25 @@ public class HSQLDBDatabasePruning {
     private static boolean pruneATStateData() throws SQLException, DataException {
         try (final HSQLDBRepository repository = (HSQLDBRepository) RepositoryManager.getRepository()) {
 
+            if (Settings.getInstance().isArchiveEnabled()) {
+                // Don't prune ATStatesData in archive mode
+                return true;
+            }
+
             BlockData latestBlock = repository.getBlockRepository().getLastBlock();
             if (latestBlock == null) {
                 LOGGER.info("Unable to determine blockchain height, necessary for bulk ATStatesData pruning");
                 return false;
             }
             final int blockchainHeight = latestBlock.getHeight();
-            final int upperPrunableHeight = blockchainHeight - Settings.getInstance().getPruneBlockLimit();
+            int upperPrunableHeight = blockchainHeight - Settings.getInstance().getPruneBlockLimit();
             // ATStateData is already trimmed - so carry on from where we left off in the past
             int pruneStartHeight = repository.getATRepository().getAtTrimHeight();
 
             LOGGER.info("Starting bulk prune of AT states data - this process could take a while... (approx. 3 mins on high spec)");
 
             while (pruneStartHeight < upperPrunableHeight) {
-                // Prune all AT state data up until our latest minus pruneBlockLimit
+                // Prune all AT state data up until our latest minus pruneBlockLimit (or our archive height)
 
                 if (Controller.isStopping()) {
                     return false;
@@ -225,14 +249,29 @@ public class HSQLDBDatabasePruning {
                 return false;
             }
 
+            if (Settings.getInstance().isArchiveEnabled()) {
+                // Only proceed if we can see that the archiver has already finished
+                // This way, if the archiver failed for any reason, we can prune once it has had
+                // some opportunities to try again
+                boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository, false);
+                if (!upToDate) {
+                    return false;
+                }
+            }
+
             BlockData latestBlock = repository.getBlockRepository().getLastBlock();
             if (latestBlock == null) {
                 LOGGER.info("Unable to determine blockchain height, necessary for bulk block pruning");
                 return false;
             }
             final int blockchainHeight = latestBlock.getHeight();
-            final int upperPrunableHeight = blockchainHeight - Settings.getInstance().getPruneBlockLimit();
+            int upperPrunableHeight = blockchainHeight - Settings.getInstance().getPruneBlockLimit();
             int pruneStartHeight = 0;
+
+            if (Settings.getInstance().isArchiveEnabled()) {
+                // Archive mode - don't prune anything that hasn't been archived yet
+                upperPrunableHeight = Math.min(upperPrunableHeight, repository.getBlockArchiveRepository().getBlockArchiveHeight() - 1);
+            }
 
             LOGGER.info("Starting bulk prune of blocks - this process could take a while... (approx. 5 mins on high spec)");
 
