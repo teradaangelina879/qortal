@@ -1092,9 +1092,14 @@ public class Block {
 			// Create repository savepoint here so we can rollback to it after testing transactions
 			repository.setSavepoint();
 
-			if (this.blockData.getHeight() == 212937)
+			if (this.blockData.getHeight() == 212937) {
 				// Apply fix for block 212937 but fix will be rolled back before we exit method
 				Block212937.processFix(this);
+			}
+			else if (this.blockData.getHeight() == 535658) {
+				// Apply fix for block 535658 but fix will be rolled back before we exit method
+				Block535658.processFix(this);
+			}
 
 			for (Transaction transaction : this.getTransactions()) {
 				TransactionData transactionData = transaction.getTransactionData();
