@@ -2,11 +2,13 @@ package org.qortal.transaction;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.naming.Name;
@@ -77,13 +79,31 @@ public class RegisterNameTransaction extends Transaction {
 	@Override
 	public ValidationResult isProcessable() throws DataException {
 		// Check the name isn't already taken
-		if (this.repository.getNameRepository().reducedNameExists(this.registerNameTransactionData.getReducedName()))
+		if (this.repository.getNameRepository().reducedNameExists(this.registerNameTransactionData.getReducedName())) {
+			// Name exists, but we'll allow the transaction if it has the same creator
+			// This is necessary to workaround an issue due to inconsistent data in the Names table on some nodes.
+			// Without this, the chain can get stuck for a subset of nodes when the name is registered
+			// for the second time. It's simplest to just treat REGISTER_NAME as UPDATE_NAME if the creator
+			// matches that of the original registration.
+
+			NameData nameData = this.repository.getNameRepository().fromReducedName(this.registerNameTransactionData.getReducedName());
+			if (Objects.equals(this.getCreator().getAddress(), nameData.getOwner())) {
+				// Transaction creator already owns the name, so it's safe to update it
+				// Treat this as valid, which also requires skipping the "one name per account" check below.
+				// Given that the name matches one already registered, we know that it won't exceed the limit.
+				return ValidationResult.OK;
+			}
+
+			// Name is already registered to someone else
 			return ValidationResult.NAME_ALREADY_REGISTERED;
+		}
 
 		// If accounts are only allowed one registered name then check for this
 		if (BlockChain.getInstance().oneNamePerAccount()
 				&& !this.repository.getNameRepository().getNamesByOwner(getRegistrant().getAddress()).isEmpty())
 			return ValidationResult.MULTIPLE_NAMES_FORBIDDEN;
+
+		// FUTURE: when adding more validation, make sure to check the `return ValidationResult.OK` above
 
 		return ValidationResult.OK;
 	}
