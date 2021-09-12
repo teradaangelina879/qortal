@@ -21,6 +21,7 @@ import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.test.common.AtUtils;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
@@ -35,13 +36,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testGetATStateAtHeightWithData() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, creationBytes, fundingAmount);
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint a few blocks
@@ -58,13 +59,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testGetATStateAtHeightWithoutData() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, creationBytes, fundingAmount);
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint a few blocks
@@ -87,13 +88,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testGetLatestATStateWithData() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, creationBytes, fundingAmount);
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint a few blocks
@@ -111,13 +112,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testGetLatestATStatePostTrimming() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, creationBytes, fundingAmount);
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint a few blocks
@@ -144,14 +145,66 @@ public class AtRepositoryTests extends Common {
 	}
 
 	@Test
-	public void testGetMatchingFinalATStatesWithoutDataValue() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+	public void testOrphanTrimmedATStates() throws DataException {
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, creationBytes, fundingAmount);
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
+			String atAddress = deployAtTransaction.getATAccount().getAddress();
+
+			// Mint a few blocks
+			for (int i = 0; i < 10; ++i)
+				BlockUtils.mintBlock(repository);
+
+			int blockchainHeight = repository.getBlockRepository().getBlockchainHeight();
+			int maxTrimHeight = blockchainHeight - 4;
+			Integer testHeight = maxTrimHeight + 1;
+
+			// Trim AT state data
+			repository.getATRepository().rebuildLatestAtStates();
+			repository.saveChanges();
+			repository.getATRepository().trimAtStates(2, maxTrimHeight, 1000);
+
+			// Orphan 3 blocks
+			// This leaves one more untrimmed block, so the latest AT state should be available
+			BlockUtils.orphanBlocks(repository, 3);
+
+			ATStateData atStateData = repository.getATRepository().getLatestATState(atAddress);
+			assertEquals(testHeight, atStateData.getHeight());
+
+			// We should always have the latest AT state data available
+			assertNotNull(atStateData.getStateData());
+
+			// Orphan 1 more block
+			Exception exception = null;
+			try {
+				BlockUtils.orphanBlocks(repository, 1);
+			} catch (DataException e) {
+				exception = e;
+			}
+
+			// Ensure that a DataException is thrown because there is no more AT states data available
+			assertNotNull(exception);
+			assertEquals(DataException.class, exception.getClass());
+			assertEquals(String.format("Can't find previous AT state data for %s", atAddress), exception.getMessage());
+
+			// FUTURE: we may be able to retain unique AT states when trimming, to avoid this exception
+			// and allow orphaning back through blocks with trimmed AT states.
+		}
+	}
+
+	@Test
+	public void testGetMatchingFinalATStatesWithoutDataValue() throws DataException {
+		byte[] creationBytes = AtUtils.buildSimpleAT();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
+
+			long fundingAmount = 1_00000000L;
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint a few blocks
@@ -191,13 +244,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testGetMatchingFinalATStatesWithDataValue() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, creationBytes, fundingAmount);
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint a few blocks
@@ -237,13 +290,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testGetBlockATStatesAtHeightWithData() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			doDeploy(repository, deployer, creationBytes, fundingAmount);
+			AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 
 			// Mint a few blocks
 			for (int i = 0; i < 10; ++i)
@@ -264,13 +317,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testGetBlockATStatesAtHeightWithoutData() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			doDeploy(repository, deployer, creationBytes, fundingAmount);
+			AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 
 			// Mint a few blocks
 			for (int i = 0; i < 10; ++i)
@@ -297,13 +350,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testSaveATStateWithData() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, creationBytes, fundingAmount);
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint a few blocks
@@ -328,13 +381,13 @@ public class AtRepositoryTests extends Common {
 
 	@Test
 	public void testSaveATStateWithoutData() throws DataException {
-		byte[] creationBytes = buildSimpleAT();
+		byte[] creationBytes = AtUtils.buildSimpleAT();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 
 			long fundingAmount = 1_00000000L;
-			DeployAtTransaction deployAtTransaction = doDeploy(repository, deployer, creationBytes, fundingAmount);
+			DeployAtTransaction deployAtTransaction = AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint a few blocks
@@ -364,67 +417,4 @@ public class AtRepositoryTests extends Common {
 			assertNull(atStateData.getStateData());
 		}
 	}
-
-	private byte[] buildSimpleAT() {
-		// Pretend we use 4 values in data segment
-		int addrCounter = 4;
-
-		// Data segment
-		ByteBuffer dataByteBuffer = ByteBuffer.allocate(addrCounter * MachineState.VALUE_SIZE);
-
-		ByteBuffer codeByteBuffer = ByteBuffer.allocate(512);
-
-		// Two-pass version
-		for (int pass = 0; pass < 2; ++pass) {
-			codeByteBuffer.clear();
-
-			try {
-				// Stop and wait for next block
-				codeByteBuffer.put(OpCode.STP_IMD.compile());
-			} catch (CompilationException e) {
-				throw new IllegalStateException("Unable to compile AT?", e);
-			}
-		}
-
-		codeByteBuffer.flip();
-
-		byte[] codeBytes = new byte[codeByteBuffer.limit()];
-		codeByteBuffer.get(codeBytes);
-
-		final short ciyamAtVersion = 2;
-		final short numCallStackPages = 0;
-		final short numUserStackPages = 0;
-		final long minActivationAmount = 0L;
-
-		return MachineState.toCreationBytes(ciyamAtVersion, codeBytes, dataByteBuffer.array(), numCallStackPages, numUserStackPages, minActivationAmount);
-	}
-
-	private DeployAtTransaction doDeploy(Repository repository, PrivateKeyAccount deployer, byte[] creationBytes, long fundingAmount) throws DataException {
-		long txTimestamp = System.currentTimeMillis();
-		byte[] lastReference = deployer.getLastReference();
-
-		if (lastReference == null) {
-			System.err.println(String.format("Qortal account %s has no last reference", deployer.getAddress()));
-			System.exit(2);
-		}
-
-		Long fee = null;
-		String name = "Test AT";
-		String description = "Test AT";
-		String atType = "Test";
-		String tags = "TEST";
-
-		BaseTransactionData baseTransactionData = new BaseTransactionData(txTimestamp, Group.NO_GROUP, lastReference, deployer.getPublicKey(), fee, null);
-		TransactionData deployAtTransactionData = new DeployAtTransactionData(baseTransactionData, name, description, atType, tags, creationBytes, fundingAmount, Asset.QORT);
-
-		DeployAtTransaction deployAtTransaction = new DeployAtTransaction(repository, deployAtTransactionData);
-
-		fee = deployAtTransaction.calcRecommendedFee();
-		deployAtTransactionData.setFee(fee);
-
-		TransactionUtils.signAndMint(repository, deployAtTransactionData, deployer);
-
-		return deployAtTransaction;
-	}
-
 }
