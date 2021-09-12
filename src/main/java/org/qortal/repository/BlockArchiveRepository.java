@@ -37,6 +37,18 @@ public interface BlockArchiveRepository {
     public BlockData fromHeight(int height) throws DataException;
 
     /**
+     * Returns a list of BlockData objects from archive using
+     * block height range.
+     *
+     * @param startHeight
+     * @return a list of BlockData objects, or an empty list if
+     * not found in blockchain. It is not guaranteed that all
+     * requested blocks will be returned.
+     * @throws DataException
+     */
+    public List<BlockData> fromRange(int startHeight, int endHeight) throws DataException;
+
+    /**
      * Returns BlockData from archive using block reference.
      * Currently relies on a child block being the one block
      * higher than its parent. This limitation can be removed

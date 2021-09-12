@@ -3,6 +3,7 @@ package org.qortal.repository.hsqldb;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.model.BlockSignerSummary;
+import org.qortal.block.Block;
 import org.qortal.data.block.BlockArchiveData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
@@ -51,6 +52,20 @@ public class HSQLDBBlockArchiveRepository implements BlockArchiveRepository {
             return (BlockData) blockInfo.getA();
         }
         return null;
+    }
+
+    @Override
+    public List<BlockData> fromRange(int startHeight, int endHeight) throws DataException {
+        List<BlockData> blocks = new ArrayList<>();
+
+        for (int height = startHeight; height < endHeight; height++) {
+            BlockData blockData = this.fromHeight(height);
+            if (blockData == null) {
+                return blocks;
+            }
+            blocks.add(blockData);
+        }
+        return blocks;
     }
 
     @Override
