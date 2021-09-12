@@ -97,7 +97,7 @@ public class BlockArchiveWriter {
             }
 
             int currentHeight = startHeight + i;
-            if (currentHeight >= endHeight) {
+            if (currentHeight > endHeight) {
                 break;
             }
 

@@ -744,7 +744,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 			int deletedCount = 0;
 
-			for (int height = minHeight; height < maxHeight; height++) {
+			for (int height = minHeight; height <= maxHeight; height++) {
 
 				// Give up if we're stopping
 				if (Controller.isStopping()) {
