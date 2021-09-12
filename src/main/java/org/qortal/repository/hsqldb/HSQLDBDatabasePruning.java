@@ -52,7 +52,7 @@ public class HSQLDBDatabasePruning {
                 // Only proceed if we can see that the archiver has already finished
                 // This way, if the archiver failed for any reason, we can prune once it has had
                 // some opportunities to try again
-                boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository, false);
+                boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository);
                 if (!upToDate) {
                     return false;
                 }
@@ -253,7 +253,7 @@ public class HSQLDBDatabasePruning {
                 // Only proceed if we can see that the archiver has already finished
                 // This way, if the archiver failed for any reason, we can prune once it has had
                 // some opportunities to try again
-                boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository, false);
+                boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository);
                 if (!upToDate) {
                     return false;
                 }

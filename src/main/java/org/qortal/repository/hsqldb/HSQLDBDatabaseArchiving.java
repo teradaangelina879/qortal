@@ -41,7 +41,7 @@ public class HSQLDBDatabaseArchiving {
 
             LOGGER.info("Building block archive - this process could take a while... (approx. 15 mins on high spec)");
 
-            final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository, false);
+            final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
             int startHeight = 0;
 
             while (!Controller.isStopping()) {
