@@ -442,7 +442,8 @@ public class BlockMinter extends Thread {
 
 			// Add to blockchain
 			newBlock.process();
-			LOGGER.info(String.format("Minted new test block: %d", newBlock.getBlockData().getHeight()));
+			LOGGER.info(String.format("Minted new test block: %d sig: %.8s",
+					newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getBlockData().getSignature())));
 
 			repository.saveChanges();
 

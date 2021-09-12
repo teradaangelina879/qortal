@@ -33,7 +33,11 @@ public class BlockArchiveWriter {
     private final int endHeight;
     private final Repository repository;
 
+    private long fileSizeTarget = 100 * 1024 * 1024; // 100MiB
+    private boolean shouldEnforceFileSizeTarget = true;
+
     private int writtenCount;
+    private Path outputPath;
 
     public BlockArchiveWriter(int startHeight, int endHeight, Repository repository) {
         this.startHeight = startHeight;
@@ -87,8 +91,9 @@ public class BlockArchiveWriter {
 
         LOGGER.info(String.format("Fetching blocks from height %d...", startHeight));
         int i = 0;
-        long fileSizeTarget = 100 * 1024 * 1024; // 100MiB
-        while (headerBytes.size() + bytes.size() < fileSizeTarget) {
+        while (headerBytes.size() + bytes.size() < this.fileSizeTarget
+                || this.shouldEnforceFileSizeTarget == false) {
+
             if (Controller.isStopping()) {
                 return BlockArchiveWriteResult.STOPPING;
             }
@@ -132,7 +137,7 @@ public class BlockArchiveWriter {
         LOGGER.info(String.format("Total length of %d blocks is %d bytes", i, totalLength));
 
         // Validate file size, in case something went wrong
-        if (totalLength < fileSizeTarget) {
+        if (totalLength < fileSizeTarget && this.shouldEnforceFileSizeTarget) {
             return BlockArchiveWriteResult.NOT_ENOUGH_BLOCKS;
         }
 
@@ -164,11 +169,25 @@ public class BlockArchiveWriter {
         BlockArchiveReader.getInstance().invalidateFileListCache();
 
         this.writtenCount = i;
+        this.outputPath = Paths.get(filePath);
         return BlockArchiveWriteResult.OK;
     }
 
     public int getWrittenCount() {
         return this.writtenCount;
+    }
+
+    public Path getOutputPath() {
+        return this.outputPath;
+    }
+
+    public void setFileSizeTarget(long fileSizeTarget) {
+        this.fileSizeTarget = fileSizeTarget;
+    }
+
+    // For testing, to avoid having to pre-calculate file sizes
+    public void setShouldEnforceFileSizeTarget(boolean shouldEnforceFileSizeTarget) {
+        this.shouldEnforceFileSizeTarget = shouldEnforceFileSizeTarget;
     }
 
 }
