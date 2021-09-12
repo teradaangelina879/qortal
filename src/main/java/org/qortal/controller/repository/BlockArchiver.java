@@ -35,7 +35,7 @@ public class BlockArchiver implements Runnable {
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 
-				final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository, true);
+				final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
 
 				Thread.sleep(Settings.getInstance().getArchiveInterval());
 

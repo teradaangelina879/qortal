@@ -42,34 +42,16 @@ public class BlockArchiveWriter {
         this.repository = repository;
     }
 
-    public static int getMaxArchiveHeight(Repository repository, boolean useMaximumDuplicatedLimit) throws DataException {
+    public static int getMaxArchiveHeight(Repository repository) throws DataException {
         // We must only archive trimmed blocks, or the archive will grow far too large
         final int accountSignaturesTrimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
         final int atTrimStartHeight = repository.getATRepository().getAtTrimHeight();
         final int trimStartHeight = Math.min(accountSignaturesTrimStartHeight, atTrimStartHeight);
-
-        // In some cases we want to restrict the upper height of the archiver to save space
-        if (useMaximumDuplicatedLimit) {
-            // To save on disk space, it's best to not allow the archiver to get too far ahead of the pruner
-            // This reduces the amount of data that is held twice during the transition
-            final int blockPruneStartHeight = repository.getBlockRepository().getBlockPruneHeight();
-            final int atPruneStartHeight = repository.getATRepository().getAtPruneHeight();
-            final int pruneStartHeight = Math.min(blockPruneStartHeight, atPruneStartHeight);
-            final int maximumDuplicatedBlocks = Settings.getInstance().getMaxDuplicatedBlocksWhenArchiving();
-
-            // To summarize the above:
-            // - We must never archive anything greater than or equal to trimStartHeight
-            // - We should avoid archiving anything maximumDuplicatedBlocks higher than pruneStartHeight
-            return Math.min(trimStartHeight, pruneStartHeight + maximumDuplicatedBlocks);
-        }
-        else {
-            // We don't want to apply the maximum duplicated limit
-            return trimStartHeight;
-        }
+        return trimStartHeight - 1; // subtract 1 because these values represent the first _untrimmed_ block
     }
 
-    public static boolean isArchiverUpToDate(Repository repository, boolean useMaximumDuplicatedLimit) throws DataException {
-        final int maxArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository, useMaximumDuplicatedLimit);
+    public static boolean isArchiverUpToDate(Repository repository) throws DataException {
+        final int maxArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
         final int actualArchiveHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight();
         final float progress = (float)actualArchiveHeight / (float) maxArchiveHeight;
         LOGGER.info(String.format("maxArchiveHeight: %d, actualArchiveHeight: %d, progress: %f",

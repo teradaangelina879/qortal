@@ -133,9 +133,6 @@ public class Settings {
 	private boolean archiveEnabled = true;
 	/** How often to attempt archiving (ms). */
 	private long archiveInterval = 7171L; // milliseconds
-	/** The maximum number of blocks that can exist in both the
-	 * database and the archive at the same time */
-	private int maxDuplicatedBlocksWhenArchiving = 100000;
 
 
 	// Peer-to-peer related
@@ -590,10 +587,6 @@ public class Settings {
 
 	public long getArchiveInterval() {
 		return this.archiveInterval;
-	}
-
-	public int getMaxDuplicatedBlocksWhenArchiving() {
-		return this.maxDuplicatedBlocksWhenArchiving;
 	}
 
 }
