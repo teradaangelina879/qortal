@@ -24,7 +24,6 @@ public class BlockArchiveWriter {
         OK,
         STOPPING,
         NOT_ENOUGH_BLOCKS,
-        BLOCK_LIMIT_REACHED,
         BLOCK_NOT_FOUND
     }
 
@@ -99,7 +98,7 @@ public class BlockArchiveWriter {
 
             int currentHeight = startHeight + i;
             if (currentHeight >= endHeight) {
-                return BlockArchiveWriteResult.BLOCK_LIMIT_REACHED;
+                break;
             }
 
             //LOGGER.info("Fetching block {}...", currentHeight);
