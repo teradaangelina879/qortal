@@ -105,6 +105,21 @@ public class BlockArchiveReader {
         return null;
     }
 
+    public List<Triple<BlockData, List<TransactionData>, List<ATStateData>>> fetchBlocksFromRange(
+            int startHeight, int endHeight) {
+
+        List<Triple<BlockData, List<TransactionData>, List<ATStateData>>> blockInfoList = new ArrayList<>();
+
+        for (int height = startHeight; height <= endHeight; height++) {
+            Triple<BlockData, List<TransactionData>, List<ATStateData>> blockInfo = this.fetchBlockAtHeight(height);
+            if (blockInfo == null) {
+                return blockInfoList;
+            }
+            blockInfoList.add(blockInfo);
+        }
+        return blockInfoList;
+    }
+
     public Integer fetchHeightForSignature(byte[] signature, Repository repository) {
         // Lookup the height for the requested signature
         try {
