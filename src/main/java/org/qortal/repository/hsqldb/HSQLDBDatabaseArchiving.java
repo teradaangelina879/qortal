@@ -59,7 +59,6 @@ public class HSQLDBDatabaseArchiving {
                         case STOPPING:
                             return false;
 
-                        case BLOCK_LIMIT_REACHED:
                         case NOT_ENOUGH_BLOCKS:
                             // We've reached the limit of the blocks we can archive
                             // Return from the whole method

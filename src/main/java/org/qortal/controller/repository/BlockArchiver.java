@@ -71,7 +71,6 @@ public class BlockArchiver implements Runnable {
 						case STOPPING:
 							return;
 
-						case BLOCK_LIMIT_REACHED:
 							// We've reached the limit of the blocks we can archive
 							// Sleep for a while to allow more to become available
 						case NOT_ENOUGH_BLOCKS:
