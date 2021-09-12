@@ -29,7 +29,7 @@ public class UpdateTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String initialName = "initial-name";
-			String initialData = "initial-data";
+			String initialData = "{\"age\":30}";
 
 			TransactionData initialTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
 			TransactionUtils.signAndMint(repository, initialTransactionData, alice);
@@ -68,7 +68,7 @@ public class UpdateTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String initialName = "initial-name";
-			String initialData = "initial-data";
+			String initialData = "{\"age\":30}";
 
 			TransactionData initialTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
 			TransactionUtils.signAndMint(repository, initialTransactionData, alice);
@@ -108,7 +108,7 @@ public class UpdateTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String initialName = "initial-name";
-			String initialData = "initial-data";
+			String initialData = "{\"age\":30}";
 
 			TransactionData initialTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
 			TransactionUtils.signAndMint(repository, initialTransactionData, alice);
@@ -171,7 +171,7 @@ public class UpdateTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String initialName = "initial-name";
-			String initialData = "initial-data";
+			String initialData = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
 			TransactionUtils.signAndMint(repository, transactionData, alice);
@@ -217,7 +217,7 @@ public class UpdateTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String initialName = "initial-name";
-			String initialData = "initial-data";
+			String initialData = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
 			TransactionUtils.signAndMint(repository, transactionData, alice);
@@ -251,7 +251,7 @@ public class UpdateTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String initialName = "initial-name";
-			String initialData = "initial-data";
+			String initialData = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
 			TransactionUtils.signAndMint(repository, transactionData, alice);
@@ -294,7 +294,7 @@ public class UpdateTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String initialName = "initial-name";
-			String initialData = "initial-data";
+			String initialData = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
 			TransactionUtils.signAndMint(repository, transactionData, alice);

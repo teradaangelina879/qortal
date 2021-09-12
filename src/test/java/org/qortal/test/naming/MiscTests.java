@@ -13,6 +13,7 @@ import org.qortal.data.transaction.UpdateNameTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
@@ -32,7 +33,7 @@ public class MiscTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String name = "initial-name";
-			String data = "initial-data";
+			String data = "{\"age\":30}";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
 			TransactionUtils.signAndMint(repository, transactionData, alice);
@@ -44,14 +45,14 @@ public class MiscTests extends Common {
 		}
 	}
 
-	// test trying to register same name twice
+	// test trying to register same name twice (with same creator)
 	@Test
-	public void testDuplicateRegisterName() throws DataException {
+	public void testDuplicateRegisterNameWithSameCreator() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String name = "test-name";
-			String data = "{}";
+			String data = "{\"age\":30}";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
 			TransactionUtils.signAndMint(repository, transactionData, alice);
@@ -63,7 +64,31 @@ public class MiscTests extends Common {
 			transaction.sign(alice);
 
 			ValidationResult result = transaction.importAsUnconfirmed();
-			assertTrue("Transaction should be invalid", ValidationResult.OK != result);
+			assertTrue("Transaction should be valid because it has the same creator", ValidationResult.OK == result);
+		}
+	}
+
+	// test trying to register same name twice (with different creator)
+	@Test
+	public void testDuplicateRegisterNameWithDifferentCreator() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Register-name
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			String name = "test-name";
+			String data = "{}";
+
+			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			TransactionUtils.signAndMint(repository, transactionData, alice);
+
+			// duplicate (this time registered by Bob)
+			PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
+			String duplicateName = "TEST-nÁme";
+			transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(bob), duplicateName, data);
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			transaction.sign(alice);
+
+			ValidationResult result = transaction.importAsUnconfirmed();
+			assertTrue("Transaction should be invalid because it has a different creator", ValidationResult.OK != result);
 		}
 	}
 
@@ -74,7 +99,7 @@ public class MiscTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String name = "test-name";
-			String data = "{}";
+			String data = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
 			TransactionUtils.signAndMint(repository, transactionData, alice);
@@ -103,7 +128,7 @@ public class MiscTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String name = alice.getAddress();
-			String data = "{}";
+			String data = "{\"age\":30}";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
 			Transaction transaction = Transaction.fromData(repository, transactionData);
@@ -121,7 +146,7 @@ public class MiscTests extends Common {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			String name = "test-name";
-			String data = "{}";
+			String data = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
 			TransactionUtils.signAndMint(repository, transactionData, alice);
@@ -135,6 +160,63 @@ public class MiscTests extends Common {
 
 			ValidationResult result = transaction.importAsUnconfirmed();
 			assertTrue("Transaction should be invalid", ValidationResult.OK != result);
+		}
+	}
+
+	// test registering and then orphaning
+	@Test
+	public void testRegisterNameAndOrphan() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			String name = "test-name";
+			String data = "{\"age\":30}";
+
+			// Ensure the name doesn't exist
+			assertNull(repository.getNameRepository().fromName(name));
+
+			// Register the name
+			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			TransactionUtils.signAndMint(repository, transactionData, alice);
+
+			// Ensure the name exists and the data is correct
+			assertEquals(data, repository.getNameRepository().fromName(name).getData());
+
+			// Orphan the latest block
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Ensure the name doesn't exist once again
+			assertNull(repository.getNameRepository().fromName(name));
+		}
+	}
+
+	// test registering and then orphaning multiple times (to simulate several re-orgs)
+	@Test
+	public void testMultipleRegisterNameAndOrphan() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			String name = "test-name";
+			String data = "{\"age\":30}";
+
+			for (int i = 0; i < 10; i++) {
+
+				// Ensure the name doesn't exist
+				assertNull(repository.getNameRepository().fromName(name));
+
+				// Register the name
+				RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+				TransactionUtils.signAndMint(repository, transactionData, alice);
+
+				// Ensure the name exists and the data is correct
+				assertEquals(data, repository.getNameRepository().fromName(name).getData());
+
+				// Orphan the latest block
+				BlockUtils.orphanBlocks(repository, 1);
+
+				// Ensure the name doesn't exist once again
+				assertNull(repository.getNameRepository().fromName(name));
+			}
 		}
 	}
 
