@@ -45,9 +45,9 @@ public class MiscTests extends Common {
 		}
 	}
 
-	// test trying to register same name twice (with same creator)
+	// test trying to register same name twice
 	@Test
-	public void testDuplicateRegisterNameWithSameCreator() throws DataException {
+	public void testDuplicateRegisterName() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
@@ -64,31 +64,7 @@ public class MiscTests extends Common {
 			transaction.sign(alice);
 
 			ValidationResult result = transaction.importAsUnconfirmed();
-			assertTrue("Transaction should be valid because it has the same creator", ValidationResult.OK == result);
-		}
-	}
-
-	// test trying to register same name twice (with different creator)
-	@Test
-	public void testDuplicateRegisterNameWithDifferentCreator() throws DataException {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Register-name
-			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
-			String name = "test-name";
-			String data = "{}";
-
-			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-			TransactionUtils.signAndMint(repository, transactionData, alice);
-
-			// duplicate (this time registered by Bob)
-			PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
-			String duplicateName = "TEST-nÁme";
-			transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(bob), duplicateName, data);
-			Transaction transaction = Transaction.fromData(repository, transactionData);
-			transaction.sign(alice);
-
-			ValidationResult result = transaction.importAsUnconfirmed();
-			assertTrue("Transaction should be invalid because it has a different creator", ValidationResult.OK != result);
+			assertTrue("Transaction should be invalid", ValidationResult.OK != result);
 		}
 	}
 
