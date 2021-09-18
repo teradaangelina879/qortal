@@ -10,6 +10,7 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.controller.BlockMinter;
 import org.qortal.data.transaction.*;
+import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -269,6 +270,37 @@ public class MiscTests extends Common {
 
 				// Ensure the name doesn't exist once again
 				assertNull(repository.getNameRepository().fromName(name));
+			}
+		}
+	}
+
+	@Test
+	public void testSaveName() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (int i=0; i<10; i++) {
+
+				String name = "test-name";
+				String data = "{\"age\":30}";
+
+				PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+				RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+
+				// Ensure the name doesn't exist
+				assertNull(repository.getNameRepository().fromName(name));
+
+				// Register the name
+				Name nameObj = new Name(repository, transactionData);
+				nameObj.register();
+
+				// Ensure the name now exists
+				assertNotNull(repository.getNameRepository().fromName(name));
+
+				// Unregister the name
+				nameObj.unregister();
+
+				// Ensure the name doesn't exist again
+				assertNull(repository.getNameRepository().fromName(name));
+
 			}
 		}
 	}
