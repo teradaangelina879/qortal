@@ -342,6 +342,12 @@ public class Synchronizer {
 							}
 						}
 
+						// Ignore this peer if it holds an invalid block
+						if (this.containsInvalidBlock(peer.getCommonBlockData().getBlockSummariesAfterCommonBlock())) {
+							LOGGER.debug("Ignoring peer %s because it holds an invalid block", peer);
+							peers.remove(peer);
+						}
+
 						// Reduce minChainLength if needed. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
 						List <BlockSummaryData> peerBlockSummaries = peer.getCommonBlockData().getBlockSummariesAfterCommonBlock();
 						if (peerBlockSummaries != null && peerBlockSummaries.size() > 0)
@@ -482,6 +488,36 @@ public class Synchronizer {
 		if (blockSummaries != null)
 			return blockSummaries.stream().filter(blockSummary -> Arrays.equals(blockSummary.getSignature(), signature)).findAny().orElse(null);
 		return null;
+	}
+
+
+
+	/* Invalid block signature tracking */
+
+	private void addInvalidBlockSignature(byte[] signature) {
+		for (byte[] invalidSignature : invalidBlockSignatures) {
+			if (Arrays.equals(invalidSignature, signature)) {
+				// Already present
+				return;
+			}
+		}
+		invalidBlockSignatures.add(signature);
+	}
+	private boolean containsInvalidBlock(List<BlockSummaryData> blockSummaries) {
+		if (blockSummaries == null || invalidBlockSignatures == null) {
+			return false;
+		}
+
+		//  Loop through supplied block summaries and check each one against our known invalid blocks
+		for (BlockSummaryData blockSummary : blockSummaries) {
+			byte[] signature = blockSummary.getSignature();
+			for (byte[] invalidSignature : invalidBlockSignatures) {
+				if (Arrays.equals(signature, invalidSignature)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 
@@ -990,6 +1026,7 @@ public class Synchronizer {
 			if (blockResult != ValidationResult.OK) {
 				LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
 						newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getSignature()), blockResult.name()));
+				this.addInvalidBlockSignature(newBlock.getSignature());
 				this.timeInvalidBlockLastReceived = NTP.getTime();
 				return SynchronizationResult.INVALID_DATA;
 			}
@@ -1082,6 +1119,7 @@ public class Synchronizer {
 			if (blockResult != ValidationResult.OK) {
 				LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
 						ourHeight, Base58.encode(latestPeerSignature), blockResult.name()));
+				this.addInvalidBlockSignature(newBlock.getSignature());
 				this.timeInvalidBlockLastReceived = NTP.getTime();
 				return SynchronizationResult.INVALID_DATA;
 			}
