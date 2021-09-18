@@ -62,6 +62,11 @@ public class Synchronizer {
 	// Keep track of the size of the last re-org, so it can be logged
 	private int lastReorgSize;
 
+	// Keep track of invalid blocks so that we don't keep trying to sync them
+	private List<byte[]> invalidBlockSignatures = new ArrayList<>();
+	public Long timeValidBlockLastReceived = null;
+	public Long timeInvalidBlockLastReceived = null;
+
 	private static Synchronizer instance;
 
 	public enum SynchronizationResult {
@@ -526,6 +531,11 @@ public class Synchronizer {
 					// Reset last re-org size as we are starting a new sync round
 					this.lastReorgSize = 0;
 
+					// Set the initial value of timeValidBlockLastReceived if it's null
+					if (this.timeValidBlockLastReceived == null) {
+						this.timeValidBlockLastReceived = NTP.getTime();
+					}
+
 					List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
 					SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, force, peerBlockSummaries, true);
 					if (findCommonBlockResult != SynchronizationResult.OK) {
@@ -980,8 +990,12 @@ public class Synchronizer {
 			if (blockResult != ValidationResult.OK) {
 				LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
 						newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getSignature()), blockResult.name()));
+				this.timeInvalidBlockLastReceived = NTP.getTime();
 				return SynchronizationResult.INVALID_DATA;
 			}
+
+			// Block is valid
+			this.timeValidBlockLastReceived = NTP.getTime();
 
 			// Save transactions attached to this block
 			for (Transaction transaction : newBlock.getTransactions()) {
@@ -1068,8 +1082,12 @@ public class Synchronizer {
 			if (blockResult != ValidationResult.OK) {
 				LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
 						ourHeight, Base58.encode(latestPeerSignature), blockResult.name()));
+				this.timeInvalidBlockLastReceived = NTP.getTime();
 				return SynchronizationResult.INVALID_DATA;
 			}
+
+			// Block is valid
+			this.timeValidBlockLastReceived = NTP.getTime();
 
 			// Save transactions attached to this block
 			for (Transaction transaction : newBlock.getTransactions()) {

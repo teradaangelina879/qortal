@@ -44,6 +44,9 @@ public class BlockMinter extends Thread {
 	private static Long lastLogTimestamp;
 	private static Long logTimeout;
 
+	// Recovery
+	public static final long INVALID_BLOCK_RECOVERY_TIMEOUT = 10 * 60 * 1000L; // ms
+
 	// Constructors
 
 	public BlockMinter() {
@@ -144,9 +147,25 @@ public class BlockMinter extends Thread {
 				if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 					continue;
 
+				// If we are stuck on an invalid block, we should allow an alternative to be minted
+				boolean recoverInvalidBlock = false;
+				if (Synchronizer.getInstance().timeInvalidBlockLastReceived != null) {
+					// We've had at least one invalid block
+					long timeSinceLastValidBlock = NTP.getTime() - Synchronizer.getInstance().timeValidBlockLastReceived;
+					long timeSinceLastInvalidBlock = NTP.getTime() - Synchronizer.getInstance().timeInvalidBlockLastReceived;
+					if (timeSinceLastValidBlock > INVALID_BLOCK_RECOVERY_TIMEOUT) {
+						if (timeSinceLastInvalidBlock < INVALID_BLOCK_RECOVERY_TIMEOUT) {
+							// Last valid block was more than 10 mins ago, but we've had an invalid block since then
+							// Assume that the chain has stalled because there is no alternative valid candidate
+							// Enter recovery mode to allow alternative, valid candidates to be minted
+							recoverInvalidBlock = true;
+						}
+					}
+				}
+
 				// If our latest block isn't recent then we need to synchronize instead of minting, unless we're in recovery mode.
 				if (!peers.isEmpty() && lastBlockData.getTimestamp() < minLatestBlockTimestamp)
-					if (Controller.getInstance().getRecoveryMode() == false)
+					if (Controller.getInstance().getRecoveryMode() == false && recoverInvalidBlock == false)
 						continue;
 
 				// There are enough peers with a recent block and our latest block is recent
