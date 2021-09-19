@@ -46,6 +46,7 @@ import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
@@ -427,6 +428,10 @@ public class Controller extends Thread {
 
 			return; // Not System.exit() so that GUI can display error
 		}
+
+		// Check database integrity
+		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
+		namesDatabaseIntegrityCheck.runIntegrityCheck();
 
 		LOGGER.info("Validating blockchain");
 		try {
