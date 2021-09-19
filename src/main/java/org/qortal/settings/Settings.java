@@ -68,6 +68,9 @@ public class Settings {
 	};
 	private Boolean apiRestricted;
 	private String apiKey = null;
+	/** Whether to disable API key or loopback address checking
+	 * IMPORTANT: do not disable for shared nodes or low-security local networks */
+	private boolean apiKeyDisabled = false;
 	private boolean apiLoggingEnabled = false;
 	private boolean apiDocumentationEnabled = false;
 	// Both of these need to be set for API to use SSL
@@ -354,6 +357,10 @@ public class Settings {
 
 	public String getApiKey() {
 		return this.apiKey;
+	}
+
+	public boolean isApiKeyDisabled() {
+		return this.apiKeyDisabled;
 	}
 
 	public boolean isApiLoggingEnabled() {
