@@ -343,7 +343,7 @@ public class Synchronizer {
 						}
 
 						// Ignore this peer if it holds an invalid block
-						if (this.containsInvalidBlock(peer.getCommonBlockData().getBlockSummariesAfterCommonBlock())) {
+						if (this.containsInvalidBlockSummary(peer.getCommonBlockData().getBlockSummariesAfterCommonBlock())) {
 							LOGGER.debug("Ignoring peer %s because it holds an invalid block", peer);
 							peers.remove(peer);
 						}
@@ -503,7 +503,7 @@ public class Synchronizer {
 		}
 		invalidBlockSignatures.add(signature);
 	}
-	private boolean containsInvalidBlock(List<BlockSummaryData> blockSummaries) {
+	private boolean containsInvalidBlockSummary(List<BlockSummaryData> blockSummaries) {
 		if (blockSummaries == null || invalidBlockSignatures == null) {
 			return false;
 		}
@@ -511,6 +511,21 @@ public class Synchronizer {
 		//  Loop through supplied block summaries and check each one against our known invalid blocks
 		for (BlockSummaryData blockSummary : blockSummaries) {
 			byte[] signature = blockSummary.getSignature();
+			for (byte[] invalidSignature : invalidBlockSignatures) {
+				if (Arrays.equals(signature, invalidSignature)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	private boolean containsInvalidBlockSignature(List<byte[]> blockSignatures) {
+		if (blockSignatures == null || invalidBlockSignatures == null) {
+			return false;
+		}
+
+		//  Loop through supplied block signatures and check each one against our known invalid blocks
+		for (byte[] signature : blockSignatures) {
 			for (byte[] invalidSignature : invalidBlockSignatures) {
 				if (Arrays.equals(signature, invalidSignature)) {
 					return true;
@@ -918,6 +933,12 @@ public class Synchronizer {
 			if (peerBlockSignatures.isEmpty()) {
 				LOGGER.trace(String.format("No more signatures or blocks to request from peer %s", peer));
 				break;
+			}
+
+			// Catch a block with an invalid signature before orphaning, so that we retain our existing valid candidate
+			if (this.containsInvalidBlockSignature(peerBlockSignatures)) {
+				LOGGER.info(String.format("Peer %s sent invalid block signature: %.8s", peer, Base58.encode(latestPeerSignature)));
+				return SynchronizationResult.INVALID_DATA;
 			}
 
 			byte[] nextPeerSignature = peerBlockSignatures.get(0);
