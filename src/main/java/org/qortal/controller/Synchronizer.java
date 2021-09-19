@@ -3,12 +3,9 @@ package org.qortal.controller;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import java.util.Iterator;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -63,7 +60,7 @@ public class Synchronizer {
 	private int lastReorgSize;
 
 	// Keep track of invalid blocks so that we don't keep trying to sync them
-	private List<byte[]> invalidBlockSignatures = new ArrayList<>();
+	private Map<String, Long> invalidBlockSignatures = Collections.synchronizedMap(new HashMap<>());
 	public Long timeValidBlockLastReceived = null;
 	public Long timeInvalidBlockLastReceived = null;
 
@@ -495,23 +492,42 @@ public class Synchronizer {
 	/* Invalid block signature tracking */
 
 	private void addInvalidBlockSignature(byte[] signature) {
-		for (byte[] invalidSignature : invalidBlockSignatures) {
-			if (Arrays.equals(invalidSignature, signature)) {
-				// Already present
-				return;
+		Long now = NTP.getTime();
+		if (now == null) {
+			return;
+		}
+
+		// Add or update existing entry
+		String sig58 = Base58.encode(signature);
+		invalidBlockSignatures.put(sig58, now);
+	}
+	private void deleteOlderInvalidSignatures(Long now) {
+		if (now == null) {
+			return;
+		}
+
+		// Delete signatures with older timestamps
+		Iterator it = invalidBlockSignatures.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry pair = (Map.Entry)it.next();
+			Long lastSeen = (Long) pair.getValue();
+
+			// Remove signature if we haven't seen it for more than 1 hour
+			if (now - lastSeen > 60 * 60 * 1000L) {
+				it.remove();
 			}
 		}
-		invalidBlockSignatures.add(signature);
 	}
 	private boolean containsInvalidBlockSummary(List<BlockSummaryData> blockSummaries) {
 		if (blockSummaries == null || invalidBlockSignatures == null) {
 			return false;
 		}
 
-		//  Loop through supplied block summaries and check each one against our known invalid blocks
-		for (BlockSummaryData blockSummary : blockSummaries) {
-			byte[] signature = blockSummary.getSignature();
-			for (byte[] invalidSignature : invalidBlockSignatures) {
+		// Loop through our known invalid blocks and check each one against supplied block summaries
+		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
+			byte[] invalidSignature = Base58.decode(invalidSignature58);
+			for (BlockSummaryData blockSummary : blockSummaries) {
+				byte[] signature = blockSummary.getSignature();
 				if (Arrays.equals(signature, invalidSignature)) {
 					return true;
 				}
@@ -524,9 +540,10 @@ public class Synchronizer {
 			return false;
 		}
 
-		//  Loop through supplied block signatures and check each one against our known invalid blocks
-		for (byte[] signature : blockSignatures) {
-			for (byte[] invalidSignature : invalidBlockSignatures) {
+		// Loop through our known invalid blocks and check each one against supplied block signatures
+		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
+			byte[] invalidSignature = Base58.decode(invalidSignature58);
+			for (byte[] signature : blockSignatures) {
 				if (Arrays.equals(signature, invalidSignature)) {
 					return true;
 				}
@@ -583,9 +600,13 @@ public class Synchronizer {
 					this.lastReorgSize = 0;
 
 					// Set the initial value of timeValidBlockLastReceived if it's null
+					Long now = NTP.getTime();
 					if (this.timeValidBlockLastReceived == null) {
-						this.timeValidBlockLastReceived = NTP.getTime();
+						this.timeValidBlockLastReceived = now;
 					}
+
+					// Delete invalid signatures with older timestamps
+					this.deleteOlderInvalidSignatures(now);
 
 					List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
 					SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, force, peerBlockSummaries, true);
