@@ -7,7 +7,6 @@ import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.asset.Asset;
 import org.qortal.controller.BlockMinter;
 import org.qortal.data.transaction.*;
 import org.qortal.naming.Name;
