@@ -265,4 +265,8 @@ public class Name {
 		return previousTransactionData.getTimestamp();
 	}
 
+	public NameData getNameData() {
+		return this.nameData;
+	}
+
 }

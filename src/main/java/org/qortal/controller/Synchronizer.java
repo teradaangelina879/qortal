@@ -1064,6 +1064,8 @@ public class Synchronizer {
 			if (Controller.isStopping())
 				return SynchronizationResult.SHUTTING_DOWN;
 
+			newBlock.preProcess();
+
 			ValidationResult blockResult = newBlock.isValid();
 			if (blockResult != ValidationResult.OK) {
 				LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
@@ -1156,6 +1158,8 @@ public class Synchronizer {
 			// Transactions are transmitted without approval status so determine that now
 			for (Transaction transaction : newBlock.getTransactions())
 				transaction.setInitialApprovalStatus();
+
+			newBlock.preProcess();
 
 			ValidationResult blockResult = newBlock.isValid();
 			if (blockResult != ValidationResult.OK) {

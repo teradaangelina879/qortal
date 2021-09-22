@@ -249,6 +249,8 @@ public class BlockMinter extends Thread {
 						if (testBlock.isTimestampValid() != ValidationResult.OK)
 							continue;
 
+						testBlock.preProcess();
+
 						// Is new block valid yet? (Before adding unconfirmed transactions)
 						ValidationResult result = testBlock.isValid();
 						if (result != ValidationResult.OK) {

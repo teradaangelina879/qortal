@@ -429,8 +429,9 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
-		// Check database integrity
+		// Rebuild Names table and check database integrity
 		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
+		namesDatabaseIntegrityCheck.rebuildAllNames();
 		namesDatabaseIntegrityCheck.runIntegrityCheck();
 
 		LOGGER.info("Validating blockchain");

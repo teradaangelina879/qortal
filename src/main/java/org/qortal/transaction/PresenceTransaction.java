@@ -150,6 +150,11 @@ public class PresenceTransaction extends Transaction {
 	}
 
 	@Override
+	public void preProcess() throws DataException {
+		// Nothing to do
+	}
+
+	@Override
 	public ValidationResult isValid() throws DataException {
 		// Nonce checking is done via isSignatureValid() as that method is only called once per import
 

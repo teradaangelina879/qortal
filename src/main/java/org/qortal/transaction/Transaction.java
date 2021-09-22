@@ -791,6 +791,8 @@ public abstract class Transaction {
 			// Fix up approval status
 			this.setInitialApprovalStatus();
 
+			this.preProcess();
+
 			ValidationResult validationResult = this.isValidUnconfirmed();
 			if (validationResult != ValidationResult.OK)
 				return validationResult;
@@ -890,6 +892,14 @@ public abstract class Transaction {
 	public ValidationResult isProcessable() throws DataException {
 		return ValidationResult.OK;
 	}
+
+	/**
+	 * * Pre-process a transaction before validating or processing the block
+	 * This allows for any database integrity checks prior to validation.
+	 *
+	 * @throws DataException
+	 */
+	public abstract void preProcess() throws DataException;
 
 	/**
 	 * Actually process a transaction, updating the blockchain.

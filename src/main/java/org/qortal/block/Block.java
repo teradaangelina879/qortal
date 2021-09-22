@@ -41,12 +41,14 @@ import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.BlockTransactionData;
 import org.qortal.data.network.OnlineAccountData;
+import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.TransactionRepository;
 import org.qortal.transaction.AtTransaction;
+import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -1280,6 +1282,21 @@ public class Block {
 
 		Account mintingAccount = new PublicKeyAccount(this.repository, rewardShareData.getMinterPublicKey());
 		return mintingAccount.canMint();
+	}
+
+	/**
+	 * Pre-process block, and its transactions.
+	 * This allows for any database integrity checks prior to validation.
+	 * This is called before isValid() and process()
+	 *
+	 * @throws DataException
+	 */
+	public void preProcess() throws DataException {
+		List<Transaction> blocksTransactions = this.getTransactions();
+
+		for (Transaction transaction : blocksTransactions) {
+			transaction.preProcess();
+		}
 	}
 
 	/**
