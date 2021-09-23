@@ -353,6 +353,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			case BOB_DONE:
 			case ALICE_REFUNDED:
 			case BOB_REFUNDED:
+			case ALICE_REFUNDING_A:
 				return true;
 
 			default:
