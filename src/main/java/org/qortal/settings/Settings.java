@@ -97,7 +97,7 @@ public class Settings {
 	private int blockCacheSize = 10;
 
 	/** How long to keep old, full, AT state data (ms). */
-	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
+	private long atStatesMaxLifetime = 5 * 24 * 60 * 60 * 1000L; // milliseconds
 	/** How often to attempt AT state trimming (ms). */
 	private long atStatesTrimInterval = 5678L; // milliseconds
 	/** Block height range to scan for trimmable AT states.<br>
