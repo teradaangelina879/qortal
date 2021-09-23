@@ -41,14 +41,12 @@ import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.BlockTransactionData;
 import org.qortal.data.network.OnlineAccountData;
-import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.ATRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.TransactionRepository;
 import org.qortal.transaction.AtTransaction;
-import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -1094,9 +1092,14 @@ public class Block {
 			// Create repository savepoint here so we can rollback to it after testing transactions
 			repository.setSavepoint();
 
-			if (this.blockData.getHeight() == 212937)
+			if (this.blockData.getHeight() == 212937) {
 				// Apply fix for block 212937 but fix will be rolled back before we exit method
 				Block212937.processFix(this);
+			}
+			else if (InvalidNameRegistrationBlocks.isAffectedBlock(this.blockData.getHeight())) {
+				// Apply fix for affected name registration blocks, but fix will be rolled back before we exit method
+				InvalidNameRegistrationBlocks.processFix(this);
+			}
 
 			for (Transaction transaction : this.getTransactions()) {
 				TransactionData transactionData = transaction.getTransactionData();
