@@ -21,6 +21,8 @@ public class Litecoin extends Bitcoiny {
 
 	private static final Coin DEFAULT_FEE_PER_KB = Coin.valueOf(10000); // 0.0001 LTC per 1000 bytes
 
+	private static final long MINIMUM_ORDER_AMOUNT = 1000000; // 0.01 LTC minimum order, to avoid dust errors
+
 	// Temporary values until a dynamic fee system is written.
 	private static final long MAINNET_FEE = 1000L;
 	private static final long NON_MAINNET_FEE = 1000L; // enough for TESTNET3 and should be OK for REGTEST
@@ -162,6 +164,11 @@ public class Litecoin extends Bitcoiny {
 	@Override
 	public Coin getFeePerKb() {
 		return DEFAULT_FEE_PER_KB;
+	}
+
+	@Override
+	public long getMinimumOrderAmount() {
+		return MINIMUM_ORDER_AMOUNT;
 	}
 
 	/**
