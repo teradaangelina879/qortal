@@ -1,5 +1,7 @@
 package org.qortal.repository;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
@@ -144,6 +146,10 @@ public interface ATRepository {
 
 	/** Prunes full AT state data between passed heights. Returns number of pruned rows. */
 	public int pruneAtStates(int minHeight, int maxHeight) throws DataException;
+
+
+	/** Checks for the presence of the ATStatesHeightIndex in repository */
+	public boolean hasAtStatesHeightIndex() throws DataException;
 
 
 	/**

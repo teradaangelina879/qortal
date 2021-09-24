@@ -61,11 +61,16 @@ public abstract class RepositoryManager {
 	public static boolean archive() {
 		// Bulk archive the database the first time we use archive mode
 		if (Settings.getInstance().isArchiveEnabled()) {
-			try {
-				return HSQLDBDatabaseArchiving.buildBlockArchive();
+			if (RepositoryManager.canArchiveOrPrune()) {
+				try {
+					return HSQLDBDatabaseArchiving.buildBlockArchive();
 
-			} catch (DataException e) {
-				LOGGER.info("Unable to bulk prune AT states. The database may have been left in an inconsistent state.");
+				} catch (DataException e) {
+					LOGGER.info("Unable to build block archive. The database may have been left in an inconsistent state.");
+				}
+			}
+			else {
+				LOGGER.info("Unable to build block archive due to missing ATStatesHeightIndex. Bootstrapping is recommended.");
 			}
 		}
 		return false;
@@ -75,18 +80,23 @@ public abstract class RepositoryManager {
 		// Bulk prune the database the first time we use pruning mode
 		if (Settings.getInstance().isPruningEnabled() ||
 			Settings.getInstance().isArchiveEnabled()) {
-			try {
-				boolean prunedATStates = HSQLDBDatabasePruning.pruneATStates();
-				boolean prunedBlocks = HSQLDBDatabasePruning.pruneBlocks();
+			if (RepositoryManager.canArchiveOrPrune()) {
+				try {
+					boolean prunedATStates = HSQLDBDatabasePruning.pruneATStates();
+					boolean prunedBlocks = HSQLDBDatabasePruning.pruneBlocks();
 
-				// Perform repository maintenance to shrink the db size down
-				if (prunedATStates && prunedBlocks) {
-					HSQLDBDatabasePruning.performMaintenance();
-					return true;
+					// Perform repository maintenance to shrink the db size down
+					if (prunedATStates && prunedBlocks) {
+						HSQLDBDatabasePruning.performMaintenance();
+						return true;
+					}
+
+				} catch (SQLException | DataException e) {
+					LOGGER.info("Unable to bulk prune AT states. The database may have been left in an inconsistent state.");
 				}
-
-			} catch (SQLException | DataException e) {
-				LOGGER.info("Unable to bulk prune AT states. The database may have been left in an inconsistent state.");
+			}
+			else {
+				LOGGER.info("Unable to prune blocks due to missing ATStatesHeightIndex. Bootstrapping is recommended.");
 			}
 		}
 		return false;
@@ -116,6 +126,14 @@ public abstract class RepositoryManager {
 		Throwable cause = e.getCause();
 
 		return SQLException.class.isInstance(cause) && repositoryFactory.isDeadlockException((SQLException) cause);
+	}
+
+	public static boolean canArchiveOrPrune() {
+		try (final Repository repository = getRepository()) {
+			return repository.getATRepository().hasAtStatesHeightIndex();
+		} catch (DataException e) {
+			return false;
+		}
 	}
 
 }

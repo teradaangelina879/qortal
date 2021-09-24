@@ -34,6 +34,13 @@ public class BlockPruner implements Runnable {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int pruneStartHeight = repository.getBlockRepository().getBlockPruneHeight();
 
+			// Don't attempt to prune if we have no ATStatesHeightIndex, as it will be too slow
+			boolean hasAtStatesHeightIndex = repository.getATRepository().hasAtStatesHeightIndex();
+			if (!hasAtStatesHeightIndex) {
+				LOGGER.info("Unable to start block pruner due to missing ATStatesHeightIndex. Bootstrapping is recommended.");
+				return;
+			}
+
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 

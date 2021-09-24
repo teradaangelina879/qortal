@@ -17,6 +17,7 @@ import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.*;
+import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.settings.Settings;
 import org.qortal.test.common.AtUtils;
 import org.qortal.test.common.BlockUtils;
@@ -33,6 +34,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -483,6 +485,29 @@ public class BlockArchiveTests extends Common {
 			// FUTURE: we may be able to retain unique AT states when trimming, to avoid this exception
 			// and allow orphaning back through blocks with trimmed AT states.
 
+		}
+	}
+
+
+	/**
+	 * Many nodes are missing an ATStatesHeightIndex due to an earlier bug
+	 * In these cases we disable archiving and pruning as this index is a
+	 * very essential component in these processes.
+	 */
+	@Test
+	public void testMissingAtStatesHeightIndex() throws DataException, SQLException {
+		try (final HSQLDBRepository repository = (HSQLDBRepository) RepositoryManager.getRepository()) {
+
+			// Firstly check that we're able to prune or archive when the index exists
+			assertTrue(repository.getATRepository().hasAtStatesHeightIndex());
+			assertTrue(RepositoryManager.canArchiveOrPrune());
+
+			// Delete the index
+			repository.prepareStatement("DROP INDEX ATSTATESHEIGHTINDEX").execute();
+
+			// Ensure check that we're unable to prune or archive when the index doesn't exist
+			assertFalse(repository.getATRepository().hasAtStatesHeightIndex());
+			assertFalse(RepositoryManager.canArchiveOrPrune());
 		}
 	}
 

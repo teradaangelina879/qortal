@@ -799,6 +799,19 @@ public class HSQLDBATRepository implements ATRepository {
 
 
 	@Override
+	public boolean hasAtStatesHeightIndex() throws DataException {
+		String sql = "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.SYSTEM_INDEXINFO where INDEX_NAME='ATSTATESHEIGHTINDEX'";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			return resultSet != null;
+
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for ATStatesHeightIndex in repository", e);
+		}
+	}
+
+
+	@Override
 	public void save(ATStateData atStateData) throws DataException {
 		// We shouldn't ever save partial ATStateData
 		if (atStateData.getStateHash() == null || atStateData.getHeight() == null)

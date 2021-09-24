@@ -27,6 +27,13 @@ public class BlockArchiver implements Runnable {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int startHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight();
 
+			// Don't attempt to archive if we have no ATStatesHeightIndex, as it will be too slow
+			boolean hasAtStatesHeightIndex = repository.getATRepository().hasAtStatesHeightIndex();
+			if (!hasAtStatesHeightIndex) {
+				LOGGER.info("Unable to start block archiver due to missing ATStatesHeightIndex. Bootstrapping is recommended.");
+				return;
+			}
+
 			// Don't even start building until initial rush has ended
 			Thread.sleep(INITIAL_SLEEP_PERIOD);
 
