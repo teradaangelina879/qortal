@@ -47,21 +47,23 @@ public class BlockArchiveReader {
         String[] files = archiveDirFile.list();
         Map<String, Triple<Integer, Integer, Integer>> map = new HashMap<>();
 
-        for (String file : files) {
-            Path filePath = Paths.get(file);
-            String filename = filePath.getFileName().toString();
+        if (files != null) {
+            for (String file : files) {
+                Path filePath = Paths.get(file);
+                String filename = filePath.getFileName().toString();
 
-            // Parse the filename
-            if (filename == null || !filename.contains("-") || !filename.contains(".")) {
-                // Not a usable file
-                continue;
+                // Parse the filename
+                if (filename == null || !filename.contains("-") || !filename.contains(".")) {
+                    // Not a usable file
+                    continue;
+                }
+                // Remove the extension and split into two parts
+                String[] parts = filename.substring(0, filename.lastIndexOf('.')).split("-");
+                Integer startHeight = Integer.parseInt(parts[0]);
+                Integer endHeight = Integer.parseInt(parts[1]);
+                Integer range = endHeight - startHeight;
+                map.put(filename, new Triple(startHeight, endHeight, range));
             }
-            // Remove the extension and split into two parts
-            String[] parts = filename.substring(0, filename.lastIndexOf('.')).split("-");
-            Integer startHeight = Integer.parseInt(parts[0]);
-            Integer endHeight = Integer.parseInt(parts[1]);
-            Integer range = endHeight - startHeight;
-            map.put(filename, new Triple(startHeight, endHeight, range));
         }
         this.fileListCache = map;
     }

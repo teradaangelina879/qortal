@@ -761,7 +761,7 @@ public class BlocksResource {
 
 			// Use the latest X blocks if only a count is specified
 			if (startHeight == null && endHeight == null && count != null) {
-				BlockData chainTip = Controller.getInstance().getChainTip();
+				BlockData chainTip = repository.getBlockRepository().getLastBlock();
 				startHeight = chainTip.getHeight() - count;
 				endHeight = chainTip.getHeight();
 			}
