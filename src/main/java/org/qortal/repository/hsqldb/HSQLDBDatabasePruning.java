@@ -220,19 +220,17 @@ public class HSQLDBDatabasePruning {
                 repository.saveChanges();
 
                 if (numATStatesPruned > 0) {
-                    final int finalPruneStartHeight = pruneStartHeight;
-                    LOGGER.trace(() -> String.format("Pruned %d AT states data rows between blocks %d and %d",
-                            numATStatesPruned, finalPruneStartHeight, upperPruneHeight));
+                    LOGGER.trace(String.format("Pruned %d AT states data rows between blocks %d and %d",
+                            numATStatesPruned, pruneStartHeight, upperPruneHeight));
                 } else {
+                    repository.getATRepository().setAtTrimHeight(upperBatchHeight);
+                    // No need to rebuild the latest AT states as we aren't currently synchronizing
+                    repository.saveChanges();
+                    LOGGER.debug(String.format("Bumping AT states trim height to %d", upperBatchHeight));
+
                     // Can we move onto next batch?
                     if (upperPrunableHeight > upperBatchHeight) {
                         pruneStartHeight = upperBatchHeight;
-                        repository.getATRepository().setAtTrimHeight(pruneStartHeight);
-                        // No need to rebuild the latest AT states as we aren't currently synchronizing
-                        repository.saveChanges();
-
-                        final int finalPruneStartHeight = pruneStartHeight;
-                        LOGGER.debug(() -> String.format("Bumping AT states trim height to %d", finalPruneStartHeight));
                     }
                     else {
                         // We've finished pruning
@@ -293,19 +291,17 @@ public class HSQLDBDatabasePruning {
                 repository.saveChanges();
 
                 if (numBlocksPruned > 0) {
-                    final int finalPruneStartHeight = pruneStartHeight;
-                    LOGGER.info(() -> String.format("Pruned %d block%s between %d and %d",
+                    LOGGER.info(String.format("Pruned %d block%s between %d and %d",
                             numBlocksPruned, (numBlocksPruned != 1 ? "s" : ""),
-                            finalPruneStartHeight, upperPruneHeight));
+                            pruneStartHeight, upperPruneHeight));
                 } else {
+                    repository.getBlockRepository().setBlockPruneHeight(upperBatchHeight);
+                    repository.saveChanges();
+                    LOGGER.debug(String.format("Bumping block base prune height to %d", upperBatchHeight));
+
                     // Can we move onto next batch?
                     if (upperPrunableHeight > upperBatchHeight) {
                         pruneStartHeight = upperBatchHeight;
-                        repository.getBlockRepository().setBlockPruneHeight(pruneStartHeight);
-                        repository.saveChanges();
-
-                        final int finalPruneStartHeight = pruneStartHeight;
-                        LOGGER.debug(() -> String.format("Bumping block base prune height to %d", finalPruneStartHeight));
                     }
                     else {
                         // We've finished pruning
