@@ -71,6 +71,11 @@ public class HSQLDBDatabasePruning {
             repository.executeCheckedUpdate("SET TABLE ATStatesNew NEW SPACE");
             repository.executeCheckedUpdate("CHECKPOINT");
 
+            // Add a height index
+            LOGGER.info("Adding index to AT states table...");
+            repository.executeCheckedUpdate("CREATE INDEX IF NOT EXISTS ATStatesNewHeightIndex ON ATStatesNew (height)");
+            repository.executeCheckedUpdate("CHECKPOINT");
+
 
             // Find our latest block
             BlockData latestBlock = repository.getBlockRepository().getLastBlock();
@@ -149,15 +154,12 @@ public class HSQLDBDatabasePruning {
 
             repository.saveChanges();
 
-            // Add a height index
-            LOGGER.info("Rebuilding AT states height index in repository");
-            repository.executeCheckedUpdate("CREATE INDEX IF NOT EXISTS ATStatesHeightIndex ON ATStatesNew (height)");
-            repository.executeCheckedUpdate("CHECKPOINT");
 
             // Finally, drop the original table and rename
             LOGGER.info("Deleting old AT states...");
             repository.executeCheckedUpdate("DROP TABLE ATStates");
             repository.executeCheckedUpdate("ALTER TABLE ATStatesNew RENAME TO ATStates");
+            repository.executeCheckedUpdate("ALTER INDEX ATStatesNewHeightIndex RENAME TO ATStatesHeightIndex");
             repository.executeCheckedUpdate("CHECKPOINT");
 
             // Update the prune height
