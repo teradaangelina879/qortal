@@ -96,6 +96,10 @@ public class HSQLDBDatabasePruning {
             final int blockStep = 10000;
 
 
+            // It's essential that we rebuild the latest AT states here, as we are using this data in the next query.
+            // Failing to do this will result in important AT states being deleted, rendering the database unusable.
+            repository.getATRepository().rebuildLatestAtStates();
+
 
             // Loop through all the LatestATStates and copy them to the new table
             LOGGER.info("Copying AT states...");
