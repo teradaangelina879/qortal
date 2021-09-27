@@ -126,7 +126,7 @@ public class BlockArchiveReader {
         // Lookup the height for the requested signature
         try {
             BlockArchiveData archivedBlock = repository.getBlockArchiveRepository().getBlockArchiveDataForSignature(signature);
-            if (archivedBlock.getHeight() == null) {
+            if (archivedBlock == null) {
                 return null;
             }
             return archivedBlock.getHeight();
