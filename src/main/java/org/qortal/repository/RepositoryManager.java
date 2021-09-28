@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.repository.hsqldb.HSQLDBDatabaseArchiving;
 import org.qortal.repository.hsqldb.HSQLDBDatabasePruning;
+import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.settings.Settings;
 
 import java.sql.SQLException;
@@ -58,12 +59,12 @@ public abstract class RepositoryManager {
 		}
 	}
 
-	public static boolean archive() {
+	public static boolean archive(Repository repository) {
 		// Bulk archive the database the first time we use archive mode
 		if (Settings.getInstance().isArchiveEnabled()) {
 			if (RepositoryManager.canArchiveOrPrune()) {
 				try {
-					return HSQLDBDatabaseArchiving.buildBlockArchive();
+					return HSQLDBDatabaseArchiving.buildBlockArchive(repository);
 
 				} catch (DataException e) {
 					LOGGER.info("Unable to build block archive. The database may have been left in an inconsistent state.");
@@ -76,18 +77,18 @@ public abstract class RepositoryManager {
 		return false;
 	}
 
-	public static boolean prune() {
+	public static boolean prune(Repository repository) {
 		// Bulk prune the database the first time we use pruning mode
 		if (Settings.getInstance().isPruningEnabled() ||
 			Settings.getInstance().isArchiveEnabled()) {
 			if (RepositoryManager.canArchiveOrPrune()) {
 				try {
-					boolean prunedATStates = HSQLDBDatabasePruning.pruneATStates();
-					boolean prunedBlocks = HSQLDBDatabasePruning.pruneBlocks();
+					boolean prunedATStates = HSQLDBDatabasePruning.pruneATStates((HSQLDBRepository) repository);
+					boolean prunedBlocks = HSQLDBDatabasePruning.pruneBlocks((HSQLDBRepository) repository);
 
 					// Perform repository maintenance to shrink the db size down
 					if (prunedATStates && prunedBlocks) {
-						HSQLDBDatabasePruning.performMaintenance();
+						HSQLDBDatabasePruning.performMaintenance(repository);
 						return true;
 					}
 

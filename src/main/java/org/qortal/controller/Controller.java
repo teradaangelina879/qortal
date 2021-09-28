@@ -2,8 +2,11 @@ package org.qortal.controller;
 
 import java.awt.TrayIcon.MessageType;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.time.LocalDateTime;
@@ -409,8 +412,11 @@ public class Controller extends Thread {
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
-			RepositoryManager.archive();
-			RepositoryManager.prune();
+
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				RepositoryManager.archive(repository);
+				RepositoryManager.prune(repository);
+			}
 		} catch (DataException e) {
 			// If exception has no cause then repository is in use by some other process.
 			if (e.getCause() == null) {
