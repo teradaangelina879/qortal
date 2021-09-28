@@ -60,10 +60,10 @@ public class BlockArchiveWriter {
         LOGGER.info(String.format("maxArchiveHeight: %d, actualArchiveHeight: %d, progress: %f",
                 maxArchiveHeight, actualArchiveHeight, progress));
 
-        // If archiver is within 90% of the maximum, treat it as up to date
+        // If archiver is within 95% of the maximum, treat it as up to date
         // We need several percent as an allowance because the archiver will only
         // save files when they reach the target size
-        return (progress >= 0.90);
+        return (progress >= 0.95);
     }
 
     public BlockArchiveWriteResult write() throws DataException, IOException, TransformationException, InterruptedException {
