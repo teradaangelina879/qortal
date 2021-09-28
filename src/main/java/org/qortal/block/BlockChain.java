@@ -4,10 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 import javax.xml.bind.JAXBContext;
@@ -27,11 +24,9 @@ import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.controller.Controller;
 import org.qortal.data.block.BlockData;
 import org.qortal.network.Network;
-import org.qortal.repository.BlockRepository;
-import org.qortal.repository.DataException;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.*;
 import org.qortal.settings.Settings;
+import org.qortal.utils.Base58;
 import org.qortal.utils.StringLongMapXmlAdapter;
 
 /**
@@ -506,23 +501,28 @@ public class BlockChain {
 	 * @throws SQLException
 	 */
 	public static void validate() throws DataException {
+
+		BlockData chainTip;
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			chainTip = repository.getBlockRepository().getLastBlock();
+		}
 
-			boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
-			BlockData chainTip = repository.getBlockRepository().getLastBlock();
-			boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
+		boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
+		boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
 
-			if (pruningEnabled && hasBlocks) {
-				// Pruning is enabled and we have blocks, so it's possible that the genesis block has been pruned
-				// It's best not to validate it, and there's no real need to
+		if (pruningEnabled && hasBlocks) {
+			// Pruning is enabled and we have blocks, so it's possible that the genesis block has been pruned
+			// It's best not to validate it, and there's no real need to
+		} else {
+			// Check first block is Genesis Block
+			if (!isGenesisBlockValid()) {
+				rebuildBlockchain();
 			}
-			else {
-				// Check first block is Genesis Block
-				if (!isGenesisBlockValid()) {
-					rebuildBlockchain();
-				}
-			}
+		}
 
+		// We need to create a new connection, as the previous repository and its connections may be been
+		// closed by rebuildBlockchain() if a bootstrap was applied
+		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.checkConsistency();
 
 			// Set the number of blocks to validate based on the pruned state of the chain
@@ -615,6 +615,14 @@ public class BlockChain {
 	}
 
 	private static void rebuildBlockchain() throws DataException {
+		boolean shouldBootstrap = Settings.getInstance().getBootstrap();
+		if (shouldBootstrap) {
+			// Settings indicate that we should apply a bootstrap rather than rebuilding and syncing from genesis
+			Bootstrap bootstrap = new Bootstrap();
+			bootstrap.startImport();
+			return;
+		}
+
 		// (Re)build repository
 		if (!RepositoryManager.wasPristineAtOpen())
 			RepositoryManager.rebuild();

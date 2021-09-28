@@ -138,6 +138,10 @@ public class Settings {
 	private long archiveInterval = 7171L; // milliseconds
 
 
+	/** Whether to automatically bootstrap instead of syncing from genesis */
+	private boolean bootstrap = true;
+
+
 	// Peer-to-peer related
 	private boolean isTestNet = false;
 	/** Port number for inbound peer-to-peer connections. */
@@ -601,6 +605,11 @@ public class Settings {
 
 	public long getArchiveInterval() {
 		return this.archiveInterval;
+	}
+
+
+	public boolean getBootstrap() {
+		return this.bootstrap;
 	}
 
 }

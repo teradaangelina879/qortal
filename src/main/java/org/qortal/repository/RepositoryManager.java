@@ -50,9 +50,9 @@ public abstract class RepositoryManager {
 		repositoryFactory = null;
 	}
 
-	public static void backup(boolean quick) {
+	public static void backup(boolean quick, String name) {
 		try (final Repository repository = getRepository()) {
-			repository.backup(quick);
+			repository.backup(quick, name);
 		} catch (DataException e) {
 			// Backup is best-effort so don't complain
 		}
