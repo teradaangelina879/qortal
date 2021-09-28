@@ -379,7 +379,7 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
-	public void backup(boolean quick) throws DataException {
+	public void backup(boolean quick, String name) throws DataException {
 		if (!quick)
 			// First perform a CHECKPOINT
 			try (Statement stmt = this.connection.createStatement()) {
@@ -401,7 +401,7 @@ public class HSQLDBRepository implements Repository {
 				return;
 			}
 
-			String backupUrl = buildBackupUrl(dbPathname);
+			String backupUrl = buildBackupUrl(dbPathname, name);
 			String backupPathname = getDbPathname(backupUrl);
 			if (backupPathname == null)
 				throw new DataException("Unable to determine location for repository backup?");
@@ -423,7 +423,7 @@ public class HSQLDBRepository implements Repository {
 
 		// Actually create backup
 		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute("BACKUP DATABASE TO 'backup/' BLOCKING AS FILES");
+			stmt.execute(String.format("BACKUP DATABASE TO '%s/' BLOCKING AS FILES", name));
 		} catch (SQLException e) {
 			throw new DataException("Unable to backup repository");
 		}
@@ -472,22 +472,22 @@ public class HSQLDBRepository implements Repository {
 			return matcher.group(2);
 	}
 
-	private static String buildBackupUrl(String dbPathname) {
+	private static String buildBackupUrl(String dbPathname, String backupName) {
 		Path oldRepoPath = Paths.get(dbPathname);
 		Path oldRepoDirPath = oldRepoPath.getParent();
 		Path oldRepoFilePath = oldRepoPath.getFileName();
 
 		// Try to open backup. We need to remove "create=true" and insert "backup" dir before final filename.
-		String backupUrlTemplate = "jdbc:hsqldb:file:%s%sbackup%s%s;create=false;hsqldb.full_log_replay=true";
-		return String.format(backupUrlTemplate, oldRepoDirPath.toString(), File.separator, File.separator, oldRepoFilePath.toString());
+		String backupUrlTemplate = "jdbc:hsqldb:file:%s%s%s%s%s;create=false;hsqldb.full_log_replay=true";
+		return String.format(backupUrlTemplate, oldRepoDirPath.toString(), File.separator, backupName, File.separator, oldRepoFilePath.toString());
 	}
 
-	/* package */ static void attemptRecovery(String connectionUrl) throws DataException {
+	/* package */ static void attemptRecovery(String connectionUrl, String name) throws DataException {
 		String dbPathname = getDbPathname(connectionUrl);
 		if (dbPathname == null)
 			throw new DataException("Unable to locate repository for backup?");
 
-		String backupUrl = buildBackupUrl(dbPathname);
+		String backupUrl = buildBackupUrl(dbPathname, name);
 		Path oldRepoDirPath = Paths.get(dbPathname).getParent();
 
 		// Attempt connection to backup to see if it is viable

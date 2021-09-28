@@ -668,7 +668,7 @@ public class AdminResource {
 			blockchainLock.lockInterruptibly();
 
 			try {
-				repository.backup(true);
+				repository.backup(true, "backup");
 				repository.saveChanges();
 
 				return "true";

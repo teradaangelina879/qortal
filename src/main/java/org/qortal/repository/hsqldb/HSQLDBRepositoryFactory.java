@@ -54,7 +54,7 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 				throw new DataException("Unable to read repository: " + e.getMessage(), e);
 
 			// Attempt recovery?
-			HSQLDBRepository.attemptRecovery(connectionUrl);
+			HSQLDBRepository.attemptRecovery(connectionUrl, "backup");
 		}
 
 		this.connectionPool = new HSQLDBPool(Settings.getInstance().getRepositoryConnectionPoolSize());

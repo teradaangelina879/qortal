@@ -573,7 +573,7 @@ public class Controller extends Thread {
 								Translator.INSTANCE.translate("SysTray", "CREATING_BACKUP_OF_DB_FILES"),
 								MessageType.INFO);
 
-					RepositoryManager.backup(true);
+					RepositoryManager.backup(true, "backup");
 				}
 
 				// Prune stuck/slow/old peers
