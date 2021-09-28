@@ -556,6 +556,46 @@ public class BlockChain {
 		}
 	}
 
+	/**
+	 * More thorough blockchain validation method. Useful for validating bootstraps.
+	 * A DataException is thrown if anything is invalid.
+	 *
+	 * @throws DataException
+	 */
+	public static void validateAllBlocks() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData chainTip = repository.getBlockRepository().getLastBlock();
+			final int chainTipHeight = chainTip.getHeight();
+			final int oldestBlock = 1; // TODO: increase if in pruning mode
+			byte[] lastReference = null;
+
+			for (int height = chainTipHeight; height > oldestBlock; height--) {
+				BlockData blockData = repository.getBlockRepository().fromHeight(height);
+				if (blockData == null) {
+					blockData = repository.getBlockArchiveRepository().fromHeight(height);
+				}
+
+				if (blockData == null) {
+					String error = String.format("Missing block at height %d", height);
+					LOGGER.error(error);
+					throw new DataException(error);
+				}
+
+				if (height != chainTipHeight) {
+					// Check reference
+					if (!Arrays.equals(blockData.getSignature(), lastReference)) {
+						String error = String.format("Invalid reference for block at height %d: %s (should be %s)",
+								height, Base58.encode(blockData.getReference()), Base58.encode(lastReference));
+						LOGGER.error(error);
+						throw new DataException(error);
+					}
+				}
+
+				lastReference = blockData.getReference();
+			}
+		}
+	}
+
 	private static boolean isGenesisBlockValid() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockRepository blockRepository = repository.getBlockRepository();
