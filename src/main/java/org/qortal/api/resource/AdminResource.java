@@ -609,6 +609,10 @@ public class AdminResource {
 				repository.saveChanges();
 
 				return "true";
+
+			} catch (IOException e) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
+
 			} finally {
 				blockchainLock.unlock();
 			}

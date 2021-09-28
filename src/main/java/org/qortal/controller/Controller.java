@@ -424,6 +424,9 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
+		// Import current trade bot states and minting accounts if they exist
+		Controller.importRepositoryData();
+
 		// Rebuild Names table and check database integrity
 		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
 		namesDatabaseIntegrityCheck.rebuildAllNames();
@@ -598,6 +601,47 @@ public class Controller extends Thread {
 			// Fall-through to exit
 		} finally {
 			PruneManager.getInstance().stop();
+		}
+	}
+
+	/**
+	 * Import current trade bot states and minting accounts.
+	 * This is needed because the user may have bootstrapped, or there could be a database inconsistency
+	 * if the core crashed when computing the nonce during the start of the trade process.
+	 */
+	private static void importRepositoryData() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			String exportPath = Settings.getInstance().getExportPath();
+			try {
+				Path importPath = Paths.get(exportPath, "TradeBotStates.json");
+				repository.importDataFromFile(importPath.toString());
+			} catch (FileNotFoundException e) {
+				// Do nothing, as the files will only exist in certain cases
+			}
+
+			try {
+				Path importPath = Paths.get(exportPath, "MintingAccounts.json");
+				repository.importDataFromFile(importPath.toString());
+			} catch (FileNotFoundException e) {
+				// Do nothing, as the files will only exist in certain cases
+			}
+			repository.saveChanges();
+		}
+		catch (DataException | IOException e) {
+			LOGGER.info("Unable to import data into repository: {}", e.getMessage());
+		}
+	}
+
+	/**
+	 * Export current trade bot states and minting accounts.
+	 */
+	private void exportRepositoryData() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			repository.exportNodeLocalData();
+
+		} catch (DataException e) {
+			// Fail silently as this is an optional step
 		}
 	}
 
@@ -951,6 +995,10 @@ public class Controller extends Thread {
 						// We were interrupted while waiting for thread to join
 					}
 				}
+
+				// Export local data
+				LOGGER.info("Backing up local data");
+				this.exportRepositoryData();
 
 				LOGGER.info("Shutting down networking");
 				Network.getInstance().shutdown();

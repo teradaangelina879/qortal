@@ -245,17 +245,17 @@ public class TradeBot implements Listener {
 		}
 	}
 
-	/*package*/ static byte[] generateTradePrivateKey() {
+	public static byte[] generateTradePrivateKey() {
 		// The private key is used for both Curve25519 and secp256k1 so needs to be valid for both.
 		// Curve25519 accepts any seed, so generate a valid secp256k1 key and use that.
 		return new ECKey().getPrivKeyBytes();
 	}
 
-	/*package*/ static byte[] deriveTradeNativePublicKey(byte[] privateKey) {
+	public static byte[] deriveTradeNativePublicKey(byte[] privateKey) {
 		return PrivateKeyAccount.toPublicKey(privateKey);
 	}
 
-	/*package*/ static byte[] deriveTradeForeignPublicKey(byte[] privateKey) {
+	public static byte[] deriveTradeForeignPublicKey(byte[] privateKey) {
 		return ECKey.fromPrivate(privateKey).getPubKey();
 	}
 

@@ -1,5 +1,7 @@
 package org.qortal.repository;
 
+import java.io.IOException;
+
 public interface Repository extends AutoCloseable {
 
 	public ATRepository getATRepository();
@@ -47,14 +49,16 @@ public interface Repository extends AutoCloseable {
 
 	public void setDebug(boolean debugState);
 
-	public void backup(boolean quick) throws DataException;
+	public void backup(boolean quick, String name) throws DataException;
 
 	public void performPeriodicMaintenance() throws DataException;
 
 	public void exportNodeLocalData() throws DataException;
 
-	public void importDataFromFile(String filename) throws DataException;
+	public void importDataFromFile(String filename) throws DataException, IOException;
 
 	public void checkConsistency() throws DataException;
+
+	public static void attemptRecovery(String connectionUrl, String name) throws DataException {}
 
 }

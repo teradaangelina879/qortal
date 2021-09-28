@@ -191,6 +191,8 @@ public interface AccountRepository {
 
 	public List<MintingAccountData> getMintingAccounts() throws DataException;
 
+	public MintingAccountData getMintingAccount(byte[] mintingAccountKey) throws DataException;
+
 	public void save(MintingAccountData mintingAccountData) throws DataException;
 
 	/** Delete minting account info, used by BlockMinter, from repository using passed public or private key. */

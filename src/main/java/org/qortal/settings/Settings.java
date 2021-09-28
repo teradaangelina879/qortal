@@ -184,6 +184,9 @@ public class Settings {
 	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
 	private int repositoryConnectionPoolSize = 100;
 
+	// Export/import
+	private String exportPath = "qortal-backup";
+
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
 		"https://github.com/Qortal/qortal/raw/%s/qortal.update",
@@ -500,6 +503,10 @@ public class Settings {
 
 	public int getRepositoryConnectionPoolSize() {
 		return this.repositoryConnectionPoolSize;
+	}
+
+	public String getExportPath() {
+		return this.exportPath;
 	}
 
 	public boolean isAutoUpdateEnabled() {
