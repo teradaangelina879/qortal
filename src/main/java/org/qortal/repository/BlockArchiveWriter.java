@@ -57,7 +57,7 @@ public class BlockArchiveWriter {
         final int maxArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
         final int actualArchiveHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight();
         final float progress = (float)actualArchiveHeight / (float) maxArchiveHeight;
-        LOGGER.info(String.format("maxArchiveHeight: %d, actualArchiveHeight: %d, progress: %f",
+        LOGGER.debug(String.format("maxArchiveHeight: %d, actualArchiveHeight: %d, progress: %f",
                 maxArchiveHeight, actualArchiveHeight, progress));
 
         // If archiver is within 95% of the maximum, treat it as up to date
