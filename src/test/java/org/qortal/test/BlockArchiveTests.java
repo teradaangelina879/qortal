@@ -1,32 +1,25 @@
 package org.qortal.test;
 
 import org.apache.commons.io.FileUtils;
-import org.ciyam.at.CompilationException;
-import org.ciyam.at.MachineState;
-import org.ciyam.at.OpCode;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.asset.Asset;
 import org.qortal.controller.BlockMinter;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.block.BlockData;
-import org.qortal.data.transaction.BaseTransactionData;
-import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.group.Group;
 import org.qortal.repository.*;
 import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.settings.Settings;
 import org.qortal.test.common.AtUtils;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
-import org.qortal.test.common.TransactionUtils;
 import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.BlockArchiveUtils;
+import org.qortal.utils.NTP;
 import org.qortal.utils.Triple;
 
 import java.io.File;
@@ -44,8 +37,8 @@ public class BlockArchiveTests extends Common {
 
 	@Before
 	public void beforeTest() throws DataException {
-		Common.useDefaultSettings(); // Necessary to set NTP offset
 		Common.useSettings("test-settings-v2-block-archive.json");
+		NTP.setFixedOffset(Settings.getInstance().getTestNtpOffset());
 		this.deleteArchiveDirectory();
 	}
 
@@ -317,9 +310,9 @@ public class BlockArchiveTests extends Common {
 			assertEquals(900 - 1, writer.getWrittenCount());
 
 			// Increment block archive height
-			repository.getBlockArchiveRepository().setBlockArchiveHeight(writer.getWrittenCount());
+			repository.getBlockArchiveRepository().setBlockArchiveHeight(901);
 			repository.saveChanges();
-			assertEquals(900 - 1, repository.getBlockArchiveRepository().getBlockArchiveHeight());
+			assertEquals(901, repository.getBlockArchiveRepository().getBlockArchiveHeight());
 
 			// Ensure the file exists
 			File outputFile = writer.getOutputPath().toFile();
