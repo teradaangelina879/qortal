@@ -91,7 +91,6 @@ public class HSQLDBDatabasePruning {
             // Archive mode - don't prune anything that hasn't been archived yet
             maximumBlockToTrim = Math.min(maximumBlockToTrim, repository.getBlockArchiveRepository().getBlockArchiveHeight() - 1);
         }
-        final int startHeight = maximumBlockToTrim;
         final int endHeight = blockchainHeight;
         final int blockStep = 10000;
 
@@ -104,10 +103,11 @@ public class HSQLDBDatabasePruning {
         // Loop through all the LatestATStates and copy them to the new table
         LOGGER.info("Copying AT states...");
         for (int height = 0; height < endHeight; height += blockStep) {
-            //LOGGER.info(String.format("Copying AT states between %d and %d...", height, height + blockStep - 1));
+            final int batchEndHeight = height + blockStep - 1;
+            //LOGGER.info(String.format("Copying AT states between %d and %d...", height, batchEndHeight));
 
             String sql = "SELECT height, AT_address FROM LatestATStates WHERE height BETWEEN ? AND ?";
-            try (ResultSet latestAtStatesResultSet = repository.checkedExecute(sql, height, height + blockStep - 1)) {
+            try (ResultSet latestAtStatesResultSet = repository.checkedExecute(sql, height, batchEndHeight)) {
                 if (latestAtStatesResultSet != null) {
                     do {
                         int latestAtHeight = latestAtStatesResultSet.getInt(1);
@@ -126,9 +126,12 @@ public class HSQLDBDatabasePruning {
                             throw new DataException("Unable to copy ATStates", e);
                         }
 
-                        if (height >= startHeight) {
-                            // Now copy this AT's states for each recent block they is present in
-                            for (int i = startHeight; i < endHeight; i++) {
+                        // If this batch includes blocks after the maximum block to trim, we will need to copy
+                        // each of its AT states above maximumBlockToTrim as they are considered "recent". We
+                        // need to do this for _all_ AT states in these blocks, regardless of their latest state.
+                        if (batchEndHeight >= maximumBlockToTrim) {
+                            // Now copy this AT's states for each recent block they are present in
+                            for (int i = maximumBlockToTrim; i < endHeight; i++) {
                                 if (latestAtHeight < i) {
                                     // This AT finished before this block so there is nothing to copy
                                     continue;

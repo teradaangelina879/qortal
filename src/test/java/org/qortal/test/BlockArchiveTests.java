@@ -381,7 +381,7 @@ public class BlockArchiveTests extends Common {
 
 			// Write blocks 2-900 to the archive (using bulk method)
 			int fileSizeTarget = 425000; // Pre-calculated size of 900 blocks
-			assertTrue(HSQLDBDatabaseArchiving.buildBlockArchive(repository, 425000));
+			assertTrue(HSQLDBDatabaseArchiving.buildBlockArchive(repository, fileSizeTarget));
 
 			// Ensure the block archive height has increased
 			assertEquals(901, repository.getBlockArchiveRepository().getBlockArchiveHeight());
@@ -393,6 +393,14 @@ public class BlockArchiveTests extends Common {
 			// Check the current prune heights
 			assertEquals(0, repository.getBlockRepository().getBlockPruneHeight());
 			assertEquals(0, repository.getATRepository().getAtPruneHeight());
+
+			// Prior to archiving or pruning, ensure blocks 2 to 1002 and their AT states are available in the db
+			for (int i=2; i<=1002; i++) {
+				assertNotNull(repository.getBlockRepository().fromHeight(i));
+				List<ATStateData> atStates = repository.getATRepository().getBlockATStatesAtHeight(i);
+				assertNotNull(atStates);
+				assertEquals(1, atStates.size());
+			}
 
 			// Prune all the archived blocks and AT states (using bulk method)
 			assertTrue(HSQLDBDatabasePruning.pruneBlocks(hsqldb));
@@ -413,6 +421,28 @@ public class BlockArchiveTests extends Common {
 			// Validate the latest block height in the repository
 			assertEquals(1002, (int) repository.getBlockRepository().getLastBlock().getHeight());
 
+			// Ensure blocks 2-900 are all available in the archive
+			for (int i=2; i<=900; i++) {
+				assertNotNull(repository.getBlockArchiveRepository().fromHeight(i));
+			}
+
+			// Ensure blocks 2-900 are NOT available in the db
+			for (int i=2; i<=900; i++) {
+				assertNull(repository.getBlockRepository().fromHeight(i));
+			}
+
+			// Ensure blocks 901 to 1002 and their AT states are available in the db
+			for (int i=901; i<=1002; i++) {
+				assertNotNull(repository.getBlockRepository().fromHeight(i));
+				List<ATStateData> atStates = repository.getATRepository().getBlockATStatesAtHeight(i);
+				assertNotNull(atStates);
+				assertEquals(1, atStates.size());
+			}
+
+			// Ensure blocks 901 to 1002 are not available in the archive
+			for (int i=901; i<=1002; i++) {
+				assertNull(repository.getBlockArchiveRepository().fromHeight(i));
+			}
 		}
 	}
 
