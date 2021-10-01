@@ -30,7 +30,7 @@ public class HSQLDBDatabaseArchiving {
     private static final Logger LOGGER = LogManager.getLogger(HSQLDBDatabaseArchiving.class);
 
 
-    public static boolean buildBlockArchive(Repository repository) throws DataException {
+    public static boolean buildBlockArchive(Repository repository, long fileSizeTarget) throws DataException {
 
         // Only build the archive if we have never done so before
         int archiveHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight();
@@ -47,11 +47,12 @@ public class HSQLDBDatabaseArchiving {
         while (!Controller.isStopping()) {
             try {
                 BlockArchiveWriter writer = new BlockArchiveWriter(startHeight, maximumArchiveHeight, repository);
+                writer.setFileSizeTarget(fileSizeTarget);
                 BlockArchiveWriter.BlockArchiveWriteResult result = writer.write();
                 switch (result) {
                     case OK:
                         // Increment block archive height
-                        startHeight += writer.getWrittenCount();
+                        startHeight = writer.getLastWrittenHeight() + 1;
                         repository.getBlockArchiveRepository().setBlockArchiveHeight(startHeight);
                         repository.saveChanges();
                         break;

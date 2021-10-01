@@ -10,6 +10,8 @@ import org.qortal.data.at.ATStateData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.*;
+import org.qortal.repository.hsqldb.HSQLDBDatabaseArchiving;
+import org.qortal.repository.hsqldb.HSQLDBDatabasePruning;
 import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.settings.Settings;
 import org.qortal.test.common.AtUtils;
@@ -24,7 +26,6 @@ import org.qortal.utils.Triple;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
@@ -332,6 +333,74 @@ public class BlockArchiveTests extends Common {
 			int numATStatesPruned = repository.getATRepository().pruneAtStates(0, 900);
 			assertEquals(900-1, numATStatesPruned);
 			repository.getATRepository().setAtPruneHeight(901);
+
+			// Now ensure the SQL repository is missing blocks 2 and 900...
+			assertNull(repository.getBlockRepository().fromHeight(2));
+			assertNull(repository.getBlockRepository().fromHeight(900));
+
+			// ... but it's not missing blocks 1 and 901 (we don't prune the genesis block)
+			assertNotNull(repository.getBlockRepository().fromHeight(1));
+			assertNotNull(repository.getBlockRepository().fromHeight(901));
+
+			// Validate the latest block height in the repository
+			assertEquals(1002, (int) repository.getBlockRepository().getLastBlock().getHeight());
+
+		}
+	}
+
+	@Test
+	public void testBulkArchiveAndPrune() throws DataException, InterruptedException, TransformationException, IOException, SQLException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			HSQLDBRepository hsqldb = (HSQLDBRepository) repository;
+
+			// Alice self share online
+			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
+			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
+			mintingAndOnlineAccounts.add(aliceSelfShare);
+
+			// Deploy an AT so that we have AT state data
+			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
+			byte[] creationBytes = AtUtils.buildSimpleAT();
+			long fundingAmount = 1_00000000L;
+			AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
+
+			// Mint some blocks so that we are able to archive them later
+			for (int i = 0; i < 1000; i++)
+				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Assume 900 blocks are trimmed (this specifies the first untrimmed height)
+			repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(901);
+			repository.getATRepository().setAtTrimHeight(901);
+
+			// Check the max archive height - this should be one less than the first untrimmed height
+			final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
+			assertEquals(900, maximumArchiveHeight);
+
+			// Check the current archive height
+			assertEquals(0, repository.getBlockArchiveRepository().getBlockArchiveHeight());
+
+			// Write blocks 2-900 to the archive (using bulk method)
+			int fileSizeTarget = 425000; // Pre-calculated size of 900 blocks
+			assertTrue(HSQLDBDatabaseArchiving.buildBlockArchive(repository, 425000));
+
+			// Ensure the block archive height has increased
+			assertEquals(901, repository.getBlockArchiveRepository().getBlockArchiveHeight());
+
+			// Ensure the SQL repository contains blocks 2 and 900...
+			assertNotNull(repository.getBlockRepository().fromHeight(2));
+			assertNotNull(repository.getBlockRepository().fromHeight(900));
+
+			// Check the current prune heights
+			assertEquals(0, repository.getBlockRepository().getBlockPruneHeight());
+			assertEquals(0, repository.getATRepository().getAtPruneHeight());
+
+			// Prune all the archived blocks and AT states (using bulk method)
+			assertTrue(HSQLDBDatabasePruning.pruneBlocks(hsqldb));
+			assertTrue(HSQLDBDatabasePruning.pruneATStates(hsqldb));
+
+			// Ensure the current prune heights have increased
+			assertEquals(901, repository.getBlockRepository().getBlockPruneHeight());
+			assertEquals(901, repository.getATRepository().getAtPruneHeight());
 
 			// Now ensure the SQL repository is missing blocks 2 and 900...
 			assertNull(repository.getBlockRepository().fromHeight(2));

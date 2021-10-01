@@ -83,19 +83,18 @@ public class BlockPruner implements Runnable {
 				repository.saveChanges();
 
 				if (numBlocksPruned > 0) {
-					final int finalPruneStartHeight = pruneStartHeight;
-					LOGGER.debug(() -> String.format("Pruned %d block%s between %d and %d",
+					LOGGER.debug(String.format("Pruned %d block%s between %d and %d",
 							numBlocksPruned, (numBlocksPruned != 1 ? "s" : ""),
-							finalPruneStartHeight, upperPruneHeight));
+							pruneStartHeight, upperPruneHeight));
 				} else {
-					// Can we move onto next batch?
-					if (upperPrunableHeight > upperBatchHeight) {
-						pruneStartHeight = upperBatchHeight;
-						repository.getBlockRepository().setBlockPruneHeight(pruneStartHeight);
-						repository.saveChanges();
+					final int nextPruneHeight = upperPruneHeight + 1;
+					repository.getBlockRepository().setBlockPruneHeight(nextPruneHeight);
+					repository.saveChanges();
+					LOGGER.debug(String.format("Bumping block base prune height to %d", pruneStartHeight));
 
-						final int finalPruneStartHeight = pruneStartHeight;
-						LOGGER.debug(() -> String.format("Bumping block base prune height to %d", finalPruneStartHeight));
+					// Can we move onto next batch?
+					if (upperPrunableHeight > nextPruneHeight) {
+						pruneStartHeight = nextPruneHeight;
 					}
 					else {
 						// We've pruned up to the upper prunable height

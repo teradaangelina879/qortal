@@ -64,7 +64,7 @@ public abstract class RepositoryManager {
 		if (Settings.getInstance().isArchiveEnabled()) {
 			if (RepositoryManager.canArchiveOrPrune()) {
 				try {
-					return HSQLDBDatabaseArchiving.buildBlockArchive(repository);
+					return HSQLDBDatabaseArchiving.buildBlockArchive(repository, BlockArchiveWriter.DEFAULT_FILE_SIZE_TARGET);
 
 				} catch (DataException e) {
 					LOGGER.info("Unable to build block archive. The database may have been left in an inconsistent state.");

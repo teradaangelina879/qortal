@@ -29,14 +29,17 @@ public class BlockArchiveWriter {
 
     private static final Logger LOGGER = LogManager.getLogger(BlockArchiveWriter.class);
 
+    public static final long DEFAULT_FILE_SIZE_TARGET = 100 * 1024 * 1024; // 100MiB
+
     private int startHeight;
     private final int endHeight;
     private final Repository repository;
 
-    private long fileSizeTarget = 100 * 1024 * 1024; // 100MiB
+    private long fileSizeTarget = DEFAULT_FILE_SIZE_TARGET;
     private boolean shouldEnforceFileSizeTarget = true;
 
     private int writtenCount;
+    private int lastWrittenHeight;
     private Path outputPath;
 
     public BlockArchiveWriter(int startHeight, int endHeight, Repository repository) {
@@ -169,12 +172,17 @@ public class BlockArchiveWriter {
         BlockArchiveReader.getInstance().invalidateFileListCache();
 
         this.writtenCount = i;
+        this.lastWrittenHeight = endHeight;
         this.outputPath = Paths.get(filePath);
         return BlockArchiveWriteResult.OK;
     }
 
     public int getWrittenCount() {
         return this.writtenCount;
+    }
+
+    public int getLastWrittenHeight() {
+        return this.lastWrittenHeight;
     }
 
     public Path getOutputPath() {

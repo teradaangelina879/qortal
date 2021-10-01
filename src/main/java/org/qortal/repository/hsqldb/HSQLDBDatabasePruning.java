@@ -167,7 +167,8 @@ public class HSQLDBDatabasePruning {
         repository.executeCheckedUpdate("CHECKPOINT");
 
         // Update the prune height
-        repository.getATRepository().setAtPruneHeight(maximumBlockToTrim);
+        int nextPruneHeight = maximumBlockToTrim + 1;
+        repository.getATRepository().setAtPruneHeight(nextPruneHeight);
         repository.saveChanges();
 
         repository.executeCheckedUpdate("CHECKPOINT");
@@ -291,13 +292,14 @@ public class HSQLDBDatabasePruning {
                         numBlocksPruned, (numBlocksPruned != 1 ? "s" : ""),
                         pruneStartHeight, upperPruneHeight));
             } else {
-                repository.getBlockRepository().setBlockPruneHeight(upperBatchHeight);
+                final int nextPruneHeight = upperPruneHeight + 1;
+                repository.getBlockRepository().setBlockPruneHeight(nextPruneHeight);
                 repository.saveChanges();
-                LOGGER.debug(String.format("Bumping block base prune height to %d", upperBatchHeight));
+                LOGGER.debug(String.format("Bumping block base prune height to %d", nextPruneHeight));
 
                 // Can we move onto next batch?
-                if (upperPrunableHeight > upperBatchHeight) {
-                    pruneStartHeight = upperBatchHeight;
+                if (upperPrunableHeight > nextPruneHeight) {
+                    pruneStartHeight = nextPruneHeight;
                 }
                 else {
                     // We've finished pruning
