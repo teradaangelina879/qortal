@@ -18,8 +18,8 @@ public class SevenZ {
 
     }
 
-    public static void compress(String name, File... files) throws IOException {
-        try (SevenZOutputFile out = new SevenZOutputFile(new File(name))){
+    public static void compress(String outputPath, File... files) throws IOException {
+        try (SevenZOutputFile out = new SevenZOutputFile(new File(outputPath))){
             for (File file : files){
                 addToArchiveCompression(out, file, ".");
             }

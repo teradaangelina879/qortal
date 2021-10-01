@@ -12,6 +12,8 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.repository.Bootstrap;
 import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
@@ -44,17 +46,18 @@ public class BootstrapResource {
 	public String createBootstrap() {
 		Security.checkApiCallAllowed(request);
 
-		Bootstrap bootstrap = new Bootstrap();
-		if (!bootstrap.canBootstrap()) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-		}
+		try (final Repository repository = RepositoryManager.getRepository()) {
 
-		boolean isBlockchainValid = bootstrap.validateBlockchain();
-		if (!isBlockchainValid) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-		}
+			Bootstrap bootstrap = new Bootstrap(repository);
+			if (!bootstrap.canBootstrap()) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+			}
 
-		try {
+			boolean isBlockchainValid = bootstrap.validateBlockchain();
+			if (!isBlockchainValid) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+			}
+
 			return bootstrap.create();
 
 		} catch (DataException | InterruptedException | IOException e) {
@@ -78,7 +81,13 @@ public class BootstrapResource {
 	public boolean validateBootstrap() {
 		Security.checkApiCallAllowed(request);
 
-		Bootstrap bootstrap = new Bootstrap();
-		return bootstrap.validateCompleteBlockchain();
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			Bootstrap bootstrap = new Bootstrap(repository);
+			return bootstrap.validateCompleteBlockchain();
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+		}
 	}
 }

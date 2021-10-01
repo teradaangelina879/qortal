@@ -1,4 +1,5 @@
 {
+  "repositoryPath": "testdb",
   "bitcoinNet": "TEST3",
   "litecoinNet": "TEST3",
   "restrictedApi": false,
@@ -7,5 +8,7 @@
   "bootstrap": false,
   "wipeUnconfirmedOnStart": false,
   "testNtpOffset": 0,
-  "minPeers": 0
+  "minPeers": 0,
+  "pruneBlockLimit": 100,
+  "bootstrapFilenamePrefix": "test-"
 }

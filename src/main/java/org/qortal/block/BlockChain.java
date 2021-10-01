@@ -508,6 +508,7 @@ public class BlockChain {
 		}
 
 		boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
+		boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
 		boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
 
 		if (pruningEnabled && hasBlocks) {
@@ -527,31 +528,16 @@ public class BlockChain {
 
 			// Set the number of blocks to validate based on the pruned state of the chain
 			// If pruned, subtract an extra 10 to allow room for error
-			int blocksToValidate = pruningEnabled ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
+			int blocksToValidate = (pruningEnabled || archiveEnabled) ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
 
 			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - blocksToValidate, 1);
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);
 
 			if (detachedBlockData != null) {
-				LOGGER.error(String.format("Block %d's reference does not match any block's signature", detachedBlockData.getHeight()));
-
-				// Orphan if we aren't a pruning node
-				if (!Settings.getInstance().isPruningEnabled()) {
-
-					// Wait for blockchain lock (whereas orphan() only tries to get lock)
-					ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-					blockchainLock.lock();
-					try {
-						LOGGER.info(String.format("Orphaning back to block %d", detachedBlockData.getHeight() - 1));
-						orphan(detachedBlockData.getHeight() - 1);
-					} finally {
-						blockchainLock.unlock();
-					}
-				}
-				else {
-					LOGGER.error(String.format("Not orphaning because we are in pruning mode. You may be on an " +
-							"invalid chain and should consider bootstrapping or re-syncing from genesis."));
-				}
+				LOGGER.error(String.format("Block %d's reference does not match any block's signature",
+						detachedBlockData.getHeight()));
+				LOGGER.error(String.format("Your chain may be invalid and you should consider bootstrapping" +
+						" or re-syncing from genesis."));
 			}
 		}
 	}
@@ -618,8 +604,10 @@ public class BlockChain {
 		boolean shouldBootstrap = Settings.getInstance().getBootstrap();
 		if (shouldBootstrap) {
 			// Settings indicate that we should apply a bootstrap rather than rebuilding and syncing from genesis
-			Bootstrap bootstrap = new Bootstrap();
-			bootstrap.startImport();
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				Bootstrap bootstrap = new Bootstrap(repository);
+				bootstrap.startImport();
+			}
 			return;
 		}
 

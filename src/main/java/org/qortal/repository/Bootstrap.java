@@ -9,26 +9,24 @@ import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.repository.hsqldb.HSQLDBImportExport;
-import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
 import org.qortal.utils.NTP;
 import org.qortal.utils.SevenZ;
 
-import java.io.BufferedInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+
 
 public class Bootstrap {
+
+    private Repository repository;
 
     private static final Logger LOGGER = LogManager.getLogger(Bootstrap.class);
 
@@ -39,8 +37,8 @@ public class Bootstrap {
     private static final int MAXIMUM_UNPRUNED_BLOCKS = 100;
 
 
-    public Bootstrap() {
-
+    public Bootstrap(Repository repository) {
+        this.repository = repository;
     }
 
     /**
@@ -50,9 +48,8 @@ public class Bootstrap {
      * All failure reasons are logged
      */
     public boolean canBootstrap() {
-        LOGGER.info("Checking repository state...");
-
-        try (final Repository repository = RepositoryManager.getRepository()) {
+        try {
+            LOGGER.info("Checking repository state...");
 
             final boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
             final boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
@@ -203,73 +200,80 @@ public class Bootstrap {
     }
 
     public String create() throws DataException, InterruptedException, IOException {
-        try (final HSQLDBRepository repository = (HSQLDBRepository) RepositoryManager.getRepository()) {
 
-            LOGGER.info("Acquiring blockchain lock...");
-            ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-            blockchainLock.lockInterruptibly();
+        LOGGER.info("Acquiring blockchain lock...");
+        ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+        blockchainLock.lockInterruptibly();
 
-            Path inputPath = null;
+        Path inputPath = null;
+        Path outputPath = null;
 
+        try {
+
+            LOGGER.info("Exporting local data...");
+            repository.exportNodeLocalData();
+
+            LOGGER.info("Deleting trade bot states...");
+            List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
+            for (TradeBotData tradeBotData : allTradeBotData) {
+                repository.getCrossChainRepository().delete(tradeBotData.getTradePrivateKey());
+            }
+
+            LOGGER.info("Deleting minting accounts...");
+            List<MintingAccountData> mintingAccounts = repository.getAccountRepository().getMintingAccounts();
+            for (MintingAccountData mintingAccount : mintingAccounts) {
+                repository.getAccountRepository().delete(mintingAccount.getPrivateKey());
+            }
+
+            repository.saveChanges();
+
+            LOGGER.info("Performing repository maintenance...");
+            repository.performPeriodicMaintenance();
+
+            LOGGER.info("Creating bootstrap...");
+            repository.backup(true, "bootstrap");
+
+            LOGGER.info("Moving files to output directory...");
+            inputPath = Paths.get(Settings.getInstance().getRepositoryPath(), "bootstrap");
+            outputPath = Paths.get(Files.createTempDirectory("qortal-bootstrap").toString(), "bootstrap");
+
+
+            // Move the db backup to a "bootstrap" folder in the root directory
+            Files.move(inputPath, outputPath, REPLACE_EXISTING);
+
+            // Copy the archive folder to inside the bootstrap folder
+            FileUtils.copyDirectory(
+                    Paths.get(Settings.getInstance().getRepositoryPath(), "archive").toFile(),
+                    Paths.get(outputPath.toString(), "archive").toFile()
+            );
+
+            LOGGER.info("Compressing...");
+            String compressedOutputPath = String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap.7z");
             try {
+                Files.delete(Paths.get(compressedOutputPath));
+            } catch (NoSuchFileException e) {
+                // Doesn't exist, so no need to delete
+            }
+            SevenZ.compress(compressedOutputPath, outputPath.toFile());
 
-                LOGGER.info("Exporting local data...");
-                repository.exportNodeLocalData();
+            // Return the path to the compressed bootstrap file
+            Path finalPath = Paths.get(outputPath.toString(), compressedOutputPath);
+            return finalPath.toAbsolutePath().toString();
 
-                LOGGER.info("Deleting trade bot states...");
-                List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
-                for (TradeBotData tradeBotData : allTradeBotData) {
-                    repository.getCrossChainRepository().delete(tradeBotData.getTradePrivateKey());
-                }
+        } finally {
+            LOGGER.info("Re-importing local data...");
+            Path exportPath = HSQLDBImportExport.getExportDirectory(false);
+            repository.importDataFromFile(Paths.get(exportPath.toString(), "TradeBotStates.json").toString());
+            repository.importDataFromFile(Paths.get(exportPath.toString(), "MintingAccounts.json").toString());
 
-                LOGGER.info("Deleting minting accounts...");
-                List<MintingAccountData> mintingAccounts = repository.getAccountRepository().getMintingAccounts();
-                for (MintingAccountData mintingAccount : mintingAccounts) {
-                    repository.getAccountRepository().delete(mintingAccount.getPrivateKey());
-                }
+            blockchainLock.unlock();
 
-                repository.saveChanges();
-
-                LOGGER.info("Performing repository maintenance...");
-                repository.performPeriodicMaintenance();
-
-                LOGGER.info("Creating bootstrap...");
-                repository.backup(true, "bootstrap");
-
-                LOGGER.info("Moving files to output directory...");
-                inputPath = Paths.get(Settings.getInstance().getRepositoryPath(), "bootstrap");
-                Path outputPath = Paths.get("bootstrap");
+            // Cleanup
+            if (inputPath != null) {
+                FileUtils.deleteDirectory(inputPath.toFile());
+            }
+            if (outputPath != null) {
                 FileUtils.deleteDirectory(outputPath.toFile());
-
-                // Move the db backup to a "bootstrap" folder in the root directory
-                Files.move(inputPath, outputPath);
-
-                // Copy the archive folder to inside the bootstrap folder
-                FileUtils.copyDirectory(
-                        Paths.get(Settings.getInstance().getRepositoryPath(), "archive").toFile(),
-                        Paths.get(outputPath.toString(), "archive").toFile()
-                );
-
-                LOGGER.info("Compressing...");
-                String fileName = "bootstrap.7z";
-                SevenZ.compress(fileName, outputPath.toFile());
-
-                // Return the path to the compressed bootstrap file
-                Path finalPath = Paths.get(outputPath.toString(), fileName);
-                return finalPath.toAbsolutePath().toString();
-
-            } finally {
-                LOGGER.info("Re-importing local data...");
-                Path exportPath = HSQLDBImportExport.getExportDirectory(false);
-                repository.importDataFromFile(Paths.get(exportPath.toString(), "TradeBotStates.json").toString());
-                repository.importDataFromFile(Paths.get(exportPath.toString(), "MintingAccounts.json").toString());
-
-                blockchainLock.unlock();
-
-                // Cleanup
-                if (inputPath != null) {
-                    FileUtils.deleteDirectory(inputPath.toFile());
-                }
             }
         }
     }
@@ -305,7 +309,7 @@ public class Bootstrap {
             try {
                 LOGGER.info("Downloading bootstrap...");
                 InputStream in = new URL(bootstrapUrl).openStream();
-                Files.copy(in, path, StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(in, path, REPLACE_EXISTING);
                 break;
 
             } catch (IOException e) {
@@ -324,7 +328,7 @@ public class Bootstrap {
         throw new DataException("Unable to download bootstrap");
     }
 
-    private void importFromPath(Path path) throws InterruptedException, DataException, IOException {
+    public void importFromPath(Path path) throws InterruptedException, DataException, IOException {
 
         ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
         blockchainLock.lockInterruptibly();
@@ -332,13 +336,18 @@ public class Bootstrap {
         try {
             LOGGER.info("Extracting bootstrap...");
             Path input = path.toAbsolutePath();
-            Path output = path.getParent().toAbsolutePath();
+            Path output = path.toAbsolutePath().getParent().toAbsolutePath();
             SevenZ.decompress(input.toString(), output.toFile());
 
             LOGGER.info("Stopping repository...");
+            // Close the repository while we are still able to
+            // Otherwise, the caller will run into difficulties when it tries to close it
+            repository.discardChanges();
+            repository.close();
+            // Now close the repository factory so that we can swap out the database files
             RepositoryManager.closeRepositoryFactory();
 
-            Path inputPath = Paths.get("bootstrap");
+            Path inputPath = Paths.get(output.toString(), "bootstrap");
             Path outputPath = Paths.get(Settings.getInstance().getRepositoryPath());
             if (!inputPath.toFile().exists()) {
                 throw new DataException("Extracted bootstrap doesn't exist");

@@ -191,6 +191,9 @@ public class Settings {
 	// Export/import
 	private String exportPath = "qortal-backup";
 
+	// Bootstrap
+	private String bootstrapFilenamePrefix = "";
+
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
 		"https://github.com/Qortal/qortal/raw/%s/qortal.update",
@@ -511,6 +514,10 @@ public class Settings {
 
 	public String getExportPath() {
 		return this.exportPath;
+	}
+
+	public String getBootstrapFilenamePrefix() {
+		return this.bootstrapFilenamePrefix;
 	}
 
 	public boolean isAutoUpdateEnabled() {

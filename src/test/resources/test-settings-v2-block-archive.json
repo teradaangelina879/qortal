@@ -8,6 +8,6 @@
   "wipeUnconfirmedOnStart": false,
   "testNtpOffset": 0,
   "minPeers": 0,
-  "pruneBlockLimit": 1450,
+  "pruneBlockLimit": 100,
   "repositoryPath": "dbtest"
 }
