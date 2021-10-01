@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -53,14 +52,10 @@ public class BlockArchiveTests extends Common {
 	public void testWriter() throws DataException, InterruptedException, TransformationException, IOException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			// Alice self share online
-			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
-			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
-			mintingAndOnlineAccounts.add(aliceSelfShare);
-
 			// Mint some blocks so that we are able to archive them later
-			for (int i = 0; i < 1000; i++)
-				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+			for (int i = 0; i < 1000; i++) {
+				BlockMinter.mintTestingBlock(repository, Common.getTestAccount(repository, "alice-reward-share"));
+			}
 
 			// 900 blocks are trimmed (this specifies the first untrimmed height)
 			repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(901);
@@ -94,14 +89,10 @@ public class BlockArchiveTests extends Common {
 	public void testWriterAndReader() throws DataException, InterruptedException, TransformationException, IOException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			// Alice self share online
-			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
-			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
-			mintingAndOnlineAccounts.add(aliceSelfShare);
-
 			// Mint some blocks so that we are able to archive them later
-			for (int i = 0; i < 1000; i++)
-				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+			for (int i = 0; i < 1000; i++) {
+				BlockMinter.mintTestingBlock(repository, Common.getTestAccount(repository, "alice-reward-share"));
+			}
 
 			// 900 blocks are trimmed (this specifies the first untrimmed height)
 			repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(901);
@@ -165,11 +156,6 @@ public class BlockArchiveTests extends Common {
 	public void testArchivedAtStates() throws DataException, InterruptedException, TransformationException, IOException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			// Alice self share online
-			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
-			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
-			mintingAndOnlineAccounts.add(aliceSelfShare);
-
 			// Deploy an AT so that we have AT state data
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 			byte[] creationBytes = AtUtils.buildSimpleAT();
@@ -178,8 +164,9 @@ public class BlockArchiveTests extends Common {
 			String atAddress = deployAtTransaction.getATAccount().getAddress();
 
 			// Mint some blocks so that we are able to archive them later
-			for (int i = 0; i < 10; i++)
-				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+			for (int i = 0; i < 1000; i++) {
+				BlockMinter.mintTestingBlock(repository, Common.getTestAccount(repository, "alice-reward-share"));
+			}
 
 			// 9 blocks are trimmed (this specifies the first untrimmed height)
 			repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(10);
@@ -278,11 +265,6 @@ public class BlockArchiveTests extends Common {
 	public void testArchiveAndPrune() throws DataException, InterruptedException, TransformationException, IOException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			// Alice self share online
-			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
-			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
-			mintingAndOnlineAccounts.add(aliceSelfShare);
-
 			// Deploy an AT so that we have AT state data
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 			byte[] creationBytes = AtUtils.buildSimpleAT();
@@ -290,8 +272,9 @@ public class BlockArchiveTests extends Common {
 			AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 
 			// Mint some blocks so that we are able to archive them later
-			for (int i = 0; i < 1000; i++)
-				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+			for (int i = 0; i < 1000; i++) {
+				BlockMinter.mintTestingBlock(repository, Common.getTestAccount(repository, "alice-reward-share"));
+			}
 
 			// Assume 900 blocks are trimmed (this specifies the first untrimmed height)
 			repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(901);
@@ -353,11 +336,6 @@ public class BlockArchiveTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			HSQLDBRepository hsqldb = (HSQLDBRepository) repository;
 
-			// Alice self share online
-			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
-			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
-			mintingAndOnlineAccounts.add(aliceSelfShare);
-
 			// Deploy an AT so that we have AT state data
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 			byte[] creationBytes = AtUtils.buildSimpleAT();
@@ -365,8 +343,9 @@ public class BlockArchiveTests extends Common {
 			AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 
 			// Mint some blocks so that we are able to archive them later
-			for (int i = 0; i < 1000; i++)
-				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+			for (int i = 0; i < 1000; i++) {
+				BlockMinter.mintTestingBlock(repository, Common.getTestAccount(repository, "alice-reward-share"));
+			}
 
 			// Assume 900 blocks are trimmed (this specifies the first untrimmed height)
 			repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(901);
@@ -450,11 +429,6 @@ public class BlockArchiveTests extends Common {
 	public void testTrimArchivePruneAndOrphan() throws DataException, InterruptedException, TransformationException, IOException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			// Alice self share online
-			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
-			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
-			mintingAndOnlineAccounts.add(aliceSelfShare);
-
 			// Deploy an AT so that we have AT state data
 			PrivateKeyAccount deployer = Common.getTestAccount(repository, "alice");
 			byte[] creationBytes = AtUtils.buildSimpleAT();
@@ -462,8 +436,9 @@ public class BlockArchiveTests extends Common {
 			AtUtils.doDeployAT(repository, deployer, creationBytes, fundingAmount);
 
 			// Mint some blocks so that we are able to archive them later
-			for (int i = 0; i < 1000; i++)
-				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+			for (int i = 0; i < 1000; i++) {
+				BlockMinter.mintTestingBlock(repository, Common.getTestAccount(repository, "alice-reward-share"));
+			}
 
 			// Make sure that block 500 has full AT state data and data hash
 			List<ATStateData> block500AtStatesData = repository.getATRepository().getBlockATStatesAtHeight(500);
