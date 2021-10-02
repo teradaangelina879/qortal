@@ -616,6 +616,9 @@ public class Settings {
 
 
 	public boolean isArchiveEnabled() {
+		if (this.topOnly) {
+			return false;
+		}
 		return this.archiveEnabled;
 	}
 
