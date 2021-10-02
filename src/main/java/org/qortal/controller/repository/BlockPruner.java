@@ -19,8 +19,8 @@ public class BlockPruner implements Runnable {
 		Thread.currentThread().setName("Block pruner");
 
 		boolean archiveMode = false;
-		if (!Settings.getInstance().isPruningEnabled()) {
-			// Pruning isn't enabled, but we might want to prune for the purposes of archiving
+		if (!Settings.getInstance().isTopOnly()) {
+			// Top-only mode isn't enabled, but we might want to prune for the purposes of archiving
 			if (!Settings.getInstance().isArchiveEnabled()) {
 				// No pruning or archiving, so we must not prune anything
 				return;

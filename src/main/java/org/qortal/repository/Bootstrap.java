@@ -53,7 +53,7 @@ public class Bootstrap {
         try {
             LOGGER.info("Checking repository state...");
 
-            final boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
+            final boolean pruningEnabled = Settings.getInstance().isTopOnly();
             final boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
 
             // Avoid creating bootstraps from pruned nodes until officially supported
@@ -328,7 +328,7 @@ public class Bootstrap {
     }
 
     private String getFilename() {
-        boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
+        boolean pruningEnabled = Settings.getInstance().isTopOnly();
         boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
 
         if (pruningEnabled) {

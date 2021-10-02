@@ -16,7 +16,7 @@ public class PruneManager {
 
     private static PruneManager instance;
 
-    private boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
+    private boolean isTopOnly = Settings.getInstance().isTopOnly();
     private int pruneBlockLimit = Settings.getInstance().getPruneBlockLimit();
 
     private ExecutorService executorService;
@@ -35,7 +35,7 @@ public class PruneManager {
     public void start() {
         this.executorService = Executors.newCachedThreadPool(new DaemonThreadFactory());
 
-        if (Settings.getInstance().isPruningEnabled() &&
+        if (Settings.getInstance().isTopOnly() &&
             !Settings.getInstance().isArchiveEnabled()) {
             // Top-only-sync
             this.startTopOnlySyncMode();
@@ -110,7 +110,7 @@ public class PruneManager {
     }
 
     public boolean isBlockPruned(int height, Repository repository) throws DataException {
-        if (!this.pruningEnabled) {
+        if (!this.isTopOnly) {
             return false;
         }
 

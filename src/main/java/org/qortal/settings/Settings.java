@@ -115,7 +115,7 @@ public class Settings {
 
 	/** Whether we should prune old data to reduce database size
 	 * This prevents the node from being able to serve older blocks */
-	private boolean pruningEnabled = false;
+	private boolean topOnly = false;
 	/** The amount of recent blocks we should keep when pruning */
 	private int pruneBlockLimit = 1450;
 
@@ -590,8 +590,8 @@ public class Settings {
 	}
 
 
-	public boolean isPruningEnabled() {
-		return this.pruningEnabled;
+	public boolean isTopOnly() {
+		return this.topOnly;
 	}
 
 	public int getPruneBlockLimit() {

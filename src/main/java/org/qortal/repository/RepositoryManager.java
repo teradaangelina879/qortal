@@ -80,7 +80,7 @@ public abstract class RepositoryManager {
 
 	public static boolean prune(Repository repository) {
 		// Bulk prune the database the first time we use pruning mode
-		if (Settings.getInstance().isPruningEnabled() ||
+		if (Settings.getInstance().isTopOnly() ||
 			Settings.getInstance().isArchiveEnabled()) {
 			if (RepositoryManager.canArchiveOrPrune()) {
 				try {

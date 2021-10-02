@@ -465,7 +465,7 @@ public class AdminResource {
 
 			// Make sure we're not orphaning as far back as the archived blocks
 			// FUTURE: we could support this by first importing earlier blocks from the archive
-			if (Settings.getInstance().isPruningEnabled() ||
+			if (Settings.getInstance().isTopOnly() ||
 				Settings.getInstance().isArchiveEnabled()) {
 
 				try (final Repository repository = RepositoryManager.getRepository()) {

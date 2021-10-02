@@ -507,12 +507,12 @@ public class BlockChain {
 			chainTip = repository.getBlockRepository().getLastBlock();
 		}
 
-		boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
+		boolean isTopOnly = Settings.getInstance().isTopOnly();
 		boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
 		boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
 
-		if (pruningEnabled && hasBlocks) {
-			// Pruning is enabled and we have blocks, so it's possible that the genesis block has been pruned
+		if (isTopOnly && hasBlocks) {
+			// Top-only mode is enabled and we have blocks, so it's possible that the genesis block has been pruned
 			// It's best not to validate it, and there's no real need to
 		} else {
 			// Check first block is Genesis Block
@@ -533,7 +533,7 @@ public class BlockChain {
 
 			// Set the number of blocks to validate based on the pruned state of the chain
 			// If pruned, subtract an extra 10 to allow room for error
-			int blocksToValidate = (pruningEnabled || archiveEnabled) ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
+			int blocksToValidate = (isTopOnly || archiveEnabled) ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
 
 			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - blocksToValidate, 1);
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);
