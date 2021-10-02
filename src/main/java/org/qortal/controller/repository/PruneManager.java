@@ -35,8 +35,7 @@ public class PruneManager {
     public void start() {
         this.executorService = Executors.newCachedThreadPool(new DaemonThreadFactory());
 
-        if (Settings.getInstance().isTopOnly() &&
-            !Settings.getInstance().isArchiveEnabled()) {
+        if (Settings.getInstance().isTopOnly()) {
             // Top-only-sync
             this.startTopOnlySyncMode();
         }

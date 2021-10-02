@@ -328,10 +328,10 @@ public class Bootstrap {
     }
 
     private String getFilename() {
-        boolean pruningEnabled = Settings.getInstance().isTopOnly();
+        boolean isTopOnly = Settings.getInstance().isTopOnly();
         boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
 
-        if (pruningEnabled) {
+        if (isTopOnly) {
             return "bootstrap-toponly.7z";
         }
         else if (archiveEnabled) {

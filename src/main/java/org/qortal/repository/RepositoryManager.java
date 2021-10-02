@@ -79,7 +79,7 @@ public abstract class RepositoryManager {
 	}
 
 	public static boolean prune(Repository repository) {
-		// Bulk prune the database the first time we use pruning mode
+		// Bulk prune the database the first time we use top-only or block archive mode
 		if (Settings.getInstance().isTopOnly() ||
 			Settings.getInstance().isArchiveEnabled()) {
 			if (RepositoryManager.canArchiveOrPrune()) {
