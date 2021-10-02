@@ -266,7 +266,7 @@ public class Bootstrap {
             SevenZ.compress(compressedOutputPath, outputPath.toFile());
 
             // Return the path to the compressed bootstrap file
-            Path finalPath = Paths.get(outputPath.toString(), compressedOutputPath);
+            Path finalPath = Paths.get(compressedOutputPath);
             return finalPath.toAbsolutePath().toString();
 
         } finally {
