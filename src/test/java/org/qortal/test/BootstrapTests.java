@@ -67,7 +67,7 @@ public class BootstrapTests extends Common {
     @Test
     public void testCreateAndImportBootstrap() throws DataException, InterruptedException, TransformationException, IOException {
 
-        Path bootstrapPath = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap.7z"));
+        Path bootstrapPath = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap-archive.7z"));
         Path archivePath = Paths.get(Settings.getInstance().getRepositoryPath(), "archive", "2-900.dat");
         BlockData block1000;
         byte[] originalArchiveContents;
@@ -183,7 +183,23 @@ public class BootstrapTests extends Common {
 
     private void deleteBootstraps() throws IOException {
         try {
-            Path path = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap.7z"));
+            Path path = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap-archive.7z"));
+            Files.delete(path);
+
+        } catch (NoSuchFileException e) {
+            // Nothing to delete
+        }
+
+        try {
+            Path path = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap-toponly.7z"));
+            Files.delete(path);
+
+        } catch (NoSuchFileException e) {
+            // Nothing to delete
+        }
+
+        try {
+            Path path = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap-full.7z"));
             Files.delete(path);
 
         } catch (NoSuchFileException e) {

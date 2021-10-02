@@ -194,6 +194,11 @@ public class Settings {
 	// Bootstrap
 	private String bootstrapFilenamePrefix = "";
 
+	// Bootstrap sources
+	private String[] bootstrapHosts = new String[] {
+			"http://bootstrap.qortal.org"
+	};
+
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
 		"https://github.com/Qortal/qortal/raw/%s/qortal.update",
@@ -526,6 +531,10 @@ public class Settings {
 
 	public String[] getAutoUpdateRepos() {
 		return this.autoUpdateRepos;
+	}
+
+	public String[] getBootstrapHosts() {
+		return this.bootstrapHosts;
 	}
 
 	public String getListsPath() {

@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.*;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
@@ -256,7 +257,7 @@ public class Bootstrap {
             );
 
             LOGGER.info("Compressing...");
-            String compressedOutputPath = String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap.7z");
+            String compressedOutputPath = String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), this.getFilename());
             try {
                 Files.delete(Paths.get(compressedOutputPath));
             } catch (NoSuchFileException e) {
@@ -305,7 +306,8 @@ public class Bootstrap {
         Path path = null;
         try {
             Path tempDir = Files.createTempDirectory("qortal-bootstrap");
-            path = Paths.get(tempDir.toString(), "bootstrap.7z");
+            String filename = String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), this.getFilename());
+            path = Paths.get(tempDir.toString(), filename);
 
             this.downloadToPath(path);
             this.importFromPath(path);
@@ -325,11 +327,31 @@ public class Bootstrap {
         }
     }
 
+    private String getFilename() {
+        boolean pruningEnabled = Settings.getInstance().isPruningEnabled();
+        boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
+
+        if (pruningEnabled) {
+            return "bootstrap-toponly.7z";
+        }
+        else if (archiveEnabled) {
+            return "bootstrap-archive.7z";
+        }
+        else {
+            return "bootstrap-full.7z";
+        }
+    }
+
     private void downloadToPath(Path path) throws DataException {
-        String bootstrapUrl = "http://bootstrap.qortal.org/bootstrap.7z";
+        // Select a random host from bootstrapHosts
+        String[] hosts = Settings.getInstance().getBootstrapHosts();
+        int index = new SecureRandom().nextInt(hosts.length);
+        String bootstrapHost = hosts[index];
+        String bootstrapFilename = this.getFilename();
 
         try {
             LOGGER.info("Downloading bootstrap...");
+            String bootstrapUrl = String.format("%s/%s", bootstrapHost, bootstrapFilename);
             InputStream in = new URL(bootstrapUrl).openStream();
             Files.copy(in, path, REPLACE_EXISTING);
 
