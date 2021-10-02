@@ -94,6 +94,7 @@ public class AtStatesPruner implements Runnable {
 					else {
 						// We've pruned up to the upper prunable height
 						// Back off for a while to save CPU for syncing
+						repository.discardChanges();
 						Thread.sleep(5*60*1000L);
 					}
 				}

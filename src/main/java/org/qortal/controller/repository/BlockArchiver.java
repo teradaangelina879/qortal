@@ -25,17 +25,18 @@ public class BlockArchiver implements Runnable {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Don't even start building until initial rush has ended
+			Thread.sleep(INITIAL_SLEEP_PERIOD);
+
 			int startHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight();
 
 			// Don't attempt to archive if we have no ATStatesHeightIndex, as it will be too slow
 			boolean hasAtStatesHeightIndex = repository.getATRepository().hasAtStatesHeightIndex();
 			if (!hasAtStatesHeightIndex) {
 				LOGGER.info("Unable to start block archiver due to missing ATStatesHeightIndex. Bootstrapping is recommended.");
+				repository.discardChanges();
 				return;
 			}
-
-			// Don't even start building until initial rush has ended
-			Thread.sleep(INITIAL_SLEEP_PERIOD);
 
 			LOGGER.info("Starting block archiver...");
 
@@ -91,6 +92,7 @@ public class BlockArchiver implements Runnable {
 							// that a bootstrap or re-sync is needed. Try again every minute until then.
 							LOGGER.info("Error: block not found when building archive. If this error persists, " +
 									"a bootstrap or re-sync may be needed.");
+							repository.discardChanges();
 							Thread.sleep( 60 * 1000L); // 1 minute
 							break;
 					}

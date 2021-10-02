@@ -317,6 +317,7 @@ public class Bootstrap {
                 LOGGER.info("Retrying in 5 minutes");
 
                 try {
+                    repository.discardChanges();
                     Thread.sleep(5 * 60 * 1000L);
                 } catch (InterruptedException e2) {
                     break;
