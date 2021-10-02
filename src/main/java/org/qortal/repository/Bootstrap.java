@@ -49,7 +49,7 @@ public class Bootstrap {
      * @return true if ready for bootstrap creation, or false if not
      * All failure reasons are logged
      */
-    public boolean canBootstrap() {
+    public boolean canCreateBootstrap() {
         try {
             LOGGER.info("Checking repository state...");
 
@@ -65,7 +65,7 @@ public class Bootstrap {
 
             // Require that a block archive has been built
             if (!archiveEnabled) {
-                LOGGER.info("Unable to bootstrap because the block archive isn't enabled. " +
+                LOGGER.info("Unable to create bootstrap because the block archive isn't enabled. " +
                         "Set {\"archivedEnabled\": true} in settings.json to fix.");
                 return false;
             }
@@ -73,20 +73,20 @@ public class Bootstrap {
             // Make sure that the block archiver is up to date
             boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository);
             if (!upToDate) {
-                LOGGER.info("Unable to bootstrap because the block archive isn't fully built yet.");
+                LOGGER.info("Unable to create bootstrap because the block archive isn't fully built yet.");
                 return false;
             }
 
             // Ensure that this database contains the ATStatesHeightIndex which was missing in some cases
             boolean hasAtStatesHeightIndex = repository.getATRepository().hasAtStatesHeightIndex();
             if (!hasAtStatesHeightIndex) {
-                LOGGER.info("Unable to bootstrap due to missing ATStatesHeightIndex. A re-sync from genesis is needed.");
+                LOGGER.info("Unable to create bootstrap due to missing ATStatesHeightIndex. A re-sync from genesis is needed.");
                 return false;
             }
 
             // Ensure we have synced NTP time
             if (NTP.getTime() == null) {
-                LOGGER.info("Unable to bootstrap because the node hasn't synced its time yet.");
+                LOGGER.info("Unable to create bootstrap because the node hasn't synced its time yet.");
                 return false;
             }
 
@@ -94,7 +94,7 @@ public class Bootstrap {
             final BlockData chainTip = Controller.getInstance().getChainTip();
             final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
             if (minLatestBlockTimestamp == null || chainTip.getTimestamp() < minLatestBlockTimestamp) {
-                LOGGER.info("Unable to bootstrap because the blockchain isn't fully synced.");
+                LOGGER.info("Unable to create bootstrap because the blockchain isn't fully synced.");
                 return false;
             }
 

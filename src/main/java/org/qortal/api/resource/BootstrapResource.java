@@ -49,7 +49,7 @@ public class BootstrapResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			Bootstrap bootstrap = new Bootstrap(repository);
-			if (!bootstrap.canBootstrap()) {
+			if (!bootstrap.canCreateBootstrap()) {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 			}
 
