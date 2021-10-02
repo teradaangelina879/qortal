@@ -1,5 +1,8 @@
 package org.qortal.controller.repository;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
 
 import org.qortal.data.block.BlockData;
@@ -8,11 +11,16 @@ import org.qortal.repository.Repository;
 import org.qortal.settings.Settings;
 import org.qortal.utils.DaemonThreadFactory;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class PruneManager {
+
+    private static final Logger LOGGER = LogManager.getLogger(PruneManager.class);
 
     private static PruneManager instance;
 
@@ -58,6 +66,9 @@ public class PruneManager {
      */
     private void startTopOnlySyncMode() {
         this.startPruning();
+
+        // We don't need the block archive in top-only mode
+        this.deleteArchive();
     }
 
     /**
@@ -96,6 +107,23 @@ public class PruneManager {
 
     private void startArchiving() {
         this.executorService.execute(new BlockArchiver());
+    }
+
+    private void deleteArchive() {
+        if (!Settings.getInstance().isTopOnly()) {
+            LOGGER.error("Refusing to delete archive when not in top-only mode");
+        }
+
+        try {
+            Path archivePath = Paths.get(Settings.getInstance().getRepositoryPath(), "archive");
+            if (archivePath.toFile().exists()) {
+                LOGGER.info("Deleting block archive because we are in top-only mode...");
+                FileUtils.deleteDirectory(archivePath.toFile());
+            }
+
+        } catch (IOException e) {
+            LOGGER.info("Couldn't delete archive: {}", e.getMessage());
+        }
     }
 
     public void stop() {
