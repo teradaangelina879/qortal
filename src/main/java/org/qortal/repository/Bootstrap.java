@@ -27,7 +27,7 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class Bootstrap {
 
-    private Repository repository;
+    private final Repository repository;
 
     private static final Logger LOGGER = LogManager.getLogger(Bootstrap.class);
 
@@ -286,7 +286,22 @@ public class Bootstrap {
         }
     }
 
-    public void startImport() throws DataException {
+    public void startImport() throws InterruptedException {
+        while (!Controller.isStopping()) {
+            try {
+                LOGGER.info("Starting import of bootstrap...");
+
+                this.doImport();
+
+            } catch (DataException e) {
+                LOGGER.info("Bootstrap import failed: {}", e.getMessage());
+                LOGGER.info("Retrying in 5 minutes");
+                Thread.sleep(5 * 60 * 1000L);
+            }
+        }
+    }
+
+    private void doImport() throws DataException {
         Path path = null;
         try {
             Path tempDir = Files.createTempDirectory("qortal-bootstrap");
@@ -313,28 +328,14 @@ public class Bootstrap {
     private void downloadToPath(Path path) throws DataException {
         String bootstrapUrl = "http://bootstrap.qortal.org/bootstrap.7z";
 
-        while (!Controller.isStopping()) {
-            try {
-                LOGGER.info("Downloading bootstrap...");
-                InputStream in = new URL(bootstrapUrl).openStream();
-                Files.copy(in, path, REPLACE_EXISTING);
-                break;
+        try {
+            LOGGER.info("Downloading bootstrap...");
+            InputStream in = new URL(bootstrapUrl).openStream();
+            Files.copy(in, path, REPLACE_EXISTING);
 
-            } catch (IOException e) {
-                LOGGER.info("Unable to download bootstrap: {}", e.getMessage());
-                LOGGER.info("Retrying in 5 minutes");
-
-                try {
-                    repository.discardChanges();
-                    Thread.sleep(5 * 60 * 1000L);
-                } catch (InterruptedException e2) {
-                    break;
-                }
-            }
+        } catch (IOException e) {
+            throw new DataException(String.format("Unable to download bootstrap: {}", e.getMessage()));
         }
-
-        // It's best to throw an exception on all failures, even though we're most likely just stopping
-        throw new DataException("Unable to download bootstrap");
     }
 
     public void importFromPath(Path path) throws InterruptedException, DataException, IOException {

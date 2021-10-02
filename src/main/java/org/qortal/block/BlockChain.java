@@ -517,7 +517,12 @@ public class BlockChain {
 		} else {
 			// Check first block is Genesis Block
 			if (!isGenesisBlockValid()) {
-				rebuildBlockchain();
+				try {
+					rebuildBlockchain();
+
+				} catch (InterruptedException e) {
+					throw new DataException(String.format("Interrupted when trying to rebuild blockchain: %s", e.getMessage()));
+				}
 			}
 		}
 
@@ -600,7 +605,7 @@ public class BlockChain {
 		}
 	}
 
-	private static void rebuildBlockchain() throws DataException {
+	private static void rebuildBlockchain() throws DataException, InterruptedException {
 		boolean shouldBootstrap = Settings.getInstance().getBootstrap();
 		if (shouldBootstrap) {
 			// Settings indicate that we should apply a bootstrap rather than rebuilding and syncing from genesis
