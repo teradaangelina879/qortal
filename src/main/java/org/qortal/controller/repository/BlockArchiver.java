@@ -42,8 +42,6 @@ public class BlockArchiver implements Runnable {
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
 
-				final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
-
 				Thread.sleep(Settings.getInstance().getArchiveInterval());
 
 				BlockData chainTip = Controller.getInstance().getChainTip();
@@ -65,6 +63,7 @@ public class BlockArchiver implements Runnable {
 
 				// Build cache of blocks
 				try {
+					final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
 					BlockArchiveWriter writer = new BlockArchiveWriter(startHeight, maximumArchiveHeight, repository);
 					BlockArchiveWriter.BlockArchiveWriteResult result = writer.write();
 					switch (result) {
