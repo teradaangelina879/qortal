@@ -27,6 +27,7 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
@@ -579,7 +580,14 @@ public class Controller extends Thread {
 								Translator.INSTANCE.translate("SysTray", "CREATING_BACKUP_OF_DB_FILES"),
 								MessageType.INFO);
 
-					RepositoryManager.backup(true, "backup");
+					try {
+						// Timeout if the database isn't ready for backing up after 60 seconds
+						long timeout = 60 * 1000L;
+						RepositoryManager.backup(true, "backup", timeout);
+
+					} catch (TimeoutException e) {
+						LOGGER.info("Attempt to backup repository failed due to timeout: {}", e.getMessage());
+					}
 				}
 
 				// Prune stuck/slow/old peers

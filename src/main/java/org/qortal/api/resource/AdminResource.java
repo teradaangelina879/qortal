@@ -22,6 +22,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -668,14 +669,16 @@ public class AdminResource {
 			blockchainLock.lockInterruptibly();
 
 			try {
-				repository.backup(true, "backup");
+				// Timeout if the database isn't ready for backing up after 60 seconds
+				long timeout = 60 * 1000L;
+				repository.backup(true, "backup", timeout);
 				repository.saveChanges();
 
 				return "true";
 			} finally {
 				blockchainLock.unlock();
 			}
-		} catch (InterruptedException e) {
+		} catch (InterruptedException | TimeoutException e) {
 			// We couldn't lock blockchain to perform backup
 			return "false";
 		} catch (DataException e) {
@@ -700,13 +703,15 @@ public class AdminResource {
 			blockchainLock.lockInterruptibly();
 
 			try {
-				repository.performPeriodicMaintenance();
+				// Timeout if the database isn't ready to start after 60 seconds
+				long timeout = 60 * 1000L;
+				repository.performPeriodicMaintenance(timeout);
 			} finally {
 				blockchainLock.unlock();
 			}
 		} catch (InterruptedException e) {
 			// No big deal
-		} catch (DataException e) {
+		} catch (DataException | TimeoutException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}

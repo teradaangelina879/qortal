@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.*;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -227,11 +228,18 @@ public class Bootstrap {
 
             repository.saveChanges();
 
-            LOGGER.info("Performing repository maintenance...");
-            repository.performPeriodicMaintenance();
-
             LOGGER.info("Creating bootstrap...");
-            repository.backup(true, "bootstrap");
+            while (!Controller.isStopping()) {
+                try {
+                    // Timeout if the database isn't ready for backing up after 10 seconds
+                    long timeout = 10 * 1000L;
+                    repository.backup(false, "bootstrap", timeout);
+                    break;
+                }
+                catch (TimeoutException e) {
+                    LOGGER.info("Unable to create bootstrap due to timeout. Retrying...");
+                }
+            }
 
             LOGGER.info("Moving files to output directory...");
             inputPath = Paths.get(Settings.getInstance().getRepositoryPath(), "bootstrap");

@@ -8,6 +8,7 @@ import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.settings.Settings;
 
 import java.sql.SQLException;
+import java.util.concurrent.TimeoutException;
 
 public abstract class RepositoryManager {
 	private static final Logger LOGGER = LogManager.getLogger(RepositoryManager.class);
@@ -51,9 +52,9 @@ public abstract class RepositoryManager {
 		repositoryFactory = null;
 	}
 
-	public static void backup(boolean quick, String name) {
+	public static void backup(boolean quick, String name, Long timeout) throws TimeoutException {
 		try (final Repository repository = getRepository()) {
-			repository.backup(quick, name);
+			repository.backup(quick, name, timeout);
 		} catch (DataException e) {
 			// Backup is best-effort so don't complain
 		}

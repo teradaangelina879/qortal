@@ -16,6 +16,7 @@ import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.*;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -379,66 +380,92 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
-	public void backup(boolean quick, String name) throws DataException {
-		if (!quick)
-			// First perform a CHECKPOINT
+	public void backup(boolean quick, String name, Long timeout) throws DataException, TimeoutException {
+		synchronized (CHECKPOINT_LOCK) {
+
+			// We can only perform a CHECKPOINT if no other HSQLDB session is mid-transaction,
+			// otherwise the CHECKPOINT blocks for COMMITs and other threads can't open HSQLDB sessions
+			// due to HSQLDB blocking until CHECKPOINT finishes - i.e. deadlock.
+			// Since we don't want to give up too easily, it's best to wait until the other transaction
+			// count reaches zero, and then continue.
+			this.blockUntilNoOtherTransactions(timeout);
+
+			if (!quick)
+				// First perform a CHECKPOINT
+				try (Statement stmt = this.connection.createStatement()) {
+					LOGGER.info("Performing maintenance - this will take a while...");
+					stmt.execute("CHECKPOINT");
+					stmt.execute("CHECKPOINT DEFRAG");
+					LOGGER.info("Maintenance completed");
+				} catch (SQLException e) {
+					throw new DataException("Unable to prepare repository for backup");
+				}
+
+			// Clean out any previous backup
+			try {
+				String connectionUrl = this.connection.getMetaData().getURL();
+				String dbPathname = getDbPathname(connectionUrl);
+				if (dbPathname == null)
+					throw new DataException("Unable to locate repository for backup?");
+
+				// Doesn't really make sense to backup an in-memory database...
+				if (dbPathname.equals("mem")) {
+					LOGGER.debug("Ignoring request to backup in-memory repository!");
+					return;
+				}
+
+				String backupUrl = buildBackupUrl(dbPathname, name);
+				String backupPathname = getDbPathname(backupUrl);
+				if (backupPathname == null)
+					throw new DataException("Unable to determine location for repository backup?");
+
+				Path backupDirPath = Paths.get(backupPathname).getParent();
+				String backupDirPathname = backupDirPath.toString();
+
+				try (Stream<Path> paths = Files.walk(backupDirPath)) {
+					paths.sorted(Comparator.reverseOrder())
+							.map(Path::toFile)
+							.filter(file -> file.getPath().startsWith(backupDirPathname))
+							.forEach(File::delete);
+				}
+			} catch (NoSuchFileException e) {
+				// Nothing to remove
+			} catch (SQLException | IOException e) {
+				throw new DataException("Unable to remove previous repository backup");
+			}
+
+			// Actually create backup
 			try (Statement stmt = this.connection.createStatement()) {
-				stmt.execute("CHECKPOINT DEFRAG");
+				LOGGER.info("Backing up repository...");
+				stmt.execute(String.format("BACKUP DATABASE TO '%s/' BLOCKING AS FILES", name));
+				LOGGER.info("Backup completed");
 			} catch (SQLException e) {
-				throw new DataException("Unable to prepare repository for backup");
+				throw new DataException("Unable to backup repository");
 			}
 
-		// Clean out any previous backup
-		try {
-			String connectionUrl = this.connection.getMetaData().getURL();
-			String dbPathname = getDbPathname(connectionUrl);
-			if (dbPathname == null)
-				throw new DataException("Unable to locate repository for backup?");
-
-			// Doesn't really make sense to backup an in-memory database...
-			if (dbPathname.equals("mem")) {
-				LOGGER.debug("Ignoring request to backup in-memory repository!");
-				return;
-			}
-
-			String backupUrl = buildBackupUrl(dbPathname, name);
-			String backupPathname = getDbPathname(backupUrl);
-			if (backupPathname == null)
-				throw new DataException("Unable to determine location for repository backup?");
-
-			Path backupDirPath = Paths.get(backupPathname).getParent();
-			String backupDirPathname = backupDirPath.toString();
-
-			try (Stream<Path> paths = Files.walk(backupDirPath)) {
-				paths.sorted(Comparator.reverseOrder())
-					.map(Path::toFile)
-					.filter(file -> file.getPath().startsWith(backupDirPathname))
-					.forEach(File::delete);
-			}
-		} catch (NoSuchFileException e) {
-			// Nothing to remove
-		} catch (SQLException | IOException e) {
-			throw new DataException("Unable to remove previous repository backup");
-		}
-
-		// Actually create backup
-		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute(String.format("BACKUP DATABASE TO '%s/' BLOCKING AS FILES", name));
-		} catch (SQLException e) {
-			throw new DataException("Unable to backup repository");
 		}
 	}
 
 	@Override
-	public void performPeriodicMaintenance() throws DataException {
-		// Defrag DB - takes a while!
-		try (Statement stmt = this.connection.createStatement()) {
-			LOGGER.info("performing maintenance - this will take a while");
-			stmt.execute("CHECKPOINT");
-			stmt.execute("CHECKPOINT DEFRAG");
-			LOGGER.info("maintenance completed");
-		} catch (SQLException e) {
-			throw new DataException("Unable to defrag repository");
+	public void performPeriodicMaintenance(Long timeout) throws DataException, TimeoutException {
+		synchronized (CHECKPOINT_LOCK) {
+
+			// We can only perform a CHECKPOINT if no other HSQLDB session is mid-transaction,
+			// otherwise the CHECKPOINT blocks for COMMITs and other threads can't open HSQLDB sessions
+			// due to HSQLDB blocking until CHECKPOINT finishes - i.e. deadlock.
+			// Since we don't want to give up too easily, it's best to wait until the other transaction
+			// count reaches zero, and then continue.
+			this.blockUntilNoOtherTransactions(timeout);
+
+			// Defrag DB - takes a while!
+			try (Statement stmt = this.connection.createStatement()) {
+				LOGGER.info("performing maintenance - this will take a while");
+				stmt.execute("CHECKPOINT");
+				stmt.execute("CHECKPOINT DEFRAG");
+				LOGGER.info("maintenance completed");
+			} catch (SQLException e) {
+				throw new DataException("Unable to defrag repository");
+			}
 		}
 	}
 
@@ -988,6 +1015,53 @@ public class HSQLDBRepository implements Repository {
 
 	/*package*/ static boolean isDeadlockException(SQLException e) {
 		return DEADLOCK_ERROR_CODE.equals(e.getErrorCode());
+	}
+
+	private int otherTransactionsCount() throws DataException {
+		// We can only perform a CHECKPOINT if no other HSQLDB session is mid-transaction,
+		// otherwise the CHECKPOINT blocks for COMMITs and other threads can't open HSQLDB sessions
+		// due to HSQLDB blocking until CHECKPOINT finishes - i.e. deadlock
+		String sql = "SELECT COUNT(*) "
+				+ "FROM Information_schema.system_sessions "
+				+ "WHERE transaction = TRUE AND session_id != ?";
+		try {
+			PreparedStatement pstmt = this.cachePreparedStatement(sql);
+			pstmt.setLong(1, this.sessionId);
+
+			if (!pstmt.execute())
+				throw new DataException("Unable to check repository session status");
+
+			try (ResultSet resultSet = pstmt.getResultSet()) {
+				if (resultSet == null || !resultSet.next())
+					// Failed to even find HSQLDB session info!
+					throw new DataException("No results when checking repository session status");
+
+				int transactionCount = resultSet.getInt(1);
+
+				return transactionCount;
+			}
+		} catch (SQLException e) {
+			throw new DataException("Unable to check repository session status", e);
+		}
+	}
+
+	private void blockUntilNoOtherTransactions(Long timeout) throws DataException, TimeoutException {
+		try {
+			long startTime = System.currentTimeMillis();
+			while (this.otherTransactionsCount() > 0) {
+				// Wait and try again
+				LOGGER.info("Waiting for repository...");
+				Thread.sleep(1000L);
+
+				if (timeout != null) {
+					if (System.currentTimeMillis() - startTime >= timeout) {
+						throw new TimeoutException("Timed out waiting for repository to become available");
+					}
+				}
+			}
+		} catch (InterruptedException e) {
+			throw new DataException("Interrupted before repository became available");
+		}
 	}
 
 }

@@ -14,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -215,8 +216,17 @@ public class AutoUpdate extends Thread {
 		}
 
 		// Give repository a chance to backup in case things go badly wrong (if enabled)
-		if (Settings.getInstance().getRepositoryBackupInterval() > 0)
-			RepositoryManager.backup(true, "backup");
+		if (Settings.getInstance().getRepositoryBackupInterval() > 0) {
+			try {
+				// Timeout if the database isn't ready for backing up after 60 seconds
+				long timeout = 60 * 1000L;
+				RepositoryManager.backup(true, "backup", timeout);
+
+			} catch (TimeoutException e) {
+				LOGGER.info("Attempt to backup repository failed due to timeout: {}", e.getMessage());
+				// Continue with the auto update anyway...
+			}
+		}
 
 		// Call ApplyUpdate to end this process (unlocking current JAR so it can be replaced)
 		String javaHome = System.getProperty("java.home");

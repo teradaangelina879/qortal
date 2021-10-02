@@ -12,6 +12,7 @@ import org.qortal.settings.Settings;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.concurrent.TimeoutException;
 
 /**
  *
@@ -315,7 +316,15 @@ public class HSQLDBDatabasePruning {
     }
 
     public static void performMaintenance(Repository repository) throws SQLException, DataException {
-        repository.performPeriodicMaintenance();
+        try {
+            // Timeout if the database isn't ready for backing up after 5 minutes
+            // Nothing else should be using the db at this point, so a timeout shouldn't happen
+            long timeout = 5 * 60 * 1000L;
+            repository.performPeriodicMaintenance(timeout);
+
+        } catch (TimeoutException e) {
+            LOGGER.info("Attempt to perform maintenance failed due to timeout: {}", e.getMessage());
+        }
     }
 
 }

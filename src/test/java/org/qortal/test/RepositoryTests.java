@@ -26,13 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -445,44 +439,44 @@ public class RepositoryTests extends Common {
 	}
 
 	@Test
-	public void testDefrag() throws DataException {
+	public void testDefrag() throws DataException, TimeoutException {
 		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
 
 			this.populateWithRandomData(hsqldb);
 
-			hsqldb.performPeriodicMaintenance();
+			hsqldb.performPeriodicMaintenance(10 * 1000L);
 
 		}
 	}
 
 	@Test
-	public void testDefragOnDisk() throws DataException {
+	public void testDefragOnDisk() throws DataException, TimeoutException {
 		Common.useSettingsAndDb(testSettingsFilename, false);
 
 		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
 
 			this.populateWithRandomData(hsqldb);
 
-			hsqldb.performPeriodicMaintenance();
+			hsqldb.performPeriodicMaintenance(10 * 1000L);
 
 		}
 	}
 
 	@Test
-	public void testMultipleDefrags() throws DataException {
+	public void testMultipleDefrags() throws DataException, TimeoutException {
 		// Mint some more blocks to populate the database
 		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
 
 			this.populateWithRandomData(hsqldb);
 
 			for (int i = 0; i < 10; i++) {
-				hsqldb.performPeriodicMaintenance();
+				hsqldb.performPeriodicMaintenance(10 * 1000L);
 			}
 		}
 	}
 
 	@Test
-	public void testMultipleDefragsOnDisk() throws DataException {
+	public void testMultipleDefragsOnDisk() throws DataException, TimeoutException {
 		Common.useSettingsAndDb(testSettingsFilename, false);
 
 		// Mint some more blocks to populate the database
@@ -491,31 +485,31 @@ public class RepositoryTests extends Common {
 			this.populateWithRandomData(hsqldb);
 
 			for (int i = 0; i < 10; i++) {
-				hsqldb.performPeriodicMaintenance();
+				hsqldb.performPeriodicMaintenance(10 * 1000L);
 			}
 		}
 	}
 
 	@Test
-	public void testMultipleDefragsWithDifferentData() throws DataException {
+	public void testMultipleDefragsWithDifferentData() throws DataException, TimeoutException {
 		for (int i=0; i<10; i++) {
 			try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
 
 				this.populateWithRandomData(hsqldb);
-				hsqldb.performPeriodicMaintenance();
+				hsqldb.performPeriodicMaintenance(10 * 1000L);
 			}
 		}
 	}
 
 	@Test
-	public void testMultipleDefragsOnDiskWithDifferentData() throws DataException {
+	public void testMultipleDefragsOnDiskWithDifferentData() throws DataException, TimeoutException {
 		Common.useSettingsAndDb(testSettingsFilename, false);
 
 		for (int i=0; i<10; i++) {
 			try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
 
 				this.populateWithRandomData(hsqldb);
-				hsqldb.performPeriodicMaintenance();
+				hsqldb.performPeriodicMaintenance(10 * 1000L);
 			}
 		}
 	}

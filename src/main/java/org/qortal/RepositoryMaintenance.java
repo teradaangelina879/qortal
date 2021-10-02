@@ -1,6 +1,7 @@
 package org.qortal;
 
 import java.security.Security;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -57,10 +58,10 @@ public class RepositoryMaintenance {
 
 		LOGGER.info("Starting repository periodic maintenance. This can take a while...");
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			repository.performPeriodicMaintenance();
+			repository.performPeriodicMaintenance(null);
 
 			LOGGER.info("Repository periodic maintenance completed");
-		} catch (DataException e) {
+		} catch (DataException | TimeoutException e) {
 			LOGGER.error("Repository periodic maintenance failed", e);
 		}
 

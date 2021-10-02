@@ -1,6 +1,7 @@
 package org.qortal.repository;
 
 import java.io.IOException;
+import java.util.concurrent.TimeoutException;
 
 public interface Repository extends AutoCloseable {
 
@@ -49,9 +50,9 @@ public interface Repository extends AutoCloseable {
 
 	public void setDebug(boolean debugState);
 
-	public void backup(boolean quick, String name) throws DataException;
+	public void backup(boolean quick, String name, Long timeout) throws DataException, TimeoutException;
 
-	public void performPeriodicMaintenance() throws DataException;
+	public void performPeriodicMaintenance(Long timeout) throws DataException, TimeoutException;
 
 	public void exportNodeLocalData() throws DataException;
 
