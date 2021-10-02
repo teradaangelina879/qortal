@@ -53,18 +53,11 @@ public class Bootstrap {
         try {
             LOGGER.info("Checking repository state...");
 
-            final boolean pruningEnabled = Settings.getInstance().isTopOnly();
+            final boolean isTopOnly = Settings.getInstance().isTopOnly();
             final boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
 
-            // Avoid creating bootstraps from pruned nodes until officially supported
-            if (pruningEnabled) {
-                LOGGER.info("Creating bootstraps from top-only nodes isn't yet supported.");
-                // TODO: add support for top-only bootstraps
-                return false;
-            }
-
             // Require that a block archive has been built
-            if (!archiveEnabled) {
+            if (!isTopOnly && !archiveEnabled) {
                 LOGGER.info("Unable to create bootstrap because the block archive isn't enabled. " +
                         "Set {\"archivedEnabled\": true} in settings.json to fix.");
                 return false;
@@ -100,26 +93,31 @@ public class Bootstrap {
 
             // FUTURE: ensure trim and prune settings are using default values
 
-            // Ensure that the online account signatures have been fully trimmed
-            final int accountsTrimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
-            final long accountsUpperTrimmableTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
-            final int accountsUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(accountsUpperTrimmableTimestamp);
-            final int accountsBlocksRemaining = accountsUpperTrimmableHeight - accountsTrimStartHeight;
-            if (accountsBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
-                LOGGER.info("Blockchain is not fully trimmed. Please allow the node to run for longer, " +
-                        "then try again. Blocks remaining (online accounts signatures): {}", accountsBlocksRemaining);
-                return false;
-            }
+            if (!isTopOnly) {
+                // We don't trim in top-only mode because we prune the blocks instead
+                // If we're not in top-only mode we should make sure that trimming is up to date
 
-            // Ensure that the AT states data has been fully trimmed
-            final int atTrimStartHeight = repository.getATRepository().getAtTrimHeight();
-            final long atUpperTrimmableTimestamp = chainTip.getTimestamp() - Settings.getInstance().getAtStatesMaxLifetime();
-            final int atUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(atUpperTrimmableTimestamp);
-            final int atBlocksRemaining = atUpperTrimmableHeight - atTrimStartHeight;
-            if (atBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
-                LOGGER.info("Blockchain is not fully trimmed. Please allow the node to run for longer, " +
-                        "then try again. Blocks remaining (AT states): {}", atBlocksRemaining);
-                return false;
+                // Ensure that the online account signatures have been fully trimmed
+                final int accountsTrimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
+                final long accountsUpperTrimmableTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
+                final int accountsUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(accountsUpperTrimmableTimestamp);
+                final int accountsBlocksRemaining = accountsUpperTrimmableHeight - accountsTrimStartHeight;
+                if (accountsBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
+                    LOGGER.info("Blockchain is not fully trimmed. Please allow the node to run for longer, " +
+                            "then try again. Blocks remaining (online accounts signatures): {}", accountsBlocksRemaining);
+                    return false;
+                }
+
+                // Ensure that the AT states data has been fully trimmed
+                final int atTrimStartHeight = repository.getATRepository().getAtTrimHeight();
+                final long atUpperTrimmableTimestamp = chainTip.getTimestamp() - Settings.getInstance().getAtStatesMaxLifetime();
+                final int atUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(atUpperTrimmableTimestamp);
+                final int atBlocksRemaining = atUpperTrimmableHeight - atTrimStartHeight;
+                if (atBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
+                    LOGGER.info("Blockchain is not fully trimmed. Please allow the node to run for longer, " +
+                            "then try again. Blocks remaining (AT states): {}", atBlocksRemaining);
+                    return false;
+                }
             }
 
             // Ensure that blocks have been fully pruned
@@ -230,17 +228,9 @@ public class Bootstrap {
             repository.saveChanges();
 
             LOGGER.info("Creating bootstrap...");
-            while (!Controller.isStopping()) {
-                try {
-                    // Timeout if the database isn't ready for backing up after 10 seconds
-                    long timeout = 10 * 1000L;
-                    repository.backup(false, "bootstrap", timeout);
-                    break;
-                }
-                catch (TimeoutException e) {
-                    LOGGER.info("Unable to create bootstrap due to timeout. Retrying...");
-                }
-            }
+            // Timeout if the database isn't ready for backing up after 10 seconds
+            long timeout = 10 * 1000L;
+            repository.backup(false, "bootstrap", timeout);
 
             LOGGER.info("Moving files to output directory...");
             inputPath = Paths.get(Settings.getInstance().getRepositoryPath(), "bootstrap");
@@ -250,11 +240,13 @@ public class Bootstrap {
             // Move the db backup to a "bootstrap" folder in the root directory
             Files.move(inputPath, outputPath, REPLACE_EXISTING);
 
-            // Copy the archive folder to inside the bootstrap folder
-            FileUtils.copyDirectory(
-                    Paths.get(Settings.getInstance().getRepositoryPath(), "archive").toFile(),
-                    Paths.get(outputPath.toString(), "archive").toFile()
-            );
+            // If in archive mode, copy the archive folder to inside the bootstrap folder
+            if (!Settings.getInstance().isTopOnly() && Settings.getInstance().isArchiveEnabled()) {
+                FileUtils.copyDirectory(
+                        Paths.get(Settings.getInstance().getRepositoryPath(), "archive").toFile(),
+                        Paths.get(outputPath.toString(), "archive").toFile()
+                );
+            }
 
             LOGGER.info("Compressing...");
             String compressedOutputPath = String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), this.getFilename());
@@ -269,7 +261,11 @@ public class Bootstrap {
             Path finalPath = Paths.get(compressedOutputPath);
             return finalPath.toAbsolutePath().toString();
 
-        } finally {
+        }
+        catch (TimeoutException e) {
+            throw new DataException(String.format("Unable to create bootstrap due to timeout: %s", e.getMessage()));
+        }
+        finally {
             LOGGER.info("Re-importing local data...");
             Path exportPath = HSQLDBImportExport.getExportDirectory(false);
             repository.importDataFromFile(Paths.get(exportPath.toString(), "TradeBotStates.json").toString());
