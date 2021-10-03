@@ -33,9 +33,9 @@ public class HSQLDBDatabaseArchiving {
 
     public static boolean buildBlockArchive(Repository repository, long fileSizeTarget) throws DataException {
 
-        // Only build the archive if we have never done so before
-        int archiveHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight();
-        if (archiveHeight > 0) {
+        // Only build the archive if we haven't already got one that is up to date
+        boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository);
+        if (upToDate) {
             // Already archived
             return false;
         }
