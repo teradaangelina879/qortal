@@ -28,7 +28,7 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class Bootstrap {
 
-    private final Repository repository;
+    private Repository repository;
 
     private static final Logger LOGGER = LogManager.getLogger(Bootstrap.class);
 
@@ -38,6 +38,9 @@ public class Bootstrap {
     /** The maximum number of unpruned blocks allowed to be included in a bootstrap, beyond the prune threshold */
     private static final int MAXIMUM_UNPRUNED_BLOCKS = 100;
 
+
+    public Bootstrap() {
+    }
 
     public Bootstrap(Repository repository) {
         this.repository = repository;
@@ -55,6 +58,12 @@ public class Bootstrap {
 
             final boolean isTopOnly = Settings.getInstance().isTopOnly();
             final boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
+
+            // Make sure we have a repository instance
+            if (repository == null) {
+                LOGGER.info("Error: repository instance required to check if we can create a bootstrap.");
+                return false;
+            }
 
             // Require that a block archive has been built
             if (!isTopOnly && !archiveEnabled) {
@@ -201,6 +210,11 @@ public class Bootstrap {
 
     public String create() throws DataException, InterruptedException, IOException {
 
+        // Make sure we have a repository instance
+        if (repository == null) {
+            throw new DataException("Repository instance required in order to create a boostrap");
+        }
+
         LOGGER.info("Acquiring blockchain lock...");
         ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
         blockchainLock.lockInterruptibly();
@@ -285,7 +299,9 @@ public class Bootstrap {
 
     public void startImport() throws InterruptedException {
         while (!Controller.isStopping()) {
-            try {
+            try (final Repository repository = RepositoryManager.getRepository()) {
+                this.repository = repository;
+
                 LOGGER.info("Starting import of bootstrap...");
 
                 this.doImport();

@@ -609,10 +609,8 @@ public class BlockChain {
 		boolean shouldBootstrap = Settings.getInstance().getBootstrap();
 		if (shouldBootstrap) {
 			// Settings indicate that we should apply a bootstrap rather than rebuilding and syncing from genesis
-			try (final Repository repository = RepositoryManager.getRepository()) {
-				Bootstrap bootstrap = new Bootstrap(repository);
-				bootstrap.startImport();
-			}
+			Bootstrap bootstrap = new Bootstrap();
+			bootstrap.startImport();
 			return;
 		}
 
