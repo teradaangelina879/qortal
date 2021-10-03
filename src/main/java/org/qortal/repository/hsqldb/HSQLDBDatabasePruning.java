@@ -61,7 +61,7 @@ public class HSQLDBDatabasePruning {
 
         LOGGER.info("Starting bulk prune of AT states - this process could take a while... " +
                 "(approx. 2 mins on high spec, or upwards of 30 mins in some cases)");
-        SplashFrame.getInstance().updateStatus("Pruning database, please wait...");
+        SplashFrame.getInstance().updateStatus("Pruning database (takes up to 30 mins)...");
 
         // Create new AT-states table to hold smaller dataset
         repository.executeCheckedUpdate("DROP TABLE IF EXISTS ATStatesNew");
