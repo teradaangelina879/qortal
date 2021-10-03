@@ -289,6 +289,7 @@ public class Bootstrap {
                 LOGGER.info("Starting import of bootstrap...");
 
                 this.doImport();
+                break;
 
             } catch (DataException e) {
                 LOGGER.info("Bootstrap import failed: {}", e.getMessage());
@@ -314,7 +315,7 @@ public class Bootstrap {
         finally {
             if (path != null) {
                 try {
-                    FileUtils.deleteDirectory(path.toFile());
+                    Files.delete(path);
 
                 } catch (IOException e) {
                     // Temp folder will be cleaned up by system anyway, so ignore this failure
