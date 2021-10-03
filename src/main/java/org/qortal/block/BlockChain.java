@@ -502,13 +502,22 @@ public class BlockChain {
 	 */
 	public static void validate() throws DataException {
 
-		BlockData chainTip;
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			chainTip = repository.getBlockRepository().getLastBlock();
-		}
-
 		boolean isTopOnly = Settings.getInstance().isTopOnly();
 		boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
+		boolean canBootstrap = Settings.getInstance().getBootstrap();
+		boolean needsArchiveRebuild = false;
+		BlockData chainTip;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			chainTip = repository.getBlockRepository().getLastBlock();
+
+			// Ensure archive is (at least partially) intact, and force a bootstrap if it isn't
+			if (!isTopOnly && archiveEnabled && canBootstrap) {
+				needsArchiveRebuild = (repository.getBlockArchiveRepository().fromHeight(2) == null);
+				LOGGER.info("Couldn't retrieve block 2 from archive. Bootstrapping...");
+			}
+		}
+
 		boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
 
 		if (isTopOnly && hasBlocks) {
@@ -516,7 +525,7 @@ public class BlockChain {
 			// It's best not to validate it, and there's no real need to
 		} else {
 			// Check first block is Genesis Block
-			if (!isGenesisBlockValid()) {
+			if (!isGenesisBlockValid() || needsArchiveRebuild) {
 				try {
 					rebuildBlockchain();
 
