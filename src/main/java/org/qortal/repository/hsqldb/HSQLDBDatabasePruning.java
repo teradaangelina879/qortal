@@ -153,6 +153,7 @@ public class HSQLDBDatabasePruning {
                                 }
                             }
                         }
+                        repository.saveChanges();
 
                     } while (latestAtStatesResultSet.next());
                 }
@@ -160,8 +161,6 @@ public class HSQLDBDatabasePruning {
                 throw new DataException("Unable to copy AT states", e);
             }
         }
-
-        repository.saveChanges();
 
 
         // Finally, drop the original table and rename
