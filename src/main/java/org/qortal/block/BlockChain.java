@@ -514,8 +514,10 @@ public class BlockChain {
 			// Ensure archive is (at least partially) intact, and force a bootstrap if it isn't
 			if (!isTopOnly && archiveEnabled && canBootstrap) {
 				needsArchiveRebuild = (repository.getBlockArchiveRepository().fromHeight(2) == null);
-				LOGGER.info("Couldn't retrieve block 2 from archive. Bootstrapping...");
-				Controller.getInstance().exportRepositoryData();
+				if (needsArchiveRebuild) {
+					LOGGER.info("Couldn't retrieve block 2 from archive. Bootstrapping...");
+					Controller.getInstance().exportRepositoryData();
+				}
 			}
 		}
 
