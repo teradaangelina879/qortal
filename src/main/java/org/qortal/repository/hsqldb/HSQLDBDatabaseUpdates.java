@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
 import org.qortal.controller.tradebot.BitcoinACCTv1TradeBot;
 import org.qortal.gui.SplashFrame;
 
@@ -33,7 +34,8 @@ public class HSQLDBDatabaseUpdates {
 		while (databaseUpdating(connection, wasPristine))
 			incrementDatabaseVersion(connection);
 
-		SplashFrame.getInstance().updateStatus("Starting Qortal Core...");
+		String text = String.format("Starting Qortal Core v%s...", Controller.getInstance().getVersionStringWithoutPrefix());
+		SplashFrame.getInstance().updateStatus(text);
 
 		return wasPristine;
 	}

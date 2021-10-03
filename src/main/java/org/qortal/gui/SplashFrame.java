@@ -9,6 +9,7 @@ import javax.swing.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
 
 public class SplashFrame {
 
@@ -39,7 +40,8 @@ public class SplashFrame {
 			add(imageLabel);
 
 			// Add status label
-			statusLabel = new JLabel("Starting Qortal Core...", JLabel.CENTER);
+			String text = String.format("Starting Qortal Core v%s...", Controller.getInstance().getVersionStringWithoutPrefix());
+			statusLabel = new JLabel(text, JLabel.CENTER);
 			statusLabel.setMaximumSize(new Dimension(500, 50));
 			statusLabel.setFont(new Font("Verdana", Font.PLAIN, 22));
 			statusLabel.setBackground(new Color(255, 255, 255));

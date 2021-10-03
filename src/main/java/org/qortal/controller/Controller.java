@@ -312,6 +312,10 @@ public class Controller extends Thread {
 		return this.buildVersion;
 	}
 
+	public String getVersionStringWithoutPrefix() {
+		return this.buildVersion.replaceFirst(VERSION_PREFIX, "");
+	}
+
 	/** Returns current blockchain height, or 0 if it's not available. */
 	public int getChainHeight() {
 		synchronized (this.latestBlocks) {
