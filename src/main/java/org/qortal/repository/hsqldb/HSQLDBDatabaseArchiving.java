@@ -3,6 +3,7 @@ package org.qortal.repository.hsqldb;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
+import org.qortal.gui.SplashFrame;
 import org.qortal.repository.BlockArchiveWriter;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -40,6 +41,7 @@ public class HSQLDBDatabaseArchiving {
         }
 
         LOGGER.info("Building block archive - this process could take a while... (approx. 15 mins on high spec)");
+        SplashFrame.getInstance().updateStatus("Building block archive, please wait...");
 
         final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
         int startHeight = 0;

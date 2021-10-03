@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.tradebot.BitcoinACCTv1TradeBot;
+import org.qortal.gui.SplashFrame;
 
 public class HSQLDBDatabaseUpdates {
 
@@ -27,8 +28,12 @@ public class HSQLDBDatabaseUpdates {
 	public static boolean updateDatabase(Connection connection) throws SQLException {
 		final boolean wasPristine = fetchDatabaseVersion(connection) == 0;
 
+		SplashFrame.getInstance().updateStatus("Upgrading database, please wait...");
+
 		while (databaseUpdating(connection, wasPristine))
 			incrementDatabaseVersion(connection);
+
+		SplashFrame.getInstance().updateStatus("Starting Qortal Core...");
 
 		return wasPristine;
 	}

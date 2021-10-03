@@ -4,10 +4,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
 import org.qortal.data.block.BlockData;
+import org.qortal.gui.SplashFrame;
 import org.qortal.repository.BlockArchiveWriter;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 
 import java.sql.ResultSet;
@@ -61,6 +61,7 @@ public class HSQLDBDatabasePruning {
 
         LOGGER.info("Starting bulk prune of AT states - this process could take a while... " +
                 "(approx. 2 mins on high spec, or upwards of 30 mins in some cases)");
+        SplashFrame.getInstance().updateStatus("Pruning database, please wait...");
 
         // Create new AT-states table to hold smaller dataset
         repository.executeCheckedUpdate("DROP TABLE IF EXISTS ATStatesNew");
