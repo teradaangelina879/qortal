@@ -318,6 +318,8 @@ public class HSQLDBDatabasePruning {
 
     public static void performMaintenance(Repository repository) throws SQLException, DataException {
         try {
+            SplashFrame.getInstance().updateStatus("Performing maintenance...");
+
             // Timeout if the database isn't ready for backing up after 5 minutes
             // Nothing else should be using the db at this point, so a timeout shouldn't happen
             long timeout = 5 * 60 * 1000L;
