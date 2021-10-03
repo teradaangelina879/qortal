@@ -2,6 +2,7 @@ package org.qortal.repository;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.gui.SplashFrame;
 import org.qortal.repository.hsqldb.HSQLDBDatabaseArchiving;
 import org.qortal.repository.hsqldb.HSQLDBDatabasePruning;
 import org.qortal.repository.hsqldb.HSQLDBRepository;
@@ -73,6 +74,8 @@ public abstract class RepositoryManager {
 			}
 			else {
 				LOGGER.info("Unable to build block archive due to missing ATStatesHeightIndex. Bootstrapping is recommended.");
+				LOGGER.info("To bootstrap, stop the core and delete the db folder, then start the core again.");
+				SplashFrame.getInstance().updateStatus("Missing index. Bootstrapping is recommended.");
 			}
 		}
 		return false;
