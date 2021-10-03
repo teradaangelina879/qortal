@@ -777,7 +777,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 					if (atAddresses.contains(atState.getATAddress())) {
 						// We don't want to delete this AT state because it is still active
-						LOGGER.info("Skipping atState {} at height {}", atState.getATAddress(), atState.getHeight());
+						LOGGER.trace("Skipping atState {} at height {}", atState.getATAddress(), atState.getHeight());
 						continue;
 					}
 

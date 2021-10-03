@@ -653,7 +653,7 @@ public class Network {
 
         if (peersToDisconnect != null && peersToDisconnect.size() > 0) {
             for (Peer peer : peersToDisconnect) {
-                LOGGER.info("Forcing disconnection of peer {} because connection age ({} ms) " +
+                LOGGER.debug("Forcing disconnection of peer {} because connection age ({} ms) " +
                         "has reached the maximum ({} ms)", peer, peer.getConnectionAge(), peer.getMaxConnectionAge());
                 peer.disconnect("Connection age too old");
             }
