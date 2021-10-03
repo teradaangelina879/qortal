@@ -30,9 +30,10 @@ public class SplashFrame {
 		public SplashPanel() {
 			image = Gui.loadImage(defaultSplash);
 
-			setOpaque(false);
+			setOpaque(true);
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			setBorder(null);
+			setBackground(new Color(255, 255, 255));
 
 			// Add logo
 			JLabel imageLabel = new JLabel(new ImageIcon(image));
