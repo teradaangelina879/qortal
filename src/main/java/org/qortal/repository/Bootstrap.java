@@ -344,15 +344,17 @@ public class Bootstrap {
     private String getFilename() {
         boolean isTopOnly = Settings.getInstance().isTopOnly();
         boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
+        boolean isTestnet = Settings.getInstance().isTestNet();
+        String prefix = isTestnet ? "testnet-" : "";
 
         if (isTopOnly) {
-            return "bootstrap-toponly.7z";
+            return prefix.concat("bootstrap-toponly.7z");
         }
         else if (archiveEnabled) {
-            return "bootstrap-archive.7z";
+            return prefix.concat("bootstrap-archive.7z");
         }
         else {
-            return "bootstrap-full.7z";
+            return prefix.concat("bootstrap-full.7z");
         }
     }
 
