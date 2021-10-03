@@ -16,6 +16,7 @@ public class SplashFrame {
 
 	private static SplashFrame instance;
 	private JFrame splashDialog;
+	private SplashPanel splashPanel;
 
 	@SuppressWarnings("serial")
 	public static class SplashPanel extends JPanel {
@@ -23,22 +24,39 @@ public class SplashFrame {
 
 		private String defaultSplash = "Qlogo_512.png";
 
+		private JLabel statusLabel;
+
 		public SplashPanel() {
 			image = Gui.loadImage(defaultSplash);
 
 			setOpaque(false);
-			setLayout(new GridBagLayout());
-		}
+			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+			setBorder(null);
 
-		@Override
-		protected void paintComponent(Graphics g) {
-			super.paintComponent(g);
-			g.drawImage(image, 0, 0, getWidth(), getHeight(), this);
+			// Add logo
+			JLabel imageLabel = new JLabel(new ImageIcon(image));
+			imageLabel.setSize(new Dimension(300, 300));
+			add(imageLabel);
+
+			// Add status label
+			statusLabel = new JLabel("Starting Qortal Core...", JLabel.CENTER);
+			statusLabel.setMaximumSize(new Dimension(500, 50));
+			statusLabel.setFont(new Font("Verdana", Font.PLAIN, 22));
+			statusLabel.setBackground(new Color(255, 255, 255));
+			statusLabel.setOpaque(true);
+			statusLabel.setBorder(null);
+			add(statusLabel);
 		}
 
 		@Override
 		public Dimension getPreferredSize() {
-			return new Dimension(500, 500);
+			return new Dimension(500, 550);
+		}
+
+		public void updateStatus(String text) {
+			if (statusLabel != null) {
+				statusLabel.setText(text);
+			}
 		}
 	}
 
@@ -55,7 +73,8 @@ public class SplashFrame {
 		icons.add(Gui.loadImage("icons/Qlogo_128.png"));
 		this.splashDialog.setIconImages(icons);
 
-		this.splashDialog.getContentPane().add(new SplashPanel());
+		this.splashPanel = new SplashPanel();
+		this.splashDialog.getContentPane().add(this.splashPanel);
 		this.splashDialog.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.splashDialog.setUndecorated(true);
 		this.splashDialog.pack();
@@ -77,6 +96,10 @@ public class SplashFrame {
 
 	public void dispose() {
 		this.splashDialog.dispose();
+	}
+
+	public void updateStatus(String text) {
+		this.splashPanel.updateStatus(text);
 	}
 
 }

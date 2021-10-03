@@ -8,6 +8,7 @@ import org.qortal.controller.Controller;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.TradeBotData;
+import org.qortal.gui.SplashFrame;
 import org.qortal.repository.hsqldb.HSQLDBImportExport;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
@@ -302,14 +303,14 @@ public class Bootstrap {
             try (final Repository repository = RepositoryManager.getRepository()) {
                 this.repository = repository;
 
-                LOGGER.info("Starting import of bootstrap...");
+                this.updateStatus("Starting import of bootstrap...");
 
                 this.doImport();
                 break;
 
             } catch (DataException e) {
                 LOGGER.info("Bootstrap import failed: {}", e.getMessage());
-                LOGGER.info("Retrying in 5 minutes");
+                this.updateStatus("Bootstrapping failed. Retrying in 5 minutes");
                 Thread.sleep(5 * 60 * 1000L);
             }
         }
@@ -363,7 +364,7 @@ public class Bootstrap {
         String bootstrapFilename = this.getFilename();
 
         try {
-            LOGGER.info("Downloading bootstrap...");
+            this.updateStatus("Downloading bootstrap...");
             String bootstrapUrl = String.format("%s/%s", bootstrapHost, bootstrapFilename);
             InputStream in = new URL(bootstrapUrl).openStream();
             Files.copy(in, path, REPLACE_EXISTING);
@@ -379,12 +380,12 @@ public class Bootstrap {
         blockchainLock.lockInterruptibly();
 
         try {
-            LOGGER.info("Extracting bootstrap...");
+            this.updateStatus("Extracting bootstrap...");
             Path input = path.toAbsolutePath();
             Path output = path.toAbsolutePath().getParent().toAbsolutePath();
             SevenZ.decompress(input.toString(), output.toFile());
 
-            LOGGER.info("Stopping repository...");
+            this.updateStatus("Stopping repository...");
             // Close the repository while we are still able to
             // Otherwise, the caller will run into difficulties when it tries to close it
             repository.discardChanges();
@@ -399,11 +400,11 @@ public class Bootstrap {
             }
 
             // Move the "bootstrap" folder in place of the "db" folder
-            LOGGER.info("Moving files to output directory...");
+            this.updateStatus("Moving files to output directory...");
             FileUtils.deleteDirectory(outputPath.toFile());
             Files.move(inputPath, outputPath);
 
-            LOGGER.info("Starting repository from bootstrap...");
+            this.updateStatus("Starting repository from bootstrap...");
             RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.getRepositoryUrl());
             RepositoryManager.setRepositoryFactory(repositoryFactory);
 
@@ -411,6 +412,11 @@ public class Bootstrap {
         finally {
             blockchainLock.unlock();
         }
+    }
+
+    private void updateStatus(String text) {
+        LOGGER.info(text);
+        SplashFrame.getInstance().updateStatus(text);
     }
 
 }
