@@ -436,9 +436,6 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
-		// Import current trade bot states and minting accounts if they exist
-		Controller.importRepositoryData();
-
 		// Rebuild Names table and check database integrity
 		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
 		namesDatabaseIntegrityCheck.rebuildAllNames();
@@ -455,6 +452,9 @@ public class Controller extends Thread {
 			Gui.getInstance().fatalError("Blockchain validation issue", e);
 			return; // Not System.exit() so that GUI can display error
 		}
+
+		// Import current trade bot states and minting accounts if they exist
+		Controller.importRepositoryData();
 
 		LOGGER.info("Starting controller");
 		Controller.getInstance().start();
@@ -655,7 +655,7 @@ public class Controller extends Thread {
 	/**
 	 * Export current trade bot states and minting accounts.
 	 */
-	private void exportRepositoryData() {
+	public void exportRepositoryData() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.exportNodeLocalData();
 

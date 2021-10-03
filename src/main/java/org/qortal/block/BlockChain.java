@@ -515,6 +515,7 @@ public class BlockChain {
 			if (!isTopOnly && archiveEnabled && canBootstrap) {
 				needsArchiveRebuild = (repository.getBlockArchiveRepository().fromHeight(2) == null);
 				LOGGER.info("Couldn't retrieve block 2 from archive. Bootstrapping...");
+				Controller.getInstance().exportRepositoryData();
 			}
 		}
 
