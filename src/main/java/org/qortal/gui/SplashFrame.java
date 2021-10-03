@@ -68,6 +68,10 @@ public class SplashFrame {
 	}
 
 	private SplashFrame() {
+		if (GraphicsEnvironment.isHeadless()) {
+			return;
+		}
+
 		this.splashDialog = new JFrame();
 
 		List<Image> icons = new ArrayList<>();
@@ -106,7 +110,9 @@ public class SplashFrame {
 	}
 
 	public void updateStatus(String text) {
-		this.splashPanel.updateStatus(text);
+		if (this.splashPanel != null) {
+			this.splashPanel.updateStatus(text);
+		}
 	}
 
 }
