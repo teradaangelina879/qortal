@@ -6,6 +6,7 @@ import java.util.List;
 import java.awt.image.BufferedImage;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,7 +33,7 @@ public class SplashFrame {
 
 			setOpaque(true);
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-			setBorder(null);
+			setBorder(new EmptyBorder(10, 10, 10, 10));
 			setBackground(new Color(255, 255, 255));
 
 			// Add logo
@@ -40,11 +41,14 @@ public class SplashFrame {
 			imageLabel.setSize(new Dimension(300, 300));
 			add(imageLabel);
 
+			// Add spacing
+			add(Box.createRigidArea(new Dimension(0, 16)));
+
 			// Add status label
 			String text = String.format("Starting Qortal Core v%s...", Controller.getInstance().getVersionStringWithoutPrefix());
 			statusLabel = new JLabel(text, JLabel.CENTER);
 			statusLabel.setMaximumSize(new Dimension(500, 50));
-			statusLabel.setFont(new Font("Verdana", Font.PLAIN, 22));
+			statusLabel.setFont(new Font("Verdana", Font.PLAIN, 20));
 			statusLabel.setBackground(new Color(255, 255, 255));
 			statusLabel.setOpaque(true);
 			statusLabel.setBorder(null);
@@ -53,7 +57,7 @@ public class SplashFrame {
 
 		@Override
 		public Dimension getPreferredSize() {
-			return new Dimension(500, 550);
+			return new Dimension(500, 580);
 		}
 
 		public void updateStatus(String text) {
