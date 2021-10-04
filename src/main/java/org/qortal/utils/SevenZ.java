@@ -9,6 +9,7 @@ package org.qortal.utils;
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 import org.apache.commons.compress.archivers.sevenz.SevenZOutputFile;
+import org.qortal.gui.SplashFrame;
 
 import java.io.*;
 
@@ -38,12 +39,19 @@ public class SevenZ {
             if (!parent.exists()) {
                 parent.mkdirs();
             }
+            long fileSize = entry.getSize();
 
             FileOutputStream out = new FileOutputStream(curfile);
-            byte[] b = new byte[8192];
-            int count = 0;
+            byte[] b = new byte[1024 * 1024];
+            int count;
+            long downloaded = 0;
+
             while ((count = sevenZFile.read(b)) > 0) {
                 out.write(b, 0, count);
+                downloaded += count;
+
+                int progress = (int)((double)downloaded / (double)fileSize * 100);
+                SplashFrame.getInstance().updateStatus(String.format("Extracting %s... (%d%%)", curfile.getName(), progress));
             }
             out.close();
         }
