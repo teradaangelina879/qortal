@@ -375,7 +375,7 @@ public class Bootstrap {
             Files.copy(in, path, REPLACE_EXISTING);
 
         } catch (IOException e) {
-            throw new DataException(String.format("Unable to download bootstrap: {}", e.getMessage()));
+            throw new DataException(String.format("Unable to download bootstrap: %s", e.getMessage()));
         }
     }
 
