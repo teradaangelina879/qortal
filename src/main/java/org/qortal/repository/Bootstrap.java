@@ -15,8 +15,11 @@ import org.qortal.settings.Settings;
 import org.qortal.utils.NTP;
 import org.qortal.utils.SevenZ;
 
+import java.io.BufferedInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.*;
 import java.security.SecureRandom;
@@ -370,12 +373,47 @@ public class Bootstrap {
         int index = new SecureRandom().nextInt(hosts.length);
         String bootstrapHost = hosts[index];
         String bootstrapFilename = this.getFilename();
+        String bootstrapUrl = String.format("%s/%s", bootstrapHost, bootstrapFilename);
 
+        // Delete an existing file if it exists
         try {
-            this.updateStatus("Downloading bootstrap...");
-            String bootstrapUrl = String.format("%s/%s", bootstrapHost, bootstrapFilename);
-            InputStream in = new URL(bootstrapUrl).openStream();
-            Files.copy(in, path, REPLACE_EXISTING);
+            Files.delete(path);
+        } catch (IOException e) {
+            // No need to do anything
+        }
+
+        // Get the total file size
+        URL url;
+        long fileSize;
+        try {
+            url = new URL(bootstrapUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("HEAD");
+            connection.connect();
+            fileSize = connection.getContentLengthLong();
+            connection.disconnect();
+
+        } catch (MalformedURLException e) {
+            throw new DataException(String.format("Malformed URL when downloading bootstrap: %s", e.getMessage()));
+        } catch (IOException e) {
+            throw new DataException(String.format("Unable to download bootstrap: %s", e.getMessage()));
+        }
+
+        // Download the file and update the status with progress
+        try (BufferedInputStream in = new BufferedInputStream(url.openStream());
+             FileOutputStream fileOutputStream = new FileOutputStream(path.toFile())) {
+            byte[] buffer = new byte[1024 * 1024];
+            long downloaded = 0;
+            int bytesRead;
+            while ((bytesRead = in.read(buffer, 0, 1024)) != -1) {
+                fileOutputStream.write(buffer, 0, bytesRead);
+                downloaded += bytesRead;
+
+                if (fileSize > 0) {
+                    int progress = (int)((double)downloaded / (double)fileSize * 100);
+                    SplashFrame.getInstance().updateStatus(String.format("Downloading bootstrap... (%d%%)", progress));
+                }
+            }
 
         } catch (IOException e) {
             throw new DataException(String.format("Unable to download bootstrap: %s", e.getMessage()));
