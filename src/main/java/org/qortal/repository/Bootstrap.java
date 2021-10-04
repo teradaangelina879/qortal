@@ -21,6 +21,7 @@ import java.net.URL;
 import java.nio.file.*;
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -249,7 +250,7 @@ public class Bootstrap {
 
             LOGGER.info("Moving files to output directory...");
             inputPath = Paths.get(Settings.getInstance().getRepositoryPath(), "bootstrap");
-            outputPath = Paths.get(Files.createTempDirectory("qortal-bootstrap").toString(), "bootstrap");
+            outputPath = Paths.get(this.createTempDirectory().toString(), "bootstrap");
 
 
             // Move the db backup to a "bootstrap" folder in the root directory
@@ -295,6 +296,7 @@ public class Bootstrap {
             if (outputPath != null) {
                 FileUtils.deleteDirectory(outputPath.toFile());
             }
+            this.deleteAllTempDirectories();
         }
     }
 
@@ -319,7 +321,7 @@ public class Bootstrap {
     private void doImport() throws DataException {
         Path path = null;
         try {
-            Path tempDir = Files.createTempDirectory("qortal-bootstrap");
+            Path tempDir = this.createTempDirectory();
             String filename = String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), this.getFilename());
             path = Paths.get(tempDir.toString(), filename);
 
@@ -335,9 +337,10 @@ public class Bootstrap {
                     Files.delete(path);
 
                 } catch (IOException e) {
-                    // Temp folder will be cleaned up by system anyway, so ignore this failure
+                    // Temp folder will be cleaned up below, so ignore this failure
                 }
             }
+            this.deleteAllTempDirectories();
         }
     }
 
@@ -413,6 +416,23 @@ public class Bootstrap {
         }
         finally {
             blockchainLock.unlock();
+        }
+    }
+
+    private Path createTempDirectory() throws IOException {
+        String baseDir = Paths.get(".", "tmp").toAbsolutePath().toString();
+        String identifier = UUID.randomUUID().toString();
+        Path tempDir = Paths.get(baseDir, identifier);
+        Files.createDirectories(tempDir);
+        return tempDir;
+    }
+
+    private void deleteAllTempDirectories() {
+        Path path = Paths.get(".", "tmp");
+        try {
+            FileUtils.deleteDirectory(path.toFile());
+        } catch (IOException e) {
+            LOGGER.info("Unable to delete temp directory path: {}", path.toString());
         }
     }
 
