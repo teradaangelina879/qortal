@@ -32,6 +32,8 @@ public class Bootstrap {
 
     private Repository repository;
 
+    private int retryMinutes = 5;
+
     private static final Logger LOGGER = LogManager.getLogger(Bootstrap.class);
 
     /** The maximum number of untrimmed blocks allowed to be included in a bootstrap, beyond the trim threshold */
@@ -312,8 +314,9 @@ public class Bootstrap {
 
             } catch (DataException e) {
                 LOGGER.info("Bootstrap import failed: {}", e.getMessage());
-                this.updateStatus("Bootstrapping failed. Retrying in 5 minutes");
-                Thread.sleep(5 * 60 * 1000L);
+                this.updateStatus(String.format("Bootstrapping failed. Retrying in %d minutes...", retryMinutes));
+                Thread.sleep(retryMinutes * 60 * 1000L);
+                retryMinutes *= 2;
             }
         }
     }
