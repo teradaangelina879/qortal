@@ -44,13 +44,13 @@ public class SevenZ {
             FileOutputStream out = new FileOutputStream(curfile);
             byte[] b = new byte[1024 * 1024];
             int count;
-            long downloaded = 0;
+            long extracted = 0;
 
             while ((count = sevenZFile.read(b)) > 0) {
                 out.write(b, 0, count);
-                downloaded += count;
+                extracted += count;
 
-                int progress = (int)((double)downloaded / (double)fileSize * 100);
+                int progress = (int)((double)extracted / (double)fileSize * 100);
                 SplashFrame.getInstance().updateStatus(String.format("Extracting %s... (%d%%)", curfile.getName(), progress));
             }
             out.close();
