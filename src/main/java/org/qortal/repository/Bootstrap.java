@@ -385,11 +385,6 @@ public class Bootstrap {
         blockchainLock.lockInterruptibly();
 
         try {
-            this.updateStatus("Extracting bootstrap...");
-            Path input = path.toAbsolutePath();
-            Path output = path.toAbsolutePath().getParent().toAbsolutePath();
-            SevenZ.decompress(input.toString(), output.toFile());
-
             this.updateStatus("Stopping repository...");
             // Close the repository while we are still able to
             // Otherwise, the caller will run into difficulties when it tries to close it
@@ -398,15 +393,22 @@ public class Bootstrap {
             // Now close the repository factory so that we can swap out the database files
             RepositoryManager.closeRepositoryFactory();
 
+            this.updateStatus("Deleting existing repository...");
+            Path input = path.toAbsolutePath();
+            Path output = path.toAbsolutePath().getParent().toAbsolutePath();
             Path inputPath = Paths.get(output.toString(), "bootstrap");
             Path outputPath = Paths.get(Settings.getInstance().getRepositoryPath());
+            FileUtils.deleteDirectory(outputPath.toFile());
+
+            this.updateStatus("Extracting bootstrap...");
+            SevenZ.decompress(input.toString(), output.toFile());
+
             if (!inputPath.toFile().exists()) {
                 throw new DataException("Extracted bootstrap doesn't exist");
             }
 
             // Move the "bootstrap" folder in place of the "db" folder
             this.updateStatus("Moving files to output directory...");
-            FileUtils.deleteDirectory(outputPath.toFile());
             Files.move(inputPath, outputPath);
 
             this.updateStatus("Starting repository from bootstrap...");
