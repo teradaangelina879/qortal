@@ -35,7 +35,7 @@ public class Bootstrap {
 
     private Repository repository;
 
-    private int retryMinutes = 5;
+    private int retryMinutes = 1;
 
     private static final Logger LOGGER = LogManager.getLogger(Bootstrap.class);
 
