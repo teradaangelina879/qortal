@@ -22,6 +22,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -179,6 +180,28 @@ public class BootstrapTests extends Common {
         Controller.getInstance().refillLatestBlocksCache();
 
         repository.saveChanges();
+    }
+
+    @Test
+    public void testGetRandomHost() {
+        String[] bootstrapHosts = Settings.getInstance().getBootstrapHosts();
+        List<String> uniqueHosts = new ArrayList<>();
+
+        for (int i=0; i<1000; i++) {
+            Bootstrap bootstrap = new Bootstrap();
+            String randomHost = bootstrap.getRandomHost();
+            assertNotNull(randomHost);
+
+            if (!uniqueHosts.contains(randomHost)){
+                uniqueHosts.add(randomHost);
+            }
+        }
+
+        // Ensure we have more than one bootstrap host in the settings
+        assertTrue(Arrays.asList(bootstrapHosts).size() > 1);
+
+        // Ensure that all have been given the opportunity to be used
+        assertEquals(uniqueHosts.size(), Arrays.asList(bootstrapHosts).size());
     }
 
     private void deleteBootstraps() throws IOException {

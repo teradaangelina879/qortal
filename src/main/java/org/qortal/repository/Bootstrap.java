@@ -368,10 +368,7 @@ public class Bootstrap {
     }
 
     private void downloadToPath(Path path) throws DataException {
-        // Select a random host from bootstrapHosts
-        String[] hosts = Settings.getInstance().getBootstrapHosts();
-        int index = new SecureRandom().nextInt(hosts.length);
-        String bootstrapHost = hosts[index];
+        String bootstrapHost = this.getRandomHost();
         String bootstrapFilename = this.getFilename();
         String bootstrapUrl = String.format("%s/%s", bootstrapHost, bootstrapFilename);
 
@@ -418,6 +415,14 @@ public class Bootstrap {
         } catch (IOException e) {
             throw new DataException(String.format("Unable to download bootstrap: %s", e.getMessage()));
         }
+    }
+
+    public String getRandomHost() {
+        // Select a random host from bootstrapHosts
+        String[] hosts = Settings.getInstance().getBootstrapHosts();
+        int index = new SecureRandom().nextInt(hosts.length);
+        String bootstrapHost = hosts[index];
+        return bootstrapHost;
     }
 
     public void importFromPath(Path path) throws InterruptedException, DataException, IOException {
