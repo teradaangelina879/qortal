@@ -458,11 +458,11 @@ public class Bootstrap {
             Files.move(inputPath, outputPath);
 
             this.updateStatus("Starting repository from bootstrap...");
+        }
+        finally {
             RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.getRepositoryUrl());
             RepositoryManager.setRepositoryFactory(repositoryFactory);
 
-        }
-        finally {
             blockchainLock.unlock();
         }
     }
