@@ -468,7 +468,7 @@ public class Bootstrap {
     }
 
     private Path createTempDirectory() throws IOException {
-        String baseDir = Paths.get(".", "tmp").toAbsolutePath().toString();
+        String baseDir = Paths.get(".", "tmp").toFile().getCanonicalPath();
         String identifier = UUID.randomUUID().toString();
         Path tempDir = Paths.get(baseDir, identifier);
         Files.createDirectories(tempDir);
