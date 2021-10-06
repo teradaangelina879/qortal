@@ -34,7 +34,7 @@ public class SplashFrame {
 			setOpaque(true);
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			setBorder(new EmptyBorder(10, 10, 10, 10));
-			setBackground(new Color(255, 255, 255));
+			setBackground(Color.BLACK);
 
 			// Add logo
 			JLabel imageLabel = new JLabel(new ImageIcon(image));
@@ -49,7 +49,8 @@ public class SplashFrame {
 			statusLabel = new JLabel(text, JLabel.CENTER);
 			statusLabel.setMaximumSize(new Dimension(500, 50));
 			statusLabel.setFont(new Font("Verdana", Font.PLAIN, 20));
-			statusLabel.setBackground(new Color(255, 255, 255));
+			statusLabel.setBackground(Color.BLACK);
+			statusLabel.setForeground(new Color(255, 255, 255, 255));
 			statusLabel.setOpaque(true);
 			statusLabel.setBorder(null);
 			add(statusLabel);
@@ -90,7 +91,7 @@ public class SplashFrame {
 		this.splashDialog.setUndecorated(true);
 		this.splashDialog.pack();
 		this.splashDialog.setLocationRelativeTo(null);
-		this.splashDialog.setBackground(new Color(0,0,0,0));
+		this.splashDialog.setBackground(Color.BLACK);
 		this.splashDialog.setVisible(true);
 	}
 
