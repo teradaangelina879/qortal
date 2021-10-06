@@ -525,8 +525,8 @@ public class Controller extends Thread {
 		Thread.currentThread().setName("Controller");
 
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
-		final long repositoryMaintenanceInterval = Settings.getInstance().getRepositoryMaintenanceInterval();
 		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
+		long repositoryMaintenanceInterval = getRandomRepositoryMaintenanceInterval();
 
 		// Start executor service for trimming or pruning
 		PruneManager.getInstance().start();
@@ -617,6 +617,9 @@ public class Controller extends Thread {
 					} catch (DataException | TimeoutException e) {
 						LOGGER.error("Scheduled repository maintenance failed", e);
 					}
+
+					// Get a new random interval
+					repositoryMaintenanceInterval = getRandomRepositoryMaintenanceInterval();
 				}
 
 				// Prune stuck/slow/old peers
@@ -674,6 +677,15 @@ public class Controller extends Thread {
 		catch (DataException | IOException e) {
 			LOGGER.info("Unable to import data into repository: {}", e.getMessage());
 		}
+	}
+
+	private long getRandomRepositoryMaintenanceInterval() {
+		final long minInterval = Settings.getInstance().getRepositoryMaintenanceMinInterval();
+		final long maxInterval = Settings.getInstance().getRepositoryMaintenanceMaxInterval();
+		if (maxInterval == 0) {
+			return 0;
+		}
+		return (new Random().nextLong() % (maxInterval - minInterval)) + minInterval;
 	}
 
 	/**

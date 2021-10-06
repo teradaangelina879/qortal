@@ -89,8 +89,10 @@ public class Settings {
 	private long repositoryBackupInterval = 0; // ms
 	/** Whether to show a notification when we backup repository. */
 	private boolean showBackupNotification = false;
-	/** How long between repository maintenance attempts (ms), or 0 if disabled. */
-	private long repositoryMaintenanceInterval = 0; // ms
+	/** Minimum time between repository maintenance attempts (ms) */
+	private long repositoryMaintenanceMinInterval = 7 * 24 * 60 * 60 * 1000L; // 7 days (ms) default
+	/** Maximum time between repository maintenance attempts (ms) (0 if disabled). */
+	private long repositoryMaintenanceMaxInterval = 30 * 24 * 60 * 60 * 1000L; // 30 days (ms) default
 	/** Whether to show a notification when we run scheduled maintenance. */
 	private boolean showMaintenanceNotification = false;
 	/** How long between repository checkpoints (ms). */
@@ -562,8 +564,12 @@ public class Settings {
 		return this.showBackupNotification;
 	}
 
-	public long getRepositoryMaintenanceInterval() {
-		return this.repositoryMaintenanceInterval;
+	public long getRepositoryMaintenanceMinInterval() {
+		return this.repositoryMaintenanceMinInterval;
+	}
+
+	public long getRepositoryMaintenanceMaxInterval() {
+		return this.repositoryMaintenanceMaxInterval;
 	}
 
 	public boolean getShowMaintenanceNotification() {
