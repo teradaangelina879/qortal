@@ -335,7 +335,7 @@ public class Bootstrap {
             this.importFromPath(path);
 
         } catch (InterruptedException | DataException | IOException e) {
-            throw new DataException(String.format("Unable to import bootstrap: %s", e.getMessage()));
+            throw new DataException("Unable to import bootstrap", e);
         }
         finally {
             if (path != null) {
