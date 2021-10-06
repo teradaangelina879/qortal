@@ -155,6 +155,7 @@ public class Controller extends Thread {
 	};
 
 	private long repositoryBackupTimestamp = startTime; // ms
+	private long repositoryMaintenanceTimestamp = startTime; // ms
 	private long repositoryCheckpointTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
@@ -524,6 +525,7 @@ public class Controller extends Thread {
 		Thread.currentThread().setName("Controller");
 
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
+		final long repositoryMaintenanceInterval = Settings.getInstance().getRepositoryMaintenanceInterval();
 		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
 
 		// Start executor service for trimming or pruning
@@ -592,6 +594,28 @@ public class Controller extends Thread {
 
 					} catch (TimeoutException e) {
 						LOGGER.info("Attempt to backup repository failed due to timeout: {}", e.getMessage());
+					}
+				}
+
+				// Give repository a chance to perform maintenance (if enabled)
+				if (repositoryMaintenanceInterval > 0 && now >= repositoryMaintenanceTimestamp + repositoryMaintenanceInterval) {
+					repositoryMaintenanceTimestamp = now + repositoryMaintenanceInterval;
+
+					if (Settings.getInstance().getShowMaintenanceNotification())
+						SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_MAINTENANCE"),
+								Translator.INSTANCE.translate("SysTray", "PERFORMING_DB_MAINTENANCE"),
+								MessageType.INFO);
+
+					LOGGER.info("Starting scheduled repository maintenance. This can take a while...");
+					try (final Repository repository = RepositoryManager.getRepository()) {
+
+						// Timeout if the database isn't ready for maintenance after 60 seconds
+						long timeout = 60 * 1000L;
+						repository.performPeriodicMaintenance(timeout);
+
+						LOGGER.info("Scheduled repository maintenance completed");
+					} catch (DataException | TimeoutException e) {
+						LOGGER.error("Scheduled repository maintenance failed", e);
 					}
 				}
 
