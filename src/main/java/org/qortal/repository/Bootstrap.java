@@ -393,7 +393,7 @@ public class Bootstrap {
         } catch (MalformedURLException e) {
             throw new DataException(String.format("Malformed URL when downloading bootstrap: %s", e.getMessage()));
         } catch (IOException e) {
-            throw new DataException(String.format("Unable to download bootstrap: %s", e.getMessage()));
+            throw new DataException(String.format("Unable to get bootstrap file size: %s", e.getMessage()));
         }
 
         // Download the file and update the status with progress
