@@ -1050,7 +1050,7 @@ public class HSQLDBRepository implements Repository {
 			long startTime = System.currentTimeMillis();
 			while (this.otherTransactionsCount() > 0) {
 				// Wait and try again
-				LOGGER.info("Waiting for repository...");
+				LOGGER.debug("Waiting for repository...");
 				Thread.sleep(1000L);
 
 				if (timeout != null) {
