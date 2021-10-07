@@ -1384,7 +1384,7 @@ public class Controller extends Thread {
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 
 			if (blockData != null) {
-				if (PruneManager.getInstance().isBlockPruned(blockData.getHeight(), repository)) {
+				if (PruneManager.getInstance().isBlockPruned(blockData.getHeight())) {
 					// If this is a pruned block, we likely only have partial data, so best not to sent it
 					blockData = null;
 				}
@@ -1537,7 +1537,7 @@ public class Controller extends Thread {
 				}
 
 				if (blockData != null) {
-					if (PruneManager.getInstance().isBlockPruned(blockData.getHeight(), repository)) {
+					if (PruneManager.getInstance().isBlockPruned(blockData.getHeight())) {
 						// If this request contains a pruned block, we likely only have partial data, so best not to sent anything
 						// We always prune from the oldest first, so it's fine to just check the first block requested
 						blockData = null;

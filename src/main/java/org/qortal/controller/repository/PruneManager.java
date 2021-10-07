@@ -136,7 +136,7 @@ public class PruneManager {
         }
     }
 
-    public boolean isBlockPruned(int height, Repository repository) throws DataException {
+    public boolean isBlockPruned(int height) throws DataException {
         if (!this.isTopOnly) {
             return false;
         }
