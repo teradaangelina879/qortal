@@ -1538,6 +1538,10 @@ public class Controller extends Thread {
 				int numberRequested = Math.min(Network.MAX_BLOCK_SUMMARIES_PER_REPLY, getBlockSummariesMessage.getNumberRequested());
 
 				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+				if (blockData == null) {
+					// Try the archive
+					blockData = repository.getBlockArchiveRepository().fromReference(parentSignature);
+				}
 
 				if (blockData != null) {
 					if (PruneManager.getInstance().isBlockPruned(blockData.getHeight(), repository)) {
@@ -1551,7 +1555,12 @@ public class Controller extends Thread {
 					BlockSummaryData blockSummary = new BlockSummaryData(blockData);
 					blockSummaries.add(blockSummary);
 
-					blockData = repository.getBlockRepository().fromReference(blockData.getSignature());
+					byte[] previousSignature = blockData.getSignature();
+					blockData = repository.getBlockRepository().fromReference(previousSignature);
+					if (blockData == null) {
+						// Try the archive
+						blockData = repository.getBlockArchiveRepository().fromReference(previousSignature);
+					}
 				}
 			} catch (DataException e) {
 				LOGGER.error(String.format("Repository issue while sending block summaries after %s to peer %s", Base58.encode(parentSignature), peer), e);
@@ -1600,11 +1609,20 @@ public class Controller extends Thread {
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				int numberRequested = getSignaturesMessage.getNumberRequested();
 				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+				if (blockData == null) {
+					// Try the archive
+					blockData = repository.getBlockArchiveRepository().fromReference(parentSignature);
+				}
 
 				while (blockData != null && signatures.size() < numberRequested) {
 					signatures.add(blockData.getSignature());
 
-					blockData = repository.getBlockRepository().fromReference(blockData.getSignature());
+					byte[] previousSignature = blockData.getSignature();
+					blockData = repository.getBlockRepository().fromReference(previousSignature);
+					if (blockData == null) {
+						// Try the archive
+						blockData = repository.getBlockArchiveRepository().fromReference(previousSignature);
+					}
 				}
 			} catch (DataException e) {
 				LOGGER.error(String.format("Repository issue while sending V2 signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);
