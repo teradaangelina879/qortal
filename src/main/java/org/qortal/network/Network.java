@@ -155,9 +155,23 @@ public class Network {
         }
 
         // Load all known peers from repository
-        try (Repository repository = RepositoryManager.getRepository()) {
-            synchronized (this.allKnownPeers) {
-                this.allKnownPeers.addAll(repository.getNetworkRepository().getAllPeers());
+        synchronized (this.allKnownPeers) { List<String> fixedNetwork = Settings.getInstance().getFixedNetwork();
+            if (fixedNetwork != null && !fixedNetwork.isEmpty()) {
+                Long addedWhen = NTP.getTime();
+                String addedBy = "fixedNetwork";
+                List<PeerAddress> peerAddresses = new ArrayList<>();
+                for (String address : fixedNetwork) {
+                    PeerAddress peerAddress = PeerAddress.fromString(address);
+                    peerAddresses.add(peerAddress);
+                }
+                List<PeerData> peers = peerAddresses.stream()
+                        .map(peerAddress -> new PeerData(peerAddress, addedWhen, addedBy))
+                        .collect(Collectors.toList());
+                this.allKnownPeers.addAll(peers);
+            } else {
+                try (Repository repository = RepositoryManager.getRepository()) {
+                    this.allKnownPeers.addAll(repository.getNetworkRepository().getAllPeers());
+                }
             }
         }
 
@@ -513,14 +527,24 @@ public class Network {
         if (socketChannel == null) {
             return;
         }
+        PeerAddress address = PeerAddress.fromSocket(socketChannel.socket());
+        List<String> fixedNetwork = Settings.getInstance().getFixedNetwork();
+        if (fixedNetwork != null && !fixedNetwork.isEmpty() && ipNotInFixedList(address, fixedNetwork)) {
+            try {
+                LOGGER.debug("Connection discarded from peer {} as not in the fixed network list", address);
+                socketChannel.close();
+            } catch (IOException e) {
+                // IGNORE
+            }
+            return;
+        }
 
         final Long now = NTP.getTime();
         Peer newPeer;
 
         try {
             if (now == null) {
-                LOGGER.debug("Connection discarded from peer {} due to lack of NTP sync",
-                        PeerAddress.fromSocket(socketChannel.socket()));
+                LOGGER.debug("Connection discarded from peer {} due to lack of NTP sync", address);
                 socketChannel.close();
                 return;
             }
@@ -528,12 +552,12 @@ public class Network {
             synchronized (this.connectedPeers) {
                 if (connectedPeers.size() >= maxPeers) {
                     // We have enough peers
-                    LOGGER.debug("Connection discarded from peer {}", PeerAddress.fromSocket(socketChannel.socket()));
+                    LOGGER.debug("Connection discarded from peer {} because the server is full", address);
                     socketChannel.close();
                     return;
                 }
 
-                LOGGER.debug("Connection accepted from peer {}", PeerAddress.fromSocket(socketChannel.socket()));
+                LOGGER.debug("Connection accepted from peer {}", address);
 
                 newPeer = new Peer(socketChannel, channelSelector);
                 this.connectedPeers.add(newPeer);
@@ -541,6 +565,7 @@ public class Network {
         } catch (IOException e) {
             if (socketChannel.isOpen()) {
                 try {
+                    LOGGER.debug("Connection failed from peer {} while connecting/closing", address);
                     socketChannel.close();
                 } catch (IOException ce) {
                     // Couldn't close?
@@ -550,6 +575,16 @@ public class Network {
         }
 
         this.onPeerReady(newPeer);
+    }
+
+    private boolean ipNotInFixedList(PeerAddress address, List<String> fixedNetwork) {
+        for (String ipAddress : fixedNetwork) {
+            String[] bits = ipAddress.split(":");
+            if (bits.length >= 1 && bits.length <= 2 && address.getHost().equals(bits[0])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Peer getConnectablePeer(final Long now) throws InterruptedException {
@@ -1145,6 +1180,10 @@ public class Network {
 
     private boolean mergePeers(Repository repository, String addedBy, long addedWhen, List<PeerAddress> peerAddresses)
             throws DataException {
+        List<String> fixedNetwork = Settings.getInstance().getFixedNetwork();
+        if (fixedNetwork != null && !fixedNetwork.isEmpty()) {
+            return false;
+        }
         List<PeerData> newPeers;
         synchronized (this.allKnownPeers) {
             for (PeerData knownPeerData : this.allKnownPeers) {

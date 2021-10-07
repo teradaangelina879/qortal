@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.List;
 import java.util.Locale;
 
 import javax.xml.bind.JAXBContext;
@@ -193,6 +194,7 @@ public class Settings {
 	private String repositoryPath = "db";
 	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
 	private int repositoryConnectionPoolSize = 100;
+	private List<String> fixedNetwork;
 
 	// Export/import
 	private String exportPath = "qortal-backup";
@@ -584,6 +586,10 @@ public class Settings {
 		return this.showCheckpointNotification;
 	}
 
+	public List<String> getFixedNetwork() {
+		return fixedNetwork;
+	}
+
 	public long getAtStatesMaxLifetime() {
 		return this.atStatesMaxLifetime;
 	}
@@ -607,7 +613,6 @@ public class Settings {
 	public int getOnlineSignaturesTrimBatchSize() {
 		return this.onlineSignaturesTrimBatchSize;
 	}
-
 
 	public boolean isTopOnly() {
 		return this.topOnly;
