@@ -1405,13 +1405,6 @@ public class Controller extends Thread {
 							return;
 						}
 
-						// If request is for a recent block, cache it
-						if (getChainHeight() - blockData.getHeight() <= blockCacheSize) {
-							this.stats.getBlockMessageStats.cacheFills.incrementAndGet();
-
-							this.blockMessageCache.put(new ByteArray(blockData.getSignature()), blockMessage);
-						}
-
 						// Sent successfully from archive, so nothing more to do
 						return;
 					}
