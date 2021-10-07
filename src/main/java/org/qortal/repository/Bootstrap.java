@@ -468,7 +468,8 @@ public class Bootstrap {
     }
 
     private Path createTempDirectory() throws IOException {
-        String baseDir = Paths.get(".", "tmp").toFile().getCanonicalPath();
+        Path initialPath = Paths.get(Settings.getInstance().getRepositoryPath()).toAbsolutePath().getParent();
+        String baseDir = Paths.get(initialPath.toString(), "tmp").toFile().getCanonicalPath();
         String identifier = UUID.randomUUID().toString();
         Path tempDir = Paths.get(baseDir, identifier);
         Files.createDirectories(tempDir);
@@ -476,7 +477,8 @@ public class Bootstrap {
     }
 
     private void deleteAllTempDirectories() {
-        Path path = Paths.get(".", "tmp");
+        Path initialPath = Paths.get(Settings.getInstance().getRepositoryPath()).toAbsolutePath().getParent();
+        Path path = Paths.get(initialPath.toString(), "tmp");
         try {
             FileUtils.deleteDirectory(path.toFile());
         } catch (IOException e) {
