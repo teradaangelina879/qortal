@@ -146,6 +146,11 @@ public class PruneManager {
             throw new DataException("Unable to determine chain tip when checking if a block is pruned");
         }
 
+        if (height == 1) {
+            // We don't prune the genesis block
+            return false;
+        }
+
         final int ourLatestHeight = chainTip.getHeight();
         final int latestUnprunedHeight = ourLatestHeight - this.pruneBlockLimit;
 
