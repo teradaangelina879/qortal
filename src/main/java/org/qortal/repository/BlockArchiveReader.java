@@ -1,5 +1,6 @@
 package org.qortal.repository;
 
+import com.google.common.primitives.Ints;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.at.ATStateData;
@@ -13,10 +14,7 @@ import org.qortal.utils.Triple;
 
 import static org.qortal.transform.Transformer.INT_LENGTH;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -167,7 +165,7 @@ public class BlockArchiveReader {
         return null;
     }
 
-    public byte[] fetchSerializedBlockBytesForSignature(byte[] signature, Repository repository) {
+    public byte[] fetchSerializedBlockBytesForSignature(byte[] signature, boolean includeHeightPrefix, Repository repository) {
 
         if (this.fileListCache.isEmpty()) {
             this.fetchFileList();
@@ -175,7 +173,22 @@ public class BlockArchiveReader {
 
         Integer height = this.fetchHeightForSignature(signature, repository);
         if (height != null) {
-            return this.fetchSerializedBlockBytesForHeight(height);
+            byte[] blockBytes = this.fetchSerializedBlockBytesForHeight(height);
+
+            // When responding to a peer with a BLOCK message, we must prefix the byte array with the block height
+            // This mimics the toData() method in BlockMessage and CachedBlockMessage
+            if (includeHeightPrefix) {
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream(blockBytes.length + INT_LENGTH);
+                try {
+                    bytes.write(Ints.toByteArray(height));
+                    bytes.write(blockBytes);
+                    return bytes.toByteArray();
+
+                } catch (IOException e) {
+                    return null;
+                }
+            }
+            return blockBytes;
         }
         return null;
     }

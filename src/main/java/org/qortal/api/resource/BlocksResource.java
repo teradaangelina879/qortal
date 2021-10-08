@@ -140,7 +140,7 @@ public class BlocksResource {
             }
 
             // Not found, so try the block archive
-            byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, repository);
+            byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, false, repository);
             if (bytes != null) {
                 return Base58.encode(bytes);
             }
