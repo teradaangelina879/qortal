@@ -71,6 +71,10 @@ public class HSQLDBBlockArchiveRepository implements BlockArchiveRepository {
     @Override
     public BlockData fromReference(byte[] reference) throws DataException {
         BlockData referenceBlock = this.repository.getBlockArchiveRepository().fromSignature(reference);
+        if (referenceBlock == null) {
+            // Try the main block repository. Needed for genesis block.
+            referenceBlock = this.repository.getBlockRepository().fromSignature(reference);
+        }
         if (referenceBlock != null) {
             int height = referenceBlock.getHeight();
             if (height > 0) {
