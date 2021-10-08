@@ -273,18 +273,20 @@ public class Bootstrap {
                 );
             }
 
-            LOGGER.info("Compressing...");
-            String compressedOutputPath = String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), this.getFilename());
+            LOGGER.info("Preparing output path...");
+            Path compressedOutputPath = this.getBootstrapOutputPath();
             try {
-                Files.delete(Paths.get(compressedOutputPath));
+                Files.delete(compressedOutputPath);
             } catch (NoSuchFileException e) {
                 // Doesn't exist, so no need to delete
             }
-            SevenZ.compress(compressedOutputPath, outputPath.toFile());
+
+            LOGGER.info("Compressing...");
+            SevenZ.compress(compressedOutputPath.toString(), outputPath.toFile());
 
             // Return the path to the compressed bootstrap file
-            Path finalPath = Paths.get(compressedOutputPath);
-            return finalPath.toAbsolutePath().toString();
+            LOGGER.info("Bootstrap creation complete. Output file: {}", compressedOutputPath.toAbsolutePath().toString());
+            return compressedOutputPath.toAbsolutePath().toString();
 
         }
         catch (TimeoutException e) {
@@ -491,6 +493,13 @@ public class Bootstrap {
         } catch (IOException e) {
             LOGGER.info("Unable to delete temp directory path: {}", path.toString());
         }
+    }
+
+    public Path getBootstrapOutputPath() {
+        Path initialPath = Paths.get(Settings.getInstance().getRepositoryPath()).toAbsolutePath().getParent();
+        String compressedFilename = String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), this.getFilename());
+        Path compressedOutputPath = Paths.get(initialPath.toString(), compressedFilename);
+        return compressedOutputPath;
     }
 
     private void updateStatus(String text) {

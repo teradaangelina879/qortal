@@ -68,7 +68,6 @@ public class BootstrapTests extends Common {
     @Test
     public void testCreateAndImportBootstrap() throws DataException, InterruptedException, TransformationException, IOException {
 
-        Path bootstrapPath = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap-archive.7z"));
         Path archivePath = Paths.get(Settings.getInstance().getRepositoryPath(), "archive", "2-900.dat");
         BlockData block1000;
         byte[] originalArchiveContents;
@@ -76,10 +75,13 @@ public class BootstrapTests extends Common {
         try (final Repository repository = RepositoryManager.getRepository()) {
             this.buildDummyBlockchain(repository);
 
+            Bootstrap bootstrap = new Bootstrap(repository);
+            Path bootstrapPath = bootstrap.getBootstrapOutputPath();
+
             // Ensure the compressed bootstrap doesn't exist
             assertFalse(Files.exists(bootstrapPath));
 
-            Bootstrap bootstrap = new Bootstrap(repository);
+            // Create bootstrap
             bootstrap.create();
 
             // Ensure the compressed bootstrap exists
