@@ -457,6 +457,9 @@ public class Controller extends Thread {
 		// Import current trade bot states and minting accounts if they exist
 		Controller.importRepositoryData();
 
+		// Add the initial peers to the repository if we don't have any
+		Controller.installInitialPeers();
+
 		LOGGER.info("Starting controller");
 		Controller.getInstance().start();
 
@@ -676,6 +679,17 @@ public class Controller extends Thread {
 		}
 		catch (DataException | IOException e) {
 			LOGGER.info("Unable to import data into repository: {}", e.getMessage());
+		}
+	}
+
+	private static void installInitialPeers() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (repository.getNetworkRepository().getAllPeers().isEmpty()) {
+				Network.installInitialPeers(repository);
+			}
+
+		} catch (DataException e) {
+			// Fail silently as this is an optional step
 		}
 	}
 
