@@ -371,6 +371,9 @@ public class Bootstrap {
         String bootstrapHost = this.getRandomHost();
         String bootstrapFilename = this.getFilename();
         String bootstrapUrl = String.format("%s/%s", bootstrapHost, bootstrapFilename);
+        String type = Settings.getInstance().isTopOnly() ? "top-only" : "full node";
+
+        SplashFrame.getInstance().updateStatus(String.format("Downloading %s bootstrap...", type));
 
         // Delete an existing file if it exists
         try {
@@ -408,7 +411,7 @@ public class Bootstrap {
 
                 if (fileSize > 0) {
                     int progress = (int)((double)downloaded / (double)fileSize * 100);
-                    SplashFrame.getInstance().updateStatus(String.format("Downloading bootstrap... (%d%%)", progress));
+                    SplashFrame.getInstance().updateStatus(String.format("Downloading %s bootstrap... (%d%%)", type, progress));
                 }
             }
 
