@@ -248,6 +248,10 @@ public class Bootstrap {
 
             repository.saveChanges();
 
+            LOGGER.info("Deleting peers list...");
+            repository.getNetworkRepository().deleteAllPeers();
+            repository.saveChanges();
+
             LOGGER.info("Creating bootstrap...");
             // Timeout if the database isn't ready for backing up after 10 seconds
             long timeout = 10 * 1000L;
