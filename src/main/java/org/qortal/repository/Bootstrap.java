@@ -207,6 +207,9 @@ public class Bootstrap {
             throw new DataException("Repository instance required in order to create a boostrap");
         }
 
+        LOGGER.info("Deleting temp directory if it exists...");
+        this.deleteAllTempDirectories();
+
         LOGGER.info("Acquiring blockchain lock...");
         ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
         blockchainLock.lockInterruptibly();
