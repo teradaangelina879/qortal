@@ -49,7 +49,11 @@ public class BootstrapResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			Bootstrap bootstrap = new Bootstrap(repository);
-			bootstrap.checkRepositoryState();
+			try {
+				bootstrap.checkRepositoryState();
+			} catch (DataException e) {
+				LOGGER.info("Not ready to create bootstrap: ", e.getMessage());
+			}
 			bootstrap.validateBlockchain();
 			return bootstrap.create();
 
