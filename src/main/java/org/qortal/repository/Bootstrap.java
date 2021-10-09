@@ -296,6 +296,7 @@ public class Bootstrap {
 
             // Cleanup
             LOGGER.info("Cleaning up...");
+            Thread.sleep(5000L);
             this.deleteAllTempDirectories();
         }
     }
