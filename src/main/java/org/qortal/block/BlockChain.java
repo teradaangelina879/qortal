@@ -516,6 +516,12 @@ public class BlockChain {
 				needsArchiveRebuild = (repository.getBlockArchiveRepository().fromHeight(2) == null);
 				if (needsArchiveRebuild) {
 					LOGGER.info("Couldn't retrieve block 2 from archive. Bootstrapping...");
+
+					// If there are minting accounts, make sure to back them up
+					// Don't backup if there are no minting accounts, as this can cause problems
+					if (!repository.getAccountRepository().getMintingAccounts().isEmpty()) {
+						Controller.getInstance().exportRepositoryData();
+					}
 				}
 			}
 		}
