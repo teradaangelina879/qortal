@@ -377,7 +377,7 @@ public class Bootstrap {
         String bootstrapUrl = String.format("%s/%s", bootstrapHost, bootstrapFilename);
         String type = Settings.getInstance().isTopOnly() ? "top-only" : "full node";
 
-        SplashFrame.getInstance().updateStatus(String.format("Downloading %s bootstrap...", type));
+        this.updateStatus(String.format("Downloading %s bootstrap...", type));
 
         // Delete an existing file if it exists
         try {
