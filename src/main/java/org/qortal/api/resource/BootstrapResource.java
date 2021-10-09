@@ -52,7 +52,8 @@ public class BootstrapResource {
 			try {
 				bootstrap.checkRepositoryState();
 			} catch (DataException e) {
-				LOGGER.info("Not ready to create bootstrap: ", e.getMessage());
+				LOGGER.info("Not ready to create bootstrap: {}", e.getMessage());
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
 			}
 			bootstrap.validateBlockchain();
 			return bootstrap.create();
