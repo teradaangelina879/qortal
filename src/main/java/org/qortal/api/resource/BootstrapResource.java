@@ -54,6 +54,7 @@ public class BootstrapResource {
 			return bootstrap.create();
 
 		} catch (DataException | InterruptedException | IOException e) {
+			LOGGER.info("Unable to create bootstrap", e);
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
 		}
 	}
