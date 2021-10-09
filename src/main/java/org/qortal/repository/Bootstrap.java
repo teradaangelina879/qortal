@@ -293,6 +293,7 @@ public class Bootstrap {
                 Path exportPath = HSQLDBImportExport.getExportDirectory(false);
                 repository.importDataFromFile(Paths.get(exportPath.toString(), "TradeBotStates.json").toString());
                 repository.importDataFromFile(Paths.get(exportPath.toString(), "MintingAccounts.json").toString());
+                repository.saveChanges();
 
             } catch (IOException e) {
                 LOGGER.info("Unable to re-import local data, but created bootstrap is still valid. {}", e);
