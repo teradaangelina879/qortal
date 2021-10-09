@@ -278,21 +278,33 @@ public class Bootstrap {
             throw new DataException(String.format("Unable to create bootstrap due to timeout: %s", e.getMessage()));
         }
         finally {
-            LOGGER.info("Re-importing local data...");
-            Path exportPath = HSQLDBImportExport.getExportDirectory(false);
-            repository.importDataFromFile(Paths.get(exportPath.toString(), "TradeBotStates.json").toString());
-            repository.importDataFromFile(Paths.get(exportPath.toString(), "MintingAccounts.json").toString());
+            try {
+                LOGGER.info("Re-importing local data...");
+                Path exportPath = HSQLDBImportExport.getExportDirectory(false);
+                repository.importDataFromFile(Paths.get(exportPath.toString(), "TradeBotStates.json").toString());
+                repository.importDataFromFile(Paths.get(exportPath.toString(), "MintingAccounts.json").toString());
 
+            } catch (IOException e) {
+                LOGGER.info("Unable to re-import local data, but created bootstrap is still valid. {}", e);
+            }
+
+            LOGGER.info("Unlocking blockchain...");
             blockchainLock.unlock();
 
             // Cleanup
-            if (inputPath != null) {
-                FileUtils.deleteDirectory(inputPath.toFile());
+            LOGGER.info("Cleaning up...");
+            try {
+                if (inputPath != null) {
+                    FileUtils.deleteDirectory(inputPath.toFile());
+                }
+                if (outputPath != null) {
+                    FileUtils.deleteDirectory(outputPath.toFile());
+                }
+                this.deleteAllTempDirectories();
+
+            } catch (IOException e) {
+                LOGGER.info("Error during cleanup, but created bootstrap is still valid. {}", e);
             }
-            if (outputPath != null) {
-                FileUtils.deleteDirectory(outputPath.toFile());
-            }
-            this.deleteAllTempDirectories();
         }
     }
 
