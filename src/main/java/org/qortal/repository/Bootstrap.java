@@ -54,129 +54,115 @@ public class Bootstrap {
     }
 
     /**
-     * canBootstrap()
+     * canCreateBootstrap()
      * Performs basic initial checks to ensure everything is in order
-     * @return true if ready for bootstrap creation, or false if not
-     * All failure reasons are logged
+     * @return true if ready for bootstrap creation, or an exception if not
+     * All failure reasons are logged and included in the exception
+     * @throws DataException
      */
-    public boolean canCreateBootstrap() {
-        try {
-            LOGGER.info("Checking repository state...");
+    public boolean checkRepositoryState() throws DataException {
+        LOGGER.info("Checking repository state...");
 
-            final boolean isTopOnly = Settings.getInstance().isTopOnly();
-            final boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
+        final boolean isTopOnly = Settings.getInstance().isTopOnly();
+        final boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
 
-            // Make sure we have a repository instance
-            if (repository == null) {
-                LOGGER.info("Error: repository instance required to check if we can create a bootstrap.");
-                return false;
-            }
-
-            // Require that a block archive has been built
-            if (!isTopOnly && !archiveEnabled) {
-                LOGGER.info("Unable to create bootstrap because the block archive isn't enabled. " +
-                        "Set {\"archivedEnabled\": true} in settings.json to fix.");
-                return false;
-            }
-
-            // Make sure that the block archiver is up to date
-            boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository);
-            if (!upToDate) {
-                LOGGER.info("Unable to create bootstrap because the block archive isn't fully built yet.");
-                return false;
-            }
-
-            // Ensure that this database contains the ATStatesHeightIndex which was missing in some cases
-            boolean hasAtStatesHeightIndex = repository.getATRepository().hasAtStatesHeightIndex();
-            if (!hasAtStatesHeightIndex) {
-                LOGGER.info("Unable to create bootstrap due to missing ATStatesHeightIndex. A re-sync from genesis is needed.");
-                return false;
-            }
-
-            // Ensure we have synced NTP time
-            if (NTP.getTime() == null) {
-                LOGGER.info("Unable to create bootstrap because the node hasn't synced its time yet.");
-                return false;
-            }
-
-            // Ensure the chain is synced
-            final BlockData chainTip = Controller.getInstance().getChainTip();
-            final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
-            if (minLatestBlockTimestamp == null || chainTip.getTimestamp() < minLatestBlockTimestamp) {
-                LOGGER.info("Unable to create bootstrap because the blockchain isn't fully synced.");
-                return false;
-            }
-
-            // FUTURE: ensure trim and prune settings are using default values
-
-            if (!isTopOnly) {
-                // We don't trim in top-only mode because we prune the blocks instead
-                // If we're not in top-only mode we should make sure that trimming is up to date
-
-                // Ensure that the online account signatures have been fully trimmed
-                final int accountsTrimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
-                final long accountsUpperTrimmableTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
-                final int accountsUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(accountsUpperTrimmableTimestamp);
-                final int accountsBlocksRemaining = accountsUpperTrimmableHeight - accountsTrimStartHeight;
-                if (accountsBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
-                    LOGGER.info("Blockchain is not fully trimmed. Please allow the node to run for longer, " +
-                            "then try again. Blocks remaining (online accounts signatures): {}", accountsBlocksRemaining);
-                    return false;
-                }
-
-                // Ensure that the AT states data has been fully trimmed
-                final int atTrimStartHeight = repository.getATRepository().getAtTrimHeight();
-                final long atUpperTrimmableTimestamp = chainTip.getTimestamp() - Settings.getInstance().getAtStatesMaxLifetime();
-                final int atUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(atUpperTrimmableTimestamp);
-                final int atBlocksRemaining = atUpperTrimmableHeight - atTrimStartHeight;
-                if (atBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
-                    LOGGER.info("Blockchain is not fully trimmed. Please allow the node to run for longer, " +
-                            "then try again. Blocks remaining (AT states): {}", atBlocksRemaining);
-                    return false;
-                }
-            }
-
-            // Ensure that blocks have been fully pruned
-            final int blockPruneStartHeight = repository.getBlockRepository().getBlockPruneHeight();
-            int blockUpperPrunableHeight = chainTip.getHeight() - Settings.getInstance().getPruneBlockLimit();
-            if (archiveEnabled) {
-                blockUpperPrunableHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight() - 1;
-            }
-            final int blocksPruneRemaining = blockUpperPrunableHeight - blockPruneStartHeight;
-            if (blocksPruneRemaining > MAXIMUM_UNPRUNED_BLOCKS) {
-                LOGGER.info("Blockchain is not fully pruned. Please allow the node to run for longer, " +
-                        "then try again. Blocks remaining: {}", blocksPruneRemaining);
-                return false;
-            }
-
-            // Ensure that AT states have been fully pruned
-            final int atPruneStartHeight = repository.getATRepository().getAtPruneHeight();
-            int atUpperPrunableHeight = chainTip.getHeight() - Settings.getInstance().getPruneBlockLimit();
-            if (archiveEnabled) {
-                atUpperPrunableHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight() - 1;
-            }
-            final int atPruneRemaining = atUpperPrunableHeight - atPruneStartHeight;
-            if (atPruneRemaining > MAXIMUM_UNPRUNED_BLOCKS) {
-                LOGGER.info("Blockchain is not fully pruned. Please allow the node to run for longer, " +
-                        "then try again. Blocks remaining (AT states): {}", atPruneRemaining);
-                return false;
-            }
-
-            LOGGER.info("Repository state checks passed");
-            return true;
+        // Make sure we have a repository instance
+        if (repository == null) {
+            throw new DataException("Repository instance required to check if we can create a bootstrap.");
         }
-        catch (DataException e) {
-            LOGGER.info("Unable to create bootstrap: {}", e.getMessage());
-            return false;
+
+        // Require that a block archive has been built
+        if (!isTopOnly && !archiveEnabled) {
+            throw new DataException("Unable to create bootstrap because the block archive isn't enabled. " +
+                    "Set {\"archivedEnabled\": true} in settings.json to fix.");
         }
+
+        // Make sure that the block archiver is up to date
+        boolean upToDate = BlockArchiveWriter.isArchiverUpToDate(repository);
+        if (!upToDate) {
+            throw new DataException("Unable to create bootstrap because the block archive isn't fully built yet.");
+        }
+
+        // Ensure that this database contains the ATStatesHeightIndex which was missing in some cases
+        boolean hasAtStatesHeightIndex = repository.getATRepository().hasAtStatesHeightIndex();
+        if (!hasAtStatesHeightIndex) {
+            throw new DataException("Unable to create bootstrap due to missing ATStatesHeightIndex. A re-sync from genesis is needed.");
+        }
+
+        // Ensure we have synced NTP time
+        if (NTP.getTime() == null) {
+            throw new DataException("Unable to create bootstrap because the node hasn't synced its time yet.");
+        }
+
+        // Ensure the chain is synced
+        final BlockData chainTip = Controller.getInstance().getChainTip();
+        final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+        if (minLatestBlockTimestamp == null || chainTip.getTimestamp() < minLatestBlockTimestamp) {
+            throw new DataException("Unable to create bootstrap because the blockchain isn't fully synced.");
+        }
+
+        // FUTURE: ensure trim and prune settings are using default values
+
+        if (!isTopOnly) {
+            // We don't trim in top-only mode because we prune the blocks instead
+            // If we're not in top-only mode we should make sure that trimming is up to date
+
+            // Ensure that the online account signatures have been fully trimmed
+            final int accountsTrimStartHeight = repository.getBlockRepository().getOnlineAccountsSignaturesTrimHeight();
+            final long accountsUpperTrimmableTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
+            final int accountsUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(accountsUpperTrimmableTimestamp);
+            final int accountsBlocksRemaining = accountsUpperTrimmableHeight - accountsTrimStartHeight;
+            if (accountsBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
+                throw new DataException(String.format("Blockchain is not fully trimmed. Please allow the node to run for longer, " +
+                        "then try again. Blocks remaining (online accounts signatures): %d", accountsBlocksRemaining));
+            }
+
+            // Ensure that the AT states data has been fully trimmed
+            final int atTrimStartHeight = repository.getATRepository().getAtTrimHeight();
+            final long atUpperTrimmableTimestamp = chainTip.getTimestamp() - Settings.getInstance().getAtStatesMaxLifetime();
+            final int atUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(atUpperTrimmableTimestamp);
+            final int atBlocksRemaining = atUpperTrimmableHeight - atTrimStartHeight;
+            if (atBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
+                throw new DataException(String.format("Blockchain is not fully trimmed. Please allow the node to run" +
+                        "for longer, then try again. Blocks remaining (AT states): %d", atBlocksRemaining));
+            }
+        }
+
+        // Ensure that blocks have been fully pruned
+        final int blockPruneStartHeight = repository.getBlockRepository().getBlockPruneHeight();
+        int blockUpperPrunableHeight = chainTip.getHeight() - Settings.getInstance().getPruneBlockLimit();
+        if (archiveEnabled) {
+            blockUpperPrunableHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight() - 1;
+        }
+        final int blocksPruneRemaining = blockUpperPrunableHeight - blockPruneStartHeight;
+        if (blocksPruneRemaining > MAXIMUM_UNPRUNED_BLOCKS) {
+            throw new DataException(String.format("Blockchain is not fully pruned. Please allow the node to run " +
+                    "for longer, then try again. Blocks remaining: %d", blocksPruneRemaining));
+        }
+
+        // Ensure that AT states have been fully pruned
+        final int atPruneStartHeight = repository.getATRepository().getAtPruneHeight();
+        int atUpperPrunableHeight = chainTip.getHeight() - Settings.getInstance().getPruneBlockLimit();
+        if (archiveEnabled) {
+            atUpperPrunableHeight = repository.getBlockArchiveRepository().getBlockArchiveHeight() - 1;
+        }
+        final int atPruneRemaining = atUpperPrunableHeight - atPruneStartHeight;
+        if (atPruneRemaining > MAXIMUM_UNPRUNED_BLOCKS) {
+            throw new DataException(String.format("Blockchain is not fully pruned. Please allow the node to run " +
+                    "for longer, then try again. Blocks remaining (AT states): %d", atPruneRemaining));
+        }
+
+        LOGGER.info("Repository state checks passed");
+        return true;
     }
 
     /**
      * validateBlockchain
      * Performs quick validation of recent blocks in blockchain, prior to creating a bootstrap
-     * @return true if valid, false if not
+     * @return true if valid, an exception if not
+     * @throws DataException
      */
-    public boolean validateBlockchain() {
+    public boolean validateBlockchain() throws DataException {
         LOGGER.info("Validating blockchain...");
 
         try {
@@ -186,8 +172,7 @@ public class Bootstrap {
 
             return true;
         } catch (DataException e) {
-            LOGGER.info("Blockchain validation failed: {}", e.getMessage());
-            return false;
+            throw new DataException(String.format("Blockchain validation failed: %s", e.getMessage()));
         }
     }
 

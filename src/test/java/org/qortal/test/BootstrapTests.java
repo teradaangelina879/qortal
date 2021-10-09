@@ -43,12 +43,12 @@ public class BootstrapTests extends Common {
     }
 
     @Test
-    public void testCanCreateBootstrap() throws DataException, InterruptedException, TransformationException, IOException {
+    public void testCheckRepositoryState() throws DataException, InterruptedException, TransformationException, IOException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             this.buildDummyBlockchain(repository);
 
             Bootstrap bootstrap = new Bootstrap(repository);
-            assertTrue(bootstrap.canCreateBootstrap());
+            assertTrue(bootstrap.checkRepositoryState());
 
         }
     }

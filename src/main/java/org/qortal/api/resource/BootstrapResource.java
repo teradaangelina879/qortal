@@ -49,19 +49,12 @@ public class BootstrapResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			Bootstrap bootstrap = new Bootstrap(repository);
-			if (!bootstrap.canCreateBootstrap()) {
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-			}
-
-			boolean isBlockchainValid = bootstrap.validateBlockchain();
-			if (!isBlockchainValid) {
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-			}
-
+			bootstrap.checkRepositoryState();
+			bootstrap.validateBlockchain();
 			return bootstrap.create();
 
 		} catch (DataException | InterruptedException | IOException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
 		}
 	}
 
