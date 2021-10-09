@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.TradeBotData;
@@ -16,6 +17,7 @@ import org.qortal.utils.NTP;
 import org.qortal.utils.SevenZ;
 
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -271,6 +273,11 @@ public class Bootstrap {
 
             LOGGER.info("Compressing...");
             SevenZ.compress(compressedOutputPath.toString(), outputPath.toFile());
+
+            LOGGER.info("Generating checksum file...");
+            String checksum = Crypto.digestHexString(compressedOutputPath.toFile(), 1024*1024);
+            Path checksumPath = Paths.get(String.format("%s.sha256", compressedOutputPath.toString()));
+            Files.writeString(checksumPath, checksum, StandardOpenOption.CREATE);
 
             // Return the path to the compressed bootstrap file
             LOGGER.info("Bootstrap creation complete. Output file: {}", compressedOutputPath.toAbsolutePath().toString());
