@@ -293,18 +293,7 @@ public class Bootstrap {
 
             // Cleanup
             LOGGER.info("Cleaning up...");
-            try {
-                if (inputPath != null) {
-                    FileUtils.deleteDirectory(inputPath.toFile());
-                }
-                if (outputPath != null) {
-                    FileUtils.deleteDirectory(outputPath.toFile());
-                }
-                this.deleteAllTempDirectories();
-
-            } catch (IOException e) {
-                LOGGER.info("Error during cleanup, but created bootstrap is still valid. {}", e);
-            }
+            this.deleteAllTempDirectories();
         }
     }
 
@@ -488,7 +477,7 @@ public class Bootstrap {
         try {
             FileUtils.deleteDirectory(path.toFile());
         } catch (IOException e) {
-            LOGGER.info("Unable to delete temp directory path: {}", path.toString());
+            LOGGER.info("Unable to delete temp directory path: {}", path.toString(), e);
         }
     }
 
