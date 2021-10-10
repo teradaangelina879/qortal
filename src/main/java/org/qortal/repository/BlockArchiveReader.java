@@ -174,6 +174,9 @@ public class BlockArchiveReader {
         Integer height = this.fetchHeightForSignature(signature, repository);
         if (height != null) {
             byte[] blockBytes = this.fetchSerializedBlockBytesForHeight(height);
+            if (blockBytes == null) {
+                return null;
+            }
 
             // When responding to a peer with a BLOCK message, we must prefix the byte array with the block height
             // This mimics the toData() method in BlockMessage and CachedBlockMessage
