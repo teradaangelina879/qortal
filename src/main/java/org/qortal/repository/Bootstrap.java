@@ -125,7 +125,7 @@ public class Bootstrap {
             final int atUpperTrimmableHeight = repository.getBlockRepository().getHeightFromTimestamp(atUpperTrimmableTimestamp);
             final int atBlocksRemaining = atUpperTrimmableHeight - atTrimStartHeight;
             if (atBlocksRemaining > MAXIMUM_UNTRIMMED_BLOCKS) {
-                throw new DataException(String.format("Blockchain is not fully trimmed. Please allow the node to run" +
+                throw new DataException(String.format("Blockchain is not fully trimmed. Please allow the node to run " +
                         "for longer, then try again. Blocks remaining (AT states): %d", atBlocksRemaining));
             }
         }
