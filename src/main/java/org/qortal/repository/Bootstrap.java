@@ -319,7 +319,7 @@ public class Bootstrap {
                 break;
 
             } catch (DataException e) {
-                LOGGER.info("Bootstrap import failed: {}", e.getMessage());
+                LOGGER.info("Bootstrap import failed", e);
                 this.updateStatus(String.format("Bootstrapping failed. Retrying in %d minutes...", retryMinutes));
                 Thread.sleep(retryMinutes * 60 * 1000L);
                 retryMinutes *= 2;
