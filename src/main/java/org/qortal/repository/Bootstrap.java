@@ -17,7 +17,6 @@ import org.qortal.utils.NTP;
 import org.qortal.utils.SevenZ;
 
 import java.io.BufferedInputStream;
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -377,7 +376,8 @@ public class Bootstrap {
         String bootstrapUrl = String.format("%s/%s", bootstrapHost, bootstrapFilename);
         String type = Settings.getInstance().isTopOnly() ? "top-only" : "full node";
 
-        this.updateStatus(String.format("Downloading %s bootstrap...", type));
+        SplashFrame.getInstance().updateStatus(String.format("Downloading %s bootstrap...", type));
+        LOGGER.info(String.format("Downloading %s bootstrap from %s ...", type, bootstrapUrl));
 
         // Delete an existing file if it exists
         try {
