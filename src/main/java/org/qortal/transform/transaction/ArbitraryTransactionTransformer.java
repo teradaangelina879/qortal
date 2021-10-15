@@ -166,7 +166,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-		int nameLength = Utf8.encodedLength(arbitraryTransactionData.getName());
+		int nameLength = (arbitraryTransactionData.getName() != null) ? Utf8.encodedLength(arbitraryTransactionData.getName()) : 0;
 		int secretLength = (arbitraryTransactionData.getSecret() != null) ? arbitraryTransactionData.getSecret().length : 0;
 		int dataLength = (arbitraryTransactionData.getData() != null) ? arbitraryTransactionData.getData().length : 0;
 		int chunkHashesLength = (arbitraryTransactionData.getChunkHashes() != null) ? arbitraryTransactionData.getChunkHashes().length : 0;
