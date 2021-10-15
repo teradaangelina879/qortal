@@ -229,7 +229,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
 				"name, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
-				"WHERE name = ? AND service = ?");
+				"WHERE lower(name) = ? AND service = ?");
 
 		if (method != null) {
 			sql.append(" AND update_method = ");
@@ -238,7 +238,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		sql.append("ORDER BY created_when DESC LIMIT 1");
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), name, service.value)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), name.toLowerCase(), service.value)) {
 			if (resultSet == null)
 				return null;
 

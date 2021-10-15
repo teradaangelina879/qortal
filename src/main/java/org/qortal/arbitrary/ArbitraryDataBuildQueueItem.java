@@ -24,7 +24,7 @@ public class ArbitraryDataBuildQueueItem {
     public static long FAILURE_TIMEOUT = 5*60*1000L; // 5 minutes
 
     public ArbitraryDataBuildQueueItem(String resourceId, ResourceIdType resourceIdType, Service service) {
-        this.resourceId = resourceId;
+        this.resourceId = resourceId.toLowerCase();
         this.resourceIdType = resourceIdType;
         this.service = service;
         this.creationTimestamp = NTP.getTime();

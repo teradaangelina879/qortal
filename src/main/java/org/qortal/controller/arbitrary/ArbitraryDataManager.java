@@ -272,6 +272,10 @@ public class ArbitraryDataManager extends Thread {
 
 	// Arbitrary data resource cache
 	public boolean isResourceCached(String resourceId) {
+		if (resourceId == null) {
+			return false;
+		}
+		resourceId = resourceId.toLowerCase();
 
 		// We don't have an entry for this resource ID, it is not cached
 		if (this.arbitraryDataCachedResources == null) {
@@ -297,6 +301,11 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	public void addResourceToCache(String resourceId) {
+		if (resourceId == null) {
+			return;
+		}
+		resourceId = resourceId.toLowerCase();
+
 		// Just in case
 		if (this.arbitraryDataCachedResources == null) {
 			this.arbitraryDataCachedResources = new HashMap<>();
@@ -319,6 +328,7 @@ public class ArbitraryDataManager extends Thread {
 		if (resourceId == null) {
 			return false;
 		}
+		resourceId = resourceId.toLowerCase();
 
 		if (this.arbitraryDataBuildQueue == null) {
 			return false;
@@ -398,6 +408,7 @@ public class ArbitraryDataManager extends Thread {
 		if (resourceId == null) {
 			return false;
 		}
+		resourceId = resourceId.toLowerCase();
 
 		if (this.arbitraryDataFailedBuilds == null) {
 			return false;
@@ -537,7 +548,7 @@ public class ArbitraryDataManager extends Thread {
 			// so that it is rebuilt the next time we serve it
 			if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(arbitraryTransactionData.getChunkHashes())) {
 				if (arbitraryTransactionData.getName() != null) {
-					String resourceId = arbitraryTransactionData.getName();
+					String resourceId = arbitraryTransactionData.getName().toLowerCase();
 					if (this.arbitraryDataCachedResources.containsKey(resourceId)) {
 						this.arbitraryDataCachedResources.remove(resourceId);
 					}

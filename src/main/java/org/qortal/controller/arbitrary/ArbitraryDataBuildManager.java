@@ -84,6 +84,9 @@ public class ArbitraryDataBuildManager implements Runnable {
     }
 
     private void removeFromQueue(String resourceId) {
-        ArbitraryDataManager.getInstance().arbitraryDataBuildQueue.remove(resourceId);
+        if (resourceId == null) {
+            return;
+        }
+        ArbitraryDataManager.getInstance().arbitraryDataBuildQueue.remove(resourceId.toLowerCase());
     }
 }
