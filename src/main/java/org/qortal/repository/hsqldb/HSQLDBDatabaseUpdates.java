@@ -828,29 +828,6 @@ public class HSQLDBDatabaseUpdates {
 							+ "signature Signature, nonce INT NOT NULL, presence_type INT NOT NULL, "
 							+ "timestamp_signature Signature NOT NULL, " + TRANSACTION_KEYS + ")");
 					break;
-				case 34:
-					// ARBITRARY transaction updates for off-chain data storage
-					stmt.execute("CREATE TYPE ArbitraryDataHashes AS VARBINARY(8000)");
-					// We may want to use a nonce rather than a transaction fee on the data chain
-					stmt.execute("ALTER TABLE ArbitraryTransactions ADD nonce INT NOT NULL DEFAULT 0");
-					// We need to know the total size of the data file(s) associated with each transaction
-					stmt.execute("ALTER TABLE ArbitraryTransactions ADD size INT NOT NULL DEFAULT 0");
-					// Larger data files need to be split into chunks, for easier transmission and greater decentralization
-					stmt.execute("ALTER TABLE ArbitraryTransactions ADD chunk_hashes ArbitraryDataHashes");
-					// For finding data files by hash
-					stmt.execute("CREATE INDEX ArbitraryDataIndex ON ArbitraryTransactions (is_data_raw, data)");
-					break;
-
-				case 35:
-					// We need the ability for arbitrary transactions to be associated with a name
-					stmt.execute("ALTER TABLE ArbitraryTransactions ADD name RegisteredName");
-					// A "method" specifies how the data should be applied (e.g. PUT or PATCH)
-					stmt.execute("ALTER TABLE ArbitraryTransactions ADD update_method INTEGER NOT NULL DEFAULT 0");
-					// For public data, the AES shared secret needs to be available. This is more for data obfuscation as apposed to actual encryption.
-					stmt.execute("ALTER TABLE ArbitraryTransactions ADD secret VARBINARY(32)");
-					// We want to support compressed and uncompressed data, as well as different compression algorithms
-					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
-					break;
 
 				case 34: {
 					// AT sleep-until-message support
@@ -919,6 +896,30 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX BlockArchiveTimestampHeightIndex ON BlockArchive (minted_when, height)");
 					// Use a separate table space as this table will be very large.
 					stmt.execute("SET TABLE BlockArchive NEW SPACE");
+					break;
+
+				case 37:
+					// ARBITRARY transaction updates for off-chain data storage
+					stmt.execute("CREATE TYPE ArbitraryDataHashes AS VARBINARY(8000)");
+					// We may want to use a nonce rather than a transaction fee on the data chain
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD nonce INT NOT NULL DEFAULT 0");
+					// We need to know the total size of the data file(s) associated with each transaction
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD size INT NOT NULL DEFAULT 0");
+					// Larger data files need to be split into chunks, for easier transmission and greater decentralization
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD chunk_hashes ArbitraryDataHashes");
+					// For finding data files by hash
+					stmt.execute("CREATE INDEX ArbitraryDataIndex ON ArbitraryTransactions (is_data_raw, data)");
+					break;
+
+				case 38:
+					// We need the ability for arbitrary transactions to be associated with a name
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD name RegisteredName");
+					// A "method" specifies how the data should be applied (e.g. PUT or PATCH)
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD update_method INTEGER NOT NULL DEFAULT 0");
+					// For public data, the AES shared secret needs to be available. This is more for data obfuscation as apposed to actual encryption.
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD secret VARBINARY(32)");
+					// We want to support compressed and uncompressed data, as well as different compression algorithms
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
 					break;
 
 				default:
