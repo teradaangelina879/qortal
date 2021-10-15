@@ -8,6 +8,7 @@ import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.repository.ATRepository;
@@ -32,7 +33,7 @@ public class HSQLDBATRepository implements ATRepository {
 	public ATData fromATAddress(String atAddress) throws DataException {
 		String sql = "SELECT creator, created_when, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, is_finished, had_fatal_error, "
-				+ "is_frozen, frozen_balance "
+				+ "is_frozen, frozen_balance, sleep_until_message_timestamp "
 				+ "FROM ATs "
 				+ "WHERE AT_address = ? LIMIT 1";
 
@@ -60,8 +61,13 @@ public class HSQLDBATRepository implements ATRepository {
 			if (frozenBalance == 0 && resultSet.wasNull())
 				frozenBalance = null;
 
+			Long sleepUntilMessageTimestamp = resultSet.getLong(13);
+			if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+				sleepUntilMessageTimestamp = null;
+
 			return new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
-					isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+					isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance,
+					sleepUntilMessageTimestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT from repository", e);
 		}
@@ -94,7 +100,7 @@ public class HSQLDBATRepository implements ATRepository {
 	public List<ATData> getAllExecutableATs() throws DataException {
 		String sql = "SELECT AT_address, creator, created_when, version, asset_id, code_bytes, code_hash, "
 				+ "is_sleeping, sleep_until_height, had_fatal_error, "
-				+ "is_frozen, frozen_balance "
+				+ "is_frozen, frozen_balance, sleep_until_message_timestamp "
 				+ "FROM ATs "
 				+ "WHERE is_finished = false "
 				+ "ORDER BY created_when ASC";
@@ -128,8 +134,13 @@ public class HSQLDBATRepository implements ATRepository {
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
+				Long sleepUntilMessageTimestamp = resultSet.getLong(13);
+				if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+					sleepUntilMessageTimestamp = null;
+
 				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
-						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance,
+						sleepUntilMessageTimestamp);
 
 				executableATs.add(atData);
 			} while (resultSet.next());
@@ -147,7 +158,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 		sql.append("SELECT AT_address, creator, created_when, version, asset_id, code_bytes, ")
 				.append("is_sleeping, sleep_until_height, is_finished, had_fatal_error, ")
-				.append("is_frozen, frozen_balance ")
+				.append("is_frozen, frozen_balance, sleep_until_message_timestamp ")
 				.append("FROM ATs ")
 				.append("WHERE code_hash = ? ");
 		bindParams.add(codeHash);
@@ -191,8 +202,13 @@ public class HSQLDBATRepository implements ATRepository {
 				if (frozenBalance == 0 && resultSet.wasNull())
 					frozenBalance = null;
 
+				Long sleepUntilMessageTimestamp = resultSet.getLong(13);
+				if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+					sleepUntilMessageTimestamp = null;
+
 				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
-						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance,
+						sleepUntilMessageTimestamp);
 
 				matchingATs.add(atData);
 			} while (resultSet.next());
@@ -210,7 +226,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 		sql.append("SELECT AT_address, creator, created_when, version, asset_id, code_bytes, ")
 				.append("is_sleeping, sleep_until_height, is_finished, had_fatal_error, ")
-				.append("is_frozen, frozen_balance, code_hash ")
+				.append("is_frozen, frozen_balance, code_hash, sleep_until_message_timestamp ")
 				.append("FROM ");
 
 		// (VALUES (?), (?), ...) AS ATCodeHashes (code_hash)
@@ -264,9 +280,10 @@ public class HSQLDBATRepository implements ATRepository {
 					frozenBalance = null;
 
 				byte[] codeHash = resultSet.getBytes(13);
+				Long sleepUntilMessageTimestamp = resultSet.getLong(14);
 
 				ATData atData = new ATData(atAddress, creatorPublicKey, created, version, assetId, codeBytes, codeHash,
-						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance);
+						isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, frozenBalance, sleepUntilMessageTimestamp);
 
 				matchingATs.add(atData);
 			} while (resultSet.next());
@@ -305,7 +322,7 @@ public class HSQLDBATRepository implements ATRepository {
 				.bind("code_bytes", atData.getCodeBytes()).bind("code_hash", atData.getCodeHash())
 				.bind("is_sleeping", atData.getIsSleeping()).bind("sleep_until_height", atData.getSleepUntilHeight())
 				.bind("is_finished", atData.getIsFinished()).bind("had_fatal_error", atData.getHadFatalError()).bind("is_frozen", atData.getIsFrozen())
-				.bind("frozen_balance", atData.getFrozenBalance());
+				.bind("frozen_balance", atData.getFrozenBalance()).bind("sleep_until_message_timestamp", atData.getSleepUntilMessageTimestamp());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -328,7 +345,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATStateData getATStateAtHeight(String atAddress, int height) throws DataException {
-		String sql = "SELECT state_data, state_hash, fees, is_initial "
+		String sql = "SELECT state_data, state_hash, fees, is_initial, sleep_until_message_timestamp "
 				+ "FROM ATStates "
 				+ "LEFT OUTER JOIN ATStatesData USING (AT_address, height) "
 				+ "WHERE ATStates.AT_address = ? AND ATStates.height = ? "
@@ -343,7 +360,11 @@ public class HSQLDBATRepository implements ATRepository {
 			long fees = resultSet.getLong(3);
 			boolean isInitial = resultSet.getBoolean(4);
 
-			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+			Long sleepUntilMessageTimestamp = resultSet.getLong(5);
+			if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+				sleepUntilMessageTimestamp = null;
+
+			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial, sleepUntilMessageTimestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT state from repository", e);
 		}
@@ -351,7 +372,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATStateData getLatestATState(String atAddress) throws DataException {
-		String sql = "SELECT height, state_data, state_hash, fees, is_initial "
+		String sql = "SELECT height, state_data, state_hash, fees, is_initial, sleep_until_message_timestamp "
 				+ "FROM ATStates "
 				+ "JOIN ATStatesData USING (AT_address, height) "
 				+ "WHERE ATStates.AT_address = ? "
@@ -370,7 +391,11 @@ public class HSQLDBATRepository implements ATRepository {
 			long fees = resultSet.getLong(4);
 			boolean isInitial = resultSet.getBoolean(5);
 
-			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+			Long sleepUntilMessageTimestamp = resultSet.getLong(6);
+			if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+				sleepUntilMessageTimestamp = null;
+
+			return new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial, sleepUntilMessageTimestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch latest AT state from repository", e);
 		}
@@ -383,10 +408,10 @@ public class HSQLDBATRepository implements ATRepository {
 		StringBuilder sql = new StringBuilder(1024);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial "
+		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial, FinalATStates.sleep_until_message_timestamp "
 				+ "FROM ATs "
 				+ "CROSS JOIN LATERAL("
-					+ "SELECT height, state_data, state_hash, fees, is_initial "
+					+ "SELECT height, state_data, state_hash, fees, is_initial, sleep_until_message_timestamp "
 					+ "FROM ATStates "
 					+ "JOIN ATStatesData USING (AT_address, height) "
 					+ "WHERE ATStates.AT_address = ATs.AT_address ");
@@ -440,7 +465,11 @@ public class HSQLDBATRepository implements ATRepository {
 				long fees = resultSet.getLong(5);
 				boolean isInitial = resultSet.getBoolean(6);
 
-				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+				Long sleepUntilMessageTimestamp = resultSet.getLong(7);
+				if (sleepUntilMessageTimestamp == 0 && resultSet.wasNull())
+					sleepUntilMessageTimestamp = null;
+
+				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial, sleepUntilMessageTimestamp);
 
 				atStates.add(atStateData);
 			} while (resultSet.next());
@@ -471,7 +500,7 @@ public class HSQLDBATRepository implements ATRepository {
 		StringBuilder sql = new StringBuilder(1024);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial "
+		sql.append("SELECT AT_address, height, state_data, state_hash, fees, is_initial, sleep_until_message_timestamp "
 				+ "FROM ATs "
 				+ "CROSS JOIN LATERAL("
 					+ "SELECT height, state_data, state_hash, fees, is_initial "
@@ -526,8 +555,10 @@ public class HSQLDBATRepository implements ATRepository {
 				byte[] stateHash = resultSet.getBytes(4);
 				long fees = resultSet.getLong(5);
 				boolean isInitial = resultSet.getBoolean(6);
+				Long sleepUntilMessageTimestamp = resultSet.getLong(7);
 
-				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial);
+				ATStateData atStateData = new ATStateData(atAddress, height, stateData, stateHash, fees, isInitial,
+						sleepUntilMessageTimestamp);
 
 				atStates.add(atStateData);
 			} while (resultSet.next());
@@ -570,6 +601,44 @@ public class HSQLDBATRepository implements ATRepository {
 		return atStates;
 	}
 
+
+	@Override
+	public void rebuildLatestAtStates() throws DataException {
+		// latestATStatesLock is to prevent concurrent updates on LatestATStates
+		// that could result in one process using a partial or empty dataset
+		// because it was in the process of being rebuilt by another thread
+		synchronized (this.repository.latestATStatesLock) {
+			LOGGER.trace("Rebuilding latest AT states...");
+
+			// Rebuild cache of latest AT states that we can't trim
+			String deleteSql = "DELETE FROM LatestATStates";
+			try {
+				this.repository.executeCheckedUpdate(deleteSql);
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to delete temporary latest AT states cache from repository", e);
+			}
+
+			String insertSql = "INSERT INTO LatestATStates ("
+					+ "SELECT AT_address, height FROM ATs "
+					+ "CROSS JOIN LATERAL("
+					+ "SELECT height FROM ATStates "
+					+ "WHERE ATStates.AT_address = ATs.AT_address "
+					+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
+					+ ") "
+					+ ")";
+			try {
+				this.repository.executeCheckedUpdate(insertSql);
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to populate temporary latest AT states cache in repository", e);
+			}
+			this.repository.saveChanges();
+			LOGGER.trace("Rebuilt latest AT states");
+		}
+	}
+
+
 	@Override
 	public int getAtTrimHeight() throws DataException {
 		String sql = "SELECT AT_trim_height FROM DatabaseInfo";
@@ -595,36 +664,9 @@ public class HSQLDBATRepository implements ATRepository {
 				this.repository.executeCheckedUpdate(updateSql, trimHeight);
 				this.repository.saveChanges();
 			} catch (SQLException e) {
-				repository.examineException(e);
+				this.repository.examineException(e);
 				throw new DataException("Unable to set AT state trim height in repository", e);
 			}
-		}
-	}
-
-	@Override
-	public void prepareForAtStateTrimming() throws DataException {
-		// Rebuild cache of latest AT states that we can't trim
-		String deleteSql = "DELETE FROM LatestATStates";
-		try {
-			this.repository.executeCheckedUpdate(deleteSql);
-		} catch (SQLException e) {
-			repository.examineException(e);
-			throw new DataException("Unable to delete temporary latest AT states cache from repository", e);
-		}
-
-		String insertSql = "INSERT INTO LatestATStates ("
-				+ "SELECT AT_address, height FROM ATs "
-				+ "CROSS JOIN LATERAL("
-					+ "SELECT height FROM ATStates "
-					+ "WHERE ATStates.AT_address = ATs.AT_address "
-					+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
-				+ ") "
-			+ ")";
-		try {
-			this.repository.executeCheckedUpdate(insertSql);
-		} catch (SQLException e) {
-			repository.examineException(e);
-			throw new DataException("Unable to populate temporary latest AT states cache in repository", e);
 		}
 	}
 
@@ -633,24 +675,141 @@ public class HSQLDBATRepository implements ATRepository {
 		if (minHeight >= maxHeight)
 			return 0;
 
-		// We're often called so no need to trim all states in one go.
-		// Limit updates to reduce CPU and memory load.
-		String sql = "DELETE FROM ATStatesData "
-				+ "WHERE height BETWEEN ? AND ? "
-				+ "AND NOT EXISTS("
+		// latestATStatesLock is to prevent concurrent updates on LatestATStates
+		// that could result in one process using a partial or empty dataset
+		// because it was in the process of being rebuilt by another thread
+		synchronized (this.repository.latestATStatesLock) {
+
+			// We're often called so no need to trim all states in one go.
+			// Limit updates to reduce CPU and memory load.
+			String sql = "DELETE FROM ATStatesData "
+					+ "WHERE height BETWEEN ? AND ? "
+					+ "AND NOT EXISTS("
 					+ "SELECT TRUE FROM LatestATStates "
 					+ "WHERE LatestATStates.AT_address = ATStatesData.AT_address "
 					+ "AND LatestATStates.height = ATStatesData.height"
-				+ ") "
-				+ "LIMIT ?";
+					+ ") "
+					+ "LIMIT ?";
 
-		try {
-			return this.repository.executeCheckedUpdate(sql, minHeight, maxHeight, limit);
-		} catch (SQLException e) {
-			repository.examineException(e);
-			throw new DataException("Unable to trim AT states in repository", e);
+			try {
+				int modifiedRows = this.repository.executeCheckedUpdate(sql, minHeight, maxHeight, limit);
+				this.repository.saveChanges();
+				return modifiedRows;
+
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to trim AT states in repository", e);
+			}
 		}
 	}
+
+
+	@Override
+	public int getAtPruneHeight() throws DataException {
+		String sql = "SELECT AT_prune_height FROM DatabaseInfo";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return 0;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch AT state prune height from repository", e);
+		}
+	}
+
+	@Override
+	public void setAtPruneHeight(int pruneHeight) throws DataException {
+		// trimHeightsLock is to prevent concurrent update on DatabaseInfo
+		// that could result in "transaction rollback: serialization failure"
+		synchronized (this.repository.trimHeightsLock) {
+			String updateSql = "UPDATE DatabaseInfo SET AT_prune_height = ?";
+
+			try {
+				this.repository.executeCheckedUpdate(updateSql, pruneHeight);
+				this.repository.saveChanges();
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to set AT state prune height in repository", e);
+			}
+		}
+	}
+
+	@Override
+	public int pruneAtStates(int minHeight, int maxHeight) throws DataException {
+		// latestATStatesLock is to prevent concurrent updates on LatestATStates
+		// that could result in one process using a partial or empty dataset
+		// because it was in the process of being rebuilt by another thread
+		synchronized (this.repository.latestATStatesLock) {
+
+			int deletedCount = 0;
+
+			for (int height = minHeight; height <= maxHeight; height++) {
+
+				// Give up if we're stopping
+				if (Controller.isStopping()) {
+					return deletedCount;
+				}
+
+				// Get latest AT states for this height
+				List<String> atAddresses = new ArrayList<>();
+				String updateSql = "SELECT AT_address FROM LatestATStates WHERE height = ?";
+				try (ResultSet resultSet = this.repository.checkedExecute(updateSql, height)) {
+					if (resultSet != null) {
+						do {
+							String atAddress = resultSet.getString(1);
+							atAddresses.add(atAddress);
+
+						} while (resultSet.next());
+					}
+				} catch (SQLException e) {
+					throw new DataException("Unable to fetch latest AT states from repository", e);
+				}
+
+				List<ATStateData> atStates = this.getBlockATStatesAtHeight(height);
+				for (ATStateData atState : atStates) {
+					//LOGGER.info("Found atState {} at height {}", atState.getATAddress(), atState.getHeight());
+
+					// Give up if we're stopping
+					if (Controller.isStopping()) {
+						return deletedCount;
+					}
+
+					if (atAddresses.contains(atState.getATAddress())) {
+						// We don't want to delete this AT state because it is still active
+						LOGGER.trace("Skipping atState {} at height {}", atState.getATAddress(), atState.getHeight());
+						continue;
+					}
+
+					// Safe to delete everything else for this height
+					try {
+						this.repository.delete("ATStates", "AT_address = ? AND height = ?",
+								atState.getATAddress(), atState.getHeight());
+						deletedCount++;
+					} catch (SQLException e) {
+						throw new DataException("Unable to delete AT state data from repository", e);
+					}
+				}
+			}
+			this.repository.saveChanges();
+
+			return deletedCount;
+		}
+	}
+
+
+	@Override
+	public boolean hasAtStatesHeightIndex() throws DataException {
+		String sql = "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.SYSTEM_INDEXINFO where INDEX_NAME='ATSTATESHEIGHTINDEX'";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			return resultSet != null;
+
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for ATStatesHeightIndex in repository", e);
+		}
+	}
+
 
 	@Override
 	public void save(ATStateData atStateData) throws DataException {
@@ -662,7 +821,8 @@ public class HSQLDBATRepository implements ATRepository {
 
 		atStatesSaver.bind("AT_address", atStateData.getATAddress()).bind("height", atStateData.getHeight())
 				.bind("state_hash", atStateData.getStateHash())
-				.bind("fees", atStateData.getFees()).bind("is_initial", atStateData.isInitial());
+				.bind("fees", atStateData.getFees()).bind("is_initial", atStateData.isInitial())
+				.bind("sleep_until_message_timestamp", atStateData.getSleepUntilMessageTimestamp());
 
 		try {
 			atStatesSaver.execute(this.repository);

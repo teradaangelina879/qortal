@@ -1,4 +1,5 @@
 /db*
+/lists/
 /bin/
 /target/
 /qortal-backup/
@@ -15,8 +16,8 @@
 /settings.json
 /testnet*
 /settings*.json
-/testchain.json
-/run-testnet.sh
+/testchain*.json
+/run-testnet*.sh
 /.idea
 /qortal.iml
 .DS_Store
@@ -25,4 +26,6 @@
 /run.pid
 /run.log
 /WindowsInstaller/Install Files/qortal.jar
+/*.7z
+/tmp
 /data*

@@ -2,7 +2,6 @@ package org.qortal.repository.hsqldb;
 
 import java.awt.TrayIcon.MessageType;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -17,39 +16,20 @@ import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.*;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.crypto.Crypto;
-import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.globalization.Translator;
 import org.qortal.gui.SysTray;
-import org.qortal.repository.ATRepository;
-import org.qortal.repository.AccountRepository;
-import org.qortal.repository.ArbitraryRepository;
-import org.qortal.repository.AssetRepository;
-import org.qortal.repository.BlockRepository;
-import org.qortal.repository.ChatRepository;
-import org.qortal.repository.CrossChainRepository;
-import org.qortal.repository.DataException;
-import org.qortal.repository.GroupRepository;
-import org.qortal.repository.MessageRepository;
-import org.qortal.repository.NameRepository;
-import org.qortal.repository.NetworkRepository;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
-import org.qortal.repository.TransactionRepository;
-import org.qortal.repository.VotingRepository;
+import org.qortal.repository.*;
 import org.qortal.repository.hsqldb.transaction.HSQLDBTransactionRepository;
 import org.qortal.settings.Settings;
-import org.qortal.utils.Base58;
 
 public class HSQLDBRepository implements Repository {
 
@@ -69,12 +49,14 @@ public class HSQLDBRepository implements Repository {
 	protected final Map<String, PreparedStatement> preparedStatementCache = new HashMap<>();
 	// We want the same object corresponding to the actual DB
 	protected final Object trimHeightsLock = RepositoryManager.getRepositoryFactory();
+	protected final Object latestATStatesLock = RepositoryManager.getRepositoryFactory();
 
 	private final ATRepository atRepository = new HSQLDBATRepository(this);
 	private final AccountRepository accountRepository = new HSQLDBAccountRepository(this);
 	private final ArbitraryRepository arbitraryRepository = new HSQLDBArbitraryRepository(this);
 	private final AssetRepository assetRepository = new HSQLDBAssetRepository(this);
 	private final BlockRepository blockRepository = new HSQLDBBlockRepository(this);
+	private final BlockArchiveRepository blockArchiveRepository = new HSQLDBBlockArchiveRepository(this);
 	private final ChatRepository chatRepository = new HSQLDBChatRepository(this);
 	private final CrossChainRepository crossChainRepository = new HSQLDBCrossChainRepository(this);
 	private final GroupRepository groupRepository = new HSQLDBGroupRepository(this);
@@ -140,6 +122,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public BlockRepository getBlockRepository() {
 		return this.blockRepository;
+	}
+
+	@Override
+	public BlockArchiveRepository getBlockArchiveRepository() {
+		return this.blockArchiveRepository;
 	}
 
 	@Override
@@ -281,7 +268,7 @@ public class HSQLDBRepository implements Repository {
 	public void close() throws DataException {
 		// Already closed? No need to do anything but maybe report double-call
 		if (this.connection == null) {
-			LOGGER.warn("HSQLDBRepository.close() called when repository already closed", new Exception("Repository already closed"));
+			LOGGER.warn("HSQLDBRepository.close() called when repository already closed. This is expected when bootstrapping.");
 			return;
 		}
 
@@ -393,133 +380,104 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
-	public void backup(boolean quick) throws DataException {
-		if (!quick)
-			// First perform a CHECKPOINT
+	public void backup(boolean quick, String name, Long timeout) throws DataException, TimeoutException {
+		synchronized (CHECKPOINT_LOCK) {
+
+			// We can only perform a CHECKPOINT if no other HSQLDB session is mid-transaction,
+			// otherwise the CHECKPOINT blocks for COMMITs and other threads can't open HSQLDB sessions
+			// due to HSQLDB blocking until CHECKPOINT finishes - i.e. deadlock.
+			// Since we don't want to give up too easily, it's best to wait until the other transaction
+			// count reaches zero, and then continue.
+			this.blockUntilNoOtherTransactions(timeout);
+
+			if (!quick)
+				// First perform a CHECKPOINT
+				try (Statement stmt = this.connection.createStatement()) {
+					LOGGER.info("Performing maintenance - this will take a while...");
+					stmt.execute("CHECKPOINT");
+					stmt.execute("CHECKPOINT DEFRAG");
+					LOGGER.info("Maintenance completed");
+				} catch (SQLException e) {
+					throw new DataException("Unable to prepare repository for backup");
+				}
+
+			// Clean out any previous backup
+			try {
+				String connectionUrl = this.connection.getMetaData().getURL();
+				String dbPathname = getDbPathname(connectionUrl);
+				if (dbPathname == null)
+					throw new DataException("Unable to locate repository for backup?");
+
+				// Doesn't really make sense to backup an in-memory database...
+				if (dbPathname.equals("mem")) {
+					LOGGER.debug("Ignoring request to backup in-memory repository!");
+					return;
+				}
+
+				String backupUrl = buildBackupUrl(dbPathname, name);
+				String backupPathname = getDbPathname(backupUrl);
+				if (backupPathname == null)
+					throw new DataException("Unable to determine location for repository backup?");
+
+				Path backupDirPath = Paths.get(backupPathname).getParent();
+				String backupDirPathname = backupDirPath.toString();
+
+				try (Stream<Path> paths = Files.walk(backupDirPath)) {
+					paths.sorted(Comparator.reverseOrder())
+							.map(Path::toFile)
+							.filter(file -> file.getPath().startsWith(backupDirPathname))
+							.forEach(File::delete);
+				}
+			} catch (NoSuchFileException e) {
+				// Nothing to remove
+			} catch (SQLException | IOException e) {
+				throw new DataException("Unable to remove previous repository backup");
+			}
+
+			// Actually create backup
 			try (Statement stmt = this.connection.createStatement()) {
-				stmt.execute("CHECKPOINT DEFRAG");
+				LOGGER.info("Backing up repository...");
+				stmt.execute(String.format("BACKUP DATABASE TO '%s/' BLOCKING AS FILES", name));
+				LOGGER.info("Backup completed");
 			} catch (SQLException e) {
-				throw new DataException("Unable to prepare repository for backup");
+				throw new DataException("Unable to backup repository");
 			}
 
-		// Clean out any previous backup
-		try {
-			String connectionUrl = this.connection.getMetaData().getURL();
-			String dbPathname = getDbPathname(connectionUrl);
-			if (dbPathname == null)
-				throw new DataException("Unable to locate repository for backup?");
-
-			// Doesn't really make sense to backup an in-memory database...
-			if (dbPathname.equals("mem")) {
-				LOGGER.debug("Ignoring request to backup in-memory repository!");
-				return;
-			}
-
-			String backupUrl = buildBackupUrl(dbPathname);
-			String backupPathname = getDbPathname(backupUrl);
-			if (backupPathname == null)
-				throw new DataException("Unable to determine location for repository backup?");
-
-			Path backupDirPath = Paths.get(backupPathname).getParent();
-			String backupDirPathname = backupDirPath.toString();
-
-			try (Stream<Path> paths = Files.walk(backupDirPath)) {
-				paths.sorted(Comparator.reverseOrder())
-					.map(Path::toFile)
-					.filter(file -> file.getPath().startsWith(backupDirPathname))
-					.forEach(File::delete);
-			}
-		} catch (NoSuchFileException e) {
-			// Nothing to remove
-		} catch (SQLException | IOException e) {
-			throw new DataException("Unable to remove previous repository backup");
-		}
-
-		// Actually create backup
-		try (Statement stmt = this.connection.createStatement()) {
-			stmt.execute("BACKUP DATABASE TO 'backup/' BLOCKING AS FILES");
-		} catch (SQLException e) {
-			throw new DataException("Unable to backup repository");
 		}
 	}
 
 	@Override
-	public void performPeriodicMaintenance() throws DataException {
-		// Defrag DB - takes a while!
-		try (Statement stmt = this.connection.createStatement()) {
-			LOGGER.info("performing maintenance - this will take a while");
-			stmt.execute("CHECKPOINT");
-			stmt.execute("CHECKPOINT DEFRAG");
-			LOGGER.info("maintenance completed");
-		} catch (SQLException e) {
-			throw new DataException("Unable to defrag repository");
+	public void performPeriodicMaintenance(Long timeout) throws DataException, TimeoutException {
+		synchronized (CHECKPOINT_LOCK) {
+
+			// We can only perform a CHECKPOINT if no other HSQLDB session is mid-transaction,
+			// otherwise the CHECKPOINT blocks for COMMITs and other threads can't open HSQLDB sessions
+			// due to HSQLDB blocking until CHECKPOINT finishes - i.e. deadlock.
+			// Since we don't want to give up too easily, it's best to wait until the other transaction
+			// count reaches zero, and then continue.
+			this.blockUntilNoOtherTransactions(timeout);
+
+			// Defrag DB - takes a while!
+			try (Statement stmt = this.connection.createStatement()) {
+				LOGGER.info("performing maintenance - this will take a while");
+				stmt.execute("CHECKPOINT");
+				stmt.execute("CHECKPOINT DEFRAG");
+				LOGGER.info("maintenance completed");
+			} catch (SQLException e) {
+				throw new DataException("Unable to defrag repository");
+			}
 		}
 	}
 
 	@Override
 	public void exportNodeLocalData() throws DataException {
-		// Create the qortal-backup folder if it doesn't exist
-		Path backupPath = Paths.get("qortal-backup");
-		try {
-			Files.createDirectories(backupPath);
-		} catch (IOException e) {
-			LOGGER.info("Unable to create backup folder");
-			throw new DataException("Unable to create backup folder");
-		}
-
-		try {
-			// Load trade bot data
-			List<TradeBotData> allTradeBotData = this.getCrossChainRepository().getAllTradeBotData();
-			JSONArray allTradeBotDataJson = new JSONArray();
-			for (TradeBotData tradeBotData : allTradeBotData) {
-				JSONObject tradeBotDataJson = tradeBotData.toJson();
-				allTradeBotDataJson.put(tradeBotDataJson);
-			}
-
-			// We need to combine existing TradeBotStates data before overwriting
-			String fileName = "qortal-backup/TradeBotStates.json";
-			File tradeBotStatesBackupFile = new File(fileName);
-			if (tradeBotStatesBackupFile.exists()) {
-				String jsonString = new String(Files.readAllBytes(Paths.get(fileName)));
-				JSONArray allExistingTradeBotData = new JSONArray(jsonString);
-				Iterator<Object> iterator = allExistingTradeBotData.iterator();
-				while(iterator.hasNext()) {
-					JSONObject existingTradeBotData = (JSONObject)iterator.next();
-					String existingTradePrivateKey = (String) existingTradeBotData.get("tradePrivateKey");
-						// Check if we already have an entry for this trade
-						boolean found = allTradeBotData.stream().anyMatch(tradeBotData -> Base58.encode(tradeBotData.getTradePrivateKey()).equals(existingTradePrivateKey));
-						if (found == false)
-							// We need to add this to our list
-							allTradeBotDataJson.put(existingTradeBotData);
-				}
-			}
-
-			FileWriter writer = new FileWriter(fileName);
-			writer.write(allTradeBotDataJson.toString());
-			writer.close();
-			LOGGER.info("Exported sensitive/node-local data: trade bot states");
-
-		} catch (DataException | IOException e) {
-			throw new DataException("Unable to export trade bot states from repository");
-		}
+		HSQLDBImportExport.backupTradeBotStates(this);
+		HSQLDBImportExport.backupMintingAccounts(this);
 	}
 
 	@Override
-	public void importDataFromFile(String filename) throws DataException {
-		LOGGER.info(() -> String.format("Importing data into repository from %s", filename));
-		try {
-			String jsonString = new String(Files.readAllBytes(Paths.get(filename)));
-			JSONArray tradeBotDataToImport = new JSONArray(jsonString);
-			Iterator<Object> iterator = tradeBotDataToImport.iterator();
-			while(iterator.hasNext()) {
-				JSONObject tradeBotDataJson = (JSONObject)iterator.next();
-				TradeBotData tradeBotData = TradeBotData.fromJson(tradeBotDataJson);
-				this.getCrossChainRepository().save(tradeBotData);
-			}
-		} catch (IOException e) {
-			throw new DataException("Unable to import sensitive/node-local trade bot states to repository: " + e.getMessage());
-		}
-		LOGGER.info(() -> String.format("Imported trade bot states into repository from %s", filename));
+	public void importDataFromFile(String filename) throws DataException, IOException {
+		HSQLDBImportExport.importDataFromFile(filename, this);
 	}
 
 	@Override
@@ -541,22 +499,22 @@ public class HSQLDBRepository implements Repository {
 			return matcher.group(2);
 	}
 
-	private static String buildBackupUrl(String dbPathname) {
+	private static String buildBackupUrl(String dbPathname, String backupName) {
 		Path oldRepoPath = Paths.get(dbPathname);
 		Path oldRepoDirPath = oldRepoPath.getParent();
 		Path oldRepoFilePath = oldRepoPath.getFileName();
 
 		// Try to open backup. We need to remove "create=true" and insert "backup" dir before final filename.
-		String backupUrlTemplate = "jdbc:hsqldb:file:%s%sbackup%s%s;create=false;hsqldb.full_log_replay=true";
-		return String.format(backupUrlTemplate, oldRepoDirPath.toString(), File.separator, File.separator, oldRepoFilePath.toString());
+		String backupUrlTemplate = "jdbc:hsqldb:file:%s%s%s%s%s;create=false;hsqldb.full_log_replay=true";
+		return String.format(backupUrlTemplate, oldRepoDirPath.toString(), File.separator, backupName, File.separator, oldRepoFilePath.toString());
 	}
 
-	/* package */ static void attemptRecovery(String connectionUrl) throws DataException {
+	/* package */ static void attemptRecovery(String connectionUrl, String name) throws DataException {
 		String dbPathname = getDbPathname(connectionUrl);
 		if (dbPathname == null)
 			throw new DataException("Unable to locate repository for backup?");
 
-		String backupUrl = buildBackupUrl(dbPathname);
+		String backupUrl = buildBackupUrl(dbPathname, name);
 		Path oldRepoDirPath = Paths.get(dbPathname).getParent();
 
 		// Attempt connection to backup to see if it is viable
@@ -1057,6 +1015,53 @@ public class HSQLDBRepository implements Repository {
 
 	/*package*/ static boolean isDeadlockException(SQLException e) {
 		return DEADLOCK_ERROR_CODE.equals(e.getErrorCode());
+	}
+
+	private int otherTransactionsCount() throws DataException {
+		// We can only perform a CHECKPOINT if no other HSQLDB session is mid-transaction,
+		// otherwise the CHECKPOINT blocks for COMMITs and other threads can't open HSQLDB sessions
+		// due to HSQLDB blocking until CHECKPOINT finishes - i.e. deadlock
+		String sql = "SELECT COUNT(*) "
+				+ "FROM Information_schema.system_sessions "
+				+ "WHERE transaction = TRUE AND session_id != ?";
+		try {
+			PreparedStatement pstmt = this.cachePreparedStatement(sql);
+			pstmt.setLong(1, this.sessionId);
+
+			if (!pstmt.execute())
+				throw new DataException("Unable to check repository session status");
+
+			try (ResultSet resultSet = pstmt.getResultSet()) {
+				if (resultSet == null || !resultSet.next())
+					// Failed to even find HSQLDB session info!
+					throw new DataException("No results when checking repository session status");
+
+				int transactionCount = resultSet.getInt(1);
+
+				return transactionCount;
+			}
+		} catch (SQLException e) {
+			throw new DataException("Unable to check repository session status", e);
+		}
+	}
+
+	private void blockUntilNoOtherTransactions(Long timeout) throws DataException, TimeoutException {
+		try {
+			long startTime = System.currentTimeMillis();
+			while (this.otherTransactionsCount() > 0) {
+				// Wait and try again
+				LOGGER.debug("Waiting for repository...");
+				Thread.sleep(1000L);
+
+				if (timeout != null) {
+					if (System.currentTimeMillis() - startTime >= timeout) {
+						throw new TimeoutException("Timed out waiting for repository to become available");
+					}
+				}
+			}
+		} catch (InterruptedException e) {
+			throw new DataException("Interrupted before repository became available");
+		}
 	}
 
 }

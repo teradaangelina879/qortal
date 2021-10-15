@@ -74,6 +74,9 @@ public class Settings {
 	};
 	private Boolean apiRestricted;
 	private String apiKey = null;
+	/** Whether to disable API key or loopback address checking
+	 * IMPORTANT: do not disable for shared nodes or low-security local networks */
+	private boolean apiKeyDisabled = false;
 	private boolean apiLoggingEnabled = false;
 	private boolean apiDocumentationEnabled = false;
 	// Both of these need to be set for API to use SSL
@@ -98,6 +101,12 @@ public class Settings {
 	private long repositoryBackupInterval = 0; // ms
 	/** Whether to show a notification when we backup repository. */
 	private boolean showBackupNotification = false;
+	/** Minimum time between repository maintenance attempts (ms) */
+	private long repositoryMaintenanceMinInterval = 7 * 24 * 60 * 60 * 1000L; // 7 days (ms) default
+	/** Maximum time between repository maintenance attempts (ms) (0 if disabled). */
+	private long repositoryMaintenanceMaxInterval = 30 * 24 * 60 * 60 * 1000L; // 30 days (ms) default
+	/** Whether to show a notification when we run scheduled maintenance. */
+	private boolean showMaintenanceNotification = false;
 	/** How long between repository checkpoints (ms). */
 	private long repositoryCheckpointInterval = 60 * 60 * 1000L; // 1 hour (ms) default
 	/** Whether to show a notification when we perform repository 'checkpoint'. */
@@ -106,7 +115,7 @@ public class Settings {
 	private int blockCacheSize = 10;
 
 	/** How long to keep old, full, AT state data (ms). */
-	private long atStatesMaxLifetime = 2 * 7 * 24 * 60 * 60 * 1000L; // milliseconds
+	private long atStatesMaxLifetime = 5 * 24 * 60 * 60 * 1000L; // milliseconds
 	/** How often to attempt AT state trimming (ms). */
 	private long atStatesTrimInterval = 5678L; // milliseconds
 	/** Block height range to scan for trimmable AT states.<br>
@@ -120,6 +129,36 @@ public class Settings {
 	/** Block height range to scan for trimmable online accounts signatures.<br>
 	 * This has a significant effect on execution time. */
 	private int onlineSignaturesTrimBatchSize = 100; // blocks
+
+
+	/** Whether we should prune old data to reduce database size
+	 * This prevents the node from being able to serve older blocks */
+	private boolean topOnly = false;
+	/** The amount of recent blocks we should keep when pruning */
+	private int pruneBlockLimit = 1450;
+
+	/** How often to attempt AT state pruning (ms). */
+	private long atStatesPruneInterval = 3219L; // milliseconds
+	/** Block height range to scan for prunable AT states.<br>
+	 * This has a significant effect on execution time. */
+	private int atStatesPruneBatchSize = 25; // blocks
+
+	/** How often to attempt block pruning (ms). */
+	private long blockPruneInterval = 3219L; // milliseconds
+	/** Block height range to scan for prunable blocks.<br>
+	 * This has a significant effect on execution time. */
+	private int blockPruneBatchSize = 10000; // blocks
+
+
+	/** Whether we should archive old data to reduce the database size */
+	private boolean archiveEnabled = true;
+	/** How often to attempt archiving (ms). */
+	private long archiveInterval = 7171L; // milliseconds
+
+
+	/** Whether to automatically bootstrap instead of syncing from genesis */
+	private boolean bootstrap = true;
+
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
@@ -179,11 +218,26 @@ public class Settings {
 	private int repositoryConnectionPoolSize = 100;
 	private List<String> fixedNetwork;
 
+	// Export/import
+	private String exportPath = "qortal-backup";
+
+	// Bootstrap
+	private String bootstrapFilenamePrefix = "";
+
+	// Bootstrap sources
+	private String[] bootstrapHosts = new String[] {
+			"http://bootstrap.qortal.org",
+			"http://cinfu1.crowetic.com"
+	};
+
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
 		"https://github.com/Qortal/qortal/raw/%s/qortal.update",
 		"https://raw.githubusercontent.com@151.101.16.133/Qortal/qortal/%s/qortal.update"
 	};
+
+	// Lists
+	private String listsPath = "lists";
 
 	/** Array of NTP server hostnames. */
 	private String[] ntpServers = new String[] {
@@ -412,6 +466,10 @@ public class Settings {
 		return this.apiKey;
 	}
 
+	public boolean isApiKeyDisabled() {
+		return this.apiKeyDisabled;
+	}
+
 	public boolean isApiLoggingEnabled() {
 		return this.apiLoggingEnabled;
 	}
@@ -552,6 +610,14 @@ public class Settings {
 		return this.repositoryConnectionPoolSize;
 	}
 
+	public String getExportPath() {
+		return this.exportPath;
+	}
+
+	public String getBootstrapFilenamePrefix() {
+		return this.bootstrapFilenamePrefix;
+	}
+
 	public boolean isFastSyncEnabled() {
 		return this.fastSyncEnabled;
 	}
@@ -574,6 +640,14 @@ public class Settings {
 		return this.autoUpdateRepos;
 	}
 
+	public String[] getBootstrapHosts() {
+		return this.bootstrapHosts;
+	}
+
+	public String getListsPath() {
+		return this.listsPath;
+	}
+
 	public String[] getNtpServers() {
 		return this.ntpServers;
 	}
@@ -590,12 +664,28 @@ public class Settings {
 		return this.showBackupNotification;
 	}
 
+	public long getRepositoryMaintenanceMinInterval() {
+		return this.repositoryMaintenanceMinInterval;
+	}
+
+	public long getRepositoryMaintenanceMaxInterval() {
+		return this.repositoryMaintenanceMaxInterval;
+	}
+
+	public boolean getShowMaintenanceNotification() {
+		return this.showMaintenanceNotification;
+	}
+
 	public long getRepositoryCheckpointInterval() {
 		return this.repositoryCheckpointInterval;
 	}
 
 	public boolean getShowCheckpointNotification() {
 		return this.showCheckpointNotification;
+	}
+
+	public List<String> getFixedNetwork() {
+		return fixedNetwork;
 	}
 
 	public long getAtStatesMaxLifetime() {
@@ -622,9 +712,47 @@ public class Settings {
 		return this.onlineSignaturesTrimBatchSize;
 	}
 
-	public List<String> getFixedNetwork() {
-		return fixedNetwork;
+	public boolean isTopOnly() {
+		return this.topOnly;
 	}
+
+	public int getPruneBlockLimit() {
+		return this.pruneBlockLimit;
+	}
+
+	public long getAtStatesPruneInterval() {
+		return this.atStatesPruneInterval;
+	}
+
+	public int getAtStatesPruneBatchSize() {
+		return this.atStatesPruneBatchSize;
+	}
+
+	public long getBlockPruneInterval() {
+		return this.blockPruneInterval;
+	}
+
+	public int getBlockPruneBatchSize() {
+		return this.blockPruneBatchSize;
+	}
+
+
+	public boolean isArchiveEnabled() {
+		if (this.topOnly) {
+			return false;
+		}
+		return this.archiveEnabled;
+	}
+
+	public long getArchiveInterval() {
+		return this.archiveInterval;
+	}
+
+
+	public boolean getBootstrap() {
+		return this.bootstrap;
+	}
+
 
 	public String getDataPath() {
 		return this.dataPath;

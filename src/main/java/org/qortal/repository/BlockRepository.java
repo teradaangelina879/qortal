@@ -137,11 +137,6 @@ public interface BlockRepository {
 	 */
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException;
 
-	/**
-	 * Returns block summaries for the passed height range, for API use.
-	 */
-	public List<BlockSummaryData> getBlockSummaries(Integer startHeight, Integer endHeight, Integer count) throws DataException;
-
 	/** Returns height of first trimmable online accounts signatures. */
 	public int getOnlineAccountsSignaturesTrimHeight() throws DataException;
 
@@ -165,6 +160,20 @@ public interface BlockRepository {
 	 * @throws DataException
 	 */
 	public BlockData getDetachedBlockSignature(int startHeight) throws DataException;
+
+
+	/** Returns height of first prunable block. */
+	public int getBlockPruneHeight() throws DataException;
+
+	/** Sets new base height for block pruning.
+	 * <p>
+	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
+	 */
+	public void setBlockPruneHeight(int pruneHeight) throws DataException;
+
+	/** Prunes full block data between passed heights. Returns number of pruned rows. */
+	public int pruneBlocks(int minHeight, int maxHeight) throws DataException;
+
 
 	/**
 	 * Saves block into repository.

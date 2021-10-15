@@ -3,12 +3,9 @@ package org.qortal.controller;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import java.util.Iterator;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -70,6 +67,11 @@ public class Synchronizer {
 
 	// Keep track of the size of the last re-org, so it can be logged
 	private int lastReorgSize;
+
+	// Keep track of invalid blocks so that we don't keep trying to sync them
+	private Map<String, Long> invalidBlockSignatures = Collections.synchronizedMap(new HashMap<>());
+	public Long timeValidBlockLastReceived = null;
+	public Long timeInvalidBlockLastReceived = null;
 
 	private static Synchronizer instance;
 
@@ -346,6 +348,12 @@ public class Synchronizer {
 							}
 						}
 
+						// Ignore this peer if it holds an invalid block
+						if (this.containsInvalidBlockSummary(peer.getCommonBlockData().getBlockSummariesAfterCommonBlock())) {
+							LOGGER.debug("Ignoring peer %s because it holds an invalid block", peer);
+							peers.remove(peer);
+						}
+
 						// Reduce minChainLength if needed. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
 						List <BlockSummaryData> peerBlockSummaries = peer.getCommonBlockData().getBlockSummariesAfterCommonBlock();
 						if (peerBlockSummaries != null && peerBlockSummaries.size() > 0)
@@ -489,6 +497,71 @@ public class Synchronizer {
 	}
 
 
+
+	/* Invalid block signature tracking */
+
+	private void addInvalidBlockSignature(byte[] signature) {
+		Long now = NTP.getTime();
+		if (now == null) {
+			return;
+		}
+
+		// Add or update existing entry
+		String sig58 = Base58.encode(signature);
+		invalidBlockSignatures.put(sig58, now);
+	}
+	private void deleteOlderInvalidSignatures(Long now) {
+		if (now == null) {
+			return;
+		}
+
+		// Delete signatures with older timestamps
+		Iterator it = invalidBlockSignatures.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry pair = (Map.Entry)it.next();
+			Long lastSeen = (Long) pair.getValue();
+
+			// Remove signature if we haven't seen it for more than 1 hour
+			if (now - lastSeen > 60 * 60 * 1000L) {
+				it.remove();
+			}
+		}
+	}
+	private boolean containsInvalidBlockSummary(List<BlockSummaryData> blockSummaries) {
+		if (blockSummaries == null || invalidBlockSignatures == null) {
+			return false;
+		}
+
+		// Loop through our known invalid blocks and check each one against supplied block summaries
+		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
+			byte[] invalidSignature = Base58.decode(invalidSignature58);
+			for (BlockSummaryData blockSummary : blockSummaries) {
+				byte[] signature = blockSummary.getSignature();
+				if (Arrays.equals(signature, invalidSignature)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	private boolean containsInvalidBlockSignature(List<byte[]> blockSignatures) {
+		if (blockSignatures == null || invalidBlockSignatures == null) {
+			return false;
+		}
+
+		// Loop through our known invalid blocks and check each one against supplied block signatures
+		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
+			byte[] invalidSignature = Base58.decode(invalidSignature58);
+			for (byte[] signature : blockSignatures) {
+				if (Arrays.equals(signature, invalidSignature)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+
 	/**
 	 * Attempt to synchronize blockchain with peer.
 	 * <p>
@@ -534,6 +607,15 @@ public class Synchronizer {
 
 					// Reset last re-org size as we are starting a new sync round
 					this.lastReorgSize = 0;
+
+					// Set the initial value of timeValidBlockLastReceived if it's null
+					Long now = NTP.getTime();
+					if (this.timeValidBlockLastReceived == null) {
+						this.timeValidBlockLastReceived = now;
+					}
+
+					// Delete invalid signatures with older timestamps
+					this.deleteOlderInvalidSignatures(now);
 
 					List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
 					SynchronizationResult findCommonBlockResult = fetchSummariesFromCommonBlock(repository, peer, ourInitialHeight, force, peerBlockSummaries, true);
@@ -883,6 +965,12 @@ public class Synchronizer {
 				break;
 			}
 
+			// Catch a block with an invalid signature before orphaning, so that we retain our existing valid candidate
+			if (this.containsInvalidBlockSignature(peerBlockSignatures)) {
+				LOGGER.info(String.format("Peer %s sent invalid block signature: %.8s", peer, Base58.encode(latestPeerSignature)));
+				return SynchronizationResult.INVALID_DATA;
+			}
+
 			byte[] nextPeerSignature = peerBlockSignatures.get(0);
 			int nextHeight = height + 1;
 
@@ -985,12 +1073,19 @@ public class Synchronizer {
 			if (Controller.isStopping())
 				return SynchronizationResult.SHUTTING_DOWN;
 
+			newBlock.preProcess();
+
 			ValidationResult blockResult = newBlock.isValid();
 			if (blockResult != ValidationResult.OK) {
 				LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
 						newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getSignature()), blockResult.name()));
+				this.addInvalidBlockSignature(newBlock.getSignature());
+				this.timeInvalidBlockLastReceived = NTP.getTime();
 				return SynchronizationResult.INVALID_DATA;
 			}
+
+			// Block is valid
+			this.timeValidBlockLastReceived = NTP.getTime();
 
 			// Save transactions attached to this block
 			for (Transaction transaction : newBlock.getTransactions()) {
@@ -1173,12 +1268,19 @@ public class Synchronizer {
 			for (Transaction transaction : newBlock.getTransactions())
 				transaction.setInitialApprovalStatus();
 
+			newBlock.preProcess();
+
 			ValidationResult blockResult = newBlock.isValid();
 			if (blockResult != ValidationResult.OK) {
 				LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
 						ourHeight, Base58.encode(latestPeerSignature), blockResult.name()));
+				this.addInvalidBlockSignature(newBlock.getSignature());
+				this.timeInvalidBlockLastReceived = NTP.getTime();
 				return SynchronizationResult.INVALID_DATA;
 			}
+
+			// Block is valid
+			this.timeValidBlockLastReceived = NTP.getTime();
 
 			// Save transactions attached to this block
 			for (Transaction transaction : newBlock.getTransactions()) {

@@ -35,10 +35,10 @@ public class DogecoinTests extends Common {
 	@Test
 	public void testGetMedianBlockTime() throws BlockStoreException, ForeignBlockchainException {
 		long before = System.currentTimeMillis();
-		System.out.println(String.format("Bitcoin median blocktime: %d", dogecoin.getMedianBlockTime()));
+		System.out.println(String.format("Dogecoin median blocktime: %d", dogecoin.getMedianBlockTime()));
 		long afterFirst = System.currentTimeMillis();
 
-		System.out.println(String.format("Bitcoin median blocktime: %d", dogecoin.getMedianBlockTime()));
+		System.out.println(String.format("Dogecoin median blocktime: %d", dogecoin.getMedianBlockTime()));
 		long afterSecond = System.currentTimeMillis();
 
 		long firstPeriod = afterFirst - before;
@@ -64,10 +64,11 @@ public class DogecoinTests extends Common {
 	}
 
 	@Test
+	@Ignore(value = "No testnet nodes available, so we can't regularly test buildSpend yet")
 	public void testBuildSpend() {
-		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+		String xprv58 = "dgpv51eADS3spNJh9drNeW1Tc1P9z2LyaQRXPBortsq6yice1k47C2u2Prvgxycr2ihNBWzKZ2LthcBBGiYkWZ69KUTVkcLVbnjq7pD8mnApEru";
 
-		String recipient = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
+		String recipient = "DP1iFao33xdEPa5vaArpj7sykfzKNeiJeX";
 		long amount = 1000L;
 
 		Transaction transaction = dogecoin.buildSpend(xprv58, recipient, amount);
@@ -81,7 +82,7 @@ public class DogecoinTests extends Common {
 
 	@Test
 	public void testGetWalletBalance() {
-		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+		String xprv58 = "dgpv51eADS3spNJh9drNeW1Tc1P9z2LyaQRXPBortsq6yice1k47C2u2Prvgxycr2ihNBWzKZ2LthcBBGiYkWZ69KUTVkcLVbnjq7pD8mnApEru";
 
 		Long balance = dogecoin.getWalletBalance(xprv58);
 
@@ -102,7 +103,7 @@ public class DogecoinTests extends Common {
 
 	@Test
 	public void testGetUnusedReceiveAddress() throws ForeignBlockchainException {
-		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+		String xprv58 = "dgpv51eADS3spNJh9drNeW1Tc1P9z2LyaQRXPBortsq6yice1k47C2u2Prvgxycr2ihNBWzKZ2LthcBBGiYkWZ69KUTVkcLVbnjq7pD8mnApEru";
 
 		String address = dogecoin.getUnusedReceiveAddress(xprv58);
 

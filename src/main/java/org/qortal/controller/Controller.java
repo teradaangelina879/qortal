@@ -1,10 +1,47 @@
 package org.qortal.controller;
 
-import com.google.common.primitives.Longs;
+import java.awt.TrayIcon.MessageType;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import com.google.common.primitives.Longs;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
@@ -13,9 +50,11 @@ import org.qortal.api.DomainMapService;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
-import org.qortal.controller.Synchronizer.SynchronizationResult;
 import org.qortal.controller.arbitrary.ArbitraryDataCleanupManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.repository.PruneManager;
+import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
@@ -34,10 +73,7 @@ import org.qortal.gui.SysTray;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.*;
-import org.qortal.repository.DataException;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryFactory;
-import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.*;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
@@ -123,6 +159,7 @@ public class Controller extends Thread {
 	};
 
 	private long repositoryBackupTimestamp = startTime; // ms
+	private long repositoryMaintenanceTimestamp = startTime; // ms
 	private long repositoryCheckpointTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
@@ -291,6 +328,10 @@ public class Controller extends Thread {
 		return this.buildVersion;
 	}
 
+	public String getVersionStringWithoutPrefix() {
+		return this.buildVersion.replaceFirst(VERSION_PREFIX, "");
+	}
+
 	/** Returns current blockchain height, or 0 if it's not available. */
 	public int getChainHeight() {
 		synchronized (this.latestBlocks) {
@@ -334,7 +375,7 @@ public class Controller extends Thread {
 		return this.savedArgs;
 	}
 
-	/* package */ public static boolean isStopping() {
+	public static boolean isStopping() {
 		return isStopping;
 	}
 
@@ -392,6 +433,12 @@ public class Controller extends Thread {
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
+			RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
+
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				RepositoryManager.archive(repository);
+				RepositoryManager.prune(repository);
+			}
 		} catch (DataException e) {
 			// If exception has no cause then repository is in use by some other process.
 			if (e.getCause() == null) {
@@ -405,6 +452,11 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
+		// Rebuild Names table and check database integrity
+		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
+		namesDatabaseIntegrityCheck.rebuildAllNames();
+		namesDatabaseIntegrityCheck.runIntegrityCheck();
+
 		LOGGER.info("Validating blockchain");
 		try {
 			BlockChain.validate();
@@ -416,6 +468,12 @@ public class Controller extends Thread {
 			Gui.getInstance().fatalError("Blockchain validation issue", e);
 			return; // Not System.exit() so that GUI can display error
 		}
+
+		// Import current trade bot states and minting accounts if they exist
+		Controller.importRepositoryData();
+
+		// Add the initial peers to the repository if we don't have any
+		Controller.installInitialPeers();
 
 		LOGGER.info("Starting controller");
 		Controller.getInstance().start();
@@ -500,10 +558,10 @@ public class Controller extends Thread {
 
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
 		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
+		long repositoryMaintenanceInterval = getRandomRepositoryMaintenanceInterval();
 
-		ExecutorService trimExecutor = Executors.newCachedThreadPool(new DaemonThreadFactory());
-		trimExecutor.execute(new AtStatesTrimmer());
-		trimExecutor.execute(new OnlineAccountsSignaturesTrimmer());
+		// Start executor service for trimming or pruning
+		PruneManager.getInstance().start();
 
 		try {
 			while (!isStopping) {
@@ -562,7 +620,39 @@ public class Controller extends Thread {
 								Translator.INSTANCE.translate("SysTray", "CREATING_BACKUP_OF_DB_FILES"),
 								MessageType.INFO);
 
-					RepositoryManager.backup(true);
+					try {
+						// Timeout if the database isn't ready for backing up after 60 seconds
+						long timeout = 60 * 1000L;
+						RepositoryManager.backup(true, "backup", timeout);
+
+					} catch (TimeoutException e) {
+						LOGGER.info("Attempt to backup repository failed due to timeout: {}", e.getMessage());
+					}
+				}
+
+				// Give repository a chance to perform maintenance (if enabled)
+				if (repositoryMaintenanceInterval > 0 && now >= repositoryMaintenanceTimestamp + repositoryMaintenanceInterval) {
+					repositoryMaintenanceTimestamp = now + repositoryMaintenanceInterval;
+
+					if (Settings.getInstance().getShowMaintenanceNotification())
+						SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "DB_MAINTENANCE"),
+								Translator.INSTANCE.translate("SysTray", "PERFORMING_DB_MAINTENANCE"),
+								MessageType.INFO);
+
+					LOGGER.info("Starting scheduled repository maintenance. This can take a while...");
+					try (final Repository repository = RepositoryManager.getRepository()) {
+
+						// Timeout if the database isn't ready for maintenance after 60 seconds
+						long timeout = 60 * 1000L;
+						repository.performPeriodicMaintenance(timeout);
+
+						LOGGER.info("Scheduled repository maintenance completed");
+					} catch (DataException | TimeoutException e) {
+						LOGGER.error("Scheduled repository maintenance failed", e);
+					}
+
+					// Get a new random interval
+					repositoryMaintenanceInterval = getRandomRepositoryMaintenanceInterval();
 				}
 
 				// Prune stuck/slow/old peers
@@ -589,13 +679,68 @@ public class Controller extends Thread {
 			Thread.interrupted();
 			// Fall-through to exit
 		} finally {
-			trimExecutor.shutdownNow();
+			PruneManager.getInstance().stop();
+		}
+	}
+
+	/**
+	 * Import current trade bot states and minting accounts.
+	 * This is needed because the user may have bootstrapped, or there could be a database inconsistency
+	 * if the core crashed when computing the nonce during the start of the trade process.
+	 */
+	private static void importRepositoryData() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			String exportPath = Settings.getInstance().getExportPath();
+			try {
+				Path importPath = Paths.get(exportPath, "TradeBotStates.json");
+				repository.importDataFromFile(importPath.toString());
+			} catch (FileNotFoundException e) {
+				// Do nothing, as the files will only exist in certain cases
+			}
 
 			try {
-				trimExecutor.awaitTermination(2L, TimeUnit.SECONDS);
-			} catch (InterruptedException e) {
-				// We tried...
+				Path importPath = Paths.get(exportPath, "MintingAccounts.json");
+				repository.importDataFromFile(importPath.toString());
+			} catch (FileNotFoundException e) {
+				// Do nothing, as the files will only exist in certain cases
 			}
+			repository.saveChanges();
+		}
+		catch (DataException | IOException e) {
+			LOGGER.info("Unable to import data into repository: {}", e.getMessage());
+		}
+	}
+
+	private static void installInitialPeers() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (repository.getNetworkRepository().getAllPeers().isEmpty()) {
+				Network.installInitialPeers(repository);
+			}
+
+		} catch (DataException e) {
+			// Fail silently as this is an optional step
+		}
+	}
+
+	private long getRandomRepositoryMaintenanceInterval() {
+		final long minInterval = Settings.getInstance().getRepositoryMaintenanceMinInterval();
+		final long maxInterval = Settings.getInstance().getRepositoryMaintenanceMaxInterval();
+		if (maxInterval == 0) {
+			return 0;
+		}
+		return (new Random().nextLong() % (maxInterval - minInterval)) + minInterval;
+	}
+
+	/**
+	 * Export current trade bot states and minting accounts.
+	 */
+	public void exportRepositoryData() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			repository.exportNodeLocalData();
+
+		} catch (DataException e) {
+			// Fail silently as this is an optional step
 		}
 	}
 
@@ -878,7 +1023,7 @@ public class Controller extends Thread {
 			}
 		}
 
-		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height) + "\n" + String.format("Build version: %s", this.buildVersion);
+		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height) + "\n" + String.format("%s: %s", Translator.INSTANCE.translate("SysTray", "BUILD_VERSION"), this.buildVersion);
 		SysTray.getInstance().setToolTipText(tooltip);
 
 		this.callbackExecutor.execute(() -> {
@@ -950,6 +1095,10 @@ public class Controller extends Thread {
 						// We were interrupted while waiting for thread to join
 					}
 				}
+
+				// Export local data
+				LOGGER.info("Backing up local data");
+				this.exportRepositoryData();
 
 				LOGGER.info("Shutting down networking");
 				Network.getInstance().shutdown();
@@ -1291,6 +1440,34 @@ public class Controller extends Thread {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 
+			if (blockData != null) {
+				if (PruneManager.getInstance().isBlockPruned(blockData.getHeight())) {
+					// If this is a pruned block, we likely only have partial data, so best not to sent it
+					blockData = null;
+				}
+			}
+
+			// If we have no block data, we should check the archive in case it's there
+			if (blockData == null) {
+				if (Settings.getInstance().isArchiveEnabled()) {
+					byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, true, repository);
+					if (bytes != null) {
+						CachedBlockMessage blockMessage = new CachedBlockMessage(bytes);
+						blockMessage.setId(message.getId());
+
+						// This call also causes the other needed data to be pulled in from repository
+						if (!peer.sendMessage(blockMessage)) {
+							peer.disconnect("failed to send block");
+							// Don't fall-through to caching because failure to send might be from failure to build message
+							return;
+						}
+
+						// Sent successfully from archive, so nothing more to do
+						return;
+					}
+				}
+			}
+
 			if (blockData == null) {
 				// We don't have this block
 				this.stats.getBlockMessageStats.unknownBlocks.getAndIncrement();
@@ -1459,12 +1636,29 @@ public class Controller extends Thread {
 				int numberRequested = Math.min(Network.MAX_BLOCK_SUMMARIES_PER_REPLY, getBlockSummariesMessage.getNumberRequested());
 
 				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+				if (blockData == null) {
+					// Try the archive
+					blockData = repository.getBlockArchiveRepository().fromReference(parentSignature);
+				}
+
+				if (blockData != null) {
+					if (PruneManager.getInstance().isBlockPruned(blockData.getHeight())) {
+						// If this request contains a pruned block, we likely only have partial data, so best not to sent anything
+						// We always prune from the oldest first, so it's fine to just check the first block requested
+						blockData = null;
+					}
+				}
 
 				while (blockData != null && blockSummaries.size() < numberRequested) {
 					BlockSummaryData blockSummary = new BlockSummaryData(blockData);
 					blockSummaries.add(blockSummary);
 
-					blockData = repository.getBlockRepository().fromReference(blockData.getSignature());
+					byte[] previousSignature = blockData.getSignature();
+					blockData = repository.getBlockRepository().fromReference(previousSignature);
+					if (blockData == null) {
+						// Try the archive
+						blockData = repository.getBlockArchiveRepository().fromReference(previousSignature);
+					}
 				}
 			} catch (DataException e) {
 				LOGGER.error(String.format("Repository issue while sending block summaries after %s to peer %s", Base58.encode(parentSignature), peer), e);
@@ -1513,11 +1707,20 @@ public class Controller extends Thread {
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				int numberRequested = getSignaturesMessage.getNumberRequested();
 				BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+				if (blockData == null) {
+					// Try the archive
+					blockData = repository.getBlockArchiveRepository().fromReference(parentSignature);
+				}
 
 				while (blockData != null && signatures.size() < numberRequested) {
 					signatures.add(blockData.getSignature());
 
-					blockData = repository.getBlockRepository().fromReference(blockData.getSignature());
+					byte[] previousSignature = blockData.getSignature();
+					blockData = repository.getBlockRepository().fromReference(previousSignature);
+					if (blockData == null) {
+						// Try the archive
+						blockData = repository.getBlockArchiveRepository().fromReference(previousSignature);
+					}
 				}
 			} catch (DataException e) {
 				LOGGER.error(String.format("Repository issue while sending V2 signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);

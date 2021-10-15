@@ -1,7 +1,8 @@
-package org.qortal.controller;
+package org.qortal.controller.repository;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
 import org.qortal.data.block.BlockData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -20,8 +21,8 @@ public class AtStatesTrimmer implements Runnable {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int trimStartHeight = repository.getATRepository().getAtTrimHeight();
 
-			repository.getATRepository().prepareForAtStateTrimming();
-			repository.saveChanges();
+			repository.discardChanges();
+			repository.getATRepository().rebuildLatestAtStates();
 
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
@@ -62,7 +63,7 @@ public class AtStatesTrimmer implements Runnable {
 					if (upperTrimmableHeight > upperBatchHeight) {
 						trimStartHeight = upperBatchHeight;
 						repository.getATRepository().setAtTrimHeight(trimStartHeight);
-						repository.getATRepository().prepareForAtStateTrimming();
+						repository.getATRepository().rebuildLatestAtStates();
 						repository.saveChanges();
 
 						final int finalTrimStartHeight = trimStartHeight;

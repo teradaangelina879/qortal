@@ -3,9 +3,12 @@ package org.qortal.test;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
+import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.account.AccountBalanceData;
+import org.qortal.data.account.AccountData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -22,13 +25,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.Random;
+import java.util.concurrent.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -438,6 +436,119 @@ public class RepositoryTests extends Common {
 		} catch (DataException | SQLException e) {
 			fail("Batched delete failed: " + e.getMessage());
 		}
+	}
+
+	@Test
+	public void testDefrag() throws DataException, TimeoutException {
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+
+			this.populateWithRandomData(hsqldb);
+
+			hsqldb.performPeriodicMaintenance(10 * 1000L);
+
+		}
+	}
+
+	@Test
+	public void testDefragOnDisk() throws DataException, TimeoutException {
+		Common.useSettingsAndDb(testSettingsFilename, false);
+
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+
+			this.populateWithRandomData(hsqldb);
+
+			hsqldb.performPeriodicMaintenance(10 * 1000L);
+
+		}
+	}
+
+	@Test
+	public void testMultipleDefrags() throws DataException, TimeoutException {
+		// Mint some more blocks to populate the database
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+
+			this.populateWithRandomData(hsqldb);
+
+			for (int i = 0; i < 10; i++) {
+				hsqldb.performPeriodicMaintenance(10 * 1000L);
+			}
+		}
+	}
+
+	@Test
+	public void testMultipleDefragsOnDisk() throws DataException, TimeoutException {
+		Common.useSettingsAndDb(testSettingsFilename, false);
+
+		// Mint some more blocks to populate the database
+		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+
+			this.populateWithRandomData(hsqldb);
+
+			for (int i = 0; i < 10; i++) {
+				hsqldb.performPeriodicMaintenance(10 * 1000L);
+			}
+		}
+	}
+
+	@Test
+	public void testMultipleDefragsWithDifferentData() throws DataException, TimeoutException {
+		for (int i=0; i<10; i++) {
+			try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+
+				this.populateWithRandomData(hsqldb);
+				hsqldb.performPeriodicMaintenance(10 * 1000L);
+			}
+		}
+	}
+
+	@Test
+	public void testMultipleDefragsOnDiskWithDifferentData() throws DataException, TimeoutException {
+		Common.useSettingsAndDb(testSettingsFilename, false);
+
+		for (int i=0; i<10; i++) {
+			try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
+
+				this.populateWithRandomData(hsqldb);
+				hsqldb.performPeriodicMaintenance(10 * 1000L);
+			}
+		}
+	}
+
+	private void populateWithRandomData(HSQLDBRepository repository) throws DataException {
+		Random random = new Random();
+
+		System.out.println("Creating random accounts...");
+
+		// Generate some random accounts
+		List<Account> accounts = new ArrayList<>();
+		for (int ai = 0; ai < 20; ++ai) {
+			byte[] publicKey = new byte[32];
+			random.nextBytes(publicKey);
+
+			PublicKeyAccount account = new PublicKeyAccount(repository, publicKey);
+			accounts.add(account);
+
+			AccountData accountData = new AccountData(account.getAddress());
+			repository.getAccountRepository().ensureAccount(accountData);
+		}
+		repository.saveChanges();
+
+		System.out.println("Creating random balances...");
+
+		// Fill with lots of random balances
+		for (int i = 0; i < 100000; ++i) {
+			Account account = accounts.get(random.nextInt(accounts.size()));
+			int assetId = random.nextInt(2);
+			long balance = random.nextInt(100000);
+
+			AccountBalanceData accountBalanceData = new AccountBalanceData(account.getAddress(), assetId, balance);
+			repository.getAccountRepository().save(accountBalanceData);
+
+			// Maybe mint a block to change height
+			if (i > 0 && (i % 1000) == 0)
+				BlockUtils.mintBlock(repository);
+		}
+		repository.saveChanges();
 	}
 
 	public static void hsqldbSleep(int millis) throws SQLException {

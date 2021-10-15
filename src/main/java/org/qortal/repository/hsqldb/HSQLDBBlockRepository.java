@@ -10,6 +10,7 @@ import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.BlockTransactionData;
+import org.qortal.data.block.BlockArchiveData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.BlockRepository;
 import org.qortal.repository.DataException;
@@ -383,86 +384,6 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public List<BlockSummaryData> getBlockSummaries(Integer startHeight, Integer endHeight, Integer count) throws DataException {
-		StringBuilder sql = new StringBuilder(512);
-		List<Object> bindParams = new ArrayList<>();
-
-		sql.append("SELECT signature, height, minter, online_accounts_count, minted_when, transaction_count ");
-
-		/*
-		 * start	end		count		result
-		 * 10		40		null		blocks 10 to 39 (excludes end block, ignore count)
-		 * 
-		 * null		null	null		blocks 1 to 50 (assume count=50, maybe start=1)
-		 * 30		null	null		blocks 30 to 79 (assume count=50)
-		 * 30		null	10			blocks 30 to 39
-		 * 
-		 * null		null	50			last 50 blocks? so if max(blocks.height) is 200, then blocks 151 to 200
-		 * null		200		null		blocks 150 to 199 (excludes end block, assume count=50)
-		 * null		200		10			blocks 190 to 199 (excludes end block)
-		 */
-
-		if (startHeight != null && endHeight != null) {
-			sql.append("FROM Blocks ");
-			sql.append("WHERE height BETWEEN ? AND ?");
-			bindParams.add(startHeight);
-			bindParams.add(Integer.valueOf(endHeight - 1));
-		} else if (endHeight != null || (startHeight == null && count != null)) {
-			// we are going to return blocks from the end of the chain
-			if (count == null)
-				count = 50;
-
-			if (endHeight == null) {
-				sql.append("FROM (SELECT height FROM Blocks ORDER BY height DESC LIMIT 1) AS MaxHeights (max_height) ");
-				sql.append("JOIN Blocks ON height BETWEEN (max_height - ? + 1) AND max_height ");
-				bindParams.add(count);
-			} else {
-				sql.append("FROM Blocks ");
-				sql.append("WHERE height BETWEEN ? AND ?");
-				bindParams.add(Integer.valueOf(endHeight - count));
-				bindParams.add(Integer.valueOf(endHeight - 1));
-			}
-
-		} else {
-			// we are going to return blocks from the start of the chain
-			if (startHeight == null)
-				startHeight = 1;
-
-			if (count == null)
-				count = 50;
-
-			sql.append("FROM Blocks ");
-			sql.append("WHERE height BETWEEN ? AND ?");
-			bindParams.add(startHeight);
-			bindParams.add(Integer.valueOf(startHeight + count - 1));
-		}
-
-		List<BlockSummaryData> blockSummaries = new ArrayList<>();
-
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
-			if (resultSet == null)
-				return blockSummaries;
-
-			do {
-				byte[] signature = resultSet.getBytes(1);
-				int height = resultSet.getInt(2);
-				byte[] minterPublicKey = resultSet.getBytes(3);
-				int onlineAccountsCount = resultSet.getInt(4);
-				long timestamp = resultSet.getLong(5);
-				int transactionCount = resultSet.getInt(6);
-
-				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, minterPublicKey, onlineAccountsCount,
-						timestamp, transactionCount);
-				blockSummaries.add(blockSummary);
-			} while (resultSet.next());
-
-			return blockSummaries;
-		} catch (SQLException e) {
-			throw new DataException("Unable to fetch height-ranged block summaries from repository", e);
-		}
-	}
-
-	@Override
 	public int getOnlineAccountsSignaturesTrimHeight() throws DataException {
 		String sql = "SELECT online_signatures_trim_height FROM DatabaseInfo";
 
@@ -508,6 +429,53 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			throw new DataException("Unable to trim old online accounts signatures in repository", e);
 		}
 	}
+
+
+	@Override
+	public int getBlockPruneHeight() throws DataException {
+		String sql = "SELECT block_prune_height FROM DatabaseInfo";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return 0;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch block prune height from repository", e);
+		}
+	}
+
+	@Override
+	public void setBlockPruneHeight(int pruneHeight) throws DataException {
+		// trimHeightsLock is to prevent concurrent update on DatabaseInfo
+		// that could result in "transaction rollback: serialization failure"
+		synchronized (this.repository.trimHeightsLock) {
+			String updateSql = "UPDATE DatabaseInfo SET block_prune_height = ?";
+
+			try {
+				this.repository.executeCheckedUpdate(updateSql, pruneHeight);
+				this.repository.saveChanges();
+			} catch (SQLException e) {
+				repository.examineException(e);
+				throw new DataException("Unable to set block prune height in repository", e);
+			}
+		}
+	}
+
+	@Override
+	public int pruneBlocks(int minHeight, int maxHeight) throws DataException {
+		// Don't prune the genesis block
+		if (minHeight <= 1) {
+			minHeight = 2;
+		}
+
+		try {
+			return this.repository.delete("Blocks", "height BETWEEN ? AND ?", minHeight, maxHeight);
+		} catch (SQLException e) {
+			throw new DataException("Unable to prune blocks from repository", e);
+		}
+	}
+
 
 	@Override
 	public BlockData getDetachedBlockSignature(int startHeight) throws DataException {

@@ -4,10 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 import javax.xml.bind.JAXBContext;
@@ -27,11 +24,9 @@ import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.controller.Controller;
 import org.qortal.data.block.BlockData;
 import org.qortal.network.Network;
-import org.qortal.repository.BlockRepository;
-import org.qortal.repository.DataException;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.*;
 import org.qortal.settings.Settings;
+import org.qortal.utils.Base58;
 import org.qortal.utils.StringLongMapXmlAdapter;
 
 /**
@@ -506,29 +501,105 @@ public class BlockChain {
 	 * @throws SQLException
 	 */
 	public static void validate() throws DataException {
-		// Check first block is Genesis Block
-		if (!isGenesisBlockValid())
-			rebuildBlockchain();
 
+		boolean isTopOnly = Settings.getInstance().isTopOnly();
+		boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
+		boolean canBootstrap = Settings.getInstance().getBootstrap();
+		boolean needsArchiveRebuild = false;
+		BlockData chainTip;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			chainTip = repository.getBlockRepository().getLastBlock();
+
+			// Ensure archive is (at least partially) intact, and force a bootstrap if it isn't
+			if (!isTopOnly && archiveEnabled && canBootstrap) {
+				needsArchiveRebuild = (repository.getBlockArchiveRepository().fromHeight(2) == null);
+				if (needsArchiveRebuild) {
+					LOGGER.info("Couldn't retrieve block 2 from archive. Bootstrapping...");
+
+					// If there are minting accounts, make sure to back them up
+					// Don't backup if there are no minting accounts, as this can cause problems
+					if (!repository.getAccountRepository().getMintingAccounts().isEmpty()) {
+						Controller.getInstance().exportRepositoryData();
+					}
+				}
+			}
+		}
+
+		boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
+
+		if (isTopOnly && hasBlocks) {
+			// Top-only mode is enabled and we have blocks, so it's possible that the genesis block has been pruned
+			// It's best not to validate it, and there's no real need to
+		} else {
+			// Check first block is Genesis Block
+			if (!isGenesisBlockValid() || needsArchiveRebuild) {
+				try {
+					rebuildBlockchain();
+
+				} catch (InterruptedException e) {
+					throw new DataException(String.format("Interrupted when trying to rebuild blockchain: %s", e.getMessage()));
+				}
+			}
+		}
+
+		// We need to create a new connection, as the previous repository and its connections may be been
+		// closed by rebuildBlockchain() if a bootstrap was applied
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.checkConsistency();
 
-			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - 1440, 1);
+			// Set the number of blocks to validate based on the pruned state of the chain
+			// If pruned, subtract an extra 10 to allow room for error
+			int blocksToValidate = (isTopOnly || archiveEnabled) ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
 
+			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - blocksToValidate, 1);
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);
 
 			if (detachedBlockData != null) {
-				LOGGER.error(String.format("Block %d's reference does not match any block's signature", detachedBlockData.getHeight()));
+				LOGGER.error(String.format("Block %d's reference does not match any block's signature",
+						detachedBlockData.getHeight()));
+				LOGGER.error(String.format("Your chain may be invalid and you should consider bootstrapping" +
+						" or re-syncing from genesis."));
+			}
+		}
+	}
 
-				// Wait for blockchain lock (whereas orphan() only tries to get lock)
-				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-				blockchainLock.lock();
-				try {
-					LOGGER.info(String.format("Orphaning back to block %d", detachedBlockData.getHeight() - 1));
-					orphan(detachedBlockData.getHeight() - 1);
-				} finally {
-					blockchainLock.unlock();
+	/**
+	 * More thorough blockchain validation method. Useful for validating bootstraps.
+	 * A DataException is thrown if anything is invalid.
+	 *
+	 * @throws DataException
+	 */
+	public static void validateAllBlocks() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData chainTip = repository.getBlockRepository().getLastBlock();
+			final int chainTipHeight = chainTip.getHeight();
+			final int oldestBlock = 1; // TODO: increase if in pruning mode
+			byte[] lastReference = null;
+
+			for (int height = chainTipHeight; height > oldestBlock; height--) {
+				BlockData blockData = repository.getBlockRepository().fromHeight(height);
+				if (blockData == null) {
+					blockData = repository.getBlockArchiveRepository().fromHeight(height);
 				}
+
+				if (blockData == null) {
+					String error = String.format("Missing block at height %d", height);
+					LOGGER.error(error);
+					throw new DataException(error);
+				}
+
+				if (height != chainTipHeight) {
+					// Check reference
+					if (!Arrays.equals(blockData.getSignature(), lastReference)) {
+						String error = String.format("Invalid reference for block at height %d: %s (should be %s)",
+								height, Base58.encode(blockData.getReference()), Base58.encode(lastReference));
+						LOGGER.error(error);
+						throw new DataException(error);
+					}
+				}
+
+				lastReference = blockData.getReference();
 			}
 		}
 	}
@@ -551,7 +622,15 @@ public class BlockChain {
 		}
 	}
 
-	private static void rebuildBlockchain() throws DataException {
+	private static void rebuildBlockchain() throws DataException, InterruptedException {
+		boolean shouldBootstrap = Settings.getInstance().getBootstrap();
+		if (shouldBootstrap) {
+			// Settings indicate that we should apply a bootstrap rather than rebuilding and syncing from genesis
+			Bootstrap bootstrap = new Bootstrap();
+			bootstrap.startImport();
+			return;
+		}
+
 		// (Re)build repository
 		if (!RepositoryManager.wasPristineAtOpen())
 			RepositoryManager.rebuild();

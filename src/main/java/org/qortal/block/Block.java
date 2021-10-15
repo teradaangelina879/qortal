@@ -1104,9 +1104,14 @@ public class Block {
 			// Create repository savepoint here so we can rollback to it after testing transactions
 			repository.setSavepoint();
 
-			if (this.blockData.getHeight() == 212937)
+			if (this.blockData.getHeight() == 212937) {
 				// Apply fix for block 212937 but fix will be rolled back before we exit method
 				Block212937.processFix(this);
+			}
+			else if (InvalidNameRegistrationBlocks.isAffectedBlock(this.blockData.getHeight())) {
+				// Apply fix for affected name registration blocks, but fix will be rolled back before we exit method
+				InvalidNameRegistrationBlocks.processFix(this);
+			}
 
 			for (Transaction transaction : this.getTransactions()) {
 				TransactionData transactionData = transaction.getTransactionData();
@@ -1145,7 +1150,7 @@ public class Block {
 				// Check transaction can even be processed
 				validationResult = transaction.isProcessable();
 				if (validationResult != Transaction.ValidationResult.OK) {
-					LOGGER.debug(String.format("Error during transaction validation, tx %s: %s", Base58.encode(transactionData.getSignature()), validationResult.name()));
+					LOGGER.info(String.format("Error during transaction validation, tx %s: %s", Base58.encode(transactionData.getSignature()), validationResult.name()));
 					return ValidationResult.TRANSACTION_INVALID;
 				}
 
@@ -1259,12 +1264,13 @@ public class Block {
 		for (ATData atData : executableATs) {
 			AT at = new AT(this.repository, atData);
 			List<AtTransaction> atTransactions = at.run(this.blockData.getHeight(), this.blockData.getTimestamp());
+			ATStateData atStateData = at.getATStateData();
+			// Didn't execute? (e.g. sleeping)
+			if (atStateData == null)
+				continue;
 
 			allAtTransactions.addAll(atTransactions);
-
-			ATStateData atStateData = at.getATStateData();
 			this.ourAtStates.add(atStateData);
-
 			this.ourAtFees += atStateData.getFees();
 		}
 
@@ -1291,6 +1297,21 @@ public class Block {
 
 		Account mintingAccount = new PublicKeyAccount(this.repository, rewardShareData.getMinterPublicKey());
 		return mintingAccount.canMint();
+	}
+
+	/**
+	 * Pre-process block, and its transactions.
+	 * This allows for any database integrity checks prior to validation.
+	 * This is called before isValid() and process()
+	 *
+	 * @throws DataException
+	 */
+	public void preProcess() throws DataException {
+		List<Transaction> blocksTransactions = this.getTransactions();
+
+		for (Transaction transaction : blocksTransactions) {
+			transaction.preProcess();
+		}
 	}
 
 	/**

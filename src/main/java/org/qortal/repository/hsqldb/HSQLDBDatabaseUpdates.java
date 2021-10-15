@@ -9,7 +9,9 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
 import org.qortal.controller.tradebot.BitcoinACCTv1TradeBot;
+import org.qortal.gui.SplashFrame;
 
 public class HSQLDBDatabaseUpdates {
 
@@ -27,8 +29,13 @@ public class HSQLDBDatabaseUpdates {
 	public static boolean updateDatabase(Connection connection) throws SQLException {
 		final boolean wasPristine = fetchDatabaseVersion(connection) == 0;
 
+		SplashFrame.getInstance().updateStatus("Upgrading database, please wait...");
+
 		while (databaseUpdating(connection, wasPristine))
 			incrementDatabaseVersion(connection);
+
+		String text = String.format("Starting Qortal Core v%s...", Controller.getInstance().getVersionStringWithoutPrefix());
+		SplashFrame.getInstance().updateStatus(text);
 
 		return wasPristine;
 	}
@@ -698,7 +705,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CHECKPOINT");
 					break;
 
-				case 30:
+				case 30: {
 					// Split AT state data off to new table for better performance/management.
 
 					if (!wasPristine && !"mem".equals(HSQLDBRepository.getDbPathname(connection.getMetaData().getURL()))) {
@@ -773,6 +780,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ATStatesNew RENAME TO ATStates");
 					stmt.execute("CHECKPOINT");
 					break;
+				}
 
 				case 31:
 					// Fix latest AT state cache which was previous created as TEMPORARY
@@ -842,6 +850,75 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD secret VARBINARY(32)");
 					// We want to support compressed and uncompressed data, as well as different compression algorithms
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
+					break;
+
+				case 34: {
+					// AT sleep-until-message support
+					LOGGER.info("Altering AT table in repository - this might take a while... (approx. 20 seconds on high-spec)");
+					stmt.execute("ALTER TABLE ATs ADD sleep_until_message_timestamp BIGINT");
+
+					// Create new AT-states table with new column
+					stmt.execute("CREATE TABLE ATStatesNew ("
+							+ "AT_address QortalAddress, height INTEGER NOT NULL, state_hash ATStateHash NOT NULL, "
+							+ "fees QortalAmount NOT NULL, is_initial BOOLEAN NOT NULL, sleep_until_message_timestamp BIGINT, "
+							+ "PRIMARY KEY (AT_address, height), "
+							+ "FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
+					stmt.execute("SET TABLE ATStatesNew NEW SPACE");
+					stmt.execute("CHECKPOINT");
+
+					// Add the height index
+					LOGGER.info("Adding index to AT states table...");
+					stmt.execute("CREATE INDEX ATStatesNewHeightIndex ON ATStatesNew (height)");
+					stmt.execute("CHECKPOINT");
+
+					ResultSet resultSet = stmt.executeQuery("SELECT height FROM Blocks ORDER BY height DESC LIMIT 1");
+					final int blockchainHeight = resultSet.next() ? resultSet.getInt(1) : 0;
+					final int heightStep = 100;
+
+					LOGGER.info("Altering AT states table in repository - this might take a while... (approx. 3 mins on high-spec)");
+					for (int minHeight = 1; minHeight < blockchainHeight; minHeight += heightStep) {
+						stmt.execute("INSERT INTO ATStatesNew ("
+								+ "SELECT AT_address, height, state_hash, fees, is_initial, NULL "
+								+ "FROM ATStates "
+								+ "WHERE height BETWEEN " + minHeight + " AND " + (minHeight + heightStep - 1)
+								+ ")");
+						stmt.execute("COMMIT");
+
+						int processed = Math.min(minHeight + heightStep - 1, blockchainHeight);
+						double percentage = (double)processed / (double)blockchainHeight * 100.0f;
+						LOGGER.info(String.format("Processed %d of %d blocks (%.1f%%)", processed, blockchainHeight, percentage));
+					}
+					stmt.execute("CHECKPOINT");
+
+					stmt.execute("DROP TABLE ATStates");
+					stmt.execute("ALTER TABLE ATStatesNew RENAME TO ATStates");
+					stmt.execute("ALTER INDEX ATStatesNewHeightIndex RENAME TO ATStatesHeightIndex");
+					stmt.execute("CHECKPOINT");
+					break;
+				}
+				case 35:
+					// Support for pruning
+					stmt.execute("ALTER TABLE DatabaseInfo ADD AT_prune_height INT NOT NULL DEFAULT 0");
+					stmt.execute("ALTER TABLE DatabaseInfo ADD block_prune_height INT NOT NULL DEFAULT 0");
+					break;
+
+				case 36:
+					// Block archive support
+					stmt.execute("ALTER TABLE DatabaseInfo ADD block_archive_height INT NOT NULL DEFAULT 0");
+
+					// Block archive (lookup table to map signature to height)
+					// Actual data is stored in archive files outside of the database
+					stmt.execute("CREATE TABLE BlockArchive (signature BlockSignature, height INTEGER NOT NULL, "
+							+ "minted_when EpochMillis NOT NULL, minter QortalPublicKey NOT NULL, "
+							+ "PRIMARY KEY (signature))");
+					// For finding blocks by height.
+					stmt.execute("CREATE INDEX BlockArchiveHeightIndex ON BlockArchive (height)");
+					// For finding blocks by the account that minted them.
+					stmt.execute("CREATE INDEX BlockArchiveMinterIndex ON BlockArchive (minter)");
+					// For finding blocks by timestamp or finding height of latest block immediately before timestamp, etc.
+					stmt.execute("CREATE INDEX BlockArchiveTimestampHeightIndex ON BlockArchive (minted_when, height)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE BlockArchive NEW SPACE");
 					break;
 
 				default:

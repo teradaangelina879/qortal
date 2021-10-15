@@ -15,7 +15,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -54,6 +56,37 @@ public class CryptoTests extends Common {
 		byte[] expected = HashCode.fromString("1406e05881e299367766d313e26c05564ec91bf721d31726bd6e46e60689539a").asBytes();
 
 		assertArrayEquals(expected, digest);
+	}
+
+	@Test
+	public void testFileDigest() throws IOException {
+		byte[] input = HashCode.fromString("00").asBytes();
+
+		Path tempPath = Files.createTempFile("", ".tmp");
+		Files.write(tempPath, input, StandardOpenOption.CREATE);
+
+		byte[] digest = Crypto.digest(tempPath.toFile());
+		byte[] expected = HashCode.fromString("6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d").asBytes();
+
+		assertArrayEquals(expected, digest);
+
+		Files.delete(tempPath);
+	}
+
+	@Test
+	public void testFileDigestWithRandomData() throws IOException {
+		byte[] input = new byte[128];
+		new Random().nextBytes(input);
+
+		Path tempPath = Files.createTempFile("", ".tmp");
+		Files.write(tempPath, input, StandardOpenOption.CREATE);
+
+		byte[] fileDigest = Crypto.digest(tempPath.toFile());
+		byte[] memoryDigest = Crypto.digest(input);
+
+		assertArrayEquals(fileDigest, memoryDigest);
+
+		Files.delete(tempPath);
 	}
 
 	@Test

@@ -6,9 +6,11 @@ import java.util.List;
 import java.awt.image.BufferedImage;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
 
 public class SplashFrame {
 
@@ -16,6 +18,7 @@ public class SplashFrame {
 
 	private static SplashFrame instance;
 	private JFrame splashDialog;
+	private SplashPanel splashPanel;
 
 	@SuppressWarnings("serial")
 	public static class SplashPanel extends JPanel {
@@ -23,26 +26,53 @@ public class SplashFrame {
 
 		private String defaultSplash = "Qlogo_512.png";
 
+		private JLabel statusLabel;
+
 		public SplashPanel() {
 			image = Gui.loadImage(defaultSplash);
 
-			setOpaque(false);
-			setLayout(new GridBagLayout());
-		}
+			setOpaque(true);
+			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+			setBorder(new EmptyBorder(10, 10, 10, 10));
+			setBackground(Color.BLACK);
 
-		@Override
-		protected void paintComponent(Graphics g) {
-			super.paintComponent(g);
-			g.drawImage(image, 0, 0, getWidth(), getHeight(), this);
+			// Add logo
+			JLabel imageLabel = new JLabel(new ImageIcon(image));
+			imageLabel.setSize(new Dimension(300, 300));
+			add(imageLabel);
+
+			// Add spacing
+			add(Box.createRigidArea(new Dimension(0, 16)));
+
+			// Add status label
+			String text = String.format("Starting Qortal Core v%s...", Controller.getInstance().getVersionStringWithoutPrefix());
+			statusLabel = new JLabel(text, JLabel.CENTER);
+			statusLabel.setMaximumSize(new Dimension(500, 50));
+			statusLabel.setFont(new Font("Verdana", Font.PLAIN, 20));
+			statusLabel.setBackground(Color.BLACK);
+			statusLabel.setForeground(new Color(255, 255, 255, 255));
+			statusLabel.setOpaque(true);
+			statusLabel.setBorder(null);
+			add(statusLabel);
 		}
 
 		@Override
 		public Dimension getPreferredSize() {
-			return new Dimension(500, 500);
+			return new Dimension(500, 580);
+		}
+
+		public void updateStatus(String text) {
+			if (statusLabel != null) {
+				statusLabel.setText(text);
+			}
 		}
 	}
 
 	private SplashFrame() {
+		if (GraphicsEnvironment.isHeadless()) {
+			return;
+		}
+
 		this.splashDialog = new JFrame();
 
 		List<Image> icons = new ArrayList<>();
@@ -55,12 +85,13 @@ public class SplashFrame {
 		icons.add(Gui.loadImage("icons/Qlogo_128.png"));
 		this.splashDialog.setIconImages(icons);
 
-		this.splashDialog.getContentPane().add(new SplashPanel());
+		this.splashPanel = new SplashPanel();
+		this.splashDialog.getContentPane().add(this.splashPanel);
 		this.splashDialog.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.splashDialog.setUndecorated(true);
 		this.splashDialog.pack();
 		this.splashDialog.setLocationRelativeTo(null);
-		this.splashDialog.setBackground(new Color(0,0,0,0));
+		this.splashDialog.setBackground(Color.BLACK);
 		this.splashDialog.setVisible(true);
 	}
 
@@ -77,6 +108,12 @@ public class SplashFrame {
 
 	public void dispose() {
 		this.splashDialog.dispose();
+	}
+
+	public void updateStatus(String text) {
+		if (this.splashPanel != null) {
+			this.splashPanel.updateStatus(text);
+		}
 	}
 
 }

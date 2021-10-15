@@ -1,5 +1,7 @@
 package org.qortal.repository;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
@@ -103,7 +105,7 @@ public interface ATRepository {
 	/**
 	 * Returns all ATStateData for a given block height.
 	 * <p>
-	 * Unlike <tt>getATState</tt>, only returns ATStateData saved at the given height.
+	 * Unlike <tt>getATState</tt>, only returns <i>partial</i> ATStateData saved at the given height.
 	 *
 	 * @param height
 	 *            - block height
@@ -111,6 +113,14 @@ public interface ATRepository {
 	 * @throws DataException
 	 */
 	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException;
+
+
+	/** Rebuild the latest AT states cache, necessary for AT state trimming/pruning.
+	 * <p>
+	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
+	 */
+	public void rebuildLatestAtStates() throws DataException;
+
 
 	/** Returns height of first trimmable AT state. */
 	public int getAtTrimHeight() throws DataException;
@@ -121,11 +131,26 @@ public interface ATRepository {
 	 */
 	public void setAtTrimHeight(int trimHeight) throws DataException;
 
-	/** Hook to allow repository to prepare/cache info for AT state trimming. */
-	public void prepareForAtStateTrimming() throws DataException;
-
 	/** Trims full AT state data between passed heights. Returns number of trimmed rows. */
 	public int trimAtStates(int minHeight, int maxHeight, int limit) throws DataException;
+
+
+	/** Returns height of first prunable AT state. */
+	public int getAtPruneHeight() throws DataException;
+
+	/** Sets new base height for AT state pruning.
+	 * <p>
+	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
+	 */
+	public void setAtPruneHeight(int pruneHeight) throws DataException;
+
+	/** Prunes full AT state data between passed heights. Returns number of pruned rows. */
+	public int pruneAtStates(int minHeight, int maxHeight) throws DataException;
+
+
+	/** Checks for the presence of the ATStatesHeightIndex in repository */
+	public boolean hasAtStatesHeightIndex() throws DataException;
+
 
 	/**
 	 * Save ATStateData into repository.

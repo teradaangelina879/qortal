@@ -22,6 +22,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -35,6 +36,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
 import org.qortal.account.Account;
@@ -66,6 +68,8 @@ import com.google.common.collect.Lists;
 @Path("/admin")
 @Tag(name = "Admin")
 public class AdminResource {
+
+	private static final Logger LOGGER = LogManager.getLogger(AdminResource.class);
 
 	private static final int MAX_LOG_LINES = 500;
 
@@ -460,6 +464,23 @@ public class AdminResource {
 			if (targetHeight <= 0 || targetHeight > Controller.getInstance().getChainHeight())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
 
+			// Make sure we're not orphaning as far back as the archived blocks
+			// FUTURE: we could support this by first importing earlier blocks from the archive
+			if (Settings.getInstance().isTopOnly() ||
+				Settings.getInstance().isArchiveEnabled()) {
+
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					// Find the first unarchived block
+					int oldestBlock = repository.getBlockArchiveRepository().getBlockArchiveHeight();
+					// Add some extra blocks just in case we're currently archiving/pruning
+					oldestBlock += 100;
+					if (targetHeight <= oldestBlock) {
+						LOGGER.info("Unable to orphan beyond block {} because it is archived", oldestBlock);
+						throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
+					}
+				}
+			}
+
 			if (BlockChain.orphan(targetHeight))
 				return "true";
 			else
@@ -554,13 +575,13 @@ public class AdminResource {
 	@Path("/repository/data")
 	@Operation(
 		summary = "Import data into repository.",
-		description = "Imports data from file on local machine. Filename is forced to 'import.json' if apiKey is not set.",
+		description = "Imports data from file on local machine. Filename is forced to 'qortal-backup/TradeBotStates.json' if apiKey is not set.",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
-					type = "string", example = "MintingAccounts.script"
+					type = "string", example = "qortal-backup/TradeBotStates.json"
 				)
 			)
 		),
@@ -578,7 +599,7 @@ public class AdminResource {
 
 		// Hard-coded because it's too dangerous to allow user-supplied filenames in weaker security contexts
 		if (Settings.getInstance().getApiKey() == null)
-			filename = "import.json";
+			filename = "qortal-backup/TradeBotStates.json";
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
@@ -590,6 +611,10 @@ public class AdminResource {
 				repository.saveChanges();
 
 				return "true";
+
+			} catch (IOException e) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
+
 			} finally {
 				blockchainLock.unlock();
 			}
@@ -645,14 +670,16 @@ public class AdminResource {
 			blockchainLock.lockInterruptibly();
 
 			try {
-				repository.backup(true);
+				// Timeout if the database isn't ready for backing up after 60 seconds
+				long timeout = 60 * 1000L;
+				repository.backup(true, "backup", timeout);
 				repository.saveChanges();
 
 				return "true";
 			} finally {
 				blockchainLock.unlock();
 			}
-		} catch (InterruptedException e) {
+		} catch (InterruptedException | TimeoutException e) {
 			// We couldn't lock blockchain to perform backup
 			return "false";
 		} catch (DataException e) {
@@ -677,13 +704,15 @@ public class AdminResource {
 			blockchainLock.lockInterruptibly();
 
 			try {
-				repository.performPeriodicMaintenance();
+				// Timeout if the database isn't ready to start after 60 seconds
+				long timeout = 60 * 1000L;
+				repository.performPeriodicMaintenance(timeout);
 			} finally {
 				blockchainLock.unlock();
 			}
 		} catch (InterruptedException e) {
 			// No big deal
-		} catch (DataException e) {
+		} catch (DataException | TimeoutException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}

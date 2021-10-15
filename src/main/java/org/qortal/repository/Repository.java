@@ -1,5 +1,8 @@
 package org.qortal.repository;
 
+import java.io.IOException;
+import java.util.concurrent.TimeoutException;
+
 public interface Repository extends AutoCloseable {
 
 	public ATRepository getATRepository();
@@ -11,6 +14,8 @@ public interface Repository extends AutoCloseable {
 	public AssetRepository getAssetRepository();
 
 	public BlockRepository getBlockRepository();
+
+	public BlockArchiveRepository getBlockArchiveRepository();
 
 	public ChatRepository getChatRepository();
 
@@ -45,14 +50,16 @@ public interface Repository extends AutoCloseable {
 
 	public void setDebug(boolean debugState);
 
-	public void backup(boolean quick) throws DataException;
+	public void backup(boolean quick, String name, Long timeout) throws DataException, TimeoutException;
 
-	public void performPeriodicMaintenance() throws DataException;
+	public void performPeriodicMaintenance(Long timeout) throws DataException, TimeoutException;
 
 	public void exportNodeLocalData() throws DataException;
 
-	public void importDataFromFile(String filename) throws DataException;
+	public void importDataFromFile(String filename) throws DataException, IOException;
 
 	public void checkConsistency() throws DataException;
+
+	public static void attemptRecovery(String connectionUrl, String name) throws DataException {}
 
 }

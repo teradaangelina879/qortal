@@ -905,6 +905,25 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public MintingAccountData getMintingAccount(byte[] mintingAccountKey) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT minter_private_key, minter_public_key " +
+				"FROM MintingAccounts WHERE minter_private_key = ? OR minter_public_key = ?",
+				mintingAccountKey, mintingAccountKey)) {
+
+			if (resultSet == null)
+				return null;
+
+				byte[] minterPrivateKey = resultSet.getBytes(1);
+				byte[] minterPublicKey = resultSet.getBytes(2);
+
+				return new MintingAccountData(minterPrivateKey, minterPublicKey);
+
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch minting accounts from repository", e);
+		}
+	}
+
+	@Override
 	public void save(MintingAccountData mintingAccountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("MintingAccounts");
 

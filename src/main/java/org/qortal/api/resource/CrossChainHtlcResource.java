@@ -11,6 +11,7 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Context;
@@ -173,7 +174,7 @@ public class CrossChainHtlcResource {
 		}
 	}
 
-	@GET
+	@POST
 	@Path("/redeem/{ataddress}")
 	@Operation(
 			summary = "Redeems HTLC associated with supplied AT",
@@ -231,7 +232,7 @@ public class CrossChainHtlcResource {
 		}
 	}
 
-	@GET
+	@POST
 	@Path("/redeemAll")
 	@Operation(
 			summary = "Redeems HTLC for all applicable ATs in tradebot data",
@@ -415,7 +416,7 @@ public class CrossChainHtlcResource {
 		return false;
 	}
 
-	@GET
+	@POST
 	@Path("/refund/{ataddress}")
 	@Operation(
 			summary = "Refunds HTLC associated with supplied AT",
@@ -463,7 +464,7 @@ public class CrossChainHtlcResource {
 	}
 
 
-	@GET
+	@POST
 	@Path("/refundAll")
 	@Operation(
 			summary = "Refunds HTLC for all applicable ATs in tradebot data",
@@ -478,8 +479,6 @@ public class CrossChainHtlcResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
 	public boolean refundAllHtlc() {
-		Security.checkApiCallAllowed(request);
-
 		Security.checkApiCallAllowed(request);
 		boolean success = false;
 
@@ -567,6 +566,13 @@ public class CrossChainHtlcResource {
 			CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
 			if (crossChainTradeData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			// If the AT is "finished" then it will have a zero balance
+			// In these cases we should avoid HTLC refunds if tbe QORT haven't been returned to the seller
+			if (atData.getIsFinished() && crossChainTradeData.mode != AcctMode.REFUNDED && crossChainTradeData.mode != AcctMode.CANCELLED) {
+				LOGGER.info(String.format("Skipping AT %s because the QORT has already been redemed", atAddress));
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
 
 			List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
 			TradeBotData tradeBotData = allTradeBotData.stream().filter(tradeBotDataItem -> tradeBotDataItem.getAtAddress().equals(atAddress)).findFirst().orElse(null);
