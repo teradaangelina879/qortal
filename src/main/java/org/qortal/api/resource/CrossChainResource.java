@@ -222,6 +222,10 @@ public class CrossChainResource {
 
 					// We also need block timestamp for use as trade timestamp
 					long timestamp = repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
+					if (timestamp == 0) {
+						// Try the archive
+						timestamp = repository.getBlockArchiveRepository().getTimestampFromHeight(atState.getHeight());
+					}
 
 					CrossChainTradeSummary crossChainTradeSummary = new CrossChainTradeSummary(crossChainTradeData, timestamp);
 					crossChainTrades.add(crossChainTradeSummary);
