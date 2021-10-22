@@ -24,7 +24,7 @@ public class ArbitraryDataDigestTests extends Common {
     @Test
     public void testDirectoryDigest() throws IOException {
         Path dataPath = Paths.get("src/test/resources/arbitrary/demo1");
-        String expectedHash58 = "59dw8CgVybcHAUL5GYgYUUfFffVVhiMKZLCnULPKT6oC";
+        String expectedHash58 = "4cibh7BWNUiaPXL88EgsoKxwg4SG7GVmRRQbBYUrkbcy";
 
         // Ensure directory exists
         assertTrue(dataPath.toFile().exists());
