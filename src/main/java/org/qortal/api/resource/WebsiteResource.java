@@ -15,7 +15,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import com.google.common.io.Resources;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,28 +31,14 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.HTMLParser;
 import org.qortal.api.Security;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
-import org.qortal.block.BlockChain;
-import org.qortal.crypto.Crypto;
-import org.qortal.data.PaymentData;
-import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
-import org.qortal.data.transaction.BaseTransactionData;
-import org.qortal.group.Group;
 import org.qortal.repository.DataException;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.ArbitraryDataWriter;
-import org.qortal.transaction.ArbitraryTransaction;
-import org.qortal.transaction.Transaction;
-import org.qortal.transform.TransformationException;
-import org.qortal.transform.Transformer;
-import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.utils.Base58;
-import org.qortal.utils.NTP;
 
 
 @Path("/site")
