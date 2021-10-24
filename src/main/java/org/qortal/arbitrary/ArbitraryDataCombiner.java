@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
+import org.qortal.repository.DataException;
 import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
 
@@ -31,7 +32,7 @@ public class ArbitraryDataCombiner {
         this.signatureBefore = signatureBefore;
     }
 
-    public void combine() throws IOException {
+    public void combine() throws IOException, DataException {
         try {
             this.preExecute();
             this.readMetadata();
@@ -125,9 +126,8 @@ public class ArbitraryDataCombiner {
         }
     }
 
-    private void process() throws IOException {
-        String patchType = metadata.getPatchType();
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(this.pathBefore, this.pathAfter, patchType);
+    private void process() throws IOException, DataException {
+        ArbitraryDataMerge merge = new ArbitraryDataMerge(this.pathBefore, this.pathAfter);
         merge.compute();
         this.finalPath = merge.getMergePath();
     }

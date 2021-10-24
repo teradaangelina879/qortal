@@ -29,3 +29,4 @@
 /*.7z
 /tmp
 /data*
+/src/test/resources/arbitrary/*/.qortal/cache

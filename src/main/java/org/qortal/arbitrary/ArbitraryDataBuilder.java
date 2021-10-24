@@ -145,7 +145,7 @@ public class ArbitraryDataBuilder {
         }
     }
 
-    private void buildLatestState() throws IOException {
+    private void buildLatestState() throws IOException, DataException {
         if (this.paths.size() == 1) {
             // No patching needed
             this.finalPath = this.paths.get(0);

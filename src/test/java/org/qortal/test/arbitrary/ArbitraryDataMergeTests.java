@@ -9,11 +9,17 @@ import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.Random;
 
 import static org.junit.Assert.*;
 
@@ -81,7 +87,7 @@ public class ArbitraryDataMergeTests extends Common {
         ));
 
         // Now merge the patch with the original path
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(path1, patchPath, "unified-diff");
+        ArbitraryDataMerge merge = new ArbitraryDataMerge(path1, patchPath);
         merge.compute();
         Path finalPath = merge.getMergePath();
 
@@ -117,7 +123,7 @@ public class ArbitraryDataMergeTests extends Common {
         // Also check that the directory digests match
         ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(path2);
         path2Digest.compute();
-        ArbitraryDataDigest finalPathDigest = new ArbitraryDataDigest(path2);
+        ArbitraryDataDigest finalPathDigest = new ArbitraryDataDigest(finalPath);
         finalPathDigest.compute();
         assertEquals(path2Digest.getHash58(), finalPathDigest.getHash58());
     }
@@ -138,6 +144,278 @@ public class ArbitraryDataMergeTests extends Common {
             assertEquals("Current state matches previous state. Nothing to do.", expectedException.getMessage());
         }
 
+    }
+
+    @Test
+    public void testMergeBinaryFiles() throws IOException, DataException {
+        // Create two files in random temp directories
+        Path tempDir1 = Files.createTempDirectory("testMergeBinaryFiles1");
+        Path tempDir2 = Files.createTempDirectory("testMergeBinaryFiles2");
+        File file1 = new File(Paths.get(tempDir1.toString(), "file.bin").toString());
+        File file2 = new File(Paths.get(tempDir2.toString(), "file.bin").toString());
+        file1.deleteOnExit();
+        file2.deleteOnExit();
+
+        // Write random data to the first file
+        byte[] initialData = new byte[1024];
+        new Random().nextBytes(initialData);
+        Files.write(file1.toPath(), initialData);
+        byte[] file1Digest = Crypto.digest(file1);
+
+        // Write slightly modified data to the second file (bytes 100-116 are zeroed out)
+        byte[] updatedData = Arrays.copyOf(initialData, initialData.length);
+        final ByteBuffer byteBuffer = ByteBuffer.wrap(updatedData);
+        byteBuffer.position(100);
+        byteBuffer.put(new byte[16]);
+        updatedData = byteBuffer.array();
+        Files.write(file2.toPath(), updatedData);
+        byte[] file2Digest = Crypto.digest(file2);
+
+        // Make sure the two arrays are different
+        assertFalse(Arrays.equals(initialData, updatedData));
+
+        // And double check that they are both 1024 bytes long
+        assertEquals(1024, initialData.length);
+        assertEquals(1024, updatedData.length);
+
+        // Ensure both files exist
+        assertTrue(Files.exists(file1.toPath()));
+        assertTrue(Files.exists(file2.toPath()));
+
+        // Create a patch from the two paths
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, new byte[16]);
+        patch.create();
+        Path patchPath = patch.getFinalPath();
+        assertTrue(Files.exists(patchPath));
+
+        // Check that the patch file exists
+        Path patchFilePath = Paths.get(patchPath.toString(), "file.bin");
+        assertTrue(Files.exists(patchFilePath));
+        byte[] patchDigest = Crypto.digest(patchFilePath.toFile());
+
+        // Ensure that the patch file matches file2 exactly
+        // This is because binary files cannot currently be patched, and so the complete file
+        // is included instead
+        assertArrayEquals(patchDigest, file2Digest);
+
+        // Make sure that the patch file is different from file1
+        assertFalse(Arrays.equals(patchDigest, file1Digest));
+
+        // Now merge the patch with the original path
+        ArbitraryDataMerge merge = new ArbitraryDataMerge(tempDir1, patchPath);
+        merge.compute();
+        Path finalPath = merge.getMergePath();
+
+        // Check that the directory digests match
+        ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(tempDir2);
+        path2Digest.compute();
+        ArbitraryDataDigest finalPathDigest = new ArbitraryDataDigest(finalPath);
+        finalPathDigest.compute();
+        assertEquals(path2Digest.getHash58(), finalPathDigest.getHash58());
+    }
+
+    @Test
+    public void testMergeRandomStrings() throws IOException, DataException {
+        // Create two files in random temp directories
+        Path tempDir1 = Files.createTempDirectory("testMergeRandomStrings");
+        Path tempDir2 = Files.createTempDirectory("testMergeRandomStrings");
+        File file1 = new File(Paths.get(tempDir1.toString(), "file.txt").toString());
+        File file2 = new File(Paths.get(tempDir2.toString(), "file.txt").toString());
+        file1.deleteOnExit();
+        file2.deleteOnExit();
+
+        // Write a random string to the first file
+        BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
+        String initialString = this.generateRandomString(1024);
+        file1Writer.write(initialString);
+        file1Writer.newLine();
+        file1Writer.close();
+        byte[] file1Digest = Crypto.digest(file1);
+
+        // Write a slightly modified string to the second file
+        BufferedWriter file2Writer = new BufferedWriter(new FileWriter(file2));
+        String updatedString = initialString.concat("-edit");
+        file2Writer.write(updatedString);
+        file2Writer.newLine();
+        file2Writer.close();
+        byte[] file2Digest = Crypto.digest(file2);
+
+        // Make sure the two strings are different
+        assertFalse(Objects.equals(initialString, updatedString));
+
+        // Ensure both files exist
+        assertTrue(Files.exists(file1.toPath()));
+        assertTrue(Files.exists(file2.toPath()));
+
+        // Create a patch from the two paths
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, new byte[16]);
+        patch.create();
+        Path patchPath = patch.getFinalPath();
+        assertTrue(Files.exists(patchPath));
+
+        // Check that the patch file exists
+        Path patchFilePath = Paths.get(patchPath.toString(), "file.txt");
+        assertTrue(Files.exists(patchFilePath));
+        byte[] patchDigest = Crypto.digest(patchFilePath.toFile());
+
+        // Make sure that the patch file is different from file1 and file2
+        assertFalse(Arrays.equals(patchDigest, file1Digest));
+        assertFalse(Arrays.equals(patchDigest, file2Digest));
+
+        // Now merge the patch with the original path
+        ArbitraryDataMerge merge = new ArbitraryDataMerge(tempDir1, patchPath);
+        merge.compute();
+        Path finalPath = merge.getMergePath();
+
+        // Check that the directory digests match
+        ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(tempDir2);
+        path2Digest.compute();
+        ArbitraryDataDigest finalPathDigest = new ArbitraryDataDigest(finalPath);
+        finalPathDigest.compute();
+        assertEquals(path2Digest.getHash58(), finalPathDigest.getHash58());
+
+    }
+
+    @Test
+    public void testMergeRandomStringsWithoutTrailingNewlines() throws IOException, DataException {
+        // Create two files in random temp directories
+        Path tempDir1 = Files.createTempDirectory("testMergeRandomStrings");
+        Path tempDir2 = Files.createTempDirectory("testMergeRandomStrings");
+        File file1 = new File(Paths.get(tempDir1.toString(), "file.txt").toString());
+        File file2 = new File(Paths.get(tempDir2.toString(), "file.txt").toString());
+        file1.deleteOnExit();
+        file2.deleteOnExit();
+
+        // Write a random string to the first file
+        BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
+        String initialString = this.generateRandomString(1024);
+        file1Writer.write(initialString);
+        // No newline
+        file1Writer.close();
+        byte[] file1Digest = Crypto.digest(file1);
+
+        // Write a slightly modified string to the second file
+        BufferedWriter file2Writer = new BufferedWriter(new FileWriter(file2));
+        String updatedString = initialString.concat("-edit");
+        file2Writer.write(updatedString);
+        // No newline
+        file2Writer.close();
+        byte[] file2Digest = Crypto.digest(file2);
+
+        // Make sure the two strings are different
+        assertFalse(Objects.equals(initialString, updatedString));
+
+        // Ensure both files exist
+        assertTrue(Files.exists(file1.toPath()));
+        assertTrue(Files.exists(file2.toPath()));
+
+        // Create a patch from the two paths
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, new byte[16]);
+        patch.create();
+        Path patchPath = patch.getFinalPath();
+        assertTrue(Files.exists(patchPath));
+
+        // Check that the patch file exists
+        Path patchFilePath = Paths.get(patchPath.toString(), "file.txt");
+        assertTrue(Files.exists(patchFilePath));
+        byte[] patchDigest = Crypto.digest(patchFilePath.toFile());
+
+        // The patch file should be identical to file2, because we don't currently
+        // support arbitrary diff patches on files without trailing newlines
+        assertArrayEquals(patchDigest, file2Digest);
+
+        // Make sure that the patch file is different from file1
+        assertFalse(Arrays.equals(patchDigest, file1Digest));
+
+        // Now merge the patch with the original path
+        ArbitraryDataMerge merge = new ArbitraryDataMerge(tempDir1, patchPath);
+        merge.compute();
+        Path finalPath = merge.getMergePath();
+
+        // Check that the directory digests match
+        ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(tempDir2);
+        path2Digest.compute();
+        ArbitraryDataDigest finalPathDigest = new ArbitraryDataDigest(finalPath);
+        finalPathDigest.compute();
+        assertEquals(path2Digest.getHash58(), finalPathDigest.getHash58());
+
+    }
+
+    @Test
+    public void testMergeRandomLargeStrings() throws IOException, DataException {
+        // Create two files in random temp directories
+        Path tempDir1 = Files.createTempDirectory("testMergeRandomStrings");
+        Path tempDir2 = Files.createTempDirectory("testMergeRandomStrings");
+        File file1 = new File(Paths.get(tempDir1.toString(), "file.txt").toString());
+        File file2 = new File(Paths.get(tempDir2.toString(), "file.txt").toString());
+        file1.deleteOnExit();
+        file2.deleteOnExit();
+
+        // Write a random string to the first file
+        BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
+        String initialString = this.generateRandomString(110 * 1024);
+        file1Writer.write(initialString);
+        file1Writer.newLine();
+        file1Writer.close();
+        byte[] file1Digest = Crypto.digest(file1);
+
+        // Write a slightly modified string to the second file
+        BufferedWriter file2Writer = new BufferedWriter(new FileWriter(file2));
+        String updatedString = initialString.concat("-edit");
+        file2Writer.write(updatedString);
+        file2Writer.newLine();
+        file2Writer.close();
+        byte[] file2Digest = Crypto.digest(file2);
+
+        // Make sure the two strings are different
+        assertFalse(Objects.equals(initialString, updatedString));
+
+        // Ensure both files exist
+        assertTrue(Files.exists(file1.toPath()));
+        assertTrue(Files.exists(file2.toPath()));
+
+        // Create a patch from the two paths
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, new byte[16]);
+        patch.create();
+        Path patchPath = patch.getFinalPath();
+        assertTrue(Files.exists(patchPath));
+
+        // Check that the patch file exists
+        Path patchFilePath = Paths.get(patchPath.toString(), "file.txt");
+        assertTrue(Files.exists(patchFilePath));
+        byte[] patchDigest = Crypto.digest(patchFilePath.toFile());
+
+        // The patch file should be identical to file2 because the source files
+        // were over the maximum size limit for creating patches
+        assertArrayEquals(patchDigest, file2Digest);
+
+        // Make sure that the patch file is different from file1
+        assertFalse(Arrays.equals(patchDigest, file1Digest));
+
+        // Now merge the patch with the original path
+        ArbitraryDataMerge merge = new ArbitraryDataMerge(tempDir1, patchPath);
+        merge.compute();
+        Path finalPath = merge.getMergePath();
+
+        // Check that the directory digests match
+        ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(tempDir2);
+        path2Digest.compute();
+        ArbitraryDataDigest finalPathDigest = new ArbitraryDataDigest(finalPath);
+        finalPathDigest.compute();
+        assertEquals(path2Digest.getHash58(), finalPathDigest.getHash58());
+
+    }
+
+    private String generateRandomString(int length) {
+        int leftLimit = 48; // numeral '0'
+        int rightLimit = 122; // letter 'z'
+        Random random = new Random();
+
+        return random.ints(leftLimit, rightLimit + 1)
+                .filter(i -> (i <= 57 || i >= 65) && (i <= 90 || i >= 97))
+                .limit(length)
+                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                .toString();
     }
 
 }

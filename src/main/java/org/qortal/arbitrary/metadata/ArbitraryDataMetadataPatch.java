@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.qortal.arbitrary.ArbitraryDataDiff.*;
 import org.qortal.utils.Base58;
 
 import java.lang.reflect.Field;
@@ -17,9 +18,8 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataMetadataPatch.class);
 
-    private String patchType;
     private List<Path> addedPaths;
-    private List<Path> modifiedPaths;
+    private List<ModifiedPath> modifiedPaths;
     private List<Path> removedPaths;
     private byte[] previousSignature;
     private byte[] previousHash;
@@ -44,12 +44,6 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
         }
 
         JSONObject patch = new JSONObject(this.jsonString);
-        if (patch.has("patchType")) {
-            String patchType = patch.getString("patchType");
-            if (patchType != null) {
-                this.patchType = patchType;
-            }
-        }
         if (patch.has("prevSig")) {
             String prevSig = patch.getString("prevSig");
             if (prevSig != null) {
@@ -75,8 +69,9 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
             JSONArray modified = (JSONArray) patch.get("modified");
             if (modified != null) {
                 for (int i=0; i<modified.length(); i++) {
-                    String pathString = modified.getString(i);
-                    this.modifiedPaths.add(Paths.get(pathString));
+                    JSONObject jsonObject = modified.getJSONObject(i);
+                    ModifiedPath modifiedPath = new ModifiedPath(jsonObject);
+                    this.modifiedPaths.add(modifiedPath);
                 }
             }
         }
@@ -103,24 +98,23 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
         } catch (IllegalAccessException | NoSuchFieldException e) {
             // Don't worry about failures as this is for optional ordering only
         }
-        patch.put("patchType", this.patchType);
+
         patch.put("prevSig", Base58.encode(this.previousSignature));
         patch.put("prevHash", Base58.encode(this.previousHash));
         patch.put("added", new JSONArray(this.addedPaths));
-        patch.put("modified", new JSONArray(this.modifiedPaths));
         patch.put("removed", new JSONArray(this.removedPaths));
+
+        JSONArray modifiedPaths = new JSONArray();
+        for (ModifiedPath modifiedPath : this.modifiedPaths) {
+            JSONObject modifiedPathJson = new JSONObject();
+            modifiedPathJson.put("path", modifiedPath.getPath());
+            modifiedPathJson.put("type", modifiedPath.getDiffType());
+            modifiedPaths.put(modifiedPathJson);
+        }
+        patch.put("modified", modifiedPaths);
 
         this.jsonString = patch.toString(2);
         LOGGER.info("Patch metadata: {}", this.jsonString);
-    }
-
-
-    public void setPatchType(String patchType) {
-        this.patchType = patchType;
-    }
-
-    public String getPatchType() {
-        return this.patchType;
     }
 
     public void setAddedPaths(List<Path> addedPaths) {
@@ -131,11 +125,11 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
         return this.addedPaths;
     }
 
-    public void setModifiedPaths(List<Path> modifiedPaths) {
+    public void setModifiedPaths(List<ModifiedPath> modifiedPaths) {
         this.modifiedPaths = modifiedPaths;
     }
 
-    public List<Path> getModifiedPaths() {
+    public List<ModifiedPath> getModifiedPaths() {
         return this.modifiedPaths;
     }
 

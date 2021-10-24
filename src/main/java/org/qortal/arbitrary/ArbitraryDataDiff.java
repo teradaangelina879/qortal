@@ -1,25 +1,63 @@
 package org.qortal.arbitrary;
 
-import com.github.difflib.DiffUtils;
-import com.github.difflib.UnifiedDiffUtils;
-import com.github.difflib.patch.Patch;
-import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONObject;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
+import org.qortal.arbitrary.patch.UnifiedDiffPatch;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+
 
 public class ArbitraryDataDiff {
+
+    /** Only create a patch if both the before and after file sizes are within defined limit **/
+    private static long MAX_DIFF_FILE_SIZE = 100 * 1024L; // 100kiB
+
+
+    public enum DiffType {
+        COMPLETE_FILE,
+        UNIFIED_DIFF
+    }
+
+    public static class ModifiedPath {
+        private Path path;
+        private DiffType diffType;
+
+        public ModifiedPath(Path path, DiffType diffType) {
+            this.path = path;
+            this.diffType = diffType;
+        }
+
+        public ModifiedPath(JSONObject jsonObject) {
+            String pathString = jsonObject.getString("path");
+            if (pathString != null) {
+                this.path = Paths.get(pathString);
+            }
+
+            String diffTypeString = jsonObject.getString("type");
+            if (diffTypeString != null) {
+                this.diffType = DiffType.valueOf(diffTypeString);
+            }
+        }
+
+        public Path getPath() {
+            return this.path;
+        }
+
+        public DiffType getDiffType() {
+            return this.diffType;
+        }
+
+        public String toString() {
+            return this.path.toString();
+        }
+    }
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataDiff.class);
 
@@ -31,7 +69,7 @@ public class ArbitraryDataDiff {
     private String identifier;
 
     private List<Path> addedPaths;
-    private List<Path> modifiedPaths;
+    private List<ModifiedPath> modifiedPaths;
     private List<Path> removedPaths;
 
     public ArbitraryDataDiff(Path pathBefore, Path pathAfter, byte[] previousSignature) {
@@ -91,7 +129,7 @@ public class ArbitraryDataDiff {
         this.previousHash = digest.getHash();
     }
 
-    private void findAddedOrModifiedFiles() {
+    private void findAddedOrModifiedFiles() throws IOException {
         try {
             final Path pathBeforeAbsolute = this.pathBefore.toAbsolutePath();
             final Path pathAfterAbsolute = this.pathAfter.toAbsolutePath();
@@ -107,11 +145,11 @@ public class ArbitraryDataDiff {
                 }
 
                 @Override
-                public FileVisitResult visitFile(Path after, BasicFileAttributes attrs) throws IOException {
-                    Path filePathAfter = pathAfterAbsolute.relativize(after.toAbsolutePath());
-                    Path filePathBefore = pathBeforeAbsolute.resolve(filePathAfter);
+                public FileVisitResult visitFile(Path afterPathAbsolute, BasicFileAttributes attrs) throws IOException {
+                    Path afterPathRelative = pathAfterAbsolute.relativize(afterPathAbsolute.toAbsolutePath());
+                    Path beforePathAbsolute = pathBeforeAbsolute.resolve(afterPathRelative);
 
-                    if (filePathAfter.startsWith(".qortal")) {
+                    if (afterPathRelative.startsWith(".qortal")) {
                         // Ignore the .qortal metadata folder
                         return FileVisitResult.CONTINUE;
                     }
@@ -119,31 +157,27 @@ public class ArbitraryDataDiff {
                     boolean wasAdded = false;
                     boolean wasModified = false;
 
-                    if (!Files.exists(filePathBefore)) {
-                        LOGGER.info("File was added: {}", filePathAfter.toString());
-                        diff.addedPaths.add(filePathAfter);
+                    if (!Files.exists(beforePathAbsolute)) {
+                        LOGGER.info("File was added: {}", afterPathRelative.toString());
+                        diff.addedPaths.add(afterPathRelative);
                         wasAdded = true;
                     }
-                    else if (Files.size(after) != Files.size(filePathBefore)) {
+                    else if (Files.size(afterPathAbsolute) != Files.size(beforePathAbsolute)) {
                         // Check file size first because it's quicker
-                        LOGGER.info("File size was modified: {}", filePathAfter.toString());
-                        diff.modifiedPaths.add(filePathAfter);
+                        LOGGER.info("File size was modified: {}", afterPathRelative.toString());
                         wasModified = true;
                     }
-                    else if (!Arrays.equals(ArbitraryDataDiff.digestFromPath(after), ArbitraryDataDiff.digestFromPath(filePathBefore))) {
+                    else if (!Arrays.equals(ArbitraryDataDiff.digestFromPath(afterPathAbsolute), ArbitraryDataDiff.digestFromPath(beforePathAbsolute))) {
                         // Check hashes as a last resort
-                        LOGGER.info("File contents were modified: {}", filePathAfter.toString());
-                        diff.modifiedPaths.add(filePathAfter);
+                        LOGGER.info("File contents were modified: {}", afterPathRelative.toString());
                         wasModified = true;
                     }
 
                     if (wasAdded) {
-                        ArbitraryDataDiff.copyFilePathToBaseDir(after, diffPathAbsolute, filePathAfter);
+                        diff.copyFilePathToBaseDir(afterPathAbsolute, diffPathAbsolute, afterPathRelative);
                     }
                     if (wasModified) {
-                        // Create patch using java-diff-utils
-                        Path destination = Paths.get(diffPathAbsolute.toString(), filePathAfter.toString());
-                        ArbitraryDataDiff.createAndCopyDiffUtilsPatch(filePathBefore, after, destination);
+                        diff.pathModified(beforePathAbsolute, afterPathAbsolute, afterPathRelative, diffPathAbsolute);
                     }
 
                     return FileVisitResult.CONTINUE;
@@ -163,8 +197,8 @@ public class ArbitraryDataDiff {
 
             });
         } catch (IOException e) {
-            // TODO: throw exception?
             LOGGER.info("IOException when walking through file tree: {}", e.getMessage());
+            throw(e);
         }
     }
 
@@ -240,7 +274,6 @@ public class ArbitraryDataDiff {
 
     private void writeMetadata() throws IOException {
         ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.diffPath);
-        metadata.setPatchType("unified-diff");
         metadata.setAddedPaths(this.addedPaths);
         metadata.setModifiedPaths(this.modifiedPaths);
         metadata.setRemovedPaths(this.removedPaths);
@@ -250,15 +283,38 @@ public class ArbitraryDataDiff {
     }
 
 
-    private static byte[] digestFromPath(Path path) {
-        try {
-            return Crypto.digest(Files.readAllBytes(path));
-        } catch (IOException e) {
-            return null;
+    private void pathModified(Path beforePathAbsolute, Path afterPathAbsolute, Path afterPathRelative,
+                              Path destinationBasePathAbsolute) throws IOException {
+
+        Path destination = Paths.get(destinationBasePathAbsolute.toString(), afterPathRelative.toString());
+        long beforeSize = Files.size(beforePathAbsolute);
+        long afterSize = Files.size(afterPathAbsolute);
+        DiffType diffType;
+
+        if (beforeSize > MAX_DIFF_FILE_SIZE || afterSize > MAX_DIFF_FILE_SIZE) {
+            // Files are large, so don't attempt a diff
+            this.copyFilePathToBaseDir(afterPathAbsolute, destinationBasePathAbsolute, afterPathRelative);
+            diffType = DiffType.COMPLETE_FILE;
         }
+        else {
+            // Attempt to create patch using java-diff-utils
+            UnifiedDiffPatch unifiedDiffPatch = new UnifiedDiffPatch(beforePathAbsolute, afterPathAbsolute, destination);
+            unifiedDiffPatch.create();
+            if (unifiedDiffPatch.isValid()) {
+                diffType = DiffType.UNIFIED_DIFF;
+            }
+            else {
+                // Diff failed validation, so copy the whole file instead
+                this.copyFilePathToBaseDir(afterPathAbsolute, destinationBasePathAbsolute, afterPathRelative);
+                diffType = DiffType.COMPLETE_FILE;
+            }
+        }
+
+        ModifiedPath modifiedPath = new ModifiedPath(afterPathRelative, diffType);
+        this.modifiedPaths.add(modifiedPath);
     }
 
-    private static void copyFilePathToBaseDir(Path source, Path base, Path relativePath) throws IOException {
+    private void copyFilePathToBaseDir(Path source, Path base, Path relativePath) throws IOException {
         if (!Files.exists(source)) {
             throw new IOException(String.format("File not found: %s", source.toString()));
         }
@@ -274,54 +330,21 @@ public class ArbitraryDataDiff {
         LOGGER.trace("Copying {} to {}", source, dest);
         Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
     }
-
-    private static void createAndCopyDiffUtilsPatch(Path before, Path after, Path destination) throws IOException {
-        if (!Files.exists(before)) {
-            throw new IOException(String.format("File not found (before): %s", before.toString()));
-        }
-        if (!Files.exists(after)) {
-            throw new IOException(String.format("File not found (after): %s", after.toString()));
-        }
-
-        // Ensure parent folders exist in the destination
-        File file = new File(destination.toString());
-        File parent = file.getParentFile();
-        if (parent != null) {
-            parent.mkdirs();
-        }
-
-        // Delete an existing file if it exists
-        File destFile = destination.toFile();
-        if (destFile.exists() && destFile.isFile()) {
-            Files.delete(destination);
-        }
-
-        // Load the two files into memory
-        List<String> original = FileUtils.readLines(before.toFile(), StandardCharsets.UTF_8);
-        List<String> revised = FileUtils.readLines(after.toFile(), StandardCharsets.UTF_8);
-
-        // Generate diff information
-        Patch<String> diff = DiffUtils.diff(original, revised);
-
-        // Generate unified diff format
-        String originalFileName = before.getFileName().toString();
-        String revisedFileName = after.getFileName().toString();
-        List<String> unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff(originalFileName, revisedFileName, original, diff, 0);
-
-        // Write the diff to the destination directory
-        FileWriter fileWriter = new FileWriter(destination.toString(), true);
-        BufferedWriter writer = new BufferedWriter(fileWriter);
-        for (String line : unifiedDiff) {
-            writer.append(line);
-            writer.newLine();
-        }
-        writer.flush();
-        writer.close();
-    }
     
 
     public Path getDiffPath() {
         return this.diffPath;
+    }
+
+
+    // Utils
+
+    private static byte[] digestFromPath(Path path) {
+        try {
+            return Crypto.digest(Files.readAllBytes(path));
+        } catch (IOException e) {
+            return null;
+        }
     }
 
 }

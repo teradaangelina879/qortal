@@ -1,24 +1,19 @@
 package org.qortal.arbitrary;
 
-import com.github.difflib.DiffUtils;
-import com.github.difflib.UnifiedDiffUtils;
-import com.github.difflib.patch.Patch;
-import com.github.difflib.patch.PatchFailedException;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.ArbitraryDataDiff.*;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
+import org.qortal.arbitrary.patch.UnifiedDiffPatch;
+import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 import org.qortal.utils.FilesystemUtils;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
 public class ArbitraryDataMerge {
@@ -27,18 +22,16 @@ public class ArbitraryDataMerge {
 
     private Path pathBefore;
     private Path pathAfter;
-    private String patchType;
     private Path mergePath;
     private String identifier;
     private ArbitraryDataMetadataPatch metadata;
 
-    public ArbitraryDataMerge(Path pathBefore, Path pathAfter, String patchType) {
+    public ArbitraryDataMerge(Path pathBefore, Path pathAfter) {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
-        this.patchType = patchType;
     }
 
-    public void compute() throws IOException {
+    public void compute() throws IOException, DataException {
         try {
             this.preExecute();
             this.copyPreviousStateToMergePath();
@@ -85,7 +78,7 @@ public class ArbitraryDataMerge {
         this.metadata.read();
     }
 
-    private void applyDifferences() throws IOException {
+    private void applyDifferences() throws IOException, DataException {
 
         List<Path> addedPaths = this.metadata.getAddedPaths();
         for (Path path : addedPaths) {
@@ -94,10 +87,10 @@ public class ArbitraryDataMerge {
             ArbitraryDataMerge.copyPathToBaseDir(filePath, this.mergePath, path);
         }
 
-        List<Path> modifiedPaths = this.metadata.getModifiedPaths();
-        for (Path path : modifiedPaths) {
-            LOGGER.info("File was modified: {}", path.toString());
-            this.applyPatch(path);
+        List<ModifiedPath> modifiedPaths = this.metadata.getModifiedPaths();
+        for (ModifiedPath modifiedPath : modifiedPaths) {
+            LOGGER.info("File was modified: {}", modifiedPath.toString());
+            this.applyPatch(modifiedPath);
         }
 
         List<Path> removedPaths = this.metadata.getRemovedPaths();
@@ -107,55 +100,19 @@ public class ArbitraryDataMerge {
         }
     }
 
-    private void applyPatch(Path path) throws IOException {
-        if (Objects.equals(this.patchType, "unified-diff")) {
+    private void applyPatch(ModifiedPath modifiedPath) throws IOException, DataException {
+        if (modifiedPath.getDiffType() == DiffType.UNIFIED_DIFF) {
             // Create destination file from patch
-            this.applyUnifiedDiffPatch(path);
+            UnifiedDiffPatch unifiedDiffPatch = new UnifiedDiffPatch(pathBefore, pathAfter, mergePath);
+            unifiedDiffPatch.apply(modifiedPath.getPath());
+        }
+        else if (modifiedPath.getDiffType() == DiffType.COMPLETE_FILE) {
+            // Copy complete file
+            Path filePath = Paths.get(this.pathAfter.toString(), modifiedPath.getPath().toString());
+            ArbitraryDataMerge.copyPathToBaseDir(filePath, this.mergePath, modifiedPath.getPath());
         }
         else {
-            // Copy complete file
-            Path filePath = Paths.get(this.pathAfter.toString(), path.toString());
-            ArbitraryDataMerge.copyPathToBaseDir(filePath, this.mergePath, path);
-        }
-    }
-
-    private void applyUnifiedDiffPatch(Path path) throws IOException {
-        Path originalPath = Paths.get(this.pathBefore.toString(), path.toString());
-        Path patchPath = Paths.get(this.pathAfter.toString(), path.toString());
-        Path mergePath = Paths.get(this.mergePath.toString(), path.toString());
-
-        if (!patchPath.toFile().exists()) {
-            throw new IllegalStateException("Patch file doesn't exist, but its path was included in modifiedPaths");
-        }
-
-        // Delete an existing file, as we are starting from a duplicate of pathBefore
-        File destFile = mergePath.toFile();
-        if (destFile.exists() && destFile.isFile()) {
-            Files.delete(mergePath);
-        }
-
-        List<String> originalContents = FileUtils.readLines(originalPath.toFile(), StandardCharsets.UTF_8);
-        List<String> patchContents = FileUtils.readLines(patchPath.toFile(), StandardCharsets.UTF_8);
-
-        // At first, parse the unified diff file and get the patch
-        Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContents);
-
-        // Then apply the computed patch to the given text
-        try {
-            List<String> patchedContents = DiffUtils.patch(originalContents, patch);
-
-            // Write the patched file to the merge directory
-            FileWriter fileWriter = new FileWriter(mergePath.toString(), true);
-            BufferedWriter writer = new BufferedWriter(fileWriter);
-            for (String line : patchedContents) {
-                writer.append(line);
-                writer.newLine();
-            }
-            writer.flush();
-            writer.close();
-
-        } catch (PatchFailedException e) {
-            throw new IllegalStateException(String.format("Failed to apply patch for path %s: %s", path, e.getMessage()));
+            throw new DataException(String.format("Unrecognized patch diff type: %s", modifiedPath.getDiffType()));
         }
     }
 
