@@ -263,6 +263,9 @@ public class Settings {
 	/** Data storage path (for temporary data). */
 	private String tempDataPath = "data/_temp";
 
+	/** Whether to validate every layer when building arbitrary data, or just the final layer */
+	private boolean validateAllDataLayers = false;
+
 
 	// Domain mapping
 	public static class DomainMap {
@@ -760,5 +763,9 @@ public class Settings {
 
 	public String getTempDataPath() {
 		return this.tempDataPath;
+	}
+
+	public boolean shouldValidateAllDataLayers() {
+		return this.validateAllDataLayers;
 	}
 }

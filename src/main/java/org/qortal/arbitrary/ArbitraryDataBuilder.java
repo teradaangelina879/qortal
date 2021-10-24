@@ -10,6 +10,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
@@ -153,13 +154,23 @@ public class ArbitraryDataBuilder {
         }
 
         Path pathBefore = this.paths.get(0);
+        boolean validateAllLayers = Settings.getInstance().shouldValidateAllDataLayers();
 
         // Loop from the second path onwards
         for (int i=1; i<paths.size(); i++) {
             LOGGER.info(String.format("[%s][%s] Applying layer %d...", this.service, this.name, i));
+
+            // Create an instance of ArbitraryDataCombiner
             Path pathAfter = this.paths.get(i);
             byte[] signatureBefore = this.transactions.get(i-1).getSignature();
             ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(pathBefore, pathAfter, signatureBefore);
+
+            // We only want to validate this layer's hash if it's the final layer, or if the settings
+            // indicate that we should validate interim layers too
+            boolean isFinalLayer = (i == paths.size() - 1);
+            combiner.setShouldValidateHashes(isFinalLayer || validateAllLayers);
+
+            // Now combine this layer with the last, and set the output path to the "before" path for the next cycle
             combiner.combine();
             combiner.cleanup();
             pathBefore = combiner.getFinalPath();

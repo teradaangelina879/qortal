@@ -23,6 +23,7 @@ public class ArbitraryDataCombiner {
     private Path pathBefore;
     private Path pathAfter;
     private byte[] signatureBefore;
+    private boolean shouldValidateHashes;
     private Path finalPath;
     private ArbitraryDataMetadataPatch metadata;
 
@@ -112,6 +113,10 @@ public class ArbitraryDataCombiner {
     }
 
     private void validatePreviousHash() throws IOException {
+        if (!this.shouldValidateHashes) {
+            return;
+        }
+
         byte[] previousHash = this.metadata.getPreviousHash();
         if (previousHash == null) {
             throw new IllegalStateException("Unable to extract previous hash from patch metadata");
@@ -134,6 +139,10 @@ public class ArbitraryDataCombiner {
     }
 
     private void validateCurrentHash() throws IOException {
+        if (!this.shouldValidateHashes) {
+            return;
+        }
+
         byte[] currentHash = this.metadata.getCurrentHash();
         if (currentHash == null) {
             throw new IllegalStateException("Unable to extract current hash from patch metadata");
@@ -147,6 +156,10 @@ public class ArbitraryDataCombiner {
             throw new InvalidObjectException(String.format("Current state hash mismatch. " +
                     "Patch curHash: %s, actual: %s", currentHash58, digest.getHash58()));
         }
+	}
+
+    public void setShouldValidateHashes(boolean shouldValidateHashes) {
+        this.shouldValidateHashes = shouldValidateHashes;
     }
 
     public Path getFinalPath() {

@@ -95,6 +95,7 @@ public class ArbitraryDataMergeTests extends Common {
 
         // Now merge the patch with the original path
         ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(path1, patchPath, signature);
+        combiner.setShouldValidateHashes(true);
         combiner.combine();
         Path finalPath = combiner.getFinalPath();
 
@@ -214,6 +215,7 @@ public class ArbitraryDataMergeTests extends Common {
 
         // Now merge the patch with the original path
         ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
+        combiner.setShouldValidateHashes(true);
         combiner.combine();
         Path finalPath = combiner.getFinalPath();
 
@@ -281,6 +283,7 @@ public class ArbitraryDataMergeTests extends Common {
 
         // Now merge the patch with the original path
         ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
+        combiner.setShouldValidateHashes(true);
         combiner.combine();
         Path finalPath = combiner.getFinalPath();
 
@@ -354,6 +357,7 @@ public class ArbitraryDataMergeTests extends Common {
 
         // Now merge the patch with the original path
         ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
+        combiner.setShouldValidateHashes(true);
         combiner.combine();
         Path finalPath = combiner.getFinalPath();
 
@@ -425,6 +429,7 @@ public class ArbitraryDataMergeTests extends Common {
 
         // Now merge the patch with the original path
         ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
+        combiner.setShouldValidateHashes(true);
         combiner.combine();
         Path finalPath = combiner.getFinalPath();
 
