@@ -2,9 +2,9 @@ package org.qortal.test.arbitrary;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.qortal.arbitrary.ArbitraryDataCombiner;
 import org.qortal.arbitrary.ArbitraryDataCreatePatch;
 import org.qortal.arbitrary.ArbitraryDataDigest;
-import org.qortal.arbitrary.ArbitraryDataMerge;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
@@ -35,8 +35,12 @@ public class ArbitraryDataMergeTests extends Common {
         Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
         Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
 
+        // Generate random signature for the purposes of validation
+        byte[] signature = new byte[32];
+        new Random().nextBytes(signature);
+
         // Create a patch using the differences in path2 compared with path1
-        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(path1, path2, new byte[16]);
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(path1, path2, signature);
         patch.create();
         Path patchPath = patch.getFinalPath();
         assertTrue(Files.exists(patchPath));
@@ -90,9 +94,9 @@ public class ArbitraryDataMergeTests extends Common {
         );
 
         // Now merge the patch with the original path
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(path1, patchPath);
-        merge.compute();
-        Path finalPath = merge.getMergePath();
+        ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(path1, patchPath, signature);
+        combiner.combine();
+        Path finalPath = combiner.getFinalPath();
 
         // Ensure that all files exist in the final path (including lorem3)
         assertTrue(Files.exists(Paths.get(finalPath.toString(), "lorem1.txt")));
@@ -185,8 +189,12 @@ public class ArbitraryDataMergeTests extends Common {
         assertTrue(Files.exists(file1.toPath()));
         assertTrue(Files.exists(file2.toPath()));
 
+        // Generate random signature for the purposes of validation
+        byte[] signature = new byte[32];
+        new Random().nextBytes(signature);
+
         // Create a patch from the two paths
-        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, new byte[16]);
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, signature);
         patch.create();
         Path patchPath = patch.getFinalPath();
         assertTrue(Files.exists(patchPath));
@@ -205,9 +213,9 @@ public class ArbitraryDataMergeTests extends Common {
         assertFalse(Arrays.equals(patchDigest, file1Digest));
 
         // Now merge the patch with the original path
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(tempDir1, patchPath);
-        merge.compute();
-        Path finalPath = merge.getMergePath();
+        ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
+        combiner.combine();
+        Path finalPath = combiner.getFinalPath();
 
         // Check that the directory digests match
         ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(tempDir2);
@@ -252,8 +260,12 @@ public class ArbitraryDataMergeTests extends Common {
         assertTrue(Files.exists(file1.toPath()));
         assertTrue(Files.exists(file2.toPath()));
 
+        // Generate random signature for the purposes of validation
+        byte[] signature = new byte[32];
+        new Random().nextBytes(signature);
+
         // Create a patch from the two paths
-        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, new byte[16]);
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, signature);
         patch.create();
         Path patchPath = patch.getFinalPath();
         assertTrue(Files.exists(patchPath));
@@ -268,9 +280,9 @@ public class ArbitraryDataMergeTests extends Common {
         assertFalse(Arrays.equals(patchDigest, file2Digest));
 
         // Now merge the patch with the original path
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(tempDir1, patchPath);
-        merge.compute();
-        Path finalPath = merge.getMergePath();
+        ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
+        combiner.combine();
+        Path finalPath = combiner.getFinalPath();
 
         // Check that the directory digests match
         ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(tempDir2);
@@ -318,8 +330,12 @@ public class ArbitraryDataMergeTests extends Common {
         assertTrue(Files.exists(file1.toPath()));
         assertTrue(Files.exists(file2.toPath()));
 
+        // Generate random signature for the purposes of validation
+        byte[] signature = new byte[32];
+        new Random().nextBytes(signature);
+
         // Create a patch from the two paths
-        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, new byte[16]);
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, signature);
         patch.create();
         Path patchPath = patch.getFinalPath();
         assertTrue(Files.exists(patchPath));
@@ -337,9 +353,9 @@ public class ArbitraryDataMergeTests extends Common {
         assertFalse(Arrays.equals(patchDigest, file1Digest));
 
         // Now merge the patch with the original path
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(tempDir1, patchPath);
-        merge.compute();
-        Path finalPath = merge.getMergePath();
+        ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
+        combiner.combine();
+        Path finalPath = combiner.getFinalPath();
 
         // Check that the directory digests match
         ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(tempDir2);
@@ -385,8 +401,12 @@ public class ArbitraryDataMergeTests extends Common {
         assertTrue(Files.exists(file1.toPath()));
         assertTrue(Files.exists(file2.toPath()));
 
+        // Generate random signature for the purposes of validation
+        byte[] signature = new byte[32];
+        new Random().nextBytes(signature);
+
         // Create a patch from the two paths
-        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, new byte[16]);
+        ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(tempDir1, tempDir2, signature);
         patch.create();
         Path patchPath = patch.getFinalPath();
         assertTrue(Files.exists(patchPath));
@@ -404,9 +424,9 @@ public class ArbitraryDataMergeTests extends Common {
         assertFalse(Arrays.equals(patchDigest, file1Digest));
 
         // Now merge the patch with the original path
-        ArbitraryDataMerge merge = new ArbitraryDataMerge(tempDir1, patchPath);
-        merge.compute();
-        Path finalPath = merge.getMergePath();
+        ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
+        combiner.combine();
+        Path finalPath = combiner.getFinalPath();
 
         // Check that the directory digests match
         ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(tempDir2);

@@ -65,6 +65,7 @@ public class ArbitraryDataDiff {
     private Path pathAfter;
     private byte[] previousSignature;
     private byte[] previousHash;
+    private byte[] currentHash;
     private Path diffPath;
     private String identifier;
 
@@ -92,6 +93,7 @@ public class ArbitraryDataDiff {
             this.findAddedOrModifiedFiles();
             this.findRemovedFiles();
             this.validate();
+            this.hashCurrentState();
             this.writeMetadata();
 
         } finally {
@@ -272,6 +274,12 @@ public class ArbitraryDataDiff {
         }
     }
 
+    private void hashCurrentState() throws IOException {
+        ArbitraryDataDigest digest = new ArbitraryDataDigest(this.pathAfter);
+        digest.compute();
+        this.currentHash = digest.getHash();
+    }
+
     private void writeMetadata() throws IOException {
         ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.diffPath);
         metadata.setAddedPaths(this.addedPaths);
@@ -279,6 +287,7 @@ public class ArbitraryDataDiff {
         metadata.setRemovedPaths(this.removedPaths);
         metadata.setPreviousSignature(this.previousSignature);
         metadata.setPreviousHash(this.previousHash);
+        metadata.setCurrentHash(this.currentHash);
         metadata.write();
     }
 

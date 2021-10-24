@@ -23,6 +23,7 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
     private List<Path> removedPaths;
     private byte[] previousSignature;
     private byte[] previousHash;
+    private byte[] currentHash;
 
     public ArbitraryDataMetadataPatch(Path filePath) {
         super(filePath);
@@ -54,6 +55,12 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
             String prevHash = patch.getString("prevHash");
             if (prevHash != null) {
                 this.previousHash = Base58.decode(prevHash);
+            }
+        }
+        if (patch.has("curHash")) {
+            String curHash = patch.getString("curHash");
+            if (curHash != null) {
+                this.currentHash = Base58.decode(curHash);
             }
         }
         if (patch.has("added")) {
@@ -101,6 +108,7 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
 
         patch.put("prevSig", Base58.encode(this.previousSignature));
         patch.put("prevHash", Base58.encode(this.previousHash));
+        patch.put("curHash", Base58.encode(this.currentHash));
         patch.put("added", new JSONArray(this.addedPaths));
         patch.put("removed", new JSONArray(this.removedPaths));
 
@@ -155,6 +163,14 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
 
     public byte[] getPreviousHash() {
         return this.previousHash;
+    }
+
+    public void setCurrentHash(byte[] currentHash) {
+        this.currentHash = currentHash;
+    }
+
+    public byte[] getCurrentHash() {
+        return this.currentHash;
     }
 
 }

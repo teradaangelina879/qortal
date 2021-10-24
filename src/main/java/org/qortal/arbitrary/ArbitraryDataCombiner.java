@@ -24,7 +24,7 @@ public class ArbitraryDataCombiner {
     private Path pathAfter;
     private byte[] signatureBefore;
     private Path finalPath;
-    ArbitraryDataMetadataPatch metadata;
+    private ArbitraryDataMetadataPatch metadata;
 
     public ArbitraryDataCombiner(Path pathBefore, Path pathAfter, byte[] signatureBefore) {
         this.pathBefore = pathBefore;
@@ -39,6 +39,7 @@ public class ArbitraryDataCombiner {
             this.validatePreviousSignature();
             this.validatePreviousHash();
             this.process();
+            this.validateCurrentHash();
 
         } finally {
             this.postExecute();
@@ -130,6 +131,22 @@ public class ArbitraryDataCombiner {
         ArbitraryDataMerge merge = new ArbitraryDataMerge(this.pathBefore, this.pathAfter);
         merge.compute();
         this.finalPath = merge.getMergePath();
+    }
+
+    private void validateCurrentHash() throws IOException {
+        byte[] currentHash = this.metadata.getCurrentHash();
+        if (currentHash == null) {
+            throw new IllegalStateException("Unable to extract current hash from patch metadata");
+        }
+
+        ArbitraryDataDigest digest = new ArbitraryDataDigest(this.finalPath);
+        digest.compute();
+        boolean valid = digest.isHashValid(currentHash);
+        if (!valid) {
+            String currentHash58 = Base58.encode(currentHash);
+            throw new InvalidObjectException(String.format("Current state hash mismatch. " +
+                    "Patch curHash: %s, actual: %s", currentHash58, digest.getHash58()));
+        }
     }
 
     public Path getFinalPath() {
