@@ -31,6 +31,7 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.HTMLParser;
 import org.qortal.api.Security;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
+import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
@@ -38,6 +39,8 @@ import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.ArbitraryDataWriter;
+import org.qortal.transform.TransformationException;
+import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.utils.Base58;
 
 
@@ -93,10 +96,10 @@ public class WebsiteResource {
                     publicKey58, Paths.get(path), name, Method.valueOf(methodString), Service.WEBSITE
             );
 
-            byte[] bytes = transactionBuilder.build();
-            return Base58.encode(bytes);
+            ArbitraryTransactionData transactionData = transactionBuilder.build();
+            return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
 
-        } catch (DataException e) {
+        } catch (DataException | TransformationException e) {
             throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
         }
     }

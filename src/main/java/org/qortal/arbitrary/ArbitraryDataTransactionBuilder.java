@@ -44,7 +44,7 @@ public class ArbitraryDataTransactionBuilder {
         this.service = service;
     }
 
-    public byte[] build() throws DataException {
+    public ArbitraryTransactionData build() throws DataException {
         ArbitraryDataFile arbitraryDataFile = null;
         try (final Repository repository = RepositoryManager.getRepository()) {
 
@@ -109,11 +109,11 @@ public class ArbitraryDataTransactionBuilder {
                 throw new DataException(String.format("Arbitrary transaction invalid: %s", result));
             }
 
-            return ArbitraryTransactionTransformer.toBytes(transactionData);
+            return transactionData;
 
-        } catch (TransformationException | DataException e) {
+        } catch (DataException e) {
             arbitraryDataFile.deleteAll();
-            throw new DataException(String.format("Unable to build ARBITRARY transaction: %s", e.getMessage()));
+            throw(e);
         }
 
     }

@@ -262,10 +262,10 @@ public class ArbitraryResource {
 					publicKey58, Paths.get(path), name, Method.valueOf(methodString), Service.ARBITRARY_DATA
 			);
 
-			byte[] bytes = transactionBuilder.build();
-			return Base58.encode(bytes);
+			ArbitraryTransactionData transactionData = transactionBuilder.build();
+			return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
 
-		} catch (DataException e) {
+		} catch (DataException | TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
 		}
 	}
