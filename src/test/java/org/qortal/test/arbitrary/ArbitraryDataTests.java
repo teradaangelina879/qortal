@@ -38,8 +38,8 @@ public class ArbitraryDataTests extends Common {
         try (final Repository repository = RepositoryManager.getRepository()) {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String publicKey58 = Base58.encode(alice.getPublicKey());
-            String name = "TEST";
-            Service service = Service.WEBSITE;
+            String name = "TEST"; // Can be anything for this test
+            Service service = Service.WEBSITE; // Can be anything for this test
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
@@ -72,6 +72,28 @@ public class ArbitraryDataTests extends Common {
             ArbitraryDataMetadataPatch patchMetadata = new ArbitraryDataMetadataPatch(finalPath);
             patchMetadata.read();
             assertArrayEquals(patchMetadata.getCurrentHash(), path3Digest.getHash());
+
+        }
+    }
+
+    @Test
+    public void testPatchBeforePut() throws DataException, IOException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            Service service = Service.WEBSITE; // Can be anything for this test
+
+            // Create PATCH transaction, ensuring that an exception is thrown
+            try {
+                Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
+                this.createAndMintTxn(repository, publicKey58, path1, name, Method.PATCH, service, alice);
+                fail("Creating transaction should fail due to nonexistent PUT transaction");
+
+            } catch (DataException expectedException) {
+                assertEquals(String.format("Unable to create arbitrary data file: Couldn't find PUT transaction for " +
+                        "name %s and service %s", name, service), expectedException.getMessage());
+            }
 
         }
     }
