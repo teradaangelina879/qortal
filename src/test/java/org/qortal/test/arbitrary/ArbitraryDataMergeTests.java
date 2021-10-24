@@ -68,7 +68,7 @@ public class ArbitraryDataMergeTests extends Common {
                 Crypto.digest(Paths.get(patchPath.toString(), "dir1", "dir2", "lorem5.txt").toFile())
         ));
 
-        // Ensure that the patch files 1, 4, and 5 differ from the second path
+        // Ensure that patch files 1 and 4 differ from the original files
         assertFalse(Arrays.equals(
                 Crypto.digest(Paths.get(path2.toString(), "lorem1.txt").toFile()),
                 Crypto.digest(Paths.get(patchPath.toString(), "lorem1.txt").toFile())
