@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.repository.DataException;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
 
@@ -113,7 +114,7 @@ public class ArbitraryDataCombiner {
     }
 
     private void validatePreviousHash() throws IOException {
-        if (!this.shouldValidateHashes) {
+        if (!Settings.getInstance().shouldValidateAllDataLayers()) {
             return;
         }
 
