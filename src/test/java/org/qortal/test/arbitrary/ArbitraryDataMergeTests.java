@@ -79,7 +79,7 @@ public class ArbitraryDataMergeTests extends Common {
         ));
 
         // Files 2 and 5 should match the original files, because their contents were
-        // too small to create a patch file smaller than to original file
+        // too small to create a patch file smaller than the original file
         assertArrayEquals(
                 Crypto.digest(Paths.get(path2.toString(), "lorem2.txt").toFile()),
                 Crypto.digest(Paths.get(patchPath.toString(), "lorem2.txt").toFile())
