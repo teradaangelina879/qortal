@@ -91,7 +91,8 @@ public class UnifiedDiffPatch {
     }
 
     /**
-     * Validate the patch to ensure it works correctly
+     * Validate the patch at the "destination" path to ensure
+     * it works correctly and is smaller than the original file
      *
      * @return true if valid, false if invalid
      * @throws IOException
@@ -110,8 +111,13 @@ public class UnifiedDiffPatch {
             byte[] inputDigest = Crypto.digest(after.toFile());
             byte[] outputDigest = Crypto.digest(tempPath.toFile());
             if (Arrays.equals(inputDigest, outputDigest)) {
-                // Patch is valid
-                return true;
+                // Patch is valid, but we might want to reject if it's larger than the original file
+                long originalSize = Files.size(after);
+                long patchSize = Files.size(destination);
+                if (patchSize < originalSize) {
+                    // Patch file is smaller than the original file size, so treat it as valid
+                    return true;
+                }
             }
             else {
                 LOGGER.info("Checksum mismatch when verifying patch for file {}", destination.toString());

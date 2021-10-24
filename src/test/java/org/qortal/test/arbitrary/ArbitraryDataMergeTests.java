@@ -68,23 +68,26 @@ public class ArbitraryDataMergeTests extends Common {
                 Crypto.digest(Paths.get(patchPath.toString(), "dir1", "dir2", "lorem5.txt").toFile())
         ));
 
-        // Ensure that the patch files differ from the second path (except for lorem3, which is missing)
+        // Ensure that the patch files 1, 4, and 5 differ from the second path
         assertFalse(Arrays.equals(
                 Crypto.digest(Paths.get(path2.toString(), "lorem1.txt").toFile()),
                 Crypto.digest(Paths.get(patchPath.toString(), "lorem1.txt").toFile())
         ));
         assertFalse(Arrays.equals(
-                Crypto.digest(Paths.get(path2.toString(), "lorem2.txt").toFile()),
-                Crypto.digest(Paths.get(patchPath.toString(), "lorem2.txt").toFile())
-        ));
-        assertFalse(Arrays.equals(
                 Crypto.digest(Paths.get(path2.toString(), "dir1", "lorem4.txt").toFile()),
                 Crypto.digest(Paths.get(patchPath.toString(), "dir1", "lorem4.txt").toFile())
         ));
-        assertFalse(Arrays.equals(
+
+        // Files 2 and 5 should match the original files, because their contents were
+        // too small to create a patch file smaller than to original file
+        assertArrayEquals(
+                Crypto.digest(Paths.get(path2.toString(), "lorem2.txt").toFile()),
+                Crypto.digest(Paths.get(patchPath.toString(), "lorem2.txt").toFile())
+        );
+        assertArrayEquals(
                 Crypto.digest(Paths.get(path2.toString(), "dir1", "dir2", "lorem5.txt").toFile()),
                 Crypto.digest(Paths.get(patchPath.toString(), "dir1", "dir2", "lorem5.txt").toFile())
-        ));
+        );
 
         // Now merge the patch with the original path
         ArbitraryDataMerge merge = new ArbitraryDataMerge(path1, patchPath);
@@ -227,6 +230,8 @@ public class ArbitraryDataMergeTests extends Common {
         // Write a random string to the first file
         BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
         String initialString = this.generateRandomString(1024);
+        // Add a newline every 50 chars
+        initialString = initialString.replaceAll("(.{50})", "$1\n");
         file1Writer.write(initialString);
         file1Writer.newLine();
         file1Writer.close();
@@ -289,6 +294,10 @@ public class ArbitraryDataMergeTests extends Common {
         // Write a random string to the first file
         BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
         String initialString = this.generateRandomString(1024);
+        // Add a newline every 50 chars
+        initialString = initialString.replaceAll("(.{50})", "$1\n");
+        // Remove newline at end of string
+        initialString = initialString.stripTrailing();
         file1Writer.write(initialString);
         // No newline
         file1Writer.close();
@@ -354,6 +363,8 @@ public class ArbitraryDataMergeTests extends Common {
         // Write a random string to the first file
         BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
         String initialString = this.generateRandomString(110 * 1024);
+        // Add a newline every 50 chars
+        initialString = initialString.replaceAll("(.{50})", "$1\n");
         file1Writer.write(initialString);
         file1Writer.newLine();
         file1Writer.close();
