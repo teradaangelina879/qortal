@@ -27,6 +27,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.*;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
@@ -255,7 +256,10 @@ public class ArbitraryResource {
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public String uploadFileAtPath(@PathParam("publickey") String creatorPublicKeyBase58, String path) {
+	public String uploadFileAtPath(@PathParam("method") String methodString,
+								   @PathParam("publickey") String publicKey58,
+								   @PathParam("name") String name,
+								   String path) {
 		Security.checkApiCallAllowed(request);
 
 		// It's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -263,84 +267,16 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 		}
 
-		ArbitraryDataFile arbitraryDataFile = null;
-		try (final Repository repository = RepositoryManager.getRepository()) {
+		try {
+			ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
+					publicKey58, Paths.get(path), name, Method.valueOf(methodString), Service.ARBITRARY_DATA
+			);
 
-			if (creatorPublicKeyBase58 == null || path == null) {
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-			}
-			byte[] creatorPublicKey = Base58.decode(creatorPublicKeyBase58);
-			final String creatorAddress = Crypto.toAddress(creatorPublicKey);
-			byte[] lastReference = repository.getAccountRepository().getLastReference(creatorAddress);
-			if (lastReference == null) {
-				// Use a random last reference on the very first transaction for an account
-				// Code copied from CrossChainResource.buildAtMessage()
-				// We already require PoW on all arbitrary transactions, so no additional logic is needed
-				Random random = new Random();
-				lastReference = new byte[Transformer.SIGNATURE_LENGTH];
-				random.nextBytes(lastReference);
-			}
-
-			String name = null;
-			byte[] secret = null;
-			Method method = Method.PUT;
-			Service service = Service.ARBITRARY_DATA;
-			Compression compression = Compression.NONE;
-
-			ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(path), name, service, method, compression);
-			try {
-				arbitraryDataWriter.save();
-			} catch (IOException | DataException | InterruptedException e) {
-				LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-			} catch (RuntimeException e) {
-				LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-			}
-
-			String digest58 = arbitraryDataFile.digest58();
-			if (digest58 == null) {
-				LOGGER.error("Unable to calculate digest");
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-			}
-
-			final BaseTransactionData baseTransactionData = new BaseTransactionData(NTP.getTime(), Group.NO_GROUP,
-					lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
-			final int size = (int) arbitraryDataFile.size();
-			final int version = 5;
-			final int nonce = 0;
-			final ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
-			final byte[] digest = arbitraryDataFile.digest();
-			final byte[] chunkHashes = arbitraryDataFile.chunkHashes();
-			final List<PaymentData> payments = new ArrayList<>();
-
-			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-					version, service, nonce, size, name, method,
-					secret, compression, digest, dataType, chunkHashes, payments);
-
-			ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
-			transaction.computeNonce();
-
-			Transaction.ValidationResult result = transaction.isValidUnconfirmed();
-			if (result != Transaction.ValidationResult.OK) {
-				arbitraryDataFile.deleteAll();
-				throw TransactionsResource.createTransactionInvalidException(request, result);
-			}
-
-			byte[] bytes = ArbitraryTransactionTransformer.toBytes(transactionData);
+			byte[] bytes = transactionBuilder.build();
 			return Base58.encode(bytes);
 
 		} catch (DataException e) {
-			arbitraryDataFile.deleteAll();
-			LOGGER.error("Repository issue when uploading data", e);
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		} catch (TransformationException e) {
-			arbitraryDataFile.deleteAll();
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
-		} catch (IllegalStateException e) {
-			arbitraryDataFile.deleteAll();
-			LOGGER.error("Invalid upload data", e);
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
 		}
 	}
 
