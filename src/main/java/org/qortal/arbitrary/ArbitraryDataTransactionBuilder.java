@@ -112,7 +112,9 @@ public class ArbitraryDataTransactionBuilder {
             return transactionData;
 
         } catch (DataException e) {
-            arbitraryDataFile.deleteAll();
+            if (arbitraryDataFile != null) {
+                arbitraryDataFile.deleteAll();
+            }
             throw(e);
         }
 
