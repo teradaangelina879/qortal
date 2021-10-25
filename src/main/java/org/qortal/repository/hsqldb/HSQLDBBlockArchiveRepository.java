@@ -104,6 +104,20 @@ public class HSQLDBBlockArchiveRepository implements BlockArchiveRepository {
     }
 
     @Override
+    public long getTimestampFromHeight(int height) throws DataException {
+        String sql = "SELECT minted_when FROM BlockArchive WHERE height = ?";
+
+        try (ResultSet resultSet = this.repository.checkedExecute(sql, height)) {
+            if (resultSet == null)
+                return 0;
+
+            return resultSet.getLong(1);
+        } catch (SQLException e) {
+            throw new DataException("Error obtaining block timestamp by height from BlockArchive repository", e);
+        }
+    }
+
+    @Override
     public List<BlockSummaryData> getBlockSummariesBySigner(byte[] signerPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
         StringBuilder sql = new StringBuilder(512);
         sql.append("SELECT signature, height, BlockArchive.minter FROM ");

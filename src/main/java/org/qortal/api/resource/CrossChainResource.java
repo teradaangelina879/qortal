@@ -195,6 +195,10 @@ public class CrossChainResource {
 
 			if (minimumTimestamp != null) {
 				minimumFinalHeight = repository.getBlockRepository().getHeightFromTimestamp(minimumTimestamp);
+				if (minimumFinalHeight == 0) {
+					// Try the archive
+					minimumFinalHeight = repository.getBlockArchiveRepository().getHeightFromTimestamp(minimumTimestamp);
+				}
 
 				if (minimumFinalHeight == 0)
 					// We don't have any blocks since minimumTimestamp, let alone trades, so nothing to return
@@ -222,6 +226,10 @@ public class CrossChainResource {
 
 					// We also need block timestamp for use as trade timestamp
 					long timestamp = repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
+					if (timestamp == 0) {
+						// Try the archive
+						timestamp = repository.getBlockArchiveRepository().getTimestampFromHeight(atState.getHeight());
+					}
 
 					CrossChainTradeSummary crossChainTradeSummary = new CrossChainTradeSummary(crossChainTradeData, timestamp);
 					crossChainTrades.add(crossChainTradeSummary);
@@ -260,7 +268,12 @@ public class CrossChainResource {
 					description = "Maximum number of trades to include in price calculation",
 					example = "10",
 					schema = @Schema(type = "integer", defaultValue = "10")
-			) @QueryParam("maxtrades") Integer maxtrades) {
+			) @QueryParam("maxtrades") Integer maxtrades,
+			@Parameter(
+					description = "Display price in terms of foreign currency per unit QORT",
+					example = "false",
+					schema = @Schema(type = "boolean", defaultValue = "false")
+			) @QueryParam("inverse") Boolean inverse) {
 		// foreignBlockchain is required
 		if (foreignBlockchain == null)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
@@ -291,7 +304,7 @@ public class CrossChainResource {
 				}
 			}
 
-			return Amounts.scaledDivide(totalQort, totalForeign);
+			return inverse ? Amounts.scaledDivide(totalForeign, totalQort) : Amounts.scaledDivide(totalQort, totalForeign);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
