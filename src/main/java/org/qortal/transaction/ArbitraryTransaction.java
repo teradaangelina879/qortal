@@ -2,12 +2,14 @@ package org.qortal.transaction;
 
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.qortal.account.Account;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
+import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.payment.Payment;
@@ -144,6 +146,21 @@ public class ArbitraryTransaction extends Transaction {
 				if (arbitraryTransactionData.getSize() > ArbitraryDataFile.MAX_FILE_SIZE) {
 					return ValidationResult.INVALID_DATA_LENGTH;
 				}
+			}
+		}
+
+		// Check name if one has been included
+		if (arbitraryTransactionData.getName() != null) {
+			NameData nameData = this.repository.getNameRepository().fromName(arbitraryTransactionData.getName());
+
+			// Check the name is registered
+			if (nameData == null) {
+				return ValidationResult.NAME_DOES_NOT_EXIST;
+			}
+
+			// Check that the transaction signer owns the name
+			if (!Objects.equals(this.getCreator().getAddress(), nameData.getOwner())) {
+				return ValidationResult.INVALID_NAME_OWNER;
 			}
 		}
 

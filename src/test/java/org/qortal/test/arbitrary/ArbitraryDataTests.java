@@ -10,12 +10,14 @@ import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
+import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
+import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 
@@ -40,6 +42,10 @@ public class ArbitraryDataTests extends Common {
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
             Service service = Service.WEBSITE; // Can be anything for this test
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
@@ -95,6 +101,59 @@ public class ArbitraryDataTests extends Common {
                         "name %s and service %s", name, service), expectedException.getMessage());
             }
 
+        }
+    }
+
+    @Test
+    public void testNameDoesNotExist() throws DataException, IOException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            Service service = Service.WEBSITE; // Can be anything for this test
+
+            // Ensure the name doesn't exist
+            assertNull(repository.getNameRepository().fromName(name));
+
+            // Create PUT transaction, ensuring that an exception is thrown
+            try {
+                Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
+                this.createAndMintTxn(repository, publicKey58, path1, name, Method.PUT, service, alice);
+                fail("Creating transaction should fail due to the name being unregistered");
+
+            } catch (DataException expectedException) {
+                assertEquals("Arbitrary transaction invalid: NAME_DOES_NOT_EXIST", expectedException.getMessage());
+            }
+        }
+    }
+
+    @Test
+    public void testUpdateResourceOwnedByAnotherCreator() throws DataException, IOException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String name = "TEST"; // Can be anything for this test
+            Service service = Service.WEBSITE; // Can be anything for this test
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
+            this.createAndMintTxn(repository, Base58.encode(alice.getPublicKey()), path1, name, Method.PUT, service, alice);
+
+            // Bob attempts to update Alice's data
+            PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
+
+            // Create PATCH transaction, ensuring that an exception is thrown
+            try {
+                Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
+                this.createAndMintTxn(repository, Base58.encode(bob.getPublicKey()), path2, name, Method.PATCH, service, bob);
+                fail("Creating transaction should fail due to the name being registered to Alice instead of Bob");
+
+            } catch (DataException expectedException) {
+                assertEquals("Arbitrary transaction invalid: INVALID_NAME_OWNER", expectedException.getMessage());
+            }
         }
     }
 
