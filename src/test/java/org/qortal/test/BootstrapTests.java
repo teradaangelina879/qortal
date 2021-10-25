@@ -208,8 +208,11 @@ public class BootstrapTests extends Common {
 
     private void deleteBootstraps() throws IOException {
         try {
-            Path path = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap-archive.7z"));
-            Files.delete(path);
+            Path archivePath = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap-archive.7z"));
+            Files.delete(archivePath);
+
+            Path sha256Path = Paths.get(String.format("%s%s", Settings.getInstance().getBootstrapFilenamePrefix(), "bootstrap-archive.7z.sha256"));
+            Files.delete(sha256Path);
 
         } catch (NoSuchFileException e) {
             // Nothing to delete
