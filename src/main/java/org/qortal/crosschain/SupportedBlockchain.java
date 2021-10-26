@@ -28,7 +28,8 @@ public enum SupportedBlockchain {
 	},
 
 	LITECOIN(Arrays.asList(
-			Triple.valueOf(LitecoinACCTv1.NAME, LitecoinACCTv1.CODE_BYTES_HASH, LitecoinACCTv1::getInstance)
+			Triple.valueOf(LitecoinACCTv1.NAME, LitecoinACCTv1.CODE_BYTES_HASH, LitecoinACCTv1::getInstance),
+			Triple.valueOf(LitecoinACCTv2.NAME, LitecoinACCTv2.CODE_BYTES_HASH, LitecoinACCTv2::getInstance)
 		)) {
 		@Override
 		public ForeignBlockchain getInstance() {
@@ -37,7 +38,7 @@ public enum SupportedBlockchain {
 
 		@Override
 		public ACCT getLatestAcct() {
-			return LitecoinACCTv1.getInstance();
+			return LitecoinACCTv2.getInstance();
 		}
 	},
 
