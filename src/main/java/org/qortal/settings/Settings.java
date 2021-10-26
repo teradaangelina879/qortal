@@ -205,6 +205,7 @@ public class Settings {
 	// Bootstrap sources
 	private String[] bootstrapHosts = new String[] {
 			"http://bootstrap.qortal.org",
+			"http://bootstrap2.qortal.org",
 			"http://cinfu1.crowetic.com"
 	};
 
