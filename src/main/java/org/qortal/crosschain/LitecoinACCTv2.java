@@ -84,7 +84,7 @@ import static org.ciyam.at.OpCode.calcOffset;
 public class LitecoinACCTv2 implements ACCT {
 
 	public static final String NAME = LitecoinACCTv2.class.getSimpleName();
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("0fb15ad9ad1867dfbcafa51155481aa15d984ff9506f2b428eca4e2a2feac2b3").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("d5ea386a41441180c854ca8d7bbc620bfd53a97df2650a2b162b52324caf6e19").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;
 
@@ -349,6 +349,9 @@ public class LitecoinACCTv2 implements ACCT {
 				/* Transaction processing loop */
 				labelTradeTxnLoop = codeByteBuffer.position();
 
+				/* Sleep until message arrives */
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.SLEEP_UNTIL_MESSAGE.value, addrLastTxnTimestamp));
+
 				// Find next transaction (if any) to this AT since the last one (referenced by addrLastTxnTimestamp)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));
 				// If no transaction found, A will be zero. If A is zero, set addrResult to 1, otherwise 0.
@@ -454,6 +457,9 @@ public class LitecoinACCTv2 implements ACCT {
 
 				/* Transaction processing loop */
 				labelRedeemTxnLoop = codeByteBuffer.position();
+
+				/* Sleep until message arrives */
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.SLEEP_UNTIL_MESSAGE.value, addrLastTxnTimestamp));
 
 				// Find next transaction to this AT since the last one (if any)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));
