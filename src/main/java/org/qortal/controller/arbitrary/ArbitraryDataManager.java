@@ -559,14 +559,14 @@ public class ArbitraryDataManager extends Thread {
 			LOGGER.error(String.format("Repository issue while finding arbitrary transaction data list for peer %s", peer), e);
 		}
 
-		// Forwarding (not yet used)
-		Peer requestingPeer = request.getB();
-		if (requestingPeer != null) {
-			// Forward to requesting peer;
-			if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
-				requestingPeer.disconnect("failed to forward arbitrary data file list");
-			}
-		}
+//		// Forwarding (not yet used)
+//		Peer requestingPeer = request.getB();
+//		if (requestingPeer != null) {
+//			// Forward to requesting peer;
+//			if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
+//				requestingPeer.disconnect("failed to forward arbitrary data file list");
+//			}
+//		}
 	}
 
 	public void onNetworkGetArbitraryDataFileMessage(Peer peer, Message message) {
