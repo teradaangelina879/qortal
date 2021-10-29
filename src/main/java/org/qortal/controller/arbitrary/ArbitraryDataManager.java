@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.ArbitraryDataBuildQueueItem;
 import org.qortal.controller.Controller;
+import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
@@ -544,15 +545,21 @@ public class ArbitraryDataManager extends Thread {
 				}
 			}
 
-			// If we have all the chunks for this transaction's name, we should invalidate the data cache
-			// so that it is rebuilt the next time we serve it
+			// Check if we have all the chunks for this transaction
 			if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(arbitraryTransactionData.getChunkHashes())) {
+
+				// We have all the chunks for this transaction, so we should invalidate the transaction's name's
+				// data cache so that it is rebuilt the next time we serve it
 				if (arbitraryTransactionData.getName() != null) {
 					String resourceId = arbitraryTransactionData.getName().toLowerCase();
 					if (this.arbitraryDataCachedResources.containsKey(resourceId)) {
 						this.arbitraryDataCachedResources.remove(resourceId);
 					}
 				}
+
+				// We also need to broadcast to the network that we are now hosting files for this transaction
+				Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(Arrays.asList(signature));
+				Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
 			}
 
 		} catch (DataException | InterruptedException e) {
@@ -655,6 +662,30 @@ public class ArbitraryDataManager extends Thread {
 			peer.disconnect("failed to send list of hashes");
 		}
 		LOGGER.info("Sent list of hashes (count: {})", hashes.size());
+	}
+
+	public void onNetworkArbitrarySignaturesMessage(Peer peer, Message message) {
+		LOGGER.info("Received arbitrary signature list from peer {}", peer);
+		ArbitrarySignaturesMessage arbitrarySignaturesMessage = (ArbitrarySignaturesMessage) message;
+		List<byte[]> signatures = arbitrarySignaturesMessage.getSignatures();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (byte[] signature : signatures) {
+
+				// Check if a record already exists for this hash/peer combination
+				ArbitraryPeerData existingEntry = repository.getArbitraryRepository()
+						.getArbitraryPeerDataForSignatureAndPeer(signature, peer.getPeerData().getAddress().toString());
+
+				if (existingEntry == null) {
+					// We haven't got a record of this mapping yet, so add it
+					LOGGER.info("Adding arbitrary peer: {} for signature {}", peer.getPeerData().getAddress().toString(), Base58.encode(signature));
+					ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
+					repository.getArbitraryRepository().save(arbitraryPeerData);
+				}
+			}
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while processing arbitrary transaction signature list from peer %s", peer), e);
+		}
 	}
 
 }

@@ -922,6 +922,24 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
 					break;
 
+				case 39:
+					// Add DHT-style lookup table to track file locations
+					// This maps ARBITRARY transactions to peer addresses, but also includes additional metadata to
+					// track the local success rate and reachability. It is keyed by a "hash" column, to keep it
+					// generic, as this way we aren't limited to transaction signatures only.
+					// Multiple rows with the same hash are allowed, to allow for metadata. Longer term it could be
+					// reshaped to one row per hash if this is too verbose.
+					// Transaction signatures are hashed to 32 bytes using SHA256. In doing this we lose the ability
+					// to join against transaction tables, but on balance the space savings seem more important.
+					stmt.execute("CREATE TABLE ArbitraryPeers (hash VARBINARY(32) NOT NULL, "
+							+ "peer_address VARCHAR(255), successes INTEGER NOT NULL, failures INTEGER NOT NULL, "
+							+ "last_attempted EpochMillis NOT NULL, last_retrieved EpochMillis NOT NULL, "
+							+ "PRIMARY KEY (hash, peer_address))");
+
+					// For finding peers by data hash
+					stmt.execute("CREATE INDEX ArbitraryPeersHashIndex ON ArbitraryPeers (hash)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

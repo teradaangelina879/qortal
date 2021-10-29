@@ -1408,6 +1408,10 @@ public class Controller extends Thread {
 				ArbitraryDataManager.getInstance().onNetworkGetArbitraryDataFileListMessage(peer, message);
 				break;
 
+			case ARBITRARY_SIGNATURES:
+				ArbitraryDataManager.getInstance().onNetworkArbitrarySignaturesMessage(peer, message);
+				break;
+
 			default:
 				LOGGER.debug(() -> String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
