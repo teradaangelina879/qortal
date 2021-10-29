@@ -59,6 +59,7 @@ if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
     echo "Transaction broadcast successfully"
   else
     echo "Error when broadcasting transaction. Please try again."
+    echo "Response: ${success}"
   fi
 
 elif [[ "${method}" == "GET" ]]; then
