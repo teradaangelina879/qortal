@@ -108,6 +108,7 @@ public class ArbitraryDataTransactionBuilder {
                 arbitraryDataFile.deleteAll();
                 throw new DataException(String.format("Arbitrary transaction invalid: %s", result));
             }
+            LOGGER.info("Transaction is valid");
 
             return transactionData;
 
