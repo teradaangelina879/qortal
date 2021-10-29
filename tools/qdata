@@ -8,10 +8,10 @@ if [ -z "$*" ]; then
 	echo "Usage:"
 	echo
 	echo "Host/update data:"
-	echo "qdata [PUT/PATCH] [service] [name] [directory] [privkey]"
+	echo "qdata [PUT/PATCH] [service] [name] [dirpath]"
 	echo
 	echo "Fetch data:"
-	echo "qdata GET [service] [name] [filename] <rebuild>"
+	echo "qdata GET [service] [name] [filepath] <rebuild>"
 	echo
 	exit
 fi
@@ -63,11 +63,11 @@ if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
   fi
 
 elif [[ "${method}" == "GET" ]]; then
-  filename=$4
+  filepath=$4
   rebuild=$5
 
-  if [ -z "${filename}" ]; then
-    filename="index.html"
+  if [ -z "${filepath}" ]; then
+    echo "Error: missing filepath. Please supply the relative path to a file within the data structure."; exit
   fi
 
   if [ -z "${rebuild}" ]; then
@@ -80,10 +80,10 @@ elif [[ "${method}" == "GET" ]]; then
   fi
 
   # Parse the successful response
-  output_path="${response}/${filename}"
+  output_path="${response}/${filepath}"
   if [ ! -f "${output_path}" ] && [ ! -d "${output_path}" ]; then
     echo "Error: file not found at path: ${output_path}"
-    echo "Please ensure you have supplied a valid filename. The default is: index.html"
+    echo "Please ensure you have supplied a valid filepath."
     exit
   fi
 
