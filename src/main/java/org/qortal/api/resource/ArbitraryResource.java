@@ -27,6 +27,8 @@ import org.qortal.api.*;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
+import org.qortal.data.account.AccountData;
+import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.TransactionData;
@@ -256,7 +258,7 @@ public class ArbitraryResource {
 	}
 
 	@PUT
-	@Path("/{service}/{name}/{publickey}")
+	@Path("/{service}/{name}")
 	@Operation(
 			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path, using the PUT method",
 			description = "A PUT transaction replaces the data held for this name and service in its entirety.",
@@ -283,15 +285,14 @@ public class ArbitraryResource {
 	)
 	public String put(@PathParam("service") String serviceString,
 					  @PathParam("name") String name,
-					  @PathParam("publickey") String publicKey58,
 					  String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Method.PUT, Service.valueOf(serviceString), publicKey58, name, path);
+		return this.upload(Method.PUT, Service.valueOf(serviceString), name, path);
 	}
 
 	@PATCH
-	@Path("/{service}/{name}/{publickey}")
+	@Path("/{service}/{name}")
 	@Operation(
 			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path, using the PATCH method",
 			description = "A PATCH transaction calculates the delta between the current state on the on-chain state, " +
@@ -319,29 +320,47 @@ public class ArbitraryResource {
 	)
 	public String patch(@PathParam("service") String serviceString,
 					  	@PathParam("name") String name,
-					  	@PathParam("publickey") String publicKey58,
 					  	String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Method.PATCH, Service.valueOf(serviceString), publicKey58, name, path);
+		return this.upload(Method.PATCH, Service.valueOf(serviceString), name, path);
 	}
 
-	private String upload(Method method, Service service, String publicKey58, String name, String path) {
+	private String upload(Method method, Service service, String name, String path) {
 		// It's too dangerous to allow user-supplied file paths in weaker security contexts
 		if (Settings.getInstance().isApiRestricted()) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 		}
 
-		try {
-			ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
-					publicKey58, Paths.get(path), name, method, service
-			);
+		// Fetch public key from registered name
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			NameData nameData = repository.getNameRepository().fromName(name);
+			if (nameData == null) {
+				String error = String.format("Name not registered: %s", name);
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, error);
+			}
 
-			ArbitraryTransactionData transactionData = transactionBuilder.build();
-			return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
+			AccountData accountData = repository.getAccountRepository().getAccount(nameData.getOwner());
+			if (accountData == null) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+			}
+			byte[] publicKey = accountData.getPublicKey();
+			String publicKey58 = Base58.encode(publicKey);
 
-		} catch (DataException | TransformationException e) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
+			try {
+				ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
+						publicKey58, Paths.get(path), name, method, service
+				);
+
+				ArbitraryTransactionData transactionData = transactionBuilder.build();
+				return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
+
+			} catch (DataException | TransformationException e) {
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
+			}
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
 		}
 	}
 

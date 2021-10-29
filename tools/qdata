@@ -35,20 +35,15 @@ if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
   directory=$4
   private_key=$5
 
-  public_key=$(curl --silent --url "http://localhost:${port}/utils/publickey" --data "${private_key}")
-
   if [ -z "${directory}" ]; then
     echo "Error: missing directory"; exit
   fi
   if [ -z "${private_key}" ]; then
     echo "Error: missing private_key"; exit
   fi
-  if [ -z "${public_key}" ]; then
-    echo "Error: unable to convert private key to public key"; exit
-  fi
 
   echo "Creating transaction - this can take a while..."
-  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}/${public_key}" -d "${directory}")
+  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}" -d "${directory}")
   if [[ "${tx_data}" == *"error"* || "${tx_data}" == *"ERROR"* ]]; then
     echo "${tx_data}"; exit
   fi
