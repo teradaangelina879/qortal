@@ -75,6 +75,9 @@ elif [[ "${method}" == "GET" ]]; then
   fi
 
   response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}?rebuild=${rebuild}&filepath=${filepath}")
+  if [ -z "${response}" ]; then
+    echo "Empty response from ${host}:${port}"
+  fi
   if [[ "${response}" == *"error"* || "${response}" == *"ERROR"* ]]; then
     echo "${response}"; exit
   fi
