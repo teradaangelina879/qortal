@@ -681,8 +681,12 @@ public class ArbitraryDataManager extends Thread {
 					LOGGER.info("Adding arbitrary peer: {} for signature {}", peer.getPeerData().getAddress().toString(), Base58.encode(signature));
 					ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
 					repository.getArbitraryRepository().save(arbitraryPeerData);
+					repository.saveChanges();
 				}
 			}
+
+			// If anything needed saving, it would already have called saveChanges() above
+			repository.discardChanges();
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while processing arbitrary transaction signature list from peer %s", peer), e);
 		}
