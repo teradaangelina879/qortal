@@ -74,19 +74,11 @@ elif [[ "${method}" == "GET" ]]; then
     rebuild="false"
   fi
 
-  response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}?rebuild=${rebuild}" -H  "Content-Type: application/json" -d "{\"privateKey\":\"${private_key}\",\"transactionBytes\":\"${tx_data}\"}")
+  response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}?rebuild=${rebuild}&filepath=${filepath}")
   if [[ "${response}" == *"error"* || "${response}" == *"ERROR"* ]]; then
     echo "${response}"; exit
   fi
 
-  # Parse the successful response
-  output_path="${response}/${filepath}"
-  if [ ! -f "${output_path}" ] && [ ! -d "${output_path}" ]; then
-    echo "Error: file not found at path: ${output_path}"
-    echo "Please ensure you have supplied a valid filepath."
-    exit
-  fi
-
-  cat "${output_path}"
+  echo "${response}"
 
 fi

@@ -11,11 +11,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -59,8 +62,9 @@ public class ArbitraryResource {
 
 	private static final Logger LOGGER = LogManager.getLogger(ArbitraryResource.class);
 
-	@Context
-	HttpServletRequest request;
+	@Context HttpServletRequest request;
+	@Context HttpServletResponse response;
+	@Context ServletContext context;
 	
 	@GET
 	@Path("/search")
@@ -226,7 +230,7 @@ public class ArbitraryResource {
 	@GET
 	@Path("/{service}/{name}")
 	@Operation(
-			summary = "Fetch local file path for data with supplied service and name",
+			summary = "Fetch raw data from file with supplied service, name, and relative path",
 			description = "An optional rebuild boolean can be supplied. If true, any existing cached data will be invalidated.",
 			responses = {
 					@ApiResponse(
@@ -240,17 +244,32 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	public String get(@PathParam("service") String serviceString,
-					  @PathParam("name") String name,
-					  @QueryParam("rebuild") boolean rebuild) {
+	public HttpServletResponse get(@PathParam("service") String serviceString,
+								   @PathParam("name") String name,
+								   @QueryParam("filepath") String filepath,
+								   @QueryParam("rebuild") boolean rebuild) {
 		Security.checkApiCallAllowed(request);
+
+		if (filepath == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing filepath");
+		}
 
 		Service service = Service.valueOf(serviceString);
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service);
 		try {
 			arbitraryDataReader.loadSynchronously(rebuild);
-			return arbitraryDataReader.getFilePath().toAbsolutePath().toString();
 
+			// TODO: limit file size that can be read into memory
+			java.nio.file.Path path = Paths.get(arbitraryDataReader.getFilePath().toString(), filepath);
+			if (!Files.exists(path)) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
+			byte[] data = Files.readAllBytes(path);
+			response.setContentType(context.getMimeType(path.toString()));
+			response.setContentLength(data.length);
+			response.getOutputStream().write(data);
+
+			return response;
 		} catch (Exception e) {
 			LOGGER.info(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
