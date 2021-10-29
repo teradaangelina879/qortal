@@ -33,13 +33,12 @@ fi
 
 if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
   directory=$4
-  private_key=$5
 
   if [ -z "${directory}" ]; then
     echo "Error: missing directory"; exit
   fi
-  if [ -z "${private_key}" ]; then
-    echo "Error: missing private_key"; exit
+  if [ -z "${QORTAL_PRIVKEY}" ]; then
+    echo "Error: missing private key. Set it by running: export QORTAL_PRIVKEY=privkeyhere"; exit
   fi
 
   echo "Creating transaction - this can take a while..."
@@ -49,7 +48,7 @@ if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
   fi
 
   echo "Signing..."
-  signed_tx_data=$(curl --silent --insecure -X POST "http://${host}:${port}/transactions/sign" -H  "Content-Type: application/json" -d "{\"privateKey\":\"${private_key}\",\"transactionBytes\":\"${tx_data}\"}")
+  signed_tx_data=$(curl --silent --insecure -X POST "http://${host}:${port}/transactions/sign" -H  "Content-Type: application/json" -d "{\"privateKey\":\"${QORTAL_PRIVKEY}\",\"transactionBytes\":\"${tx_data}\"}")
   if [[ "${signed_tx_data}" == *"error"* || "${signed_tx_data}" == *"ERROR"* ]]; then
     echo "${signed_tx_data}"; exit
   fi
