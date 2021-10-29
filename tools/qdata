@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+
+# Qortal defaults
+host="localhost"
+port=12393
+
+if [ -z "$*" ]; then
+	echo "Usage:"
+	echo
+	echo "Host/update data:"
+	echo "qdata [PUT/PATCH] [service] [name] [directory] [privkey]"
+	echo
+	echo "Fetch data:"
+	echo "qdata GET [service] [name] [filename] <rebuild>"
+	echo
+	exit
+fi
+
+method=$1
+service=$2
+name=$3
+
+if [ -z "${method}" ]; then
+  echo "Error: missing method"; exit
+fi
+if [ -z "${service}" ]; then
+  echo "Error: missing service"; exit
+fi
+if [ -z "${name}" ]; then
+  echo "Error: missing name"; exit
+fi
+
+
+if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
+  directory=$4
+  private_key=$5
+
+  public_key=$(curl --silent --url "http://localhost:${port}/utils/publickey" --data "${private_key}")
+
+  if [ -z "${directory}" ]; then
+    echo "Error: missing directory"; exit
+  fi
+  if [ -z "${private_key}" ]; then
+    echo "Error: missing private_key"; exit
+  fi
+  if [ -z "${public_key}" ]; then
+    echo "Error: unable to convert private key to public key"; exit
+  fi
+
+  echo "Creating transaction - this can take a while..."
+  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}/${public_key}" -d "${directory}")
+  if [[ "${tx_data}" == *"error"* || "${tx_data}" == *"ERROR"* ]]; then
+    echo "${tx_data}"; exit
+  fi
+
+  echo "Signing..."
+  signed_tx_data=$(curl --silent --insecure -X POST "http://${host}:${port}/transactions/sign" -H  "Content-Type: application/json" -d "{\"privateKey\":\"${private_key}\",\"transactionBytes\":\"${tx_data}\"}")
+  if [[ "${signed_tx_data}" == *"error"* || "${signed_tx_data}" == *"ERROR"* ]]; then
+    echo "${signed_tx_data}"; exit
+  fi
+
+  echo "Broadcasting..."
+  success=$(curl --silent --insecure -X POST "http://${host}:${port}/transactions/process" -H  "Content-Type: text/plain" -d "${signed_tx_data}")
+  if [[ "${success}" == "true" ]]; then
+    echo "Transaction broadcast successfully"
+  else
+    echo "Error when broadcasting transaction. Please try again."
+  fi
+
+elif [[ "${method}" == "GET" ]]; then
+  filename=$4
+  rebuild=$5
+
+  if [ -z "${filename}" ]; then
+    filename="index.html"
+  fi
+
+  if [ -z "${rebuild}" ]; then
+    rebuild="false"
+  fi
+
+  response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}?rebuild=${rebuild}" -H  "Content-Type: application/json" -d "{\"privateKey\":\"${private_key}\",\"transactionBytes\":\"${tx_data}\"}")
+  if [[ "${response}" == *"error"* || "${response}" == *"ERROR"* ]]; then
+    echo "${response}"; exit
+  fi
+
+  # Parse the successful response
+  output_path="${response}/${filename}"
+  if [ ! -f "${output_path}" ] && [ ! -d "${output_path}" ]; then
+    echo "Error: file not found at path: ${output_path}"
+    echo "Please ensure you have supplied a valid filename. The default is: index.html"
+    exit
+  fi
+
+  cat "${output_path}"
+
+fi
