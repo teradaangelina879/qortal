@@ -558,7 +558,8 @@ public class ArbitraryDataManager extends Thread {
 				}
 
 				// We also need to broadcast to the network that we are now hosting files for this transaction
-				Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(Arrays.asList(signature));
+				// Use a null peer address to indicate our own
+				Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
 				Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
 			}
 
@@ -666,8 +667,17 @@ public class ArbitraryDataManager extends Thread {
 
 	public void onNetworkArbitrarySignaturesMessage(Peer peer, Message message) {
 		LOGGER.info("Received arbitrary signature list from peer {}", peer);
+
 		ArbitrarySignaturesMessage arbitrarySignaturesMessage = (ArbitrarySignaturesMessage) message;
 		List<byte[]> signatures = arbitrarySignaturesMessage.getSignatures();
+
+		String peerAddress = peer.getPeerData().getAddress().toString();
+		if (arbitrarySignaturesMessage.getPeerAddress() != null) {
+			// This message is about a different peer than the one that sent it
+			peerAddress = arbitrarySignaturesMessage.getPeerAddress();
+		}
+
+		boolean containsNewEntry = false;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			for (byte[] signature : signatures) {
@@ -678,11 +688,24 @@ public class ArbitraryDataManager extends Thread {
 
 				if (existingEntry == null) {
 					// We haven't got a record of this mapping yet, so add it
-					LOGGER.info("Adding arbitrary peer: {} for signature {}", peer.getPeerData().getAddress().toString(), Base58.encode(signature));
+					LOGGER.info("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
 					ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
 					repository.getArbitraryRepository().save(arbitraryPeerData);
 					repository.saveChanges();
+
+					// Remember that this data is new, so that it can be re-broadcast later
+					containsNewEntry = true;
 				}
+			}
+
+			// If at least one signature in this batch was new to us, we should re-broadcast the message to the
+			// network in case some peers haven't received it yet
+			if (containsNewEntry) {
+				LOGGER.info("Rebroadcasting arbitrary signature list for peer {}", peerAddress);
+				Network.getInstance().broadcast(broadcastPeer -> arbitrarySignaturesMessage);
+			}
+			else {
+				// Don't re-broadcast as otherwise we could get into a loop
 			}
 
 			// If anything needed saving, it would already have called saveChanges() above
