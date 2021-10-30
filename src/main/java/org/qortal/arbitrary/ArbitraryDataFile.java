@@ -111,8 +111,7 @@ public class ArbitraryDataFile {
         File file = path.toFile();
         if (file.exists()) {
             try {
-                byte[] fileContent = Files.readAllBytes(file.toPath());
-                byte[] digest = Crypto.digest(fileContent);
+                byte[] digest = Crypto.digest(file);
                 ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
 
                 // Copy file to data directory if needed
@@ -502,8 +501,7 @@ public class ArbitraryDataFile {
         File file = this.getFile();
         if (file != null && file.exists()) {
             try {
-                byte[] fileContent = Files.readAllBytes(file.toPath());
-                return Crypto.digest(fileContent);
+                return Crypto.digest(file);
 
             } catch (IOException e) {
                 LOGGER.error("Couldn't compute digest for ArbitraryDataFile");

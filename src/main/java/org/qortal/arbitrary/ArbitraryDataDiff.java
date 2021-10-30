@@ -350,7 +350,7 @@ public class ArbitraryDataDiff {
 
     private static byte[] digestFromPath(Path path) {
         try {
-            return Crypto.digest(Files.readAllBytes(path));
+            return Crypto.digest(path.toFile());
         } catch (IOException e) {
             return null;
         }
