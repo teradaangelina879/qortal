@@ -504,14 +504,15 @@ public class Settings {
 		return this.domainMapLoggingEnabled;
 	}
 
-	public List<DomainMap> getDomainMap() {
-		return this.domainMap;
-	}
-
 	public Map<String, String> getSimpleDomainMap() {
 		HashMap<String, String> map = new HashMap<>();
 		for (DomainMap dMap : this.domainMap) {
 			map.put(dMap.getDomain(), dMap.getName());
+
+			// If the domain doesn't include a subdomain then add a www. alternative
+			if (dMap.getDomain().chars().filter(c -> c == '.').count() == 1) {
+				map.put("www.".concat(dMap.getDomain()), dMap.getName());
+			}
 		}
 		return map;
 	}
