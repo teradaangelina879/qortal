@@ -215,7 +215,7 @@ public class WebsiteResource {
     private HttpServletResponse getDomainMap(String inPath) {
         Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
         if (domainMap != null && domainMap.containsKey(request.getServerName())) {
-            return this.get(domainMap.get(request.getServerName()), ResourceIdType.SIGNATURE, inPath, null, "", false);
+            return this.get(domainMap.get(request.getServerName()), ResourceIdType.NAME, inPath, null, "", false);
         }
         return this.getResponse(404, "Error 404: File Not Found");
     }

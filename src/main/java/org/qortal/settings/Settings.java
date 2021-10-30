@@ -270,7 +270,7 @@ public class Settings {
 	// Domain mapping
 	public static class DomainMap {
 		private String domain;
-		private String signature;
+		private String name;
 
 		private DomainMap() { // makes JAXB happy; will never be invoked
 		}
@@ -283,12 +283,12 @@ public class Settings {
 			this.domain = domain;
 		}
 
-		public String getSignature() {
-			return signature;
+		public String getName() {
+			return name;
 		}
 
-		public void setSignature(String signature) {
-			this.signature = signature;
+		public void setName(String name) {
+			this.name = name;
 		}
 	}
 
@@ -511,7 +511,7 @@ public class Settings {
 	public Map<String, String> getSimpleDomainMap() {
 		HashMap<String, String> map = new HashMap<>();
 		for (DomainMap dMap : this.domainMap) {
-			map.put(dMap.getDomain(), dMap.getSignature());
+			map.put(dMap.getDomain(), dMap.getName());
 		}
 		return map;
 	}
