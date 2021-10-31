@@ -69,6 +69,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 	public void run() {
 		Thread.currentThread().setName("Arbitrary Data Cleanup Manager");
 
+		// Keep a reference to the storage manager as we will need this a lot
+		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
+
 		// Paginate queries when fetching arbitrary transactions
 		final int limit = 100;
 		int offset = 0;
@@ -134,6 +137,23 @@ public class ArbitraryDataCleanupManager extends Thread {
 						// We have at least 1 chunk or file for this transaction, so we might need to delete them...
 
 
+						// Check to see if we should be hosting data for this transaction at all
+						if (arbitraryTransactionData.getName() != null) {
+							if (!storageManager.shouldStoreDataForName(arbitraryTransactionData.getName())) {
+								LOGGER.info("Deleting transaction {} because we are no longer storing data for name {}",
+										Base58.encode(arbitraryTransactionData.getSignature()), arbitraryTransactionData.getName());
+								ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
+								continue;
+							}
+						}
+						else {
+							// Transaction has no name associated with it
+							if (!storageManager.shouldStoreDataWithoutName()) {
+								ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
+								continue;
+							}
+						}
+
 						// Check to see if we have had a more recent PUT
 						boolean hasMoreRecentPutTransaction = ArbitraryTransactionUtils.hasMoreRecentPutTransaction(repository, arbitraryTransactionData);
 						if (hasMoreRecentPutTransaction) {
@@ -145,6 +165,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 									arbitraryTransactionData.getName(), Base58.encode(signature)));
 
 							ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
+							continue;
 						}
 
 						if (completeFileExists && !transactionHasChunks) {
@@ -163,6 +184,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 									Base58.encode(arbitraryTransactionData.getSignature())));
 
 							ArbitraryTransactionUtils.deleteCompleteFile(arbitraryTransactionData, now, STALE_FILE_TIMEOUT);
+							continue;
 						}
 
 						if (completeFileExists && !allChunksExist) {
@@ -171,6 +193,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 									Base58.encode(arbitraryTransactionData.getSignature())));
 
 							ArbitraryTransactionUtils.convertFileToChunks(arbitraryTransactionData, now, STALE_FILE_TIMEOUT);
+							continue;
 						}
 					}
 

@@ -108,6 +108,9 @@ public class ArbitraryDataManager extends Thread {
 		ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(1);
 		arbitraryDataBuildExecutor.execute(new ArbitraryDataBuildManager());
 
+		// Keep a reference to the storage manager as we will need this a lot
+		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
+
 		// Paginate queries when fetching arbitrary transactions
 		final int limit = 100;
 		int offset = 0;
@@ -136,8 +139,40 @@ public class ArbitraryDataManager extends Thread {
 					}
 					offset += limit;
 
-					// Filter out those that already have local data
-					signatures.removeIf(signature -> hasLocalData(repository, signature));
+					// Loop through signatures and remove ones we don't need to process
+					Iterator iterator = signatures.iterator();
+					while (iterator.hasNext()) {
+						byte[] signature = (byte[]) iterator.next();
+
+						ArbitraryTransaction arbitraryTransaction = fetchTransaction(repository, signature);
+						if (arbitraryTransaction == null) {
+							// Best not to process this one
+							iterator.remove();
+							continue;
+						}
+						ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) arbitraryTransaction.getTransactionData();
+
+						// Skip transactions that we don't need to store data for
+						if (arbitraryTransactionData.getName() != null) {
+							if (!storageManager.shouldStoreDataForName(arbitraryTransactionData.getName())) {
+								iterator.remove();
+								continue;
+							}
+						}
+						else {
+							// Transaction has no name associated with it
+							if (!storageManager.shouldStoreDataWithoutName()) {
+								iterator.remove();
+								continue;
+							}
+						}
+
+						// Remove transactions that we already have local data for
+						if (hasLocalData(arbitraryTransaction)) {
+							iterator.remove();
+							continue;
+						}
+					}
 
 					if (signatures.isEmpty()) {
 						continue;
@@ -180,15 +215,23 @@ public class ArbitraryDataManager extends Thread {
 		this.interrupt();
 	}
 
-	private boolean hasLocalData(final Repository repository, final byte[] signature) {
+	private ArbitraryTransaction fetchTransaction(final Repository repository, byte[] signature) {
 		try {
 			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
 			if (!(transactionData instanceof ArbitraryTransactionData))
-				return true;
+				return null;
 
-			ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, transactionData);
+			return new ArbitraryTransaction(repository, transactionData);
 
+		} catch (DataException e) {
+			return null;
+		}
+	}
+
+	private boolean hasLocalData(ArbitraryTransaction arbitraryTransaction) {
+		try {
 			return arbitraryTransaction.isDataLocal();
+
 		} catch (DataException e) {
 			LOGGER.error("Repository issue when checking arbitrary transaction's data is local", e);
 			return true;
