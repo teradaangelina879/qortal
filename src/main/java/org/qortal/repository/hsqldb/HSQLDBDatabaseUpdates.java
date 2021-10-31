@@ -909,8 +909,6 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD chunk_hashes ArbitraryDataHashes");
 					// For finding transactions by file hash
 					stmt.execute("CREATE INDEX ArbitraryDataIndex ON ArbitraryTransactions (is_data_raw, data)");
-					// For finding transactions by registered name
-					stmt.execute("CREATE INDEX ArbitraryNameIndex ON ArbitraryTransactions (name)");
 					break;
 
 				case 38:
@@ -922,6 +920,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD secret VARBINARY(32)");
 					// We want to support compressed and uncompressed data, as well as different compression algorithms
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
+					// For finding transactions by registered name
+					stmt.execute("CREATE INDEX ArbitraryNameIndex ON ArbitraryTransactions (name)");
 					break;
 
 				case 39:
