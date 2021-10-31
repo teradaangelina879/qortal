@@ -7,12 +7,12 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import java.util.List;
 
 @XmlAccessorType(XmlAccessType.FIELD)
-public class AddressListRequest {
+public class ListRequest {
 
-	@Schema(description = "A list of addresses")
-	public List<String> addresses;
+	@Schema(description = "A list of items")
+	public List<String> items;
 
-	public AddressListRequest() {
+	public ListRequest() {
 	}
 
 }

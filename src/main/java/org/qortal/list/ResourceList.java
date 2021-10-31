@@ -21,7 +21,7 @@ public class ResourceList {
 
     private String category;
     private String resourceName;
-    private List<String> list;
+    private List<String> list = new ArrayList<>();
 
     /**
      * ResourceList
@@ -36,7 +36,6 @@ public class ResourceList {
     public ResourceList(String category, String resourceName) throws IOException {
         this.category = category;
         this.resourceName = resourceName;
-        this.list = new ArrayList<>();
         this.load();
     }
 
@@ -45,7 +44,7 @@ public class ResourceList {
 
     private Path getFilePath() {
         String pathString = String.format("%s%s%s_%s.json", Settings.getInstance().getListsPath(),
-                File.separator, this.resourceName, this.category);
+                File.separator, this.category, this.resourceName);
         return Paths.get(pathString);
     }
 
@@ -152,6 +151,18 @@ public class ResourceList {
 
     public String getJSONString() {
         return ResourceList.listToJSONString(this.list);
+    }
+
+    public String getCategory() {
+        return this.category;
+    }
+
+    public String getResourceName() {
+        return this.resourceName;
+    }
+
+    public String toString() {
+        return String.format("%s %s", this.category, this.resourceName);
     }
 
 }

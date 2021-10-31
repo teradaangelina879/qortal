@@ -4,92 +4,125 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ResourceListManager {
 
     private static final Logger LOGGER = LogManager.getLogger(ResourceListManager.class);
 
     private static ResourceListManager instance;
-    private ResourceList addressBlacklist;
+    private List<ResourceList> lists = new ArrayList<>();
+
 
     public ResourceListManager() {
-        try {
-            this.addressBlacklist = new ResourceList("blacklist", "address");
-        } catch (IOException e) {
-            LOGGER.info("Error while loading address blacklist. Blocking is currently unavailable.");
-        }
     }
 
     public static synchronized ResourceListManager getInstance() {
         if (instance == null) {
             instance = new ResourceListManager();
         }
-
         return instance;
     }
 
-    public boolean addAddressToBlacklist(String address, boolean save) {
-        try {
-            this.addressBlacklist.add(address);
-            if (save) {
-                this.addressBlacklist.save();
+    private ResourceList getList(String category, String resourceName) {
+        for (ResourceList list : this.lists) {
+            if (Objects.equals(list.getCategory(), category) &&
+                    Objects.equals(list.getResourceName(), resourceName)) {
+                return list;
             }
-            return true;
-
-        } catch (IllegalStateException | IOException e) {
-            LOGGER.info("Unable to add address to blacklist", e);
-            return false;
         }
-    }
 
-    public boolean removeAddressFromBlacklist(String address, boolean save) {
+        // List doesn't exist in array yet, so create it
+        // This will load any existing data from the filesystem
         try {
-            this.addressBlacklist.remove(address);
+            ResourceList list = new ResourceList(category, resourceName);
+            this.lists.add(list);
+            return list;
 
-            if (save) {
-                this.addressBlacklist.save();
-            }
-            return true;
-
-        } catch (IllegalStateException | IOException e) {
-            LOGGER.info("Unable to remove address from blacklist", e);
-            return false;
-        }
-    }
-
-    public boolean isAddressInBlacklist(String address) {
-        if (this.addressBlacklist == null) {
-            return false;
-        }
-        return this.addressBlacklist.contains(address);
-    }
-
-    public void saveBlacklist() {
-        if (this.addressBlacklist == null) {
-            return;
-        }
-
-        try {
-            this.addressBlacklist.save();
         } catch (IOException e) {
-            LOGGER.info("Unable to save blacklist - reverting back to last saved state");
-            this.addressBlacklist.revert();
-        }
-    }
-
-    public void revertBlacklist() {
-        if (this.addressBlacklist == null) {
-            return;
-        }
-        this.addressBlacklist.revert();
-    }
-
-    public String getBlacklistJSONString() {
-        if (this.addressBlacklist == null) {
+            LOGGER.info("Unable to load or create list {} {}: {}", category, resourceName, e.getMessage());
             return null;
         }
-        return this.addressBlacklist.getJSONString();
+
+    }
+
+    public boolean addToList(String category, String resourceName, String item, boolean save) {
+        ResourceList list = this.getList(category, resourceName);
+        if (list == null) {
+            return false;
+        }
+
+        try {
+            list.add(item);
+            if (save) {
+                list.save();
+            }
+            return true;
+
+        } catch (IllegalStateException | IOException e) {
+            LOGGER.info(String.format("Unable to add item %s to list %s", item, list), e);
+            return false;
+        }
+    }
+
+    public boolean removeFromList(String category, String resourceName, String item, boolean save) {
+        ResourceList list = this.getList(category, resourceName);
+        if (list == null) {
+            return false;
+        }
+
+        try {
+            list.remove(item);
+
+            if (save) {
+                list.save();
+            }
+            return true;
+
+        } catch (IllegalStateException | IOException e) {
+            LOGGER.info(String.format("Unable to remove item %s from list %s", item, list), e);
+            return false;
+        }
+    }
+
+    public boolean listContains(String category, String resourceName, String address) {
+        ResourceList list = this.getList(category, resourceName);
+        if (list == null) {
+            return false;
+        }
+        return list.contains(address);
+    }
+
+    public void saveList(String category, String resourceName) {
+        ResourceList list = this.getList(category, resourceName);
+        if (list == null) {
+            return;
+        }
+
+        try {
+            list.save();
+        } catch (IOException e) {
+            LOGGER.info("Unable to save list {} - reverting back to last saved state", list);
+            list.revert();
+        }
+    }
+
+    public void revertList(String category, String resourceName) {
+        ResourceList list = this.getList(category, resourceName);
+        if (list == null) {
+            return;
+        }
+        list.revert();
+    }
+
+    public String getJSONStringForList(String category, String resourceName) {
+        ResourceList list = this.getList(category, resourceName);
+        if (list == null) {
+            return null;
+        }
+        return list.getJSONString();
     }
 
 }
