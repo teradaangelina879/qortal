@@ -42,14 +42,6 @@ public class ArbitraryDataManager extends Thread {
 
 	private volatile boolean isStopping = false;
 
-	public enum StoragePolicy {
-		FOLLOWED_AND_VIEWED,
-		FOLLOWED,
-		VIEWED,
-		ALL,
-		NONE
-	}
-
 	/**
 	 * Map of recent requests for ARBITRARY transaction data file lists.
 	 * <p>
