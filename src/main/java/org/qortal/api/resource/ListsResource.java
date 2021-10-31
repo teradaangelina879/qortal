@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import org.qortal.api.*;
-import org.qortal.api.model.AddressListRequest;
+import org.qortal.api.model.ListRequest;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.list.ResourceListManager;
@@ -29,39 +29,9 @@ public class ListsResource {
 
 	@Context
 	HttpServletRequest request;
-	
-	@POST
-	@Path("/blacklist/address/{address}")
-	@Operation(
-		summary = "Add a QORT address to the local blacklist",
-		responses = {
-			@ApiResponse(
-				description = "Returns true on success, or an exception on failure",
-					content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
-			)
-		}
-	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String addAddressToBlacklist(@PathParam("address") String address) {
-		Security.checkApiCallAllowed(request);
 
-		if (!Crypto.isValidAddress(address))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			AccountData accountData = repository.getAccountRepository().getAccount(address);
-			// Not found?
-			if (accountData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
-
-			// Valid address, so go ahead and blacklist it
-			boolean success = ResourceListManager.getInstance().addAddressToBlacklist(address, true);
-
-			return success ? "true" : "false";
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
+	/* Address blacklist */
 
 	@POST
 	@Path("/blacklist/addresses")
@@ -72,7 +42,7 @@ public class ListsResource {
 					content = @Content(
 							mediaType = MediaType.APPLICATION_JSON,
 							schema = @Schema(
-									implementation = AddressListRequest.class
+									implementation = ListRequest.class
 							)
 					)
 			),
@@ -86,10 +56,10 @@ public class ListsResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String addAddressesToBlacklist(AddressListRequest addressListRequest) {
+	public String addAddressesToBlacklist(ListRequest listRequest) {
 		Security.checkApiCallAllowed(request);
 
-		if (addressListRequest == null || addressListRequest.addresses == null) {
+		if (listRequest == null || listRequest.items == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 		}
 
@@ -98,7 +68,7 @@ public class ListsResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			for (String address : addressListRequest.addresses) {
+			for (String address : listRequest.items) {
 
 				if (!Crypto.isValidAddress(address)) {
 					errorCount++;
@@ -113,7 +83,7 @@ public class ListsResource {
 				}
 
 				// Valid address, so go ahead and blacklist it
-				boolean success = ResourceListManager.getInstance().addAddressToBlacklist(address, false);
+				boolean success = ResourceListManager.getInstance().addToList("blacklist", "addresses", address, false);
 				if (success) {
 					successCount++;
 				}
@@ -127,47 +97,13 @@ public class ListsResource {
 
 		if (successCount > 0 && errorCount == 0) {
 			// All were successful, so save the blacklist
-			ResourceListManager.getInstance().saveBlacklist();
+			ResourceListManager.getInstance().saveList("blacklist", "addresses");
 			return "true";
 		}
 		else {
 			// Something went wrong, so revert
-			ResourceListManager.getInstance().revertBlacklist();
+			ResourceListManager.getInstance().revertList("blacklist", "addresses");
 			return "false";
-		}
-	}
-
-
-	@DELETE
-	@Path("/blacklist/address/{address}")
-	@Operation(
-			summary = "Remove a QORT address from the local blacklist",
-			responses = {
-					@ApiResponse(
-							description = "Returns true on success, or an exception on failure",
-							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
-					)
-			}
-	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String removeAddressFromBlacklist(@PathParam("address") String address) {
-		Security.checkApiCallAllowed(request);
-
-		if (!Crypto.isValidAddress(address))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			AccountData accountData = repository.getAccountRepository().getAccount(address);
-			// Not found?
-			if (accountData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
-
-			// Valid address, so go ahead and blacklist it
-			boolean success = ResourceListManager.getInstance().removeAddressFromBlacklist(address, true);
-
-			return success ? "true" : "false";
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -180,7 +116,7 @@ public class ListsResource {
 					content = @Content(
 							mediaType = MediaType.APPLICATION_JSON,
 							schema = @Schema(
-									implementation = AddressListRequest.class
+									implementation = ListRequest.class
 							)
 					)
 			),
@@ -194,10 +130,10 @@ public class ListsResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String removeAddressesFromBlacklist(AddressListRequest addressListRequest) {
+	public String removeAddressesFromBlacklist(ListRequest listRequest) {
 		Security.checkApiCallAllowed(request);
 
-		if (addressListRequest == null || addressListRequest.addresses == null) {
+		if (listRequest == null || listRequest.items == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 		}
 
@@ -206,7 +142,7 @@ public class ListsResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			for (String address : addressListRequest.addresses) {
+			for (String address : listRequest.items) {
 
 				if (!Crypto.isValidAddress(address)) {
 					errorCount++;
@@ -222,7 +158,7 @@ public class ListsResource {
 
 				// Valid address, so go ahead and blacklist it
 				// Don't save as we will do this at the end of the process
-				boolean success = ResourceListManager.getInstance().removeAddressFromBlacklist(address, false);
+				boolean success = ResourceListManager.getInstance().removeFromList("blacklist", "addresses", address, false);
 				if (success) {
 					successCount++;
 				}
@@ -236,12 +172,12 @@ public class ListsResource {
 
 		if (successCount > 0 && errorCount == 0) {
 			// All were successful, so save the blacklist
-			ResourceListManager.getInstance().saveBlacklist();
+			ResourceListManager.getInstance().saveList("blacklist", "addresses");
 			return "true";
 		}
 		else {
 			// Something went wrong, so revert
-			ResourceListManager.getInstance().revertBlacklist();
+			ResourceListManager.getInstance().revertList("blacklist", "addresses");
 			return "false";
 		}
 	}
@@ -259,40 +195,7 @@ public class ListsResource {
 	)
 	public String getAddressBlacklist() {
 		Security.checkApiCallAllowed(request);
-		return ResourceListManager.getInstance().getBlacklistJSONString();
-	}
-
-	@GET
-	@Path("/blacklist/address/{address}")
-	@Operation(
-			summary = "Check if an address is present in the local blacklist",
-			responses = {
-					@ApiResponse(
-							description = "Returns true or false if the list was queried, or an exception on failure",
-							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
-					)
-			}
-	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String checkAddressInBlacklist(@PathParam("address") String address) {
-		Security.checkApiCallAllowed(request);
-
-		if (!Crypto.isValidAddress(address))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			AccountData accountData = repository.getAccountRepository().getAccount(address);
-			// Not found?
-			if (accountData == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
-
-			// Valid address, so go ahead and blacklist it
-			boolean blacklisted = ResourceListManager.getInstance().isAddressInBlacklist(address);
-
-			return blacklisted ? "true" : "false";
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
+		return ResourceListManager.getInstance().getJSONStringForList("blacklist", "addresses");
 	}
 
 }
