@@ -89,7 +89,9 @@ public class ArbitraryResource {
 	})
 	public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit,
 			@QueryParam("txGroupId") Integer txGroupId,
-			@QueryParam("service") Integer service, @QueryParam("address") String address, @Parameter(
+			@QueryParam("service") Integer service,
+			@QueryParam("name") String name,
+			@QueryParam("address") String address, @Parameter(
 				description = "whether to include confirmed, unconfirmed or both",
 				required = true
 			) @QueryParam("confirmationStatus") ConfirmationStatus confirmationStatus, @Parameter(
@@ -112,7 +114,7 @@ public class ArbitraryResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txGroupId, txTypes, 
-					service, address, confirmationStatus, limit, offset, reverse);
+					service, name, address, confirmationStatus, limit, offset, reverse);
 
 			// Expand signatures to transactions
 			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());

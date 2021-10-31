@@ -23,6 +23,7 @@ public class ArbitraryApiTests extends ApiCommon {
 		Integer[] blockLimits = new Integer[] { null, 0, 1, 999999999 };
 		Integer[] txGroupIds = new Integer[] { null, 0, 1, 999999999 };
 		Integer[] services = new Integer[] { null, 0, 1, 999999999 };
+		String[] names = new String[] { null, "Test" };
 		String[] addresses = new String[] { null, this.aliceAddress };
 		ConfirmationStatus[] confirmationStatuses = new ConfirmationStatus[] { ConfirmationStatus.UNCONFIRMED, ConfirmationStatus.CONFIRMED, ConfirmationStatus.BOTH };
 
@@ -30,14 +31,15 @@ public class ArbitraryApiTests extends ApiCommon {
 			for (Integer blockLimit : blockLimits)
 				for (Integer txGroupId : txGroupIds)
 					for (Integer service : services)
-						for (String address : addresses)
-							for (ConfirmationStatus confirmationStatus : confirmationStatuses) {
-								if (confirmationStatus != ConfirmationStatus.CONFIRMED && (startBlock != null || blockLimit != null))
-									continue;
+						for (String name : names)
+							for (String address : addresses)
+								for (ConfirmationStatus confirmationStatus : confirmationStatuses) {
+									if (confirmationStatus != ConfirmationStatus.CONFIRMED && (startBlock != null || blockLimit != null))
+										continue;
 
-								assertNotNull(this.arbitraryResource.searchTransactions(startBlock, blockLimit, txGroupId, service, address, confirmationStatus, 20, null, null));
-								assertNotNull(this.arbitraryResource.searchTransactions(startBlock, blockLimit, txGroupId, service, address, confirmationStatus, 1, 1, true));
-							}
+									assertNotNull(this.arbitraryResource.searchTransactions(startBlock, blockLimit, txGroupId, service, name, address, confirmationStatus, 20, null, null));
+									assertNotNull(this.arbitraryResource.searchTransactions(startBlock, blockLimit, txGroupId, service, name, address, confirmationStatus, 1, 1, true));
+								}
 	}
 
 }

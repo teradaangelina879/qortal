@@ -348,7 +348,7 @@ public class TransactionsResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txGroupId,
-					txTypes, null, address, confirmationStatus, limit, offset, reverse);
+					txTypes, null, null, address, confirmationStatus, limit, offset, reverse);
 
 			// Expand signatures to transactions
 			List<TransactionData> transactions = new ArrayList<>(signatures.size());

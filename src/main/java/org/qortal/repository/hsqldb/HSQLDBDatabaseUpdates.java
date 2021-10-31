@@ -907,8 +907,10 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD size INT NOT NULL DEFAULT 0");
 					// Larger data files need to be split into chunks, for easier transmission and greater decentralization
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD chunk_hashes ArbitraryDataHashes");
-					// For finding data files by hash
+					// For finding transactions by file hash
 					stmt.execute("CREATE INDEX ArbitraryDataIndex ON ArbitraryTransactions (is_data_raw, data)");
+					// For finding transactions by registered name
+					stmt.execute("CREATE INDEX ArbitraryNameIndex ON ArbitraryTransactions (name)");
 					break;
 
 				case 38:

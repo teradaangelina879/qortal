@@ -386,7 +386,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, Integer txGroupId,
-			List<TransactionType> txTypes, Integer service, String address,
+			List<TransactionType> txTypes, Integer service, String name, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		List<byte[]> signatures = new ArrayList<>();
 
@@ -412,8 +412,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			signatureColumn = "TransactionParticipants.signature";
 		}
 
-		if (service != null) {
-			// This is for ARBITRARY transactions
+		if (service != null || name != null) {
+			// These are for ARBITRARY transactions
 			tables.append(" LEFT OUTER JOIN ArbitraryTransactions ON ArbitraryTransactions.signature = Transactions.signature");
 		}
 
@@ -467,6 +467,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		if (service != null) {
 			whereClauses.add("ArbitraryTransactions.service = ?");
 			bindParams.add(service);
+		}
+
+		if (name != null) {
+			whereClauses.add("ArbitraryTransactions.name = ?");
+			bindParams.add(name);
 		}
 
 		if (hasAddress) {

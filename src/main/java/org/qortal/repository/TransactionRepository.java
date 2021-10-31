@@ -70,7 +70,7 @@ public interface TransactionRepository {
 	 * @throws DataException
 	 */
 	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, Integer txGroupId,
-			List<TransactionType> txTypes, Integer service, String address,
+			List<TransactionType> txTypes, Integer service, String name, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
