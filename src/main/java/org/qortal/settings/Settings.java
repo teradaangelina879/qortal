@@ -5,10 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -24,9 +21,11 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qortal.block.BlockChain;
+import org.qortal.controller.arbitrary.ArbitraryDataManager.*;
 import org.qortal.crosschain.Bitcoin.BitcoinNet;
 import org.qortal.crosschain.Litecoin.LitecoinNet;
 import org.qortal.crosschain.Dogecoin.DogecoinNet;
+import org.qortal.utils.EnumUtils;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -263,6 +262,9 @@ public class Settings {
 	/** Data storage path (for temporary data). */
 	private String tempDataPath = "data/_temp";
 
+	/** Storage policy to indicate which data should be hosted */
+	private String storagePolicy = "FOLLOWED_AND_VIEWED";
+
 	/** Whether to validate every layer when building arbitrary data, or just the final layer */
 	private boolean validateAllDataLayers = false;
 
@@ -417,6 +419,13 @@ public class Settings {
 
 		if (this.apiKey != null && this.apiKey.trim().length() < 8)
 			throwValidationError("apiKey must be at least 8 characters");
+
+		try {
+			StoragePolicy.valueOf(this.storagePolicy);
+		} catch (IllegalArgumentException ex) {
+			String possibleValues = EnumUtils.getNames(StoragePolicy.class, ", ");
+			throwValidationError(String.format("storagePolicy must be one of: %s", possibleValues));
+		}
 	}
 
 	// Getters / setters
@@ -764,6 +773,10 @@ public class Settings {
 
 	public String getTempDataPath() {
 		return this.tempDataPath;
+	}
+
+	public StoragePolicy getStoragePolicy() {
+		return StoragePolicy.valueOf(this.storagePolicy);
 	}
 
 	public boolean shouldValidateAllDataLayers() {
