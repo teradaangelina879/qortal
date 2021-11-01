@@ -158,11 +158,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
 				"name, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
-				"WHERE name = ? AND service = ? AND created_when >= ?" +
+				"WHERE lower(name) = ? AND service = ? AND created_when >= ? " +
 				"ORDER BY created_when ASC";
 		List<ArbitraryTransactionData> arbitraryTransactionData = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, name, service.value, since)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, name.toLowerCase(), service.value, since)) {
 			if (resultSet == null)
 				return null;
 
