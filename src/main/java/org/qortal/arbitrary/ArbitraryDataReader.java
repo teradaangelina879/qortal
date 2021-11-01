@@ -50,6 +50,11 @@ public class ArbitraryDataReader {
     private Path unencryptedPath;
 
     public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service) {
+        // Ensure names are always lowercase
+        if (resourceIdType == ResourceIdType.NAME) {
+            resourceId = resourceId.toLowerCase();
+        }
+
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;
