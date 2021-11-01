@@ -470,8 +470,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 
 		if (name != null) {
-			whereClauses.add("ArbitraryTransactions.name = ?");
-			bindParams.add(name);
+			whereClauses.add("lower(ArbitraryTransactions.name) = ?");
+			bindParams.add(name.toLowerCase());
 		}
 
 		if (hasAddress) {
