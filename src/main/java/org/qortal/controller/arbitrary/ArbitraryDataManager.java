@@ -199,7 +199,7 @@ public class ArbitraryDataManager extends Thread {
 
 					// Ask our connected peers if they have files for this signature
 					// This process automatically then fetches the files themselves if a peer is found
-					fetchArbitraryDataFileList(signature);
+					fetchDataForSignature(signature);
 
 				} catch (DataException e) {
 					LOGGER.error("Repository issue when fetching arbitrary transaction data", e);
@@ -238,7 +238,11 @@ public class ArbitraryDataManager extends Thread {
 		}
 	}
 
-	private boolean fetchArbitraryDataFileList(byte[] signature) throws InterruptedException {
+	public boolean fetchDataForSignature(byte[] signature) {
+		return this.fetchArbitraryDataFileList(signature);
+	}
+
+	private boolean fetchArbitraryDataFileList(byte[] signature) {
 		LOGGER.info(String.format("Sending data file list request for signature %s", Base58.encode(signature)));
 		// Build request
 		Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature);
@@ -264,7 +268,11 @@ public class ArbitraryDataManager extends Thread {
 		final long singleWait = 100;
 		long totalWait = 0;
 		while (totalWait < ARBITRARY_REQUEST_TIMEOUT) {
-			Thread.sleep(singleWait);
+			try {
+				Thread.sleep(singleWait);
+			} catch (InterruptedException e) {
+				break;
+			}
 
 			requestEntry = arbitraryDataFileListRequests.get(id);
 			if (requestEntry == null)
@@ -595,8 +603,16 @@ public class ArbitraryDataManager extends Thread {
 				// data cache so that it is rebuilt the next time we serve it
 				if (arbitraryTransactionData.getName() != null) {
 					String resourceId = arbitraryTransactionData.getName().toLowerCase();
+					LOGGER.info("We have all data for transaction {}", Base58.encode(transactionData.getSignature()));
+					LOGGER.info("Clearing cache for name {}...", arbitraryTransactionData.getName());
+
 					if (this.arbitraryDataCachedResources.containsKey(resourceId)) {
 						this.arbitraryDataCachedResources.remove(resourceId);
+					}
+
+					// Also remove from the failed builds queue in case it previously failed due to missing chunks
+					if (this.arbitraryDataFailedBuilds.containsKey(resourceId)) {
+						this.arbitraryDataFailedBuilds.remove(resourceId);
 					}
 				}
 

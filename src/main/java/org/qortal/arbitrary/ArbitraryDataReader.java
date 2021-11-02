@@ -282,9 +282,14 @@ public class ArbitraryDataReader {
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
         if (!arbitraryDataFile.exists()) {
             if (!arbitraryDataFile.allChunksExist(chunkHashes)) {
-                // TODO: fetch them?
-                LOGGER.info(String.format("Missing chunks for file %s", arbitraryDataFile));
-                throw new IllegalStateException(String.format("Missing chunks for file %s", arbitraryDataFile));
+
+                // Ask the arbitrary data manager to fetch data for this transaction
+                ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
+
+                // Fail the build, as it will be retried later once the chunks arrive
+                String response = String.format("Missing chunks for file %s have been requested. Please try again once they have been received.", arbitraryDataFile);
+                LOGGER.info(response);
+                throw new IllegalStateException(response);
             }
             // We have all the chunks but not the complete file, so join them
             arbitraryDataFile.addChunkHashes(chunkHashes);
