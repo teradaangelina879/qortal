@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 import static org.junit.Assert.*;
 
@@ -154,6 +155,50 @@ public class ArbitraryDataTests extends Common {
             } catch (DataException expectedException) {
                 assertEquals("Arbitrary transaction invalid: INVALID_NAME_OWNER", expectedException.getMessage());
             }
+        }
+    }
+
+    @Test
+    public void testUpdateResource() throws DataException, IOException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            Service service = Service.WEBSITE; // Can be anything for this test
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
+            this.createAndMintTxn(repository, publicKey58, path1, name, Method.PUT, service, alice);
+
+            // Now build the latest data state for this name
+            ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service);
+            arbitraryDataReader1.loadSynchronously(true);
+            Path initialLayerPath = arbitraryDataReader1.getFilePath();
+            ArbitraryDataDigest initialLayerDigest = new ArbitraryDataDigest(initialLayerPath);
+            initialLayerDigest.compute();
+
+            // Create PATCH transaction
+            Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
+            this.createAndMintTxn(repository, publicKey58, path2, name, Method.PATCH, service, alice);
+
+            // Rebuild the latest state
+            ArbitraryDataReader arbitraryDataReader2 = new ArbitraryDataReader(name, ResourceIdType.NAME, service);
+            arbitraryDataReader2.loadSynchronously(false);
+            Path secondLayerPath = arbitraryDataReader2.getFilePath();
+            ArbitraryDataDigest secondLayerDigest = new ArbitraryDataDigest(secondLayerPath);
+            secondLayerDigest.compute();
+
+            // Ensure that the second state is different to the first state
+            assertFalse(Arrays.equals(initialLayerDigest.getHash(), secondLayerDigest.getHash()));
+
+            // Its directory hash should match the hash of demo2
+            ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(path2);
+            path2Digest.compute();
+            assertEquals(path2Digest.getHash58(), secondLayerDigest.getHash58());
         }
     }
 
