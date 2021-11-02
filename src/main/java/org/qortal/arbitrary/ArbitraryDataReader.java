@@ -283,7 +283,7 @@ public class ArbitraryDataReader {
         if (!arbitraryDataFile.exists()) {
             if (!arbitraryDataFile.allChunksExist(chunkHashes)) {
                 // TODO: fetch them?
-                LOGGER.info(String.format("Missing chunks for file {}", arbitraryDataFile));
+                LOGGER.info(String.format("Missing chunks for file %s", arbitraryDataFile));
                 throw new IllegalStateException(String.format("Missing chunks for file %s", arbitraryDataFile));
             }
             // We have all the chunks but not the complete file, so join them
