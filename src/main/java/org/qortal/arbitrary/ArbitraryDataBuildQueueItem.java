@@ -40,10 +40,8 @@ public class ArbitraryDataBuildQueueItem {
         ArbitraryDataReader arbitraryDataReader =
                 new ArbitraryDataReader(this.resourceId, this.resourceIdType, this.service);
 
-        // We do not want to overwrite the existing cache, as this will be invalidated
-        // automatically if new data has arrived
         try {
-            arbitraryDataReader.loadSynchronously(false);
+            arbitraryDataReader.loadSynchronously(true);
         } finally {
             this.buildEndTimestamp = NTP.getTime();
         }
