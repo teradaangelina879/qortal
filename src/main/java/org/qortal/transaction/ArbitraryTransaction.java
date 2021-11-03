@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.qortal.account.Account;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
@@ -213,6 +214,16 @@ public class ArbitraryTransaction extends Transaction {
 	}
 
 	@Override
+	protected void onImportAsUnconfirmed() throws DataException {
+		// Invalidate the cache for this name if we have the data already
+		if (arbitraryTransactionData.getName() != null) {
+			if (isDataLocal()) {
+				ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
+			}
+		}
+	}
+
+	@Override
 	public void preProcess() throws DataException {
 		// Nothing to do
 	}
@@ -252,10 +263,9 @@ public class ArbitraryTransaction extends Transaction {
 	/** Returns arbitrary data payload, fetching from network if needed. Can block for a while! */
 	public byte[] fetchData() throws DataException {
 		// If local, read from file
-		if (isDataLocal())
+		if (isDataLocal()) {
 			return this.repository.getArbitraryRepository().fetchData(this.transactionData.getSignature());
-
-		// TODO If not local, attempt to fetch via network?
+		}
 		return null;
 	}
 

@@ -385,6 +385,24 @@ public class ArbitraryDataManager extends Thread {
 		this.arbitraryDataCachedResources.put(resourceId, timestamp);
 	}
 
+	public void invalidateCache(ArbitraryTransactionData arbitraryTransactionData) {
+		if (arbitraryTransactionData.getName() != null) {
+			String resourceId = arbitraryTransactionData.getName().toLowerCase();
+			LOGGER.info("We have all data for transaction {}", Base58.encode(arbitraryTransactionData.getSignature()));
+			LOGGER.info("Clearing cache for name {}...", arbitraryTransactionData.getName());
+
+			if (this.arbitraryDataCachedResources.containsKey(resourceId)) {
+				this.arbitraryDataCachedResources.remove(resourceId);
+			}
+
+			// Also remove from the failed builds queue in case it previously failed due to missing chunks
+			ArbitraryDataBuildManager buildManager = ArbitraryDataBuildManager.getInstance();
+			if (buildManager.arbitraryDataFailedBuilds.containsKey(resourceId)) {
+				buildManager.arbitraryDataFailedBuilds.remove(resourceId);
+			}
+		}
+	}
+
 
 	// Network handlers
 
@@ -502,21 +520,7 @@ public class ArbitraryDataManager extends Thread {
 
 				// We have all the chunks for this transaction, so we should invalidate the transaction's name's
 				// data cache so that it is rebuilt the next time we serve it
-				if (arbitraryTransactionData.getName() != null) {
-					String resourceId = arbitraryTransactionData.getName().toLowerCase();
-					LOGGER.info("We have all data for transaction {}", Base58.encode(transactionData.getSignature()));
-					LOGGER.info("Clearing cache for name {}...", arbitraryTransactionData.getName());
-
-					if (this.arbitraryDataCachedResources.containsKey(resourceId)) {
-						this.arbitraryDataCachedResources.remove(resourceId);
-					}
-
-					// Also remove from the failed builds queue in case it previously failed due to missing chunks
-					ArbitraryDataBuildManager buildManager = ArbitraryDataBuildManager.getInstance();
-					if (buildManager.arbitraryDataFailedBuilds.containsKey(resourceId)) {
-						buildManager.arbitraryDataFailedBuilds.remove(resourceId);
-					}
-				}
+				invalidateCache(arbitraryTransactionData);
 
 				// We also need to broadcast to the network that we are now hosting files for this transaction
 				// Use a null peer address to indicate our own
