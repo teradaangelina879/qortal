@@ -125,4 +125,12 @@ public class ResourceListManager {
         return list.getJSONString();
     }
 
+    public List<String> getStringsInList(String category, String resourceName) {
+        ResourceList list = this.getList(category, resourceName);
+        if (list == null) {
+            return null;
+        }
+        return list.getList();
+    }
+
 }

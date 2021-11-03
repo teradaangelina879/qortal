@@ -161,6 +161,10 @@ public class ResourceList {
         return this.resourceName;
     }
 
+    public List<String> getList() {
+        return this.list;
+    }
+
     public String toString() {
         return String.format("%s %s", this.category, this.resourceName);
     }
