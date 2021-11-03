@@ -587,27 +587,29 @@ public class ArbitraryDataManager extends Thread {
 			ArbitraryTransactionData transactionData = (ArbitraryTransactionData)repository.getTransactionRepository().fromSignature(signature);
 			if (transactionData instanceof ArbitraryTransactionData) {
 
-				byte[] hash = transactionData.getData();
-				byte[] chunkHashes = transactionData.getChunkHashes();
+				// Check if we're even allowed to serve data for this transaction
+				if (ArbitraryDataStorageManager.getInstance().shouldStoreDataForName(transactionData.getName())) {
 
-				// Load file(s) and add any that exist to the list of hashes
-				ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
-				if (chunkHashes != null && chunkHashes.length > 0) {
-					arbitraryDataFile.addChunkHashes(chunkHashes);
-					for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
-						if (chunk.exists()) {
-							hashes.add(chunk.getHash());
-							//LOGGER.info("Added hash {}", chunk.getHash58());
+					byte[] hash = transactionData.getData();
+					byte[] chunkHashes = transactionData.getChunkHashes();
+
+					// Load file(s) and add any that exist to the list of hashes
+					ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
+					if (chunkHashes != null && chunkHashes.length > 0) {
+						arbitraryDataFile.addChunkHashes(chunkHashes);
+						for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
+							if (chunk.exists()) {
+								hashes.add(chunk.getHash());
+								//LOGGER.info("Added hash {}", chunk.getHash58());
+							} else {
+								LOGGER.info("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
+							}
 						}
-						else {
-							LOGGER.info("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
+					} else {
+						// This transaction has no chunks, so include the complete file if we have it
+						if (arbitraryDataFile.exists()) {
+							hashes.add(arbitraryDataFile.getHash());
 						}
-					}
-				}
-				else {
-					// This transaction has no chunks, so include the complete file if we have it
-					if (arbitraryDataFile.exists()) {
-						hashes.add(arbitraryDataFile.getHash());
 					}
 				}
 			}
