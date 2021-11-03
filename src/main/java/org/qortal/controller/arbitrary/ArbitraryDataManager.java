@@ -514,10 +514,13 @@ public class ArbitraryDataManager extends Thread {
 				// data cache so that it is rebuilt the next time we serve it
 				invalidateCache(arbitraryTransactionData);
 
-				// We also need to broadcast to the network that we are now hosting files for this transaction
-				// Use a null peer address to indicate our own
-				Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
-				Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
+				// We may also need to broadcast to the network that we are now hosting files for this transaction,
+				// but only if these files are in accordance with our storage policy (we may have requested them for viewing only)
+				if (ArbitraryDataStorageManager.getInstance().shouldStoreDataForName(arbitraryTransactionData.getName())) {
+					// Use a null peer address to indicate our own
+					Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
+					Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
+				}
 			}
 
 		} catch (DataException | InterruptedException e) {
