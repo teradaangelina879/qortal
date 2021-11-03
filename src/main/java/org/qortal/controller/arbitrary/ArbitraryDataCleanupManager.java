@@ -138,20 +138,11 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 
 						// Check to see if we should be hosting data for this transaction at all
-						if (arbitraryTransactionData.getName() != null) {
-							if (!storageManager.shouldStoreDataForName(arbitraryTransactionData.getName())) {
-								LOGGER.info("Deleting transaction {} because we are no longer storing data for name {}",
-										Base58.encode(arbitraryTransactionData.getSignature()), arbitraryTransactionData.getName());
-								ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
-								continue;
-							}
-						}
-						else {
-							// Transaction has no name associated with it
-							if (!storageManager.shouldStoreDataWithoutName()) {
-								ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
-								continue;
-							}
+						if (!storageManager.shouldStoreDataForName(arbitraryTransactionData.getName())) {
+							LOGGER.info("Deleting transaction {} because we are no longer storing data for name {}",
+									Base58.encode(arbitraryTransactionData.getSignature()), arbitraryTransactionData.getName());
+							ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
+							continue;
 						}
 
 						// Check to see if we have had a more recent PUT

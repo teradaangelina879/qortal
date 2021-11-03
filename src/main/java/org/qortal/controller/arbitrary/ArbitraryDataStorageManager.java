@@ -26,6 +26,10 @@ public class ArbitraryDataStorageManager {
     }
 
     public boolean shouldStoreDataForName(String name) {
+        if (name == null) {
+            return this.shouldStoreDataWithoutName();
+        }
+
         switch (Settings.getInstance().getStoragePolicy()) {
             case FOLLOWED:
             case FOLLOWED_AND_VIEWED:
@@ -41,7 +45,7 @@ public class ArbitraryDataStorageManager {
         }
     }
 
-    public boolean shouldStoreDataWithoutName() {
+    private boolean shouldStoreDataWithoutName() {
         switch (Settings.getInstance().getStoragePolicy()) {
             case ALL:
                 return true;

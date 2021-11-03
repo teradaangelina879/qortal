@@ -182,17 +182,9 @@ public class ArbitraryDataManager extends Thread {
 					ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) arbitraryTransaction.getTransactionData();
 
 					// Skip transactions that we don't need to store data for
-					if (arbitraryTransactionData.getName() != null) {
-						if (!storageManager.shouldStoreDataForName(arbitraryTransactionData.getName())) {
-							iterator.remove();
-							continue;
-						}
-					} else {
-						// Transaction has no name associated with it
-						if (!storageManager.shouldStoreDataWithoutName()) {
-							iterator.remove();
-							continue;
-						}
+					if (!storageManager.shouldStoreDataForName(arbitraryTransactionData.getName())) {
+						iterator.remove();
+						continue;
 					}
 
 					// Remove transactions that we already have local data for
