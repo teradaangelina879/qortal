@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -50,6 +49,7 @@ import org.qortal.api.DomainMapService;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
+import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataCleanupManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
@@ -80,27 +80,6 @@ import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.utils.*;
-
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import java.awt.TrayIcon.MessageType;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.SecureRandom;
-import java.security.Security;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static org.qortal.network.Peer.FETCH_BLOCKS_TIMEOUT;
 
@@ -508,6 +487,7 @@ public class Controller extends Thread {
 		// Arbitrary data controllers
 		LOGGER.info("Starting arbitrary-transaction controllers");
 		ArbitraryDataManager.getInstance().start();
+		ArbitraryDataBuildManager.getInstance().start();
 		ArbitraryDataCleanupManager.getInstance().start();
 
 		// Auto-update service?
@@ -602,7 +582,7 @@ public class Controller extends Thread {
 				// Clean up arbitrary data request cache
 				ArbitraryDataManager.getInstance().cleanupRequestCache(now);
 				// Clean up arbitrary data queues and lists
-				ArbitraryDataManager.getInstance().cleanupQueues(now);
+				ArbitraryDataBuildManager.getInstance().cleanupQueues(now);
 
 				// Time to 'checkpoint' uncommitted repository writes?
 				if (now >= repositoryCheckpointTimestamp + repositoryCheckpointInterval) {
@@ -1084,6 +1064,7 @@ public class Controller extends Thread {
 				// Arbitrary data controllers
 				LOGGER.info("Shutting down arbitrary-transaction controllers");
 				ArbitraryDataManager.getInstance().shutdown();
+				ArbitraryDataBuildManager.getInstance().shutdown();
 				ArbitraryDataCleanupManager.getInstance().shutdown();
 
 				if (blockMinter != null) {

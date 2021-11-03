@@ -21,21 +21,21 @@ public class ArbitraryDataBuilderThread implements Runnable {
 
     public void run() {
         Thread.currentThread().setName("Arbitrary Data Build Manager");
-        ArbitraryDataManager arbitraryDataManager = ArbitraryDataManager.getInstance();
+        ArbitraryDataBuildManager buildManager = ArbitraryDataBuildManager.getInstance();
 
         while (!Controller.isStopping()) {
             try {
                 Thread.sleep(1000);
 
-                if (arbitraryDataManager.arbitraryDataBuildQueue == null) {
+                if (buildManager.arbitraryDataBuildQueue == null) {
                     continue;
                 }
-                if (arbitraryDataManager.arbitraryDataBuildQueue.isEmpty()) {
+                if (buildManager.arbitraryDataBuildQueue.isEmpty()) {
                     continue;
                 }
 
                 // Find resources that are queued for building
-                Map.Entry<String, ArbitraryDataBuildQueueItem> next = arbitraryDataManager.arbitraryDataBuildQueue
+                Map.Entry<String, ArbitraryDataBuildQueueItem> next = buildManager.arbitraryDataBuildQueue
                         .entrySet().stream()
                         .filter(e -> e.getValue().isQueued())
                         .findFirst().get();
@@ -57,7 +57,7 @@ public class ArbitraryDataBuilderThread implements Runnable {
                 }
 
                 // Ignore builds that have failed recently
-                if (ArbitraryDataManager.getInstance().isInFailedBuildsList(queueItem)) {
+                if (buildManager.isInFailedBuildsList(queueItem)) {
                     continue;
                 }
 
@@ -73,7 +73,7 @@ public class ArbitraryDataBuilderThread implements Runnable {
                     LOGGER.info("Error building {}: {}", queueItem, e.getMessage());
                     // Something went wrong - so remove it from the queue, and add to failed builds list
                     queueItem.setFailed(true);
-                    ArbitraryDataManager.getInstance().addToFailedBuildsList(queueItem);
+                    buildManager.addToFailedBuildsList(queueItem);
                     this.removeFromQueue(resourceId);
                 }
 
@@ -87,6 +87,6 @@ public class ArbitraryDataBuilderThread implements Runnable {
         if (resourceId == null) {
             return;
         }
-        ArbitraryDataManager.getInstance().arbitraryDataBuildQueue.remove(resourceId.toLowerCase());
+        ArbitraryDataBuildManager.getInstance().arbitraryDataBuildQueue.remove(resourceId.toLowerCase());
     }
 }

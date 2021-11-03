@@ -110,7 +110,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 						}
 
 						// Don't interfere with the filesystem whilst a build is in progress
-						if (ArbitraryDataManager.getInstance().getBuildInProgress()) {
+						if (ArbitraryDataBuildManager.getInstance().getBuildInProgress()) {
 							Thread.sleep(5000);
 						}
 

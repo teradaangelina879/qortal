@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -70,7 +71,7 @@ public class ArbitraryDataReader {
         // cached data, as it may not be fully built
         ArbitraryDataBuildQueueItem queueItem =
                 new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service);
-        if (ArbitraryDataManager.getInstance().isInBuildQueue(queueItem)) {
+        if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) {
             return false;
         }
 
@@ -97,7 +98,7 @@ public class ArbitraryDataReader {
     public boolean loadAsynchronously() {
         ArbitraryDataBuildQueueItem queueItem =
                 new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service);
-        return ArbitraryDataManager.getInstance().addToBuildQueue(queueItem);
+        return ArbitraryDataBuildManager.getInstance().addToBuildQueue(queueItem);
     }
 
     /**
@@ -134,13 +135,13 @@ public class ArbitraryDataReader {
     }
 
     private void preExecute() {
-        ArbitraryDataManager.getInstance().setBuildInProgress(true);
+        ArbitraryDataBuildManager.getInstance().setBuildInProgress(true);
         this.createWorkingDirectory();
         this.createUncompressedDirectory();
     }
 
     private void postExecute() {
-        ArbitraryDataManager.getInstance().setBuildInProgress(false);
+        ArbitraryDataBuildManager.getInstance().setBuildInProgress(false);
     }
 
     private void createWorkingDirectory() {

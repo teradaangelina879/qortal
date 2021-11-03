@@ -1,13 +1,10 @@
 package org.qortal.controller.arbitrary;
 
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
-import org.qortal.arbitrary.ArbitraryDataBuildQueueItem;
 import org.qortal.controller.Controller;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -37,8 +34,6 @@ public class ArbitraryDataManager extends Thread {
 
 	private static ArbitraryDataManager instance;
 	private final Object peerDataLock = new Object();
-
-	private boolean buildInProgress = false;
 
 	private volatile boolean isStopping = false;
 
@@ -78,15 +73,6 @@ public class ArbitraryDataManager extends Thread {
 	 */
 	private static long ARBITRARY_DATA_CACHE_TIMEOUT = 60 * 60 * 1000L; // 60 minutes
 
-	/**
-	 * Map to keep track of arbitrary transaction resources currently being built (or queued).
-	 */
-	public Map<String, ArbitraryDataBuildQueueItem> arbitraryDataBuildQueue = Collections.synchronizedMap(new HashMap<>());
-
-	/**
-	 * Map to keep track of failed arbitrary transaction builds.
-	 */
-	public Map<String, ArbitraryDataBuildQueueItem> arbitraryDataFailedBuilds = Collections.synchronizedMap(new HashMap<>());
 
 
 	private ArbitraryDataManager() {
@@ -102,11 +88,6 @@ public class ArbitraryDataManager extends Thread {
 	@Override
 	public void run() {
 		Thread.currentThread().setName("Arbitrary Data Manager");
-
-		// Use a fixed thread pool to execute the arbitrary data build actions (currently just a single thread)
-		// This can be expanded to have multiple threads processing the build queue when needed
-		ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(1);
-		arbitraryDataBuildExecutor.execute(new ArbitraryDataBuilderThread());
 
 		// Keep a reference to the storage manager as we will need this a lot
 		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
@@ -313,14 +294,6 @@ public class ArbitraryDataManager extends Thread {
 		arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() < requestMinimumTimestamp);
 	}
 
-	public void cleanupQueues(Long now) {
-		if (now == null) {
-			return;
-		}
-		arbitraryDataBuildQueue.entrySet().removeIf(entry -> entry.getValue().hasReachedBuildTimeout(now));
-		arbitraryDataFailedBuilds.entrySet().removeIf(entry -> entry.getValue().hasReachedFailureTimeout(now));
-	}
-
 
 	// Arbitrary data resource cache
 	public boolean isResourceCached(String resourceId) {
@@ -371,117 +344,6 @@ public class ArbitraryDataManager extends Thread {
 		// Set the timestamp to now + the timeout
 		Long timestamp = NTP.getTime() + ARBITRARY_DATA_CACHE_TIMEOUT;
 		this.arbitraryDataCachedResources.put(resourceId, timestamp);
-	}
-
-	// Build queue
-
-	public boolean addToBuildQueue(ArbitraryDataBuildQueueItem queueItem) {
-		String resourceId = queueItem.getResourceId();
-		if (resourceId == null) {
-			return false;
-		}
-		resourceId = resourceId.toLowerCase();
-
-		if (this.arbitraryDataBuildQueue == null) {
-			return false;
-		}
-
-		if (NTP.getTime() == null) {
-			// Can't use queues until we have synced the time
-			return false;
-		}
-
-		// Don't add builds that have failed recently
-		if (this.isInFailedBuildsList(queueItem)) {
-			return false;
-		}
-
-		if (this.arbitraryDataBuildQueue.put(resourceId, queueItem) != null) {
-			// Already in queue
-			return true;
-		}
-
-		LOGGER.info("Added {} to build queue", resourceId);
-
-		// Added to queue
-		return true;
-	}
-
-	public boolean isInBuildQueue(ArbitraryDataBuildQueueItem queueItem) {
-		String resourceId = queueItem.getResourceId();
-		if (resourceId == null) {
-			return false;
-		}
-
-		if (this.arbitraryDataBuildQueue == null) {
-			return false;
-		}
-
-		if (this.arbitraryDataBuildQueue.containsKey(resourceId)) {
-			// Already in queue
-			return true;
-		}
-
-		// Not in queue
-		return false;
-	}
-
-
-	// Failed builds
-
-	public boolean addToFailedBuildsList(ArbitraryDataBuildQueueItem queueItem) {
-		String resourceId = queueItem.getResourceId();
-		if (resourceId == null) {
-			return false;
-		}
-
-		if (this.arbitraryDataFailedBuilds == null) {
-			return false;
-		}
-
-		if (NTP.getTime() == null) {
-			// Can't use queues until we have synced the time
-			return false;
-		}
-
-		if (this.arbitraryDataFailedBuilds.put(resourceId, queueItem) != null) {
-			// Already in list
-			return true;
-		}
-
-		LOGGER.info("Added {} to failed builds list", resourceId);
-
-		// Added to queue
-		return true;
-	}
-
-	public boolean isInFailedBuildsList(ArbitraryDataBuildQueueItem queueItem) {
-		String resourceId = queueItem.getResourceId();
-		if (resourceId == null) {
-			return false;
-		}
-		resourceId = resourceId.toLowerCase();
-
-		if (this.arbitraryDataFailedBuilds == null) {
-			return false;
-		}
-
-		if (this.arbitraryDataFailedBuilds.containsKey(resourceId)) {
-			// Already in list
-			return true;
-		}
-
-		// Not in list
-		return false;
-	}
-
-
-	public void setBuildInProgress(boolean buildInProgress) {
-		this.buildInProgress = buildInProgress;
-	}
-
-	public boolean getBuildInProgress() {
-		return this.buildInProgress;
 	}
 
 
@@ -611,8 +473,9 @@ public class ArbitraryDataManager extends Thread {
 					}
 
 					// Also remove from the failed builds queue in case it previously failed due to missing chunks
-					if (this.arbitraryDataFailedBuilds.containsKey(resourceId)) {
-						this.arbitraryDataFailedBuilds.remove(resourceId);
+					ArbitraryDataBuildManager buildManager = ArbitraryDataBuildManager.getInstance();
+					if (buildManager.arbitraryDataFailedBuilds.containsKey(resourceId)) {
+						buildManager.arbitraryDataFailedBuilds.remove(resourceId);
 					}
 				}
 
