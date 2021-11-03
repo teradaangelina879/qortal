@@ -106,7 +106,7 @@ public class ArbitraryDataManager extends Thread {
 		// Use a fixed thread pool to execute the arbitrary data build actions (currently just a single thread)
 		// This can be expanded to have multiple threads processing the build queue when needed
 		ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(1);
-		arbitraryDataBuildExecutor.execute(new ArbitraryDataBuildManager());
+		arbitraryDataBuildExecutor.execute(new ArbitraryDataBuilderThread());
 
 		// Keep a reference to the storage manager as we will need this a lot
 		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();

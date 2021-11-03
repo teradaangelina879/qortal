@@ -11,11 +11,11 @@ import java.io.IOException;
 import java.util.Map;
 
 
-public class ArbitraryDataBuildManager implements Runnable {
+public class ArbitraryDataBuilderThread implements Runnable {
 
-    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataBuildManager.class);
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataBuilderThread.class);
 
-    public ArbitraryDataBuildManager() {
+    public ArbitraryDataBuilderThread() {
 
     }
 
