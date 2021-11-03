@@ -282,7 +282,7 @@ public class ArbitraryDataReader {
         // Load data file(s)
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
         if (!arbitraryDataFile.exists()) {
-            if (!arbitraryDataFile.allChunksExist(chunkHashes)) {
+            if (!arbitraryDataFile.allChunksExist(chunkHashes) || chunkHashes == null) {
 
                 // Ask the arbitrary data manager to fetch data for this transaction
                 ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
