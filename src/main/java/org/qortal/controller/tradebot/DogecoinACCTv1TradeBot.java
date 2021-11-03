@@ -201,7 +201,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Built AT %s. Waiting for deployment", atAddress));
 
 		// Attempt to backup the trade bot data
-		TradeBot.backupTradeBotData(repository);
+		TradeBot.backupTradeBotData(repository, null);
 
 		// Return to user for signing and broadcast as we don't have their Qortal private key
 		try {
@@ -276,7 +276,8 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 				crossChainTradeData.expectedForeignAmount, xprv58, null, lockTimeA, receivingPublicKeyHash);
 
 		// Attempt to backup the trade bot data
-		TradeBot.backupTradeBotData(repository);
+		// Include tradeBotData as an additional parameter, since it's not in the repository yet
+		TradeBot.backupTradeBotData(repository, Arrays.asList(tradeBotData));
 
 		// Check we have enough funds via xprv58 to fund P2SH to cover expectedForeignAmount
 		long p2shFee;

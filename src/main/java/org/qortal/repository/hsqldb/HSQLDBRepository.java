@@ -471,7 +471,7 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void exportNodeLocalData() throws DataException {
-		HSQLDBImportExport.backupTradeBotStates(this);
+		HSQLDBImportExport.backupTradeBotStates(this, null);
 		HSQLDBImportExport.backupMintingAccounts(this);
 	}
 

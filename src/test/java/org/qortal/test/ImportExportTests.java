@@ -25,12 +25,15 @@ import org.qortal.repository.hsqldb.HSQLDBImportExport;
 import org.qortal.settings.Settings;
 import org.qortal.test.common.Common;
 import org.qortal.utils.NTP;
+import org.qortal.utils.Triple;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -68,7 +71,7 @@ public class ImportExportTests extends Common {
             assertEquals(10, repository.getCrossChainRepository().getAllTradeBotData().size());
 
             // Export them
-            HSQLDBImportExport.backupTradeBotStates(repository);
+            HSQLDBImportExport.backupTradeBotStates(repository, null);
 
             // Delete them from the repository
             for (TradeBotData tradeBotData : tradeBots) {
@@ -117,7 +120,7 @@ public class ImportExportTests extends Common {
             assertEquals(10, repository.getCrossChainRepository().getAllTradeBotData().size());
 
             // Export them
-            HSQLDBImportExport.backupTradeBotStates(repository);
+            HSQLDBImportExport.backupTradeBotStates(repository, null);
 
             // Delete them from the repository
             for (TradeBotData tradeBotData : tradeBots) {
@@ -136,7 +139,7 @@ public class ImportExportTests extends Common {
             }
 
             // Export again
-            HSQLDBImportExport.backupTradeBotStates(repository);
+            HSQLDBImportExport.backupTradeBotStates(repository, null);
 
             // Import current states only
             Path exportPath = HSQLDBImportExport.getExportDirectory(false);
@@ -184,7 +187,7 @@ public class ImportExportTests extends Common {
             assertEquals(10, repository.getCrossChainRepository().getAllTradeBotData().size());
 
             // Export them
-            HSQLDBImportExport.backupTradeBotStates(repository);
+            HSQLDBImportExport.backupTradeBotStates(repository, null);
 
             // Delete them from the repository
             for (TradeBotData tradeBotData : tradeBots) {
@@ -203,7 +206,7 @@ public class ImportExportTests extends Common {
             }
 
             // Export again
-            HSQLDBImportExport.backupTradeBotStates(repository);
+            HSQLDBImportExport.backupTradeBotStates(repository, null);
 
             // Import all states from the archive
             Path exportPath = HSQLDBImportExport.getExportDirectory(false);
@@ -260,6 +263,67 @@ public class ImportExportTests extends Common {
             }
 
             repository.saveChanges();
+        }
+    }
+
+    @Test
+    public void testArchiveTradeBotStateOnTradeFailure() throws DataException, IOException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+
+            // Create a trade bot and save it in the repository
+            TradeBotData tradeBotData = this.createTradeBotData(repository);
+
+            // Ensure it doesn't exist in the repository
+            assertTrue(repository.getCrossChainRepository().getAllTradeBotData().isEmpty());
+
+            // Export trade bot states, passing in the newly created trade bot as an additional parameter
+            // This is needed because it hasn't been saved to the db yet
+            HSQLDBImportExport.backupTradeBotStates(repository, Arrays.asList(tradeBotData));
+
+            // Ensure it is still not present in the repository
+            assertTrue(repository.getCrossChainRepository().getAllTradeBotData().isEmpty());
+
+            // Export all local node data again, but this time without including the trade bot data
+            // This simulates the behaviour of a node shutdown
+            repository.exportNodeLocalData();
+
+            // The TradeBotStates.json file should contain no entries
+            Path backupDirectory = HSQLDBImportExport.getExportDirectory(false);
+            Path tradeBotStatesBackup = Paths.get(backupDirectory.toString(), "TradeBotStates.json");
+            assertTrue(Files.exists(tradeBotStatesBackup));
+            String jsonString = new String(Files.readAllBytes(tradeBotStatesBackup));
+            Triple<String, String, JSONArray> parsedJSON = HSQLDBImportExport.parseJSONString(jsonString);
+            JSONArray tradeBotDataJson = parsedJSON.getC();
+            assertTrue(tradeBotDataJson.isEmpty());
+
+            // .. but the TradeBotStatesArchive.json should contain the trade bot data
+            Path tradeBotStatesArchiveBackup = Paths.get(backupDirectory.toString(), "TradeBotStatesArchive.json");
+            assertTrue(Files.exists(tradeBotStatesArchiveBackup));
+            jsonString = new String(Files.readAllBytes(tradeBotStatesArchiveBackup));
+            parsedJSON = HSQLDBImportExport.parseJSONString(jsonString);
+            JSONObject tradeBotDataJsonObject = (JSONObject) parsedJSON.getC().get(0);
+            assertEquals(tradeBotData.toJson().toString(), tradeBotDataJsonObject.toString());
+
+            // Now try importing local data (to simulate a node startup)
+            String exportPath = Settings.getInstance().getExportPath();
+            Path importPath = Paths.get(exportPath, "TradeBotStates.json");
+            repository.importDataFromFile(importPath.toString());
+
+            // The trade should be missing since it's not present in TradeBotStates.json
+            assertTrue(repository.getCrossChainRepository().getAllTradeBotData().isEmpty());
+
+            // The user now imports TradeBotStatesArchive.json
+            Path archiveImportPath = Paths.get(exportPath, "TradeBotStatesArchive.json");
+            repository.importDataFromFile(archiveImportPath.toString());
+
+            // The trade should be present in the database
+            assertEquals(1, repository.getCrossChainRepository().getAllTradeBotData().size());
+
+            // The trade bot data in the repository should match the one that was originally created
+            byte[] tradePrivateKey = tradeBotData.getTradePrivateKey();
+            TradeBotData repositoryTradeBotData = repository.getCrossChainRepository().getTradeBotData(tradePrivateKey);
+            assertNotNull(repositoryTradeBotData);
+            assertEquals(tradeBotData.toJson().toString(), repositoryTradeBotData.toJson().toString());
         }
     }
 

@@ -31,6 +31,7 @@ import org.qortal.gui.SysTray;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.hsqldb.HSQLDBImportExport;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.PresenceTransaction;
 import org.qortal.transaction.PresenceTransaction.PresenceType;
@@ -267,11 +268,11 @@ public class TradeBot implements Listener {
 		return secret;
 	}
 
-	/*package*/ static void backupTradeBotData(Repository repository) {
+	/*package*/ static void backupTradeBotData(Repository repository, List<TradeBotData> additional) {
 		// Attempt to backup the trade bot data. This an optional step and doesn't impact trading, so don't throw an exception on failure
 		try {
 			LOGGER.info("About to backup trade bot data...");
-			repository.exportNodeLocalData();
+			HSQLDBImportExport.backupTradeBotStates(repository, additional);
 		} catch (DataException e) {
 			LOGGER.info(String.format("Repository issue when exporting trade bot data: %s", e.getMessage()));
 		}
