@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataCache;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.Method;
@@ -40,7 +41,7 @@ public class ArbitraryDataBuilder {
         this.paths = new ArrayList<>();
     }
 
-    public void build() throws DataException, IOException {
+    public void build() throws DataException, IOException, MissingDataException {
         this.fetchTransactions();
         this.validateTransactions();
         this.processTransactions();
@@ -104,17 +105,37 @@ public class ArbitraryDataBuilder {
         }
     }
 
-    private void processTransactions() throws IOException, DataException {
+    private void processTransactions() throws IOException, DataException, MissingDataException {
         List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
+        int count = 0;
         for (ArbitraryTransactionData transactionData : transactionDataList) {
             LOGGER.trace("Found arbitrary transaction {}", Base58.encode(transactionData.getSignature()));
+            count++;
 
             // Build the data file, overwriting anything that was previously there
             String sig58 = Base58.encode(transactionData.getSignature());
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(sig58, ResourceIdType.TRANSACTION_DATA, this.service);
             arbitraryDataReader.setTransactionData(transactionData);
-            arbitraryDataReader.loadSynchronously(true);
+            boolean hasMissingData = false;
+            try {
+                arbitraryDataReader.loadSynchronously(true);
+            }
+            catch (MissingDataException e) {
+                hasMissingData = true;
+            }
+
+            // Handle missing data
+            if (hasMissingData) {
+                if (count == transactionDataList.size()) {
+                    // This is the final transaction in the list, so we need to fail
+                    throw new MissingDataException("Requesting missing files. Please wait and try again.");
+                }
+                // There are more transactions, so we should process them to give them the opportunity to request data
+                continue;
+            }
+
+            // By this point we should have all data needed to build the layers
             Path path = arbitraryDataReader.getFilePath();
             if (path == null) {
                 throw new IllegalStateException(String.format("Null path when building data from transaction %s", sig58));

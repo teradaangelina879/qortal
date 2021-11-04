@@ -7,6 +7,7 @@ import org.qortal.arbitrary.ArbitraryDataDigest;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -37,7 +38,7 @@ public class ArbitraryDataTests extends Common {
     }
 
     @Test
-    public void testCombineMultipleLayers() throws DataException, IOException {
+    public void testCombineMultipleLayers() throws DataException, IOException, MissingDataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String publicKey58 = Base58.encode(alice.getPublicKey());
@@ -159,7 +160,7 @@ public class ArbitraryDataTests extends Common {
     }
 
     @Test
-    public void testUpdateResource() throws DataException, IOException {
+    public void testUpdateResource() throws DataException, IOException, MissingDataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String publicKey58 = Base58.encode(alice.getPublicKey());

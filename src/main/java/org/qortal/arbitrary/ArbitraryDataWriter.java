@@ -3,6 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.crypto.AES;
@@ -52,7 +53,7 @@ public class ArbitraryDataWriter {
         this.compression = compression;
     }
 
-    public void save() throws IllegalStateException, IOException, DataException, InterruptedException {
+    public void save() throws IllegalStateException, IOException, DataException, InterruptedException, MissingDataException {
         try {
             this.preExecute();
             this.process();
@@ -94,7 +95,7 @@ public class ArbitraryDataWriter {
         this.workingPath = tempDir;
     }
 
-    private void process() throws DataException, IOException {
+    private void process() throws DataException, IOException, MissingDataException {
         switch (this.method) {
 
             case PUT:
@@ -110,7 +111,7 @@ public class ArbitraryDataWriter {
         }
     }
 
-    private void processPatch() throws DataException, IOException {
+    private void processPatch() throws DataException, IOException, MissingDataException {
 
         // Build the existing state using past transactions
         ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.name, this.service);

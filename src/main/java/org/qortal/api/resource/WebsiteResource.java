@@ -31,6 +31,7 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.HTMLParser;
 import org.qortal.api.Security;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.repository.DataException;
@@ -145,7 +146,7 @@ public class WebsiteResource {
         ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), name, service, method, compression);
         try {
             arbitraryDataWriter.save();
-        } catch (IOException | DataException | InterruptedException e) {
+        } catch (IOException | DataException | InterruptedException | MissingDataException e) {
             LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
         } catch (RuntimeException e) {

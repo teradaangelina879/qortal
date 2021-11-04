@@ -1,5 +1,6 @@
 package org.qortal.arbitrary;
 
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.repository.DataException;
@@ -30,7 +31,7 @@ public class ArbitraryDataBuildQueueItem {
         this.creationTimestamp = NTP.getTime();
     }
 
-    public void build() throws IOException, DataException {
+    public void build() throws IOException, DataException, MissingDataException {
         Long now = NTP.getTime();
         if (now == null) {
             throw new IllegalStateException("NTP time hasn't synced yet");

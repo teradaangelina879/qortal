@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
@@ -68,7 +69,7 @@ public class ArbitraryDataTransactionBuilder {
             ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(path, name, service, method, compression);
             try {
                 arbitraryDataWriter.save();
-            } catch (IOException | DataException | InterruptedException | RuntimeException e) {
+            } catch (IOException | DataException | InterruptedException | RuntimeException | MissingDataException e) {
                 LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
                 throw new DataException(String.format("Unable to create arbitrary data file: %s", e.getMessage()));
             }

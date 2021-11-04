@@ -3,6 +3,7 @@ package org.qortal.controller.arbitrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataBuildQueueItem;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.controller.Controller;
 import org.qortal.repository.DataException;
 import org.qortal.utils.NTP;
@@ -68,6 +69,12 @@ public class ArbitraryDataBuilderThread implements Runnable {
                     queueItem.build();
                     this.removeFromQueue(resourceId);
                     LOGGER.info("Finished building {}", queueItem);
+
+                } catch (MissingDataException e) {
+                    LOGGER.info("Missing data for {}: {}", queueItem, e.getMessage());
+                    queueItem.setFailed(true);
+                    this.removeFromQueue(resourceId);
+                    // Don't add to the failed builds list, as we may want to retry sooner
 
                 } catch (IOException | DataException | RuntimeException e) {
                     LOGGER.info("Error building {}: {}", queueItem, e.getMessage());

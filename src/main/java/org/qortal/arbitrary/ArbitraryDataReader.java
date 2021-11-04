@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.AES;
@@ -33,6 +34,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.MissingResourceException;
 
 public class ArbitraryDataReader {
 
@@ -113,7 +115,7 @@ public class ArbitraryDataReader {
      * @throws IOException
      * @throws DataException
      */
-    public void loadSynchronously(boolean overwrite) throws IllegalStateException, IOException, DataException {
+    public void loadSynchronously(boolean overwrite) throws IllegalStateException, IOException, DataException, MissingDataException {
         try {
             ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
                     this.resourceId, this.resourceIdType, this.service);
@@ -197,7 +199,7 @@ public class ArbitraryDataReader {
         }
     }
 
-    private void fetch() throws IllegalStateException, IOException, DataException {
+    private void fetch() throws IllegalStateException, IOException, DataException, MissingDataException {
         switch (resourceIdType) {
 
             case FILE_HASH:
@@ -228,7 +230,7 @@ public class ArbitraryDataReader {
         this.filePath = arbitraryDataFile.getFilePath();
     }
 
-    private void fetchFromName() throws IllegalStateException, IOException, DataException {
+    private void fetchFromName() throws IllegalStateException, IOException, DataException, MissingDataException {
         try {
 
             // Build the existing state using past transactions
@@ -250,7 +252,7 @@ public class ArbitraryDataReader {
         }
     }
 
-    private void fetchFromSignature() throws IllegalStateException, IOException, DataException {
+    private void fetchFromSignature() throws IllegalStateException, IOException, DataException, MissingDataException {
 
         // Load the full transaction data from the database so we can access the file hashes
         ArbitraryTransactionData transactionData;
@@ -264,7 +266,7 @@ public class ArbitraryDataReader {
         this.fetchFromTransactionData(transactionData);
     }
 
-    private void fetchFromTransactionData(ArbitraryTransactionData transactionData) throws IllegalStateException, IOException, DataException {
+    private void fetchFromTransactionData(ArbitraryTransactionData transactionData) throws IllegalStateException, IOException, MissingDataException {
         if (!(transactionData instanceof ArbitraryTransactionData)) {
             throw new IllegalStateException(String.format("Transaction data not found for signature %s", this.resourceId));
         }
@@ -287,10 +289,10 @@ public class ArbitraryDataReader {
                 // Ask the arbitrary data manager to fetch data for this transaction
                 ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
 
-                // Fail the build, as it will be retried later once the chunks arrive
-                String response = String.format("Missing chunks for file %s have been requested. Please try again once they have been received.", arbitraryDataFile);
-                LOGGER.info(response);
-                throw new IllegalStateException(response);
+                // Throw a missing data exception, which allows subsequent layers to fetch data
+                String message = String.format("Requested missing data for file %s", arbitraryDataFile);
+                LOGGER.info(message);
+                throw new MissingDataException(message);
             }
             // We have all the chunks but not the complete file, so join them
             arbitraryDataFile.addChunkHashes(chunkHashes);

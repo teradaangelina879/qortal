@@ -30,6 +30,8 @@ import org.qortal.api.*;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
+import org.qortal.arbitrary.exception.MissingDataException;
+import org.qortal.controller.Controller;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -259,7 +261,16 @@ public class ArbitraryResource {
 		Service service = Service.valueOf(serviceString);
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service);
 		try {
-			arbitraryDataReader.loadSynchronously(rebuild);
+
+			// Loop until we have data
+			while (!Controller.isStopping()) {
+				try {
+					arbitraryDataReader.loadSynchronously(rebuild);
+					break;
+				} catch (MissingDataException e) {
+					continue;
+				}
+			}
 
 			// TODO: limit file size that can be read into memory
 			java.nio.file.Path path = Paths.get(arbitraryDataReader.getFilePath().toString(), filepath);
