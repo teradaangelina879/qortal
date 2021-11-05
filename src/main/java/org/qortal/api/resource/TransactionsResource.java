@@ -418,32 +418,86 @@ public class TransactionsResource {
 	}
 
 	@POST
-	@Path("/sign")
+	@Path("/convert")
 	@Operation(
-		summary = "Sign a raw, unsigned transaction",
-		requestBody = @RequestBody(
-			required = true,
-			content = @Content(
-				mediaType = MediaType.APPLICATION_JSON,
-				schema = @Schema(
-					implementation = SimpleTransactionSignRequest.class
-				)
-			)
-		),
-		responses = {
-			@ApiResponse(
-				description = "raw, signed transaction encoded in Base58",
-				content = @Content(
-					mediaType = MediaType.TEXT_PLAIN,
-					schema = @Schema(
-						type = "string"
+			summary = "Convert transaction bytes into bytes for signing",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string",
+									description = "raw, unsigned transaction in base58 encoding",
+									example = "raw transaction base58"
+							)
 					)
-				)
-			)
-		}
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned transaction encoded in Base58, ready for signing",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
 	)
 	@ApiErrors({
-		ApiError.NON_PRODUCTION, ApiError.INVALID_PRIVATE_KEY, ApiError.TRANSFORMATION_ERROR
+			ApiError.NON_PRODUCTION, ApiError.TRANSFORMATION_ERROR
+	})
+	public String convertTransactionForSigning(String rawInputBytes58) {
+		if (Settings.getInstance().isApiRestricted())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
+		byte[] rawInputBytes = Base58.decode(rawInputBytes58);
+		if (rawInputBytes.length == 0)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.JSON);
+
+		try {
+			// Append null signature on the end before transformation
+			byte[] rawBytes = Bytes.concat(rawInputBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
+
+			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			byte[] convertedBytes = TransactionTransformer.toBytesForSigning(transactionData);
+
+			return Base58.encode(convertedBytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		}
+	}
+
+	@POST
+	@Path("/sign")
+	@Operation(
+			summary = "Sign a raw, unsigned transaction",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_JSON,
+							schema = @Schema(
+									implementation = SimpleTransactionSignRequest.class
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, signed transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({
+			ApiError.NON_PRODUCTION, ApiError.INVALID_PRIVATE_KEY, ApiError.TRANSFORMATION_ERROR
 	})
 	public String signTransaction(SimpleTransactionSignRequest signRequest) {
 		if (Settings.getInstance().isApiRestricted())
