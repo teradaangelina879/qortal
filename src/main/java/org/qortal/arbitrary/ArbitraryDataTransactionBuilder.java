@@ -71,7 +71,7 @@ public class ArbitraryDataTransactionBuilder {
                 arbitraryDataWriter.save();
             } catch (IOException | DataException | InterruptedException | RuntimeException | MissingDataException e) {
                 LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-                throw new DataException(String.format("Unable to create arbitrary data file: %s", e.getMessage()));
+                throw new DataException(e.getMessage());
             }
 
             arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
