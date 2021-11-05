@@ -289,6 +289,41 @@ public class ArbitraryResource {
 		}
 	}
 
+	@POST
+	@Path("/{service}/{name}")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path",
+			description = "A POST transaction automatically selects a PUT or PATCH method based on the data supplied",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "/Users/user/Documents/MyDirectoryOrFile"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	public String post(@PathParam("service") String serviceString,
+					   @PathParam("name") String name,
+					   String path) {
+		Security.checkApiCallAllowed(request);
+
+		// TODO: automatic PUT/PATCH
+		return this.upload(Method.PUT, Service.valueOf(serviceString), name, path);
+	}
+
 	@PUT
 	@Path("/{service}/{name}")
 	@Operation(
