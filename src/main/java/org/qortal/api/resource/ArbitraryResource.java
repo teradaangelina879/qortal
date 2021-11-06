@@ -33,6 +33,7 @@ import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.controller.Controller;
 import org.qortal.data.account.AccountData;
+import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -67,7 +68,42 @@ public class ArbitraryResource {
 	@Context HttpServletRequest request;
 	@Context HttpServletResponse response;
 	@Context ServletContext context;
-	
+
+	@GET
+	@Path("/resources")
+	@Operation(
+			summary = "List arbitrary resources available on chain, optionally filtered by service",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<ArbitraryResourceInfo> getResources(
+			@QueryParam("service") Service service, @Parameter(
+			ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+			ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+			ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
+					.getArbitraryResources(service, limit, offset, reverse);
+
+			if (resources == null) {
+				return new ArrayList<>();
+			}
+			return resources;
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+
 	@GET
 	@Path("/search")
 	@Operation(

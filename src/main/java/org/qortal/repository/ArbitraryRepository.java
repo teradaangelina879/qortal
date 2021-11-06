@@ -1,5 +1,6 @@
 package org.qortal.repository;
 
+import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -19,6 +20,9 @@ public interface ArbitraryRepository {
 	public List<ArbitraryTransactionData> getArbitraryTransactions(String name, Service service, long since) throws DataException;
 
 	public ArbitraryTransactionData getLatestTransaction(String name, Service service, Method method) throws DataException;
+
+
+	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 
 	public List<ArbitraryPeerData> getArbitraryPeerDataForSignature(byte[] signature) throws DataException;

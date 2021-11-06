@@ -1,5 +1,6 @@
 package org.qortal.repository.hsqldb;
 
+import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.network.ArbitraryPeerData;
@@ -283,6 +284,53 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 					dataType, chunkHashes, payments);
 
 			return transactionData;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch arbitrary transactions from repository", e);
+		}
+	}
+
+	@Override
+	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		StringBuilder sql = new StringBuilder(512);
+
+		sql.append("SELECT name, service FROM ArbitraryTransactions");
+
+		if (service != null) {
+			sql.append(" WHERE service = ");
+			sql.append(service.value);
+		}
+
+		sql.append(" GROUP BY name, service ORDER BY name");
+
+		if (reverse != null && reverse) {
+			sql.append(" DESC");
+		}
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
+
+		List<ArbitraryResourceInfo> arbitraryResources = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+			if (resultSet == null)
+				return null;
+
+			do {
+				String name = resultSet.getString(1);
+				Service serviceResult = Service.valueOf(resultSet.getInt(2));
+
+				// We should filter out resources without names
+				if (name == null) {
+					continue;
+				}
+
+				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
+				arbitraryResourceInfo.name = name;
+				arbitraryResourceInfo.service = serviceResult;
+
+				arbitraryResources.add(arbitraryResourceInfo);
+			} while (resultSet.next());
+
+			return arbitraryResources;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch arbitrary transactions from repository", e);
 		}
