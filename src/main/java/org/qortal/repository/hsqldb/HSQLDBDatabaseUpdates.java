@@ -922,8 +922,6 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
 					// For finding transactions by registered name
 					stmt.execute("CREATE INDEX ArbitraryNameIndex ON ArbitraryTransactions (name)");
-					// For finding transactions by registered name and service
-					stmt.execute("CREATE INDEX ArbitraryNameServiceIndex ON ArbitraryTransactions (name, service)");
 					break;
 
 				case 39:
