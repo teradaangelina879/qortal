@@ -56,56 +56,6 @@ public class WebsiteResource {
     @Context ServletContext context;
 
     @POST
-    @Path("/upload/{method}/{publickey}/{name}")
-    @Operation(
-            summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path to a static website",
-            description = "Method should be PUT to create a new base layer, or PATCH to add a delta layer. This will soon be automatic. Name is not currently validated against the main chain for ownership by the public key, but it will be before launch. The request body should contain a local path to the static site, and it is essential that this folder contains an index.html or index.htm (this will be validated later).",
-            requestBody = @RequestBody(
-                    required = true,
-                    content = @Content(
-                            mediaType = MediaType.TEXT_PLAIN,
-                            schema = @Schema(
-                                    type = "string", example = "/Users/user/Documents/MyStaticWebsite"
-                            )
-                    )
-            ),
-            responses = {
-                    @ApiResponse(
-                            description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
-                            content = @Content(
-                                    mediaType = MediaType.TEXT_PLAIN,
-                                    schema = @Schema(
-                                            type = "string"
-                                    )
-                            )
-                    )
-            }
-    )
-    public String uploadWebsite(@PathParam("method") String methodString,
-                                @PathParam("publickey") String publicKey58,
-                                @PathParam("name") String name,
-                                String path) {
-        Security.checkApiCallAllowed(request);
-
-        // It's too dangerous to allow user-supplied file paths in weaker security contexts
-        if (Settings.getInstance().isApiRestricted()) {
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
-        }
-
-        try {
-            ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
-                    publicKey58, Paths.get(path), name, Method.valueOf(methodString), Service.WEBSITE
-            );
-
-            ArbitraryTransactionData transactionData = transactionBuilder.build();
-            return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
-
-        } catch (DataException | TransformationException e) {
-            throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
-        }
-    }
-
-    @POST
     @Path("/preview")
     @Operation(
             summary = "Generate preview URL based on a user-supplied path to a static website",
