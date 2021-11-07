@@ -35,6 +35,9 @@ public class ArbitraryTransactionData extends TransactionData {
 		ARBITRARY_DATA(100),
 		WEBSITE(200),
 		GIT_REPOSITORY(300),
+		IMAGE(400),
+		VIDEO(500),
+		DOCUMENT(600),
 		BLOG_POST(777),
 		BLOG_COMMENT(778);
 
