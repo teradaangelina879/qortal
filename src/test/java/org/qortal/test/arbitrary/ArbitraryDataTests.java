@@ -101,7 +101,7 @@ public class ArbitraryDataTests extends Common {
                 fail("Creating transaction should fail due to nonexistent PUT transaction");
 
             } catch (DataException expectedException) {
-                assertEquals(String.format("Unable to create arbitrary data file: Couldn't find PUT transaction for " +
+                assertEquals(String.format("Couldn't find PUT transaction for " +
                         "name %s and service %s", name, service), expectedException.getMessage());
             }
 
