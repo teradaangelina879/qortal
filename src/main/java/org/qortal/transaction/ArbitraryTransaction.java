@@ -35,6 +35,7 @@ public class ArbitraryTransaction extends Transaction {
 	public static final int POW_MIN_DIFFICULTY = 12; // leading zero bits
 	public static final int POW_MAX_DIFFICULTY = 19; // leading zero bits
 	public static final long MAX_FILE_SIZE = ArbitraryDataFile.MAX_FILE_SIZE;
+	public static final int MAX_IDENTIFIER_LENGTH = 64;
 
 	// Constructors
 

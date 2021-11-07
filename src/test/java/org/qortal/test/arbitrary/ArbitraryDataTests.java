@@ -43,6 +43,7 @@ public class ArbitraryDataTests extends Common {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
             Service service = Service.WEBSITE; // Can be anything for this test
 
             // Register the name to Alice
@@ -51,15 +52,15 @@ public class ArbitraryDataTests extends Common {
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-            this.createAndMintTxn(repository, publicKey58, path1, name, Method.PUT, service, alice);
+            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Create PATCH transaction
             Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
-            this.createAndMintTxn(repository, publicKey58, path2, name, Method.PATCH, service, alice);
+            this.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
 
             // Create another PATCH transaction
             Path path3 = Paths.get("src/test/resources/arbitrary/demo3");
-            this.createAndMintTxn(repository, publicKey58, path3, name, Method.PATCH, service, alice);
+            this.createAndMintTxn(repository, publicKey58, path3, name, identifier, Method.PATCH, service, alice);
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service);
@@ -90,12 +91,13 @@ public class ArbitraryDataTests extends Common {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
             Service service = Service.WEBSITE; // Can be anything for this test
 
             // Create PATCH transaction, ensuring that an exception is thrown
             try {
                 Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-                this.createAndMintTxn(repository, publicKey58, path1, name, Method.PATCH, service, alice);
+                this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PATCH, service, alice);
                 fail("Creating transaction should fail due to nonexistent PUT transaction");
 
             } catch (DataException expectedException) {
@@ -107,11 +109,12 @@ public class ArbitraryDataTests extends Common {
     }
 
     @Test
-    public void testNameDoesNotExist() throws DataException, IOException {
+    public void testNameDoesNotExist() throws DataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
             Service service = Service.WEBSITE; // Can be anything for this test
 
             // Ensure the name doesn't exist
@@ -120,7 +123,7 @@ public class ArbitraryDataTests extends Common {
             // Create PUT transaction, ensuring that an exception is thrown
             try {
                 Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-                this.createAndMintTxn(repository, publicKey58, path1, name, Method.PUT, service, alice);
+                this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
                 fail("Creating transaction should fail due to the name being unregistered");
 
             } catch (DataException expectedException) {
@@ -130,10 +133,11 @@ public class ArbitraryDataTests extends Common {
     }
 
     @Test
-    public void testUpdateResourceOwnedByAnotherCreator() throws DataException, IOException {
+    public void testUpdateResourceOwnedByAnotherCreator() throws DataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
             Service service = Service.WEBSITE; // Can be anything for this test
 
             // Register the name to Alice
@@ -142,7 +146,7 @@ public class ArbitraryDataTests extends Common {
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-            this.createAndMintTxn(repository, Base58.encode(alice.getPublicKey()), path1, name, Method.PUT, service, alice);
+            this.createAndMintTxn(repository, Base58.encode(alice.getPublicKey()), path1, name, identifier, Method.PUT, service, alice);
 
             // Bob attempts to update Alice's data
             PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
@@ -150,7 +154,7 @@ public class ArbitraryDataTests extends Common {
             // Create PATCH transaction, ensuring that an exception is thrown
             try {
                 Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
-                this.createAndMintTxn(repository, Base58.encode(bob.getPublicKey()), path2, name, Method.PATCH, service, bob);
+                this.createAndMintTxn(repository, Base58.encode(bob.getPublicKey()), path2, name, identifier, Method.PATCH, service, bob);
                 fail("Creating transaction should fail due to the name being registered to Alice instead of Bob");
 
             } catch (DataException expectedException) {
@@ -165,6 +169,7 @@ public class ArbitraryDataTests extends Common {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
             Service service = Service.WEBSITE; // Can be anything for this test
 
             // Register the name to Alice
@@ -173,7 +178,7 @@ public class ArbitraryDataTests extends Common {
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-            this.createAndMintTxn(repository, publicKey58, path1, name, Method.PUT, service, alice);
+            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service);
@@ -184,7 +189,7 @@ public class ArbitraryDataTests extends Common {
 
             // Create PATCH transaction
             Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
-            this.createAndMintTxn(repository, publicKey58, path2, name, Method.PATCH, service, alice);
+            this.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
 
             // Rebuild the latest state
             ArbitraryDataReader arbitraryDataReader2 = new ArbitraryDataReader(name, ResourceIdType.NAME, service);
@@ -203,10 +208,12 @@ public class ArbitraryDataTests extends Common {
         }
     }
 
-    private void createAndMintTxn(Repository repository, String publicKey58, Path path, String name,
+    private void createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
                                   Method method, Service service, PrivateKeyAccount account) throws DataException {
 
-        ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(publicKey58, path, name, method, service);
+        ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
+                publicKey58, path, name, method, service, identifier);
+
         ArbitraryTransactionData transactionData = txnBuilder.build();
         Transaction.ValidationResult result = TransactionUtils.signAndImport(repository, transactionData, account);
         assertEquals(Transaction.ValidationResult.OK, result);

@@ -21,6 +21,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		final int nonce = 0;
 		final int size = 4 * 1024 * 1024;
 		final String name = "TEST";
+		final String identifier = "qortal_avatar";
 		final ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
 
 		final byte[] secret = new byte[32];
@@ -43,8 +44,8 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		List<PaymentData> payments = new ArrayList<>();
 		payments.add(new PaymentData(recipient, assetId, amount));
 
-		return new ArbitraryTransactionData(generateBase(account), version, service, nonce, size, name, method,
-				secret, compression, data, dataType, chunkHashes, payments);
+		return new ArbitraryTransactionData(generateBase(account), version, service, nonce, size,name, identifier,
+				method, secret, compression, data, dataType, chunkHashes, payments);
 	}
 
 }

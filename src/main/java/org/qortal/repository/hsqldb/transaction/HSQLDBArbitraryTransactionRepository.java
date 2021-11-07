@@ -21,7 +21,8 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
 		String sql = "SELECT version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
-				"name, update_method, secret, compression from ArbitraryTransactions WHERE signature = ?";
+				"name, identifier, update_method, secret, compression from ArbitraryTransactions " +
+				"WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
@@ -36,13 +37,14 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 			byte[] data = resultSet.getBytes(6);
 			byte[] chunkHashes = resultSet.getBytes(7);
 			String name = resultSet.getString(8);
-			ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.valueOf(resultSet.getInt(9));
-			byte[] secret = resultSet.getBytes(10);
-			ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.valueOf(resultSet.getInt(11));
+			String identifier = resultSet.getString(9);
+			ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.valueOf(resultSet.getInt(10));
+			byte[] secret = resultSet.getBytes(11);
+			ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.valueOf(resultSet.getInt(12));
 
 			List<PaymentData> payments = this.getPaymentsFromSignature(baseTransactionData.getSignature());
-			return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, name, method,
-					secret, compression, data, dataType, chunkHashes, payments);
+			return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, name,
+					identifier, method, secret, compression, data, dataType, chunkHashes, payments);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch arbitrary transaction from repository", e);
 		}
@@ -63,8 +65,8 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 				.bind("nonce", arbitraryTransactionData.getNonce()).bind("size", arbitraryTransactionData.getSize())
 				.bind("is_data_raw", arbitraryTransactionData.getDataType() == DataType.RAW_DATA).bind("data", arbitraryTransactionData.getData())
 				.bind("chunk_hashes", arbitraryTransactionData.getChunkHashes()).bind("name", arbitraryTransactionData.getName())
-				.bind("update_method", arbitraryTransactionData.getMethod().value).bind("secret", arbitraryTransactionData.getSecret())
-				.bind("compression", arbitraryTransactionData.getCompression().value);
+				.bind("identifier", arbitraryTransactionData.getIdentifier()).bind("update_method", arbitraryTransactionData.getMethod().value)
+				.bind("secret", arbitraryTransactionData.getSecret()).bind("compression", arbitraryTransactionData.getCompression().value);
 
 		try {
 			saveHelper.execute(this.repository);

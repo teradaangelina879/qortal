@@ -353,11 +353,12 @@ public class ArbitraryResource {
 	)
 	public String post(@PathParam("service") String serviceString,
 					   @PathParam("name") String name,
+					   @QueryParam("identifier") String identifier,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
 		// TODO: automatic PUT/PATCH
-		return this.upload(Method.PUT, Service.valueOf(serviceString), name, path);
+		return this.upload(Method.PUT, Service.valueOf(serviceString), name, identifier, path);
 	}
 
 	@PUT
@@ -388,10 +389,11 @@ public class ArbitraryResource {
 	)
 	public String put(@PathParam("service") String serviceString,
 					  @PathParam("name") String name,
+					  @QueryParam("identifier") String identifier,
 					  String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Method.PUT, Service.valueOf(serviceString), name, path);
+		return this.upload(Method.PUT, Service.valueOf(serviceString), name, identifier, path);
 	}
 
 	@PATCH
@@ -422,14 +424,15 @@ public class ArbitraryResource {
 			}
 	)
 	public String patch(@PathParam("service") String serviceString,
-					  	@PathParam("name") String name,
+						@PathParam("name") String name,
+						@QueryParam("identifier") String identifier,
 					  	String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Method.PATCH, Service.valueOf(serviceString), name, path);
+		return this.upload(Method.PATCH, Service.valueOf(serviceString), name, identifier, path);
 	}
 
-	private String upload(Method method, Service service, String name, String path) {
+	private String upload(Method method, Service service, String name, String identifier, String path) {
 		// It's too dangerous to allow user-supplied file paths in weaker security contexts
 		if (Settings.getInstance().isApiRestricted()) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
@@ -452,7 +455,7 @@ public class ArbitraryResource {
 
 			try {
 				ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
-						publicKey58, Paths.get(path), name, method, service
+						publicKey58, Paths.get(path), name, method, service, identifier
 				);
 
 				ArbitraryTransactionData transactionData = transactionBuilder.build();

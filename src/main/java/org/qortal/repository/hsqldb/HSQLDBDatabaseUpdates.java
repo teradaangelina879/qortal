@@ -920,6 +920,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD secret VARBINARY(32)");
 					// We want to support compressed and uncompressed data, as well as different compression algorithms
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
+					// An optional identifier string can be used to allow more than one resource per user/service combo
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD identifier VARCHAR(64)");
 					// For finding transactions by registered name
 					stmt.execute("CREATE INDEX ArbitraryNameIndex ON ArbitraryTransactions (name)");
 					break;

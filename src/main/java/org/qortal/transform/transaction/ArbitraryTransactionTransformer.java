@@ -35,14 +35,15 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	private static final int CHUNKS_SIZE_LENGTH = INT_LENGTH;
 	private static final int NUMBER_PAYMENTS_LENGTH = INT_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
+	private static final int IDENTIFIER_SIZE_LENGTH = INT_LENGTH;
 	private static final int COMPRESSION_LENGTH = INT_LENGTH;
 	private static final int METHOD_LENGTH = INT_LENGTH;
 	private static final int SECRET_LENGTH = INT_LENGTH;
 
 	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + DATA_TYPE_LENGTH + DATA_SIZE_LENGTH;
 
-	private static final int EXTRAS_V5_LENGTH = NONCE_LENGTH + NAME_SIZE_LENGTH + METHOD_LENGTH + SECRET_LENGTH +
-			COMPRESSION_LENGTH + RAW_DATA_SIZE_LENGTH + CHUNKS_SIZE_LENGTH;
+	private static final int EXTRAS_V5_LENGTH = NONCE_LENGTH + NAME_SIZE_LENGTH + IDENTIFIER_SIZE_LENGTH +
+			METHOD_LENGTH + SECRET_LENGTH + COMPRESSION_LENGTH + RAW_DATA_SIZE_LENGTH + CHUNKS_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -57,6 +58,8 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		layout.add("name length", TransformationType.INT); // Version 5+
 		layout.add("name", TransformationType.DATA); // Version 5+
+		layout.add("identifier length", TransformationType.INT); // Version 5+
+		layout.add("identifier", TransformationType.DATA); // Version 5+
 		layout.add("method", TransformationType.INT); // Version 5+
 		layout.add("secret length", TransformationType.INT); // Version 5+
 		layout.add("secret", TransformationType.DATA); // Version 5+
@@ -94,6 +97,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		int nonce = 0;
 		String name = null;
+		String identifier = null;
 		ArbitraryTransactionData.Method method = null;
 		byte[] secret = null;
 		ArbitraryTransactionData.Compression compression = null;
@@ -102,6 +106,8 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			nonce = byteBuffer.getInt();
 
 			name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
+
+			identifier = Serialization.deserializeSizedString(byteBuffer, ArbitraryTransaction.MAX_IDENTIFIER_LENGTH);
 
 			method =  ArbitraryTransactionData.Method.valueOf(byteBuffer.getInt());
 
@@ -160,18 +166,20 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
-		return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, name, method, secret, compression, data, dataType, chunkHashes, payments);
+		return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, name, identifier,
+				method, secret, compression, data, dataType, chunkHashes, payments);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
 		int nameLength = (arbitraryTransactionData.getName() != null) ? Utf8.encodedLength(arbitraryTransactionData.getName()) : 0;
+		int identifierLength = (arbitraryTransactionData.getIdentifier() != null) ? Utf8.encodedLength(arbitraryTransactionData.getIdentifier()) : 0;
 		int secretLength = (arbitraryTransactionData.getSecret() != null) ? arbitraryTransactionData.getSecret().length : 0;
 		int dataLength = (arbitraryTransactionData.getData() != null) ? arbitraryTransactionData.getData().length : 0;
 		int chunkHashesLength = (arbitraryTransactionData.getChunkHashes() != null) ? arbitraryTransactionData.getChunkHashes().length : 0;
 
-		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + nameLength + secretLength + dataLength + chunkHashesLength;
+		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + nameLength + identifierLength + secretLength + dataLength + chunkHashesLength;
 
 		if (arbitraryTransactionData.getVersion() >= 5) {
 			length += EXTRAS_V5_LENGTH;
@@ -195,6 +203,8 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getNonce()));
 
 				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getName());
+
+				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getIdentifier());
 
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getMethod().value));
 
@@ -264,6 +274,8 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getNonce()));
 
 				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getName());
+
+				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getIdentifier());
 
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getMethod().value));
 

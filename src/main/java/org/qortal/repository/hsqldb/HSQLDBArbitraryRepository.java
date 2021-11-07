@@ -157,7 +157,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		String sql = "SELECT type, reference, signature, creator, created_when, fee, " +
 				"tx_group_id, block_height, approval_status, approval_height, " +
 				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
-				"name, update_method, secret, compression FROM ArbitraryTransactions " +
+				"name, identifier, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
 				"WHERE lower(name) = ? AND service = ? AND created_when >= ? " +
 				"ORDER BY created_when ASC";
@@ -201,14 +201,15 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				byte[] data = resultSet.getBytes(16);
 				byte[] chunkHashes = resultSet.getBytes(17);
 				String nameResult = resultSet.getString(18);
-				Method method = Method.valueOf(resultSet.getInt(19));
-				byte[] secret = resultSet.getBytes(20);
-				Compression compression = Compression.valueOf(resultSet.getInt(21));
+				String identifierResult = resultSet.getString(19);
+				Method method = Method.valueOf(resultSet.getInt(20));
+				byte[] secret = resultSet.getBytes(21);
+				Compression compression = Compression.valueOf(resultSet.getInt(22));
 
 				List<PaymentData> payments = new ArrayList<>(); // TODO: this.getPaymentsFromSignature(baseTransactionData.getSignature());
 				ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-						version, serviceResult, nonce, size, nameResult, method, secret, compression, data,
-						dataType, chunkHashes, payments);
+						version, serviceResult, nonce, size, nameResult, identifierResult, method, secret,
+						compression, data, dataType, chunkHashes, payments);
 
 				arbitraryTransactionData.add(transactionData);
 			} while (resultSet.next());
@@ -226,7 +227,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		sql.append("SELECT type, reference, signature, creator, created_when, fee, " +
 				"tx_group_id, block_height, approval_status, approval_height, " +
 				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
-				"name, update_method, secret, compression FROM ArbitraryTransactions " +
+				"name, identifier, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
 				"WHERE lower(name) = ? AND service = ?");
 
@@ -274,14 +275,15 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			byte[] data = resultSet.getBytes(16);
 			byte[] chunkHashes = resultSet.getBytes(17);
 			String nameResult = resultSet.getString(18);
-			Method methodResult = Method.valueOf(resultSet.getInt(19));
-			byte[] secret = resultSet.getBytes(20);
-			Compression compression = Compression.valueOf(resultSet.getInt(21));
+			String identifierResult = resultSet.getString(19);
+			Method methodResult = Method.valueOf(resultSet.getInt(20));
+			byte[] secret = resultSet.getBytes(21);
+			Compression compression = Compression.valueOf(resultSet.getInt(22));
 
 			List<PaymentData> payments = new ArrayList<>(); // TODO: this.getPaymentsFromSignature(baseTransactionData.getSignature());
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-					version, serviceResult, nonce, size, nameResult, methodResult, secret, compression, data,
-					dataType, chunkHashes, payments);
+					version, serviceResult, nonce, size, nameResult, identifierResult, methodResult, secret,
+					compression, data, dataType, chunkHashes, payments);
 
 			return transactionData;
 		} catch (SQLException e) {

@@ -100,6 +100,7 @@ public class ArbitraryTransactionData extends TransactionData {
 	private int size;
 
 	private String name;
+	private String identifier;
 	private Method method;
 	private byte[] secret;
 	private Compression compression;
@@ -125,7 +126,7 @@ public class ArbitraryTransactionData extends TransactionData {
 
 	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
 			int version, Service service, int nonce, int size,
-			String name, Method method, byte[] secret, Compression compression,
+			String name, String identifier, Method method, byte[] secret, Compression compression,
 			byte[] data, DataType dataType, byte[] chunkHashes, List<PaymentData> payments) {
 		super(TransactionType.ARBITRARY, baseTransactionData);
 
@@ -135,6 +136,7 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.nonce = nonce;
 		this.size = size;
 		this.name = name;
+		this.identifier = identifier;
 		this.method = method;
 		this.secret = secret;
 		this.compression = compression;
@@ -172,6 +174,10 @@ public class ArbitraryTransactionData extends TransactionData {
 
 	public String getName() {
 		return this.name;
+	}
+
+	public String getIdentifier() {
+		return this.identifier;
 	}
 
 	public Method getMethod() {

@@ -36,13 +36,16 @@ public class ArbitraryDataTransactionBuilder {
     private String name;
     private Method method;
     private Service service;
+    private String identifier;
 
-    public ArbitraryDataTransactionBuilder(String publicKey58, Path path, String name, Method method, Service service) {
+    public ArbitraryDataTransactionBuilder(String publicKey58, Path path, String name,
+                                           Method method, Service service, String identifier) {
         this.publicKey58 = publicKey58;
         this.path = path;
         this.name = name;
         this.method = method;
         this.service = service;
+        this.identifier = identifier;
     }
 
     public ArbitraryTransactionData build() throws DataException {
@@ -97,7 +100,7 @@ public class ArbitraryDataTransactionBuilder {
             final List<PaymentData> payments = new ArrayList<>();
 
             ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-                    version, service, nonce, size, name, method,
+                    version, service, nonce, size, name, identifier, method,
                     secret, compression, digest, dataType, chunkHashes, payments);
 
             ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);

@@ -42,7 +42,7 @@ public class ArbitraryTransactionTests extends Common {
 			List<PaymentData> payments = new ArrayList<>();
 
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(TestTransaction.generateBase(alice),
-					5, service, 0, 0, null, method,
+					5, service, 0, 0, null, null, method,
                     null, compression, null, dataType, null, payments);
 
 			ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
