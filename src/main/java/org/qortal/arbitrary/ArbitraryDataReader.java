@@ -34,7 +34,6 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.MissingResourceException;
 
 public class ArbitraryDataReader {
 
@@ -64,7 +63,7 @@ public class ArbitraryDataReader {
 
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
-        this.workingPath = Paths.get(baseDir, "reader", this.resourceId);
+        this.workingPath = Paths.get(baseDir, "reader", this.resourceIdType.toString(), this.resourceId, this.service.toString());
         this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
     }
 
