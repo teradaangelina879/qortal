@@ -37,7 +37,9 @@ public class ArbitraryTransactionData extends TransactionData {
 		GIT_REPOSITORY(300),
 		IMAGE(400),
 		VIDEO(500),
-		DOCUMENT(600),
+		AUDIO(600),
+		DOCUMENT(700),
+		BLOG(700),
 		BLOG_POST(777),
 		BLOG_COMMENT(778);
 
