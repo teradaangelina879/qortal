@@ -28,6 +28,7 @@ public class ArbitraryDataBuilder {
 
     private String name;
     private Service service;
+    private String identifier;
 
     private List<ArbitraryTransactionData> transactions;
     private ArbitraryTransactionData latestPutTransaction;
@@ -35,9 +36,10 @@ public class ArbitraryDataBuilder {
     private byte[] latestSignature;
     private Path finalPath;
 
-    public ArbitraryDataBuilder(String name, Service service) {
+    public ArbitraryDataBuilder(String name, Service service, String identifier) {
         this.name = name;
         this.service = service;
+        this.identifier = identifier;
         this.paths = new ArrayList<>();
     }
 
@@ -56,16 +58,17 @@ public class ArbitraryDataBuilder {
 
             // Get the most recent PUT
             ArbitraryTransactionData latestPut = repository.getArbitraryRepository()
-                    .getLatestTransaction(this.name, this.service, Method.PUT);
+                    .getLatestTransaction(this.name, this.service, Method.PUT, this.identifier);
             if (latestPut == null) {
-                throw new IllegalStateException(String.format(
-                        "Couldn't find PUT transaction for name %s and service %s", this.name, this.service));
+                String message = String.format("Couldn't find PUT transaction for name %s, service %s and identifier %s",
+                        this.name, this.service, this.identifierString());
+                throw new IllegalStateException(message);
             }
             this.latestPutTransaction = latestPut;
 
             // Load all transactions since the latest PUT
             List<ArbitraryTransactionData> transactionDataList = repository.getArbitraryRepository()
-                    .getArbitraryTransactions(this.name, this.service, latestPut.getTimestamp());
+                    .getArbitraryTransactions(this.name, this.service, this.identifier, latestPut.getTimestamp());
             this.transactions = transactionDataList;
         }
     }
@@ -81,8 +84,8 @@ public class ArbitraryDataBuilder {
             throw new IllegalStateException("Expected PUT but received PATCH");
         }
         if (transactionDataList.size() == 0) {
-            throw new IllegalStateException(String.format("No transactions found for name %s, service %s, since %d",
-                    name, service, latestPut.getTimestamp()));
+            throw new IllegalStateException(String.format("No transactions found for name %s, service %s, " +
+                            "identifier: %s, since %d", name, service, this.identifierString(), latestPut.getTimestamp()));
         }
 
         // Verify that the signature of the first transaction matches the latest PUT
@@ -115,7 +118,8 @@ public class ArbitraryDataBuilder {
 
             // Build the data file, overwriting anything that was previously there
             String sig58 = Base58.encode(transactionData.getSignature());
-            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(sig58, ResourceIdType.TRANSACTION_DATA, this.service);
+            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(sig58, ResourceIdType.TRANSACTION_DATA,
+                    this.service, this.identifier);
             arbitraryDataReader.setTransactionData(transactionData);
             boolean hasMissingData = false;
             try {
@@ -179,7 +183,8 @@ public class ArbitraryDataBuilder {
 
         // Loop from the second path onwards
         for (int i=1; i<paths.size(); i++) {
-            LOGGER.info(String.format("[%s][%s] Applying layer %d...", this.service, this.name, i));
+            String identifierPrefix = this.identifier != null ? String.format("[%s]", this.identifier) : "";
+            LOGGER.info(String.format("[%s][%s]%s Applying layer %d...", this.service, this.name, identifierPrefix, i));
 
             // Create an instance of ArbitraryDataCombiner
             Path pathAfter = this.paths.get(i);
@@ -209,6 +214,10 @@ public class ArbitraryDataBuilder {
         cache.setSignature(latestTransactionSignature);
         cache.setTimestamp(NTP.getTime());
         cache.write();
+    }
+
+    private String identifierString() {
+        return identifier != null ? identifier : "";
     }
 
     public Path getFinalPath() {

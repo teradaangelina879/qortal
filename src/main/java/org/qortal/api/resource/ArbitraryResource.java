@@ -290,39 +290,34 @@ public class ArbitraryResource {
 								   @QueryParam("rebuild") boolean rebuild) {
 		Security.checkApiCallAllowed(request);
 
-		if (filepath == null) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing filepath");
-		}
+		return this.download(serviceString, name, null, filepath, rebuild);
+	}
 
-		Service service = Service.valueOf(serviceString);
-		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service);
-		try {
-
-			// Loop until we have data
-			while (!Controller.isStopping()) {
-				try {
-					arbitraryDataReader.loadSynchronously(rebuild);
-					break;
-				} catch (MissingDataException e) {
-					continue;
-				}
+	@GET
+	@Path("/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Fetch raw data from file with supplied service, name, identifier, and relative path",
+			description = "An optional rebuild boolean can be supplied. If true, any existing cached data will be invalidated.",
+			responses = {
+					@ApiResponse(
+							description = "Path to file structure containing requested data",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
 			}
+	)
+	public HttpServletResponse get(@PathParam("service") String serviceString,
+								   @PathParam("name") String name,
+								   @PathParam("identifier") String identifier,
+								   @QueryParam("filepath") String filepath,
+								   @QueryParam("rebuild") boolean rebuild) {
+		Security.checkApiCallAllowed(request);
 
-			// TODO: limit file size that can be read into memory
-			java.nio.file.Path path = Paths.get(arbitraryDataReader.getFilePath().toString(), filepath);
-			if (!Files.exists(path)) {
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-			}
-			byte[] data = Files.readAllBytes(path);
-			response.setContentType(context.getMimeType(path.toString()));
-			response.setContentLength(data.length);
-			response.getOutputStream().write(data);
-
-			return response;
-		} catch (Exception e) {
-			LOGGER.info(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
-		}
+		return this.download(serviceString, name, identifier, filepath, rebuild);
 	}
 
 	@POST
@@ -432,6 +427,7 @@ public class ArbitraryResource {
 		return this.upload(Method.PATCH, Service.valueOf(serviceString), name, identifier, path);
 	}
 
+
 	private String upload(Method method, Service service, String name, String identifier, String path) {
 		// It's too dangerous to allow user-supplied file paths in weaker security contexts
 		if (Settings.getInstance().isApiRestricted()) {
@@ -467,6 +463,43 @@ public class ArbitraryResource {
 
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+		}
+	}
+
+	private HttpServletResponse download(String serviceString, String name, String identifier, String filepath, boolean rebuild) {
+
+		if (filepath == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing filepath");
+		}
+
+		Service service = Service.valueOf(serviceString);
+		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+		try {
+
+			// Loop until we have data
+			while (!Controller.isStopping()) {
+				try {
+					arbitraryDataReader.loadSynchronously(rebuild);
+					break;
+				} catch (MissingDataException e) {
+					continue;
+				}
+			}
+
+			// TODO: limit file size that can be read into memory
+			java.nio.file.Path path = Paths.get(arbitraryDataReader.getFilePath().toString(), filepath);
+			if (!Files.exists(path)) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+			}
+			byte[] data = Files.readAllBytes(path);
+			response.setContentType(context.getMimeType(path.toString()));
+			response.setContentLength(data.length);
+			response.getOutputStream().write(data);
+
+			return response;
+		} catch (Exception e) {
+			LOGGER.info(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
 		}
 	}
 

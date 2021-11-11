@@ -39,6 +39,7 @@ public class ArbitraryTransactionUtils {
 
         String name = arbitraryTransactionData.getName();
         ArbitraryTransactionData.Service service = arbitraryTransactionData.getService();
+        String identifier = arbitraryTransactionData.getIdentifier();
 
         if (name == null || service == null) {
             return null;
@@ -48,7 +49,7 @@ public class ArbitraryTransactionUtils {
         ArbitraryTransactionData latestPut;
         try {
             latestPut = repository.getArbitraryRepository()
-                    .getLatestTransaction(name, service, ArbitraryTransactionData.Method.PUT);
+                    .getLatestTransaction(name, service, ArbitraryTransactionData.Method.PUT, identifier);
         } catch (DataException e) {
             return null;
         }

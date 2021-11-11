@@ -15,9 +15,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
-import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
-import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
@@ -69,7 +67,7 @@ public class ArbitraryDataTransactionBuilder {
 
             ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
 
-            ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(path, name, service, method, compression);
+            ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(path, name, service, identifier, method, compression);
             try {
                 arbitraryDataWriter.save();
             } catch (IOException | DataException | InterruptedException | RuntimeException | MissingDataException e) {

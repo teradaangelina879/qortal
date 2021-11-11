@@ -42,6 +42,7 @@ public class ArbitraryDataReader {
     private String resourceId;
     private ResourceIdType resourceIdType;
     private Service service;
+    private String identifier;
     private ArbitraryTransactionData transactionData;
     private String secret58;
     private Path filePath;
@@ -51,7 +52,7 @@ public class ArbitraryDataReader {
     private Path uncompressedPath;
     private Path unencryptedPath;
 
-    public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service) {
+    public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         // Ensure names are always lowercase
         if (resourceIdType == ResourceIdType.NAME) {
             resourceId = resourceId.toLowerCase();
@@ -60,25 +61,31 @@ public class ArbitraryDataReader {
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;
+        this.identifier = identifier;
 
+        this.workingPath = this.buildWorkingPath();
+        this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
+    }
+
+    private Path buildWorkingPath() {
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
-        this.workingPath = Paths.get(baseDir, "reader", this.resourceIdType.toString(), this.resourceId, this.service.toString());
-        this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
+        String identifier = this.identifier != null ?  this.identifier : "default";
+        return Paths.get(baseDir, "reader", this.resourceIdType.toString(), this.resourceId, this.service.toString(), identifier);
     }
 
     public boolean isCachedDataAvailable() {
         // If this resource is in the build queue then we shouldn't attempt to serve
         // cached data, as it may not be fully built
         ArbitraryDataBuildQueueItem queueItem =
-                new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service);
+                new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service, this.identifier);
         if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) {
             return false;
         }
 
         // Not in the build queue - so check the cache itself
         ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, false,
-                this.resourceId, this.resourceIdType, this.service);
+                this.resourceId, this.resourceIdType, this.service, this.identifier);
         if (cache.isCachedDataAvailable()) {
             this.filePath = this.uncompressedPath;
             return true;
@@ -98,7 +105,7 @@ public class ArbitraryDataReader {
      */
     public boolean loadAsynchronously() {
         ArbitraryDataBuildQueueItem queueItem =
-                new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service);
+                new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service, this.identifier);
         return ArbitraryDataBuildManager.getInstance().addToBuildQueue(queueItem);
     }
 
@@ -117,7 +124,7 @@ public class ArbitraryDataReader {
     public void loadSynchronously(boolean overwrite) throws IllegalStateException, IOException, DataException, MissingDataException {
         try {
             ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
-                    this.resourceId, this.resourceIdType, this.service);
+                    this.resourceId, this.resourceIdType, this.service, this.identifier);
             if (cache.isCachedDataAvailable()) {
                 // Use cached data
                 this.filePath = this.uncompressedPath;
@@ -233,7 +240,7 @@ public class ArbitraryDataReader {
         try {
 
             // Build the existing state using past transactions
-            ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.resourceId, this.service);
+            ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.resourceId, this.service, this.identifier);
             builder.build();
             Path builtPath = builder.getFinalPath();
             if (builtPath == null) {

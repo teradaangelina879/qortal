@@ -13,6 +13,7 @@ public class ArbitraryDataBuildQueueItem {
     private String resourceId;
     private ResourceIdType resourceIdType;
     private Service service;
+    private String identifier;
     private Long creationTimestamp = null;
     private Long buildStartTimestamp = null;
     private Long buildEndTimestamp = null;
@@ -24,10 +25,11 @@ public class ArbitraryDataBuildQueueItem {
     /* The amount of time to remember that a build has failed, to avoid retries */
     public static long FAILURE_TIMEOUT = 5*60*1000L; // 5 minutes
 
-    public ArbitraryDataBuildQueueItem(String resourceId, ResourceIdType resourceIdType, Service service) {
+    public ArbitraryDataBuildQueueItem(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         this.resourceId = resourceId.toLowerCase();
         this.resourceIdType = resourceIdType;
         this.service = service;
+        this.identifier = identifier;
         this.creationTimestamp = NTP.getTime();
     }
 
@@ -39,7 +41,7 @@ public class ArbitraryDataBuildQueueItem {
 
         this.buildStartTimestamp = now;
         ArbitraryDataReader arbitraryDataReader =
-                new ArbitraryDataReader(this.resourceId, this.resourceIdType, this.service);
+                new ArbitraryDataReader(this.resourceId, this.resourceIdType, this.service, this.identifier);
 
         try {
             arbitraryDataReader.loadSynchronously(true);
@@ -86,7 +88,7 @@ public class ArbitraryDataBuildQueueItem {
 
     @Override
     public String toString() {
-        return String.format("%s %s", this.service, this.resourceId);
+        return String.format("%s %s %s", this.service, this.resourceId, this.identifier);
     }
 
 }

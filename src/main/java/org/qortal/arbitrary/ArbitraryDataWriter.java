@@ -34,6 +34,7 @@ public class ArbitraryDataWriter {
     private Path filePath;
     private String name;
     private Service service;
+    private String identifier;
     private Method method;
     private Compression compression;
 
@@ -45,10 +46,11 @@ public class ArbitraryDataWriter {
     private Path compressedPath;
     private Path encryptedPath;
 
-    public ArbitraryDataWriter(Path filePath, String name, Service service, Method method, Compression compression) {
+    public ArbitraryDataWriter(Path filePath, String name, Service service, String identifier, Method method, Compression compression) {
         this.filePath = filePath;
         this.name = name;
         this.service = service;
+        this.identifier = identifier;
         this.method = method;
         this.compression = compression;
     }
@@ -114,7 +116,7 @@ public class ArbitraryDataWriter {
     private void processPatch() throws DataException, IOException, MissingDataException {
 
         // Build the existing state using past transactions
-        ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.name, this.service);
+        ArbitraryDataBuilder builder = new ArbitraryDataBuilder(this.name, this.service, this.identifier);
         builder.build();
         Path builtPath = builder.getFinalPath();
 

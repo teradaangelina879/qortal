@@ -93,7 +93,7 @@ public class WebsiteResource {
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
 
-        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), name, service, method, compression);
+        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), name, service, null, method, compression);
         try {
             arbitraryDataWriter.save();
         } catch (IOException | DataException | InterruptedException | MissingDataException e) {
@@ -178,7 +178,7 @@ public class WebsiteResource {
         }
 
         Service service = Service.WEBSITE;
-        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service);
+        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, null);
         arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {
             if (!arbitraryDataReader.isCachedDataAvailable()) {

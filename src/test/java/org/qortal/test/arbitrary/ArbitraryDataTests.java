@@ -63,7 +63,7 @@ public class ArbitraryDataTests extends Common {
             this.createAndMintTxn(repository, publicKey58, path3, name, identifier, Method.PATCH, service, alice);
 
             // Now build the latest data state for this name
-            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service);
+            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
             arbitraryDataReader.loadSynchronously(true);
             Path finalPath = arbitraryDataReader.getFilePath();
 
@@ -102,7 +102,7 @@ public class ArbitraryDataTests extends Common {
 
             } catch (DataException expectedException) {
                 assertEquals(String.format("Couldn't find PUT transaction for " +
-                        "name %s and service %s", name, service), expectedException.getMessage());
+                        "name %s, service %s and identifier ", name, service), expectedException.getMessage());
             }
 
         }
@@ -181,7 +181,7 @@ public class ArbitraryDataTests extends Common {
             this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Now build the latest data state for this name
-            ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service);
+            ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
             arbitraryDataReader1.loadSynchronously(true);
             Path initialLayerPath = arbitraryDataReader1.getFilePath();
             ArbitraryDataDigest initialLayerDigest = new ArbitraryDataDigest(initialLayerPath);
@@ -192,7 +192,75 @@ public class ArbitraryDataTests extends Common {
             this.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
 
             // Rebuild the latest state
-            ArbitraryDataReader arbitraryDataReader2 = new ArbitraryDataReader(name, ResourceIdType.NAME, service);
+            ArbitraryDataReader arbitraryDataReader2 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
+            arbitraryDataReader2.loadSynchronously(false);
+            Path secondLayerPath = arbitraryDataReader2.getFilePath();
+            ArbitraryDataDigest secondLayerDigest = new ArbitraryDataDigest(secondLayerPath);
+            secondLayerDigest.compute();
+
+            // Ensure that the second state is different to the first state
+            assertFalse(Arrays.equals(initialLayerDigest.getHash(), secondLayerDigest.getHash()));
+
+            // Its directory hash should match the hash of demo2
+            ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(path2);
+            path2Digest.compute();
+            assertEquals(path2Digest.getHash58(), secondLayerDigest.getHash58());
+        }
+    }
+
+    @Test
+    public void testIdentifier() throws DataException, IOException, MissingDataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = "test_identifier";
+            Service service = Service.WEBSITE; // Can be anything for this test
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
+            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+
+            // Build the latest data state for this name, with a null identifier, ensuring that it fails
+            ArbitraryDataReader arbitraryDataReader1a = new ArbitraryDataReader(name, ResourceIdType.NAME, service, null);
+            try {
+                arbitraryDataReader1a.loadSynchronously(true);
+                fail("Loading data with null identifier should fail due to nonexistent PUT transaction");
+
+            } catch (IllegalStateException expectedException) {
+                assertEquals(String.format("Couldn't find PUT transaction for name %s, service %s "
+                        + "and identifier ", name.toLowerCase(), service), expectedException.getMessage());
+            }
+
+            // Build the latest data state for this name, with a different identifier, ensuring that it fails
+            String differentIdentifier = "different_identifier";
+            ArbitraryDataReader arbitraryDataReader1b = new ArbitraryDataReader(name, ResourceIdType.NAME, service, differentIdentifier);
+            try {
+                arbitraryDataReader1b.loadSynchronously(true);
+                fail("Loading data with incorrect identifier should fail due to nonexistent PUT transaction");
+
+            } catch (IllegalStateException expectedException) {
+                assertEquals(String.format("Couldn't find PUT transaction for name %s, service %s "
+                        + "and identifier %s", name.toLowerCase(), service, differentIdentifier), expectedException.getMessage());
+            }
+
+            // Now build the latest data state for this name, with the correct identifier
+            ArbitraryDataReader arbitraryDataReader1c = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
+            arbitraryDataReader1c.loadSynchronously(true);
+            Path initialLayerPath = arbitraryDataReader1c.getFilePath();
+            ArbitraryDataDigest initialLayerDigest = new ArbitraryDataDigest(initialLayerPath);
+            initialLayerDigest.compute();
+
+            // Create PATCH transaction
+            Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
+            this.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
+
+            // Rebuild the latest state
+            ArbitraryDataReader arbitraryDataReader2 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
             arbitraryDataReader2.loadSynchronously(false);
             Path secondLayerPath = arbitraryDataReader2.getFilePath();
             ArbitraryDataDigest secondLayerDigest = new ArbitraryDataDigest(secondLayerPath);

@@ -17,9 +17,9 @@ public interface ArbitraryRepository {
 
 	public void delete(ArbitraryTransactionData arbitraryTransactionData) throws DataException;
 
-	public List<ArbitraryTransactionData> getArbitraryTransactions(String name, Service service, long since) throws DataException;
+	public List<ArbitraryTransactionData> getArbitraryTransactions(String name, Service service, String identifier, long since) throws DataException;
 
-	public ArbitraryTransactionData getLatestTransaction(String name, Service service, Method method) throws DataException;
+	public ArbitraryTransactionData getLatestTransaction(String name, Service service, Method method, String identifier) throws DataException;
 
 
 	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, Integer limit, Integer offset, Boolean reverse) throws DataException;

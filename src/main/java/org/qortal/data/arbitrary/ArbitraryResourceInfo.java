@@ -10,6 +10,7 @@ public class ArbitraryResourceInfo {
 
 	public String name;
 	public ArbitraryTransactionData.Service service;
+	public String identifier;
 
 	public ArbitraryResourceInfo() {
 	}

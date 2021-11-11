@@ -22,14 +22,16 @@ public class ArbitraryDataCache {
     private String resourceId;
     private ResourceIdType resourceIdType;
     private Service service;
+    private String identifier;
 
     public ArbitraryDataCache(Path filePath, boolean overwrite, String resourceId,
-                              ResourceIdType resourceIdType, Service service) {
+                              ResourceIdType resourceIdType, Service service, String identifier) {
         this.filePath = filePath;
         this.overwrite = overwrite;
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;
+        this.identifier = identifier;
     }
 
     public boolean isCachedDataAvailable() {
@@ -134,7 +136,7 @@ public class ArbitraryDataCache {
 
             // Find latest transaction for name and service, with any method
             ArbitraryTransactionData latestTransaction = repository.getArbitraryRepository()
-                    .getLatestTransaction(this.resourceId, this.service, null);
+                    .getLatestTransaction(this.resourceId, this.service, null, this.identifier);
 
             if (latestTransaction != null) {
                 return latestTransaction.getSignature();

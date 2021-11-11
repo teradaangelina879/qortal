@@ -153,17 +153,18 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public List<ArbitraryTransactionData> getArbitraryTransactions(String name, Service service, long since) throws DataException {
+	public List<ArbitraryTransactionData> getArbitraryTransactions(String name, Service service, String identifier, long since) throws DataException {
 		String sql = "SELECT type, reference, signature, creator, created_when, fee, " +
 				"tx_group_id, block_height, approval_status, approval_height, " +
 				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
 				"name, identifier, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
-				"WHERE lower(name) = ? AND service = ? AND created_when >= ? " +
-				"ORDER BY created_when ASC";
+				"WHERE lower(name) = ? AND service = ?" +
+				"AND (identifier = ? OR (identifier IS NULL AND ? IS NULL))" +
+				"AND created_when >= ? ORDER BY created_when ASC";
 		List<ArbitraryTransactionData> arbitraryTransactionData = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, name.toLowerCase(), service.value, since)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, name.toLowerCase(), service.value, identifier, identifier, since)) {
 			if (resultSet == null)
 				return null;
 
@@ -221,7 +222,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public ArbitraryTransactionData getLatestTransaction(String name, Service service, Method method) throws DataException {
+	public ArbitraryTransactionData getLatestTransaction(String name, Service service, Method method, String identifier) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
 
 		sql.append("SELECT type, reference, signature, creator, created_when, fee, " +
@@ -229,7 +230,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
 				"name, identifier, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
-				"WHERE lower(name) = ? AND service = ?");
+				"WHERE lower(name) = ? AND service = ? " +
+				"AND (identifier = ? OR (identifier IS NULL AND ? IS NULL))");
 
 		if (method != null) {
 			sql.append(" AND update_method = ");
@@ -238,7 +240,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		sql.append("ORDER BY created_when DESC LIMIT 1");
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), name.toLowerCase(), service.value)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), name.toLowerCase(), service.value, identifier, identifier)) {
 			if (resultSet == null)
 				return null;
 
@@ -295,14 +297,14 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 
-		sql.append("SELECT name, service FROM ArbitraryTransactions");
+		sql.append("SELECT name, service, identifier FROM ArbitraryTransactions");
 
 		if (service != null) {
 			sql.append(" WHERE service = ");
 			sql.append(service.value);
 		}
 
-		sql.append(" GROUP BY name, service ORDER BY name");
+		sql.append(" GROUP BY name, service, identifier ORDER BY name");
 
 		if (reverse != null && reverse) {
 			sql.append(" DESC");
@@ -319,6 +321,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			do {
 				String name = resultSet.getString(1);
 				Service serviceResult = Service.valueOf(resultSet.getInt(2));
+				String identifier = resultSet.getString(3);
 
 				// We should filter out resources without names
 				if (name == null) {
@@ -328,6 +331,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
 				arbitraryResourceInfo.name = name;
 				arbitraryResourceInfo.service = serviceResult;
+				arbitraryResourceInfo.identifier = identifier;
 
 				arbitraryResources.add(arbitraryResourceInfo);
 			} while (resultSet.next());
