@@ -9,6 +9,7 @@ import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.RegisterNameTransactionData;
@@ -27,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Objects;
 
 import static org.junit.Assert.*;
 
@@ -322,6 +324,43 @@ public class ArbitraryDataTests extends Common {
                 assertEquals(String.format("Couldn't find PUT transaction for name %s, service %s "
                         + "and identifier %s", name.toLowerCase(), service, differentIdentifier), expectedException.getMessage());
             }
+        }
+    }
+
+    @Test
+    public void testSingleFile() throws DataException, IOException, MissingDataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = "test1"; // Blank, not null
+            Service service = Service.DOCUMENT; // Can be anything for this test
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = Paths.get("src/test/resources/arbitrary/demo1/lorem1.txt");
+            byte[] path1FileDigest = Crypto.digest(path1.toFile());
+            ArbitraryDataDigest path1DirectoryDigest = new ArbitraryDataDigest(path1.getParent());
+            path1DirectoryDigest.compute();
+            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+
+            // Now build the latest data state for this name
+            ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
+            arbitraryDataReader1.loadSynchronously(true);
+            Path builtFilePath = Paths.get(arbitraryDataReader1.getFilePath().toString(), "data");
+            byte[] builtFileDigest = Crypto.digest(builtFilePath.toFile());
+
+            // Compare it against the hash of the original file
+            assertArrayEquals(builtFileDigest, path1FileDigest);
+
+            // The directory digest won't match because the file is renamed to "data"
+            // We may need to find a way to retain the filename
+            ArbitraryDataDigest builtDirectoryDigest = new ArbitraryDataDigest(arbitraryDataReader1.getFilePath());
+            builtDirectoryDigest.compute();
+            assertFalse(Objects.equals(path1DirectoryDigest.getHash58(), builtDirectoryDigest.getHash58()));
         }
     }
 
