@@ -11,5 +11,6 @@
   "minPeers": 0,
   "pruneBlockLimit": 100,
   "bootstrapFilenamePrefix": "test-",
-  "dataPath": "data-test"
+  "dataPath": "data-test",
+  "tempDataPath": "data-test/_temp"
 }
