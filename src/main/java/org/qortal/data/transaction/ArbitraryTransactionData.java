@@ -36,12 +36,14 @@ public class ArbitraryTransactionData extends TransactionData {
 		WEBSITE(200),
 		GIT_REPOSITORY(300),
 		IMAGE(400),
+		THUMBNAIL(410),
 		VIDEO(500),
 		AUDIO(600),
-		DOCUMENT(700),
 		BLOG(700),
 		BLOG_POST(777),
-		BLOG_COMMENT(778);
+		BLOG_COMMENT(778),
+		DOCUMENT(800),
+		PLAYLIST(900);
 
 		public final int value;
 
