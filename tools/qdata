@@ -14,8 +14,7 @@ if [ -z "$*" ]; then
 	echo "qdata GET [service] [name] <identifier-or-default> <filepath-or-default> <rebuild>"
 	echo
 	echo "Notes:"
-	echo "- When requesting a resource, please supply the relative path to a file within the data structure,"
-	echo "  or 'default' to indicate a file with no identifier."
+	echo "- When requesting a resource, please use 'default' to indicate a file with no identifier."
 	echo "- The same applies when specifying the relative path to a file within the data structure; use 'default'"
 	echo "  to indicate a single file resource."
 	echo
