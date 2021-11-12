@@ -24,6 +24,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.*;
@@ -485,11 +486,22 @@ public class ArbitraryResource {
 					continue;
 				}
 			}
+			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
+
+			if (filepath == null || filepath.isEmpty()) {
+				// No file path supplied - so check if this is a single file resource
+				String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
+				if (files.length == 1) {
+					// This is a single file resource
+					filepath = files[0];
+				}
+			}
 
 			// TODO: limit file size that can be read into memory
-			java.nio.file.Path path = Paths.get(arbitraryDataReader.getFilePath().toString(), filepath);
+			java.nio.file.Path path = Paths.get(outputPath.toString(), filepath);
 			if (!Files.exists(path)) {
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+				String message = String.format("No file exists at filepath: %s", filepath);
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, message);
 			}
 			byte[] data = Files.readAllBytes(path);
 			response.setContentType(context.getMimeType(path.toString()));

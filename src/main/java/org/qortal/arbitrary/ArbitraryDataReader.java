@@ -167,9 +167,13 @@ public class ArbitraryDataReader {
 
     private void createUncompressedDirectory() {
         try {
+            // Create parent directory
             Files.createDirectories(this.uncompressedPath.getParent());
+            // Ensure child directory doesn't already exist
+            FileUtils.deleteDirectory(this.uncompressedPath.toFile());
+
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create temp directory");
+            throw new IllegalStateException("Unable to create uncompressed directory");
         }
     }
 
@@ -403,8 +407,8 @@ public class ArbitraryDataReader {
             if (source == null || !source.exists()) {
                 throw new IllegalStateException("Source directory doesn't exist");
             }
-            if (dest == null || !dest.exists()) {
-                throw new IllegalStateException("Destination directory doesn't exist");
+            if (dest == null) {
+                throw new IllegalStateException("Destination is null");
             }
             // Ensure destination directory doesn't exist
             FileUtils.deleteDirectory(dest);
