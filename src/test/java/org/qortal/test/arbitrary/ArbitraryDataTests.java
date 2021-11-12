@@ -276,6 +276,55 @@ public class ArbitraryDataTests extends Common {
         }
     }
 
+    @Test
+    public void testBlankIdentifier() throws DataException, IOException, MissingDataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = ""; // Blank, not null
+            Service service = Service.WEBSITE; // Can be anything for this test
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
+            ArbitraryDataDigest path1Digest = new ArbitraryDataDigest(path1);
+            path1Digest.compute();
+            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+
+            // Now build the latest data state for this name with a null identifier, ensuring that it succeeds and the data matches
+            ArbitraryDataReader arbitraryDataReader1a = new ArbitraryDataReader(name, ResourceIdType.NAME, service, null);
+            arbitraryDataReader1a.loadSynchronously(true);
+            Path initialLayerPath1a = arbitraryDataReader1a.getFilePath();
+            ArbitraryDataDigest initialLayerDigest1a = new ArbitraryDataDigest(initialLayerPath1a);
+            initialLayerDigest1a.compute();
+            assertEquals(path1Digest.getHash58(), initialLayerDigest1a.getHash58());
+
+            // It should also be accessible via a blank string, as we treat null and blank as the same thing
+            ArbitraryDataReader arbitraryDataReader1b = new ArbitraryDataReader(name, ResourceIdType.NAME, service, "");
+            arbitraryDataReader1b.loadSynchronously(true);
+            Path initialLayerPath1b = arbitraryDataReader1b.getFilePath();
+            ArbitraryDataDigest initialLayerDigest1b = new ArbitraryDataDigest(initialLayerPath1b);
+            initialLayerDigest1b.compute();
+            assertEquals(path1Digest.getHash58(), initialLayerDigest1b.getHash58());
+
+            // Build the latest data state for this name, with a different identifier, ensuring that it fails
+            String differentIdentifier = "different_identifier";
+            ArbitraryDataReader arbitraryDataReader1c = new ArbitraryDataReader(name, ResourceIdType.NAME, service, differentIdentifier);
+            try {
+                arbitraryDataReader1c.loadSynchronously(true);
+                fail("Loading data with incorrect identifier should fail due to nonexistent PUT transaction");
+
+            } catch (IllegalStateException expectedException) {
+                assertEquals(String.format("Couldn't find PUT transaction for name %s, service %s "
+                        + "and identifier %s", name.toLowerCase(), service, differentIdentifier), expectedException.getMessage());
+            }
+        }
+    }
+
     private void createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
                                   Method method, Service service, PrivateKeyAccount account) throws DataException {
 

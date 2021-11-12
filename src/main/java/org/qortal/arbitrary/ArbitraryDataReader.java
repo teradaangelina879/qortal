@@ -58,6 +58,11 @@ public class ArbitraryDataReader {
             resourceId = resourceId.toLowerCase();
         }
 
+        // If identifier is a blank string, treat it as null
+        if (identifier == "") {
+            identifier = null;
+        }
+
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;

@@ -182,7 +182,7 @@ public class ArbitraryTransactionData extends TransactionData {
 	}
 
 	public String getIdentifier() {
-		return this.identifier;
+		return (this.identifier != "") ? this.identifier : null;
 	}
 
 	public Method getMethod() {
