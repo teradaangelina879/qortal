@@ -152,7 +152,7 @@ public class ArbitraryResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txGroupId, txTypes,
-					service.value, name, address, confirmationStatus, limit, offset, reverse);
+					service, name, address, confirmationStatus, limit, offset, reverse);
 
 			// Expand signatures to transactions
 			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());

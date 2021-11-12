@@ -22,6 +22,7 @@ import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.GroupApprovalTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.TransferAssetTransactionData;
+import org.qortal.data.transaction.ArbitraryTransactionData.Service;
 import org.qortal.repository.DataException;
 import org.qortal.repository.TransactionRepository;
 import org.qortal.repository.hsqldb.HSQLDBRepository;
@@ -386,8 +387,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, Integer txGroupId,
-			List<TransactionType> txTypes, Integer service, String name, String address,
-			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
+													  List<TransactionType> txTypes, Service service, String name, String address,
+													  ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		List<byte[]> signatures = new ArrayList<>();
 
 		boolean hasAddress = address != null && !address.isEmpty();
@@ -466,7 +467,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		if (service != null) {
 			whereClauses.add("ArbitraryTransactions.service = ?");
-			bindParams.add(service);
+			bindParams.add(service.value);
 		}
 
 		if (name != null) {
