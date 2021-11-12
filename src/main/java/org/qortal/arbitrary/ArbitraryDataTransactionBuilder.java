@@ -65,7 +65,10 @@ public class ArbitraryDataTransactionBuilder {
                 random.nextBytes(lastReference);
             }
 
-            ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
+            Compression compression = Compression.ZIP;
+
+            // FUTURE? Use zip compression for directories, or no compression for single files
+            // Compression compression = (path.toFile().isDirectory()) ? Compression.ZIP : Compression.NONE;
 
             ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(path, name, service, identifier, method, compression);
             try {

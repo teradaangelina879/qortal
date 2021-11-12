@@ -358,10 +358,18 @@ public class ArbitraryDataReader {
         }
 
         try {
-            // TODO: compression types
-            //if (transactionData.getCompression() == ArbitraryTransactionData.Compression.ZIP) {
+            // Handle each type of compression
+            if (transactionData.getCompression() == Compression.ZIP) {
                 ZipUtils.unzip(this.filePath.toString(), this.uncompressedPath.getParent().toString());
-            //}
+            }
+            else if (transactionData.getCompression() == Compression.NONE) {
+                Files.createDirectories(this.uncompressedPath);
+                Path finalPath = Paths.get(this.uncompressedPath.toString(), "data");
+                this.filePath.toFile().renameTo(finalPath.toFile());
+            }
+            else {
+                throw new IllegalStateException(String.format("Unrecognized compression type: %s", transactionData.getCompression()));
+            }
         } catch (IOException e) {
             throw new IllegalStateException(String.format("Unable to unzip file: %s", e.getMessage()));
         }
