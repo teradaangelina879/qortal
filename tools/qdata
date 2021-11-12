@@ -8,10 +8,16 @@ if [ -z "$*" ]; then
 	echo "Usage:"
 	echo
 	echo "Host/update data:"
-	echo "qdata [PUT/PATCH] [service] [name] [dirpath]"
+	echo "qdata [PUT/PATCH] [service] [name] [dirpath] <identifier>"
 	echo
 	echo "Fetch data:"
-	echo "qdata GET [service] [name] [filepath] <rebuild>"
+	echo "qdata GET [service] [name] <identifier-or-default> <filepath-or-default> <rebuild>"
+	echo
+	echo "Notes:"
+	echo "- When requesting a resource, please supply the relative path to a file within the data structure,"
+	echo "  or 'default' to indicate a file with no identifier."
+	echo "- The same applies when specifying the relative path to a file within the data structure; use 'default'"
+	echo "  to indicate a single file resource."
 	echo
 	exit
 fi
@@ -33,6 +39,7 @@ fi
 
 if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
   directory=$4
+  identifier=$5
 
   if [ -z "${directory}" ]; then
     echo "Error: missing directory"; exit
@@ -42,7 +49,7 @@ if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
   fi
 
   echo "Creating transaction - this can take a while..."
-  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}" -d "${directory}")
+  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}/${identifier}" -d "${directory}")
   if [[ "${tx_data}" == *"error"* || "${tx_data}" == *"ERROR"* ]]; then
     echo "${tx_data}"; exit
   fi
@@ -63,18 +70,29 @@ if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
   fi
 
 elif [[ "${method}" == "GET" ]]; then
-  filepath=$4
-  rebuild=$5
-
-  if [ -z "${filepath}" ]; then
-    echo "Error: missing filepath. Please supply the relative path to a file within the data structure."; exit
-  fi
+  identifier=$4
+  filepath=$5
+  rebuild=$6
 
   if [ -z "${rebuild}" ]; then
     rebuild="false"
   fi
 
-  response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}?rebuild=${rebuild}&filepath=${filepath}")
+  # Handle default
+  if [[ "${identifier}" == "default" ]]; then
+    identifier=""
+  fi
+  if [[ "${filepath}" == "default" ]]; then
+    filepath=""
+  fi
+
+  # We use a different API depending on whether or not an identifier is supplied
+  if [ -n "${identifier}" ]; then
+    response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}/${identifier}?rebuild=${rebuild}&filepath=${filepath}")
+  else
+    response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}?rebuild=${rebuild}&filepath=${filepath}")
+  fi
+
   if [ -z "${response}" ]; then
     echo "Empty response from ${host}:${port}"
   fi

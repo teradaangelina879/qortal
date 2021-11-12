@@ -349,12 +349,11 @@ public class ArbitraryResource {
 	)
 	public String post(@PathParam("service") String serviceString,
 					   @PathParam("name") String name,
-					   @QueryParam("identifier") String identifier,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
 		// TODO: automatic PUT/PATCH
-		return this.upload(Method.PUT, Service.valueOf(serviceString), name, identifier, path);
+		return this.upload(Method.PUT, Service.valueOf(serviceString), name, null, path);
 	}
 
 	@PUT
@@ -385,11 +384,10 @@ public class ArbitraryResource {
 	)
 	public String put(@PathParam("service") String serviceString,
 					  @PathParam("name") String name,
-					  @QueryParam("identifier") String identifier,
 					  String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Method.PUT, Service.valueOf(serviceString), name, identifier, path);
+		return this.upload(Method.PUT, Service.valueOf(serviceString), name, null, path);
 	}
 
 	@PATCH
@@ -421,8 +419,115 @@ public class ArbitraryResource {
 	)
 	public String patch(@PathParam("service") String serviceString,
 						@PathParam("name") String name,
-						@QueryParam("identifier") String identifier,
 					  	String path) {
+		Security.checkApiCallAllowed(request);
+
+		return this.upload(Method.PATCH, Service.valueOf(serviceString), name, null, path);
+	}
+
+
+	@POST
+	@Path("/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path",
+			description = "A POST transaction automatically selects a PUT or PATCH method based on the data supplied",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "/Users/user/Documents/MyDirectoryOrFile"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	public String post(@PathParam("service") String serviceString,
+					   @PathParam("name") String name,
+					   @PathParam("identifier") String identifier,
+					   String path) {
+		Security.checkApiCallAllowed(request);
+
+		// TODO: automatic PUT/PATCH
+		return this.upload(Method.PUT, Service.valueOf(serviceString), name, identifier, path);
+	}
+
+	@PUT
+	@Path("/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path, using the PUT method",
+			description = "A PUT transaction replaces the data held for this name and service in its entirety.",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "/Users/user/Documents/MyDirectoryOrFile"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	public String put(@PathParam("service") String serviceString,
+					  @PathParam("name") String name,
+					  @PathParam("identifier") String identifier,
+					  String path) {
+		Security.checkApiCallAllowed(request);
+
+		return this.upload(Method.PUT, Service.valueOf(serviceString), name, identifier, path);
+	}
+
+	@PATCH
+	@Path("/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path, using the PATCH method",
+			description = "A PATCH transaction calculates the delta between the current state on the on-chain state, " +
+					"and then publishes only the differences.",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "/Users/user/Documents/MyDirectoryOrFile"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	public String patch(@PathParam("service") String serviceString,
+						@PathParam("name") String name,
+						@PathParam("identifier") String identifier,
+						String path) {
 		Security.checkApiCallAllowed(request);
 
 		return this.upload(Method.PATCH, Service.valueOf(serviceString), name, identifier, path);
