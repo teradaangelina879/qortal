@@ -43,7 +43,9 @@ public class ArbitraryTransactionData extends TransactionData {
 		BLOG_POST(777),
 		BLOG_COMMENT(778),
 		DOCUMENT(800),
-		PLAYLIST(900);
+		PLAYLIST(900),
+		APP(1000),
+		METADATA(1100);
 
 		public final int value;
 
