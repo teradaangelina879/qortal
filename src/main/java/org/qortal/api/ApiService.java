@@ -14,8 +14,6 @@ import java.security.SecureRandom;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
@@ -51,8 +49,6 @@ import org.qortal.api.websocket.TradeOffersWebSocket;
 import org.qortal.settings.Settings;
 
 public class ApiService {
-
-	private static final Logger LOGGER = LogManager.getLogger(ApiService.class);
 
 	private static ApiService instance;
 
@@ -207,9 +203,6 @@ public class ApiService {
 			context.addServlet(TradeBotWebSocket.class, "/websockets/crosschain/tradebot");
 			context.addServlet(PresenceWebSocket.class, "/websockets/presence");
 
-			// Warn about API security if needed
-			this.checkApiSecurity();
-
 			// Start server
 			this.server.start();
 		} catch (Exception e) {
@@ -227,25 +220,6 @@ public class ApiService {
 		}
 
 		this.server = null;
-	}
-
-	private void checkApiSecurity() {
-		// Warn about API security if needed
-		boolean allConnectionsAllowed = false;
-		if (Settings.getInstance().isApiKeyDisabled()) {
-			for (String pattern : Settings.getInstance().getApiWhitelist()) {
-				if (pattern.startsWith("0.0.0.0/") || pattern.startsWith("::/") || pattern.endsWith("/0")) {
-					allConnectionsAllowed = true;
-				}
-			}
-
-			if (allConnectionsAllowed) {
-				LOGGER.warn("Warning: API key validation is currently disabled, and the API whitelist " +
-						"is allowing all connections. This can be a security risk.");
-				LOGGER.warn("To fix, set the apiKeyDisabled setting to false, or allow only specific local " +
-						"IP addresses using the apiWhitelist setting.");
-			}
-		}
 	}
 
 }

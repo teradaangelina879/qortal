@@ -12,11 +12,6 @@ public abstract class Security {
 	public static final String API_KEY_HEADER = "X-API-KEY";
 
 	public static void checkApiCallAllowed(HttpServletRequest request) {
-		// If API key checking has been disabled, we will allow the request in all cases
-		boolean isApiKeyDisabled = Settings.getInstance().isApiKeyDisabled();
-		if (isApiKeyDisabled)
-			return;
-
 		String expectedApiKey = Settings.getInstance().getApiKey();
 		String passedApiKey = request.getHeader(API_KEY_HEADER);
 
