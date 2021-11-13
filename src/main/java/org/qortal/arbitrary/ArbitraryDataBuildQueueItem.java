@@ -88,6 +88,9 @@ public class ArbitraryDataBuildQueueItem {
 
     @Override
     public String toString() {
+        if (this.identifier == null) {
+            return String.format("%s %s", this.service, this.resourceId);
+        }
         return String.format("%s %s %s", this.service, this.resourceId, this.identifier);
     }
 
