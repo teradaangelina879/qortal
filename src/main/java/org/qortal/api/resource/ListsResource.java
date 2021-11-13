@@ -31,12 +31,11 @@ public class ListsResource {
 	HttpServletRequest request;
 
 
-	/* Address blacklist */
-
 	@POST
-	@Path("/blacklist/addresses")
+	@Path("/{category}/{resourceName}")
 	@Operation(
-			summary = "Add one or more QORT addresses to the local blacklist",
+			summary = "Add items to a new or existing list",
+			description = "Example categories are 'blacklist' or 'followed'. Example resource names are 'addresses' or 'names'",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
@@ -48,16 +47,22 @@ public class ListsResource {
 			),
 			responses = {
 					@ApiResponse(
-							description = "Returns true if all addresses were processed, false if any couldn't be " +
+							description = "Returns true if all items were processed, false if any couldn't be " +
 									"processed, or an exception on failure. If false or an exception is returned, " +
 									"the list will not be updated, and the request will need to be re-issued.",
 							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
 					)
 			}
 	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String addAddressesToBlacklist(ListRequest listRequest) {
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	public String addItemstoList(@PathParam("category") String category,
+								 @PathParam("resourceName") String resourceName,
+								 ListRequest listRequest) {
 		Security.checkApiCallAllowed(request);
+
+		if (category == null || resourceName == null) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
 
 		if (listRequest == null || listRequest.items == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
@@ -68,22 +73,34 @@ public class ListsResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			for (String address : listRequest.items) {
+			for (String item : listRequest.items) {
 
-				if (!Crypto.isValidAddress(address)) {
-					errorCount++;
-					continue;
+				// Validate addresses
+				if (resourceName.equals("address") || resourceName.equals("addresses")) {
+
+					if (!Crypto.isValidAddress(item)) {
+						errorCount++;
+						continue;
+					}
+
+					AccountData accountData = repository.getAccountRepository().getAccount(item);
+					// Not found?
+					if (accountData == null) {
+						errorCount++;
+						continue;
+					}
 				}
 
-				AccountData accountData = repository.getAccountRepository().getAccount(address);
-				// Not found?
-				if (accountData == null) {
-					errorCount++;
-					continue;
+				// Validate names
+				if (resourceName.equals("name") || resourceName.equals("names")) {
+					if (!repository.getNameRepository().nameExists(item)) {
+						errorCount++;
+						continue;
+					}
 				}
 
 				// Valid address, so go ahead and blacklist it
-				boolean success = ResourceListManager.getInstance().addToList("blacklist", "addresses", address, false);
+				boolean success = ResourceListManager.getInstance().addToList(category, resourceName, item, false);
 				if (success) {
 					successCount++;
 				}
@@ -97,20 +114,21 @@ public class ListsResource {
 
 		if (successCount > 0 && errorCount == 0) {
 			// All were successful, so save the blacklist
-			ResourceListManager.getInstance().saveList("blacklist", "addresses");
+			ResourceListManager.getInstance().saveList(category, resourceName);
 			return "true";
 		}
 		else {
 			// Something went wrong, so revert
-			ResourceListManager.getInstance().revertList("blacklist", "addresses");
+			ResourceListManager.getInstance().revertList(category, resourceName);
 			return "false";
 		}
 	}
 
 	@DELETE
-	@Path("/blacklist/addresses")
+	@Path("/{category}/{resourceName}")
 	@Operation(
-			summary = "Remove one or more QORT addresses from the local blacklist",
+			summary = "Remove one or more items from a list",
+			description = "Example categories are 'blacklist' or 'followed'. Example resource names are 'addresses' or 'names'",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
@@ -122,15 +140,17 @@ public class ListsResource {
 			),
 			responses = {
 					@ApiResponse(
-							description = "Returns true if all addresses were processed, false if any couldn't be " +
+							description = "Returns true if all items were processed, false if any couldn't be " +
 									"processed, or an exception on failure. If false or an exception is returned, " +
 									"the list will not be updated, and the request will need to be re-issued.",
 							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
 					)
 			}
 	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String removeAddressesFromBlacklist(ListRequest listRequest) {
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	public String removeItemsFromList(@PathParam("category") String category,
+									  @PathParam("resourceName") String resourceName,
+									  ListRequest listRequest) {
 		Security.checkApiCallAllowed(request);
 
 		if (listRequest == null || listRequest.items == null) {
@@ -140,175 +160,11 @@ public class ListsResource {
 		int successCount = 0;
 		int errorCount = 0;
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
+		for (String address : listRequest.items) {
 
-			for (String address : listRequest.items) {
-
-				if (!Crypto.isValidAddress(address)) {
-					errorCount++;
-					continue;
-				}
-
-				AccountData accountData = repository.getAccountRepository().getAccount(address);
-				// Not found?
-				if (accountData == null) {
-					errorCount++;
-					continue;
-				}
-
-				// Valid address, so go ahead and blacklist it
-				// Don't save as we will do this at the end of the process
-				boolean success = ResourceListManager.getInstance().removeFromList("blacklist", "addresses", address, false);
-				if (success) {
-					successCount++;
-				}
-				else {
-					errorCount++;
-				}
-			}
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-
-		if (successCount > 0 && errorCount == 0) {
-			// All were successful, so save the blacklist
-			ResourceListManager.getInstance().saveList("blacklist", "addresses");
-			return "true";
-		}
-		else {
-			// Something went wrong, so revert
-			ResourceListManager.getInstance().revertList("blacklist", "addresses");
-			return "false";
-		}
-	}
-
-	@GET
-	@Path("/blacklist/addresses")
-	@Operation(
-			summary = "Fetch the list of blacklisted addresses",
-			responses = {
-					@ApiResponse(
-							description = "A JSON array of addresses",
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = String.class)))
-					)
-			}
-	)
-	public String getAddressBlacklist() {
-		Security.checkApiCallAllowed(request);
-		return ResourceListManager.getInstance().getJSONStringForList("blacklist", "addresses");
-	}
-
-
-
-	/* Followed names */
-
-	@POST
-	@Path("/followed/names")
-	@Operation(
-			summary = "Add one or more registered names to the local followed list",
-			requestBody = @RequestBody(
-					required = true,
-					content = @Content(
-							mediaType = MediaType.APPLICATION_JSON,
-							schema = @Schema(
-									implementation = ListRequest.class
-							)
-					)
-			),
-			responses = {
-					@ApiResponse(
-							description = "Returns true if all names were processed, false if any couldn't be " +
-									"processed, or an exception on failure. If false or an exception is returned, " +
-									"the list will not be updated, and the request will need to be re-issued.",
-							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
-					)
-			}
-	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String addFollowedNames(ListRequest listRequest) {
-		Security.checkApiCallAllowed(request);
-
-		if (listRequest == null || listRequest.items == null) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-		}
-
-		int successCount = 0;
-		int errorCount = 0;
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-
-			for (String name : listRequest.items) {
-
-				// Name not registered?
-				if (!repository.getNameRepository().nameExists(name)) {
-					errorCount++;
-					continue;
-				}
-
-				// Valid name, so go ahead and add it to the list
-				// Don't save as we will do this at the end of the process
-				boolean success = ResourceListManager.getInstance().addToList("followed", "names", name, false);
-				if (success) {
-					successCount++;
-				}
-				else {
-					errorCount++;
-				}
-			}
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-
-		if (successCount > 0 && errorCount == 0) {
-			// All were successful, so save the list
-			ResourceListManager.getInstance().saveList("followed", "names");
-			return "true";
-		}
-		else {
-			// Something went wrong, so revert
-			ResourceListManager.getInstance().revertList("followed", "names");
-			return "false";
-		}
-	}
-
-	@DELETE
-	@Path("/followed/names")
-	@Operation(
-			summary = "Remove one or more registered names from the local followed list",
-			requestBody = @RequestBody(
-					required = true,
-					content = @Content(
-							mediaType = MediaType.APPLICATION_JSON,
-							schema = @Schema(
-									implementation = ListRequest.class
-							)
-					)
-			),
-			responses = {
-					@ApiResponse(
-							description = "Returns true if all names were processed, false if any couldn't be " +
-									"processed, or an exception on failure. If false or an exception is returned, " +
-									"the list will not be updated, and the request will need to be re-issued.",
-							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
-					)
-			}
-	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN, ApiError.REPOSITORY_ISSUE})
-	public String removeFollowedNames(ListRequest listRequest) {
-		Security.checkApiCallAllowed(request);
-
-		if (listRequest == null || listRequest.items == null) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-		}
-
-		int successCount = 0;
-		int errorCount = 0;
-
-		for (String name : listRequest.items) {
-
-			// Remove the name from the list
+			// Attempt to remove the item
 			// Don't save as we will do this at the end of the process
-			boolean success = ResourceListManager.getInstance().removeFromList("followed", "names", name, false);
+			boolean success = ResourceListManager.getInstance().removeFromList(category, resourceName, address, false);
 			if (success) {
 				successCount++;
 			}
@@ -318,31 +174,33 @@ public class ListsResource {
 		}
 
 		if (successCount > 0 && errorCount == 0) {
-			// All were successful, so save the list
-			ResourceListManager.getInstance().saveList("followed", "names");
+			// All were successful, so save the blacklist
+			ResourceListManager.getInstance().saveList(category, resourceName);
 			return "true";
 		}
 		else {
 			// Something went wrong, so revert
-			ResourceListManager.getInstance().revertList("followed", "names");
+			ResourceListManager.getInstance().revertList(category, resourceName);
 			return "false";
 		}
 	}
 
 	@GET
-	@Path("/followed/names")
+	@Path("/{category}/{resourceName}")
 	@Operation(
-			summary = "Fetch the list of followed names",
+			summary = "Fetch all items in a list",
+			description = "Example categories are 'blacklist' or 'followed'. Example resource names are 'addresses' or 'names'",
 			responses = {
 					@ApiResponse(
-							description = "A JSON array of names",
+							description = "A JSON array of items",
 							content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = String.class)))
 					)
 			}
 	)
-	public String getFollowedNames() {
+	public String getItemsInList(@PathParam("category") String category,
+								 @PathParam("resourceName") String resourceName) {
 		Security.checkApiCallAllowed(request);
-		return ResourceListManager.getInstance().getJSONStringForList("followed", "names");
+		return ResourceListManager.getInstance().getJSONStringForList(category, resourceName);
 	}
 
 }
