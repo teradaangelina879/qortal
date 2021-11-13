@@ -586,18 +586,35 @@ public class ArbitraryDataManager extends Thread {
 			Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
 			arbitraryDataFileListRequests.put(message.getId(), newEntry);
 
+			boolean receivedAtLeastOneFile = false;
+
 			// Now fetch actual data from this peer
 			for (byte[] hash : hashes) {
 				if (!arbitraryDataFile.chunkExists(hash)) {
 					// Only request the file if we aren't already requesting it from someone else
 					if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
 						ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, hash);
-						LOGGER.info("Received data file {} from peer {}", receivedArbitraryDataFile, peer);
+						if (receivedArbitraryDataFile != null) {
+							LOGGER.info("Received data file {} from peer {}", receivedArbitraryDataFile, peer);
+							receivedAtLeastOneFile = true;
+						}
+						else {
+							LOGGER.info("Peer {} didn't respond with data file {}", peer, hash);
+						}
 					}
 					else {
 						LOGGER.info("Already requesting data file {}", arbitraryDataFile);
 					}
 				}
+			}
+
+			if (receivedAtLeastOneFile) {
+				// Update our lookup table to indicate that this peer holds data for this signature
+				String peerAddress = peer.getPeerData().getAddress().toString();
+				LOGGER.info("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
+				ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
+				repository.getArbitraryRepository().save(arbitraryPeerData);
+				repository.saveChanges();
 			}
 
 			// Check if we have all the chunks for this transaction
