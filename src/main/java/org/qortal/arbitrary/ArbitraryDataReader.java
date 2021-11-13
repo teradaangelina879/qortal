@@ -315,14 +315,20 @@ public class ArbitraryDataReader {
                 }
                 else {
                     // Ask the arbitrary data manager to fetch data for this transaction
-                    ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
+                    boolean requested = ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
+                    String message;
+
+                    if (requested) {
+                        message = String.format("Requested missing data for file %s", arbitraryDataFile);
+                    }
+                    else {
+                        message = String.format("Unable to reissue request for missing file %s due to rate limit. Please try again later.", arbitraryDataFile);
+                    }
 
                     // Throw a missing data exception, which allows subsequent layers to fetch data
-                    String message = String.format("Requested missing data for file %s", arbitraryDataFile);
                     LOGGER.info(message);
                     throw new MissingDataException(message);
                 }
-
             }
 
             // We have all the chunks but not the complete file, so join them
