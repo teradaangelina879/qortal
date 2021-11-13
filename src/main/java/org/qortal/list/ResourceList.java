@@ -122,6 +122,13 @@ public class ResourceList {
         return this.list.contains(resource);
     }
 
+    public boolean containsCaseInsensitive(String resource) {
+        if (resource == null || this.list == null) {
+            return false;
+        }
+        return this.list.stream().anyMatch(resource::equalsIgnoreCase);
+    }
+
 
     /* Utils */
 

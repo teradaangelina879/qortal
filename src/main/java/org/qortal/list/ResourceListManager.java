@@ -87,12 +87,16 @@ public class ResourceListManager {
         }
     }
 
-    public boolean listContains(String category, String resourceName, String address) {
+    public boolean listContains(String category, String resourceName, String item, boolean caseSensitive) {
         ResourceList list = this.getList(category, resourceName);
         if (list == null) {
             return false;
         }
-        return list.contains(address);
+
+        if (caseSensitive) {
+            return list.contains(item);
+        }
+        return list.containsCaseInsensitive(item);
     }
 
     public void saveList(String category, String resourceName) {

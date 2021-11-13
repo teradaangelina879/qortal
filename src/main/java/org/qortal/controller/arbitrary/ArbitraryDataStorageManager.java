@@ -46,7 +46,7 @@ public class ArbitraryDataStorageManager {
     }
 
     public boolean isNameInBlacklist(String name) {
-        return ResourceListManager.getInstance().listContains("blacklist", "names", name);
+        return ResourceListManager.getInstance().listContains("blacklist", "names", name, false);
     }
 
     public boolean shouldPreFetchDataForName(String name) {
@@ -88,6 +88,6 @@ public class ArbitraryDataStorageManager {
     }
 
     private boolean isFollowingName(String name) {
-        return ResourceListManager.getInstance().listContains("followed", "names", name);
+        return ResourceListManager.getInstance().listContains("followed", "names", name, false);
     }
 }
