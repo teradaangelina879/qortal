@@ -147,7 +147,7 @@ public class ChatTransaction extends Transaction {
 
 		// Check for blacklisted author by address
 		ResourceListManager listManager = ResourceListManager.getInstance();
-		if (listManager.listContains("blacklist", "address", this.chatTransactionData.getSender())) {
+		if (listManager.listContains("blacklist", "addresses", this.chatTransactionData.getSender())) {
 			return ValidationResult.ADDRESS_IN_BLACKLIST;
 		}
 
