@@ -444,4 +444,16 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			throw new DataException("Unable to delete arbitrary peer data from repository", e);
 		}
 	}
+
+	@Override
+	public void deleteArbitraryPeersWithSignature(byte[] signature) throws DataException {
+		byte[] hash = Crypto.digest(signature);
+		try {
+			// Remove all records of peers hosting supplied signature
+			this.repository.delete("ArbitraryPeers", "hash = ?", hash);
+
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete arbitrary peer data from repository", e);
+		}
+	}
 }

@@ -33,4 +33,6 @@ public interface ArbitraryRepository {
 
 	public void delete(ArbitraryPeerData arbitraryPeerData) throws DataException;
 
+	public void deleteArbitraryPeersWithSignature(byte[] signature) throws DataException;
+
 }
