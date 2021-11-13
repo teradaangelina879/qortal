@@ -206,11 +206,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				Method method = Method.valueOf(resultSet.getInt(20));
 				byte[] secret = resultSet.getBytes(21);
 				Compression compression = Compression.valueOf(resultSet.getInt(22));
+				// FUTURE: get payments from signature if needed. Avoiding for now to reduce database calls.
 
-				List<PaymentData> payments = new ArrayList<>(); // TODO: this.getPaymentsFromSignature(baseTransactionData.getSignature());
 				ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
 						version, serviceResult, nonce, size, nameResult, identifierResult, method, secret,
-						compression, data, dataType, chunkHashes, payments);
+						compression, data, dataType, chunkHashes, null);
 
 				arbitraryTransactionData.add(transactionData);
 			} while (resultSet.next());
@@ -281,11 +281,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			Method methodResult = Method.valueOf(resultSet.getInt(20));
 			byte[] secret = resultSet.getBytes(21);
 			Compression compression = Compression.valueOf(resultSet.getInt(22));
+			// FUTURE: get payments from signature if needed. Avoiding for now to reduce database calls.
 
-			List<PaymentData> payments = new ArrayList<>(); // TODO: this.getPaymentsFromSignature(baseTransactionData.getSignature());
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
 					version, serviceResult, nonce, size, nameResult, identifierResult, methodResult, secret,
-					compression, data, dataType, chunkHashes, payments);
+					compression, data, dataType, chunkHashes, null);
 
 			return transactionData;
 		} catch (SQLException e) {
