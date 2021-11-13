@@ -103,7 +103,7 @@ public class ResourceList {
         if (resource == null || this.list == null) {
             return;
         }
-        if (!this.contains(resource)) {
+        if (!this.contains(resource, true)) {
             this.list.add(resource);
         }
     }
@@ -115,18 +115,17 @@ public class ResourceList {
         this.list.remove(resource);
     }
 
-    public boolean contains(String resource) {
+    public boolean contains(String resource, boolean caseSensitive) {
         if (resource == null || this.list == null) {
             return false;
         }
-        return this.list.contains(resource);
-    }
 
-    public boolean containsCaseInsensitive(String resource) {
-        if (resource == null || this.list == null) {
-            return false;
+        if (caseSensitive) {
+            return this.list.contains(resource);
         }
-        return this.list.stream().anyMatch(resource::equalsIgnoreCase);
+        else {
+            return this.list.stream().anyMatch(resource::equalsIgnoreCase);
+        }
     }
 
 

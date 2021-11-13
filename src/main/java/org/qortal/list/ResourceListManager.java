@@ -92,11 +92,7 @@ public class ResourceListManager {
         if (list == null) {
             return false;
         }
-
-        if (caseSensitive) {
-            return list.contains(item);
-        }
-        return list.containsCaseInsensitive(item);
+        return list.contains(item, caseSensitive);
     }
 
     public void saveList(String category, String resourceName) {
