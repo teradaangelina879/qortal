@@ -181,8 +181,8 @@ public class ArbitraryDataManager extends Thread {
 					}
 					ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) arbitraryTransaction.getTransactionData();
 
-					// Skip transactions that we don't need to store data for
-					if (!storageManager.shouldStoreDataForName(arbitraryTransactionData.getName())) {
+					// Skip transactions that we don't need to proactively store data for
+					if (!storageManager.shouldPreFetchDataForName(arbitraryTransactionData.getName())) {
 						iterator.remove();
 						continue;
 					}
@@ -515,8 +515,8 @@ public class ArbitraryDataManager extends Thread {
 				invalidateCache(arbitraryTransactionData);
 
 				// We may also need to broadcast to the network that we are now hosting files for this transaction,
-				// but only if these files are in accordance with our storage policy (we may have requested them for viewing only)
-				if (ArbitraryDataStorageManager.getInstance().shouldStoreDataForName(arbitraryTransactionData.getName())) {
+				// but only if these files are in accordance with our storage policy
+				if (ArbitraryDataStorageManager.getInstance().canStoreDataForName(arbitraryTransactionData.getName())) {
 					// Use a null peer address to indicate our own
 					Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
 					Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
@@ -588,7 +588,7 @@ public class ArbitraryDataManager extends Thread {
 			if (transactionData instanceof ArbitraryTransactionData) {
 
 				// Check if we're even allowed to serve data for this transaction
-				if (ArbitraryDataStorageManager.getInstance().shouldStoreDataForName(transactionData.getName())) {
+				if (ArbitraryDataStorageManager.getInstance().canStoreDataForName(transactionData.getName())) {
 
 					byte[] hash = transactionData.getData();
 					byte[] chunkHashes = transactionData.getChunkHashes();

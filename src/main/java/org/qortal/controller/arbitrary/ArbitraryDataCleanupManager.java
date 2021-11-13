@@ -19,8 +19,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class ArbitraryDataCleanupManager extends Thread {
 
@@ -138,8 +136,8 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 
 						// Check to see if we should be hosting data for this transaction at all
-						if (!storageManager.shouldStoreDataForName(arbitraryTransactionData.getName())) {
-							LOGGER.info("Deleting transaction {} because we are no longer storing data for name {}",
+						if (!storageManager.canStoreDataForName(arbitraryTransactionData.getName())) {
+							LOGGER.info("Deleting transaction {} because we can't host data for name {}",
 									Base58.encode(arbitraryTransactionData.getSignature()), arbitraryTransactionData.getName());
 							ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
 							continue;

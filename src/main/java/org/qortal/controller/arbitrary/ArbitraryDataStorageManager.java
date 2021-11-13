@@ -25,9 +25,37 @@ public class ArbitraryDataStorageManager {
         return instance;
     }
 
-    public boolean shouldStoreDataForName(String name) {
+    public boolean canStoreDataForName(String name) {
+        // Check if our storage policy and blacklist allows us to host data for this name
+        switch (Settings.getInstance().getStoragePolicy()) {
+            case FOLLOWED_AND_VIEWED:
+            case ALL:
+            case VIEWED:
+                // If the policy includes viewed data, we can host it as long as it's not blacklisted
+                return !this.isNameInBlacklist(name);
+
+            case FOLLOWED:
+                // If the policy is for followed data only, we have to be following it
+                return this.isFollowingName(name);
+
+                // For NONE or all else, we shouldn't host this data
+            case NONE:
+            default:
+                return false;
+        }
+    }
+
+    private boolean isNameInBlacklist(String name) {
+        return ResourceListManager.getInstance().listContains("blacklist", "names", name);
+    }
+
+    public boolean shouldPreFetchDataForName(String name) {
         if (name == null) {
-            return this.shouldStoreDataWithoutName();
+            return this.shouldPreFetchDataWithoutName();
+        }
+        // Never fetch data from blacklisted names, even if they are followed
+        if (this.isNameInBlacklist(name)) {
+            return false;
         }
 
         switch (Settings.getInstance().getStoragePolicy()) {
@@ -45,7 +73,7 @@ public class ArbitraryDataStorageManager {
         }
     }
 
-    private boolean shouldStoreDataWithoutName() {
+    private boolean shouldPreFetchDataWithoutName() {
         switch (Settings.getInstance().getStoragePolicy()) {
             case ALL:
                 return true;
