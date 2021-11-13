@@ -117,38 +117,38 @@ public class WebsiteResource {
     @GET
     @Path("/signature/{signature}")
     public HttpServletResponse getIndexBySignature(@PathParam("signature") String signature) {
-        return this.get(signature, ResourceIdType.SIGNATURE, "/", null, "/site/signature", true);
+        return this.get(signature, ResourceIdType.SIGNATURE, "/", null, "/site/signature", true, true);
     }
 
     @GET
     @Path("/signature/{signature}/{path:.*}")
     public HttpServletResponse getPathBySignature(@PathParam("signature") String signature, @PathParam("path") String inPath) {
-        return this.get(signature, ResourceIdType.SIGNATURE, inPath,null, "/site/signature", true);
+        return this.get(signature, ResourceIdType.SIGNATURE, inPath,null, "/site/signature", true, true);
     }
 
     @GET
     @Path("/hash/{hash}")
     public HttpServletResponse getIndexByHash(@PathParam("hash") String hash58, @QueryParam("secret") String secret58) {
-        return this.get(hash58, ResourceIdType.FILE_HASH, "/", secret58, "/site/hash", true);
-    }
-
-    @GET
-    @Path("{name}/{path:.*}")
-    public HttpServletResponse getPathByName(@PathParam("name") String name, @PathParam("path") String inPath) {
-        return this.get(name, ResourceIdType.NAME, inPath, null, "/site", true);
-    }
-
-    @GET
-    @Path("{name}")
-    public HttpServletResponse getIndexByName(@PathParam("name") String name) {
-        return this.get(name, ResourceIdType.NAME, "/", null, "/site", true);
+        return this.get(hash58, ResourceIdType.FILE_HASH, "/", secret58, "/site/hash", true, false);
     }
 
     @GET
     @Path("/hash/{hash}/{path:.*}")
     public HttpServletResponse getPathByHash(@PathParam("hash") String hash58, @PathParam("path") String inPath,
                                              @QueryParam("secret") String secret58) {
-        return this.get(hash58, ResourceIdType.FILE_HASH, inPath, secret58, "/site/hash", true);
+        return this.get(hash58, ResourceIdType.FILE_HASH, inPath, secret58, "/site/hash", true, false);
+    }
+
+    @GET
+    @Path("{name}/{path:.*}")
+    public HttpServletResponse getPathByName(@PathParam("name") String name, @PathParam("path") String inPath) {
+        return this.get(name, ResourceIdType.NAME, inPath, null, "/site", true, true);
+    }
+
+    @GET
+    @Path("{name}")
+    public HttpServletResponse getIndexByName(@PathParam("name") String name) {
+        return this.get(name, ResourceIdType.NAME, "/", null, "/site", true, true);
     }
 
     @GET
@@ -166,13 +166,13 @@ public class WebsiteResource {
     private HttpServletResponse getDomainMap(String inPath) {
         Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
         if (domainMap != null && domainMap.containsKey(request.getServerName())) {
-            return this.get(domainMap.get(request.getServerName()), ResourceIdType.NAME, inPath, null, "", false);
+            return this.get(domainMap.get(request.getServerName()), ResourceIdType.NAME, inPath, null, "", false, true);
         }
         return this.getResponse(404, "Error 404: File Not Found");
     }
 
     private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, String inPath, String secret58,
-                                    String prefix, boolean usePrefix) {
+                                    String prefix, boolean usePrefix, boolean async) {
         if (!inPath.startsWith(File.separator)) {
             inPath = File.separator + inPath;
         }
@@ -182,8 +182,14 @@ public class WebsiteResource {
         arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {
             if (!arbitraryDataReader.isCachedDataAvailable()) {
-                arbitraryDataReader.loadAsynchronously();
-                return this.getLoadingResponse();
+                // If async is requested, show a loading screen whilst build is in progress
+                if (async) {
+                    arbitraryDataReader.loadAsynchronously();
+                    return this.getLoadingResponse();
+                }
+
+                // Otherwise, hang the request until the build completes
+                arbitraryDataReader.loadSynchronously(false);
             }
 
         } catch (Exception e) {

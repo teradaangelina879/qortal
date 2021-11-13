@@ -384,11 +384,14 @@ public class ArbitraryDataReader {
         }
 
         try {
+            // Default to ZIP compression - this is needed for previews
+            Compression compression = transactionData != null ? transactionData.getCompression() : Compression.ZIP;
+
             // Handle each type of compression
-            if (transactionData.getCompression() == Compression.ZIP) {
+            if (compression == Compression.ZIP) {
                 ZipUtils.unzip(this.filePath.toString(), this.uncompressedPath.getParent().toString());
             }
-            else if (transactionData.getCompression() == Compression.NONE) {
+            else if (compression == Compression.NONE) {
                 Files.createDirectories(this.uncompressedPath);
                 Path finalPath = Paths.get(this.uncompressedPath.toString(), "data");
                 this.filePath.toFile().renameTo(finalPath.toFile());
