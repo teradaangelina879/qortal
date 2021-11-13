@@ -8,6 +8,7 @@ import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
+import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
@@ -148,6 +149,18 @@ public class ChatTransaction extends Transaction {
 		ResourceListManager listManager = ResourceListManager.getInstance();
 		if (listManager.listContains("blacklist", "address", this.chatTransactionData.getSender())) {
 			return ValidationResult.ADDRESS_IN_BLACKLIST;
+		}
+
+		// Check for blacklisted author by registered name
+		List<NameData> names = this.repository.getNameRepository().getNamesByOwner(this.chatTransactionData.getSender());
+		if (names != null && names.size() > 0) {
+			for (NameData nameData : names) {
+				if (nameData != null && nameData.getName() != null) {
+					if (listManager.listContains("blacklist", "names", nameData.getName())) {
+						return ValidationResult.NAME_IN_BLACKLIST;
+					}
+				}
+			}
 		}
 
 		// If we exist in the repository then we've been imported as unconfirmed,
