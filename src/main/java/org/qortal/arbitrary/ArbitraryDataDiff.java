@@ -73,6 +73,8 @@ public class ArbitraryDataDiff {
     private List<ModifiedPath> modifiedPaths;
     private List<Path> removedPaths;
 
+    private int totalFileCount;
+
     public ArbitraryDataDiff(Path pathBefore, Path pathAfter, byte[] previousSignature) {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
@@ -181,6 +183,9 @@ public class ArbitraryDataDiff {
                     if (wasModified) {
                         diff.pathModified(beforePathAbsolute, afterPathAbsolute, afterPathRelative, diffPathAbsolute);
                     }
+
+                    // Keep a tally of the total number of files to help with decision making
+                    diff.totalFileCount++;
 
                     return FileVisitResult.CONTINUE;
                 }
@@ -343,6 +348,14 @@ public class ArbitraryDataDiff {
 
     public Path getDiffPath() {
         return this.diffPath;
+    }
+
+    public int getTotalFileCount() {
+        return this.totalFileCount;
+    }
+
+    public int getFileDifferencesCount() {
+        return this.addedPaths.size() + this.modifiedPaths.size() + this.removedPaths.size();
     }
 
 

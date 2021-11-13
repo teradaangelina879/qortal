@@ -52,6 +52,10 @@ public class ArbitraryDataReader {
     private Path uncompressedPath;
     private Path unencryptedPath;
 
+    // Stats (available for synchronous builds only)
+    private int layerCount;
+    private byte[] latestSignature;
+
     public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         // Ensure names are always lowercase
         if (resourceIdType == ResourceIdType.NAME) {
@@ -256,6 +260,10 @@ public class ArbitraryDataReader {
                 throw new IllegalStateException("Unable to build path");
             }
 
+            // Update stats
+            this.layerCount = builder.getLayerCount();
+            this.latestSignature = builder.getLatestSignature();
+
             // Set filePath to the builtPath
             this.filePath = builtPath;
 
@@ -451,6 +459,14 @@ public class ArbitraryDataReader {
 
     public Path getFilePath() {
         return this.filePath;
+    }
+
+    public int getLayerCount() {
+        return this.layerCount;
+    }
+
+    public byte[] getLatestSignature() {
+        return this.latestSignature;
     }
 
 }

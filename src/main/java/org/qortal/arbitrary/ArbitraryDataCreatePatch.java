@@ -19,7 +19,10 @@ public class ArbitraryDataCreatePatch {
     private Path pathBefore;
     private Path pathAfter;
     private byte[] previousSignature;
+
     private Path finalPath;
+    private int totalFileCount;
+    private int fileDifferencesCount;
 
     private Path workingPath;
     private String identifier;
@@ -116,10 +119,21 @@ public class ArbitraryDataCreatePatch {
         ArbitraryDataDiff diff = new ArbitraryDataDiff(this.pathBefore, this.pathAfter, this.previousSignature);
         this.finalPath = diff.getDiffPath();
         diff.compute();
+
+        this.totalFileCount = diff.getTotalFileCount();
+        this.fileDifferencesCount = diff.getFileDifferencesCount();
     }
 
     public Path getFinalPath() {
         return this.finalPath;
+    }
+
+    public int getTotalFileCount() {
+        return this.totalFileCount;
+    }
+
+    public int getFileDifferencesCount() {
+        return this.fileDifferencesCount;
     }
 
 }

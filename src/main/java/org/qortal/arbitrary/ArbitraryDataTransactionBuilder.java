@@ -3,6 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.exception.MissingDataException;
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
@@ -17,6 +18,7 @@ import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
@@ -29,12 +31,21 @@ public class ArbitraryDataTransactionBuilder {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataTransactionBuilder.class);
 
+    // Maximum number of PATCH layers allowed
+    private static final int MAX_LAYERS = 10;
+    // Maximum size difference (out of 1) allowed for PATCH transactions
+    private static final double MAX_SIZE_DIFF = 0.2f;
+    // Maximum proportion of files modified relative to total
+    private static final double MAX_FILE_DIFF = 0.5f;
+
     private String publicKey58;
     private Path path;
     private String name;
     private Method method;
     private Service service;
     private String identifier;
+
+    private ArbitraryTransactionData arbitraryTransactionData;
 
     public ArbitraryDataTransactionBuilder(String publicKey58, Path path, String name,
                                            Method method, Service service, String identifier) {
@@ -46,7 +57,79 @@ public class ArbitraryDataTransactionBuilder {
         this.identifier = identifier;
     }
 
-    public ArbitraryTransactionData build() throws DataException {
+    public void build() throws DataException {
+        try {
+            this.preExecute();
+            this.checkMethod();
+            this.createTransaction();
+        }
+        finally {
+            this.postExecute();
+        }
+    }
+
+    private void preExecute() {
+
+    }
+
+    private void postExecute() {
+
+    }
+
+    private void checkMethod() throws DataException {
+        if (this.method == null) {
+            // We need to automatically determine the method
+            this.method = this.determineMethodAutomatically();
+        }
+    }
+
+    private Method determineMethodAutomatically() throws DataException {
+        ArbitraryDataReader reader = new ArbitraryDataReader(this.name, ResourceIdType.NAME, this.service, this.identifier);
+        try {
+            reader.loadSynchronously(true);
+
+            // Check layer count
+            int layerCount = reader.getLayerCount();
+            if (layerCount >= MAX_LAYERS) {
+                LOGGER.info("Reached maximum layer count ({} / {}) - using PUT", layerCount, MAX_LAYERS);
+                return Method.PUT;
+            }
+
+            // Check size of differences between this layer and previous layer
+            ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(reader.getFilePath(), this.path, reader.getLatestSignature());
+            patch.create();
+            long diffSize = FilesystemUtils.getDirectorySize(patch.getFinalPath());
+            long existingStateSize = FilesystemUtils.getDirectorySize(reader.getFilePath());
+            double difference = (double) diffSize / (double) existingStateSize;
+            if (difference > MAX_SIZE_DIFF) {
+                LOGGER.info("Reached maximum difference ({} / {}) - using PUT", difference, MAX_SIZE_DIFF);
+                return Method.PUT;
+            }
+
+            // Check number of modified files
+            int totalFileCount = patch.getTotalFileCount();
+            int differencesCount = patch.getFileDifferencesCount();
+            difference = (double) differencesCount / (double) totalFileCount;
+            if (difference > MAX_FILE_DIFF) {
+                LOGGER.info("Reached maximum file differences ({} / {}) - using PUT", difference, MAX_FILE_DIFF);
+                return Method.PUT;
+            }
+
+            // State is appropriate for a PATCH transaction
+            return Method.PATCH;
+        }
+        catch (IOException | DataException | MissingDataException | IllegalStateException e) {
+            // Handle matching states separately, as it's best to block transactions with duplicate states
+            if (e.getMessage().equals("Current state matches previous state. Nothing to do.")) {
+                throw new DataException(e);
+            }
+            LOGGER.info("Caught exception: {}", e.getMessage());
+            LOGGER.info("Unable to load existing resource - using PUT to overwrite it.");
+            return Method.PUT;
+        }
+    }
+
+    private void createTransaction() throws DataException {
         ArbitraryDataFile arbitraryDataFile = null;
         try (final Repository repository = RepositoryManager.getRepository()) {
 
@@ -115,7 +198,7 @@ public class ArbitraryDataTransactionBuilder {
             }
             LOGGER.info("Transaction is valid");
 
-            return transactionData;
+            this.arbitraryTransactionData = transactionData;
 
         } catch (DataException e) {
             if (arbitraryDataFile != null) {
@@ -124,6 +207,10 @@ public class ArbitraryDataTransactionBuilder {
             throw(e);
         }
 
+    }
+
+    public ArbitraryTransactionData getArbitraryTransactionData() {
+        return this.arbitraryTransactionData;
     }
 
 }

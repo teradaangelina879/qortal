@@ -35,6 +35,7 @@ public class ArbitraryDataBuilder {
     private List<Path> paths;
     private byte[] latestSignature;
     private Path finalPath;
+    private int layerCount;
 
     public ArbitraryDataBuilder(String name, Service service, String identifier) {
         this.name = name;
@@ -69,7 +70,9 @@ public class ArbitraryDataBuilder {
             // Load all transactions since the latest PUT
             List<ArbitraryTransactionData> transactionDataList = repository.getArbitraryRepository()
                     .getArbitraryTransactions(this.name, this.service, this.identifier, latestPut.getTimestamp());
+
             this.transactions = transactionDataList;
+            this.layerCount = transactionDataList.size();
         }
     }
 
@@ -226,6 +229,10 @@ public class ArbitraryDataBuilder {
 
     public byte[] getLatestSignature() {
         return this.latestSignature;
+    }
+
+    public int getLayerCount() {
+        return this.layerCount;
     }
 
 }

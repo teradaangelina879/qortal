@@ -370,7 +370,8 @@ public class ArbitraryDataTests extends Common {
         ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
                 publicKey58, path, name, method, service, identifier);
 
-        ArbitraryTransactionData transactionData = txnBuilder.build();
+        txnBuilder.build();
+        ArbitraryTransactionData transactionData = txnBuilder.getArbitraryTransactionData();
         Transaction.ValidationResult result = TransactionUtils.signAndImport(repository, transactionData, account);
         assertEquals(Transaction.ValidationResult.OK, result);
         BlockUtils.mintBlock(repository);

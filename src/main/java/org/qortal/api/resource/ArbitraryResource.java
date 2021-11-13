@@ -352,8 +352,7 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
-		// TODO: automatic PUT/PATCH
-		return this.upload(Method.PUT, Service.valueOf(serviceString), name, null, path);
+		return this.upload(null, Service.valueOf(serviceString), name, null, path);
 	}
 
 	@PUT
@@ -458,8 +457,7 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
-		// TODO: automatic PUT/PATCH
-		return this.upload(Method.PUT, Service.valueOf(serviceString), name, identifier, path);
+		return this.upload(null, Service.valueOf(serviceString), name, identifier, path);
 	}
 
 	@PUT
@@ -560,10 +558,11 @@ public class ArbitraryResource {
 						publicKey58, Paths.get(path), name, method, service, identifier
 				);
 
-				ArbitraryTransactionData transactionData = transactionBuilder.build();
+				transactionBuilder.build();
+				ArbitraryTransactionData transactionData = transactionBuilder.getArbitraryTransactionData();
 				return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
 
-			} catch (DataException | TransformationException e) {
+			} catch (DataException | TransformationException | IllegalStateException e) {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
 			}
 

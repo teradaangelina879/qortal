@@ -8,7 +8,7 @@ if [ -z "$*" ]; then
 	echo "Usage:"
 	echo
 	echo "Host/update data:"
-	echo "qdata [PUT/PATCH] [service] [name] [dirpath] <identifier>"
+	echo "qdata [POST/PUT/PATCH] [service] [name] [dirpath] <identifier>"
 	echo
 	echo "Fetch data:"
 	echo "qdata GET [service] [name] <identifier-or-default> <filepath-or-default> <rebuild>"
@@ -36,7 +36,7 @@ if [ -z "${name}" ]; then
 fi
 
 
-if [[ "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
+if [[ "${method}" == "POST" || "${method}" == "PUT" || "${method}" == "PATCH" ]]; then
   directory=$4
   identifier=$5
 

@@ -180,4 +180,14 @@ public class FilesystemUtils {
         return false;
     }
 
+    public static long getDirectorySize(Path path) throws IOException {
+        if (path == null || !Files.exists(path)) {
+            return 0L;
+        }
+        return Files.walk(path)
+                .filter(p -> p.toFile().isFile())
+                .mapToLong(p -> p.toFile().length())
+                .sum();
+    }
+
 }
