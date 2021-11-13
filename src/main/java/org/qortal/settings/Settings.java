@@ -15,6 +15,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.transform.stream.StreamSource;
 
+import bsh.This;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.persistence.exceptions.XMLMarshalException;
@@ -264,6 +265,9 @@ public class Settings {
 
 	/** Storage policy to indicate which data should be hosted */
 	private String storagePolicy = "FOLLOWED_AND_VIEWED";
+
+	/** Expiry time (ms) for (unencrypted) built/cached data */
+	private Long builtDataExpiryInterval = 30 * 24 * 60 * 60 * 1000L; // 30 days
 
 	/** Whether to validate every layer when building arbitrary data, or just the final layer */
 	private boolean validateAllDataLayers = false;
@@ -777,6 +781,10 @@ public class Settings {
 
 	public StoragePolicy getStoragePolicy() {
 		return StoragePolicy.valueOf(this.storagePolicy);
+	}
+
+	public Long getBuiltDataExpiryInterval() {
+		return this.builtDataExpiryInterval;
 	}
 
 	public boolean shouldValidateAllDataLayers() {

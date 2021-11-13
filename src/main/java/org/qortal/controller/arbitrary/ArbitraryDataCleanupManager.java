@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -36,15 +37,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 	 * being used by other parts of the system.
 	 */
 	private static long STALE_FILE_TIMEOUT = 60*60*1000L; // 1 hour
-
-	/**
-	 * The amount of time that must pass before a built resource is cleaned up. This should be
-	 * considerably longer than STALE_FILE_TIMEOUT because building a resource is costly. Longer
-	 * term we could consider tracking when each resource is requested, and only delete those
-	 * that haven't been requested for a large amount of time. We could also consider only purging
-	 * built resources when the disk space is getting low.
-	 */
-	private static long PURGE_BUILT_RESOURCES_TIMEOUT = 30*24*60*60*1000L; // 30 days
 
 
 	/*
@@ -210,12 +202,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 				if (directory.isDirectory()) {
 					if (!ArbitraryTransactionUtils.isFileRecent(directory.toPath(), now, minAge)) {
 						// File isn't recent, so can be deleted
-						LOGGER.info("Deleting directory {}", directory);
-						try {
-							FilesystemUtils.safeDeleteDirectory(directory.toPath(), true);
-						} catch (IOException e) {
-							LOGGER.info("Unable to delete directory: {}", directory);
-						}
+						this.safeDeleteDirectory(directory, "not recent");
 					}
 				}
 			}
@@ -232,6 +219,60 @@ public class ArbitraryDataCleanupManager extends Thread {
 		}
 	}
 
+	private void cleanupReaderCache(Long now) {
+		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
+		String baseDir = Settings.getInstance().getTempDataPath();
+		Path readerCachePath = Paths.get(baseDir, "reader");
+
+		// Clean up names
+		Path readerCacheNamesPath = Paths.get(readerCachePath.toString(), "NAME");
+
+		// Loop through the contents and check each one
+		final File[] directories = readerCacheNamesPath.toFile().listFiles();
+		if (directories != null) {
+			for (final File directory : directories) {
+
+				// Delete data relating to blacklisted names
+				String name = directory.getName();
+				if (name != null && storageManager.isNameInBlacklist(name)) {
+					this.safeDeleteDirectory(directory, "blacklisted name");
+				}
+
+				// Delete cached reader data that has reached its expiry
+				this.cleanupReaderCacheForName(name, now);
+			}
+		}
+	}
+
+	private void cleanupReaderCacheForName(String name, Long now) {
+		if (name == null) {
+			return;
+		}
+
+		String baseDir = Settings.getInstance().getTempDataPath();
+		Path readerNameCachePath = Paths.get(baseDir, "reader", "NAME", name);
+
+		// Loop through the contents and check each one
+		final File[] directories = readerNameCachePath.toFile().listFiles();
+		if (directories != null) {
+			for (final File directory : directories) {
+				// Each directory is a "service" type
+				String service = directory.getName();
+				this.cleanupReaderCacheForNameAndService(name, service, now);
+			}
+		}
+	}
+
+	private void cleanupReaderCacheForNameAndService(String name, String service, Long now) {
+		if (name == null || service == null) {
+			return;
+		}
+
+		Path readerNameServiceCachePath = Paths.get("reader", "NAME", name, service);
+		Long expiry = Settings.getInstance().getBuiltDataExpiryInterval();
+		this.cleanupTempDirectory(readerNameServiceCachePath.toString(), now, expiry);
+	}
+
 	private void cleanupTempDirectory(long now) {
 
 		// Use the "stale file timeout" for the intermediate directories.
@@ -246,8 +287,19 @@ public class ArbitraryDataCleanupManager extends Thread {
 		// need to be kept around for much longer.
 		// Purging currently disabled, as it's not very helpful. Will revisit
 		// once we implement local storage limits.
-		// this.cleanupTempDirectory("reader", now, PURGE_BUILT_RESOURCES_TIMEOUT);
+		this.cleanupReaderCache(now);
 
+	}
+
+	private boolean safeDeleteDirectory(File directory, String reason) {
+		LOGGER.info("Deleting directory {} due to reason: {}", directory, reason);
+		try {
+			FilesystemUtils.safeDeleteDirectory(directory.toPath(), true);
+			return true;
+		} catch (IOException e) {
+			LOGGER.info("Unable to delete directory: {}", directory);
+		}
+		return false;
 	}
 
 
