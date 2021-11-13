@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -308,15 +309,22 @@ public class ArbitraryDataReader {
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
         if (!arbitraryDataFile.exists()) {
             if (!arbitraryDataFile.allChunksExist(chunkHashes) || chunkHashes == null) {
+                if (ArbitraryDataStorageManager.getInstance().isNameInBlacklist(transactionData.getName())) {
+                    throw new IllegalStateException(
+                            String.format("Unable to request missing data for file %s due to blacklist", arbitraryDataFile));
+                }
+                else {
+                    // Ask the arbitrary data manager to fetch data for this transaction
+                    ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
 
-                // Ask the arbitrary data manager to fetch data for this transaction
-                ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
+                    // Throw a missing data exception, which allows subsequent layers to fetch data
+                    String message = String.format("Requested missing data for file %s", arbitraryDataFile);
+                    LOGGER.info(message);
+                    throw new MissingDataException(message);
+                }
 
-                // Throw a missing data exception, which allows subsequent layers to fetch data
-                String message = String.format("Requested missing data for file %s", arbitraryDataFile);
-                LOGGER.info(message);
-                throw new MissingDataException(message);
             }
+
             // We have all the chunks but not the complete file, so join them
             arbitraryDataFile.addChunkHashes(chunkHashes);
             arbitraryDataFile.join();

@@ -45,7 +45,7 @@ public class ArbitraryDataStorageManager {
         }
     }
 
-    private boolean isNameInBlacklist(String name) {
+    public boolean isNameInBlacklist(String name) {
         return ResourceListManager.getInstance().listContains("blacklist", "names", name);
     }
 
