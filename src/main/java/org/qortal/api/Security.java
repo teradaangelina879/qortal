@@ -1,6 +1,10 @@
 package org.qortal.api;
 
+import org.qortal.settings.Settings;
+
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -9,21 +13,35 @@ public abstract class Security {
 	public static final String API_KEY_HEADER = "X-API-KEY";
 
 	public static void checkApiCallAllowed(HttpServletRequest request) {
-		ApiKey apiKey = Security.getApiKey(request);
+		// We may want to allow automatic authentication for local requests, if enabled in settings
+		boolean localAuthBypassEnabled = Settings.getInstance().isLocalAuthBypassEnabled();
+		if (localAuthBypassEnabled) {
+			try {
+				InetAddress remoteAddr = InetAddress.getByName(request.getRemoteAddr());
+				if (remoteAddr.isLoopbackAddress()) {
+					// Request originates from loopback address, so allow it
+					return;
+				}
+			} catch (UnknownHostException e) {
+				// Ignore failure, and fallback to API key authentication
+			}
+		}
 
+		// Retrieve the API key
+		ApiKey apiKey = Security.getApiKey(request);
 		if (!apiKey.generated()) {
 			// Not generated an API key yet, so disallow sensitive API calls
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "API key not generated");
 		}
 
+		// We require an API key to be passed
 		String passedApiKey = request.getHeader(API_KEY_HEADER);
 		if (passedApiKey == null) {
-			// We require an API key to be passed
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Missing 'X-API-KEY' header");
 		}
 
+		// The API keys must match
 		if (!apiKey.equals(passedApiKey)) {
-			// The API keys must match
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "API key invalid");
 		}
 	}
