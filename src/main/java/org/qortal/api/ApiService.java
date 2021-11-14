@@ -14,6 +14,7 @@ import java.security.SecureRandom;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 
+import org.checkerframework.checker.units.qual.A;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
@@ -54,6 +55,7 @@ public class ApiService {
 
 	private final ResourceConfig config;
 	private Server server;
+	private ApiKey apiKey;
 
 	private ApiService() {
 		this.config = new ResourceConfig();
@@ -73,6 +75,15 @@ public class ApiService {
 	public Iterable<Class<?>> getResources() {
 		return this.config.getClasses();
 	}
+
+	public void setApiKey(ApiKey apiKey) {
+		this.apiKey = apiKey;
+	}
+
+	public ApiKey getApiKey() {
+		return this.apiKey;
+	}
+
 
 	public void start() {
 		try {
