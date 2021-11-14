@@ -37,6 +37,10 @@ public abstract class Security {
 		// We require an API key to be passed
 		String passedApiKey = request.getHeader(API_KEY_HEADER);
 		if (passedApiKey == null) {
+			// Try query string - this is needed to avoid a CORS preflight. See: https://stackoverflow.com/a/43881141
+			passedApiKey = request.getParameter("apiKey");
+		}
+		if (passedApiKey == null) {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Missing 'X-API-KEY' header");
 		}
 
