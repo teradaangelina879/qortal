@@ -86,7 +86,8 @@ public class ApiKey {
         return (this.apiKey != null);
     }
 
-    public String getApiKey() {
+    @Override
+    public String toString() {
         return this.apiKey;
     }
 

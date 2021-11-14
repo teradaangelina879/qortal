@@ -748,7 +748,7 @@ public class AdminResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Unable to generate API key");
 		}
 
-		return apiKey.getApiKey();
+		return apiKey.toString();
 	}
 
 }

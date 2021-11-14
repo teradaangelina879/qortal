@@ -7,10 +7,9 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -22,7 +21,6 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
@@ -39,20 +37,11 @@ import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
-import org.qortal.network.Network;
-import org.qortal.network.Peer;
-import org.qortal.network.PeerAddress;
-import org.qortal.network.message.ArbitraryDataFileMessage;
-import org.qortal.network.message.GetArbitraryDataFileMessage;
-import org.qortal.network.message.Message;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.arbitrary.ArbitraryDataFile;
-import org.qortal.arbitrary.ArbitraryDataFileChunk;
-import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
@@ -233,6 +222,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public HttpServletResponse get(@PathParam("service") String serviceString,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
@@ -259,6 +249,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public HttpServletResponse get(@PathParam("service") String serviceString,
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
@@ -295,6 +286,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String post(@PathParam("service") String serviceString,
 					   @PathParam("name") String name,
 					   String path) {
@@ -329,6 +321,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String put(@PathParam("service") String serviceString,
 					  @PathParam("name") String name,
 					  String path) {
@@ -364,6 +357,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String patch(@PathParam("service") String serviceString,
 						@PathParam("name") String name,
 					  	String path) {
@@ -399,6 +393,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String post(@PathParam("service") String serviceString,
 					   @PathParam("name") String name,
 					   @PathParam("identifier") String identifier,
@@ -434,6 +429,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String put(@PathParam("service") String serviceString,
 					  @PathParam("name") String name,
 					  @PathParam("identifier") String identifier,
@@ -470,6 +466,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String patch(@PathParam("service") String serviceString,
 						@PathParam("name") String name,
 						@PathParam("identifier") String identifier,
@@ -481,11 +478,6 @@ public class ArbitraryResource {
 
 
 	private String upload(Method method, Service service, String name, String identifier, String path) {
-		// It's too dangerous to allow user-supplied file paths in weaker security contexts
-		if (Settings.getInstance().isApiRestricted()) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
-		}
-
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
