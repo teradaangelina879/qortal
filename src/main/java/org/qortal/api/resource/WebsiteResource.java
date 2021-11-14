@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -65,6 +66,7 @@ public class WebsiteResource {
                     )
             }
     )
+    @SecurityRequirement(name = "apiKey")
     public String previewWebsite(String directoryPath) {
         Security.checkApiCallAllowed(request);
 
@@ -101,38 +103,50 @@ public class WebsiteResource {
 
     @GET
     @Path("/signature/{signature}")
+    @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexBySignature(@PathParam("signature") String signature) {
+        Security.checkApiCallAllowed(request);
         return this.get(signature, ResourceIdType.SIGNATURE, "/", null, "/site/signature", true, true);
     }
 
     @GET
     @Path("/signature/{signature}/{path:.*}")
+    @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathBySignature(@PathParam("signature") String signature, @PathParam("path") String inPath) {
+        Security.checkApiCallAllowed(request);
         return this.get(signature, ResourceIdType.SIGNATURE, inPath,null, "/site/signature", true, true);
     }
 
     @GET
     @Path("/hash/{hash}")
+    @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByHash(@PathParam("hash") String hash58, @QueryParam("secret") String secret58) {
+        Security.checkApiCallAllowed(request);
         return this.get(hash58, ResourceIdType.FILE_HASH, "/", secret58, "/site/hash", true, false);
     }
 
     @GET
     @Path("/hash/{hash}/{path:.*}")
+    @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathByHash(@PathParam("hash") String hash58, @PathParam("path") String inPath,
                                              @QueryParam("secret") String secret58) {
+        Security.checkApiCallAllowed(request);
         return this.get(hash58, ResourceIdType.FILE_HASH, inPath, secret58, "/site/hash", true, false);
     }
 
     @GET
     @Path("{name}/{path:.*}")
+    @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathByName(@PathParam("name") String name, @PathParam("path") String inPath) {
+        Security.checkApiCallAllowed(request);
         return this.get(name, ResourceIdType.NAME, inPath, null, "/site", true, true);
     }
 
     @GET
     @Path("{name}")
+    @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByName(@PathParam("name") String name) {
+        Security.checkApiCallAllowed(request);
         return this.get(name, ResourceIdType.NAME, "/", null, "/site", true, true);
     }
 
