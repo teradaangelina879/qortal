@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.file.Paths;
 import java.util.*;
 
 import javax.xml.bind.JAXBContext;
@@ -264,7 +265,7 @@ public class Settings {
 	/** Data storage path. */
 	private String dataPath = "data";
 	/** Data storage path (for temporary data). */
-	private String tempDataPath = "data/_temp";
+	private String tempDataPath = null;
 
 	/** Storage policy to indicate which data should be hosted */
 	private String storagePolicy = "FOLLOWED_AND_VIEWED";
@@ -783,7 +784,11 @@ public class Settings {
 	}
 
 	public String getTempDataPath() {
-		return this.tempDataPath;
+		if (this.tempDataPath != null) {
+			return this.tempDataPath;
+		}
+		// Default the temp path to a "_temp" folder inside the data directory
+		return Paths.get(this.getDataPath(), "_temp").toString();
 	}
 
 	public StoragePolicy getStoragePolicy() {
