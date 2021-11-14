@@ -41,7 +41,7 @@ public abstract class Security {
 		}
 
 		// The API keys must match
-		if (!apiKey.equals(passedApiKey)) {
+		if (!apiKey.toString().equals(passedApiKey)) {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "API key invalid");
 		}
 	}
