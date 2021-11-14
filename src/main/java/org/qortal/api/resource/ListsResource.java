@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import org.qortal.api.*;
@@ -55,6 +56,7 @@ public class ListsResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String addItemstoList(@PathParam("category") String category,
 								 @PathParam("resourceName") String resourceName,
 								 ListRequest listRequest) {
@@ -148,6 +150,7 @@ public class ListsResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String removeItemsFromList(@PathParam("category") String category,
 									  @PathParam("resourceName") String resourceName,
 									  ListRequest listRequest) {
@@ -197,6 +200,7 @@ public class ListsResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String getItemsInList(@PathParam("category") String category,
 								 @PathParam("resourceName") String resourceName) {
 		Security.checkApiCallAllowed(request);

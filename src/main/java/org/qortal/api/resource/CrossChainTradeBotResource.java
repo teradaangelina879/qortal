@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
@@ -68,6 +69,7 @@ public class CrossChainTradeBotResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public List<TradeBotData> getTradeBotStates(
 			@Parameter(
 					description = "Limit to specific blockchain",
@@ -109,6 +111,7 @@ public class CrossChainTradeBotResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.INSUFFICIENT_BALANCE, ApiError.REPOSITORY_ISSUE, ApiError.ORDER_SIZE_TOO_SMALL})
 	@SuppressWarnings("deprecation")
+	@SecurityRequirement(name = "apiKey")
 	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -175,6 +178,7 @@ public class CrossChainTradeBotResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.FOREIGN_BLOCKCHAIN_BALANCE_ISSUE, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
 	@SuppressWarnings("deprecation")
+	@SecurityRequirement(name = "apiKey")
 	public String tradeBotResponder(TradeBotRespondRequest tradeBotRespondRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -253,6 +257,7 @@ public class CrossChainTradeBotResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String tradeBotDelete(String tradePrivateKey58) {
 		Security.checkApiCallAllowed(request);
 

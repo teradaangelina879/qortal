@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
@@ -105,6 +106,7 @@ public class CrossChainHtlcResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	@SecurityRequirement(name = "apiKey")
 	public CrossChainBitcoinyHTLCStatus checkHtlcStatus(@PathParam("blockchain") String blockchainName,
 			@PathParam("refundPKH") String refundPKH,
 			@PathParam("locktime") int lockTime,
@@ -188,6 +190,7 @@ public class CrossChainHtlcResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	@SecurityRequirement(name = "apiKey")
 	public boolean redeemHtlc(@PathParam("ataddress") String atAddress) {
 		Security.checkApiCallAllowed(request);
 
@@ -246,6 +249,7 @@ public class CrossChainHtlcResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	@SecurityRequirement(name = "apiKey")
 	public boolean redeemAllHtlc() {
 		Security.checkApiCallAllowed(request);
 		boolean success = false;
@@ -430,6 +434,7 @@ public class CrossChainHtlcResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	@SecurityRequirement(name = "apiKey")
 	public boolean refundHtlc(@PathParam("ataddress") String atAddress) {
 		Security.checkApiCallAllowed(request);
 
@@ -478,6 +483,7 @@ public class CrossChainHtlcResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
+	@SecurityRequirement(name = "apiKey")
 	public boolean refundAllHtlc() {
 		Security.checkApiCallAllowed(request);
 		boolean success = false;

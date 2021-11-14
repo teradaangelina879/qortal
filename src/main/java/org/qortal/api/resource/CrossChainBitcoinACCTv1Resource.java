@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.Arrays;
@@ -79,6 +80,7 @@ public class CrossChainBitcoinACCTv1Resource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_DATA, ApiError.INVALID_REFERENCE, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String buildTrade(CrossChainBuildRequest tradeRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -174,6 +176,7 @@ public class CrossChainBitcoinACCTv1Resource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String buildTradeMessage(CrossChainTradeRequest tradeRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -257,6 +260,7 @@ public class CrossChainBitcoinACCTv1Resource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public String buildRedeemMessage(CrossChainDualSecretRequest secretRequest) {
 		Security.checkApiCallAllowed(request);
 
