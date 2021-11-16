@@ -1,6 +1,7 @@
 package org.qortal.utils;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.qortal.settings.Settings;
 
 import java.io.File;
@@ -188,6 +189,38 @@ public class FilesystemUtils {
                 .filter(p -> p.toFile().isFile())
                 .mapToLong(p -> p.toFile().length())
                 .sum();
+    }
+
+
+    /**
+     * getSingleFileContents
+     * Return the content of the file at given path.
+     * If the path is a directory, the contents will be returned
+     * only if it contains a single file.
+     *
+     * @param path
+     * @return
+     * @throws IOException
+     */
+    public static byte[] getSingleFileContents(Path path) throws IOException {
+        byte[] data = null;
+        // TODO: limit the file size that can be loaded into memory
+
+        // If the path is a file, read the contents directly
+        if (path.toFile().isFile()) {
+            data = Files.readAllBytes(path);
+        }
+
+        // Or if it's a directory, only load file contents if there is a single file inside it
+        else if (path.toFile().isDirectory()) {
+            String[] files = ArrayUtils.removeElement(path.toFile().list(), ".qortal");
+            if (files.length == 1) {
+                Path filePath = Paths.get(path.toString(), files[0]);
+                data = Files.readAllBytes(filePath);
+            }
+        }
+
+        return data;
     }
 
 }

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.asset.Asset;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -17,7 +18,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, boolean wantValid) throws DataException {
 		final int version = 5;
-		final ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.ARBITRARY_DATA;
+		final Service service = Service.ARBITRARY_DATA;
 		final int nonce = 0;
 		final int size = 4 * 1024 * 1024;
 		final String name = "TEST";

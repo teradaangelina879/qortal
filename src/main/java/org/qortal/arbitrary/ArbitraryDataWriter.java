@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.exception.MissingDataException;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.crypto.AES;
@@ -58,6 +59,7 @@ public class ArbitraryDataWriter {
     public void save() throws IllegalStateException, IOException, DataException, InterruptedException, MissingDataException {
         try {
             this.preExecute();
+            this.validateService();
             this.process();
             this.compress();
             this.encrypt();
@@ -95,6 +97,19 @@ public class ArbitraryDataWriter {
             throw new IllegalStateException("Unable to create temp directory");
         }
         this.workingPath = tempDir;
+    }
+
+    private void validateService() throws IOException, DataException {
+        if (this.service.isValidationRequired()) {
+
+            byte[] data = FilesystemUtils.getSingleFileContents(this.filePath);
+            long size = FilesystemUtils.getDirectorySize(this.filePath);
+
+            Service.ValidationResult result = this.service.validate(data, size);
+            if (result != Service.ValidationResult.OK) {
+                throw new DataException(String.format("Validation of %s failed: %s", this.service, result.toString()));
+            }
+        }
     }
 
     private void process() throws DataException, IOException, MissingDataException {

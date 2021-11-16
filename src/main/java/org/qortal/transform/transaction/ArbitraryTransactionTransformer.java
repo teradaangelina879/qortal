@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.google.common.base.Utf8;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -130,7 +131,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 				payments.add(PaymentTransformer.fromByteBuffer(byteBuffer));
 		}
 
-		ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.valueOf(byteBuffer.getInt());
+		Service service = Service.valueOf(byteBuffer.getInt());
 
 		// We might be receiving hash of data instead of actual raw data
 		boolean isRaw = byteBuffer.get() != 0;

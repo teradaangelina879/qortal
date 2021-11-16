@@ -3,6 +3,7 @@ package org.qortal.utils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
@@ -38,7 +39,7 @@ public class ArbitraryTransactionUtils {
         }
 
         String name = arbitraryTransactionData.getName();
-        ArbitraryTransactionData.Service service = arbitraryTransactionData.getService();
+        Service service = arbitraryTransactionData.getService();
         String identifier = arbitraryTransactionData.getIdentifier();
 
         if (name == null || service == null) {

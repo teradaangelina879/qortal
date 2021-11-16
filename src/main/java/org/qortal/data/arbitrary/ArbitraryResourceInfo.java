@@ -1,6 +1,6 @@
 package org.qortal.data.arbitrary;
 
-import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.arbitrary.misc.Service;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -9,7 +9,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 public class ArbitraryResourceInfo {
 
 	public String name;
-	public ArbitraryTransactionData.Service service;
+	public Service service;
 	public String identifier;
 
 	public ArbitraryResourceInfo() {

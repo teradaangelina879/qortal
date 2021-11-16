@@ -6,8 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.HTMLParser;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
-import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.data.transaction.ArbitraryTransactionData.*;
+import org.qortal.arbitrary.misc.Service;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -60,7 +59,7 @@ public class ArbitraryDataRenderer {
             inPath = File.separator + inPath;
         }
 
-        ArbitraryTransactionData.Service service = Service.WEBSITE;
+        Service service = Service.WEBSITE;
         ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, null);
         arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {

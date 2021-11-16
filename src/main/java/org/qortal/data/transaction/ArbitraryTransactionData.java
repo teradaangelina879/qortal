@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.PaymentData;
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -27,38 +28,6 @@ public class ArbitraryTransactionData extends TransactionData {
 	public enum DataType {
 		RAW_DATA,
 		DATA_HASH;
-	}
-
-	// Service types
-	public enum Service {
-		AUTO_UPDATE(1),
-		ARBITRARY_DATA(100),
-		WEBSITE(200),
-		GIT_REPOSITORY(300),
-		IMAGE(400),
-		THUMBNAIL(410),
-		VIDEO(500),
-		AUDIO(600),
-		BLOG(700),
-		BLOG_POST(777),
-		BLOG_COMMENT(778),
-		DOCUMENT(800),
-		PLAYLIST(900),
-		APP(1000),
-		METADATA(1100);
-
-		public final int value;
-
-		private static final Map<Integer, Service> map = stream(Service.values())
-				.collect(toMap(service -> service.value, service -> service));
-
-		Service(int value) {
-			this.value = value;
-		}
-
-		public static Service valueOf(int value) {
-			return map.get(value);
-		}
 	}
 
 	// Methods

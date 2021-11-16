@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.BaseTransactionData;
@@ -30,7 +31,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 
 			int version = resultSet.getInt(1);
 			int nonce = resultSet.getInt(2);
-			ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.valueOf(resultSet.getInt(3));
+			Service service = Service.valueOf(resultSet.getInt(3));
 			int size = resultSet.getInt(4);
 			boolean isDataRaw = resultSet.getBoolean(5); // NOT NULL, so no null to false
 			DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;

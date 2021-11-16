@@ -3,6 +3,7 @@ package org.qortal.test.arbitrary;
 import org.junit.Before;
 import org.junit.Test;
 
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.repository.DataException;
@@ -36,7 +37,7 @@ public class ArbitraryTransactionTests extends Common {
 
 			TestAccount alice = Common.getTestAccount(repository, "alice");
 			ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
-			ArbitraryTransactionData.Service service = ArbitraryTransactionData.Service.ARBITRARY_DATA;
+			Service service = Service.ARBITRARY_DATA;
 			ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
 			ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.NONE;
 			List<PaymentData> payments = new ArrayList<>();

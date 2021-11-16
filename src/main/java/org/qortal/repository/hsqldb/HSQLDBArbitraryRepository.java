@@ -1,8 +1,8 @@
 package org.qortal.repository.hsqldb;
 
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.crypto.Crypto;
-import org.qortal.data.PaymentData;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;

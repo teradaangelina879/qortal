@@ -1,10 +1,12 @@
 package org.qortal.arbitrary;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import org.qortal.arbitrary.exception.MissingDataException;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
@@ -26,6 +28,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import javax.xml.crypto.Data;
 import java.io.File;
 import java.io.IOException;
 import java.io.InvalidObjectException;
@@ -146,6 +149,7 @@ public class ArbitraryDataReader {
             this.fetch();
             this.decrypt();
             this.uncompress();
+            this.validate();
 
         } finally {
             this.postExecute();
@@ -424,6 +428,20 @@ public class ArbitraryDataReader {
         }
         this.filePath = this.uncompressedPath;
     }
+
+    private void validate() throws IOException, DataException {
+        if (this.service.isValidationRequired()) {
+
+            byte[] data = FilesystemUtils.getSingleFileContents(this.filePath);
+            long size = FilesystemUtils.getDirectorySize(this.filePath);
+
+            Service.ValidationResult result = this.service.validate(data, size);
+            if (result != Service.ValidationResult.OK) {
+                throw new DataException(String.format("Validation of %s failed: %s", this.service, result.toString()));
+            }
+        }
+    }
+
 
     private void moveFilePathToFinalDestination() throws IOException {
         if (this.filePath.compareTo(this.uncompressedPath) != 0) {
