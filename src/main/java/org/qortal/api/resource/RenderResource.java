@@ -32,20 +32,20 @@ import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.utils.Base58;
 
 
-@Path("/site")
-@Tag(name = "Website")
-public class WebsiteResource {
+@Path("/render")
+@Tag(name = "Render")
+public class RenderResource {
 
-    private static final Logger LOGGER = LogManager.getLogger(WebsiteResource.class);
+    private static final Logger LOGGER = LogManager.getLogger(RenderResource.class);
 
     @Context HttpServletRequest request;
     @Context HttpServletResponse response;
     @Context ServletContext context;
 
     @POST
-    @Path("/preview")
+    @Path("/preview/{service}")
     @Operation(
-            summary = "Generate preview URL based on a user-supplied path to a static website",
+            summary = "Generate preview URL based on a user-supplied path and service",
             requestBody = @RequestBody(
                     required = true,
                     content = @Content(
@@ -68,7 +68,7 @@ public class WebsiteResource {
             }
     )
     @SecurityRequirement(name = "apiKey")
-    public String previewWebsite(String directoryPath) {
+    public String preview(@PathParam("service") Service service, String directoryPath) {
         Security.checkApiCallAllowed(request);
 
         // It's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -77,7 +77,6 @@ public class WebsiteResource {
         }
 
         String name = null;
-        Service service = Service.WEBSITE;
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
 
@@ -96,7 +95,7 @@ public class WebsiteResource {
         if (arbitraryDataFile != null) {
             String digest58 = arbitraryDataFile.digest58();
             if (digest58 != null) {
-                return "http://localhost:12393/site/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
+                return "http://localhost:12393/render/WEBSITE/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
             }
         }
         return "Unable to generate preview URL";
@@ -107,7 +106,7 @@ public class WebsiteResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexBySignature(@PathParam("signature") String signature) {
         Security.checkApiCallAllowed(request);
-        return this.get(signature, ResourceIdType.SIGNATURE, "/", null, "/site/signature", true, true);
+        return this.get(signature, ResourceIdType.SIGNATURE, null, "/", null, "/render/signature", true, true);
     }
 
     @GET
@@ -115,7 +114,7 @@ public class WebsiteResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathBySignature(@PathParam("signature") String signature, @PathParam("path") String inPath) {
         Security.checkApiCallAllowed(request);
-        return this.get(signature, ResourceIdType.SIGNATURE, inPath,null, "/site/signature", true, true);
+        return this.get(signature, ResourceIdType.SIGNATURE, null, inPath,null, "/render/signature", true, true);
     }
 
     @GET
@@ -123,7 +122,7 @@ public class WebsiteResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByHash(@PathParam("hash") String hash58, @QueryParam("secret") String secret58) {
         Security.checkApiCallAllowed(request);
-        return this.get(hash58, ResourceIdType.FILE_HASH, "/", secret58, "/site/hash", true, false);
+        return this.get(hash58, ResourceIdType.FILE_HASH, null, "/", secret58, "/render/hash", true, false);
     }
 
     @GET
@@ -132,23 +131,28 @@ public class WebsiteResource {
     public HttpServletResponse getPathByHash(@PathParam("hash") String hash58, @PathParam("path") String inPath,
                                              @QueryParam("secret") String secret58) {
         Security.checkApiCallAllowed(request);
-        return this.get(hash58, ResourceIdType.FILE_HASH, inPath, secret58, "/site/hash", true, false);
+        return this.get(hash58, ResourceIdType.FILE_HASH, null, inPath, secret58, "/render/hash", true, false);
     }
 
     @GET
-    @Path("{name}/{path:.*}")
+    @Path("{service}/{name}/{path:.*}")
     @SecurityRequirement(name = "apiKey")
-    public HttpServletResponse getPathByName(@PathParam("name") String name, @PathParam("path") String inPath) {
+    public HttpServletResponse getPathByName(@PathParam("service") Service service,
+                                             @PathParam("name") String name,
+                                             @PathParam("path") String inPath) {
         Security.checkApiCallAllowed(request);
-        return this.get(name, ResourceIdType.NAME, inPath, null, "/site", true, true);
+        String prefix = String.format("/render/%s", service);
+        return this.get(name, ResourceIdType.NAME, service, inPath, null, prefix, true, true);
     }
 
     @GET
-    @Path("{name}")
+    @Path("{service}/{name}")
     @SecurityRequirement(name = "apiKey")
-    public HttpServletResponse getIndexByName(@PathParam("name") String name) {
+    public HttpServletResponse getIndexByName(@PathParam("service") Service service,
+                                              @PathParam("name") String name) {
         Security.checkApiCallAllowed(request);
-        return this.get(name, ResourceIdType.NAME, "/", null, "/site", true, true);
+        String prefix = String.format("/render/%s", service);
+        return this.get(name, ResourceIdType.NAME, service, "/", null, prefix, true, true);
     }
 
     @GET
@@ -166,16 +170,16 @@ public class WebsiteResource {
     private HttpServletResponse getDomainMap(String inPath) {
         Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
         if (domainMap != null && domainMap.containsKey(request.getServerName())) {
-            return this.get(domainMap.get(request.getServerName()), ResourceIdType.NAME, inPath, null, "", false, true);
+            return this.get(domainMap.get(request.getServerName()), ResourceIdType.NAME, Service.WEBSITE, inPath, null, "", false, true);
         }
         return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
     }
 
-    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, String inPath, String secret58,
-                                    String prefix, boolean usePrefix, boolean async) {
+    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
+                                    String secret58, String prefix, boolean usePrefix, boolean async) {
 
-        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, inPath, secret58,
-                prefix, usePrefix, async, request, response, context);
+        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
+                secret58, prefix, usePrefix, async, request, response, context);
         return renderer.render();
     }
 

@@ -29,6 +29,7 @@ public class ArbitraryDataRenderer {
 
     private String resourceId;
     private ResourceIdType resourceIdType;
+    private Service service;
     private String inPath;
     private String secret58;
     private String prefix;
@@ -38,12 +39,13 @@ public class ArbitraryDataRenderer {
     private HttpServletResponse response;
     private ServletContext context;
 
-    public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, String inPath, String secret58,
-                                 String prefix, boolean usePrefix, boolean async,
+    public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
+                                 String secret58, String prefix, boolean usePrefix, boolean async,
                                  HttpServletRequest request, HttpServletResponse response, ServletContext context) {
 
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
+        this.service = service;
         this.inPath = inPath;
         this.secret58 = secret58;
         this.prefix = prefix;
@@ -59,7 +61,6 @@ public class ArbitraryDataRenderer {
             inPath = File.separator + inPath;
         }
 
-        Service service = Service.WEBSITE;
         ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, null);
         arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {

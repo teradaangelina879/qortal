@@ -150,7 +150,7 @@ public class DomainMapService {
 			context.addServlet(apiServlet, "/*");
 
 			// Rewrite URLs
-			rewriteHandler.addRule(new RewritePatternRule("/*", "/site/domainmap/")); // rewrite / as /site/domainmap/
+			rewriteHandler.addRule(new RewritePatternRule("/*", "/render/domainmap/")); // rewrite / as /site/domainmap/
 
 			// Start server
 			this.server.start();
