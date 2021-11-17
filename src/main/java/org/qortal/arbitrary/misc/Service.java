@@ -25,7 +25,8 @@ public enum Service {
     BLOG_POST(777, false, null, null),
     BLOG_COMMENT(778, false, null, null),
     DOCUMENT(800, false, null, null),
-    PLAYLIST(900, true, null, null),
+    LIST(900, true, null, null),
+    PLAYLIST(910, true, null, null),
     APP(1000, false, null, null),
     METADATA(1100, false, null, null),
     QORTAL_METADATA(1111, true, 10*1024L, Arrays.asList("title", "description", "tags"));
