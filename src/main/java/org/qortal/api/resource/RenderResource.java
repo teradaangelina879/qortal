@@ -95,7 +95,7 @@ public class RenderResource {
         if (arbitraryDataFile != null) {
             String digest58 = arbitraryDataFile.digest58();
             if (digest58 != null) {
-                return "http://localhost:12393/render/WEBSITE/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
+                return "http://localhost:12393/render/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
             }
         }
         return "Unable to generate preview URL";
@@ -122,7 +122,7 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByHash(@PathParam("hash") String hash58, @QueryParam("secret") String secret58) {
         Security.checkApiCallAllowed(request);
-        return this.get(hash58, ResourceIdType.FILE_HASH, null, "/", secret58, "/render/hash", true, false);
+        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, "/", secret58, "/render/hash", true, false);
     }
 
     @GET
@@ -131,7 +131,7 @@ public class RenderResource {
     public HttpServletResponse getPathByHash(@PathParam("hash") String hash58, @PathParam("path") String inPath,
                                              @QueryParam("secret") String secret58) {
         Security.checkApiCallAllowed(request);
-        return this.get(hash58, ResourceIdType.FILE_HASH, null, inPath, secret58, "/render/hash", true, false);
+        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, inPath, secret58, "/render/hash", true, false);
     }
 
     @GET
