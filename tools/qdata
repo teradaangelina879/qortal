@@ -8,7 +8,8 @@ if [ -z "$*" ]; then
 	echo "Usage:"
 	echo
 	echo "Host/update data:"
-	echo "qdata POST [service] [name] [dirpath] <identifier>"
+	echo "qdata POST [service] [name] PATH [dirpath] <identifier>"
+	echo "qdata POST [service] [name] STRING [data-string] <identifier>"
 	echo
 	echo "Fetch data:"
 	echo "qdata GET [service] [name] <identifier-or-default> <filepath-or-default> <rebuild>"
@@ -37,20 +38,44 @@ fi
 
 
 if [[ "${method}" == "POST" ]]; then
-  directory=$4
-  identifier=$5
+  type=$4
+  data=$5
+  identifier=$6
 
-  if [ -z "${directory}" ]; then
-    echo "Error: missing directory"; exit
+  if [ -z "${data}" ]; then
+    if [[ "${type}" == "PATH" ]]; then
+      echo "Error: missing directory"; exit
+    elif [[ "${type}" == "STRING" ]]; then
+      echo "Error: missing data string"; exit
+    else
+      echo "Error: unrecognized type"; exit
+    fi
   fi
   if [ -z "${QORTAL_PRIVKEY}" ]; then
     echo "Error: missing private key. Set it by running: export QORTAL_PRIVKEY=privkeyhere"; exit
   fi
 
+  # Create identifier component in URL
+  if [[ -z "${identifier}" || "${identifier}" == "default" ]]; then
+      identifier_component=""
+  else
+      identifier_component="/${identifier}"
+  fi
+
+  # Create type component in URL
+  if [[ "${type}" == "PATH" ]]; then
+      type_component=""
+  elif [[ "${type}" == "STRING" ]]; then
+      type_component="/string"
+  fi
+
   echo "Creating transaction - this can take a while..."
-  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}/${identifier}" -d "${directory}")
+  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}${identifier_component}${type_component}" -d "${data}")
+
   if [[ "${tx_data}" == *"error"* || "${tx_data}" == *"ERROR"* ]]; then
     echo "${tx_data}"; exit
+  elif [ -z "${tx_data}" ]; then
+    echo "Error: no transaction data returned"; exit
   fi
 
   echo "Signing..."

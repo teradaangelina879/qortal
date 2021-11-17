@@ -125,7 +125,7 @@ public class ArbitraryDataTransactionBuilder {
         catch (IOException | DataException | MissingDataException | IllegalStateException e) {
             // Handle matching states separately, as it's best to block transactions with duplicate states
             if (e.getMessage().equals("Current state matches previous state. Nothing to do.")) {
-                throw new DataException(e);
+                throw new DataException(e.getMessage());
             }
             LOGGER.info("Caught exception: {}", e.getMessage());
             LOGGER.info("Unable to load existing resource - using PUT to overwrite it.");

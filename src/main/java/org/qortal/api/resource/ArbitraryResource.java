@@ -10,6 +10,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -265,7 +269,6 @@ public class ArbitraryResource {
 	@Path("/{service}/{name}")
 	@Operation(
 			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path",
-			description = "A POST transaction automatically selects a PUT or PATCH method based on the data supplied",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
@@ -293,14 +296,48 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(null, Service.valueOf(serviceString), name, null, path);
+		return this.upload(null, Service.valueOf(serviceString), name, null, path, null);
 	}
+
+	@POST
+	@Path("/{service}/{name}/string")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied string",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "{\"title\":\"\", \"description\":\"\", \"tags\":[]}"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postString(@PathParam("service") String serviceString,
+					   		 @PathParam("name") String name,
+					   		 String string) {
+		Security.checkApiCallAllowed(request);
+
+		return this.upload(null, Service.valueOf(serviceString), name, null, null, string);
+	}
+
 
 	@POST
 	@Path("/{service}/{name}/{identifier}")
 	@Operation(
 			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path",
-			description = "A POST transaction automatically selects a PUT or PATCH method based on the data supplied",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
@@ -329,10 +366,45 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(null, Service.valueOf(serviceString), name, identifier, path);
+		return this.upload(null, Service.valueOf(serviceString), name, identifier, path, null);
 	}
 
-	private String upload(Method method, Service service, String name, String identifier, String path) {
+	@POST
+	@Path("/{service}/{name}/{identifier}/string")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on user supplied string",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "{\"title\":\"\", \"description\":\"\", \"tags\":[]}"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postString(@PathParam("service") String serviceString,
+					   	 	 @PathParam("name") String name,
+							 @PathParam("identifier") String identifier,
+							 String string) {
+		Security.checkApiCallAllowed(request);
+
+		return this.upload(null, Service.valueOf(serviceString), name, identifier, null, string);
+	}
+
+	private String upload(Method method, Service service, String name, String identifier, String path, String string) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
@@ -348,6 +420,22 @@ public class ArbitraryResource {
 			byte[] publicKey = accountData.getPublicKey();
 			String publicKey58 = Base58.encode(publicKey);
 
+			if (path == null) {
+				// See if we have a string instead
+				if (string != null) {
+					File tempFile = File.createTempFile("qortal-", ".tmp");
+					tempFile.deleteOnExit();
+					BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile.toPath().toString()));
+					writer.write(string);
+					writer.newLine();
+					writer.close();
+					path = tempFile.toPath().toString();
+				}
+				else {
+					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing path or data string");
+				}
+			}
+
 			try {
 				ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
 						publicKey58, Paths.get(path), name, method, service, identifier
@@ -361,8 +449,8 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
 			}
 
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+		} catch (DataException | IOException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
 		}
 	}
 
