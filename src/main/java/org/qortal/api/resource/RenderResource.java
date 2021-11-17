@@ -43,7 +43,7 @@ public class RenderResource {
     @Context ServletContext context;
 
     @POST
-    @Path("/preview/{service}")
+    @Path("/preview")
     @Operation(
             summary = "Generate preview URL based on a user-supplied path and service",
             requestBody = @RequestBody(
@@ -68,7 +68,7 @@ public class RenderResource {
             }
     )
     @SecurityRequirement(name = "apiKey")
-    public String preview(@PathParam("service") Service service, String directoryPath) {
+    public String preview(String directoryPath) {
         Security.checkApiCallAllowed(request);
 
         // It's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -80,7 +80,7 @@ public class RenderResource {
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
 
-        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), name, service, null, method, compression);
+        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), name, Service.WEBSITE, null, method, compression);
         try {
             arbitraryDataWriter.save();
         } catch (IOException | DataException | InterruptedException | MissingDataException e) {
