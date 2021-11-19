@@ -26,9 +26,9 @@ public class UnifiedDiffPatch {
 
     private static final Logger LOGGER = LogManager.getLogger(UnifiedDiffPatch.class);
 
-    private Path before;
-    private Path after;
-    private Path destination;
+    private final Path before;
+    private final Path after;
+    private final Path destination;
 
     private String identifier;
     private Path validationPath;
@@ -95,7 +95,6 @@ public class UnifiedDiffPatch {
      * it works correctly and is smaller than the original file
      *
      * @return true if valid, false if invalid
-     * @throws IOException
      */
     public boolean isValid() {
         this.createRandomIdentifier();

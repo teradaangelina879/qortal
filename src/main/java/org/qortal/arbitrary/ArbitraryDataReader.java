@@ -41,19 +41,18 @@ public class ArbitraryDataReader {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataReader.class);
 
-    private String resourceId;
-    private ResourceIdType resourceIdType;
-    private Service service;
-    private String identifier;
+    private final String resourceId;
+    private final ResourceIdType resourceIdType;
+    private final Service service;
+    private final String identifier;
     private ArbitraryTransactionData transactionData;
     private String secret58;
     private Path filePath;
     private boolean canRequestMissingFiles;
 
     // Intermediate paths
-    private Path workingPath;
-    private Path uncompressedPath;
-    private Path unencryptedPath;
+    private final Path workingPath;
+    private final Path uncompressedPath;
 
     // Stats (available for synchronous builds only)
     private int layerCount;
@@ -66,7 +65,7 @@ public class ArbitraryDataReader {
         }
 
         // If identifier is a blank string, treat it as null
-        if (identifier == "") {
+        if (identifier == null || identifier.equals("")) {
             identifier = null;
         }
 
@@ -116,8 +115,7 @@ public class ArbitraryDataReader {
      * This adds the build task to a queue, and the result will be cached when complete
      * To check the status of the build, periodically call isCachedDataAvailable()
      * Once it returns true, you can then use getFilePath() to access the data itself.
-     * TODO: create API to check the status
-     * @return
+     * @return true if added or already present in queue; false if not
      */
     public boolean loadAsynchronously() {
         ArbitraryDataBuildQueueItem queueItem =
@@ -136,6 +134,7 @@ public class ArbitraryDataReader {
      * @throws IllegalStateException
      * @throws IOException
      * @throws DataException
+     * @throws MissingDataException
      */
     public void loadSynchronously(boolean overwrite) throws IllegalStateException, IOException, DataException, MissingDataException {
         try {
@@ -195,7 +194,7 @@ public class ArbitraryDataReader {
             if (Files.exists(uncompressedPath)) {
                 LOGGER.trace("Attempting to delete path {}", this.uncompressedPath);
                 try {
-                    Files.walkFileTree(uncompressedPath, new SimpleFileVisitor<Path>() {
+                    Files.walkFileTree(uncompressedPath, new SimpleFileVisitor<>() {
 
                         @Override
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -290,7 +289,7 @@ public class ArbitraryDataReader {
         try (final Repository repository = RepositoryManager.getRepository()) {
             transactionData = (ArbitraryTransactionData) repository.getTransactionRepository().fromSignature(Base58.decode(resourceId));
         }
-        if (!(transactionData instanceof ArbitraryTransactionData)) {
+        if (transactionData == null) {
             throw new IllegalStateException(String.format("Transaction data not found for signature %s", this.resourceId));
         }
 
@@ -298,7 +297,7 @@ public class ArbitraryDataReader {
     }
 
     private void fetchFromTransactionData(ArbitraryTransactionData transactionData) throws IllegalStateException, IOException, MissingDataException {
-        if (!(transactionData instanceof ArbitraryTransactionData)) {
+        if (transactionData == null) {
             throw new IllegalStateException(String.format("Transaction data not found for signature %s", this.resourceId));
         }
 
@@ -364,13 +363,13 @@ public class ArbitraryDataReader {
         byte[] secret = this.secret58 != null ? Base58.decode(this.secret58) : null;
         if (secret != null && secret.length == Transformer.AES256_LENGTH) {
             try {
-                this.unencryptedPath = Paths.get(this.workingPath.toString() + File.separator + "zipped.zip");
+                Path unencryptedPath = Paths.get(this.workingPath.toString() + File.separator + "zipped.zip");
                 SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
-                AES.decryptFile("AES", aesKey, this.filePath.toString(), this.unencryptedPath.toString());
+                AES.decryptFile("AES", aesKey, this.filePath.toString(), unencryptedPath.toString());
 
                 // Replace filePath pointer with the encrypted file path
                 // Don't delete the original ArbitraryDataFile, as this is handled in the cleanup phase
-                this.filePath = this.unencryptedPath;
+                this.filePath = unencryptedPath;
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
@@ -454,11 +453,8 @@ public class ArbitraryDataReader {
         if (this.filePath.compareTo(this.uncompressedPath) != 0) {
             File source = new File(this.filePath.toString());
             File dest = new File(this.uncompressedPath.toString());
-            if (source == null || !source.exists()) {
+            if (!source.exists()) {
                 throw new IllegalStateException("Source directory doesn't exist");
-            }
-            if (dest == null) {
-                throw new IllegalStateException("Destination is null");
             }
             // Ensure destination directory doesn't exist
             FileUtils.deleteDirectory(dest);
@@ -515,7 +511,7 @@ public class ArbitraryDataReader {
      * Use the below setter to ensure that we only read existing
      * data without requesting any missing files,
      *
-     * @param canRequestMissingFiles
+     * @param canRequestMissingFiles - whether or not fetching missing files is allowed
      */
     public void setCanRequestMissingFiles(boolean canRequestMissingFiles) {
         this.canRequestMissingFiles = canRequestMissingFiles;

@@ -10,11 +10,11 @@ import java.io.IOException;
 
 public class ArbitraryDataBuildQueueItem {
 
-    private String resourceId;
-    private ResourceIdType resourceIdType;
-    private Service service;
-    private String identifier;
-    private Long creationTimestamp = null;
+    private final String resourceId;
+    private final ResourceIdType resourceIdType;
+    private final Service service;
+    private final String identifier;
+    private final Long creationTimestamp;
     private Long buildStartTimestamp = null;
     private Long buildEndTimestamp = null;
     private boolean failed = false;

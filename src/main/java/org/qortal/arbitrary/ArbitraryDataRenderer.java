@@ -27,17 +27,17 @@ public class ArbitraryDataRenderer {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataRenderer.class);
 
-    private String resourceId;
-    private ResourceIdType resourceIdType;
-    private Service service;
+    private final String resourceId;
+    private final ResourceIdType resourceIdType;
+    private final Service service;
     private String inPath;
-    private String secret58;
-    private String prefix;
-    private boolean usePrefix;
-    private boolean async;
-    private HttpServletRequest request;
-    private HttpServletResponse response;
-    private ServletContext context;
+    private final String secret58;
+    private final String prefix;
+    private final boolean usePrefix;
+    private final boolean async;
+    private final HttpServletRequest request;
+    private final HttpServletResponse response;
+    private final ServletContext context;
 
     public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
                                  String secret58, String prefix, boolean usePrefix, boolean async,
@@ -77,12 +77,12 @@ public class ArbitraryDataRenderer {
 
         } catch (Exception e) {
             LOGGER.info(String.format("Unable to load %s %s: %s", service, resourceId, e.getMessage()));
-            return this.getResponse(response, 500, "Error 500: Internal Server Error");
+            return ArbitraryDataRenderer.getResponse(response, 500, "Error 500: Internal Server Error");
         }
 
         java.nio.file.Path path = arbitraryDataReader.getFilePath();
         if (path == null) {
-            return this.getResponse(response, 404, "Error 404: File Not Found");
+            return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
         }
         String unzippedPath = path.toString();
 
@@ -128,7 +128,7 @@ public class ArbitraryDataRenderer {
             LOGGER.info("Unable to serve file at path: {}", inPath, e);
         }
 
-        return this.getResponse(response, 404, "Error 404: File Not Found");
+        return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
     }
 
     private String getFilename(String directory, String userPath) {
@@ -146,14 +146,14 @@ public class ArbitraryDataRenderer {
     }
 
     private HttpServletResponse getLoadingResponse() {
-        String responseString = null;
+        String responseString = "";
         URL url = Resources.getResource("loading/index.html");
         try {
             responseString = Resources.toString(url, StandardCharsets.UTF_8);
         } catch (IOException e) {
             LOGGER.info("Unable to show loading screen: {}", e.getMessage());
         }
-        return this.getResponse(response, 503, responseString);
+        return ArbitraryDataRenderer.getResponse(response, 503, responseString);
     }
 
     public static HttpServletResponse getResponse(HttpServletResponse response, int responseCode, String responseString) {

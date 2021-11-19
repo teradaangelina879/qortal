@@ -41,7 +41,6 @@ import org.qortal.data.account.AccountData;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -185,13 +184,11 @@ public class ArbitraryResource {
 					service, name, address, confirmationStatus, limit, offset, reverse);
 
 			// Expand signatures to transactions
-			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());
+			List<TransactionData> transactions = new ArrayList<>(signatures.size());
 			for (byte[] signature : signatures)
 				transactions.add(repository.getTransactionRepository().fromSignature(signature));
 
 			return transactions;
-		} catch (ApiException e) {
-			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -331,7 +328,7 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(null, Service.valueOf(serviceString), name, null, path, null);
+		return this.upload(Service.valueOf(serviceString), name, null, path, null);
 	}
 
 	@POST
@@ -365,7 +362,7 @@ public class ArbitraryResource {
 					   		 String string) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(null, Service.valueOf(serviceString), name, null, null, string);
+		return this.upload(Service.valueOf(serviceString), name, null, null, string);
 	}
 
 
@@ -401,7 +398,7 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(null, Service.valueOf(serviceString), name, identifier, path, null);
+		return this.upload(Service.valueOf(serviceString), name, identifier, path, null);
 	}
 
 	@POST
@@ -436,10 +433,10 @@ public class ArbitraryResource {
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(null, Service.valueOf(serviceString), name, identifier, null, string);
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, string);
 	}
 
-	private String upload(Method method, Service service, String name, String identifier, String path, String string) {
+	private String upload(Service service, String name, String identifier, String path, String string) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
@@ -473,7 +470,7 @@ public class ArbitraryResource {
 
 			try {
 				ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
-						publicKey58, Paths.get(path), name, method, service, identifier
+						publicKey58, Paths.get(path), name, null, service, identifier
 				);
 
 				transactionBuilder.build();
@@ -514,12 +511,11 @@ public class ArbitraryResource {
 					}
 
 					Thread.sleep(3000L);
-					continue;
 				}
 			}
 			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
 
-			if (filepath == null || filepath.isEmpty()) {
+			if (filepath.isEmpty()) {
 				// No file path supplied - so check if this is a single file resource
 				String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
 				if (files.length == 1) {

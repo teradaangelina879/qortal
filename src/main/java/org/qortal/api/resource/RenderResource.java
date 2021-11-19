@@ -70,11 +70,10 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public String preview(String directoryPath) {
         Security.checkApiCallAllowed(request);
-        String name = null;
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
 
-        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), name, Service.WEBSITE, null, method, compression);
+        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), null, Service.WEBSITE, null, method, compression);
         try {
             arbitraryDataWriter.save();
         } catch (IOException | DataException | InterruptedException | MissingDataException e) {

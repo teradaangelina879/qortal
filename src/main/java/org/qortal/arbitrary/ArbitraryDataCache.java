@@ -17,12 +17,12 @@ import java.util.Arrays;
 
 public class ArbitraryDataCache {
 
-    private boolean overwrite;
-    private Path filePath;
-    private String resourceId;
-    private ResourceIdType resourceIdType;
-    private Service service;
-    private String identifier;
+    private final boolean overwrite;
+    private final Path filePath;
+    private final String resourceId;
+    private final ResourceIdType resourceIdType;
+    private final Service service;
+    private final String identifier;
 
     public ArbitraryDataCache(Path filePath, boolean overwrite, String resourceId,
                               ResourceIdType resourceIdType, Service service, String identifier) {
@@ -125,10 +125,7 @@ public class ArbitraryDataCache {
         }
 
         // Check if they match
-        if (!Arrays.equals(latestTransactionSig, cachedSig)) {
-            return true;
-        }
-        return false;
+        return !Arrays.equals(latestTransactionSig, cachedSig);
     }
 
     private byte[] fetchLatestTransactionSignature() {

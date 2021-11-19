@@ -21,9 +21,9 @@ public class ArbitraryDataCombiner {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataCombiner.class);
 
-    private Path pathBefore;
-    private Path pathAfter;
-    private byte[] signatureBefore;
+    private final Path pathBefore;
+    private final Path pathAfter;
+    private final byte[] signatureBefore;
     private boolean shouldValidateHashes;
     private Path finalPath;
     private ArbitraryDataMetadataPatch metadata;
@@ -81,10 +81,10 @@ public class ArbitraryDataCombiner {
 
     private void preExecute() {
         if (this.pathBefore == null || this.pathAfter == null) {
-            throw new IllegalStateException(String.format("No paths available to build patch"));
+            throw new IllegalStateException("No paths available to build patch");
         }
         if (!Files.exists(this.pathBefore) || !Files.exists(this.pathAfter)) {
-            throw new IllegalStateException(String.format("Unable to create patch because at least one path doesn't exist"));
+            throw new IllegalStateException("Unable to create patch because at least one path doesn't exist");
         }
     }
 

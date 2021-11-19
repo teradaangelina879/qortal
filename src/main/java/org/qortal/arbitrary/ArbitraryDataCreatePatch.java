@@ -16,9 +16,9 @@ public class ArbitraryDataCreatePatch {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataCreatePatch.class);
 
-    private Path pathBefore;
+    private final Path pathBefore;
     private Path pathAfter;
-    private byte[] previousSignature;
+    private final byte[] previousSignature;
 
     private Path finalPath;
     private int totalFileCount;
@@ -50,10 +50,10 @@ public class ArbitraryDataCreatePatch {
 
     private void preExecute() {
         if (this.pathBefore == null || this.pathAfter == null) {
-            throw new IllegalStateException(String.format("No paths available to build patch"));
+            throw new IllegalStateException("No paths available to build patch");
         }
         if (!Files.exists(this.pathBefore) || !Files.exists(this.pathAfter)) {
-            throw new IllegalStateException(String.format("Unable to create patch because at least one path doesn't exist"));
+            throw new IllegalStateException("Unable to create patch because at least one path doesn't exist");
         }
 
         this.createRandomIdentifier();

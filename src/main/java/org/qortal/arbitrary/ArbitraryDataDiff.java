@@ -17,7 +17,7 @@ import java.util.*;
 public class ArbitraryDataDiff {
 
     /** Only create a patch if both the before and after file sizes are within defined limit **/
-    private static long MAX_DIFF_FILE_SIZE = 100 * 1024L; // 100kiB
+    private static final long MAX_DIFF_FILE_SIZE = 100 * 1024L; // 100kiB
 
 
     public enum DiffType {
@@ -61,17 +61,17 @@ public class ArbitraryDataDiff {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataDiff.class);
 
-    private Path pathBefore;
-    private Path pathAfter;
-    private byte[] previousSignature;
+    private final Path pathBefore;
+    private final Path pathAfter;
+    private final byte[] previousSignature;
     private byte[] previousHash;
     private byte[] currentHash;
     private Path diffPath;
     private String identifier;
 
-    private List<Path> addedPaths;
-    private List<ModifiedPath> modifiedPaths;
-    private List<Path> removedPaths;
+    private final List<Path> addedPaths;
+    private final List<ModifiedPath> modifiedPaths;
+    private final List<Path> removedPaths;
 
     private int totalFileCount;
 
@@ -141,7 +141,7 @@ public class ArbitraryDataDiff {
             final ArbitraryDataDiff diff = this;
 
             // Check for additions or modifications
-            Files.walkFileTree(this.pathAfter, new FileVisitor<Path>() {
+            Files.walkFileTree(this.pathAfter, new FileVisitor<>() {
 
                 @Override
                 public FileVisitResult preVisitDirectory(Path after, BasicFileAttributes attrs) {
@@ -216,10 +216,10 @@ public class ArbitraryDataDiff {
             final ArbitraryDataDiff diff = this;
 
             // Check for removals
-            Files.walkFileTree(this.pathBefore, new FileVisitor<Path>() {
+            Files.walkFileTree(this.pathBefore, new FileVisitor<>() {
 
                 @Override
-                public FileVisitResult preVisitDirectory(Path before, BasicFileAttributes attrs) throws IOException {
+                public FileVisitResult preVisitDirectory(Path before, BasicFileAttributes attrs) {
                     Path directoryPathBefore = pathBeforeAbsolute.relativize(before.toAbsolutePath());
                     Path directoryPathAfter = pathAfterAbsolute.resolve(directoryPathBefore);
 
@@ -238,7 +238,7 @@ public class ArbitraryDataDiff {
                 }
 
                 @Override
-                public FileVisitResult visitFile(Path before, BasicFileAttributes attrs) throws IOException {
+                public FileVisitResult visitFile(Path before, BasicFileAttributes attrs) {
                     Path filePathBefore = pathBeforeAbsolute.relativize(before.toAbsolutePath());
                     Path filePathAfter = pathAfterAbsolute.resolve(filePathBefore);
 

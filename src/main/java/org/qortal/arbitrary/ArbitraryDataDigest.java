@@ -1,7 +1,5 @@
 package org.qortal.arbitrary;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.qortal.utils.Base58;
 
 import java.io.IOException;
@@ -11,15 +9,12 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class ArbitraryDataDigest {
 
-    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataDigest.class);
-
-    private Path path;
+    private final Path path;
     private byte[] hash;
 
     public ArbitraryDataDigest(Path path) {
@@ -27,11 +22,10 @@ public class ArbitraryDataDigest {
     }
 
     public void compute() throws IOException {
-        List<Path> allPaths = Files.walk(path).filter(Files::isRegularFile).collect(Collectors.toList());
-        Collections.sort(allPaths);
+        List<Path> allPaths = Files.walk(path).filter(Files::isRegularFile).sorted().collect(Collectors.toList());
         Path basePathAbsolute = this.path.toAbsolutePath();
 
-        MessageDigest sha256 = null;
+        MessageDigest sha256;
         try {
             sha256 = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {

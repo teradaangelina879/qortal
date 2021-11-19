@@ -19,22 +19,22 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 public class ArbitraryDataBuilder {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataBuilder.class);
 
-    private String name;
-    private Service service;
-    private String identifier;
+    private final String name;
+    private final Service service;
+    private final String identifier;
 
     private boolean canRequestMissingFiles;
 
     private List<ArbitraryTransactionData> transactions;
     private ArbitraryTransactionData latestPutTransaction;
-    private List<Path> paths;
+    private final List<Path> paths;
     private byte[] latestSignature;
     private Path finalPath;
     private int layerCount;
@@ -118,7 +118,7 @@ public class ArbitraryDataBuilder {
 
         // Verify that the signature of the first transaction matches the latest PUT
         ArbitraryTransactionData firstTransaction = transactionDataList.get(0);
-        if (!Objects.equals(firstTransaction.getSignature(), latestPut.getSignature())) {
+        if (!Arrays.equals(firstTransaction.getSignature(), latestPut.getSignature())) {
             throw new IllegalStateException("First transaction did not match latest PUT transaction");
         }
 
@@ -126,9 +126,8 @@ public class ArbitraryDataBuilder {
         transactionDataList.remove(0);
 
         for (ArbitraryTransactionData transactionData : transactionDataList) {
-            if (!(transactionData instanceof ArbitraryTransactionData)) {
-                String sig58 = Base58.encode(transactionData.getSignature());
-                throw new IllegalStateException(String.format("Received non-arbitrary transaction: %s", sig58));
+            if (transactionData == null) {
+                throw new IllegalStateException("Transaction not found");
             }
             if (transactionData.getMethod() != Method.PATCH) {
                 throw new IllegalStateException("Expected PATCH but received PUT");
@@ -198,8 +197,8 @@ public class ArbitraryDataBuilder {
     }
 
     private void validatePaths() {
-        if (this.paths == null || this.paths.isEmpty()) {
-            throw new IllegalStateException(String.format("No paths available from which to build latest state"));
+        if (this.paths.isEmpty()) {
+            throw new IllegalStateException("No paths available from which to build latest state");
         }
     }
 
@@ -236,10 +235,14 @@ public class ArbitraryDataBuilder {
         this.finalPath = pathBefore;
     }
 
-    private void cacheLatestSignature() throws IOException {
+    private void cacheLatestSignature() throws IOException, DataException {
         byte[] latestTransactionSignature = this.transactions.get(this.transactions.size()-1).getSignature();
         if (latestTransactionSignature == null) {
             throw new IllegalStateException("Missing latest transaction signature");
+        }
+        Long now = NTP.getTime();
+        if (now == null) {
+            throw new DataException("NTP time not synced yet");
         }
 
         ArbitraryDataMetadataCache cache = new ArbitraryDataMetadataCache(this.finalPath);

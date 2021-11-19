@@ -12,10 +12,10 @@ import java.io.IOException;
 
 public class ArbitraryDataResource {
 
-    private String resourceId;
-    private ResourceIdType resourceIdType;
-    private Service service;
-    private String identifier;
+    private final String resourceId;
+    private final ResourceIdType resourceIdType;
+    private final Service service;
+    private final String identifier;
 
     public ArbitraryDataResource(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         this.resourceId = resourceId;

@@ -33,11 +33,11 @@ public class ArbitraryDataWriter {
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataWriter.class);
 
     private Path filePath;
-    private String name;
-    private Service service;
-    private String identifier;
-    private Method method;
-    private Compression compression;
+    private final String name;
+    private final Service service;
+    private final String identifier;
+    private final Method method;
+    private final Compression compression;
 
     private SecretKey aesKey;
     private ArbitraryDataFile arbitraryDataFile;

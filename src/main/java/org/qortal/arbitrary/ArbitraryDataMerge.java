@@ -20,8 +20,8 @@ public class ArbitraryDataMerge {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataMerge.class);
 
-    private Path pathBefore;
-    private Path pathAfter;
+    private final Path pathBefore;
+    private final Path pathAfter;
     private Path mergePath;
     private String identifier;
     private ArbitraryDataMetadataPatch metadata;

@@ -42,12 +42,12 @@ public class ArbitraryDataTransactionBuilder {
     // Maximum proportion of files modified relative to total
     private static final double MAX_FILE_DIFF = 0.5f;
 
-    private String publicKey58;
-    private Path path;
-    private String name;
+    private final String publicKey58;
+    private final Path path;
+    private final String name;
     private Method method;
-    private Service service;
-    private String identifier;
+    private final Service service;
+    private final String identifier;
 
     private ArbitraryTransactionData arbitraryTransactionData;
 
@@ -137,11 +137,14 @@ public class ArbitraryDataTransactionBuilder {
         ArbitraryDataFile arbitraryDataFile = null;
         try (final Repository repository = RepositoryManager.getRepository()) {
             Long now = NTP.getTime();
+            if (now == null) {
+                throw new DataException("NTP time not synced yet");
+            }
 
             // Ensure that this chain supports transactions necessary for complex arbitrary data
             int transactionVersion = Transaction.getVersionByTimestamp(now);
             if (transactionVersion < MIN_TRANSACTION_VERSION) {
-                throw new DataException(String.format("Transaction version unsupported on this blockchain."));
+                throw new DataException("Transaction version unsupported on this blockchain.");
             }
 
             if (publicKey58 == null || path == null) {
