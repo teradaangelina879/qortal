@@ -63,7 +63,7 @@ public class ArbitraryDataResource {
             builder.process();
 
         } catch (MissingDataException e) {
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADING);
+            return new ArbitraryResourceSummary(ArbitraryResourceStatus.MISSING_DATA);
 
         } catch (IOException | DataException e) {
             // Ignore for now
@@ -71,6 +71,6 @@ public class ArbitraryDataResource {
 
         // FUTURE: support DOWNLOADED state once the build queue system has been upgraded
 
-        return new ArbitraryResourceSummary(ArbitraryResourceStatus.NOT_STARTED);
+        return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADED);
     }
 }
