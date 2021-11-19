@@ -41,6 +41,29 @@ public class GatewayResource {
         return this.get(name, ResourceIdType.NAME, Service.WEBSITE, "/", null, "", true, true);
     }
 
+
+    // Optional /site alternative for backwards support
+
+    @GET
+    @Path("/site/{name}/{path:.*}")
+    @SecurityRequirement(name = "apiKey")
+    public HttpServletResponse getSitePathByName(@PathParam("name") String name,
+                                                 @PathParam("path") String inPath) {
+        // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
+        Security.disallowLoopbackRequests(request);
+        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, inPath, null, "/site", true, true);
+    }
+
+    @GET
+    @Path("/site/{name}")
+    @SecurityRequirement(name = "apiKey")
+    public HttpServletResponse getSiteIndexByName(@PathParam("name") String name) {
+        // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
+        Security.disallowLoopbackRequests(request);
+        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, "/", null, "/site", true, true);
+    }
+
+    
     private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
                                     String secret58, String prefix, boolean usePrefix, boolean async) {
 
