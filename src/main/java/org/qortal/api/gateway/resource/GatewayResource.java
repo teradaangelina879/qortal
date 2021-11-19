@@ -27,7 +27,6 @@ public class GatewayResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathByName(@PathParam("name") String name,
                                              @PathParam("path") String inPath) {
-        Security.checkApiCallAllowed(request);
         return this.get(name, ResourceIdType.NAME, Service.WEBSITE, inPath, null, "", true, true);
     }
 
@@ -35,7 +34,6 @@ public class GatewayResource {
     @Path("{name}")
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByName(@PathParam("name") String name) {
-        Security.checkApiCallAllowed(request);
         return this.get(name, ResourceIdType.NAME, Service.WEBSITE, "/", null, "", true, true);
     }
 
