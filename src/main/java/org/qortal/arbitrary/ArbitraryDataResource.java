@@ -3,13 +3,17 @@ package org.qortal.arbitrary;
 import org.qortal.api.model.ArbitraryResourceSummary;
 import org.qortal.api.model.ArbitraryResourceSummary.ArbitraryResourceStatus;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
-import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
+import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
+import org.qortal.utils.ArbitraryTransactionUtils;
 
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ArbitraryDataResource {
 
@@ -17,6 +21,10 @@ public class ArbitraryDataResource {
     private final ResourceIdType resourceIdType;
     private final Service service;
     private final String identifier;
+
+    private List<ArbitraryTransactionData> transactions;
+    private ArbitraryTransactionData latestPutTransaction;
+    private int layerCount;
 
     public ArbitraryDataResource(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         this.resourceId = resourceId;
@@ -57,20 +65,56 @@ public class ArbitraryDataResource {
         }
 
         // Check if we have all data locally for this resource
-        ArbitraryDataBuilder builder = new ArbitraryDataBuilder(resourceId, service, identifier);
-        builder.setCanRequestMissingFiles(false);
-        try {
-            builder.process();
-
-        } catch (MissingDataException e) {
+        if (!this.allFilesDownloaded()) {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.MISSING_DATA);
-
-        } catch (IOException | DataException e) {
-            // Ignore for now
         }
 
         // FUTURE: support DOWNLOADED state once the build queue system has been upgraded
 
         return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADED);
+    }
+
+    private boolean allFilesDownloaded() {
+        try {
+            this.fetchTransactions();
+
+            List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
+
+            for (ArbitraryTransactionData transactionData : transactionDataList) {
+                if (!ArbitraryTransactionUtils.allChunksExist(transactionData)) {
+                    return false;
+                }
+            }
+            return true;
+
+        } catch (DataException e) {
+            return false;
+        }
+    }
+
+    private void fetchTransactions() throws DataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+
+            // Get the most recent PUT
+            ArbitraryTransactionData latestPut = repository.getArbitraryRepository()
+                    .getLatestTransaction(this.resourceId, this.service, ArbitraryTransactionData.Method.PUT, this.identifier);
+            if (latestPut == null) {
+                String message = String.format("Couldn't find PUT transaction for name %s, service %s and identifier %s",
+                        this.resourceId, this.service, this.identifierString());
+                throw new DataException(message);
+            }
+            this.latestPutTransaction = latestPut;
+
+            // Load all transactions since the latest PUT
+            List<ArbitraryTransactionData> transactionDataList = repository.getArbitraryRepository()
+                    .getArbitraryTransactions(this.resourceId, this.service, this.identifier, latestPut.getTimestamp());
+
+            this.transactions = transactionDataList;
+            this.layerCount = transactionDataList.size();
+        }
+    }
+
+    private String identifierString() {
+        return identifier != null ? identifier : "";
     }
 }
