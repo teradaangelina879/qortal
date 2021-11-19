@@ -31,35 +31,35 @@ public class ArbitraryServiceTests extends Common {
     }
 
     @Test
-    public void testValidMetadata() {
+    public void testValidQortalMetadata() {
         // Metadata is to describe an arbitrary resource (title, description, tags, etc)
         String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";
         byte[] data = dataString.getBytes();
 
-        Service service = Service.METADATA;
+        Service service = Service.QORTAL_METADATA;
         assertTrue(service.isValidationRequired());
         assertEquals(ValidationResult.OK, service.validate(data, data.length));
     }
 
     @Test
-    public void testMetadataMissingKeys() {
+    public void testQortalMetadataMissingKeys() {
         // Metadata is to describe an arbitrary resource (title, description, tags, etc)
         String dataString = "{\"description\":\"Test description\", \"tags\":[\"test\"]}";
         byte[] data = dataString.getBytes();
 
-        Service service = Service.METADATA;
+        Service service = Service.QORTAL_METADATA;
         assertTrue(service.isValidationRequired());
         assertEquals(ValidationResult.MISSING_KEYS, service.validate(data, data.length));
     }
 
     @Test
-    public void testMetadataTooLarge() {
+    public void testQortalMetadataTooLarge() {
         // Metadata is to describe an arbitrary resource (title, description, tags, etc)
         String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";
         byte[] data = dataString.getBytes();
         long totalResourceSize = 11*1024L; // Larger than allowed 10kiB
 
-        Service service = Service.METADATA;
+        Service service = Service.QORTAL_METADATA;
         assertTrue(service.isValidationRequired());
         assertEquals(ValidationResult.EXCEEDS_SIZE_LIMIT, service.validate(data, totalResourceSize));
     }
