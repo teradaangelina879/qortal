@@ -79,12 +79,12 @@ public class ArbitraryDataCombiner {
         }
     }
 
-    private void preExecute() {
+    private void preExecute() throws DataException {
         if (this.pathBefore == null || this.pathAfter == null) {
-            throw new IllegalStateException("No paths available to build patch");
+            throw new DataException("No paths available to build patch");
         }
         if (!Files.exists(this.pathBefore) || !Files.exists(this.pathAfter)) {
-            throw new IllegalStateException("Unable to create patch because at least one path doesn't exist");
+            throw new DataException("Unable to create patch because at least one path doesn't exist");
         }
     }
 
@@ -92,35 +92,35 @@ public class ArbitraryDataCombiner {
 
     }
 
-    private void readMetadata() throws IOException  {
+    private void readMetadata() throws IOException, DataException {
         this.metadata = new ArbitraryDataMetadataPatch(this.pathAfter);
         this.metadata.read();
     }
 
-    private void validatePreviousSignature() {
+    private void validatePreviousSignature() throws DataException {
         if (this.signatureBefore == null) {
-            throw new IllegalStateException("No previous signature passed to the combiner");
+            throw new DataException("No previous signature passed to the combiner");
         }
 
         byte[] previousSignature = this.metadata.getPreviousSignature();
         if (previousSignature == null) {
-            throw new IllegalStateException("Unable to extract previous signature from patch metadata");
+            throw new DataException("Unable to extract previous signature from patch metadata");
         }
 
         // Compare the signatures
         if (!Arrays.equals(previousSignature, this.signatureBefore)) {
-            throw new IllegalStateException("Previous signatures do not match - transactions out of order?");
+            throw new DataException("Previous signatures do not match - transactions out of order?");
         }
     }
 
-    private void validatePreviousHash() throws IOException {
+    private void validatePreviousHash() throws IOException, DataException {
         if (!Settings.getInstance().shouldValidateAllDataLayers()) {
             return;
         }
 
         byte[] previousHash = this.metadata.getPreviousHash();
         if (previousHash == null) {
-            throw new IllegalStateException("Unable to extract previous hash from patch metadata");
+            throw new DataException("Unable to extract previous hash from patch metadata");
         }
 
         ArbitraryDataDigest digest = new ArbitraryDataDigest(this.pathBefore);
@@ -139,14 +139,14 @@ public class ArbitraryDataCombiner {
         this.finalPath = merge.getMergePath();
     }
 
-    private void validateCurrentHash() throws IOException {
+    private void validateCurrentHash() throws IOException, DataException {
         if (!this.shouldValidateHashes) {
             return;
         }
 
         byte[] currentHash = this.metadata.getCurrentHash();
         if (currentHash == null) {
-            throw new IllegalStateException("Unable to extract current hash from patch metadata");
+            throw new DataException("Unable to extract current hash from patch metadata");
         }
 
         ArbitraryDataDigest digest = new ArbitraryDataDigest(this.finalPath);

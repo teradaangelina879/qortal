@@ -153,7 +153,7 @@ public class ArbitraryDataCache {
             cache.read();
             return cache.getSignature();
 
-        } catch (IOException e) {
+        } catch (IOException | DataException e) {
             return null;
         }
     }

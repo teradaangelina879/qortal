@@ -234,7 +234,7 @@ public class ArbitraryDataTests extends Common {
                 arbitraryDataReader1a.loadSynchronously(true);
                 fail("Loading data with null identifier should fail due to nonexistent PUT transaction");
 
-            } catch (IllegalStateException expectedException) {
+            } catch (DataException expectedException) {
                 assertEquals(String.format("Couldn't find PUT transaction for name %s, service %s "
                         + "and identifier ", name.toLowerCase(), service), expectedException.getMessage());
             }
@@ -246,7 +246,7 @@ public class ArbitraryDataTests extends Common {
                 arbitraryDataReader1b.loadSynchronously(true);
                 fail("Loading data with incorrect identifier should fail due to nonexistent PUT transaction");
 
-            } catch (IllegalStateException expectedException) {
+            } catch (DataException expectedException) {
                 assertEquals(String.format("Couldn't find PUT transaction for name %s, service %s "
                         + "and identifier %s", name.toLowerCase(), service, differentIdentifier), expectedException.getMessage());
             }
@@ -321,7 +321,7 @@ public class ArbitraryDataTests extends Common {
                 arbitraryDataReader1c.loadSynchronously(true);
                 fail("Loading data with incorrect identifier should fail due to nonexistent PUT transaction");
 
-            } catch (IllegalStateException expectedException) {
+            } catch (DataException expectedException) {
                 assertEquals(String.format("Couldn't find PUT transaction for name %s, service %s "
                         + "and identifier %s", name.toLowerCase(), service, differentIdentifier), expectedException.getMessage());
             }

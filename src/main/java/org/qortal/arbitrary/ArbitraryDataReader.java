@@ -131,12 +131,11 @@ public class ArbitraryDataReader {
      * If no exception is thrown, you can then use getFilePath() to access the data immediately after returning
      *
      * @param overwrite - set to true to force rebuild an existing cache
-     * @throws IllegalStateException
      * @throws IOException
      * @throws DataException
      * @throws MissingDataException
      */
-    public void loadSynchronously(boolean overwrite) throws IllegalStateException, IOException, DataException, MissingDataException {
+    public void loadSynchronously(boolean overwrite) throws DataException, IOException, MissingDataException {
         try {
             ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
                     this.resourceId, this.resourceIdType, this.service, this.identifier);
@@ -158,7 +157,7 @@ public class ArbitraryDataReader {
         }
     }
 
-    private void preExecute() {
+    private void preExecute() throws DataException {
         ArbitraryDataBuildManager.getInstance().setBuildInProgress(true);
         this.createWorkingDirectory();
         this.createUncompressedDirectory();
@@ -168,15 +167,15 @@ public class ArbitraryDataReader {
         ArbitraryDataBuildManager.getInstance().setBuildInProgress(false);
     }
 
-    private void createWorkingDirectory() {
+    private void createWorkingDirectory() throws DataException {
         try {
             Files.createDirectories(this.workingPath);
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create temp directory");
+            throw new DataException("Unable to create temp directory");
         }
     }
 
-    private void createUncompressedDirectory() {
+    private void createUncompressedDirectory() throws DataException {
         try {
             // Create parent directory
             Files.createDirectories(this.uncompressedPath.getParent());
@@ -184,7 +183,7 @@ public class ArbitraryDataReader {
             FileUtils.deleteDirectory(this.uncompressedPath.toFile());
 
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create uncompressed directory");
+            throw new DataException("Unable to create uncompressed directory");
         }
     }
 
@@ -225,7 +224,7 @@ public class ArbitraryDataReader {
         }
     }
 
-    private void fetch() throws IllegalStateException, IOException, DataException, MissingDataException {
+    private void fetch() throws DataException, IOException, MissingDataException {
         switch (resourceIdType) {
 
             case FILE_HASH:
@@ -245,18 +244,18 @@ public class ArbitraryDataReader {
                 break;
 
             default:
-                throw new IllegalStateException(String.format("Unknown resource ID type specified: %s", resourceIdType.toString()));
+                throw new DataException(String.format("Unknown resource ID type specified: %s", resourceIdType.toString()));
         }
     }
 
-    private void fetchFromFileHash() {
+    private void fetchFromFileHash() throws DataException {
         // Load data file directly from the hash
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(resourceId);
         // Set filePath to the location of the ArbitraryDataFile
         this.filePath = arbitraryDataFile.getFilePath();
     }
 
-    private void fetchFromName() throws IllegalStateException, IOException, DataException, MissingDataException {
+    private void fetchFromName() throws DataException, IOException, MissingDataException {
         try {
 
             // Build the existing state using past transactions
@@ -264,7 +263,7 @@ public class ArbitraryDataReader {
             builder.build();
             Path builtPath = builder.getFinalPath();
             if (builtPath == null) {
-                throw new IllegalStateException("Unable to build path");
+                throw new DataException("Unable to build path");
             }
 
             // Update stats
@@ -282,7 +281,7 @@ public class ArbitraryDataReader {
         }
     }
 
-    private void fetchFromSignature() throws IllegalStateException, IOException, DataException, MissingDataException {
+    private void fetchFromSignature() throws DataException, IOException, MissingDataException {
 
         // Load the full transaction data from the database so we can access the file hashes
         ArbitraryTransactionData transactionData;
@@ -290,15 +289,15 @@ public class ArbitraryDataReader {
             transactionData = (ArbitraryTransactionData) repository.getTransactionRepository().fromSignature(Base58.decode(resourceId));
         }
         if (transactionData == null) {
-            throw new IllegalStateException(String.format("Transaction data not found for signature %s", this.resourceId));
+            throw new DataException(String.format("Transaction data not found for signature %s", this.resourceId));
         }
 
         this.fetchFromTransactionData(transactionData);
     }
 
-    private void fetchFromTransactionData(ArbitraryTransactionData transactionData) throws IllegalStateException, IOException, MissingDataException {
+    private void fetchFromTransactionData(ArbitraryTransactionData transactionData) throws DataException, IOException, MissingDataException {
         if (transactionData == null) {
-            throw new IllegalStateException(String.format("Transaction data not found for signature %s", this.resourceId));
+            throw new DataException(String.format("Transaction data not found for signature %s", this.resourceId));
         }
 
         // Load hashes
@@ -316,7 +315,7 @@ public class ArbitraryDataReader {
         if (!arbitraryDataFile.exists()) {
             if (!arbitraryDataFile.allChunksExist(chunkHashes) || chunkHashes == null) {
                 if (ArbitraryDataStorageManager.getInstance().isNameInBlacklist(transactionData.getName())) {
-                    throw new IllegalStateException(
+                    throw new DataException(
                             String.format("Unable to request missing data for file %s due to blacklist", arbitraryDataFile));
                 }
                 else {
@@ -352,13 +351,13 @@ public class ArbitraryDataReader {
         }
         // Ensure the complete hash matches the joined chunks
         if (!Arrays.equals(arbitraryDataFile.digest(), digest)) {
-            throw new IllegalStateException("Unable to validate complete file hash");
+            throw new DataException("Unable to validate complete file hash");
         }
         // Set filePath to the location of the ArbitraryDataFile
         this.filePath = arbitraryDataFile.getFilePath();
     }
 
-    private void decrypt() {
+    private void decrypt() throws DataException {
         // Decrypt if we have the secret key.
         byte[] secret = this.secret58 != null ? Base58.decode(this.secret58) : null;
         if (secret != null && secret.length == Transformer.AES256_LENGTH) {
@@ -373,7 +372,7 @@ public class ArbitraryDataReader {
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-                throw new IllegalStateException(String.format("Unable to decrypt file at path %s: %s", this.filePath, e.getMessage()));
+                throw new DataException(String.format("Unable to decrypt file at path %s: %s", this.filePath, e.getMessage()));
             }
         } else {
             // Assume it is unencrypted. This will be the case when we have built a custom path by combining
@@ -381,9 +380,9 @@ public class ArbitraryDataReader {
         }
     }
 
-    private void uncompress() throws IOException {
+    private void uncompress() throws IOException, DataException {
         if (this.filePath == null || !Files.exists(this.filePath)) {
-            throw new IllegalStateException("Can't uncompress non-existent file path");
+            throw new DataException("Can't uncompress non-existent file path");
         }
         File file = new File(this.filePath.toString());
         if (file.isDirectory()) {
@@ -407,10 +406,10 @@ public class ArbitraryDataReader {
                 this.filePath.toFile().renameTo(finalPath.toFile());
             }
             else {
-                throw new IllegalStateException(String.format("Unrecognized compression type: %s", transactionData.getCompression()));
+                throw new DataException(String.format("Unrecognized compression type: %s", transactionData.getCompression()));
             }
         } catch (IOException e) {
-            throw new IllegalStateException(String.format("Unable to unzip file: %s", e.getMessage()));
+            throw new DataException(String.format("Unable to unzip file: %s", e.getMessage()));
         }
 
         // If unzipped data was a file not a directory, move it into a data/ directory so that the .qortal
@@ -449,12 +448,12 @@ public class ArbitraryDataReader {
     }
 
 
-    private void moveFilePathToFinalDestination() throws IOException {
+    private void moveFilePathToFinalDestination() throws IOException, DataException {
         if (this.filePath.compareTo(this.uncompressedPath) != 0) {
             File source = new File(this.filePath.toString());
             File dest = new File(this.uncompressedPath.toString());
             if (!source.exists()) {
-                throw new IllegalStateException("Source directory doesn't exist");
+                throw new DataException("Source directory doesn't exist");
             }
             // Ensure destination directory doesn't exist
             FileUtils.deleteDirectory(dest);

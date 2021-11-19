@@ -122,7 +122,7 @@ public class ArbitraryDataTransactionBuilder {
             // State is appropriate for a PATCH transaction
             return Method.PATCH;
         }
-        catch (IOException | DataException | MissingDataException | IllegalStateException e) {
+        catch (IOException | DataException | MissingDataException e) {
             // Handle matching states separately, as it's best to block transactions with duplicate states
             if (e.getMessage().equals("Current state matches previous state. Nothing to do.")) {
                 throw new DataException(e.getMessage());

@@ -44,7 +44,7 @@ public class ArbitraryDataMerge {
         }
     }
 
-    private void preExecute() {
+    private void preExecute() throws DataException {
         this.createRandomIdentifier();
         this.createOutputDirectory();
     }
@@ -57,14 +57,14 @@ public class ArbitraryDataMerge {
         this.identifier = UUID.randomUUID().toString();
     }
 
-    private void createOutputDirectory() {
+    private void createOutputDirectory() throws DataException {
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
         Path tempDir = Paths.get(baseDir, "merge", this.identifier);
         try {
             Files.createDirectories(tempDir);
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create temp directory");
+            throw new DataException("Unable to create temp directory");
         }
         this.mergePath = tempDir;
     }
@@ -73,7 +73,7 @@ public class ArbitraryDataMerge {
         ArbitraryDataMerge.copyDirPathToBaseDir(this.pathBefore, this.mergePath, Paths.get(""));
     }
 
-    private void loadMetadata() throws IOException {
+    private void loadMetadata() throws IOException, DataException {
         this.metadata = new ArbitraryDataMetadataPatch(this.pathAfter);
         this.metadata.read();
     }

@@ -77,7 +77,7 @@ public class ArbitraryTransactionUtils {
         return hasNewerPut;
     }
 
-    public static boolean completeFileExists(ArbitraryTransactionData transactionData) {
+    public static boolean completeFileExists(ArbitraryTransactionData transactionData) throws DataException {
         if (transactionData == null) {
             return false;
         }
@@ -90,7 +90,7 @@ public class ArbitraryTransactionUtils {
 
     }
 
-    public static boolean allChunksExist(ArbitraryTransactionData transactionData) {
+    public static boolean allChunksExist(ArbitraryTransactionData transactionData) throws DataException {
         if (transactionData == null) {
             return false;
         }
@@ -111,7 +111,7 @@ public class ArbitraryTransactionUtils {
         return arbitraryDataFile.allChunksExist(chunkHashes);
     }
 
-    public static boolean anyChunksExist(ArbitraryTransactionData transactionData) {
+    public static boolean anyChunksExist(ArbitraryTransactionData transactionData) throws DataException {
         if (transactionData == null) {
             return false;
         }
@@ -132,7 +132,7 @@ public class ArbitraryTransactionUtils {
         return arbitraryDataFile.anyChunksExist(chunkHashes);
     }
 
-    public static int ourChunkCount(ArbitraryTransactionData transactionData) {
+    public static int ourChunkCount(ArbitraryTransactionData transactionData) throws DataException {
         if (transactionData == null) {
             return 0;
         }
@@ -174,7 +174,7 @@ public class ArbitraryTransactionUtils {
         return true;
     }
 
-    public static boolean isFileHashRecent(byte[] hash, long now, long cleanupAfter) {
+    public static boolean isFileHashRecent(byte[] hash, long now, long cleanupAfter) throws DataException {
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
         if (arbitraryDataFile == null || !arbitraryDataFile.exists()) {
             // No hash, or file doesn't exist, so it's not recent
@@ -185,7 +185,7 @@ public class ArbitraryTransactionUtils {
         return ArbitraryTransactionUtils.isFileRecent(filePath, now, cleanupAfter);
     }
 
-    public static void deleteCompleteFile(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) {
+    public static void deleteCompleteFile(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
         byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
 
@@ -200,7 +200,7 @@ public class ArbitraryTransactionUtils {
         }
     }
 
-    public static void deleteCompleteFileAndChunks(ArbitraryTransactionData arbitraryTransactionData) {
+    public static void deleteCompleteFileAndChunks(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
         byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
 
@@ -209,7 +209,7 @@ public class ArbitraryTransactionUtils {
         arbitraryDataFile.deleteAll();
     }
 
-    public static void convertFileToChunks(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) {
+    public static void convertFileToChunks(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
         byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
 

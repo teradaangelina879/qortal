@@ -148,7 +148,7 @@ public class ArbitraryDataMergeTests extends Common {
             patch.create();
             fail("Creating patch should fail due to matching states");
 
-        } catch (IllegalStateException expectedException) {
+        } catch (DataException expectedException) {
             assertEquals("Current state matches previous state. Nothing to do.", expectedException.getMessage());
         }
 

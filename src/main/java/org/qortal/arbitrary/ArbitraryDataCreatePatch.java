@@ -48,12 +48,12 @@ public class ArbitraryDataCreatePatch {
         }
     }
 
-    private void preExecute() {
+    private void preExecute() throws DataException {
         if (this.pathBefore == null || this.pathAfter == null) {
-            throw new IllegalStateException("No paths available to build patch");
+            throw new DataException("No paths available to build patch");
         }
         if (!Files.exists(this.pathBefore) || !Files.exists(this.pathAfter)) {
-            throw new IllegalStateException("Unable to create patch because at least one path doesn't exist");
+            throw new DataException("Unable to create patch because at least one path doesn't exist");
         }
 
         this.createRandomIdentifier();
@@ -84,14 +84,14 @@ public class ArbitraryDataCreatePatch {
         this.identifier = UUID.randomUUID().toString();
     }
 
-    private void createWorkingDirectory() {
+    private void createWorkingDirectory() throws DataException {
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
         Path tempDir = Paths.get(baseDir, "patch", this.identifier);
         try {
             Files.createDirectories(tempDir);
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create temp directory");
+            throw new DataException("Unable to create temp directory");
         }
         this.workingPath = tempDir;
     }
@@ -114,7 +114,7 @@ public class ArbitraryDataCreatePatch {
         }
     }
 
-    private void process() throws IOException {
+    private void process() throws IOException, DataException {
 
         ArbitraryDataDiff diff = new ArbitraryDataDiff(this.pathBefore, this.pathAfter, this.previousSignature);
         this.finalPath = diff.getDiffPath();

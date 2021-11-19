@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.qortal.arbitrary.ArbitraryDataDiff.*;
+import org.qortal.repository.DataException;
 import org.qortal.utils.Base58;
 
 import java.lang.reflect.Field;
@@ -39,9 +40,9 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
     }
 
     @Override
-    protected void readJson() {
+    protected void readJson() throws DataException {
         if (this.jsonString == null) {
-            throw new IllegalStateException("Patch JSON string is null");
+            throw new DataException("Patch JSON string is null");
         }
 
         JSONObject patch = new JSONObject(this.jsonString);

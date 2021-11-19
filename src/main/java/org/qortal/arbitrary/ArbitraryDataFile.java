@@ -3,6 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.Crypto;
+import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
@@ -64,14 +65,14 @@ public class ArbitraryDataFile {
     public ArbitraryDataFile() {
     }
 
-    public ArbitraryDataFile(String hash58) {
+    public ArbitraryDataFile(String hash58) throws DataException {
         this.createDataDirectory();
         this.filePath = ArbitraryDataFile.getOutputFilePath(hash58, false);
         this.chunks = new ArrayList<>();
         this.hash58 = hash58;
     }
 
-    public ArbitraryDataFile(byte[] fileContent) {
+    public ArbitraryDataFile(byte[] fileContent) throws DataException {
         if (fileContent == null) {
             LOGGER.error("fileContent is null");
             return;
@@ -89,18 +90,18 @@ public class ArbitraryDataFile {
             if (!this.hash58.equals(this.digest58())) {
                 LOGGER.error("Hash {} does not match file digest {}", this.hash58, this.digest58());
                 this.delete();
-                throw new IllegalStateException("Data file digest validation failed");
+                throw new DataException("Data file digest validation failed");
             }
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to write data to file");
+            throw new DataException("Unable to write data to file");
         }
     }
 
-    public static ArbitraryDataFile fromHash58(String hash58) {
+    public static ArbitraryDataFile fromHash58(String hash58) throws DataException {
         return new ArbitraryDataFile(hash58);
     }
 
-    public static ArbitraryDataFile fromHash(byte[] hash) {
+    public static ArbitraryDataFile fromHash(byte[] hash) throws DataException {
         return ArbitraryDataFile.fromHash58(Base58.encode(hash));
     }
 
@@ -126,7 +127,7 @@ public class ArbitraryDataFile {
                 }
                 return arbitraryDataFile;
 
-            } catch (IOException e) {
+            } catch (IOException | DataException e) {
                 LOGGER.error("Couldn't compute digest for ArbitraryDataFile");
             }
         }
@@ -150,7 +151,7 @@ public class ArbitraryDataFile {
         return true;
     }
 
-    private Path copyToDataDirectory(Path sourcePath) {
+    private Path copyToDataDirectory(Path sourcePath) throws DataException {
         if (this.hash58 == null || this.filePath == null) {
             return null;
         }
@@ -160,11 +161,11 @@ public class ArbitraryDataFile {
         try {
             return Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            throw new IllegalStateException(String.format("Unable to copy file %s to data directory %s", sourcePath, destPath));
+            throw new DataException(String.format("Unable to copy file %s to data directory %s", sourcePath, destPath));
         }
     }
 
-    public static Path getOutputFilePath(String hash58, boolean createDirectories) {
+    public static Path getOutputFilePath(String hash58, boolean createDirectories) throws DataException {
         if (hash58 == null) {
             return null;
         }
@@ -176,7 +177,7 @@ public class ArbitraryDataFile {
             try {
                 Files.createDirectories(directory);
             } catch (IOException e) {
-                throw new IllegalStateException("Unable to create data subdirectory");
+                throw new DataException("Unable to create data subdirectory");
             }
         }
         return Paths.get(directory.toString(), hash58);
@@ -208,7 +209,7 @@ public class ArbitraryDataFile {
         this.chunks.add(chunk);
     }
 
-    public void addChunkHashes(byte[] chunks) {
+    public void addChunkHashes(byte[] chunks) throws DataException {
         if (chunks == null || chunks.length == 0) {
             return;
         }
@@ -234,7 +235,7 @@ public class ArbitraryDataFile {
         return hashes;
     }
 
-    public int split(int chunkSize) {
+    public int split(int chunkSize) throws DataException {
         try {
 
             File file = this.getFile();
@@ -256,14 +257,14 @@ public class ArbitraryDataFile {
                             if (validationResult == ValidationResult.OK) {
                                 this.chunks.add(chunk);
                             } else {
-                                throw new IllegalStateException(String.format("Chunk %s is invalid", chunk));
+                                throw new DataException(String.format("Chunk %s is invalid", chunk));
                             }
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Unable to split file into chunks");
+            throw new DataException("Unable to split file into chunks");
         }
 
         return this.chunks.size();
@@ -308,7 +309,7 @@ public class ArbitraryDataFile {
                 return true;
             } catch (FileNotFoundException e) {
                 return false;
-            } catch (IOException e) {
+            } catch (IOException | DataException e) {
                 return false;
             }
         }
@@ -416,7 +417,7 @@ public class ArbitraryDataFile {
         return false;
     }
 
-    public boolean allChunksExist(byte[] chunks) {
+    public boolean allChunksExist(byte[] chunks) throws DataException {
         if (chunks == null) {
             return true;
         }
@@ -432,7 +433,7 @@ public class ArbitraryDataFile {
         return true;
     }
 
-    public boolean anyChunksExist(byte[] chunks) {
+    public boolean anyChunksExist(byte[] chunks) throws DataException {
         if (chunks == null) {
             return false;
         }
@@ -473,7 +474,7 @@ public class ArbitraryDataFile {
         return this.chunks;
     }
 
-    public byte[] chunkHashes() {
+    public byte[] chunkHashes() throws DataException {
         if (this.chunks != null && this.chunks.size() > 0) {
             // Return null if we only have one chunk, with the same hash as the parent
             if (Arrays.equals(this.digest(), this.chunks.get(0).digest())) {
@@ -486,7 +487,7 @@ public class ArbitraryDataFile {
                     byte[] chunkHash = chunk.digest();
                     if (chunkHash.length != 32) {
                         LOGGER.info("Invalid chunk hash length: {}", chunkHash.length);
-                        throw new IllegalStateException("Invalid chunk hash length");
+                        throw new DataException("Invalid chunk hash length");
                     }
                     outputStream.write(chunk.digest());
                 }

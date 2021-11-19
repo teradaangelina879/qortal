@@ -2,6 +2,7 @@ package org.qortal.network.message;
 
 import com.google.common.primitives.Ints;
 import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.repository.DataException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,9 +37,14 @@ public class ArbitraryDataFileMessage extends Message {
 
 		byte[] data = new byte[dataLength];
 		byteBuffer.get(data);
-		ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(data);
 
-		return new ArbitraryDataFileMessage(id, arbitraryDataFile);
+		try {
+			ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(data);
+			return new ArbitraryDataFileMessage(id, arbitraryDataFile);
+		}
+		catch (DataException e) {
+			return null;
+		}
 	}
 
 	@Override

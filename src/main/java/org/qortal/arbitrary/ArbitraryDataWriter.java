@@ -56,7 +56,7 @@ public class ArbitraryDataWriter {
         this.compression = compression;
     }
 
-    public void save() throws IllegalStateException, IOException, DataException, InterruptedException, MissingDataException {
+    public void save() throws DataException, IOException, DataException, InterruptedException, MissingDataException {
         try {
             this.preExecute();
             this.validateService();
@@ -71,11 +71,11 @@ public class ArbitraryDataWriter {
         }
     }
 
-    private void preExecute() {
+    private void preExecute() throws DataException {
         // Enforce compression when uploading a directory
         File file = new File(this.filePath.toString());
         if (file.isDirectory() && compression == Compression.NONE) {
-            throw new IllegalStateException("Unable to upload a directory without compression");
+            throw new DataException("Unable to upload a directory without compression");
         }
 
         // Create temporary working directory
@@ -86,7 +86,7 @@ public class ArbitraryDataWriter {
         this.cleanupFilesystem();
     }
 
-    private void createWorkingDirectory() {
+    private void createWorkingDirectory() throws DataException {
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
         String identifier = Base58.encode(Crypto.digest(this.filePath.toString().getBytes()));
@@ -94,7 +94,7 @@ public class ArbitraryDataWriter {
         try {
             Files.createDirectories(tempDir);
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create temp directory");
+            throw new DataException("Unable to create temp directory");
         }
         this.workingPath = tempDir;
     }
@@ -124,7 +124,7 @@ public class ArbitraryDataWriter {
                 break;
 
             default:
-                throw new IllegalStateException(String.format("Unknown method specified: %s", method.toString()));
+                throw new DataException(String.format("Unknown method specified: %s", method.toString()));
         }
     }
 
@@ -154,29 +154,29 @@ public class ArbitraryDataWriter {
         this.validatePatch();
     }
 
-    private void validatePatch() {
+    private void validatePatch() throws DataException {
         if (this.filePath == null) {
-            throw new IllegalStateException("Null path after creating patch");
+            throw new DataException("Null path after creating patch");
         }
 
         File qortalMetadataDirectoryFile = Paths.get(this.filePath.toString(), ".qortal").toFile();
         if (!qortalMetadataDirectoryFile.exists()) {
-            throw new IllegalStateException("Qortal metadata folder doesn't exist in patch");
+            throw new DataException("Qortal metadata folder doesn't exist in patch");
         }
         if (!qortalMetadataDirectoryFile.isDirectory()) {
-            throw new IllegalStateException("Qortal metadata folder isn't a directory");
+            throw new DataException("Qortal metadata folder isn't a directory");
         }
 
         File qortalPatchMetadataFile = Paths.get(this.filePath.toString(), ".qortal", "patch").toFile();
         if (!qortalPatchMetadataFile.exists()) {
-            throw new IllegalStateException("Qortal patch metadata file doesn't exist in patch");
+            throw new DataException("Qortal patch metadata file doesn't exist in patch");
         }
         if (!qortalPatchMetadataFile.isFile()) {
-            throw new IllegalStateException("Qortal patch metadata file isn't a file");
+            throw new DataException("Qortal patch metadata file isn't a file");
         }
     }
 
-    private void compress() throws InterruptedException {
+    private void compress() throws InterruptedException, DataException {
         // Compress the data if requested
         if (this.compression != Compression.NONE) {
             this.compressedPath = Paths.get(this.workingPath.toString() + File.separator + "data.zip");
@@ -187,7 +187,7 @@ public class ArbitraryDataWriter {
                     ZipUtils.zip(this.filePath.toString(), this.compressedPath.toString(), "data");
                 }
                 else {
-                    throw new IllegalStateException(String.format("Unknown compression type specified: %s", compression.toString()));
+                    throw new DataException(String.format("Unknown compression type specified: %s", compression.toString()));
                 }
                 // FUTURE: other compression types
 
@@ -199,13 +199,13 @@ public class ArbitraryDataWriter {
                 // Replace filePath pointer with the zipped file path
                 this.filePath = this.compressedPath;
 
-            } catch (IOException e) {
-                throw new IllegalStateException("Unable to zip directory", e);
+            } catch (IOException | DataException e) {
+                throw new DataException("Unable to zip directory", e);
             }
         }
     }
 
-    private void encrypt() {
+    private void encrypt() throws DataException {
         this.encryptedPath = Paths.get(this.workingPath.toString() + File.separator + "data.zip.encrypted");
         try {
             // Encrypt the file with AES
@@ -222,11 +222,11 @@ public class ArbitraryDataWriter {
 
         } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                 | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-            throw new IllegalStateException(String.format("Unable to encrypt file %s: %s", this.filePath, e.getMessage()));
+            throw new DataException(String.format("Unable to encrypt file %s: %s", this.filePath, e.getMessage()));
         }
     }
 
-    private void validate() throws IOException {
+    private void validate() throws IOException, DataException {
         if (this.arbitraryDataFile == null) {
             throw new IOException("No file available when validating");
         }
@@ -235,7 +235,7 @@ public class ArbitraryDataWriter {
         // Validate the file
         ValidationResult validationResult = this.arbitraryDataFile.isValid();
         if (validationResult != ValidationResult.OK) {
-            throw new IllegalStateException(String.format("File %s failed validation: %s", this.arbitraryDataFile, validationResult));
+            throw new DataException(String.format("File %s failed validation: %s", this.arbitraryDataFile, validationResult));
         }
         LOGGER.info("Whole file hash is valid: {}", this.arbitraryDataFile.digest58());
 
@@ -243,14 +243,14 @@ public class ArbitraryDataWriter {
         for (ArbitraryDataFileChunk chunk : this.arbitraryDataFile.getChunks()) {
             validationResult = chunk.isValid();
             if (validationResult != ValidationResult.OK) {
-                throw new IllegalStateException(String.format("Chunk %s failed validation: %s", chunk, validationResult));
+                throw new DataException(String.format("Chunk %s failed validation: %s", chunk, validationResult));
             }
         }
         LOGGER.info("Chunk hashes are valid");
 
     }
 
-    private void split() throws IOException {
+    private void split() throws IOException, DataException {
         this.arbitraryDataFile = ArbitraryDataFile.fromPath(this.filePath);
         if (this.arbitraryDataFile == null) {
             throw new IOException("No file available when trying to split");
@@ -261,7 +261,7 @@ public class ArbitraryDataWriter {
             LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
         }
         else {
-            throw new IllegalStateException("Unable to split file into chunks");
+            throw new DataException("Unable to split file into chunks");
         }
     }
 

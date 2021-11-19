@@ -36,7 +36,7 @@ public class ArbitraryDataBuildQueueItem {
     public void build() throws IOException, DataException, MissingDataException {
         Long now = NTP.getTime();
         if (now == null) {
-            throw new IllegalStateException("NTP time hasn't synced yet");
+            throw new DataException("NTP time hasn't synced yet");
         }
 
         this.buildStartTimestamp = now;

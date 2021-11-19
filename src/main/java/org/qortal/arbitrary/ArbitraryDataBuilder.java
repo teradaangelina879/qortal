@@ -88,7 +88,7 @@ public class ArbitraryDataBuilder {
             if (latestPut == null) {
                 String message = String.format("Couldn't find PUT transaction for name %s, service %s and identifier %s",
                         this.name, this.service, this.identifierString());
-                throw new IllegalStateException(message);
+                throw new DataException(message);
             }
             this.latestPutTransaction = latestPut;
 
@@ -101,25 +101,25 @@ public class ArbitraryDataBuilder {
         }
     }
 
-    private void validateTransactions() {
+    private void validateTransactions() throws DataException {
         List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
         ArbitraryTransactionData latestPut = this.latestPutTransaction;
 
         if (latestPut == null) {
-            throw new IllegalStateException("Cannot PATCH without existing PUT. Deploy using PUT first.");
+            throw new DataException("Cannot PATCH without existing PUT. Deploy using PUT first.");
         }
         if (latestPut.getMethod() != Method.PUT) {
-            throw new IllegalStateException("Expected PUT but received PATCH");
+            throw new DataException("Expected PUT but received PATCH");
         }
         if (transactionDataList.size() == 0) {
-            throw new IllegalStateException(String.format("No transactions found for name %s, service %s, " +
+            throw new DataException(String.format("No transactions found for name %s, service %s, " +
                             "identifier: %s, since %d", name, service, this.identifierString(), latestPut.getTimestamp()));
         }
 
         // Verify that the signature of the first transaction matches the latest PUT
         ArbitraryTransactionData firstTransaction = transactionDataList.get(0);
         if (!Arrays.equals(firstTransaction.getSignature(), latestPut.getSignature())) {
-            throw new IllegalStateException("First transaction did not match latest PUT transaction");
+            throw new DataException("First transaction did not match latest PUT transaction");
         }
 
         // Remove the first transaction, as it should be the only PUT
@@ -127,10 +127,10 @@ public class ArbitraryDataBuilder {
 
         for (ArbitraryTransactionData transactionData : transactionDataList) {
             if (transactionData == null) {
-                throw new IllegalStateException("Transaction not found");
+                throw new DataException("Transaction not found");
             }
             if (transactionData.getMethod() != Method.PATCH) {
-                throw new IllegalStateException("Expected PATCH but received PUT");
+                throw new DataException("Expected PATCH but received PUT");
             }
         }
     }
@@ -173,32 +173,32 @@ public class ArbitraryDataBuilder {
             // By this point we should have all data needed to build the layers
             Path path = arbitraryDataReader.getFilePath();
             if (path == null) {
-                throw new IllegalStateException(String.format("Null path when building data from transaction %s", sig58));
+                throw new DataException(String.format("Null path when building data from transaction %s", sig58));
             }
             if (!Files.exists(path)) {
-                throw new IllegalStateException(String.format("Path doesn't exist when building data from transaction %s", sig58));
+                throw new DataException(String.format("Path doesn't exist when building data from transaction %s", sig58));
             }
             paths.add(path);
         }
     }
 
-    private void findLatestSignature() {
+    private void findLatestSignature() throws DataException {
         if (this.transactions.size() == 0) {
-            throw new IllegalStateException("Unable to find latest signature from empty transaction list");
+            throw new DataException("Unable to find latest signature from empty transaction list");
         }
 
         // Find the latest signature
         ArbitraryTransactionData latestTransaction = this.transactions.get(this.transactions.size() - 1);
         if (latestTransaction == null) {
-            throw new IllegalStateException("Unable to find latest signature from null transaction");
+            throw new DataException("Unable to find latest signature from null transaction");
         }
 
         this.latestSignature = latestTransaction.getSignature();
     }
 
-    private void validatePaths() {
+    private void validatePaths() throws DataException {
         if (this.paths.isEmpty()) {
-            throw new IllegalStateException("No paths available from which to build latest state");
+            throw new DataException("No paths available from which to build latest state");
         }
     }
 
@@ -238,7 +238,7 @@ public class ArbitraryDataBuilder {
     private void cacheLatestSignature() throws IOException, DataException {
         byte[] latestTransactionSignature = this.transactions.get(this.transactions.size()-1).getSignature();
         if (latestTransactionSignature == null) {
-            throw new IllegalStateException("Missing latest transaction signature");
+            throw new DataException("Missing latest transaction signature");
         }
         Long now = NTP.getTime();
         if (now == null) {

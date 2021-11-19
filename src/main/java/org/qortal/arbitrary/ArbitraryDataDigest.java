@@ -1,5 +1,6 @@
 package org.qortal.arbitrary;
 
+import org.qortal.repository.DataException;
 import org.qortal.utils.Base58;
 
 import java.io.IOException;
@@ -21,7 +22,7 @@ public class ArbitraryDataDigest {
         this.path = path;
     }
 
-    public void compute() throws IOException {
+    public void compute() throws IOException, DataException {
         List<Path> allPaths = Files.walk(path).filter(Files::isRegularFile).sorted().collect(Collectors.toList());
         Path basePathAbsolute = this.path.toAbsolutePath();
 
@@ -29,7 +30,7 @@ public class ArbitraryDataDigest {
         try {
             sha256 = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 hashing algorithm unavailable");
+            throw new DataException("SHA-256 hashing algorithm unavailable");
         }
 
         for (Path path : allPaths) {

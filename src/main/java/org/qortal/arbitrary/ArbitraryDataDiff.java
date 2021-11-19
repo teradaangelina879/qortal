@@ -6,6 +6,7 @@ import org.json.JSONObject;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.arbitrary.patch.UnifiedDiffPatch;
 import org.qortal.crypto.Crypto;
+import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 
 import java.io.*;
@@ -75,7 +76,7 @@ public class ArbitraryDataDiff {
 
     private int totalFileCount;
 
-    public ArbitraryDataDiff(Path pathBefore, Path pathAfter, byte[] previousSignature) {
+    public ArbitraryDataDiff(Path pathBefore, Path pathAfter, byte[] previousSignature) throws DataException {
         this.pathBefore = pathBefore;
         this.pathAfter = pathAfter;
         this.previousSignature = previousSignature;
@@ -88,7 +89,7 @@ public class ArbitraryDataDiff {
         this.createOutputDirectory();
     }
 
-    public void compute() throws IOException {
+    public void compute() throws IOException, DataException {
         try {
             this.preExecute();
             this.hashPreviousState();
@@ -115,19 +116,19 @@ public class ArbitraryDataDiff {
         this.identifier = UUID.randomUUID().toString();
     }
 
-    private void createOutputDirectory() {
+    private void createOutputDirectory() throws DataException {
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
         Path tempDir = Paths.get(baseDir, "diff", this.identifier);
         try {
             Files.createDirectories(tempDir);
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create temp directory");
+            throw new DataException("Unable to create temp directory");
         }
         this.diffPath = tempDir;
     }
 
-    private void hashPreviousState() throws IOException {
+    private void hashPreviousState() throws IOException, DataException {
         ArbitraryDataDigest digest = new ArbitraryDataDigest(this.pathBefore);
         digest.compute();
         this.previousHash = digest.getHash();
@@ -181,7 +182,12 @@ public class ArbitraryDataDiff {
                         diff.copyFilePathToBaseDir(afterPathAbsolute, diffPathAbsolute, afterPathRelative);
                     }
                     if (wasModified) {
-                        diff.pathModified(beforePathAbsolute, afterPathAbsolute, afterPathRelative, diffPathAbsolute);
+                        try {
+                            diff.pathModified(beforePathAbsolute, afterPathAbsolute, afterPathRelative, diffPathAbsolute);
+                        } catch (DataException e) {
+                            // We can only throw IOExceptions because we are overriding FileVisitor.visitFile()
+                            throw new IOException(e);
+                        }
                     }
 
                     // Keep a tally of the total number of files to help with decision making
@@ -273,19 +279,19 @@ public class ArbitraryDataDiff {
         }
     }
 
-    private void validate() {
+    private void validate() throws DataException {
         if (this.addedPaths.isEmpty() && this.modifiedPaths.isEmpty() && this.removedPaths.isEmpty()) {
-            throw new IllegalStateException("Current state matches previous state. Nothing to do.");
+            throw new DataException("Current state matches previous state. Nothing to do.");
         }
     }
 
-    private void hashCurrentState() throws IOException {
+    private void hashCurrentState() throws IOException, DataException {
         ArbitraryDataDigest digest = new ArbitraryDataDigest(this.pathAfter);
         digest.compute();
         this.currentHash = digest.getHash();
     }
 
-    private void writeMetadata() throws IOException {
+    private void writeMetadata() throws IOException, DataException {
         ArbitraryDataMetadataPatch metadata = new ArbitraryDataMetadataPatch(this.diffPath);
         metadata.setAddedPaths(this.addedPaths);
         metadata.setModifiedPaths(this.modifiedPaths);
@@ -298,7 +304,7 @@ public class ArbitraryDataDiff {
 
 
     private void pathModified(Path beforePathAbsolute, Path afterPathAbsolute, Path afterPathRelative,
-                              Path destinationBasePathAbsolute) throws IOException {
+                              Path destinationBasePathAbsolute) throws IOException, DataException {
 
         Path destination = Paths.get(destinationBasePathAbsolute.toString(), afterPathRelative.toString());
         long beforeSize = Files.size(beforePathAbsolute);

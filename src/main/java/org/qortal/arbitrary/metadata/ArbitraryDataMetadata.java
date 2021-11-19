@@ -2,6 +2,7 @@ package org.qortal.arbitrary.metadata;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.repository.DataException;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -30,7 +31,7 @@ public class ArbitraryDataMetadata {
         return null;
     }
 
-    protected void readJson() {
+    protected void readJson() throws DataException {
         // To be overridden
     }
 
@@ -39,12 +40,12 @@ public class ArbitraryDataMetadata {
     }
 
 
-    public void read() throws IOException {
+    public void read() throws IOException, DataException {
         this.loadJson();
         this.readJson();
     }
 
-    public void write() throws IOException {
+    public void write() throws IOException, DataException {
         this.buildJson();
         this.createQortalDirectory();
         this.writeToQortalPath();
@@ -61,11 +62,11 @@ public class ArbitraryDataMetadata {
         this.jsonString = new String(Files.readAllBytes(path));
     }
 
-    protected void createQortalDirectory() {
+    protected void createQortalDirectory() throws DataException {
         try {
             Files.createDirectories(this.qortalDirectoryPath);
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create .qortal directory");
+            throw new DataException("Unable to create .qortal directory");
         }
     }
 

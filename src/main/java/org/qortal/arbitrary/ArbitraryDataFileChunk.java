@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.repository.DataException;
 import org.qortal.utils.Base58;
 
 import java.io.IOException;
@@ -12,19 +13,19 @@ public class ArbitraryDataFileChunk extends ArbitraryDataFile {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFileChunk.class);
 
-    public ArbitraryDataFileChunk(String hash58) {
+    public ArbitraryDataFileChunk(String hash58) throws DataException {
         super(hash58);
     }
 
-    public ArbitraryDataFileChunk(byte[] fileContent) {
+    public ArbitraryDataFileChunk(byte[] fileContent) throws DataException {
         super(fileContent);
     }
 
-    public static ArbitraryDataFileChunk fromHash58(String hash58) {
+    public static ArbitraryDataFileChunk fromHash58(String hash58) throws DataException {
         return new ArbitraryDataFileChunk(hash58);
     }
 
-    public static ArbitraryDataFileChunk fromHash(byte[] hash) {
+    public static ArbitraryDataFileChunk fromHash(byte[] hash) throws DataException {
         return ArbitraryDataFileChunk.fromHash58(Base58.encode(hash));
     }
 

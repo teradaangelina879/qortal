@@ -8,6 +8,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.Crypto;
+import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 
 import java.io.BufferedWriter;
@@ -96,7 +97,7 @@ public class UnifiedDiffPatch {
      *
      * @return true if valid, false if invalid
      */
-    public boolean isValid() {
+    public boolean isValid() throws DataException {
         this.createRandomIdentifier();
         this.createTempValidationDirectory();
 
@@ -147,7 +148,7 @@ public class UnifiedDiffPatch {
      * @param pathSuffix - a file path to append to the base paths, or null if the base paths are already files
      * @throws IOException
      */
-    public void apply(Path pathSuffix) throws IOException {
+    public void apply(Path pathSuffix) throws IOException, DataException {
         Path originalPath = this.before;
         Path patchPath = this.after;
         Path mergePath = this.destination;
@@ -160,7 +161,7 @@ public class UnifiedDiffPatch {
         }
 
         if (!patchPath.toFile().exists()) {
-            throw new IllegalStateException("Patch file doesn't exist, but its path was included in modifiedPaths");
+            throw new DataException("Patch file doesn't exist, but its path was included in modifiedPaths");
         }
 
         // Delete an existing file, as we are starting from a duplicate of pathBefore
@@ -190,7 +191,7 @@ public class UnifiedDiffPatch {
             writer.close();
 
         } catch (PatchFailedException e) {
-            throw new IllegalStateException(String.format("Failed to apply patch for path %s: %s", pathSuffix, e.getMessage()));
+            throw new DataException(String.format("Failed to apply patch for path %s: %s", pathSuffix, e.getMessage()));
         }
     }
 
@@ -198,14 +199,14 @@ public class UnifiedDiffPatch {
         this.identifier = UUID.randomUUID().toString();
     }
 
-    private void createTempValidationDirectory() {
+    private void createTempValidationDirectory() throws DataException {
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
         Path tempDir = Paths.get(baseDir, "diff", "validate");
         try {
             Files.createDirectories(tempDir);
         } catch (IOException e) {
-            throw new IllegalStateException("Unable to create temp directory");
+            throw new DataException("Unable to create temp directory");
         }
         this.validationPath = tempDir;
     }

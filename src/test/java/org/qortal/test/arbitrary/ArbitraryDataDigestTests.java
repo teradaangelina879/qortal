@@ -22,7 +22,7 @@ public class ArbitraryDataDigestTests extends Common {
     }
 
     @Test
-    public void testDirectoryDigest() throws IOException {
+    public void testDirectoryDigest() throws IOException, DataException {
         Path dataPath = Paths.get("src/test/resources/arbitrary/demo1");
         String expectedHash58 = "DKyMuonWKoneJqiVHgw26Vk1ytrZG9PGsE9xfBg3GKDp";
 
