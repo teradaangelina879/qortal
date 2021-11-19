@@ -27,6 +27,8 @@ public class GatewayResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathByName(@PathParam("name") String name,
                                              @PathParam("path") String inPath) {
+        // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
+        Security.disallowLoopbackRequests(request);
         return this.get(name, ResourceIdType.NAME, Service.WEBSITE, inPath, null, "", true, true);
     }
 
@@ -34,6 +36,8 @@ public class GatewayResource {
     @Path("{name}")
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByName(@PathParam("name") String name) {
+        // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
+        Security.disallowLoopbackRequests(request);
         return this.get(name, ResourceIdType.NAME, Service.WEBSITE, "/", null, "", true, true);
     }
 

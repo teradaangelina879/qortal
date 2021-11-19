@@ -50,6 +50,17 @@ public abstract class Security {
 		}
 	}
 
+	public static void disallowLoopbackRequests(HttpServletRequest request) {
+		try {
+			InetAddress remoteAddr = InetAddress.getByName(request.getRemoteAddr());
+			if (remoteAddr.isLoopbackAddress()) {
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Local requests not allowed");
+			}
+		} catch (UnknownHostException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.UNAUTHORIZED);
+		}
+	}
+
 	public static ApiKey getApiKey(HttpServletRequest request) {
 		ApiKey apiKey = ApiService.getInstance().getApiKey();
 		if (apiKey == null) {
