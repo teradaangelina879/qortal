@@ -14,7 +14,8 @@ public class ArbitraryResourceSummary {
 		READY,
 		DOWNLOAD_FAILED,
 		BUILD_FAILED,
-		UNSUPPORTED
+		UNSUPPORTED,
+		BLACKLISTED
 	}
 
 	public ArbitraryResourceStatus status;

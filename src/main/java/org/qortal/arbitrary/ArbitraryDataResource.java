@@ -6,6 +6,7 @@ import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
+import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 
 import java.io.IOException;
@@ -47,6 +48,12 @@ public class ArbitraryDataResource {
         // Check if a build has failed
         if (ArbitraryDataBuildManager.getInstance().isInFailedBuildsList(queueItem)) { // TODO: currently keyed by name only
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.BUILD_FAILED);
+        }
+
+        // Check if the name is blacklisted
+        if (ResourceListManager.getInstance()
+                .listContains("blacklist", "names", this.resourceId, false)) {
+            return new ArbitraryResourceSummary(ArbitraryResourceStatus.BLACKLISTED);
         }
 
         // Check if we have all data locally for this resource
