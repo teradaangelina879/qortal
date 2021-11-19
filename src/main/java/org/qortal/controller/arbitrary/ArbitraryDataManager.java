@@ -1,5 +1,6 @@
 package org.qortal.controller.arbitrary;
 
+import java.security.SecureRandom;
 import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
@@ -226,7 +227,7 @@ public class ArbitraryDataManager extends Thread {
 
 				// Ask our connected peers if they have files for this signature
 				// This process automatically then fetches the files themselves if a peer is found
-				fetchDataForSignature(signature); // TODO: keep track
+				fetchDataForSignature(signature);
 
 			} catch (DataException e) {
 				LOGGER.error("Repository issue when fetching arbitrary transaction data", e);
@@ -296,6 +297,46 @@ public class ArbitraryDataManager extends Thread {
 		return false;
 	}
 
+	private boolean shouldMakeDirectFileRequestsForSignature(String signature58) {
+		Triple<Integer, Integer, Long> request = arbitraryDataSignatureRequests.get(signature58);
+
+		if (request == null) {
+			// Not attempted yet
+			return true;
+		}
+
+		// Extract the components
+		//Integer networkBroadcastCount = request.getA();
+		Integer directPeerRequestCount = request.getB();
+		Long lastAttemptTimestamp = request.getC();
+
+		if (lastAttemptTimestamp == null) {
+			// Not attempted yet
+			return true;
+		}
+
+		if (directPeerRequestCount == 0) {
+			// We haven't tried asking peers directly yet, so we should
+			return true;
+		}
+
+		long timeSinceLastAttempt = NTP.getTime() - lastAttemptTimestamp;
+		if (timeSinceLastAttempt > 5 * 60 * 1000L) {
+			// We haven't tried for at least 5 minutes
+			if (directPeerRequestCount < 5) {
+				// We've made less than 5 total attempts
+				return true;
+			}
+		}
+
+		if (timeSinceLastAttempt > 24 * 60 * 60 * 1000L) {
+			// We haven't tried for at least 24 hours
+			return true;
+		}
+
+		return false;
+	}
+
 	private void addToSignatureRequests(String signature58, boolean incrementNetworkRequests, boolean incrementPeerRequests) {
 		Triple<Integer, Integer, Long> request  = arbitraryDataSignatureRequests.get(signature58);
 		Long now = NTP.getTime();
@@ -334,12 +375,17 @@ public class ArbitraryDataManager extends Thread {
 
 		// If we've already tried too many times in a short space of time, make sure to give up
 		if (!this.shouldMakeFileListRequestForSignature(signature58)) {
-			LOGGER.trace("Skipping file list request for signature {}", signature58);
+			// Check if we should make direct connections to peers
+			if (this.shouldMakeDirectFileRequestsForSignature(signature58)) {
+				return this.fetchDataFilesFromPeersForSignature(signature);
+			}
+			
+			LOGGER.debug("Skipping file list request for signature {} due to rate limit", signature58);
 			return false;
 		}
 		this.addToSignatureRequests(signature58, true, false);
 
-		LOGGER.info(String.format("Sending data file list request for signature %s", Base58.encode(signature)));
+		LOGGER.info(String.format("Sending data file list request for signature %s...", Base58.encode(signature)));
 
 		// Build request
 		Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature);
@@ -383,15 +429,51 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 
+	// Fetch data directly from peers
+
+	private boolean fetchDataFilesFromPeersForSignature(byte[] signature) {
+		String signature58 = Base58.encode(signature);
+		this.addToSignatureRequests(signature58, false, true);
+
+		// Firstly fetch peers that claim to be hosting files for this signature
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<ArbitraryPeerData> peers = repository.getArbitraryRepository().getArbitraryPeerDataForSignature(signature);
+			if (peers == null || peers.isEmpty()) {
+				LOGGER.info("No peers found for signature {}", signature58);
+				return false;
+			}
+
+			LOGGER.info("Attempting a direct peer connection for signature {}...", signature58);
+
+			// Peers found, so pick a random one and request data from it
+			int index = new SecureRandom().nextInt(peers.size());
+			ArbitraryPeerData arbitraryPeerData = peers.get(index);
+			String peerAddressString = arbitraryPeerData.getPeerAddress();
+			return Network.getInstance().requestDataFromPeer(peerAddressString, signature);
+
+		} catch (DataException e) {
+			LOGGER.info("Unable to fetch peer list from repository");
+		}
+
+		return false;
+	}
+
+
 	// Fetch data files by hash
 
-	private ArbitraryDataFile fetchArbitraryDataFile(Peer peer, byte[] hash) throws InterruptedException {
+	private ArbitraryDataFile fetchArbitraryDataFile(Peer peer, byte[] hash) {
 		String hash58 = Base58.encode(hash);
 		LOGGER.info(String.format("Fetching data file %.8s from peer %s", hash58, peer));
 		arbitraryDataFileRequests.put(hash58, NTP.getTime());
 		Message getArbitraryDataFileMessage = new GetArbitraryDataFileMessage(hash);
 
-		Message message = peer.getResponse(getArbitraryDataFileMessage);
+		Message message = null;
+		try {
+			message = peer.getResponse(getArbitraryDataFileMessage);
+		} catch (InterruptedException e) {
+			// Will return below due to null message
+		}
 		arbitraryDataFileRequests.remove(hash58);
 		LOGGER.info(String.format("Removed hash %.8s from arbitraryDataFileRequests", hash58));
 
@@ -488,6 +570,94 @@ public class ArbitraryDataManager extends Thread {
 		}
 	}
 
+	public boolean fetchAllArbitraryDataFiles(Repository repository, Peer peer, byte[] signature) {
+		try {
+			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+			if (!(transactionData instanceof ArbitraryTransactionData))
+				return false;
+
+			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+
+			// We use null to represent all hashes associated with this transaction
+			return this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, null);
+
+		} catch (DataException e) {}
+
+		return false;
+	}
+
+	public boolean fetchArbitraryDataFiles(Repository repository,
+										Peer peer,
+										byte[] signature,
+										ArbitraryTransactionData arbitraryTransactionData,
+										List<byte[]> hashes) throws DataException {
+
+		// Load data file(s)
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData());
+		arbitraryDataFile.addChunkHashes(arbitraryTransactionData.getChunkHashes());
+
+		// If hashes are null, we will treat this to mean all data hashes associated with this file
+		if (hashes == null) {
+			if (arbitraryTransactionData.getChunkHashes() == null) {
+				// This transaction has no chunks, so use the main file hash
+				hashes = Arrays.asList(arbitraryDataFile.getHash());
+			}
+			else {
+				// Add the chunk hashes
+				hashes = arbitraryDataFile.getChunkHashes();
+			}
+		}
+
+		boolean receivedAtLeastOneFile = false;
+
+		// Now fetch actual data from this peer
+		for (byte[] hash : hashes) {
+			if (!arbitraryDataFile.chunkExists(hash)) {
+				// Only request the file if we aren't already requesting it from someone else
+				if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
+					ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, hash);
+					if (receivedArbitraryDataFile != null) {
+						LOGGER.info("Received data file {} from peer {}", receivedArbitraryDataFile, peer);
+						receivedAtLeastOneFile = true;
+					}
+					else {
+						LOGGER.info("Peer {} didn't respond with data file {}", peer, hash);
+					}
+				}
+				else {
+					LOGGER.info("Already requesting data file {}", arbitraryDataFile);
+				}
+			}
+		}
+
+		if (receivedAtLeastOneFile) {
+			// Update our lookup table to indicate that this peer holds data for this signature
+			String peerAddress = peer.getPeerData().getAddress().toString();
+			LOGGER.info("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
+			ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
+			repository.getArbitraryRepository().save(arbitraryPeerData);
+			repository.saveChanges();
+		}
+
+		// Check if we have all the chunks for this transaction
+		if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(arbitraryTransactionData.getChunkHashes())) {
+
+			// We have all the chunks for this transaction, so we should invalidate the transaction's name's
+			// data cache so that it is rebuilt the next time we serve it
+			invalidateCache(arbitraryTransactionData);
+
+			// We may also need to broadcast to the network that we are now hosting files for this transaction,
+			// but only if these files are in accordance with our storage policy
+			if (ArbitraryDataStorageManager.getInstance().canStoreDataForName(arbitraryTransactionData.getName())) {
+				// Use a null peer address to indicate our own
+				Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
+				Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
+			}
+		}
+
+		return receivedAtLeastOneFile;
+	}
+
 
 	// Network handlers
 
@@ -537,8 +707,8 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	public void onNetworkArbitraryDataFileListMessage(Peer peer, Message message) {
-		LOGGER.info("Received hash list from peer {}", peer);
 		ArbitraryDataFileListMessage arbitraryDataFileListMessage = (ArbitraryDataFileListMessage) message;
+		LOGGER.info("Received hash list from peer {} with {} hashes", peer, arbitraryDataFileListMessage.getHashes().size());
 
 		// Do we have a pending request for this data?
 		Triple<String, Peer, Long> request = arbitraryDataFileListRequests.get(message.getId());
@@ -586,54 +756,11 @@ public class ArbitraryDataManager extends Thread {
 			Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
 			arbitraryDataFileListRequests.put(message.getId(), newEntry);
 
-			boolean receivedAtLeastOneFile = false;
+			// Go and fetch the actual data
+			this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, hashes);
+			// FUTURE: handle response
 
-			// Now fetch actual data from this peer
-			for (byte[] hash : hashes) {
-				if (!arbitraryDataFile.chunkExists(hash)) {
-					// Only request the file if we aren't already requesting it from someone else
-					if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
-						ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, hash);
-						if (receivedArbitraryDataFile != null) {
-							LOGGER.info("Received data file {} from peer {}", receivedArbitraryDataFile, peer);
-							receivedAtLeastOneFile = true;
-						}
-						else {
-							LOGGER.info("Peer {} didn't respond with data file {}", peer, hash);
-						}
-					}
-					else {
-						LOGGER.info("Already requesting data file {}", arbitraryDataFile);
-					}
-				}
-			}
-
-			if (receivedAtLeastOneFile) {
-				// Update our lookup table to indicate that this peer holds data for this signature
-				String peerAddress = peer.getPeerData().getAddress().toString();
-				LOGGER.info("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
-				ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
-				repository.getArbitraryRepository().save(arbitraryPeerData);
-				repository.saveChanges();
-			}
-
-			// Check if we have all the chunks for this transaction
-			if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(arbitraryTransactionData.getChunkHashes())) {
-
-				// We have all the chunks for this transaction, so we should invalidate the transaction's name's
-				// data cache so that it is rebuilt the next time we serve it
-				invalidateCache(arbitraryTransactionData);
-
-				// We may also need to broadcast to the network that we are now hosting files for this transaction,
-				// but only if these files are in accordance with our storage policy
-				if (ArbitraryDataStorageManager.getInstance().canStoreDataForName(arbitraryTransactionData.getName())) {
-					// Use a null peer address to indicate our own
-					Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
-					Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
-				}
-			}
-
-		} catch (DataException | InterruptedException e) {
+		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while finding arbitrary transaction data list for peer %s", peer), e);
 		}
 

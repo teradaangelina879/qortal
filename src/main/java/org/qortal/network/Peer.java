@@ -104,6 +104,11 @@ public class Peer {
 
     private boolean syncInProgress = false;
 
+
+    /* Pending signature requests */
+    private List<byte[]> pendingSignatureRequests = Collections.synchronizedList(new ArrayList<>());
+
+
     // Versioning
     public static final Pattern VERSION_PATTERN = Pattern.compile(Controller.VERSION_PREFIX
             + "(\\d{1,3})\\.(\\d{1,5})\\.(\\d{1,5})");
@@ -354,6 +359,34 @@ public class Peer {
     public void setSyncInProgress(boolean syncInProgress) {
         this.syncInProgress = syncInProgress;
     }
+
+
+    // Pending signature requests
+
+    public void addPendingSignatureRequest(byte[] signature) {
+        // Check if we already have this signature in the list
+        for (byte[] existingSignature : this.pendingSignatureRequests) {
+            if (Arrays.equals(existingSignature, signature )) {
+                return;
+            }
+        }
+        this.pendingSignatureRequests.add(signature);
+    }
+
+    public void removePendingSignatureRequest(byte[] signature) {
+        Iterator iterator = this.pendingSignatureRequests.iterator();
+        while (iterator.hasNext()) {
+            byte[] existingSignature = (byte[]) iterator.next();
+            if (Arrays.equals(existingSignature, signature)) {
+                iterator.remove();
+            }
+        }
+    }
+
+    public List<byte[]> getPendingSignatureRequests() {
+        return this.pendingSignatureRequests;
+    }
+
 
     @Override
     public String toString() {

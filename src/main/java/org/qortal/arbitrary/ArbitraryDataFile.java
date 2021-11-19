@@ -221,6 +221,19 @@ public class ArbitraryDataFile {
         }
     }
 
+    public List<byte[]> getChunkHashes() {
+        List<byte[]> hashes = new ArrayList<>();
+        if (this.chunks == null || this.chunks.isEmpty()) {
+            return hashes;
+        }
+
+        for (ArbitraryDataFileChunk chunkData : this.chunks) {
+            hashes.add(chunkData.getHash());
+        }
+
+        return hashes;
+    }
+
     public int split(int chunkSize) {
         try {
 

@@ -6,6 +6,7 @@ import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.network.PeerData;
@@ -15,6 +16,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.utils.Base58;
 import org.qortal.utils.ExecuteProduceConsume;
 import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
 import org.qortal.utils.NTP;
@@ -230,6 +232,83 @@ public class Network {
         synchronized (this.selfPeers) {
             return new ArrayList<>(this.selfPeers);
         }
+    }
+
+    public boolean requestDataFromPeer(String peerAddressString, byte[] signature) {
+        if (peerAddressString != null) {
+            PeerAddress peerAddress = PeerAddress.fromString(peerAddressString);
+
+            // Reuse an existing PeerData instance if it's already in the known peers list
+            PeerData peerData = this.allKnownPeers.stream()
+                    .filter(knownPeerData -> knownPeerData.getAddress().equals(peerAddress))
+                    .findFirst()
+                    .orElse(null);
+
+            if (peerData == null) {
+                // Not a known peer, so we need to create one
+                Long addedWhen = NTP.getTime();
+                String addedBy = "requestDataFromPeer";
+                peerData = new PeerData(peerAddress, addedWhen, addedBy);
+            }
+
+            if (peerData == null) {
+                LOGGER.info("PeerData is null when trying to request data from peer {}", peerAddressString);
+                return false;
+            }
+
+            // Check if we're already connected to and handshaked with this peer
+            Peer connectedPeer = this.connectedPeers.stream()
+                    .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
+                    .findFirst()
+                    .orElse(null);
+            boolean isConnected = (connectedPeer != null);
+
+            boolean isHandshaked = this.getHandshakedPeers().stream()
+                    .anyMatch(p -> p.getPeerData().getAddress().equals(peerAddress));
+
+            if (isConnected && isHandshaked) {
+                // Already connected
+                return this.requestDataFromConnectedPeer(connectedPeer, signature);
+            }
+            else {
+                // We need to connect to this peer before we can request data
+                try {
+                    if (!isConnected) {
+                        // Add this signature to the list of pending requests for this peer
+                        LOGGER.info("Making connection to peer {} to request files for signature {}...", peerAddressString, Base58.encode(signature));
+                        Peer peer = new Peer(peerData);
+                        peer.addPendingSignatureRequest(signature);
+                        this.connectPeer(peer);
+                        // If connection is successful, data will automatically be requested
+                        // TODO: maybe we could block here (with a timeout) and return once we know the result of the file request
+                        return true;
+                    }
+                    else if (!isHandshaked) {
+                        LOGGER.info("Peer {} is connected but not handshaked. Not attempting a new connection.", peerAddress);
+                        return false;
+                    }
+
+                } catch (InterruptedException e) {
+                    LOGGER.info("Interrupted when connecting to peer {}", peerAddress);
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean requestDataFromConnectedPeer(Peer connectedPeer, byte[] signature) {
+        if (signature == null) {
+            // Nothing to do
+            return false;
+        }
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            return ArbitraryDataManager.getInstance().fetchAllArbitraryDataFiles(repository, connectedPeer, signature);
+        } catch (DataException e) {
+            LOGGER.info("Unable to fetch arbitrary data files");
+        }
+        return false;
     }
 
     /**
@@ -910,6 +989,17 @@ public class Network {
                         peer.getPeerConnectionId(), peer, e);
             }
         }
+
+        // Process any pending signature requests, as this peer may have been connected for this purpose only
+        List<byte[]> pendingSignatureRequests = new ArrayList<>(peer.getPendingSignatureRequests());
+        if (pendingSignatureRequests != null && !pendingSignatureRequests.isEmpty()) {
+            for (byte[] signature : pendingSignatureRequests) {
+                this.requestDataFromConnectedPeer(peer, signature);
+                peer.removePendingSignatureRequest(signature);
+            }
+        }
+
+        // FUTURE: we may want to disconnect from this peer if we've finished requesting data from it
 
         // Start regular pings
         peer.startPings();
