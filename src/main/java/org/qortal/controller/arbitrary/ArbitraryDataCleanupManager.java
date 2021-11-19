@@ -164,7 +164,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 						if (completeFileExists && allChunksExist) {
 							// We have the complete file and all the chunks, so we can delete
 							// the complete file if it has reached a certain age.
-							LOGGER.info(String.format("Transaction %s has complete file and all chunks",
+							LOGGER.debug(String.format("Transaction %s has complete file and all chunks",
 									Base58.encode(arbitraryTransactionData.getSignature())));
 
 							ArbitraryTransactionUtils.deleteCompleteFile(arbitraryTransactionData, now, STALE_FILE_TIMEOUT);
