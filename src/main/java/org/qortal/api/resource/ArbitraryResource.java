@@ -477,6 +477,8 @@ public class ArbitraryResource {
 						// Give up after 5 attempts
 						throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data unavailable. Please try again later.");
 					}
+
+					Thread.sleep(3000L);
 					continue;
 				}
 			}
