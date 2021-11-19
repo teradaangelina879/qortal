@@ -69,8 +69,7 @@ public class ArbitraryDataResource {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.MISSING_DATA);
         }
 
-        // FUTURE: support DOWNLOADED state once the build queue system has been upgraded
-
+        // We have all data locally
         return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADED);
     }
 
