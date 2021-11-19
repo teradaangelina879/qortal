@@ -65,7 +65,7 @@ public class ArbitraryDataResource {
         } catch (MissingDataException e) {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADING);
 
-        } catch (IOException | DataException e) {
+        } catch (IOException | DataException | IllegalStateException e) {
             // Ignore for now
         }
 
