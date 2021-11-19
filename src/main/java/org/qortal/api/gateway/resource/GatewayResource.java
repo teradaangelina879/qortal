@@ -46,7 +46,6 @@ public class GatewayResource {
 
     @GET
     @Path("/site/{name}/{path:.*}")
-    @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getSitePathByName(@PathParam("name") String name,
                                                  @PathParam("path") String inPath) {
         // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
@@ -56,7 +55,6 @@ public class GatewayResource {
 
     @GET
     @Path("/site/{name}")
-    @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getSiteIndexByName(@PathParam("name") String name) {
         // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
         Security.disallowLoopbackRequests(request);
