@@ -70,12 +70,6 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public String preview(String directoryPath) {
         Security.checkApiCallAllowed(request);
-
-        // It's too dangerous to allow user-supplied filenames in weaker security contexts
-        if (Settings.getInstance().isApiRestricted()) {
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
-        }
-
         String name = null;
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
