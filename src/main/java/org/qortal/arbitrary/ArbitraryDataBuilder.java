@@ -30,6 +30,8 @@ public class ArbitraryDataBuilder {
     private Service service;
     private String identifier;
 
+    private boolean canRequestMissingFiles;
+
     private List<ArbitraryTransactionData> transactions;
     private ArbitraryTransactionData latestPutTransaction;
     private List<Path> paths;
@@ -42,14 +44,37 @@ public class ArbitraryDataBuilder {
         this.service = service;
         this.identifier = identifier;
         this.paths = new ArrayList<>();
+
+        // By default we can request missing files
+        // Callers can use setCanRequestMissingFiles(false) to prevent it
+        this.canRequestMissingFiles = true;
     }
 
-    public void build() throws DataException, IOException, MissingDataException {
+    /**
+     * Process transactions, but do not build anything
+     * This is useful for checking the status of a given resource
+     *
+     * @throws DataException
+     * @throws IOException
+     * @throws MissingDataException
+     */
+    public void process() throws DataException, IOException, MissingDataException {
         this.fetchTransactions();
         this.validateTransactions();
         this.processTransactions();
         this.validatePaths();
         this.findLatestSignature();
+    }
+
+    /**
+     * Build the latest state of a given resource
+     *
+     * @throws DataException
+     * @throws IOException
+     * @throws MissingDataException
+     */
+    public void build() throws DataException, IOException, MissingDataException {
+        this.process();
         this.buildLatestState();
         this.cacheLatestSignature();
     }
@@ -124,6 +149,7 @@ public class ArbitraryDataBuilder {
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(sig58, ResourceIdType.TRANSACTION_DATA,
                     this.service, this.identifier);
             arbitraryDataReader.setTransactionData(transactionData);
+            arbitraryDataReader.setCanRequestMissingFiles(this.canRequestMissingFiles);
             boolean hasMissingData = false;
             try {
                 arbitraryDataReader.loadSynchronously(true);
@@ -134,6 +160,9 @@ public class ArbitraryDataBuilder {
 
             // Handle missing data
             if (hasMissingData) {
+                if (!this.canRequestMissingFiles) {
+                    throw new MissingDataException("Files are missing but were not requested.");
+                }
                 if (count == transactionDataList.size()) {
                     // This is the final transaction in the list, so we need to fail
                     throw new MissingDataException("Requesting missing files. Please wait and try again.");
@@ -233,6 +262,16 @@ public class ArbitraryDataBuilder {
 
     public int getLayerCount() {
         return this.layerCount;
+    }
+
+    /**
+     * Use the below setter to ensure that we only read existing
+     * data without requesting any missing files,
+     *
+     * @param canRequestMissingFiles
+     */
+    public void setCanRequestMissingFiles(boolean canRequestMissingFiles) {
+        this.canRequestMissingFiles = canRequestMissingFiles;
     }
 
 }

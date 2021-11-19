@@ -27,7 +27,6 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.crypto.Data;
 import java.io.File;
 import java.io.IOException;
 import java.io.InvalidObjectException;
@@ -49,6 +48,7 @@ public class ArbitraryDataReader {
     private ArbitraryTransactionData transactionData;
     private String secret58;
     private Path filePath;
+    private boolean canRequestMissingFiles;
 
     // Intermediate paths
     private Path workingPath;
@@ -77,6 +77,10 @@ public class ArbitraryDataReader {
 
         this.workingPath = this.buildWorkingPath();
         this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
+
+        // By default we can request missing files
+        // Callers can use setCanRequestMissingFiles(false) to prevent it
+        this.canRequestMissingFiles = true;
     }
 
     private Path buildWorkingPath() {
@@ -318,14 +322,18 @@ public class ArbitraryDataReader {
                 }
                 else {
                     // Ask the arbitrary data manager to fetch data for this transaction
-                    boolean requested = ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
                     String message;
+                    if (this.canRequestMissingFiles) {
+                        boolean requested = ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
 
-                    if (requested) {
-                        message = String.format("Requested missing data for file %s", arbitraryDataFile);
+                        if (requested) {
+                            message = String.format("Requested missing data for file %s", arbitraryDataFile);
+                        } else {
+                            message = String.format("Unable to reissue request for missing file %s due to rate limit. Please try again later.", arbitraryDataFile);
+                        }
                     }
                     else {
-                        message = String.format("Unable to reissue request for missing file %s due to rate limit. Please try again later.", arbitraryDataFile);
+                        message = String.format("Missing data for file %s", arbitraryDataFile);
                     }
 
                     // Throw a missing data exception, which allows subsequent layers to fetch data
@@ -501,6 +509,16 @@ public class ArbitraryDataReader {
 
     public byte[] getLatestSignature() {
         return this.latestSignature;
+    }
+
+    /**
+     * Use the below setter to ensure that we only read existing
+     * data without requesting any missing files,
+     *
+     * @param canRequestMissingFiles
+     */
+    public void setCanRequestMissingFiles(boolean canRequestMissingFiles) {
+        this.canRequestMissingFiles = canRequestMissingFiles;
     }
 
 }

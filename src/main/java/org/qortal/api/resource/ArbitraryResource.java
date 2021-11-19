@@ -30,9 +30,10 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.*;
+import org.qortal.api.model.ArbitraryResourceSummary;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
-import org.qortal.arbitrary.ArbitraryDataReader;
-import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
+import org.qortal.arbitrary.*;
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
@@ -46,7 +47,6 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
-import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
@@ -96,6 +96,41 @@ public class ArbitraryResource {
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
+	}
+
+	@GET
+	@Path("/resource/status/{service}/{name}")
+	@Operation(
+			summary = "Get status of arbitrary resource with supplied service and name",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceSummary.class))
+					)
+			}
+	)
+	public ArbitraryResourceSummary getDefaultResourceStatus(@PathParam("service") Service service,
+													  		 @PathParam("name") String name) {
+
+		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, null);
+		return resource.getSummary();
+	}
+
+	@GET
+	@Path("/resource/status/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Get status of arbitrary resource with supplied service, name and identifier",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceSummary.class))
+					)
+			}
+	)
+	public ArbitraryResourceSummary getResourceStatus(@PathParam("service") Service service,
+													  @PathParam("name") String name,
+													  @PathParam("identifier") String identifier) {
+
+		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
+		return resource.getSummary();
 	}
 
 
