@@ -464,12 +464,19 @@ public class ArbitraryResource {
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
 
+			int attempts = 0;
+
 			// Loop until we have data
 			while (!Controller.isStopping()) {
+				attempts++;
 				try {
 					arbitraryDataReader.loadSynchronously(rebuild);
 					break;
 				} catch (MissingDataException e) {
+					if (attempts > 5) {
+						// Give up after 5 attempts
+						throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data unavailable. Please try again later.");
+					}
 					continue;
 				}
 			}
