@@ -84,6 +84,7 @@ public class AdminResource {
 	@Parameter(in = ParameterIn.QUERY, name = "limit", description = "Maximum number of entries to return, 0 means unlimited", schema = @Schema(type = "integer", defaultValue = "20"))
 	@Parameter(in = ParameterIn.QUERY, name = "offset", description = "Starting entry in results, 0 is first entry", schema = @Schema(type = "integer"))
 	@Parameter(in = ParameterIn.QUERY, name = "reverse", description = "Reverse results", schema = @Schema(type = "boolean"))
+	@Parameter(in = ParameterIn.QUERY, name = "includestatus", description = "Include status", schema = @Schema(type = "boolean"))
 	public String globalParameters() {
 		return "";
 	}

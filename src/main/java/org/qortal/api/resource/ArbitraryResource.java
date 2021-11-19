@@ -81,7 +81,9 @@ public class ArbitraryResource {
 			ref = "offset"
 	) @QueryParam("offset") Integer offset, @Parameter(
 			ref = "reverse"
-	) @QueryParam("reverse") Boolean reverse) {
+	) @QueryParam("reverse") Boolean reverse, @Parameter(
+			ref = "includestatus"
+	) @QueryParam("includestatus") Boolean includeStatus) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
@@ -90,7 +92,23 @@ public class ArbitraryResource {
 			if (resources == null) {
 				return new ArrayList<>();
 			}
-			return resources;
+
+			if (includeStatus == null || includeStatus == false) {
+				return resources;
+			}
+
+			// Determine and add the status of each resource
+			List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
+			for (ArbitraryResourceInfo resourceInfo : resources) {
+				ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
+						resourceInfo.service, resourceInfo.identifier);
+				ArbitraryResourceSummary summary = resource.getSummary();
+				if (summary != null) {
+					resourceInfo.status = summary.status;
+				}
+				updatedResources.add(resourceInfo);
+			}
+			return updatedResources;
 
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);

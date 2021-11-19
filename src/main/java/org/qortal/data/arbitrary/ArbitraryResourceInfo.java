@@ -1,5 +1,6 @@
 package org.qortal.data.arbitrary;
 
+import org.qortal.api.model.ArbitraryResourceSummary.ArbitraryResourceStatus;
 import org.qortal.arbitrary.misc.Service;
 
 import javax.xml.bind.annotation.XmlAccessType;
@@ -11,6 +12,7 @@ public class ArbitraryResourceInfo {
 	public String name;
 	public Service service;
 	public String identifier;
+	public ArbitraryResourceStatus status;
 
 	public ArbitraryResourceInfo() {
 	}
