@@ -87,7 +87,7 @@ public class ArbitraryDataRenderer {
         String unzippedPath = path.toString();
 
         try {
-            String filename = this.getFilename(unzippedPath.toString(), inPath);
+            String filename = this.getFilename(unzippedPath, inPath);
             String filePath = unzippedPath + File.separator + filename;
 
             if (HTMLParser.isHtmlFile(filename)) {

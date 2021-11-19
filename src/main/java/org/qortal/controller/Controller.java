@@ -46,6 +46,7 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiService;
 import org.qortal.api.DomainMapService;
+import org.qortal.api.GatewayService;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
@@ -505,6 +506,19 @@ public class Controller extends Thread {
 			Controller.getInstance().shutdown();
 			Gui.getInstance().fatalError("API failure", e);
 			return; // Not System.exit() so that GUI can display error
+		}
+
+		if (Settings.getInstance().isGatewayServiceEnabled()) {
+			LOGGER.info(String.format("Starting gateway service on port %d", Settings.getInstance().getGatewayServicePort()));
+			try {
+				GatewayService gatewayService = GatewayService.getInstance();
+				gatewayService.start();
+			} catch (Exception e) {
+				LOGGER.error("Unable to start gateway service", e);
+				Controller.getInstance().shutdown();
+				Gui.getInstance().fatalError("Gateway service failure", e);
+				return; // Not System.exit() so that GUI can display error
+			}
 		}
 
 		if (Settings.getInstance().isDomainMapServiceEnabled()) {

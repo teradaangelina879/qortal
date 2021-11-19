@@ -41,6 +41,9 @@ public class Settings {
 	private static final int MAINNET_DOMAIN_MAP_SERVICE_PORT = 80;
 	private static final int TESTNET_DOMAIN_MAP_SERVICE_PORT = 8080;
 
+	private static final int MAINNET_GATEWAY_SERVICE_PORT = 80;
+	private static final int TESTNET_GATEWAY_SERVICE_PORT = 8080;
+
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
 
@@ -92,6 +95,11 @@ public class Settings {
 	private boolean domainMapServiceEnabled = false;
 	private boolean domainMapLoggingEnabled = false;
 	private List<DomainMap> domainMap = null;
+
+	// Gateway
+	private Integer gatewayServicePort;
+	private boolean gatewayServiceEnabled = false;
+	private boolean gatewayLoggingEnabled = false;
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -537,6 +545,23 @@ public class Settings {
 		}
 		return map;
 	}
+
+
+	public int getGatewayServicePort() {
+		if (this.gatewayServicePort != null)
+			return this.gatewayServicePort;
+
+		return this.isTestNet ? TESTNET_GATEWAY_SERVICE_PORT : MAINNET_GATEWAY_SERVICE_PORT;
+	}
+
+	public boolean isGatewayServiceEnabled() {
+		return this.gatewayServiceEnabled;
+	}
+
+	public boolean isGatewayLoggingEnabled() {
+		return this.gatewayLoggingEnabled;
+	}
+
 
 	public boolean getWipeUnconfirmedOnStart() {
 		return this.wipeUnconfirmedOnStart;
