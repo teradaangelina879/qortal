@@ -119,6 +119,7 @@ public class ArbitraryResource {
 	@Path("/resource/status/{service}/{name}")
 	@Operation(
 			summary = "Get status of arbitrary resource with supplied service and name",
+			description = "If build is set to true, the resource will be built synchronously before returning the status.",
 			responses = {
 					@ApiResponse(
 							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceSummary.class))
@@ -126,16 +127,17 @@ public class ArbitraryResource {
 			}
 	)
 	public ArbitraryResourceSummary getDefaultResourceStatus(@PathParam("service") Service service,
-													  		 @PathParam("name") String name) {
+													  		 @PathParam("name") String name,
+															 @QueryParam("build") Boolean build) {
 
-		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, null);
-		return resource.getSummary();
+		return this.getSummary(service, name, null, build);
 	}
 
 	@GET
 	@Path("/resource/status/{service}/{name}/{identifier}")
 	@Operation(
 			summary = "Get status of arbitrary resource with supplied service, name and identifier",
+			description = "If build is set to true, the resource will be built synchronously before returning the status.",
 			responses = {
 					@ApiResponse(
 							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceSummary.class))
@@ -144,10 +146,10 @@ public class ArbitraryResource {
 	)
 	public ArbitraryResourceSummary getResourceStatus(@PathParam("service") Service service,
 													  @PathParam("name") String name,
-													  @PathParam("identifier") String identifier) {
+													  @PathParam("identifier") String identifier,
+													  @QueryParam("build") Boolean build) {
 
-		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.getSummary();
+		return this.getSummary(service, name, identifier, build);
 	}
 
 
@@ -559,4 +561,20 @@ public class ArbitraryResource {
 		}
 	}
 
+
+	private ArbitraryResourceSummary getSummary(Service service, String name, String identifier, Boolean build) {
+
+		// If "build=true" has been specified in the query string, build the resource before returning its status
+		if (build != null && build == true) {
+			ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
+			try {
+				reader.loadSynchronously(false);
+			} catch (DataException | IOException | MissingDataException e) {
+				// No need to handle exception, as it will be reflected in the status
+			}
+		}
+
+		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
+		return resource.getSummary();
+	}
 }
