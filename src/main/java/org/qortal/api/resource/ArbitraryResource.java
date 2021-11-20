@@ -278,13 +278,13 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@PathParam("service") String serviceString,
+	public HttpServletResponse get(@PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
 								   @QueryParam("rebuild") boolean rebuild) {
 		Security.checkApiCallAllowed(request);
 
-		return this.download(serviceString, name, null, filepath, rebuild);
+		return this.download(service, name, null, filepath, rebuild);
 	}
 
 	@GET
@@ -305,14 +305,14 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@PathParam("service") String serviceString,
+	public HttpServletResponse get(@PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
 								   @QueryParam("rebuild") boolean rebuild) {
 		Security.checkApiCallAllowed(request);
 
-		return this.download(serviceString, name, identifier, filepath, rebuild);
+		return this.download(service, name, identifier, filepath, rebuild);
 	}
 
 	@POST
@@ -504,13 +504,12 @@ public class ArbitraryResource {
 		}
 	}
 
-	private HttpServletResponse download(String serviceString, String name, String identifier, String filepath, boolean rebuild) {
+	private HttpServletResponse download(Service service, String name, String identifier, String filepath, boolean rebuild) {
 
 		if (filepath == null) {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing filepath");
 		}
 
-		Service service = Service.valueOf(serviceString);
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
 
