@@ -222,7 +222,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 		}
 
 		// If the directory is empty, we still need to delete its parent folder
-		if (contentsCount == 0 && tempDir.toFile().exists()) {
+		if (contentsCount == 0 && tempDir.toFile().isDirectory() && tempDir.toFile().exists()) {
 			try {
 				LOGGER.info("Parent directory {} is empty, so deleting it", tempDir);
 				FilesystemUtils.safeDeleteDirectory(tempDir, false);
