@@ -29,6 +29,7 @@ import javax.ws.rs.core.MediaType;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bouncycastle.util.encoders.Base64;
 import org.qortal.api.*;
 import org.qortal.api.model.ArbitraryResourceSummary;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
@@ -348,7 +349,39 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Service.valueOf(serviceString), name, null, path, null);
+		return this.upload(Service.valueOf(serviceString), name, null, path, null, null);
+	}
+
+	@POST
+	@Path("/{service}/{name}/base64")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on user-supplied base64 encoded data",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_OCTET_STREAM,
+							schema = @Schema(type = "string", format = "byte")
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postBase64EncodedData(@PathParam("service") String serviceString,
+					   		 			@PathParam("name") String name,
+					   		 			String base64) {
+		Security.checkApiCallAllowed(request);
+
+		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64);
 	}
 
 	@POST
@@ -378,11 +411,11 @@ public class ArbitraryResource {
 	)
 	@SecurityRequirement(name = "apiKey")
 	public String postString(@PathParam("service") String serviceString,
-					   		 @PathParam("name") String name,
-					   		 String string) {
+							 @PathParam("name") String name,
+							 String string) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Service.valueOf(serviceString), name, null, null, string);
+		return this.upload(Service.valueOf(serviceString), name, null, null, string, null);
 	}
 
 
@@ -418,7 +451,7 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, path, null);
+		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null);
 	}
 
 	@POST
@@ -448,15 +481,48 @@ public class ArbitraryResource {
 	)
 	@SecurityRequirement(name = "apiKey")
 	public String postString(@PathParam("service") String serviceString,
-					   	 	 @PathParam("name") String name,
+							 @PathParam("name") String name,
 							 @PathParam("identifier") String identifier,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, null, string);
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null);
 	}
 
-	private String upload(Service service, String name, String identifier, String path, String string) {
+	@POST
+	@Path("/{service}/{name}/{identifier}/base64")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on user supplied base64 encoded data",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_OCTET_STREAM,
+							schema = @Schema(type = "string", format = "byte")
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postBase64EncodedData(@PathParam("service") String serviceString,
+							 			@PathParam("name") String name,
+							 			@PathParam("identifier") String identifier,
+							 			String base64) {
+		Security.checkApiCallAllowed(request);
+
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64);
+	}
+
+	private String upload(Service service, String name, String identifier, String path, String string, String base64) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
@@ -483,6 +549,13 @@ public class ArbitraryResource {
 					writer.close();
 					path = tempFile.toPath().toString();
 				}
+				// ... or base64 encoded raw data
+				else if (base64 != null) {
+					File tempFile = File.createTempFile("qortal-", ".tmp");
+					tempFile.deleteOnExit();
+					Files.write(tempFile.toPath(), Base64.decode(base64));
+					path = tempFile.toPath().toString();
+				}
 				else {
 					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing path or data string");
 				}
@@ -498,6 +571,7 @@ public class ArbitraryResource {
 				return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
 
 			} catch (DataException | TransformationException | IllegalStateException e) {
+				LOGGER.info("Unable to upload data: {}", e.getMessage());
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
 			}
 
