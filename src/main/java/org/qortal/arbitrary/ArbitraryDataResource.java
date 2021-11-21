@@ -113,7 +113,23 @@ public class ArbitraryDataResource {
         }
     }
 
+    private String resourceIdString() {
+        return resourceId != null ? resourceId : "";
+    }
+
+    private String resourceIdTypeString() {
+        return resourceIdType != null ? resourceIdType.toString() : "";
+    }
+
+    private String serviceString() {
+        return service != null ? service.toString() : "";
+    }
+
     private String identifierString() {
         return identifier != null ? identifier : "";
+    }
+
+    public String toString() {
+        return String.format("%s-%s-%s-%s", resourceIdString(), resourceIdTypeString(), serviceString(), identifierString());
     }
 }
