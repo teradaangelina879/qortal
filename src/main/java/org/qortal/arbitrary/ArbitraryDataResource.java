@@ -80,7 +80,8 @@ public class ArbitraryDataResource {
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
             for (ArbitraryTransactionData transactionData : transactionDataList) {
-                if (!ArbitraryTransactionUtils.allChunksExist(transactionData)) {
+                if (!ArbitraryTransactionUtils.completeFileExists(transactionData) ||
+                    !ArbitraryTransactionUtils.allChunksExist(transactionData)) {
                     return false;
                 }
             }
