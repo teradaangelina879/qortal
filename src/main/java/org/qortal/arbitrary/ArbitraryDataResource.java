@@ -5,12 +5,14 @@ import org.qortal.api.model.ArbitraryResourceSummary.ArbitraryResourceStatus;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.utils.ArbitraryTransactionUtils;
+import org.qortal.utils.NTP;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +41,12 @@ public class ArbitraryDataResource {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.UNSUPPORTED);
         }
 
+        // Check if the name is blacklisted
+        if (ResourceListManager.getInstance()
+                .listContains("blacklist", "names", this.resourceId, false)) {
+            return new ArbitraryResourceSummary(ArbitraryResourceStatus.BLACKLISTED);
+        }
+
         // Firstly check the cache to see if it's already built
         ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(
                 resourceId, resourceIdType, service, identifier);
@@ -58,14 +66,11 @@ public class ArbitraryDataResource {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.BUILD_FAILED);
         }
 
-        // Check if the name is blacklisted
-        if (ResourceListManager.getInstance()
-                .listContains("blacklist", "names", this.resourceId, false)) {
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.BLACKLISTED);
-        }
-
         // Check if we have all data locally for this resource
         if (!this.allFilesDownloaded()) {
+            if (this.madeRecentRequest()) {
+                return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADING);
+            }
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.MISSING_DATA);
         }
 
@@ -92,7 +97,55 @@ public class ArbitraryDataResource {
         }
     }
 
+    private boolean isRateLimited() {
+        try {
+            this.fetchTransactions();
+
+            List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
+
+            for (ArbitraryTransactionData transactionData : transactionDataList) {
+                if (ArbitraryDataManager.getInstance().isSignatureRateLimited(transactionData.getSignature())) {
+                    return true;
+                }
+            }
+            return true;
+
+        } catch (DataException e) {
+            return false;
+        }
+    }
+
+    private boolean madeRecentRequest() {
+        try {
+            this.fetchTransactions();
+            Long now = NTP.getTime();
+            if (now == null) {
+                return false;
+            }
+
+            List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
+
+            for (ArbitraryTransactionData transactionData : transactionDataList) {
+                long lastRequestTime = ArbitraryDataManager.getInstance().lastRequestForSignature(transactionData.getSignature());
+                if (now - lastRequestTime < 30 * 1000L) {
+                    return true;
+                }
+            }
+            return false;
+
+        } catch (DataException e) {
+            return false;
+        }
+    }
+
+
+
     private void fetchTransactions() throws DataException {
+        if (this.transactions != null && !this.transactions.isEmpty()) {
+            // Already fetched
+            return;
+        }
+
         try (final Repository repository = RepositoryManager.getRepository()) {
 
             // Get the most recent PUT

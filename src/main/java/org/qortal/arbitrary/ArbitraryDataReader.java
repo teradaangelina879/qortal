@@ -327,7 +327,7 @@ public class ArbitraryDataReader {
                         if (requested) {
                             message = String.format("Requested missing data for file %s", arbitraryDataFile);
                         } else {
-                            message = String.format("Unable to reissue request for missing file %s due to rate limit. Please try again later.", arbitraryDataFile);
+                            message = String.format("Unable to reissue request for missing file %s for signature %s due to rate limit. Please try again later.", arbitraryDataFile, Base58.encode(transactionData.getSignature()));
                         }
                     }
                     else {

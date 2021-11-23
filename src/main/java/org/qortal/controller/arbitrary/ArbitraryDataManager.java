@@ -321,10 +321,18 @@ public class ArbitraryDataManager extends Thread {
 		}
 
 		long timeSinceLastAttempt = NTP.getTime() - lastAttemptTimestamp;
-		if (timeSinceLastAttempt > 5 * 60 * 1000L) {
-			// We haven't tried for at least 5 minutes
+		if (timeSinceLastAttempt > 10 * 1000L) {
+			// We haven't tried for at least 10 seconds
 			if (directPeerRequestCount < 5) {
 				// We've made less than 5 total attempts
+				return true;
+			}
+		}
+
+		if (timeSinceLastAttempt > 5 * 60 * 1000L) {
+			// We haven't tried for at least 5 minutes
+			if (directPeerRequestCount < 10) {
+				// We've made less than 10 total attempts
 				return true;
 			}
 		}
@@ -335,6 +343,29 @@ public class ArbitraryDataManager extends Thread {
 		}
 
 		return false;
+	}
+
+	public boolean isSignatureRateLimited(byte[] signature) {
+		String signature58 = Base58.encode(signature);
+		return !this.shouldMakeFileListRequestForSignature(signature58)
+				&& !this.shouldMakeDirectFileRequestsForSignature(signature58);
+	}
+
+	public long lastRequestForSignature(byte[] signature) {
+		String signature58 = Base58.encode(signature);
+		Triple<Integer, Integer, Long> request = arbitraryDataSignatureRequests.get(signature58);
+
+		if (request == null) {
+			// Not attempted yet
+			return 0;
+		}
+
+		// Extract the components
+		Long lastAttemptTimestamp = request.getC();
+		if (lastAttemptTimestamp != null) {
+			return  lastAttemptTimestamp;
+		}
+		return 0;
 	}
 
 	private void addToSignatureRequests(String signature58, boolean incrementNetworkRequests, boolean incrementPeerRequests) {
@@ -493,8 +524,8 @@ public class ArbitraryDataManager extends Thread {
 			return;
 		}
 		final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
-		arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
-		arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() < requestMinimumTimestamp);
+		arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < requestMinimumTimestamp);
+		arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < requestMinimumTimestamp);
 	}
 
 	public boolean isResourceCached(String resourceId) {
