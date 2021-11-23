@@ -666,6 +666,7 @@ public class ArbitraryDataManager extends Thread {
 			String peerAddress = peer.getPeerData().getAddress().toString();
 			LOGGER.info("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
 			ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
+			repository.discardChanges();
 			repository.getArbitraryRepository().save(arbitraryPeerData);
 			repository.saveChanges();
 		}

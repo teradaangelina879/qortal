@@ -68,7 +68,7 @@ public class ArbitraryDataResource {
 
         // Check if we have all data locally for this resource
         if (!this.allFilesDownloaded()) {
-            if (this.madeRecentRequest()) {
+            if (this.isDataPotentiallyAvailable()) {
                 return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADING);
             }
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.MISSING_DATA);
@@ -115,7 +115,12 @@ public class ArbitraryDataResource {
         }
     }
 
-    private boolean madeRecentRequest() {
+    /**
+     * Best guess as to whether data might be available
+     * This is only used to give an indication to the user of progress
+     * @return - whether data might be available on the network
+     */
+    private boolean isDataPotentiallyAvailable() {
         try {
             this.fetchTransactions();
             Long now = NTP.getTime();
@@ -127,7 +132,9 @@ public class ArbitraryDataResource {
 
             for (ArbitraryTransactionData transactionData : transactionDataList) {
                 long lastRequestTime = ArbitraryDataManager.getInstance().lastRequestForSignature(transactionData.getSignature());
-                if (now - lastRequestTime < 30 * 1000L) {
+                // If we haven't requested yet, or requested in the last 30 seconds, there's still a
+                // chance that data is on its way but hasn't arrived yet
+                if (lastRequestTime == 0 || now - lastRequestTime < 30 * 1000L) {
                     return true;
                 }
             }

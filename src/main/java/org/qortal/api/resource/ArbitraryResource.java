@@ -643,7 +643,7 @@ public class ArbitraryResource {
 			ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
 			try {
 				reader.loadSynchronously(false);
-			} catch (DataException | IOException | MissingDataException e) {
+			} catch (Exception e) {
 				// No need to handle exception, as it will be reflected in the status
 			}
 		}
