@@ -16,14 +16,25 @@
       text-align: center;
       color: black;
     }
-    h1 {
-        margin-top: 50px;
-    }
-    #panel {
+    #panel-outer {
       position: absolute;
       width: 100%;
       text-align: center;
       z-index: 1000;
+      top: 45%;
+      -ms-transform: translateY(-50%);
+      transform: translateY(-50%);
+    }
+    #panel {
+      text-align: center;
+      background: white;
+      width: 350px;
+      margin: auto;
+      padding: 25px;
+      border-radius: 30px;
+    }
+    #status {
+      color: #03a9f4;
     }
 
   </style>
@@ -50,10 +61,12 @@
 
       if (json.status == "UNSUPPORTED") {
         textStatus = "Unsupported request";
+        document.getElementById("status").style.color = "red";
       }
       else if (json.status == "BLACKLISTED") {
         textStatus = name + " is blacklisted so content cannot be served";
         retryInterval = 5000;
+        document.getElementById("status").style.color = "red";
       }
       else if (json.status == "READY") {
         textStatus = "Ready";
@@ -73,6 +86,7 @@
       else if (json.status == "MISSING_DATA") {
         textStatus = "Unable to locate files. Please try again later.";
         retryInterval = 10000;
+        document.getElementById("status").style.color = "red";
       }
       else if (json.status == "DOWNLOADED") {
         textStatus = "Files downloaded";
@@ -234,10 +248,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </script>
 
-<div id="panel">
-  <h1>Loading... please wait...</h1>
-  <p>This page will refresh automatically when the content becomes available</p>
-  <p><span id="status">Loading...</span></p>
+<div id="panel-outer">
+  <div id="panel">
+    <h1>Loading</h1>
+    <p>This page will refresh automatically when the content becomes available</p>
+    <p><span id="status">Loading...</span></p>
+  </div>
 </div>
 
 </body>
