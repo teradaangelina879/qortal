@@ -27,7 +27,63 @@
     }
 
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prefixfree/1.0.7/prefixfree.min.js"></script>
+
+  <script>
+    const checkStatus = async () => {
+      var host = location.protocol + '//' + location.host;
+      var pathArray = window.location.pathname.split('/');
+      var service = pathArray[2];
+      var name = pathArray[3];
+      var url = host + '/arbitrary/resource/status/' + service + '/' + name + '?build=true';
+      var textStatus = "Loading...";
+      var retryInterval = 2500;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const json = await response.json();
+
+      console.log("status: " + json.status);
+
+      if (json.status == "UNSUPPORTED") {
+        textStatus = "Unsupported request";
+      }
+      else if (json.status == "BLACKLISTED") {
+        textStatus = name + " is blacklisted so content cannot be served";
+        retryInterval = 5000;
+      }
+      else if (json.status == "READY") {
+        textStatus = "Ready";
+        window.location.reload();
+      }
+      else if (json.status == "BUILDING") {
+        textStatus = "Building...";
+        retryInterval = 1000;
+      }
+      else if (json.status == "BUILD_FAILED") {
+        textStatus = "Build failed. Please try again later.";
+      }
+      else if (json.status == "DOWNLOADING") {
+        textStatus = "Locating files in data network...";
+        retryInterval = 5000;
+      }
+      else if (json.status == "MISSING_DATA") {
+        textStatus = "Unable to locate files. Please try again later.";
+        retryInterval = 10000;
+      }
+      else if (json.status == "DOWNLOADED") {
+        textStatus = "Files downloaded";
+      }
+
+      document.getElementById("status").innerHTML = textStatus;
+
+      setTimeout(checkStatus, retryInterval);
+    }
+    checkStatus();
+  </script>
 
 </head>
 <body>
@@ -181,7 +237,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 <div id="panel">
   <h1>Loading... please wait...</h1>
   <p>This page will refresh automatically when the content becomes available</p>
-  <p>(We can show a Qortal branded loading screen here)</p>
+  <p><span id="status">Loading...</span></p>
 </div>
 
 </body>
