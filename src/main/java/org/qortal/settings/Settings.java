@@ -289,6 +289,8 @@ public class Settings {
 	/** Whether to allow private (non-decryptable) data to be stored */
 	private boolean privateDataEnabled = false;
 
+	/** Maximum total size of hosted data, in bytes. Unlimited if null */
+	private Long maxStorageCapacity = null;
 
 	// Domain mapping
 	public static class DomainMap {
@@ -839,5 +841,9 @@ public class Settings {
 
 	public boolean isPrivateDataEnabled() {
 		return this.privateDataEnabled;
+	}
+
+	public Long getMaxStorageCapacity() {
+		return this.maxStorageCapacity;
 	}
 }

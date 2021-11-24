@@ -76,6 +76,11 @@ public class ArbitraryDataCleanupManager extends Thread {
 					continue;
 				}
 
+				// Wait until storage capacity has been calculated
+				if (!storageManager.isStorageCapacityCalculated()) {
+					continue;
+				}
+
 				// Periodically delete any unnecessary files from the temp directory
 				if (offset == 0 || offset % (limit * 10) == 0) {
 					this.cleanupTempDirectory(now);

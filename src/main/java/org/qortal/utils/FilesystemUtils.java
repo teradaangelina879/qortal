@@ -181,6 +181,10 @@ public class FilesystemUtils {
         return false;
     }
 
+    public static boolean isChild(Path child, Path parent) {
+        return child.toAbsolutePath().startsWith(parent.toAbsolutePath());
+    }
+
     public static long getDirectorySize(Path path) throws IOException {
         if (path == null || !Files.exists(path)) {
             return 0L;

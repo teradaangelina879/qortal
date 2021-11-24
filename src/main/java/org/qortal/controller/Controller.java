@@ -54,6 +54,7 @@ import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataCleanupManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.controller.repository.PruneManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.controller.tradebot.TradeBot;
@@ -490,6 +491,7 @@ public class Controller extends Thread {
 		ArbitraryDataManager.getInstance().start();
 		ArbitraryDataBuildManager.getInstance().start();
 		ArbitraryDataCleanupManager.getInstance().start();
+		ArbitraryDataStorageManager.getInstance().start();
 
 		// Auto-update service?
 		if (Settings.getInstance().isAutoUpdateEnabled()) {
@@ -1080,6 +1082,7 @@ public class Controller extends Thread {
 				ArbitraryDataManager.getInstance().shutdown();
 				ArbitraryDataBuildManager.getInstance().shutdown();
 				ArbitraryDataCleanupManager.getInstance().shutdown();
+				ArbitraryDataStorageManager.getInstance().shutdown();
 
 				if (blockMinter != null) {
 					LOGGER.info("Shutting down block minter");
