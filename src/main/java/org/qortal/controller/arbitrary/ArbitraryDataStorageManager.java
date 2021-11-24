@@ -296,7 +296,7 @@ public class ArbitraryDataStorageManager extends Thread {
             return false;
         }
 
-        long maxStorageCapacity = (long)((double)this.storageCapacity / 100.0f * threshold);
+        long maxStorageCapacity = (long)((double)this.storageCapacity * threshold);
         if (this.totalDirectorySize >= maxStorageCapacity) {
             return false;
         }
