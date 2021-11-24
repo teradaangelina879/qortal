@@ -372,6 +372,7 @@ public class ArbitraryDataReader {
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
+                // TODO: delete files and blacklist this resource if privateDataEnabled is false
                 throw new DataException(String.format("Unable to decrypt file at path %s: %s", this.filePath, e.getMessage()));
             }
         } else {

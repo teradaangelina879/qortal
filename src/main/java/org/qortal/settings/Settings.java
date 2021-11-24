@@ -284,6 +284,11 @@ public class Settings {
 	/** Whether to validate every layer when building arbitrary data, or just the final layer */
 	private boolean validateAllDataLayers = false;
 
+	/** Whether to allow public (decryptable) data to be stored */
+	private boolean publicDataEnabled = true;
+	/** Whether to allow private (non-decryptable) data to be stored */
+	private boolean privateDataEnabled = false;
+
 
 	// Domain mapping
 	public static class DomainMap {
@@ -826,5 +831,13 @@ public class Settings {
 
 	public boolean shouldValidateAllDataLayers() {
 		return this.validateAllDataLayers;
+	}
+
+	public boolean isPublicDataEnabled() {
+		return this.publicDataEnabled;
+	}
+
+	public boolean isPrivateDataEnabled() {
+		return this.privateDataEnabled;
 	}
 }

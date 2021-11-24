@@ -1,5 +1,6 @@
 package org.qortal.controller.arbitrary;
 
+import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.list.ResourceListManager;
 import org.qortal.settings.Settings;
 
@@ -25,7 +26,14 @@ public class ArbitraryDataStorageManager {
         return instance;
     }
 
-    public boolean canStoreDataForName(String name) {
+    public boolean canStoreData(ArbitraryTransactionData arbitraryTransactionData) {
+        String name = arbitraryTransactionData.getName();
+
+        // Don't store data unless it's an allowed type (public/private)
+        if (!this.isDataTypeAllowed(arbitraryTransactionData)) {
+            return false;
+        }
+
         // Check if our storage policy and blacklist allows us to host data for this name
         switch (Settings.getInstance().getStoragePolicy()) {
             case FOLLOWED_AND_VIEWED:
@@ -45,16 +53,17 @@ public class ArbitraryDataStorageManager {
         }
     }
 
-    public boolean isNameInBlacklist(String name) {
-        return ResourceListManager.getInstance().listContains("blacklist", "names", name, false);
-    }
-
-    public boolean shouldPreFetchDataForName(String name) {
+    public boolean shouldPreFetchData(ArbitraryTransactionData arbitraryTransactionData) {
+        String name = arbitraryTransactionData.getName();
         if (name == null) {
-            return this.shouldPreFetchDataWithoutName();
+            return this.shouldPreFetchDataWithoutName(arbitraryTransactionData);
         }
         // Never fetch data from blacklisted names, even if they are followed
         if (this.isNameInBlacklist(name)) {
+            return false;
+        }
+        // Don't store data unless it's an allowed type (public/private)
+        if (!this.isDataTypeAllowed(arbitraryTransactionData)) {
             return false;
         }
 
@@ -73,10 +82,10 @@ public class ArbitraryDataStorageManager {
         }
     }
 
-    private boolean shouldPreFetchDataWithoutName() {
+    private boolean shouldPreFetchDataWithoutName(ArbitraryTransactionData arbitraryTransactionData) {
         switch (Settings.getInstance().getStoragePolicy()) {
             case ALL:
-                return true;
+                return this.isDataTypeAllowed(arbitraryTransactionData);
 
             case NONE:
             case VIEWED:
@@ -85,6 +94,25 @@ public class ArbitraryDataStorageManager {
             default:
                 return false;
         }
+    }
+
+    private boolean isDataTypeAllowed(ArbitraryTransactionData arbitraryTransactionData) {
+        byte[] secret = arbitraryTransactionData.getSecret();
+        boolean hasSecret = (secret != null && secret.length == 32);
+
+        if (!Settings.getInstance().isPrivateDataEnabled() && !hasSecret) {
+            // Private data isn't enabled so we can't store data without a valid secret
+            return false;
+        }
+        if (!Settings.getInstance().isPublicDataEnabled() && hasSecret) {
+            // Public data isn't enabled so we can't store data with a secret
+            return false;
+        }
+        return true;
+    }
+
+    public boolean isNameInBlacklist(String name) {
+        return ResourceListManager.getInstance().listContains("blacklist", "names", name, false);
     }
 
     private boolean isFollowingName(String name) {

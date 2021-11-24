@@ -128,9 +128,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 
 						// Check to see if we should be hosting data for this transaction at all
-						if (!storageManager.canStoreDataForName(arbitraryTransactionData.getName())) {
-							LOGGER.info("Deleting transaction {} because we can't host data for name {}",
-									Base58.encode(arbitraryTransactionData.getSignature()), arbitraryTransactionData.getName());
+						if (!storageManager.canStoreData(arbitraryTransactionData)) {
+							LOGGER.info("Deleting transaction {} because we can't host its data",
+									Base58.encode(arbitraryTransactionData.getSignature()));
 							ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
 							continue;
 						}
