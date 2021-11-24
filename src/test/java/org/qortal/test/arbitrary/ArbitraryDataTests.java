@@ -369,9 +369,10 @@ public class ArbitraryDataTests extends Common {
                                   Method method, Service service, PrivateKeyAccount account) throws DataException {
 
         ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
-                publicKey58, path, name, method, service, identifier);
+                repository, publicKey58, path, name, method, service, identifier);
 
         txnBuilder.build();
+        txnBuilder.computeNonce();
         ArbitraryTransactionData transactionData = txnBuilder.getArbitraryTransactionData();
         Transaction.ValidationResult result = TransactionUtils.signAndImport(repository, transactionData, account);
         assertEquals(Transaction.ValidationResult.OK, result);

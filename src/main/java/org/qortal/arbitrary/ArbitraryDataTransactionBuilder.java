@@ -14,7 +14,6 @@ import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.Transformer;
@@ -48,11 +47,14 @@ public class ArbitraryDataTransactionBuilder {
     private Method method;
     private final Service service;
     private final String identifier;
+    private final Repository repository;
 
     private ArbitraryTransactionData arbitraryTransactionData;
+    private ArbitraryDataFile arbitraryDataFile;
 
-    public ArbitraryDataTransactionBuilder(String publicKey58, Path path, String name,
+    public ArbitraryDataTransactionBuilder(Repository repository, String publicKey58, Path path, String name,
                                            Method method, Service service, String identifier) {
+        this.repository = repository;
         this.publicKey58 = publicKey58;
         this.path = path;
         this.name = name;
@@ -134,8 +136,8 @@ public class ArbitraryDataTransactionBuilder {
     }
 
     private void createTransaction() throws DataException {
-        ArbitraryDataFile arbitraryDataFile = null;
-        try (final Repository repository = RepositoryManager.getRepository()) {
+        arbitraryDataFile = null;
+        try {
             Long now = NTP.getTime();
             if (now == null) {
                 throw new DataException("NTP time not synced yet");
@@ -201,17 +203,6 @@ public class ArbitraryDataTransactionBuilder {
                     version, service, nonce, size, name, identifier, method,
                     secret, compression, digest, dataType, chunkHashes, payments);
 
-            ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
-            LOGGER.info("Computing nonce...");
-            transaction.computeNonce();
-
-            Transaction.ValidationResult result = transaction.isValidUnconfirmed();
-            if (result != Transaction.ValidationResult.OK) {
-                arbitraryDataFile.deleteAll();
-                throw new DataException(String.format("Arbitrary transaction invalid: %s", result));
-            }
-            LOGGER.info("Transaction is valid");
-
             this.arbitraryTransactionData = transactionData;
 
         } catch (DataException e) {
@@ -221,6 +212,23 @@ public class ArbitraryDataTransactionBuilder {
             throw(e);
         }
 
+    }
+
+    public void computeNonce() throws DataException {
+        if (this.arbitraryTransactionData == null) {
+            throw new DataException("Arbitrary transaction data is required to compute nonce");
+        }
+
+        ArbitraryTransaction transaction = (ArbitraryTransaction) Transaction.fromData(repository, this.arbitraryTransactionData);
+        LOGGER.info("Computing nonce...");
+        transaction.computeNonce();
+
+        Transaction.ValidationResult result = transaction.isValidUnconfirmed();
+        if (result != Transaction.ValidationResult.OK) {
+            arbitraryDataFile.deleteAll();
+            throw new DataException(String.format("Arbitrary transaction invalid: %s", result));
+        }
+        LOGGER.info("Transaction is valid");
     }
 
     public ArbitraryTransactionData getArbitraryTransactionData() {

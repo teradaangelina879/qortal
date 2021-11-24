@@ -563,10 +563,11 @@ public class ArbitraryResource {
 
 			try {
 				ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
-						publicKey58, Paths.get(path), name, null, service, identifier
+						repository, publicKey58, Paths.get(path), name, null, service, identifier
 				);
 
 				transactionBuilder.build();
+				transactionBuilder.computeNonce();
 				ArbitraryTransactionData transactionData = transactionBuilder.getArbitraryTransactionData();
 				return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
 
