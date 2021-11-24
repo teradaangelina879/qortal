@@ -168,6 +168,19 @@ public class FilesystemUtils {
         }
     }
 
+    public static void safeDeleteEmptyParentDirectories(Path path) throws IOException {
+        final Path absolutePath = path.toAbsolutePath();
+        if (!absolutePath.toFile().isDirectory()) {
+            return;
+        }
+        if (!FilesystemUtils.pathInsideDataOrTempPath(absolutePath)) {
+            return;
+        }
+        Files.deleteIfExists(absolutePath);
+
+        FilesystemUtils.safeDeleteEmptyParentDirectories(absolutePath.getParent());
+    }
+
     public static boolean pathInsideDataOrTempPath(Path path) {
         if (path == null) {
             return false;

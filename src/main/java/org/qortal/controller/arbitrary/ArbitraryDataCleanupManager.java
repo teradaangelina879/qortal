@@ -4,7 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -19,6 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.SecureRandom;
 import java.util.*;
 
 public class ArbitraryDataCleanupManager extends Thread {
@@ -37,6 +37,14 @@ public class ArbitraryDataCleanupManager extends Thread {
 	 * being used by other parts of the system.
 	 */
 	private static long STALE_FILE_TIMEOUT = 60*60*1000L; // 1 hour
+
+	/**
+	 * The number of chunks to delete in a batch when over the capacity limit.
+	 * Storage limits are re-checked after each batch, and there could be a significant
+	 * delay between the processing of each batch as it only occurs after a complete
+	 * cleanup cycle (to allow unwanted chunks to be deleted first).
+	 */
+	private static int CHUNK_DELETION_BATCH_SIZE = 10;
 
 
 	/*
@@ -189,10 +197,89 @@ public class ArbitraryDataCleanupManager extends Thread {
 				} catch (DataException e) {
 					LOGGER.error("Repository issue when fetching arbitrary transaction data", e);
 				}
+
+				// Delete additional data at random if we're over our storage limit
+				// Use a threshold of 1 so that we only start deleting once the hard limit is reached
+				// This also allows some headroom between the regular threshold (90%) and the hard
+				// limit, to avoid data getting into a fetch/delete loop.
+				if (!storageManager.isStorageSpaceAvailable(1.0f)) {
+					this.storageLimitReached();
+				}
 			}
 		} catch (InterruptedException e) {
 			// Fall-through to exit thread...
 		}
+	}
+
+	private void storageLimitReached() throws InterruptedException {
+		// We think that the storage limit has been reached
+
+		// Firstly, rate limit, to avoid repeated calls to calculateDirectorySize()
+		Thread.sleep(60000);
+
+		// Now calculate the used/total storage again, as a safety precaution
+		Long now = NTP.getTime();
+		ArbitraryDataStorageManager.getInstance().calculateDirectorySize(now);
+		if (ArbitraryDataStorageManager.getInstance().isStorageSpaceAvailable(1.0f)) {
+			// We have space available, so don't delete anything
+			return;
+		}
+
+		// Delete a batch of random chunks
+		// This reduces the chance of too many nodes deleting the same chunk
+		// when they reach their storage limit
+		Path dataPath = Paths.get(Settings.getInstance().getDataPath());
+		for (int i=0; i<CHUNK_DELETION_BATCH_SIZE; i++) {
+			this.deleteRandomFile(dataPath.toFile());
+		}
+
+		// FUTURE: consider reducing the expiry time of the reader cache
+	}
+
+	/**
+	 * Iteratively walk through given directory and delete a single random file
+	 *
+	 * @param directory - the base directory
+	 * @return boolean - whether a file was deleted
+	 */
+	private boolean deleteRandomFile(File directory) {
+		Path tempDataPath = Paths.get(Settings.getInstance().getTempDataPath());
+
+		// Pick a random directory
+		final File[] contentsList = directory.listFiles();
+		if (contentsList != null) {
+			SecureRandom random = new SecureRandom();
+			File randomItem = contentsList[random.nextInt(contentsList.length)];
+
+			// Skip anything relating to the temp directory
+			if (FilesystemUtils.isChild(randomItem.toPath(), tempDataPath)) {
+				return false;
+			}
+			// Make sure it exists
+			if (!randomItem.exists()) {
+				return false;
+			}
+
+			// If it's a directory, iteratively repeat the process
+			if (randomItem.isDirectory()) {
+				return this.deleteRandomFile(randomItem);
+			}
+
+			// If it's a file, we can delete it
+			if (randomItem.isFile()) {
+				LOGGER.info("Deleting random file {} because we have reached max storage capacity...", randomItem.toString());
+				boolean success = randomItem.delete();
+				if (success) {
+					try {
+						FilesystemUtils.safeDeleteEmptyParentDirectories(randomItem.toPath().getParent());
+					} catch (IOException e) {
+						// Ignore cleanup failure
+					}
+				}
+				return success;
+			}
+		}
+		return false;
 	}
 
 	private void removePeersHostingTransactionData(Repository repository, ArbitraryTransactionData transactionData) {

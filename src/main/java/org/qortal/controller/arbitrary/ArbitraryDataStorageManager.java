@@ -229,7 +229,7 @@ public class ArbitraryDataStorageManager extends Thread {
         return false;
     }
 
-    private void calculateDirectorySize(Long now) {
+    public void calculateDirectorySize(Long now) {
         if (now == null) {
             return;
         }
