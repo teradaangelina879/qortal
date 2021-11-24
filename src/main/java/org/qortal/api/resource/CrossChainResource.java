@@ -195,7 +195,8 @@ public class CrossChainResource {
 
 			if (minimumTimestamp != null) {
 				minimumFinalHeight = repository.getBlockRepository().getHeightFromTimestamp(minimumTimestamp);
-				if (minimumFinalHeight == 0) {
+				// If not found in the block repository it will return either 0 or 1
+				if (minimumFinalHeight == 0 || minimumFinalHeight == 1) {
 					// Try the archive
 					minimumFinalHeight = repository.getBlockArchiveRepository().getHeightFromTimestamp(minimumTimestamp);
 				}
