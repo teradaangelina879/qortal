@@ -283,6 +283,7 @@ public class CrossChainResource {
 		int maximumCount = maxtrades != null ? maxtrades : 10;
 		long minimumPeriod = 4 * 60 * 60 * 1000L; // ms
 		Boolean isFinished = Boolean.TRUE;
+		boolean useInversePrice = (inverse != null && inverse == true);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getFilteredAcctMap(foreignBlockchain);
@@ -304,7 +305,7 @@ public class CrossChainResource {
 				}
 			}
 
-			return inverse ? Amounts.scaledDivide(totalForeign, totalQort) : Amounts.scaledDivide(totalQort, totalForeign);
+			return useInversePrice ? Amounts.scaledDivide(totalForeign, totalQort) : Amounts.scaledDivide(totalQort, totalForeign);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
