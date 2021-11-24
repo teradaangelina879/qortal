@@ -12,5 +12,6 @@
   "pruneBlockLimit": 100,
   "bootstrapFilenamePrefix": "test-",
   "dataPath": "data-test",
-  "tempDataPath": "data-test/_temp"
+  "tempDataPath": "data-test/_temp",
+  "storagePolicy": "FOLLOWED_AND_VIEWED"
 }
