@@ -13,5 +13,6 @@
   "bootstrapFilenamePrefix": "test-",
   "dataPath": "data-test",
   "tempDataPath": "data-test/_temp",
+  "listsPath": "lists-test",
   "storagePolicy": "FOLLOWED_AND_VIEWED"
 }

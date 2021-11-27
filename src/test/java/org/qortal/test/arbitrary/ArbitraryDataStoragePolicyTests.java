@@ -1,5 +1,6 @@
 package org.qortal.test.arbitrary;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.After;
 import org.junit.Before;
@@ -22,6 +23,7 @@ import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.utils.Base58;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -32,11 +34,13 @@ public class ArbitraryDataStoragePolicyTests extends Common {
     @Before
     public void beforeTest() throws DataException {
         Common.useDefaultSettings();
+        this.deleteListsDirectory();
         ArbitraryDataStorageManager.getInstance().start();
     }
 
     @After
     public void afterTest() throws DataException {
+        this.deleteListsDirectory();
         ArbitraryDataStorageManager.getInstance().shutdown();
     }
 
@@ -229,6 +233,16 @@ public class ArbitraryDataStoragePolicyTests extends Common {
         ArbitraryTransactionData transactionData = txnBuilder.getArbitraryTransactionData();
 
         return transactionData;
+    }
+
+    private void deleteListsDirectory() {
+        // Delete lists directory if exists
+        Path listsPath = Paths.get(Settings.getInstance().getListsPath());
+        try {
+            FileUtils.deleteDirectory(listsPath.toFile());
+        } catch (IOException e) {
+
+        }
     }
 
 }
