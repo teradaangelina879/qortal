@@ -10,6 +10,7 @@ import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.gui.SplashFrame;
+import org.qortal.network.Network;
 import org.qortal.repository.hsqldb.HSQLDBImportExport;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
@@ -240,6 +241,9 @@ public class Bootstrap {
             LOGGER.info("Deleting peers list...");
             repository.getNetworkRepository().deleteAllPeers();
             repository.saveChanges();
+
+            LOGGER.info("Adding initial peers...");
+            Network.installInitialPeers(repository);
 
             LOGGER.info("Creating bootstrap...");
             // Timeout if the database isn't ready for backing up after 10 seconds

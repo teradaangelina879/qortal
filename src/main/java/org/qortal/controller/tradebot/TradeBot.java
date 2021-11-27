@@ -31,6 +31,7 @@ import org.qortal.gui.SysTray;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.hsqldb.HSQLDBImportExport;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.PresenceTransaction;
 import org.qortal.transaction.PresenceTransaction.PresenceType;
@@ -76,7 +77,9 @@ public class TradeBot implements Listener {
 	static {
 		acctTradeBotSuppliers.put(BitcoinACCTv1.class, BitcoinACCTv1TradeBot::getInstance);
 		acctTradeBotSuppliers.put(LitecoinACCTv1.class, LitecoinACCTv1TradeBot::getInstance);
+		acctTradeBotSuppliers.put(LitecoinACCTv2.class, LitecoinACCTv2TradeBot::getInstance);
 		acctTradeBotSuppliers.put(DogecoinACCTv1.class, DogecoinACCTv1TradeBot::getInstance);
+		acctTradeBotSuppliers.put(DogecoinACCTv2.class, DogecoinACCTv2TradeBot::getInstance);
 	}
 
 	private static TradeBot instance;
@@ -265,11 +268,11 @@ public class TradeBot implements Listener {
 		return secret;
 	}
 
-	/*package*/ static void backupTradeBotData(Repository repository) {
+	/*package*/ static void backupTradeBotData(Repository repository, List<TradeBotData> additional) {
 		// Attempt to backup the trade bot data. This an optional step and doesn't impact trading, so don't throw an exception on failure
 		try {
 			LOGGER.info("About to backup trade bot data...");
-			repository.exportNodeLocalData();
+			HSQLDBImportExport.backupTradeBotStates(repository, additional);
 		} catch (DataException e) {
 			LOGGER.info(String.format("Repository issue when exporting trade bot data: %s", e.getMessage()));
 		}

@@ -38,7 +38,7 @@ public class BlockArchiver implements Runnable {
 				return;
 			}
 
-			LOGGER.info("Starting block archiver...");
+			LOGGER.info("Starting block archiver from height {}...", startHeight);
 
 			while (!Controller.isStopping()) {
 				repository.discardChanges();

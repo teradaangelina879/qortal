@@ -114,9 +114,9 @@ public class Settings {
 	/** Whether to show a notification when we backup repository. */
 	private boolean showBackupNotification = false;
 	/** Minimum time between repository maintenance attempts (ms) */
-	private long repositoryMaintenanceMinInterval = 7 * 24 * 60 * 60 * 1000L; // 7 days (ms) default
+	private long repositoryMaintenanceMinInterval = 3 * 24 * 60 * 60 * 1000L; // 3 days (ms) default
 	/** Maximum time between repository maintenance attempts (ms) (0 if disabled). */
-	private long repositoryMaintenanceMaxInterval = 30 * 24 * 60 * 60 * 1000L; // 30 days (ms) default
+	private long repositoryMaintenanceMaxInterval = 14 * 24 * 60 * 60 * 1000L; // 14 days (ms) default
 	/** Whether to show a notification when we run scheduled maintenance. */
 	private boolean showMaintenanceNotification = false;
 	/** How long between repository checkpoints (ms). */
@@ -239,6 +239,7 @@ public class Settings {
 	// Bootstrap sources
 	private String[] bootstrapHosts = new String[] {
 			"http://bootstrap.qortal.org",
+			"http://bootstrap2.qortal.org",
 			"http://cinfu1.crowetic.com"
 	};
 

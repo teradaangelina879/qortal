@@ -45,9 +45,9 @@ import static java.util.stream.Collectors.toMap;
  * 	<li>Trade-bot entries</li>
  * </ul>
  */
-public class DogecoinACCTv1TradeBot implements AcctTradeBot {
+public class DogecoinACCTv2TradeBot implements AcctTradeBot {
 
-	private static final Logger LOGGER = LogManager.getLogger(DogecoinACCTv1TradeBot.class);
+	private static final Logger LOGGER = LogManager.getLogger(DogecoinACCTv2TradeBot.class);
 
 	public enum State implements TradeBot.StateNameAndValueSupplier {
 		BOB_WAITING_FOR_AT_CONFIRM(10, false, false),
@@ -91,18 +91,18 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	/** Maximum time Bob waits for his AT creation transaction to be confirmed into a block. (milliseconds) */
 	private static final long MAX_AT_CONFIRMATION_PERIOD = 24 * 60 * 60 * 1000L; // ms
 
-	private static DogecoinACCTv1TradeBot instance;
+	private static DogecoinACCTv2TradeBot instance;
 
 	private final List<String> endStates = Arrays.asList(State.BOB_DONE, State.BOB_REFUNDED, State.ALICE_DONE, State.ALICE_REFUNDING_A, State.ALICE_REFUNDED).stream()
 			.map(State::name)
 			.collect(Collectors.toUnmodifiableList());
 
-	private DogecoinACCTv1TradeBot() {
+	private DogecoinACCTv2TradeBot() {
 	}
 
-	public static synchronized DogecoinACCTv1TradeBot getInstance() {
+	public static synchronized DogecoinACCTv2TradeBot getInstance() {
 		if (instance == null)
-			instance = new DogecoinACCTv1TradeBot();
+			instance = new DogecoinACCTv2TradeBot();
 
 		return instance;
 	}
@@ -176,7 +176,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		String description = "QORT/DOGE cross-chain trade";
 		String aTType = "ACCT";
 		String tags = "ACCT QORT DOGE";
-		byte[] creationBytes = DogecoinACCTv1.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, tradeBotCreateRequest.qortAmount,
+		byte[] creationBytes = DogecoinACCTv2.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, tradeBotCreateRequest.qortAmount,
 				tradeBotCreateRequest.foreignAmount, tradeBotCreateRequest.tradeTimeout);
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
@@ -189,7 +189,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		DeployAtTransaction.ensureATAddress(deployAtTransactionData);
 		String atAddress = deployAtTransactionData.getAtAddress();
 
-		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, DogecoinACCTv1.NAME,
+		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, DogecoinACCTv2.NAME,
 				State.BOB_WAITING_FOR_AT_CONFIRM.name(), State.BOB_WAITING_FOR_AT_CONFIRM.value,
 				creator.getAddress(), atAddress, timestamp, tradeBotCreateRequest.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
@@ -266,7 +266,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		long now = NTP.getTime();
 		int lockTimeA = crossChainTradeData.tradeTimeout * 60 + (int) (now / 1000L);
 
-		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, DogecoinACCTv1.NAME,
+		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, DogecoinACCTv2.NAME,
 				State.ALICE_WAITING_FOR_AT_LOCK.name(), State.ALICE_WAITING_FOR_AT_LOCK.value,
 				receivingAddress, crossChainTradeData.qortalAtAddress, now, crossChainTradeData.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
@@ -312,7 +312,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		}
 
 		// Attempt to send MESSAGE to Bob's Qortal trade address
-		byte[] messageData = DogecoinACCTv1.buildOfferMessage(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
+		byte[] messageData = DogecoinACCTv2.buildOfferMessage(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
 		String messageRecipient = crossChainTradeData.qortalCreatorTradeAddress;
 
 		boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, messageData);
@@ -354,7 +354,6 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			case BOB_DONE:
 			case ALICE_REFUNDED:
 			case BOB_REFUNDED:
-			case ALICE_REFUNDING_A:
 				return true;
 
 			default:
@@ -382,7 +381,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			}
 
 			if (tradeBotState.requiresTradeData) {
-				tradeData = DogecoinACCTv1.getInstance().populateTradeData(repository, atData);
+				tradeData = DogecoinACCTv2.getInstance().populateTradeData(repository, atData);
 				if (tradeData == null) {
 					LOGGER.warn(() -> String.format("Unable to fetch ACCT trade data for AT %s from repository", tradeBotData.getAtAddress()));
 					return;
@@ -492,7 +491,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 
 			// We're expecting: HASH160(secret-A), Alice's Dogecoin pubkeyhash and lockTime-A
 			byte[] messageData = messageTransactionData.getData();
-			DogecoinACCTv1.OfferMessageData offerMessageData = DogecoinACCTv1.extractOfferMessageData(messageData);
+			DogecoinACCTv2.OfferMessageData offerMessageData = DogecoinACCTv2.extractOfferMessageData(messageData);
 			if (offerMessageData == null)
 				continue;
 
@@ -500,7 +499,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			byte[] hashOfSecretA = offerMessageData.hashOfSecretA;
 			int lockTimeA = (int) offerMessageData.lockTimeA;
 			long messageTimestamp = messageTransactionData.getTimestamp();
-			int refundTimeout = DogecoinACCTv1.calcRefundTimeout(messageTimestamp, lockTimeA);
+			int refundTimeout = DogecoinACCTv2.calcRefundTimeout(messageTimestamp, lockTimeA);
 
 			// Determine P2SH-A address and confirm funded
 			byte[] redeemScriptA = BitcoinyHTLC.buildScript(aliceForeignPublicKeyHash, lockTimeA, tradeBotData.getTradeForeignPublicKeyHash(), hashOfSecretA);
@@ -540,7 +539,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			String aliceNativeAddress = Crypto.toAddress(messageTransactionData.getCreatorPublicKey());
 
 			// Build outgoing message, padding each part to 32 bytes to make it easier for AT to consume
-			byte[] outgoingMessageData = DogecoinACCTv1.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
+			byte[] outgoingMessageData = DogecoinACCTv2.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			String messageRecipient = tradeBotData.getAtAddress();
 
 			boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, outgoingMessageData);
@@ -646,7 +645,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		}
 
 		long recipientMessageTimestamp = messageTransactionsData.get(0).getTimestamp();
-		int refundTimeout = DogecoinACCTv1.calcRefundTimeout(recipientMessageTimestamp, lockTimeA);
+		int refundTimeout = DogecoinACCTv2.calcRefundTimeout(recipientMessageTimestamp, lockTimeA);
 
 		// Our calculated refundTimeout should match AT's refundTimeout
 		if (refundTimeout != crossChainTradeData.refundTimeout) {
@@ -660,7 +659,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		// Send 'redeem' MESSAGE to AT using both secret
 		byte[] secretA = tradeBotData.getSecret();
 		String qortalReceivingAddress = Base58.encode(tradeBotData.getReceivingAccountInfo()); // Actually contains whole address, not just PKH
-		byte[] messageData = DogecoinACCTv1.buildRedeemMessage(secretA, qortalReceivingAddress);
+		byte[] messageData = DogecoinACCTv2.buildRedeemMessage(secretA, qortalReceivingAddress);
 		String messageRecipient = tradeBotData.getAtAddress();
 
 		boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, messageData);
@@ -716,7 +715,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			return;
 		}
 
-		byte[] secretA = DogecoinACCTv1.getInstance().findSecretA(repository, crossChainTradeData);
+		byte[] secretA = DogecoinACCTv2.getInstance().findSecretA(repository, crossChainTradeData);
 		if (secretA == null) {
 			LOGGER.debug(() -> String.format("Unable to find secret-A from redeem message to AT %s?", tradeBotData.getAtAddress()));
 			return;

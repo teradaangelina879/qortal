@@ -31,6 +31,7 @@ import org.qortal.api.Security;
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
 import org.qortal.api.model.crosschain.TradeBotRespondRequest;
 import org.qortal.asset.Asset;
+import org.qortal.controller.Controller;
 import org.qortal.controller.tradebot.AcctTradeBot;
 import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crosschain.ForeignBlockchain;
@@ -139,6 +140,9 @@ public class CrossChainTradeBotResource {
 		if (tradeBotCreateRequest.qortAmount <= 0 || tradeBotCreateRequest.fundingQortAmount <= 0)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_SIZE_TOO_SMALL);
 
+		if (!Controller.getInstance().isUpToDate())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCKCHAIN_NEEDS_SYNC);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Do some simple checking first
 			Account creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);
@@ -196,6 +200,9 @@ public class CrossChainTradeBotResource {
 
 		if (tradeBotRespondRequest.receivingAddress == null || !Crypto.isValidAddress(tradeBotRespondRequest.receivingAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		if (!Controller.getInstance().isUpToDate())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCKCHAIN_NEEDS_SYNC);
 
 		// Extract data from cross-chain trading AT
 		try (final Repository repository = RepositoryManager.getRepository()) {

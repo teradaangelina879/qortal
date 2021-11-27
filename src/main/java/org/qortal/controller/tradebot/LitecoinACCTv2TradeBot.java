@@ -45,9 +45,9 @@ import static java.util.stream.Collectors.toMap;
  * 	<li>Trade-bot entries</li>
  * </ul>
  */
-public class DogecoinACCTv1TradeBot implements AcctTradeBot {
+public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 
-	private static final Logger LOGGER = LogManager.getLogger(DogecoinACCTv1TradeBot.class);
+	private static final Logger LOGGER = LogManager.getLogger(LitecoinACCTv2TradeBot.class);
 
 	public enum State implements TradeBot.StateNameAndValueSupplier {
 		BOB_WAITING_FOR_AT_CONFIRM(10, false, false),
@@ -91,18 +91,18 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	/** Maximum time Bob waits for his AT creation transaction to be confirmed into a block. (milliseconds) */
 	private static final long MAX_AT_CONFIRMATION_PERIOD = 24 * 60 * 60 * 1000L; // ms
 
-	private static DogecoinACCTv1TradeBot instance;
+	private static LitecoinACCTv2TradeBot instance;
 
 	private final List<String> endStates = Arrays.asList(State.BOB_DONE, State.BOB_REFUNDED, State.ALICE_DONE, State.ALICE_REFUNDING_A, State.ALICE_REFUNDED).stream()
 			.map(State::name)
 			.collect(Collectors.toUnmodifiableList());
 
-	private DogecoinACCTv1TradeBot() {
+	private LitecoinACCTv2TradeBot() {
 	}
 
-	public static synchronized DogecoinACCTv1TradeBot getInstance() {
+	public static synchronized LitecoinACCTv2TradeBot getInstance() {
 		if (instance == null)
-			instance = new DogecoinACCTv1TradeBot();
+			instance = new LitecoinACCTv2TradeBot();
 
 		return instance;
 	}
@@ -113,7 +113,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	}
 
 	/**
-	 * Creates a new trade-bot entry from the "Bob" viewpoint, i.e. OFFERing QORT in exchange for DOGE.
+	 * Creates a new trade-bot entry from the "Bob" viewpoint, i.e. OFFERing QORT in exchange for LTC.
 	 * <p>
 	 * Generates:
 	 * <ul>
@@ -122,14 +122,14 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	 * Derives:
 	 * <ul>
 	 * 	<li>'native' (as in Qortal) public key, public key hash, address (starting with Q)</li>
-	 * 	<li>'foreign' (as in Dogecoin) public key, public key hash</li>
+	 * 	<li>'foreign' (as in Litecoin) public key, public key hash</li>
 	 * </ul>
 	 * A Qortal AT is then constructed including the following as constants in the 'data segment':
 	 * <ul>
 	 * 	<li>'native'/Qortal 'trade' address - used as a MESSAGE contact</li>
-	 * 	<li>'foreign'/Dogecoin public key hash - used by Alice's P2SH scripts to allow redeem</li>
+	 * 	<li>'foreign'/Litecoin public key hash - used by Alice's P2SH scripts to allow redeem</li>
 	 * 	<li>QORT amount on offer by Bob</li>
-	 * 	<li>DOGE amount expected in return by Bob (from Alice)</li>
+	 * 	<li>LTC amount expected in return by Bob (from Alice)</li>
 	 * 	<li>trading timeout, in case things go wrong and everyone needs to refund</li>
 	 * </ul>
 	 * Returns a DEPLOY_AT transaction that needs to be signed and broadcast to the Qortal network.
@@ -151,17 +151,17 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		byte[] tradeForeignPublicKey = TradeBot.deriveTradeForeignPublicKey(tradePrivateKey);
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 
-		// Convert Dogecoin receiving address into public key hash (we only support P2PKH at this time)
-		Address dogecoinReceivingAddress;
+		// Convert Litecoin receiving address into public key hash (we only support P2PKH at this time)
+		Address litecoinReceivingAddress;
 		try {
-			dogecoinReceivingAddress = Address.fromString(Dogecoin.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
+			litecoinReceivingAddress = Address.fromString(Litecoin.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
 		} catch (AddressFormatException e) {
-			throw new DataException("Unsupported Dogecoin receiving address: " + tradeBotCreateRequest.receivingAddress);
+			throw new DataException("Unsupported Litecoin receiving address: " + tradeBotCreateRequest.receivingAddress);
 		}
-		if (dogecoinReceivingAddress.getOutputScriptType() != ScriptType.P2PKH)
-			throw new DataException("Unsupported Dogecoin receiving address: " + tradeBotCreateRequest.receivingAddress);
+		if (litecoinReceivingAddress.getOutputScriptType() != ScriptType.P2PKH)
+			throw new DataException("Unsupported Litecoin receiving address: " + tradeBotCreateRequest.receivingAddress);
 
-		byte[] dogecoinReceivingAccountInfo = dogecoinReceivingAddress.getHash();
+		byte[] litecoinReceivingAccountInfo = litecoinReceivingAddress.getHash();
 
 		PublicKeyAccount creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);
 
@@ -172,11 +172,11 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		byte[] signature = null;
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, creator.getPublicKey(), fee, signature);
 
-		String name = "QORT/DOGE ACCT";
-		String description = "QORT/DOGE cross-chain trade";
+		String name = "QORT/LTC ACCT";
+		String description = "QORT/LTC cross-chain trade";
 		String aTType = "ACCT";
-		String tags = "ACCT QORT DOGE";
-		byte[] creationBytes = DogecoinACCTv1.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, tradeBotCreateRequest.qortAmount,
+		String tags = "ACCT QORT LTC";
+		byte[] creationBytes = LitecoinACCTv2.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, tradeBotCreateRequest.qortAmount,
 				tradeBotCreateRequest.foreignAmount, tradeBotCreateRequest.tradeTimeout);
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
@@ -189,14 +189,14 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		DeployAtTransaction.ensureATAddress(deployAtTransactionData);
 		String atAddress = deployAtTransactionData.getAtAddress();
 
-		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, DogecoinACCTv1.NAME,
+		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, LitecoinACCTv2.NAME,
 				State.BOB_WAITING_FOR_AT_CONFIRM.name(), State.BOB_WAITING_FOR_AT_CONFIRM.value,
 				creator.getAddress(), atAddress, timestamp, tradeBotCreateRequest.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				null, null,
-				SupportedBlockchain.DOGECOIN.name(),
+				SupportedBlockchain.LITECOIN.name(),
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
-				tradeBotCreateRequest.foreignAmount, null, null, null, dogecoinReceivingAccountInfo);
+				tradeBotCreateRequest.foreignAmount, null, null, null, litecoinReceivingAccountInfo);
 
 		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Built AT %s. Waiting for deployment", atAddress));
 
@@ -212,15 +212,15 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	}
 
 	/**
-	 * Creates a trade-bot entry from the 'Alice' viewpoint, i.e. matching DOGE to an existing offer.
+	 * Creates a trade-bot entry from the 'Alice' viewpoint, i.e. matching LTC to an existing offer.
 	 * <p>
 	 * Requires a chosen trade offer from Bob, passed by <tt>crossChainTradeData</tt>
-	 * and access to a Dogecoin wallet via <tt>xprv58</tt>.
+	 * and access to a Litecoin wallet via <tt>xprv58</tt>.
 	 * <p>
 	 * The <tt>crossChainTradeData</tt> contains the current trade offer state
 	 * as extracted from the AT's data segment.
 	 * <p>
-	 * Access to a funded wallet is via a Dogecoin BIP32 hierarchical deterministic key,
+	 * Access to a funded wallet is via a Litecoin BIP32 hierarchical deterministic key,
 	 * passed via <tt>xprv58</tt>.
 	 * <b>This key will be stored in your node's database</b>
 	 * to allow trade-bot to create/fund the necessary P2SH transactions!
@@ -230,15 +230,15 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	 * As an example, the xprv58 can be extract from a <i>legacy, password-less</i>
 	 * Electrum wallet by going to the console tab and entering:<br>
 	 * <tt>wallet.keystore.xprv</tt><br>
-	 * which should result in a base58 string starting with either 'xprv' (for Dogecoin main-net)
-	 * or 'tprv' for (Dogecoin test-net).
+	 * which should result in a base58 string starting with either 'xprv' (for Litecoin main-net)
+	 * or 'tprv' for (Litecoin test-net).
 	 * <p>
 	 * It is envisaged that the value in <tt>xprv58</tt> will actually come from a Qortal-UI-managed wallet.
 	 * <p>
 	 * If sufficient funds are available, <b>this method will actually fund the P2SH-A</b>
-	 * with the Dogecoin amount expected by 'Bob'.
+	 * with the Litecoin amount expected by 'Bob'.
 	 * <p>
-	 * If the Dogecoin transaction is successfully broadcast to the network then
+	 * If the Litecoin transaction is successfully broadcast to the network then
 	 * we also send a MESSAGE to Bob's trade-bot to let them know.
 	 * <p>
 	 * The trade-bot entry is saved to the repository and the cross-chain trading process commences.
@@ -246,7 +246,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	 * @param repository
 	 * @param crossChainTradeData chosen trade OFFER that Alice wants to match
 	 * @param xprv58 funded wallet xprv in base58
-	 * @return true if P2SH-A funding transaction successfully broadcast to Dogecoin network, false otherwise
+	 * @return true if P2SH-A funding transaction successfully broadcast to Litecoin network, false otherwise
 	 * @throws DataException
 	 */
 	public ResponseResult startResponse(Repository repository, ATData atData, ACCT acct, CrossChainTradeData crossChainTradeData, String xprv58, String receivingAddress) throws DataException {
@@ -266,12 +266,12 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		long now = NTP.getTime();
 		int lockTimeA = crossChainTradeData.tradeTimeout * 60 + (int) (now / 1000L);
 
-		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, DogecoinACCTv1.NAME,
+		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, LitecoinACCTv2.NAME,
 				State.ALICE_WAITING_FOR_AT_LOCK.name(), State.ALICE_WAITING_FOR_AT_LOCK.value,
 				receivingAddress, crossChainTradeData.qortalAtAddress, now, crossChainTradeData.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				secretA, hashOfSecretA,
-				SupportedBlockchain.DOGECOIN.name(),
+				SupportedBlockchain.LITECOIN.name(),
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
 				crossChainTradeData.expectedForeignAmount, xprv58, null, lockTimeA, receivingPublicKeyHash);
 
@@ -282,9 +282,9 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		// Check we have enough funds via xprv58 to fund P2SH to cover expectedForeignAmount
 		long p2shFee;
 		try {
-			p2shFee = Dogecoin.getInstance().getP2shFee(now);
+			p2shFee = Litecoin.getInstance().getP2shFee(now);
 		} catch (ForeignBlockchainException e) {
-			LOGGER.debug("Couldn't estimate Dogecoin fees?");
+			LOGGER.debug("Couldn't estimate Litecoin fees?");
 			return ResponseResult.NETWORK_ISSUE;
 		}
 
@@ -294,17 +294,17 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 
 		// P2SH-A to be funded
 		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(tradeForeignPublicKeyHash, lockTimeA, crossChainTradeData.creatorForeignPKH, hashOfSecretA);
-		String p2shAddress = Dogecoin.getInstance().deriveP2shAddress(redeemScriptBytes);
+		String p2shAddress = Litecoin.getInstance().deriveP2shAddress(redeemScriptBytes);
 
 		// Build transaction for funding P2SH-A
-		Transaction p2shFundingTransaction = Dogecoin.getInstance().buildSpend(tradeBotData.getForeignKey(), p2shAddress, amountA);
+		Transaction p2shFundingTransaction = Litecoin.getInstance().buildSpend(tradeBotData.getForeignKey(), p2shAddress, amountA);
 		if (p2shFundingTransaction == null) {
 			LOGGER.debug("Unable to build P2SH-A funding transaction - lack of funds?");
 			return ResponseResult.BALANCE_ISSUE;
 		}
 
 		try {
-			Dogecoin.getInstance().broadcastTransaction(p2shFundingTransaction);
+			Litecoin.getInstance().broadcastTransaction(p2shFundingTransaction);
 		} catch (ForeignBlockchainException e) {
 			// We couldn't fund P2SH-A at this time
 			LOGGER.debug("Couldn't broadcast P2SH-A funding transaction?");
@@ -312,7 +312,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		}
 
 		// Attempt to send MESSAGE to Bob's Qortal trade address
-		byte[] messageData = DogecoinACCTv1.buildOfferMessage(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
+		byte[] messageData = LitecoinACCTv2.buildOfferMessage(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
 		String messageRecipient = crossChainTradeData.qortalCreatorTradeAddress;
 
 		boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, messageData);
@@ -382,7 +382,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			}
 
 			if (tradeBotState.requiresTradeData) {
-				tradeData = DogecoinACCTv1.getInstance().populateTradeData(repository, atData);
+				tradeData = LitecoinACCTv2.getInstance().populateTradeData(repository, atData);
 				if (tradeData == null) {
 					LOGGER.warn(() -> String.format("Unable to fetch ACCT trade data for AT %s from repository", tradeBotData.getAtAddress()));
 					return;
@@ -463,7 +463,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	 * <p>
 	 * Details from Alice are used to derive P2SH-A address and this is checked for funding balance.
 	 * <p>
-	 * Assuming P2SH-A has at least expected Dogecoin balance,
+	 * Assuming P2SH-A has at least expected Litecoin balance,
 	 * Bob's trade-bot constructs a zero-fee, PoW MESSAGE to send to Bob's AT with more trade details.
 	 * <p>
 	 * On processing this MESSAGE, Bob's AT should switch into 'TRADE' mode and only trade with Alice.
@@ -481,7 +481,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			return;
 		}
 
-		Dogecoin dogecoin = Dogecoin.getInstance();
+		Litecoin litecoin = Litecoin.getInstance();
 
 		String address = tradeBotData.getTradeNativeAddress();
 		List<MessageTransactionData> messageTransactionsData = repository.getMessageRepository().getMessagesByParticipants(null, address, null, null, null);
@@ -490,27 +490,27 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			if (messageTransactionData.isText())
 				continue;
 
-			// We're expecting: HASH160(secret-A), Alice's Dogecoin pubkeyhash and lockTime-A
+			// We're expecting: HASH160(secret-A), Alice's Litecoin pubkeyhash and lockTime-A
 			byte[] messageData = messageTransactionData.getData();
-			DogecoinACCTv1.OfferMessageData offerMessageData = DogecoinACCTv1.extractOfferMessageData(messageData);
+			LitecoinACCTv2.OfferMessageData offerMessageData = LitecoinACCTv2.extractOfferMessageData(messageData);
 			if (offerMessageData == null)
 				continue;
 
-			byte[] aliceForeignPublicKeyHash = offerMessageData.partnerDogecoinPKH;
+			byte[] aliceForeignPublicKeyHash = offerMessageData.partnerLitecoinPKH;
 			byte[] hashOfSecretA = offerMessageData.hashOfSecretA;
 			int lockTimeA = (int) offerMessageData.lockTimeA;
 			long messageTimestamp = messageTransactionData.getTimestamp();
-			int refundTimeout = DogecoinACCTv1.calcRefundTimeout(messageTimestamp, lockTimeA);
+			int refundTimeout = LitecoinACCTv2.calcRefundTimeout(messageTimestamp, lockTimeA);
 
 			// Determine P2SH-A address and confirm funded
 			byte[] redeemScriptA = BitcoinyHTLC.buildScript(aliceForeignPublicKeyHash, lockTimeA, tradeBotData.getTradeForeignPublicKeyHash(), hashOfSecretA);
-			String p2shAddressA = dogecoin.deriveP2shAddress(redeemScriptA);
+			String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
 
 			long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
-			long p2shFee = Dogecoin.getInstance().getP2shFee(feeTimestamp);
+			long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
 			final long minimumAmountA = tradeBotData.getForeignAmount() + p2shFee;
 
-			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(dogecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -540,7 +540,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			String aliceNativeAddress = Crypto.toAddress(messageTransactionData.getCreatorPublicKey());
 
 			// Build outgoing message, padding each part to 32 bytes to make it easier for AT to consume
-			byte[] outgoingMessageData = DogecoinACCTv1.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
+			byte[] outgoingMessageData = LitecoinACCTv2.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
 			String messageRecipient = tradeBotData.getAtAddress();
 
 			boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, outgoingMessageData);
@@ -579,7 +579,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	 * <p>
 	 * If all is well, trade-bot then redeems AT using Alice's secret-A, releasing Bob's QORT to Alice.
 	 * <p>
-	 * In revealing a valid secret-A, Bob can then redeem the DOGE funds from P2SH-A.
+	 * In revealing a valid secret-A, Bob can then redeem the LTC funds from P2SH-A.
 	 * <p>
 	 * @throws ForeignBlockchainException
 	 */
@@ -588,19 +588,19 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		if (aliceUnexpectedState(repository, tradeBotData, atData, crossChainTradeData))
 			return;
 
-		Dogecoin dogecoin = Dogecoin.getInstance();
+		Litecoin litecoin = Litecoin.getInstance();
 		int lockTimeA = tradeBotData.getLockTimeA();
 
 		// Refund P2SH-A if we've passed lockTime-A
 		if (NTP.getTime() >= lockTimeA * 1000L) {
 			byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
-			String p2shAddressA = dogecoin.deriveP2shAddress(redeemScriptA);
+			String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
 
 			long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
-			long p2shFee = Dogecoin.getInstance().getP2shFee(feeTimestamp);
+			long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
 			long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
 
-			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(dogecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -646,7 +646,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		}
 
 		long recipientMessageTimestamp = messageTransactionsData.get(0).getTimestamp();
-		int refundTimeout = DogecoinACCTv1.calcRefundTimeout(recipientMessageTimestamp, lockTimeA);
+		int refundTimeout = LitecoinACCTv2.calcRefundTimeout(recipientMessageTimestamp, lockTimeA);
 
 		// Our calculated refundTimeout should match AT's refundTimeout
 		if (refundTimeout != crossChainTradeData.refundTimeout) {
@@ -660,7 +660,7 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		// Send 'redeem' MESSAGE to AT using both secret
 		byte[] secretA = tradeBotData.getSecret();
 		String qortalReceivingAddress = Base58.encode(tradeBotData.getReceivingAccountInfo()); // Actually contains whole address, not just PKH
-		byte[] messageData = DogecoinACCTv1.buildRedeemMessage(secretA, qortalReceivingAddress);
+		byte[] messageData = LitecoinACCTv2.buildRedeemMessage(secretA, qortalReceivingAddress);
 		String messageRecipient = tradeBotData.getAtAddress();
 
 		boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, messageData);
@@ -687,15 +687,15 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 	}
 
 	/**
-	 * Trade-bot is waiting for Alice to redeem Bob's AT, thus revealing secret-A which is required to spend the DOGE funds from P2SH-A.
+	 * Trade-bot is waiting for Alice to redeem Bob's AT, thus revealing secret-A which is required to spend the LTC funds from P2SH-A.
 	 * <p>
 	 * It's possible that Bob's AT has reached its trading timeout and automatically refunded QORT back to Bob. In which case,
 	 * trade-bot is done with this specific trade and finalizes in refunded state.
 	 * <p>
-	 * Assuming trade-bot can extract a valid secret-A from Alice's MESSAGE then trade-bot uses that to redeem the DOGE funds from P2SH-A
-	 * to Bob's 'foreign'/Dogecoin trade legacy-format address, as derived from trade private key.
+	 * Assuming trade-bot can extract a valid secret-A from Alice's MESSAGE then trade-bot uses that to redeem the LTC funds from P2SH-A
+	 * to Bob's 'foreign'/Litecoin trade legacy-format address, as derived from trade private key.
 	 * <p>
-	 * (This could potentially be 'improved' to send DOGE to any address of Bob's choosing by changing the transaction output).
+	 * (This could potentially be 'improved' to send LTC to any address of Bob's choosing by changing the transaction output).
 	 * <p>
 	 * If trade-bot successfully broadcasts the transaction, then this specific trade is done.
 	 * @throws ForeignBlockchainException
@@ -709,14 +709,14 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 
 		// If AT is REFUNDED or CANCELLED then something has gone wrong
 		if (crossChainTradeData.mode == AcctMode.REFUNDED || crossChainTradeData.mode == AcctMode.CANCELLED) {
-			// Alice hasn't redeemed the QORT, so there is no point in trying to redeem the DOGE
+			// Alice hasn't redeemed the QORT, so there is no point in trying to redeem the LTC
 			TradeBot.updateTradeBotState(repository, tradeBotData, State.BOB_REFUNDED,
 					() -> String.format("AT %s has auto-refunded - trade aborted", tradeBotData.getAtAddress()));
 
 			return;
 		}
 
-		byte[] secretA = DogecoinACCTv1.getInstance().findSecretA(repository, crossChainTradeData);
+		byte[] secretA = LitecoinACCTv2.getInstance().findSecretA(repository, crossChainTradeData);
 		if (secretA == null) {
 			LOGGER.debug(() -> String.format("Unable to find secret-A from redeem message to AT %s?", tradeBotData.getAtAddress()));
 			return;
@@ -724,18 +724,18 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 
 		// Use secret-A to redeem P2SH-A
 
-		Dogecoin dogecoin = Dogecoin.getInstance();
+		Litecoin litecoin = Litecoin.getInstance();
 
 		byte[] receivingAccountInfo = tradeBotData.getReceivingAccountInfo();
 		int lockTimeA = crossChainTradeData.lockTimeA;
 		byte[] redeemScriptA = BitcoinyHTLC.buildScript(crossChainTradeData.partnerForeignPKH, lockTimeA, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretA);
-		String p2shAddressA = dogecoin.deriveP2shAddress(redeemScriptA);
+		String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
-		long p2shFee = Dogecoin.getInstance().getP2shFee(feeTimestamp);
+		long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
-		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(dogecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
 		switch (htlcStatusA) {
 			case UNFUNDED:
@@ -756,17 +756,17 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			case FUNDED: {
 				Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedForeignAmount);
 				ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-				List<TransactionOutput> fundingOutputs = dogecoin.getUnspentOutputs(p2shAddressA);
+				List<TransactionOutput> fundingOutputs = litecoin.getUnspentOutputs(p2shAddressA);
 
-				Transaction p2shRedeemTransaction = BitcoinyHTLC.buildRedeemTransaction(dogecoin.getNetworkParameters(), redeemAmount, redeemKey,
+				Transaction p2shRedeemTransaction = BitcoinyHTLC.buildRedeemTransaction(litecoin.getNetworkParameters(), redeemAmount, redeemKey,
 						fundingOutputs, redeemScriptA, secretA, receivingAccountInfo);
 
-				dogecoin.broadcastTransaction(p2shRedeemTransaction);
+				litecoin.broadcastTransaction(p2shRedeemTransaction);
 				break;
 			}
 		}
 
-		String receivingAddress = dogecoin.pkhToAddress(receivingAccountInfo);
+		String receivingAddress = litecoin.pkhToAddress(receivingAccountInfo);
 
 		TradeBot.updateTradeBotState(repository, tradeBotData, State.BOB_DONE,
 				() -> String.format("P2SH-A %s redeemed. Funds should arrive at %s", tradeBotData.getAtAddress(), receivingAddress));
@@ -784,21 +784,21 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 		if (NTP.getTime() <= lockTimeA * 1000L)
 			return;
 
-		Dogecoin dogecoin = Dogecoin.getInstance();
+		Litecoin litecoin = Litecoin.getInstance();
 
 		// We can't refund P2SH-A until median block time has passed lockTime-A (see BIP113)
-		int medianBlockTime = dogecoin.getMedianBlockTime();
+		int medianBlockTime = litecoin.getMedianBlockTime();
 		if (medianBlockTime <= lockTimeA)
 			return;
 
 		byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
-		String p2shAddressA = dogecoin.deriveP2shAddress(redeemScriptA);
+		String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
-		long p2shFee = Dogecoin.getInstance().getP2shFee(feeTimestamp);
+		long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
-		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(dogecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
 
 		switch (htlcStatusA) {
 			case UNFUNDED:
@@ -820,16 +820,16 @@ public class DogecoinACCTv1TradeBot implements AcctTradeBot {
 			case FUNDED:{
 				Coin refundAmount = Coin.valueOf(crossChainTradeData.expectedForeignAmount);
 				ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-				List<TransactionOutput> fundingOutputs = dogecoin.getUnspentOutputs(p2shAddressA);
+				List<TransactionOutput> fundingOutputs = litecoin.getUnspentOutputs(p2shAddressA);
 
 				// Determine receive address for refund
-				String receiveAddress = dogecoin.getUnusedReceiveAddress(tradeBotData.getForeignKey());
-				Address receiving = Address.fromString(dogecoin.getNetworkParameters(), receiveAddress);
+				String receiveAddress = litecoin.getUnusedReceiveAddress(tradeBotData.getForeignKey());
+				Address receiving = Address.fromString(litecoin.getNetworkParameters(), receiveAddress);
 
-				Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(dogecoin.getNetworkParameters(), refundAmount, refundKey,
+				Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(litecoin.getNetworkParameters(), refundAmount, refundKey,
 						fundingOutputs, redeemScriptA, lockTimeA, receiving.getHash());
 
-				dogecoin.broadcastTransaction(p2shRefundTransaction);
+				litecoin.broadcastTransaction(p2shRefundTransaction);
 				break;
 			}
 		}

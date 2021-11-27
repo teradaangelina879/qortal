@@ -28,9 +28,9 @@ public class HSQLDBImportExport {
 
     private static final Logger LOGGER = LogManager.getLogger(Bootstrap.class);
 
-    public static void backupTradeBotStates(Repository repository) throws DataException {
-        HSQLDBImportExport.backupCurrentTradeBotStates(repository);
-        HSQLDBImportExport.backupArchivedTradeBotStates(repository);
+    public static void backupTradeBotStates(Repository repository, List<TradeBotData> additional) throws DataException {
+        HSQLDBImportExport.backupCurrentTradeBotStates(repository, additional);
+        HSQLDBImportExport.backupArchivedTradeBotStates(repository, additional);
 
         LOGGER.info("Exported sensitive/node-local data: trade bot states");
     }
@@ -47,14 +47,23 @@ public class HSQLDBImportExport {
     /**
      * Backs up the trade bot states currently in the repository, without combining them with past ones
      * @param repository
+     * @param additional - any optional extra trade bot states to include in the backup
      * @throws DataException
      */
-    private static void backupCurrentTradeBotStates(Repository repository) throws DataException {
+    private static void backupCurrentTradeBotStates(Repository repository, List<TradeBotData> additional) throws DataException {
         try {
             Path backupDirectory = HSQLDBImportExport.getExportDirectory(true);
 
             // Load current trade bot data
             List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
+
+
+            // Add any additional entries if specified
+            if (additional != null && !additional.isEmpty()) {
+                allTradeBotData.addAll(additional);
+            }
+
+            // Convert them to JSON objects
             JSONArray currentTradeBotDataJson = new JSONArray();
             for (TradeBotData tradeBotData : allTradeBotData) {
                 JSONObject tradeBotDataJson = tradeBotData.toJson();
@@ -82,14 +91,22 @@ public class HSQLDBImportExport {
      * Backs up the trade bot states currently in the repository to a separate "archive" file,
      * making sure to combine them with any unique states already present in the archive.
      * @param repository
+     * @param additional - any optional extra trade bot states to include in the backup
      * @throws DataException
      */
-    private static void backupArchivedTradeBotStates(Repository repository) throws DataException {
+    private static void backupArchivedTradeBotStates(Repository repository, List<TradeBotData> additional) throws DataException {
         try {
             Path backupDirectory = HSQLDBImportExport.getExportDirectory(true);
 
             // Load current trade bot data
             List<TradeBotData> allTradeBotData = repository.getCrossChainRepository().getAllTradeBotData();
+
+            // Add any additional entries if specified
+            if (additional != null && !additional.isEmpty()) {
+                allTradeBotData.addAll(additional);
+            }
+
+            // Convert them to JSON objects
             JSONArray allTradeBotDataJson = new JSONArray();
             for (TradeBotData tradeBotData : allTradeBotData) {
                 JSONObject tradeBotDataJson = tradeBotData.toJson();
@@ -263,7 +280,7 @@ public class HSQLDBImportExport {
      * @param jsonString
      * @return Triple<String, String, JSONArray> (type, dataset, data)
      */
-    private static Triple<String, String, JSONArray> parseJSONString(String jsonString) throws DataException {
+    public static Triple<String, String, JSONArray> parseJSONString(String jsonString) throws DataException {
         String type = null;
         String dataset = null;
         JSONArray data = null;
