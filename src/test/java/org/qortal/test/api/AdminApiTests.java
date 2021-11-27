@@ -5,11 +5,18 @@ import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.api.resource.AdminResource;
+import org.qortal.repository.DataException;
 import org.qortal.test.common.ApiCommon;
+import org.qortal.test.common.Common;
 
 public class AdminApiTests extends ApiCommon {
 
 	private AdminResource adminResource;
+
+	@Before
+	public void beforeTest() throws DataException {
+		Common.useDefaultSettings();
+	}
 
 	@Before
 	public void buildResource() {
