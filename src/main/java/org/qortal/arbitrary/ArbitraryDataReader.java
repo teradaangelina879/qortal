@@ -18,6 +18,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.settings.Settings;
 import org.qortal.transform.Transformer;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.ZipUtils;
@@ -75,7 +76,7 @@ public class ArbitraryDataReader {
         this.identifier = identifier;
 
         this.workingPath = this.buildWorkingPath();
-        this.uncompressedPath = Paths.get(this.workingPath.toString() + File.separator + "data");
+        this.uncompressedPath = Paths.get(this.workingPath.toString(), "data");
 
         // By default we can request missing files
         // Callers can use setCanRequestMissingFiles(false) to prevent it
@@ -249,8 +250,8 @@ public class ArbitraryDataReader {
     }
 
     private void fetchFromFileHash() throws DataException {
-        // Load data file directly from the hash
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(resourceId);
+        // Load data file directly from the hash (without a signature)
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash58(resourceId, null);
         // Set filePath to the location of the ArbitraryDataFile
         this.filePath = arbitraryDataFile.getFilePath();
     }
@@ -303,6 +304,7 @@ public class ArbitraryDataReader {
         // Load hashes
         byte[] digest = transactionData.getData();
         byte[] chunkHashes = transactionData.getChunkHashes();
+        byte[] signature = transactionData.getSignature();
 
         // Load secret
         byte[] secret = transactionData.getSecret();
@@ -311,7 +313,8 @@ public class ArbitraryDataReader {
         }
 
         // Load data file(s)
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
+        ArbitraryTransactionUtils.checkAndRelocateMiscFiles(transactionData);
         if (!arbitraryDataFile.exists()) {
             if (!arbitraryDataFile.allChunksExist(chunkHashes) || chunkHashes == null) {
                 if (ArbitraryDataStorageManager.getInstance().isNameInBlacklist(transactionData.getName())) {

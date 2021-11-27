@@ -493,11 +493,11 @@ public class ArbitraryDataManager extends Thread {
 
 	// Fetch data files by hash
 
-	private ArbitraryDataFile fetchArbitraryDataFile(Peer peer, byte[] hash) {
+	private ArbitraryDataFile fetchArbitraryDataFile(Peer peer, byte[] signature, byte[] hash) {
 		String hash58 = Base58.encode(hash);
 		LOGGER.info(String.format("Fetching data file %.8s from peer %s", hash58, peer));
 		arbitraryDataFileRequests.put(hash58, NTP.getTime());
-		Message getArbitraryDataFileMessage = new GetArbitraryDataFileMessage(hash);
+		Message getArbitraryDataFileMessage = new GetArbitraryDataFileMessage(signature, hash);
 
 		Message message = null;
 		try {
@@ -624,7 +624,7 @@ public class ArbitraryDataManager extends Thread {
 										List<byte[]> hashes) throws DataException {
 
 		// Load data file(s)
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData());
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
 		arbitraryDataFile.addChunkHashes(arbitraryTransactionData.getChunkHashes());
 
 		// If hashes are null, we will treat this to mean all data hashes associated with this file
@@ -646,13 +646,13 @@ public class ArbitraryDataManager extends Thread {
 			if (!arbitraryDataFile.chunkExists(hash)) {
 				// Only request the file if we aren't already requesting it from someone else
 				if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
-					ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, hash);
+					ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, signature, hash);
 					if (receivedArbitraryDataFile != null) {
 						LOGGER.info("Received data file {} from peer {}", receivedArbitraryDataFile, peer);
 						receivedAtLeastOneFile = true;
 					}
 					else {
-						LOGGER.info("Peer {} didn't respond with data file {}", peer, hash);
+						LOGGER.info("Peer {} didn't respond with data file {}", peer, Base58.encode(hash));
 					}
 				}
 				else {
@@ -769,7 +769,7 @@ public class ArbitraryDataManager extends Thread {
 			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
 			// Load data file(s)
-			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData());
+			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
 			arbitraryDataFile.addChunkHashes(arbitraryTransactionData.getChunkHashes());
 
 			// Check all hashes exist
@@ -809,13 +809,14 @@ public class ArbitraryDataManager extends Thread {
 	public void onNetworkGetArbitraryDataFileMessage(Peer peer, Message message) {
 		GetArbitraryDataFileMessage getArbitraryDataFileMessage = (GetArbitraryDataFileMessage) message;
 		byte[] hash = getArbitraryDataFileMessage.getHash();
+		byte[] signature = getArbitraryDataFileMessage.getSignature();
 		Controller.getInstance().stats.getArbitraryDataFileMessageStats.requests.incrementAndGet();
 
 		try {
-			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
+			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
 
 			if (arbitraryDataFile.exists()) {
-				ArbitraryDataFileMessage arbitraryDataFileMessage = new ArbitraryDataFileMessage(arbitraryDataFile);
+				ArbitraryDataFileMessage arbitraryDataFileMessage = new ArbitraryDataFileMessage(signature, arbitraryDataFile);
 				arbitraryDataFileMessage.setId(message.getId());
 				if (!peer.sendMessage(arbitraryDataFileMessage)) {
 					LOGGER.info("Couldn't sent file");
@@ -829,7 +830,7 @@ public class ArbitraryDataManager extends Thread {
 				Controller.getInstance().stats.getArbitraryDataFileMessageStats.unknownFiles.getAndIncrement();
 
 				// Send valid, yet unexpected message type in response, so peer's synchronizer doesn't have to wait for timeout
-				LOGGER.debug(() -> String.format("Sending 'file unknown' response to peer %s for GET_FILE request for unknown file %s", peer, arbitraryDataFile));
+				LOGGER.debug(String.format("Sending 'file unknown' response to peer %s for GET_FILE request for unknown file %s", peer, arbitraryDataFile));
 
 				// We'll send empty block summaries message as it's very short
 				// TODO: use a different message type here
@@ -869,7 +870,7 @@ public class ArbitraryDataManager extends Thread {
 					byte[] chunkHashes = transactionData.getChunkHashes();
 
 					// Load file(s) and add any that exist to the list of hashes
-					ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
+					ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
 					if (chunkHashes != null && chunkHashes.length > 0) {
 						arbitraryDataFile.addChunkHashes(chunkHashes);
 						for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {

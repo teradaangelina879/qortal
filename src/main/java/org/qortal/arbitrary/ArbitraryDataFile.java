@@ -59,29 +59,32 @@ public class ArbitraryDataFile {
 
     protected Path filePath;
     protected String hash58;
+    protected byte[] signature;
     private ArrayList<ArbitraryDataFileChunk> chunks;
     private byte[] secret;
 
     public ArbitraryDataFile() {
     }
 
-    public ArbitraryDataFile(String hash58) throws DataException {
+    public ArbitraryDataFile(String hash58, byte[] signature) throws DataException {
         this.createDataDirectory();
-        this.filePath = ArbitraryDataFile.getOutputFilePath(hash58, false);
+        this.filePath = ArbitraryDataFile.getOutputFilePath(hash58, signature, false);
         this.chunks = new ArrayList<>();
         this.hash58 = hash58;
+        this.signature = signature;
     }
 
-    public ArbitraryDataFile(byte[] fileContent) throws DataException {
+    public ArbitraryDataFile(byte[] fileContent, byte[] signature) throws DataException {
         if (fileContent == null) {
             LOGGER.error("fileContent is null");
             return;
         }
 
         this.hash58 = Base58.encode(Crypto.digest(fileContent));
+        this.signature = signature;
         LOGGER.trace(String.format("File digest: %s, size: %d bytes", this.hash58, fileContent.length));
 
-        Path outputFilePath = getOutputFilePath(this.hash58, true);
+        Path outputFilePath = getOutputFilePath(this.hash58, signature, true);
         File outputFile = outputFilePath.toFile();
         try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
             outputStream.write(fileContent);
@@ -97,15 +100,15 @@ public class ArbitraryDataFile {
         }
     }
 
-    public static ArbitraryDataFile fromHash58(String hash58) throws DataException {
-        return new ArbitraryDataFile(hash58);
+    public static ArbitraryDataFile fromHash58(String hash58, byte[] signature) throws DataException {
+        return new ArbitraryDataFile(hash58, signature);
     }
 
-    public static ArbitraryDataFile fromHash(byte[] hash) throws DataException {
-        return ArbitraryDataFile.fromHash58(Base58.encode(hash));
+    public static ArbitraryDataFile fromHash(byte[] hash, byte[] signature) throws DataException {
+        return ArbitraryDataFile.fromHash58(Base58.encode(hash), signature);
     }
 
-    public static ArbitraryDataFile fromPath(Path path) {
+    public static ArbitraryDataFile fromPath(Path path, byte[] signature) {
         if (path == null) {
             return null;
         }
@@ -113,11 +116,11 @@ public class ArbitraryDataFile {
         if (file.exists()) {
             try {
                 byte[] digest = Crypto.digest(file);
-                ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+                ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
 
                 // Copy file to data directory if needed
                 if (Files.exists(path) && !arbitraryDataFile.isInBaseDirectory(path)) {
-                    arbitraryDataFile.copyToDataDirectory(path);
+                    arbitraryDataFile.copyToDataDirectory(path, signature);
                 }
                 // Or, if it's already in the data directory, we may need to move it
                 else if (!path.equals(arbitraryDataFile.getFilePath())) {
@@ -134,8 +137,8 @@ public class ArbitraryDataFile {
         return null;
     }
 
-    public static ArbitraryDataFile fromFile(File file) {
-        return ArbitraryDataFile.fromPath(Paths.get(file.getPath()));
+    public static ArbitraryDataFile fromFile(File file, byte[] signature) {
+        return ArbitraryDataFile.fromPath(Paths.get(file.getPath()), signature);
     }
 
     private boolean createDataDirectory() {
@@ -151,11 +154,11 @@ public class ArbitraryDataFile {
         return true;
     }
 
-    private Path copyToDataDirectory(Path sourcePath) throws DataException {
+    private Path copyToDataDirectory(Path sourcePath, byte[] signature) throws DataException {
         if (this.hash58 == null || this.filePath == null) {
             return null;
         }
-        Path outputFilePath = getOutputFilePath(this.hash58, true);
+        Path outputFilePath = getOutputFilePath(this.hash58, signature, true);
         sourcePath = sourcePath.toAbsolutePath();
         Path destPath = outputFilePath.toAbsolutePath();
         try {
@@ -165,13 +168,25 @@ public class ArbitraryDataFile {
         }
     }
 
-    public static Path getOutputFilePath(String hash58, boolean createDirectories) throws DataException {
+    public static Path getOutputFilePath(String hash58, byte[] signature, boolean createDirectories) throws DataException {
+        Path directory;
+
         if (hash58 == null) {
             return null;
         }
-        String hash58First2Chars = hash58.substring(0, 2).toLowerCase();
-        String hash58Next2Chars = hash58.substring(2, 4).toLowerCase();
-        Path directory = Paths.get(Settings.getInstance().getDataPath(), hash58First2Chars, hash58Next2Chars);
+        if (signature != null) {
+            // Key by signature
+            String signature58 = Base58.encode(signature);
+            String sig58First2Chars = signature58.substring(0, 2).toLowerCase();
+            String sig58Next2Chars = signature58.substring(2, 4).toLowerCase();
+            directory = Paths.get(Settings.getInstance().getDataPath(), sig58First2Chars, sig58Next2Chars, signature58);
+        }
+        else {
+            // Put files without signatures in a "_misc" directory, and the files will be relocated later
+            String hash58First2Chars = hash58.substring(0, 2).toLowerCase();
+            String hash58Next2Chars = hash58.substring(2, 4).toLowerCase();
+            directory = Paths.get(Settings.getInstance().getDataPath(), "_misc", hash58First2Chars, hash58Next2Chars);
+        }
 
         if (createDirectories) {
             try {
@@ -217,7 +232,7 @@ public class ArbitraryDataFile {
         while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
             byte[] chunkDigest = new byte[TransactionTransformer.SHA256_LENGTH];
             byteBuffer.get(chunkDigest);
-            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkDigest);
+            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkDigest, this.signature);
             this.addChunk(chunk);
         }
     }
@@ -252,7 +267,7 @@ public class ArbitraryDataFile {
                             out.write(buffer, 0, numberOfBytes);
                             out.flush();
 
-                            ArbitraryDataFileChunk chunk = new ArbitraryDataFileChunk(out.toByteArray());
+                            ArbitraryDataFileChunk chunk = new ArbitraryDataFileChunk(out.toByteArray(), this.signature);
                             ValidationResult validationResult = chunk.isValid();
                             if (validationResult == ValidationResult.OK) {
                                 this.chunks.add(chunk);
@@ -301,7 +316,7 @@ public class ArbitraryDataFile {
                 out.close();
 
                 // Copy temporary file to data directory
-                this.filePath = this.copyToDataDirectory(outputPath);
+                this.filePath = this.copyToDataDirectory(outputPath, this.signature);
                 if (FilesystemUtils.pathInsideDataOrTempPath(outputPath)) {
                     Files.delete(outputPath);
                 }
@@ -425,7 +440,7 @@ public class ArbitraryDataFile {
         while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
             byte[] chunkHash = new byte[TransactionTransformer.SHA256_LENGTH];
             byteBuffer.get(chunkHash);
-            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash);
+            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
             if (!chunk.exists()) {
                 return false;
             }
@@ -441,7 +456,7 @@ public class ArbitraryDataFile {
         while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
             byte[] chunkHash = new byte[TransactionTransformer.SHA256_LENGTH];
             byteBuffer.get(chunkHash);
-            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash);
+            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
             if (chunk.exists()) {
                 return true;
             }

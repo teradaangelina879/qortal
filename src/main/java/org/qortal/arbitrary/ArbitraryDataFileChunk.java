@@ -13,20 +13,20 @@ public class ArbitraryDataFileChunk extends ArbitraryDataFile {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFileChunk.class);
 
-    public ArbitraryDataFileChunk(String hash58) throws DataException {
-        super(hash58);
+    public ArbitraryDataFileChunk(String hash58, byte[] signature) throws DataException {
+        super(hash58, signature);
     }
 
-    public ArbitraryDataFileChunk(byte[] fileContent) throws DataException {
-        super(fileContent);
+    public ArbitraryDataFileChunk(byte[] fileContent, byte[] signature) throws DataException {
+        super(fileContent, signature);
     }
 
-    public static ArbitraryDataFileChunk fromHash58(String hash58) throws DataException {
-        return new ArbitraryDataFileChunk(hash58);
+    public static ArbitraryDataFileChunk fromHash58(String hash58, byte[] signature) throws DataException {
+        return new ArbitraryDataFileChunk(hash58, signature);
     }
 
-    public static ArbitraryDataFileChunk fromHash(byte[] hash) throws DataException {
-        return ArbitraryDataFileChunk.fromHash58(Base58.encode(hash));
+    public static ArbitraryDataFileChunk fromHash(byte[] hash, byte[] signature) throws DataException {
+        return ArbitraryDataFileChunk.fromHash58(Base58.encode(hash), signature);
     }
 
     @Override

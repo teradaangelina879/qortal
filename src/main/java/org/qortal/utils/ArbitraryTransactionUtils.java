@@ -3,6 +3,7 @@ package org.qortal.utils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.arbitrary.ArbitraryDataFileChunk;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -14,6 +15,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
+
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+
 
 public class ArbitraryTransactionUtils {
 
@@ -83,9 +87,10 @@ public class ArbitraryTransactionUtils {
         }
 
         byte[] digest = transactionData.getData();
+        byte[] signature = transactionData.getSignature();
 
         // Load complete file
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
         return arbitraryDataFile.exists();
 
     }
@@ -97,6 +102,7 @@ public class ArbitraryTransactionUtils {
 
         byte[] digest = transactionData.getData();
         byte[] chunkHashes = transactionData.getChunkHashes();
+        byte[] signature = transactionData.getSignature();
 
         if (chunkHashes == null) {
             // This file doesn't have any chunks, which is the same as us having them all
@@ -104,7 +110,7 @@ public class ArbitraryTransactionUtils {
         }
 
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
         if (chunkHashes != null && chunkHashes.length > 0) {
             arbitraryDataFile.addChunkHashes(chunkHashes);
         }
@@ -118,6 +124,7 @@ public class ArbitraryTransactionUtils {
 
         byte[] digest = transactionData.getData();
         byte[] chunkHashes = transactionData.getChunkHashes();
+        byte[] signature = transactionData.getSignature();
 
         if (chunkHashes == null) {
             // This file doesn't have any chunks, which means none exist
@@ -125,7 +132,7 @@ public class ArbitraryTransactionUtils {
         }
 
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
         if (chunkHashes != null && chunkHashes.length > 0) {
             arbitraryDataFile.addChunkHashes(chunkHashes);
         }
@@ -139,6 +146,7 @@ public class ArbitraryTransactionUtils {
 
         byte[] digest = transactionData.getData();
         byte[] chunkHashes = transactionData.getChunkHashes();
+        byte[] signature = transactionData.getSignature();
 
         if (chunkHashes == null) {
             // This file doesn't have any chunks
@@ -146,7 +154,7 @@ public class ArbitraryTransactionUtils {
         }
 
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
         if (chunkHashes != null && chunkHashes.length > 0) {
             arbitraryDataFile.addChunkHashes(chunkHashes);
         }
@@ -174,8 +182,8 @@ public class ArbitraryTransactionUtils {
         return true;
     }
 
-    public static boolean isFileHashRecent(byte[] hash, long now, long cleanupAfter) throws DataException {
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash);
+    public static boolean isFileHashRecent(byte[] hash, byte[] signature, long now, long cleanupAfter) throws DataException {
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
         if (arbitraryDataFile == null || !arbitraryDataFile.exists()) {
             // No hash, or file doesn't exist, so it's not recent
             return false;
@@ -188,11 +196,12 @@ public class ArbitraryTransactionUtils {
     public static void deleteCompleteFile(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
         byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+        byte[] signature = arbitraryTransactionData.getSignature();
 
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
         arbitraryDataFile.addChunkHashes(chunkHashes);
 
-        if (!ArbitraryTransactionUtils.isFileHashRecent(completeHash, now, cleanupAfter)) {
+        if (!ArbitraryTransactionUtils.isFileHashRecent(completeHash, signature, now, cleanupAfter)) {
             LOGGER.info("Deleting file {} because it can be rebuilt from chunks " +
                     "if needed", Base58.encode(completeHash));
 
@@ -203,8 +212,9 @@ public class ArbitraryTransactionUtils {
     public static void deleteCompleteFileAndChunks(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
         byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+        byte[] signature = arbitraryTransactionData.getSignature();
 
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
         arbitraryDataFile.addChunkHashes(chunkHashes);
         arbitraryDataFile.deleteAll();
     }
@@ -212,9 +222,10 @@ public class ArbitraryTransactionUtils {
     public static void convertFileToChunks(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
         byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+        byte[] signature = arbitraryTransactionData.getSignature();
 
         // Split the file into chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
         int chunkCount = arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
         if (chunkCount > 1) {
             LOGGER.info(String.format("Successfully split %s into %d chunk%s",
@@ -226,7 +237,7 @@ public class ArbitraryTransactionUtils {
                 if (arbitraryDataFile.allChunksExist(chunkHashes)) {
 
                     // Now delete the original file if it's not recent
-                    if (!ArbitraryTransactionUtils.isFileHashRecent(completeHash, now, cleanupAfter)) {
+                    if (!ArbitraryTransactionUtils.isFileHashRecent(completeHash, signature, now, cleanupAfter)) {
                         LOGGER.info("Deleting file {} because it can now be rebuilt from " +
                                 "chunks if needed", Base58.encode(completeHash));
 
@@ -238,6 +249,75 @@ public class ArbitraryTransactionUtils {
                 }
             }
         }
+    }
+
+    /**
+     * When first uploaded, files go into a _misc folder as they are not yet associated with a
+     * transaction signature. Once the transaction is broadcast, they need to be moved to the
+     * correct location, keyed by the transaction signature.
+     * @param arbitraryTransactionData
+     * @return
+     * @throws DataException
+     */
+    public static int checkAndRelocateMiscFiles(ArbitraryTransactionData arbitraryTransactionData) {
+        int filesRelocatedCount = 0;
+
+        try {
+            // Load hashes
+            byte[] digest = arbitraryTransactionData.getData();
+            byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+
+            // Load signature
+            byte[] signature = arbitraryTransactionData.getSignature();
+
+            // Check if any files for this transaction exist in the misc folder
+            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, null);
+            if (chunkHashes != null && chunkHashes.length > 0) {
+                arbitraryDataFile.addChunkHashes(chunkHashes);
+            }
+            if (arbitraryDataFile.anyChunksExist(chunkHashes)) {
+                // At least one chunk exists in the misc folder - move them
+                for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
+                    if (chunk.exists()) {
+                        // Determine the correct path by initializing a new ArbitraryDataFile instance with the signature
+                        ArbitraryDataFile newChunk = ArbitraryDataFile.fromHash(chunk.getHash(), signature);
+                        Path oldPath = chunk.getFilePath();
+                        Path newPath = newChunk.getFilePath();
+
+                        // Ensure parent directories exist, then copy the file
+                        LOGGER.info("Relocating chunk from {} to {}...", oldPath, newPath);
+                        Files.createDirectories(newPath.getParent());
+                        Files.move(oldPath, newPath, REPLACE_EXISTING);
+                        filesRelocatedCount++;
+
+                        // Delete empty parent directories
+                        FilesystemUtils.safeDeleteEmptyParentDirectories(oldPath);
+                    }
+                }
+            }
+            // Also move the complete file if it exists
+            if (arbitraryDataFile.exists()) {
+                // Determine the correct path by initializing a new ArbitraryDataFile instance with the signature
+                ArbitraryDataFile newCompleteFile = ArbitraryDataFile.fromHash(arbitraryDataFile.getHash(), signature);
+                Path oldPath = arbitraryDataFile.getFilePath();
+                Path newPath = newCompleteFile.getFilePath();
+
+                // Ensure parent directories exist, then copy the file
+                LOGGER.info("Relocating complete file from {} to {}...", oldPath, newPath);
+                Files.createDirectories(newPath.getParent());
+                Files.move(oldPath, newPath, REPLACE_EXISTING);
+                filesRelocatedCount++;
+
+                // Delete empty parent directories
+                FilesystemUtils.safeDeleteEmptyParentDirectories(oldPath);
+            }
+        }
+        catch (DataException | IOException e) {
+            LOGGER.info("Unable to check and relocate all files for signature {}: {}",
+                    Base58.encode(arbitraryTransactionData.getSignature()), e.getMessage());
+        }
+
+        return filesRelocatedCount;
     }
 
 }

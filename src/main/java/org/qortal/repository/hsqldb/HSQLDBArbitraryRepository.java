@@ -12,6 +12,7 @@ import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.DataException;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.transaction.Transaction.ApprovalStatus;
+import org.qortal.utils.ArbitraryTransactionUtils;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -53,24 +54,23 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = transactionData.getChunkHashes();
 
 		// Load data file(s)
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
 		if (chunkHashes != null && chunkHashes.length > 0) {
 			arbitraryDataFile.addChunkHashes(chunkHashes);
 		}
 
-		// Check if we already have the complete data file
-		if (arbitraryDataFile.exists()) {
+		// Check if we already have the complete data file or all chunks
+		if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(chunkHashes)) {
 			return true;
 		}
 
-		// If this transaction doesn't have any chunks, then we require the complete file
-		if (chunkHashes == null) {
-			return false;
-		}
-
-		// Alternatively, if we have all the chunks, then it's safe to assume the data is local
-		if (arbitraryDataFile.allChunksExist(chunkHashes)) {
-			return true;
+		// We may need to relocate files from the "misc_" folder to the signature folder
+		int relocatedCount = ArbitraryTransactionUtils.checkAndRelocateMiscFiles(transactionData);
+		if (relocatedCount > 0) {
+			// Files were relocated, so check again to see if they exist in the correct place
+			if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(chunkHashes)) {
+				return true;
+			}
 		}
 
 		return false;
@@ -93,7 +93,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = transactionData.getChunkHashes();
 
 		// Load data file(s)
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
 		if (chunkHashes != null && chunkHashes.length > 0) {
 			arbitraryDataFile.addChunkHashes(chunkHashes);
 		}
@@ -143,7 +143,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
 
 		// Load data file(s)
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest);
+		byte[] signature = arbitraryTransactionData.getSignature();
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
 		if (chunkHashes != null && chunkHashes.length > 0) {
 			arbitraryDataFile.addChunkHashes(chunkHashes);
 		}

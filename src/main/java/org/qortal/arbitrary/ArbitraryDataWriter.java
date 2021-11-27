@@ -56,7 +56,7 @@ public class ArbitraryDataWriter {
         this.compression = compression;
     }
 
-    public void save() throws DataException, IOException, DataException, InterruptedException, MissingDataException {
+    public void save() throws IOException, DataException, InterruptedException, MissingDataException {
         try {
             this.preExecute();
             this.validateService();
@@ -251,7 +251,8 @@ public class ArbitraryDataWriter {
     }
 
     private void split() throws IOException, DataException {
-        this.arbitraryDataFile = ArbitraryDataFile.fromPath(this.filePath);
+        // We don't have a signature yet, so use null to put the file in a generic folder
+        this.arbitraryDataFile = ArbitraryDataFile.fromPath(this.filePath, null);
         if (this.arbitraryDataFile == null) {
             throw new IOException("No file available when trying to split");
         }
