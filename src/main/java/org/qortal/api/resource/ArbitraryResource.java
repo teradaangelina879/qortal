@@ -68,7 +68,7 @@ public class ArbitraryResource {
 	@Path("/resources")
 	@Operation(
 			summary = "List arbitrary resources available on chain, optionally filtered by service and identifier",
-			description = "- If an identifier parameter is missing or empty, it will return an unfiltered list of all possible identifiers.\n" +
+			description = "- If the identifier parameter is missing or empty, it will return an unfiltered list of all possible identifiers.\n" +
 					"- If an identifier is specified, only resources with a matching identifier will be returned.\n" +
 					"- If default is set to true, only resources without identifiers will be returned.",
 			responses = {
