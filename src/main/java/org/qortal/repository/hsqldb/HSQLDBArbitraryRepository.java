@@ -295,14 +295,27 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier,
+			boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 
-		sql.append("SELECT name, service, identifier FROM ArbitraryTransactions");
+		sql.append("SELECT name, service, identifier FROM ArbitraryTransactions WHERE 1=1");
 
 		if (service != null) {
-			sql.append(" WHERE service = ");
+			sql.append(" AND service = ");
 			sql.append(service.value);
+		}
+
+		if (defaultResource) {
+			// Default resource requested - use NULL identifier
+			// The AND ? IS NULL AND ? IS NULL is a hack to make use of the identifier params in checkedExecute()
+			identifier = null;
+			sql.append(" AND (identifier IS NULL AND ? IS NULL AND ? IS NULL)");
+		}
+		else {
+			// Non-default resource requested
+			// Use an exact match identifier, or list all if supplied identifier is null
+			sql.append(" AND (identifier = ? OR (? IS NULL))");
 		}
 
 		sql.append(" GROUP BY name, service, identifier ORDER BY name");
@@ -315,14 +328,14 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		List<ArbitraryResourceInfo> arbitraryResources = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), identifier, identifier)) {
 			if (resultSet == null)
 				return null;
 
 			do {
 				String name = resultSet.getString(1);
 				Service serviceResult = Service.valueOf(resultSet.getInt(2));
-				String identifier = resultSet.getString(3);
+				String identifierResult = resultSet.getString(3);
 
 				// We should filter out resources without names
 				if (name == null) {
@@ -332,7 +345,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
 				arbitraryResourceInfo.name = name;
 				arbitraryResourceInfo.service = serviceResult;
-				arbitraryResourceInfo.identifier = identifier;
+				arbitraryResourceInfo.identifier = identifierResult;
 
 				arbitraryResources.add(arbitraryResourceInfo);
 			} while (resultSet.next());

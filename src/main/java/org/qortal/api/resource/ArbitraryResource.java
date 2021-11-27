@@ -67,7 +67,10 @@ public class ArbitraryResource {
 	@GET
 	@Path("/resources")
 	@Operation(
-			summary = "List arbitrary resources available on chain, optionally filtered by service",
+			summary = "List arbitrary resources available on chain, optionally filtered by service and identifier",
+			description = "- If an identifier parameter is missing or empty, it will return an unfiltered list of all possible identifiers.\n" +
+					"- If an identifier is specified, only resources with a matching identifier will be returned.\n" +
+					"- If default is set to true, only resources without identifiers will be returned.",
 			responses = {
 					@ApiResponse(
 							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
@@ -76,19 +79,29 @@ public class ArbitraryResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryResourceInfo> getResources(
-			@QueryParam("service") Service service, @Parameter(
-			ref = "limit"
-	) @QueryParam("limit") Integer limit, @Parameter(
-			ref = "offset"
-	) @QueryParam("offset") Integer offset, @Parameter(
-			ref = "reverse"
-	) @QueryParam("reverse") Boolean reverse, @Parameter(
-			ref = "includestatus"
-	) @QueryParam("includestatus") Boolean includeStatus) {
+			@QueryParam("service") Service service,
+			@QueryParam("identifier") String identifier,
+			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
+			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
+			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
+			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus) {
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
+			// Treat empty identifier as null
+			if (identifier != null && identifier.isEmpty()) {
+				identifier = null;
+			}
+
+			// Ensure that "default" and "identifier" parameters cannot coexist
+			boolean defaultRes = Boolean.TRUE.equals(defaultResource);
+			if (defaultRes == true && identifier != null) {
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "identifier cannot be specified when requesting a default resource");
+			}
+
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.getArbitraryResources(service, limit, offset, reverse);
+					.getArbitraryResources(service, identifier, defaultRes, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
