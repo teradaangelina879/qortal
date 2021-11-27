@@ -32,10 +32,15 @@ import static org.junit.Assert.*;
 public class ArbitraryDataStoragePolicyTests extends Common {
 
     @Before
-    public void beforeTest() throws DataException {
+    public void beforeTest() throws DataException, InterruptedException {
         Common.useDefaultSettings();
         this.deleteListsDirectory();
         ArbitraryDataStorageManager.getInstance().start();
+
+        // Wait for storage space to be calculated
+        while (!ArbitraryDataStorageManager.getInstance().isStorageCapacityCalculated()) {
+            Thread.sleep(100L);
+        }
     }
 
     @After
