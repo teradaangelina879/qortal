@@ -153,7 +153,7 @@ public class ArbitraryDataRenderer {
         } catch (IOException e) {
             LOGGER.info("Unable to show loading screen: {}", e.getMessage());
         }
-        return ArbitraryDataRenderer.getResponse(response, 503, responseString);
+        return ArbitraryDataRenderer.getResponse(response, 102, responseString);
     }
 
     public static HttpServletResponse getResponse(HttpServletResponse response, int responseCode, String responseString) {
