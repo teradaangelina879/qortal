@@ -596,10 +596,6 @@ public class ArbitraryResource {
 
 	private HttpServletResponse download(Service service, String name, String identifier, String filepath, boolean rebuild) {
 
-		if (filepath == null) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing filepath");
-		}
-
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
 
@@ -622,7 +618,7 @@ public class ArbitraryResource {
 			}
 			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
 
-			if (filepath.isEmpty()) {
+			if (filepath == null || filepath.isEmpty()) {
 				// No file path supplied - so check if this is a single file resource
 				String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
 				if (files.length == 1) {
