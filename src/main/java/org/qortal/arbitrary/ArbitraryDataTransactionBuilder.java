@@ -4,6 +4,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
+import org.qortal.arbitrary.ArbitraryDataDiff.*;
+import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
@@ -113,11 +115,27 @@ public class ArbitraryDataTransactionBuilder {
             }
 
             // Check number of modified files
+            ArbitraryDataMetadataPatch metadata = patch.getMetadata();
             int totalFileCount = patch.getTotalFileCount();
-            int differencesCount = patch.getFileDifferencesCount();
+            int differencesCount = metadata.getFileDifferencesCount();
             difference = (double) differencesCount / (double) totalFileCount;
             if (difference > MAX_FILE_DIFF) {
                 LOGGER.info("Reached maximum file differences ({} / {}) - using PUT", difference, MAX_FILE_DIFF);
+                return Method.PUT;
+            }
+
+            // Check the patch types
+            // Limit this check to single file resources only for now
+            boolean atLeastOnePatch = false;
+            if (totalFileCount == 1) {
+                for (ModifiedPath path : metadata.getModifiedPaths()) {
+                    if (path.getDiffType() != DiffType.COMPLETE_FILE) {
+                        atLeastOnePatch = true;
+                    }
+                }
+            }
+            if (!atLeastOnePatch) {
+                LOGGER.info("Patch consists of complete files only - using PUT");
                 return Method.PUT;
             }
 

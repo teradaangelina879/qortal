@@ -75,6 +75,7 @@ public class ArbitraryDataDiff {
     private final List<Path> removedPaths;
 
     private int totalFileCount;
+    private ArbitraryDataMetadataPatch metadata;
 
     public ArbitraryDataDiff(Path pathBefore, Path pathAfter, byte[] previousSignature) throws DataException {
         this.pathBefore = pathBefore;
@@ -258,6 +259,9 @@ public class ArbitraryDataDiff {
                         diff.removedPaths.add(filePathBefore);
                     }
 
+                    // Keep a tally of the total number of files to help with decision making
+                    diff.totalFileCount++;
+
                     return FileVisitResult.CONTINUE;
                 }
 
@@ -300,6 +304,7 @@ public class ArbitraryDataDiff {
         metadata.setPreviousHash(this.previousHash);
         metadata.setCurrentHash(this.currentHash);
         metadata.write();
+        this.metadata = metadata;
     }
 
 
@@ -360,8 +365,8 @@ public class ArbitraryDataDiff {
         return this.totalFileCount;
     }
 
-    public int getFileDifferencesCount() {
-        return this.addedPaths.size() + this.modifiedPaths.size() + this.removedPaths.size();
+    public ArbitraryDataMetadataPatch getMetadata() {
+        return this.metadata;
     }
 
 

@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 import org.qortal.utils.FilesystemUtils;
@@ -23,6 +24,7 @@ public class ArbitraryDataCreatePatch {
     private Path finalPath;
     private int totalFileCount;
     private int fileDifferencesCount;
+    private ArbitraryDataMetadataPatch metadata;
 
     private Path workingPath;
     private String identifier;
@@ -121,7 +123,7 @@ public class ArbitraryDataCreatePatch {
         diff.compute();
 
         this.totalFileCount = diff.getTotalFileCount();
-        this.fileDifferencesCount = diff.getFileDifferencesCount();
+        this.metadata = diff.getMetadata();
     }
 
     public Path getFinalPath() {
@@ -132,8 +134,8 @@ public class ArbitraryDataCreatePatch {
         return this.totalFileCount;
     }
 
-    public int getFileDifferencesCount() {
-        return this.fileDifferencesCount;
+    public ArbitraryDataMetadataPatch getMetadata() {
+        return this.metadata;
     }
 
 }

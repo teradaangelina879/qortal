@@ -174,4 +174,9 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
         return this.currentHash;
     }
 
+
+    public int getFileDifferencesCount() {
+        return this.addedPaths.size() + this.modifiedPaths.size() + this.removedPaths.size();
+    }
+
 }
