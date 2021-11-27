@@ -77,6 +77,7 @@ public class ArbitraryDataStorageManager extends Thread {
     public void shutdown() {
         isStopping = true;
         this.interrupt();
+        instance = null;
     }
 
     /**

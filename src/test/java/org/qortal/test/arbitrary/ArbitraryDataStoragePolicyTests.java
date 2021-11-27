@@ -1,6 +1,7 @@
 package org.qortal.test.arbitrary;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
@@ -31,6 +32,12 @@ public class ArbitraryDataStoragePolicyTests extends Common {
     @Before
     public void beforeTest() throws DataException {
         Common.useDefaultSettings();
+        ArbitraryDataStorageManager.getInstance().start();
+    }
+
+    @After
+    public void afterTest() throws DataException {
+        ArbitraryDataStorageManager.getInstance().shutdown();
     }
 
     @Test
