@@ -64,15 +64,6 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return true;
 		}
 
-		// We may need to relocate files from the "misc_" folder to the signature folder
-		int relocatedCount = ArbitraryTransactionUtils.checkAndRelocateMiscFiles(transactionData);
-		if (relocatedCount > 0) {
-			// Files were relocated, so check again to see if they exist in the correct place
-			if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(chunkHashes)) {
-				return true;
-			}
-		}
-
 		return false;
 	}
 

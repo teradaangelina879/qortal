@@ -21,6 +21,7 @@ import org.qortal.arbitrary.ArbitraryDataFileChunk;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.ArbitraryTransactionUtils;
 
 public class ArbitraryTransaction extends Transaction {
 
@@ -216,6 +217,9 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	protected void onImportAsUnconfirmed() throws DataException {
+		// We may need to move files from the misc_ folder
+		ArbitraryTransactionUtils.checkAndRelocateMiscFiles(arbitraryTransactionData);
+
 		// Invalidate the cache for this name if we have the data already
 		if (arbitraryTransactionData.getName() != null) {
 			if (isDataLocal()) {
