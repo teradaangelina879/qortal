@@ -686,11 +686,11 @@ public class ArbitraryDataManager extends Thread {
 						receivedAtLeastOneFile = true;
 					}
 					else {
-						LOGGER.info("Peer {} didn't respond with data file {}", peer, Base58.encode(hash));
+						LOGGER.info("Peer {} didn't respond with data file {} for signature {}", peer, Base58.encode(hash), Base58.encode(signature));
 					}
 				}
 				else {
-					LOGGER.info("Already requesting data file {}", arbitraryDataFile);
+					LOGGER.info("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
 				}
 			}
 		}
