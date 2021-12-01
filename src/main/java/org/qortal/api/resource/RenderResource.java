@@ -122,7 +122,7 @@ public class RenderResource {
     @Path("/signature/{signature}")
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexBySignature(@PathParam("signature") String signature) {
-        requirePriorAuthorization(signature, Service.WEBSITE, null);
+        Security.requirePriorAuthorization(request, signature, Service.WEBSITE, null);
         return this.get(signature, ResourceIdType.SIGNATURE, null, "/", null, "/render/signature", true, true);
     }
 
@@ -130,7 +130,7 @@ public class RenderResource {
     @Path("/signature/{signature}/{path:.*}")
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathBySignature(@PathParam("signature") String signature, @PathParam("path") String inPath) {
-        requirePriorAuthorization(signature, Service.WEBSITE, null);
+        Security.requirePriorAuthorization(request, signature, Service.WEBSITE, null);
         return this.get(signature, ResourceIdType.SIGNATURE, null, inPath,null, "/render/signature", true, true);
     }
 
@@ -138,7 +138,7 @@ public class RenderResource {
     @Path("/hash/{hash}")
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByHash(@PathParam("hash") String hash58, @QueryParam("secret") String secret58) {
-        requirePriorAuthorization(hash58, Service.WEBSITE, null);
+        Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
         return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, "/", secret58, "/render/hash", true, false);
     }
 
@@ -147,7 +147,7 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathByHash(@PathParam("hash") String hash58, @PathParam("path") String inPath,
                                              @QueryParam("secret") String secret58) {
-        requirePriorAuthorization(hash58, Service.WEBSITE, null);
+        Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
         return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, inPath, secret58, "/render/hash", true, false);
     }
 
@@ -157,7 +157,7 @@ public class RenderResource {
     public HttpServletResponse getPathByName(@PathParam("service") Service service,
                                              @PathParam("name") String name,
                                              @PathParam("path") String inPath) {
-        requirePriorAuthorization(name, service, null);
+        Security.requirePriorAuthorization(request, name, service, null);
         String prefix = String.format("/render/%s", service);
         return this.get(name, ResourceIdType.NAME, service, inPath, null, prefix, true, true);
     }
@@ -167,7 +167,7 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByName(@PathParam("service") Service service,
                                               @PathParam("name") String name) {
-        requirePriorAuthorization(name, service, null);
+        Security.requirePriorAuthorization(request, name, service, null);
         String prefix = String.format("/render/%s", service);
         return this.get(name, ResourceIdType.NAME, service, "/", null, prefix, true, true);
     }
@@ -198,13 +198,6 @@ public class RenderResource {
         ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
                 secret58, prefix, usePrefix, async, request, response, context);
         return renderer.render();
-    }
-
-    private void requirePriorAuthorization(String resourceId, Service service, String identifier) {
-        ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, service, identifier);
-        if (!ArbitraryDataRenderManager.getInstance().isAuthorized(resource)) {
-            throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Call /render/authorize first");
-        }
     }
 
 }

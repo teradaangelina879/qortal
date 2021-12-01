@@ -1,5 +1,8 @@
 package org.qortal.api;
 
+import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.misc.Service;
+import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.settings.Settings;
 
 import java.io.IOException;
@@ -58,6 +61,23 @@ public abstract class Security {
 			}
 		} catch (UnknownHostException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.UNAUTHORIZED);
+		}
+	}
+
+	public static void requirePriorAuthorization(HttpServletRequest request, String resourceId, Service service, String identifier) {
+		ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, service, identifier);
+		if (!ArbitraryDataRenderManager.getInstance().isAuthorized(resource)) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Call /render/authorize first");
+		}
+	}
+
+	public static void requirePriorAuthorizationOrApiKey(HttpServletRequest request, String resourceId, Service service, String identifier) {
+		try {
+			Security.checkApiCallAllowed(request);
+
+		} catch (ApiException e) {
+			// API call wasn't allowed, but maybe it was pre-authorized
+			Security.requirePriorAuthorization(request, resourceId, service, identifier);
 		}
 	}
 

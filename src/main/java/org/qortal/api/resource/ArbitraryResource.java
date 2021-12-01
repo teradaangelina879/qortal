@@ -140,10 +140,12 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public ArbitraryResourceSummary getDefaultResourceStatus(@PathParam("service") Service service,
 													  		 @PathParam("name") String name,
 															 @QueryParam("build") Boolean build) {
 
+		Security.requirePriorAuthorizationOrApiKey(request, name, service, null);
 		return this.getSummary(service, name, null, build);
 	}
 
@@ -158,11 +160,13 @@ public class ArbitraryResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public ArbitraryResourceSummary getResourceStatus(@PathParam("service") Service service,
 													  @PathParam("name") String name,
 													  @PathParam("identifier") String identifier,
 													  @QueryParam("build") Boolean build) {
 
+		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier);
 		return this.getSummary(service, name, identifier, build);
 	}
 
