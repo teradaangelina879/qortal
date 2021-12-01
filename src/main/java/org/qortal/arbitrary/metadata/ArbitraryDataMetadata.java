@@ -54,6 +54,7 @@ public class ArbitraryDataMetadata {
 
         BufferedWriter writer = new BufferedWriter(new FileWriter(this.filePath.toString()));
         writer.write(this.jsonString);
+        writer.newLine();
         writer.close();
     }
 

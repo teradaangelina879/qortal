@@ -70,6 +70,7 @@ public class ArbitraryDataQortalMetadata extends ArbitraryDataMetadata {
         Path patchPath = Paths.get(this.qortalDirectoryPath.toString(), this.fileName());
         BufferedWriter writer = new BufferedWriter(new FileWriter(patchPath.toString()));
         writer.write(this.jsonString);
+        writer.newLine();
         writer.close();
     }
 
