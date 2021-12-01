@@ -169,16 +169,22 @@ public class FilesystemUtils {
     }
 
     public static void safeDeleteEmptyParentDirectories(Path path) throws IOException {
-        final Path absolutePath = path.toAbsolutePath();
-        if (!absolutePath.toFile().isDirectory()) {
+        final Path parentPath = path.toAbsolutePath().getParent();
+        if (!parentPath.toFile().isDirectory()) {
             return;
         }
-        if (!FilesystemUtils.pathInsideDataOrTempPath(absolutePath)) {
+        if (!FilesystemUtils.pathInsideDataOrTempPath(parentPath)) {
             return;
         }
-        Files.deleteIfExists(absolutePath);
+        try {
+            Files.deleteIfExists(parentPath);
 
-        FilesystemUtils.safeDeleteEmptyParentDirectories(absolutePath.getParent());
+        } catch (DirectoryNotEmptyException e) {
+            // We've reached the limits of what we can delete
+            return;
+        }
+
+        FilesystemUtils.safeDeleteEmptyParentDirectories(parentPath);
     }
 
     public static boolean pathInsideDataOrTempPath(Path path) {
