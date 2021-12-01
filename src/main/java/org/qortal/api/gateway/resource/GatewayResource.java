@@ -3,8 +3,12 @@ package org.qortal.api.gateway.resource;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.qortal.api.Security;
+import org.qortal.api.model.ArbitraryResourceSummary;
+import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
+import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.ArbitraryDataRenderer;
+import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.misc.Service;
 
 import javax.servlet.ServletContext;
@@ -21,6 +25,48 @@ public class GatewayResource {
     @Context HttpServletRequest request;
     @Context HttpServletResponse response;
     @Context ServletContext context;
+
+    /**
+     * We need to allow resource status checking (and building) via the gateway, as the node's API port
+     * may not be forwarded and will almost certainly not be authenticated. Since gateways allow for
+     * all resources to be loaded except those that are blacklisted, there is no need for authentication.
+     */
+    @GET
+    @Path("/arbitrary/resource/status/{service}/{name}")
+    public ArbitraryResourceSummary getDefaultResourceStatus(@PathParam("service") Service service,
+                                                             @PathParam("name") String name,
+                                                             @QueryParam("build") Boolean build) {
+
+        return this.getSummary(service, name, null, build);
+    }
+
+    @GET
+    @Path("/arbitrary/resource/status/{service}/{name}/{identifier}")
+    public ArbitraryResourceSummary getResourceStatus(@PathParam("service") Service service,
+                                                      @PathParam("name") String name,
+                                                      @PathParam("identifier") String identifier,
+                                                      @QueryParam("build") Boolean build) {
+
+        return this.getSummary(service, name, identifier, build);
+    }
+
+    private ArbitraryResourceSummary getSummary(Service service, String name, String identifier, Boolean build) {
+
+        // If "build=true" has been specified in the query string, build the resource before returning its status
+        if (build != null && build == true) {
+            ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
+            try {
+                reader.loadSynchronously(false);
+            } catch (Exception e) {
+                // No need to handle exception, as it will be reflected in the status
+            }
+        }
+
+        ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
+        return resource.getSummary();
+    }
+
+
 
     @GET
     @Path("{name}/{path:.*}")

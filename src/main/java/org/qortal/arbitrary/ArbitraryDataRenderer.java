@@ -68,7 +68,7 @@ public class ArbitraryDataRenderer {
                 // If async is requested, show a loading screen whilst build is in progress
                 if (async) {
                     arbitraryDataReader.loadAsynchronously();
-                    return this.getLoadingResponse();
+                    return this.getLoadingResponse(service, resourceId);
                 }
 
                 // Otherwise, hang the request until the build completes
@@ -145,11 +145,16 @@ public class ArbitraryDataRenderer {
         return userPath;
     }
 
-    private HttpServletResponse getLoadingResponse() {
+    private HttpServletResponse getLoadingResponse(Service service, String name) {
         String responseString = "";
         URL url = Resources.getResource("loading/index.html");
         try {
             responseString = Resources.toString(url, StandardCharsets.UTF_8);
+
+            // Replace vars
+            responseString = responseString.replace("%%SERVICE%%", service.toString());
+            responseString = responseString.replace("%%NAME%%", name);
+
         } catch (IOException e) {
             LOGGER.info("Unable to show loading screen: {}", e.getMessage());
         }

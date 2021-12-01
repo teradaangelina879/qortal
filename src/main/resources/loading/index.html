@@ -41,9 +41,9 @@
   <script>
     const checkStatus = async () => {
       var host = location.protocol + '//' + location.host;
-      var pathArray = window.location.pathname.split('/');
-      var service = pathArray[2];
-      var name = pathArray[3];
+      var service = "%%SERVICE%%"
+      var name = "%%NAME%%"
+
       var url = host + '/arbitrary/resource/status/' + service + '/' + name + '?build=true';
       var textStatus = "Loading...";
       var retryInterval = 2500;
