@@ -6,7 +6,7 @@ import org.qortal.utils.Base58;
 
 import java.nio.file.Path;
 
-public class ArbitraryDataMetadataCache extends ArbitraryDataMetadata {
+public class ArbitraryDataMetadataCache extends ArbitraryDataQortalMetadata {
 
     private byte[] signature;
     private long timestamp;

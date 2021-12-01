@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-public class ArbitraryDataMetadataPatch extends ArbitraryDataMetadata {
+public class ArbitraryDataMetadataPatch extends ArbitraryDataQortalMetadata {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataMetadataPatch.class);
 

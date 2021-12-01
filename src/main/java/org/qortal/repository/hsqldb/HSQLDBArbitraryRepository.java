@@ -12,7 +12,6 @@ import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.DataException;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.transaction.Transaction.ApprovalStatus;
-import org.qortal.utils.ArbitraryTransactionUtils;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -50,17 +49,15 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		}
 
 		// Load hashes
-		byte[] digest = transactionData.getData();
-		byte[] chunkHashes = transactionData.getChunkHashes();
+		byte[] hash = transactionData.getData();
+		byte[] metadataHash = transactionData.getMetadataHash();
 
 		// Load data file(s)
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-		if (chunkHashes != null && chunkHashes.length > 0) {
-			arbitraryDataFile.addChunkHashes(chunkHashes);
-		}
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
+		arbitraryDataFile.setMetadataHash(metadataHash);
 
 		// Check if we already have the complete data file or all chunks
-		if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(chunkHashes)) {
+		if (arbitraryDataFile.allFilesExist()) {
 			return true;
 		}
 
@@ -81,13 +78,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		// Load hashes
 		byte[] digest = transactionData.getData();
-		byte[] chunkHashes = transactionData.getChunkHashes();
+		byte[] metadataHash = transactionData.getMetadataHash();
 
 		// Load data file(s)
 		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-		if (chunkHashes != null && chunkHashes.length > 0) {
-			arbitraryDataFile.addChunkHashes(chunkHashes);
-		}
+		arbitraryDataFile.setMetadataHash(metadataHash);
 
 		// If we have the complete data file, return it
 		if (arbitraryDataFile.exists()) {
@@ -95,7 +90,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		}
 
 		// Alternatively, if we have all the chunks, combine them into a single file
-		if (arbitraryDataFile.allChunksExist(chunkHashes)) {
+		if (arbitraryDataFile.allChunksExist()) {
 			arbitraryDataFile.join();
 
 			// Verify that the combined hash matches the expected hash
@@ -130,15 +125,13 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		}
 
 		// Load hashes
-		byte[] digest = arbitraryTransactionData.getData();
-		byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+		byte[] hash = arbitraryTransactionData.getData();
+		byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
 
 		// Load data file(s)
 		byte[] signature = arbitraryTransactionData.getSignature();
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-		if (chunkHashes != null && chunkHashes.length > 0) {
-			arbitraryDataFile.addChunkHashes(chunkHashes);
-		}
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
+		arbitraryDataFile.setMetadataHash(metadataHash);
 
 		// Delete file and chunks
 		arbitraryDataFile.deleteAll();
@@ -148,7 +141,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	public List<ArbitraryTransactionData> getArbitraryTransactions(String name, Service service, String identifier, long since) throws DataException {
 		String sql = "SELECT type, reference, signature, creator, created_when, fee, " +
 				"tx_group_id, block_height, approval_status, approval_height, " +
-				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
+				"version, nonce, service, size, is_data_raw, data, metadata_hash, " +
 				"name, identifier, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
 				"WHERE lower(name) = ? AND service = ?" +
@@ -192,7 +185,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				boolean isDataRaw = resultSet.getBoolean(15); // NOT NULL, so no null to false
 				DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
 				byte[] data = resultSet.getBytes(16);
-				byte[] chunkHashes = resultSet.getBytes(17);
+				byte[] metadataHash = resultSet.getBytes(17);
 				String nameResult = resultSet.getString(18);
 				String identifierResult = resultSet.getString(19);
 				Method method = Method.valueOf(resultSet.getInt(20));
@@ -202,7 +195,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 				ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
 						version, serviceResult, nonce, size, nameResult, identifierResult, method, secret,
-						compression, data, dataType, chunkHashes, null);
+						compression, data, dataType, metadataHash, null);
 
 				arbitraryTransactionData.add(transactionData);
 			} while (resultSet.next());
@@ -219,7 +212,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		sql.append("SELECT type, reference, signature, creator, created_when, fee, " +
 				"tx_group_id, block_height, approval_status, approval_height, " +
-				"version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
+				"version, nonce, service, size, is_data_raw, data, metadata_hash, " +
 				"name, identifier, update_method, secret, compression FROM ArbitraryTransactions " +
 				"JOIN Transactions USING (signature) " +
 				"WHERE lower(name) = ? AND service = ? " +
@@ -267,7 +260,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			boolean isDataRaw = resultSet.getBoolean(15); // NOT NULL, so no null to false
 			DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
 			byte[] data = resultSet.getBytes(16);
-			byte[] chunkHashes = resultSet.getBytes(17);
+			byte[] metadataHash = resultSet.getBytes(17);
 			String nameResult = resultSet.getString(18);
 			String identifierResult = resultSet.getString(19);
 			Method methodResult = Method.valueOf(resultSet.getInt(20));
@@ -277,7 +270,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
 					version, serviceResult, nonce, size, nameResult, identifierResult, methodResult, secret,
-					compression, data, dataType, chunkHashes, null);
+					compression, data, dataType, metadataHash, null);
 
 			return transactionData;
 		} catch (SQLException e) {

@@ -51,6 +51,8 @@ public class ArbitraryDataTransactionBuilder {
     private final String identifier;
     private final Repository repository;
 
+    private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
+
     private ArbitraryTransactionData arbitraryTransactionData;
     private ArbitraryDataFile arbitraryDataFile;
 
@@ -189,15 +191,23 @@ public class ArbitraryDataTransactionBuilder {
 
             ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(path, name, service, identifier, method, compression);
             try {
+                arbitraryDataWriter.setChunkSize(this.chunkSize);
                 arbitraryDataWriter.save();
             } catch (IOException | DataException | InterruptedException | RuntimeException | MissingDataException e) {
                 LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
                 throw new DataException(e.getMessage());
             }
 
+            // Get main file
             arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
             if (arbitraryDataFile == null) {
                 throw new DataException("Arbitrary data file is null");
+            }
+
+            // Get chunks metadata file
+            ArbitraryDataFile metadataFile = arbitraryDataFile.getMetadataFile();
+            if (metadataFile == null && arbitraryDataFile.chunkCount() > 1) {
+                throw new DataException(String.format("Chunks metadata data file is null but there are %i chunks", arbitraryDataFile.chunkCount()));
             }
 
             String digest58 = arbitraryDataFile.digest58();
@@ -214,12 +224,12 @@ public class ArbitraryDataTransactionBuilder {
             byte[] secret = arbitraryDataFile.getSecret();
             final ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
             final byte[] digest = arbitraryDataFile.digest();
-            final byte[] chunkHashes = arbitraryDataFile.chunkHashes();
+            final byte[] metadataHash = (metadataFile != null) ? metadataFile.getHash() : null;
             final List<PaymentData> payments = new ArrayList<>();
 
             ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
                     version, service, nonce, size, name, identifier, method,
-                    secret, compression, digest, dataType, chunkHashes, payments);
+                    secret, compression, digest, dataType, metadataHash, payments);
 
             this.arbitraryTransactionData = transactionData;
 
@@ -251,6 +261,14 @@ public class ArbitraryDataTransactionBuilder {
 
     public ArbitraryTransactionData getArbitraryTransactionData() {
         return this.arbitraryTransactionData;
+    }
+
+    public ArbitraryDataFile getArbitraryDataFile() {
+        return this.arbitraryDataFile;
+    }
+
+    public void setChunkSize(int chunkSize) {
+        this.chunkSize = chunkSize;
     }
 
 }

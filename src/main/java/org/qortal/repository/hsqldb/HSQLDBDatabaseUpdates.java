@@ -900,13 +900,14 @@ public class HSQLDBDatabaseUpdates {
 
 				case 37:
 					// ARBITRARY transaction updates for off-chain data storage
-					stmt.execute("CREATE TYPE ArbitraryDataHashes AS VARBINARY(8000)");
+
 					// We may want to use a nonce rather than a transaction fee on the data chain
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD nonce INT NOT NULL DEFAULT 0");
 					// We need to know the total size of the data file(s) associated with each transaction
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD size INT NOT NULL DEFAULT 0");
 					// Larger data files need to be split into chunks, for easier transmission and greater decentralization
-					stmt.execute("ALTER TABLE ArbitraryTransactions ADD chunk_hashes ArbitraryDataHashes");
+					// We store their hashes (and possibly other things) in a metadata file
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD metadata_hash VARBINARY(32)");
 					// For finding transactions by file hash
 					stmt.execute("CREATE INDEX ArbitraryDataIndex ON ArbitraryTransactions (is_data_raw, data)");
 					break;

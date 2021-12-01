@@ -33,18 +33,18 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	private static final int DATA_TYPE_LENGTH = BYTE_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 	private static final int RAW_DATA_SIZE_LENGTH = INT_LENGTH;
-	private static final int CHUNKS_SIZE_LENGTH = INT_LENGTH;
+	private static final int METADATA_HASH_SIZE_LENGTH = INT_LENGTH;
 	private static final int NUMBER_PAYMENTS_LENGTH = INT_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int IDENTIFIER_SIZE_LENGTH = INT_LENGTH;
 	private static final int COMPRESSION_LENGTH = INT_LENGTH;
 	private static final int METHOD_LENGTH = INT_LENGTH;
-	private static final int SECRET_LENGTH = INT_LENGTH;
+	private static final int SECRET_LENGTH = INT_LENGTH; // TODO: wtf?
 
 	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + DATA_TYPE_LENGTH + DATA_SIZE_LENGTH;
 
 	private static final int EXTRAS_V5_LENGTH = NONCE_LENGTH + NAME_SIZE_LENGTH + IDENTIFIER_SIZE_LENGTH +
-			METHOD_LENGTH + SECRET_LENGTH + COMPRESSION_LENGTH + RAW_DATA_SIZE_LENGTH + CHUNKS_SIZE_LENGTH;
+			METHOD_LENGTH + SECRET_LENGTH + COMPRESSION_LENGTH + RAW_DATA_SIZE_LENGTH + METADATA_HASH_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -77,8 +77,8 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout.add("data", TransformationType.DATA);
 
 		layout.add("raw data size", TransformationType.INT); // Version 5+
-		layout.add("chunk hashes length", TransformationType.INT); // Version 5+
-		layout.add("chunk hashes", TransformationType.DATA); // Version 5+
+		layout.add("metadata hash length", TransformationType.INT); // Version 5+
+		layout.add("metadata hash", TransformationType.DATA); // Version 5+
 
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
@@ -147,16 +147,16 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		byteBuffer.get(data);
 
 		int size = 0;
-		byte[] chunkHashes = null;
+		byte[] metadataHash = null;
 
 		if (version >= 5) {
 			size = byteBuffer.getInt();
 
-			int chunkHashesLength = byteBuffer.getInt();
+			int metadataHashLength = byteBuffer.getInt();
 
-			if (chunkHashesLength > 0) {
-				chunkHashes = new byte[chunkHashesLength];
-				byteBuffer.get(chunkHashes);
+			if (metadataHashLength > 0) {
+				metadataHash = new byte[metadataHashLength];
+				byteBuffer.get(metadataHash);
 			}
 		}
 
@@ -168,7 +168,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
 		return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, name, identifier,
-				method, secret, compression, data, dataType, chunkHashes, payments);
+				method, secret, compression, data, dataType, metadataHash, payments);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -178,9 +178,9 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		int identifierLength = (arbitraryTransactionData.getIdentifier() != null) ? Utf8.encodedLength(arbitraryTransactionData.getIdentifier()) : 0;
 		int secretLength = (arbitraryTransactionData.getSecret() != null) ? arbitraryTransactionData.getSecret().length : 0;
 		int dataLength = (arbitraryTransactionData.getData() != null) ? arbitraryTransactionData.getData().length : 0;
-		int chunkHashesLength = (arbitraryTransactionData.getChunkHashes() != null) ? arbitraryTransactionData.getChunkHashes().length : 0;
+		int metadataHashLength = (arbitraryTransactionData.getMetadataHash() != null) ? arbitraryTransactionData.getMetadataHash().length : 0;
 
-		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + nameLength + identifierLength + secretLength + dataLength + chunkHashesLength;
+		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + nameLength + identifierLength + secretLength + dataLength + metadataHashLength;
 
 		if (arbitraryTransactionData.getVersion() >= 5) {
 			length += EXTRAS_V5_LENGTH;
@@ -236,12 +236,12 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			if (arbitraryTransactionData.getVersion() >= 5) {
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getSize()));
 
-				byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
-				int chunkHashesLength = (chunkHashes != null) ? chunkHashes.length : 0;
-				bytes.write(Ints.toByteArray(chunkHashesLength));
+				byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
+				int metadataHashLength = (metadataHash != null) ? metadataHash.length : 0;
+				bytes.write(Ints.toByteArray(metadataHashLength));
 
-				if (chunkHashesLength > 0) {
-					bytes.write(arbitraryTransactionData.getChunkHashes());
+				if (metadataHashLength > 0) {
+					bytes.write(metadataHash);
 				}
 			}
 
@@ -317,12 +317,12 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			if (arbitraryTransactionData.getVersion() >= 5) {
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getSize()));
 
-				byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
-				int chunkHashesLength = (chunkHashes != null) ? chunkHashes.length : 0;
-				bytes.write(Ints.toByteArray(chunkHashesLength));
+				byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
+				int metadataHashLength = (metadataHash != null) ? metadataHash.length : 0;
+				bytes.write(Ints.toByteArray(metadataHashLength));
 
-				if (chunkHashesLength > 0) {
-					bytes.write(arbitraryTransactionData.getChunkHashes());
+				if (metadataHashLength > 0) {
+					bytes.write(metadataHash);
 				}
 			}
 

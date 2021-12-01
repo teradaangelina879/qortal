@@ -4,6 +4,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.exception.MissingDataException;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -39,6 +40,8 @@ public class ArbitraryDataWriter {
     private final Method method;
     private final Compression compression;
 
+    private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
+
     private SecretKey aesKey;
     private ArbitraryDataFile arbitraryDataFile;
 
@@ -64,6 +67,7 @@ public class ArbitraryDataWriter {
             this.compress();
             this.encrypt();
             this.split();
+            this.createMetadataFile();
             this.validate();
 
         } finally {
@@ -184,7 +188,8 @@ public class ArbitraryDataWriter {
 
                 if (this.compression == Compression.ZIP) {
                     LOGGER.info("Compressing...");
-                    ZipUtils.zip(this.filePath.toString(), this.compressedPath.toString(), "data");
+                    String fileName = "data"; //isSingleFile ? singleFileName : null;
+                    ZipUtils.zip(this.filePath.toString(), this.compressedPath.toString(), fileName);
                 }
                 else {
                     throw new DataException(String.format("Unknown compression type specified: %s", compression.toString()));
@@ -226,6 +231,37 @@ public class ArbitraryDataWriter {
         }
     }
 
+    private void split() throws IOException, DataException {
+        // We don't have a signature yet, so use null to put the file in a generic folder
+        this.arbitraryDataFile = ArbitraryDataFile.fromPath(this.filePath, null);
+        if (this.arbitraryDataFile == null) {
+            throw new IOException("No file available when trying to split");
+        }
+
+        int chunkCount = this.arbitraryDataFile.split(this.chunkSize);
+        if (chunkCount > 0) {
+            LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
+        }
+        else {
+            throw new DataException("Unable to split file into chunks");
+        }
+    }
+
+    private void createMetadataFile() throws IOException, DataException {
+        // If we have at least one chunk, we need to create an index file containing their hashes
+        if (this.arbitraryDataFile.chunkCount() > 1) {
+            // Create the JSON file
+            Path chunkFilePath = Paths.get(this.workingPath.toString(), "metadata.json");
+            ArbitraryDataTransactionMetadata chunkMetadata = new ArbitraryDataTransactionMetadata(chunkFilePath);
+            chunkMetadata.setChunks(this.arbitraryDataFile.chunkHashList());
+            chunkMetadata.write();
+
+            // Create an ArbitraryDataFile from the JSON file (we don't have a signature yet)
+            ArbitraryDataFile metadataFile = ArbitraryDataFile.fromPath(chunkFilePath, null);
+            this.arbitraryDataFile.setMetadataFile(metadataFile);
+        }
+    }
+
     private void validate() throws IOException, DataException {
         if (this.arbitraryDataFile == null) {
             throw new IOException("No file available when validating");
@@ -248,21 +284,21 @@ public class ArbitraryDataWriter {
         }
         LOGGER.info("Chunk hashes are valid");
 
-    }
-
-    private void split() throws IOException, DataException {
-        // We don't have a signature yet, so use null to put the file in a generic folder
-        this.arbitraryDataFile = ArbitraryDataFile.fromPath(this.filePath, null);
-        if (this.arbitraryDataFile == null) {
-            throw new IOException("No file available when trying to split");
-        }
-
-        int chunkCount = this.arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
-        if (chunkCount > 0) {
-            LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
-        }
-        else {
-            throw new DataException("Unable to split file into chunks");
+        // Validate chunks metadata file
+        if (this.arbitraryDataFile.chunkCount() > 1) {
+            ArbitraryDataFile metadataFile = this.arbitraryDataFile.getMetadataFile();
+            if (metadataFile == null || !metadataFile.exists()) {
+                throw new IOException("No metadata file available, but there are multiple chunks");
+            }
+            // Read the file
+            ArbitraryDataTransactionMetadata metadata = new ArbitraryDataTransactionMetadata(metadataFile.getFilePath());
+            metadata.read();
+            // Check all chunks exist
+            for (byte[] chunk : this.arbitraryDataFile.chunkHashList()) {
+                if (!metadata.containsChunk(chunk)) {
+                    throw new IOException(String.format("Missing chunk %s in metadata file", Base58.encode(chunk)));
+                }
+            }
         }
     }
 
@@ -288,6 +324,10 @@ public class ArbitraryDataWriter {
 
     public ArbitraryDataFile getArbitraryDataFile() {
         return this.arbitraryDataFile;
+    }
+
+    public void setChunkSize(int chunkSize) {
+        this.chunkSize = chunkSize;
     }
 
 }

@@ -130,7 +130,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 						// Check if we have any of the chunks
 						boolean anyChunksExist = ArbitraryTransactionUtils.anyChunksExist(arbitraryTransactionData);
-						boolean transactionHasChunks = (arbitraryTransactionData.getChunkHashes() != null);
+						boolean transactionHasChunks = (arbitraryTransactionData.getMetadataHash() != null);
 
 						if (!completeFileExists && !anyChunksExist) {
 							// We don't have any files at all for this transaction - nothing to do

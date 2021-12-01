@@ -30,8 +30,8 @@ public class ArbitraryTestTransaction extends TestTransaction {
 
         final ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
 
-		final byte[] chunkHashes = new byte[128];
-		random.nextBytes(chunkHashes);
+		final byte[] metadataHash = new byte[32];
+		random.nextBytes(metadataHash);
 
 		byte[] data = new byte[1024];
 		random.nextBytes(data);
@@ -46,7 +46,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		payments.add(new PaymentData(recipient, assetId, amount));
 
 		return new ArbitraryTransactionData(generateBase(account), version, service, nonce, size,name, identifier,
-				method, secret, compression, data, dataType, chunkHashes, payments);
+				method, secret, compression, data, dataType, metadataHash, payments);
 	}
 
 }

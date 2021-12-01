@@ -227,7 +227,7 @@ public class ArbitraryDataManager extends Thread {
 
 				// Ask our connected peers if they have files for this signature
 				// This process automatically then fetches the files themselves if a peer is found
-				fetchDataForSignature(signature);
+				fetchData(arbitraryTransactionData);
 
 			} catch (DataException e) {
 				LOGGER.error("Repository issue when fetching arbitrary transaction data", e);
@@ -255,6 +255,34 @@ public class ArbitraryDataManager extends Thread {
 		} catch (DataException e) {
 			LOGGER.error("Repository issue when checking arbitrary transaction's data is local", e);
 			return true;
+		}
+	}
+
+	private boolean hasLocalMetadata(ArbitraryTransactionData transactionData) {
+		if (transactionData == null) {
+			return false;
+		}
+
+		// Load hashes
+		byte[] hash = transactionData.getData();
+		byte[] metadataHash = transactionData.getMetadataHash();
+
+		if (metadataHash == null) {
+			// This transaction has no metadata, so we can treat it as local
+			return true;
+		}
+
+		// Load data file(s)
+		byte[] signature = transactionData.getSignature();
+		try {
+			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
+			arbitraryDataFile.setMetadataHash(metadataHash);
+
+			return arbitraryDataFile.getMetadataFile().exists();
+		}
+		catch (DataException e) {
+			// Assume not local
+			return false;
 		}
 	}
 
@@ -397,11 +425,12 @@ public class ArbitraryDataManager extends Thread {
 
 	// Lookup file lists by signature
 
-	public boolean fetchDataForSignature(byte[] signature) {
-		return this.fetchArbitraryDataFileList(signature);
+	public boolean fetchData(ArbitraryTransactionData arbitraryTransactionData) {
+		return this.fetchArbitraryDataFileList(arbitraryTransactionData);
 	}
 
-	private boolean fetchArbitraryDataFileList(byte[] signature) {
+	private boolean fetchArbitraryDataFileList(ArbitraryTransactionData arbitraryTransactionData) {
+		byte[] signature = arbitraryTransactionData.getSignature();
 		String signature58 = Base58.encode(signature);
 
 		// If we've already tried too many times in a short space of time, make sure to give up
@@ -625,13 +654,18 @@ public class ArbitraryDataManager extends Thread {
 
 		// Load data file(s)
 		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
-		arbitraryDataFile.addChunkHashes(arbitraryTransactionData.getChunkHashes());
+		byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
+		arbitraryDataFile.setMetadataHash(metadataHash);
 
 		// If hashes are null, we will treat this to mean all data hashes associated with this file
 		if (hashes == null) {
-			if (arbitraryTransactionData.getChunkHashes() == null) {
-				// This transaction has no chunks, so use the main file hash
+			if (metadataHash == null) {
+				// This transaction has no metadata/chunks, so use the main file hash
 				hashes = Arrays.asList(arbitraryDataFile.getHash());
+			}
+			else if (!arbitraryDataFile.getMetadataFile().exists()) {
+				// We don't have the metadata file yet, so request it
+				hashes = Arrays.asList(arbitraryDataFile.getMetadataFile().getHash());
 			}
 			else {
 				// Add the chunk hashes
@@ -671,8 +705,8 @@ public class ArbitraryDataManager extends Thread {
 			repository.saveChanges();
 		}
 
-		// Check if we have all the chunks for this transaction
-		if (arbitraryDataFile.exists() || arbitraryDataFile.allChunksExist(arbitraryTransactionData.getChunkHashes())) {
+		// Check if we have all the files we need for this transaction
+		if (arbitraryDataFile.allFilesExist()) {
 
 			// We have all the chunks for this transaction, so we should invalidate the transaction's name's
 			// data cache so that it is rebuilt the next time we serve it
@@ -770,19 +804,19 @@ public class ArbitraryDataManager extends Thread {
 
 			// Load data file(s)
 			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
-			arbitraryDataFile.addChunkHashes(arbitraryTransactionData.getChunkHashes());
+			arbitraryDataFile.setMetadataHash(arbitraryTransactionData.getMetadataHash());
 
-			// Check all hashes exist
-			for (byte[] hash : hashes) {
-				//LOGGER.info("Received hash {}", Base58.encode(hash));
-				if (!arbitraryDataFile.containsChunk(hash)) {
-					// Check the hash against the complete file
-					if (!Arrays.equals(arbitraryDataFile.getHash(), hash)) {
-						LOGGER.info("Received non-matching chunk hash {} for signature {}", Base58.encode(hash), signature58);
-						return;
-					}
-				}
-			}
+//			// Check all hashes exist
+//			for (byte[] hash : hashes) {
+//				//LOGGER.info("Received hash {}", Base58.encode(hash));
+//				if (!arbitraryDataFile.containsChunk(hash)) {
+//					// Check the hash against the complete file
+//					if (!Arrays.equals(arbitraryDataFile.getHash(), hash)) {
+//						LOGGER.info("Received non-matching chunk hash {} for signature {}. This could happen if we haven't obtained the metadata file yet.", Base58.encode(hash), signature58);
+//						return;
+//					}
+//				}
+//			}
 
 			// Update requests map to reflect that we've received it
 			Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
@@ -867,12 +901,18 @@ public class ArbitraryDataManager extends Thread {
 				if (ArbitraryDataStorageManager.getInstance().canStoreData(transactionData)) {
 
 					byte[] hash = transactionData.getData();
-					byte[] chunkHashes = transactionData.getChunkHashes();
+					byte[] metadataHash = transactionData.getMetadataHash();
 
 					// Load file(s) and add any that exist to the list of hashes
 					ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-					if (chunkHashes != null && chunkHashes.length > 0) {
-						arbitraryDataFile.addChunkHashes(chunkHashes);
+					if (metadataHash != null) {
+						arbitraryDataFile.setMetadataHash(metadataHash);
+
+						// If we have the metadata file, add its hash
+						if (arbitraryDataFile.getMetadataFile().exists()) {
+							hashes.add(arbitraryDataFile.getMetadataHash());
+						}
+
 						for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
 							if (chunk.exists()) {
 								hashes.add(chunk.getHash());

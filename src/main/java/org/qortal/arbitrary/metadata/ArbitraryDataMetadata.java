@@ -10,25 +10,28 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
+/**
+ * ArbitraryDataMetadata
+ *
+ * This is a base class to handle reading and writing JSON to the supplied filePath.
+ *
+ * It is not usable on its own; it must be subclassed, with two methods overridden:
+ *
+ * readJson() - code to unserialize the JSON file
+ * buildJson() - code to serialize the JSON file
+ *
+ */
 public class ArbitraryDataMetadata {
 
     protected static final Logger LOGGER = LogManager.getLogger(ArbitraryDataMetadata.class);
 
     protected Path filePath;
-    protected Path qortalDirectoryPath;
 
     protected String jsonString;
 
     public ArbitraryDataMetadata(Path filePath) {
         this.filePath = filePath;
-        this.qortalDirectoryPath = Paths.get(filePath.toString(), ".qortal");
-    }
-
-    protected String fileName() {
-        // To be overridden
-        return null;
     }
 
     protected void readJson() throws DataException {
@@ -47,34 +50,30 @@ public class ArbitraryDataMetadata {
 
     public void write() throws IOException, DataException {
         this.buildJson();
-        this.createQortalDirectory();
-        this.writeToQortalPath();
+        this.createParentDirectories();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(this.filePath.toString()));
+        writer.write(this.jsonString);
+        writer.close();
     }
 
 
     protected void loadJson() throws IOException {
-        Path path = Paths.get(this.qortalDirectoryPath.toString(), this.fileName());
-        File patchFile = new File(path.toString());
-        if (!patchFile.exists()) {
-            throw new IOException(String.format("Patch file doesn't exist: %s", path.toString()));
+        File metadataFile = new File(this.filePath.toString());
+        if (!metadataFile.exists()) {
+            throw new IOException(String.format("Metadata file doesn't exist: %s", this.filePath.toString()));
         }
 
-        this.jsonString = new String(Files.readAllBytes(path));
+        this.jsonString = new String(Files.readAllBytes(this.filePath));
     }
 
-    protected void createQortalDirectory() throws DataException {
+
+    protected void createParentDirectories() throws DataException {
         try {
-            Files.createDirectories(this.qortalDirectoryPath);
+            Files.createDirectories(this.filePath.getParent());
         } catch (IOException e) {
-            throw new DataException("Unable to create .qortal directory");
+            throw new DataException("Unable to create parent directories");
         }
-    }
-
-    protected void writeToQortalPath() throws IOException {
-        Path patchPath = Paths.get(this.qortalDirectoryPath.toString(), this.fileName());
-        BufferedWriter writer = new BufferedWriter(new FileWriter(patchPath.toString()));
-        writer.write(this.jsonString);
-        writer.close();
     }
 
 

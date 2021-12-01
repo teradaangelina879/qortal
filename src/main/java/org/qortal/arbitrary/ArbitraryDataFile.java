@@ -2,15 +2,14 @@ package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
-import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
 
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -62,6 +61,12 @@ public class ArbitraryDataFile {
     protected byte[] signature;
     private ArrayList<ArbitraryDataFileChunk> chunks;
     private byte[] secret;
+
+    // Metadata
+    private byte[] metadataHash;
+    private ArbitraryDataFile metadataFile;
+    private ArbitraryDataTransactionMetadata metadata;
+
 
     public ArbitraryDataFile() {
     }
@@ -220,19 +225,16 @@ public class ArbitraryDataFile {
         return ValidationResult.OK;
     }
 
-    public void addChunk(ArbitraryDataFileChunk chunk) {
+    private void addChunk(ArbitraryDataFileChunk chunk) {
         this.chunks.add(chunk);
     }
 
-    public void addChunkHashes(byte[] chunks) throws DataException {
-        if (chunks == null || chunks.length == 0) {
+    private void addChunkHashes(List<byte[]> chunkHashes) throws DataException {
+        if (chunkHashes == null || chunkHashes.isEmpty()) {
             return;
         }
-        ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
-        while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
-            byte[] chunkDigest = new byte[TransactionTransformer.SHA256_LENGTH];
-            byteBuffer.get(chunkDigest);
-            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkDigest, this.signature);
+        for (byte[] chunkHash : chunkHashes) {
+            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
             this.addChunk(chunk);
         }
     }
@@ -364,14 +366,24 @@ public class ArbitraryDataFile {
         return success;
     }
 
+    public boolean deleteMetadata() {
+        if (this.metadataFile != null && this.metadataFile.exists()) {
+            return this.metadataFile.delete();
+        }
+        return false;
+    }
+
     public boolean deleteAll() {
         // Delete the complete file
         boolean fileDeleted = this.delete();
 
+        // Delete the metadata file
+        boolean metadataDeleted = this.deleteMetadata();
+
         // Delete the individual chunks
         boolean chunksDeleted = this.deleteAllChunks();
 
-        return fileDeleted && chunksDeleted;
+        return fileDeleted || metadataDeleted || chunksDeleted;
     }
 
     protected void cleanupFilesystem() {
@@ -432,35 +444,98 @@ public class ArbitraryDataFile {
         return false;
     }
 
-    public boolean allChunksExist(byte[] chunks) throws DataException {
-        if (chunks == null) {
-            return true;
-        }
-        ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
-        while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
-            byte[] chunkHash = new byte[TransactionTransformer.SHA256_LENGTH];
-            byteBuffer.get(chunkHash);
-            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
-            if (!chunk.exists()) {
+    public boolean allChunksExist() {
+        try {
+            if (this.metadataHash == null) {
+                // We don't have any metadata so can't check if we have the chunks
+                // Even if this transaction has no chunks, we don't have the file either (already checked above)
                 return false;
             }
-        }
-        return true;
-    }
 
-    public boolean anyChunksExist(byte[] chunks) throws DataException {
-        if (chunks == null) {
+            if (this.metadataFile == null) {
+                this.metadataFile = ArbitraryDataFile.fromHash(this.metadataHash, this.signature);
+                if (!metadataFile.exists()) {
+                    return false;
+                }
+            }
+
+            // If the metadata file doesn't exist, we can't check if we have the chunks
+            if (!metadataFile.getFilePath().toFile().exists()) {
+                return false;
+            }
+
+            if (this.metadata == null) {
+                this.setMetadata(new ArbitraryDataTransactionMetadata(this.metadataFile.getFilePath()));
+            }
+
+            // Read the metadata
+            List<byte[]> chunks = metadata.getChunks();
+            for (byte[] chunkHash : chunks) {
+                ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
+                if (!chunk.exists()) {
+                    return false;
+                }
+            }
+
+            return true;
+
+        } catch (DataException e) {
+            // Something went wrong, so assume we don't have all the chunks
             return false;
         }
-        ByteBuffer byteBuffer = ByteBuffer.wrap(chunks);
-        while (byteBuffer.remaining() >= TransactionTransformer.SHA256_LENGTH) {
-            byte[] chunkHash = new byte[TransactionTransformer.SHA256_LENGTH];
-            byteBuffer.get(chunkHash);
-            ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
-            if (chunk.exists()) {
-                return true;
+    }
+
+    public boolean anyChunksExist() throws DataException {
+        try {
+            if (this.metadataHash == null) {
+                // We don't have any metadata so can't check if we have the chunks
+                // Even if this transaction has no chunks, we don't have the file either (already checked above)
+                return false;
             }
+
+            if (this.metadataFile == null) {
+                this.metadataFile = ArbitraryDataFile.fromHash(this.metadataHash, this.signature);
+                if (!metadataFile.exists()) {
+                    return false;
+                }
+            }
+
+            // If the metadata file doesn't exist, we can't check if we have any chunks
+            if (!metadataFile.getFilePath().toFile().exists()) {
+                return false;
+            }
+
+            if (this.metadata == null) {
+                this.setMetadata(new ArbitraryDataTransactionMetadata(this.metadataFile.getFilePath()));
+            }
+
+            // Read the metadata
+            List<byte[]> chunks = metadata.getChunks();
+            for (byte[] chunkHash : chunks) {
+                ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
+                if (chunk.exists()) {
+                    return true;
+                }
+            }
+
+            return false;
+
+        } catch (DataException e) {
+            // Something went wrong, so assume we don't have all the chunks
+            return false;
         }
+    }
+
+    public boolean allFilesExist() {
+        if (this.exists()) {
+            return true;
+        }
+
+        // Complete file doesn't exist, so check the chunks
+        if (this.allChunksExist()) {
+            return true;
+        }
+
         return false;
     }
 
@@ -512,6 +587,43 @@ public class ArbitraryDataFile {
             }
         }
         return null;
+    }
+
+    public List<byte[]> chunkHashList() {
+        List<byte[]> chunks = new ArrayList<>();
+
+        if (this.chunks != null && this.chunks.size() > 0) {
+            // Return null if we only have one chunk, with the same hash as the parent
+            if (Arrays.equals(this.digest(), this.chunks.get(0).digest())) {
+                return null;
+            }
+
+            try {
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                for (ArbitraryDataFileChunk chunk : this.chunks) {
+                    byte[] chunkHash = chunk.digest();
+                    if (chunkHash.length != 32) {
+                        LOGGER.info("Invalid chunk hash length: {}", chunkHash.length);
+                        throw new DataException("Invalid chunk hash length");
+                    }
+                    chunks.add(chunkHash);
+                }
+                return chunks;
+
+            } catch (DataException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private void loadMetadata() throws DataException {
+        try {
+            this.metadata.read();
+
+        } catch (DataException | IOException e) {
+            throw new DataException(e);
+        }
     }
 
     private File getFile() {
@@ -580,6 +692,36 @@ public class ArbitraryDataFile {
 
     public byte[] getSecret() {
         return this.secret;
+    }
+
+    public void setMetadataFile(ArbitraryDataFile metadataFile) {
+        this.metadataFile = metadataFile;
+    }
+
+    public ArbitraryDataFile getMetadataFile() {
+        return this.metadataFile;
+    }
+
+    public void setMetadataHash(byte[] hash) throws DataException {
+        this.metadataHash = hash;
+
+        if (hash == null) {
+            return;
+        }
+        this.metadataFile = ArbitraryDataFile.fromHash(hash, this.signature);
+        if (metadataFile.exists()) {
+            this.setMetadata(new ArbitraryDataTransactionMetadata(this.metadataFile.getFilePath()));
+            this.addChunkHashes(this.metadata.getChunks());
+        }
+    }
+
+    public byte[] getMetadataHash() {
+        return this.metadataHash;
+    }
+
+    public void setMetadata(ArbitraryDataTransactionMetadata metadata) throws DataException {
+        this.metadata = metadata;
+        this.loadMetadata();
     }
 
     @Override

@@ -21,7 +21,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		String sql = "SELECT version, nonce, service, size, is_data_raw, data, chunk_hashes, " +
+		String sql = "SELECT version, nonce, service, size, is_data_raw, data, metadata_hash, " +
 				"name, identifier, update_method, secret, compression from ArbitraryTransactions " +
 				"WHERE signature = ?";
 
@@ -36,7 +36,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 			boolean isDataRaw = resultSet.getBoolean(5); // NOT NULL, so no null to false
 			DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
 			byte[] data = resultSet.getBytes(6);
-			byte[] chunkHashes = resultSet.getBytes(7);
+			byte[] metadataHash = resultSet.getBytes(7);
 			String name = resultSet.getString(8);
 			String identifier = resultSet.getString(9);
 			ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.valueOf(resultSet.getInt(10));
@@ -45,7 +45,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 
 			List<PaymentData> payments = this.getPaymentsFromSignature(baseTransactionData.getSignature());
 			return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, name,
-					identifier, method, secret, compression, data, dataType, chunkHashes, payments);
+					identifier, method, secret, compression, data, dataType, metadataHash, payments);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch arbitrary transaction from repository", e);
 		}
@@ -65,7 +65,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 				.bind("version", arbitraryTransactionData.getVersion()).bind("service", arbitraryTransactionData.getService().value)
 				.bind("nonce", arbitraryTransactionData.getNonce()).bind("size", arbitraryTransactionData.getSize())
 				.bind("is_data_raw", arbitraryTransactionData.getDataType() == DataType.RAW_DATA).bind("data", arbitraryTransactionData.getData())
-				.bind("chunk_hashes", arbitraryTransactionData.getChunkHashes()).bind("name", arbitraryTransactionData.getName())
+				.bind("metadata_hash", arbitraryTransactionData.getMetadataHash()).bind("name", arbitraryTransactionData.getName())
 				.bind("identifier", arbitraryTransactionData.getIdentifier()).bind("update_method", arbitraryTransactionData.getMethod().value)
 				.bind("secret", arbitraryTransactionData.getSecret()).bind("compression", arbitraryTransactionData.getCompression().value);
 

@@ -1,6 +1,5 @@
 package org.qortal.transaction;
 
-import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -17,7 +16,6 @@ import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.arbitrary.ArbitraryDataFile;
-import org.qortal.arbitrary.ArbitraryDataFileChunk;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
@@ -30,12 +28,10 @@ public class ArbitraryTransaction extends Transaction {
 
 	// Other useful constants
 	public static final int MAX_DATA_SIZE = 4000;
-	public static final int MAX_CHUNK_HASHES_LENGTH = 8000;
+	public static final int MAX_METADATA_LENGTH = 32;
 	public static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	public static final int POW_MIN_DIFFICULTY = 12; // leading zero bits
-	public static final int POW_MAX_DIFFICULTY = 19; // leading zero bits
-	public static final long MAX_FILE_SIZE = ArbitraryDataFile.MAX_FILE_SIZE;
+	public static final int POW_DIFFICULTY = 12; // leading zero bits
 	public static final int MAX_IDENTIFIER_LENGTH = 64;
 
 	// Constructors
@@ -73,10 +69,8 @@ public class ArbitraryTransaction extends Transaction {
 		// Clear nonce from transactionBytes
 		ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
-		int difficulty = difficultyForFileSize(arbitraryTransactionData.getSize());
-
 		// Calculate nonce
-		this.arbitraryTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
+		this.arbitraryTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY));
 	}
 
 	@Override
@@ -111,7 +105,7 @@ public class ArbitraryTransaction extends Transaction {
 			return ValidationResult.INVALID_DATA_LENGTH;
 		}
 
-		// Check hashes
+		// Check hashes and metadata
 		if (arbitraryTransactionData.getDataType() == ArbitraryTransactionData.DataType.DATA_HASH) {
 			// Check length of data hash
 			if (arbitraryTransactionData.getData().length != HASH_LENGTH) {
@@ -120,21 +114,10 @@ public class ArbitraryTransaction extends Transaction {
 
 			// Version 5+
 			if (arbitraryTransactionData.getVersion() >= 5) {
-				byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+				byte[] metadata = arbitraryTransactionData.getMetadataHash();
 
-				// Check maximum length of chunk hashes
-				if (chunkHashes != null && chunkHashes.length > MAX_CHUNK_HASHES_LENGTH) {
-					return ValidationResult.INVALID_DATA_LENGTH;
-				}
-
-				// Check expected length of chunk hashes
-				int chunkCount = (int)Math.ceil((double)arbitraryTransactionData.getSize() / (double) ArbitraryDataFileChunk.CHUNK_SIZE);
-				int expectedChunkHashesSize = (chunkCount > 1) ? chunkCount * HASH_LENGTH : 0;
-				if (chunkHashes == null && expectedChunkHashesSize > 0) {
-					return ValidationResult.INVALID_DATA_LENGTH;
-				}
-				int chunkHashesLength = chunkHashes != null ? chunkHashes.length : 0;
-				if (chunkHashesLength != expectedChunkHashesSize) {
+				// Check maximum length of metadata hash
+				if (metadata != null && metadata.length > MAX_METADATA_LENGTH) {
 					return ValidationResult.INVALID_DATA_LENGTH;
 				}
 			}
@@ -199,10 +182,8 @@ public class ArbitraryTransaction extends Transaction {
 			// Clear nonce from transactionBytes
 			ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
-			int difficulty = difficultyForFileSize(arbitraryTransactionData.getSize());
-
 			// Check nonce
-			return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+			return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
 		}
 
 		return true;
@@ -272,15 +253,6 @@ public class ArbitraryTransaction extends Transaction {
 			return this.repository.getArbitraryRepository().fetchData(this.transactionData.getSignature());
 		}
 		return null;
-	}
-
-	// Helper methods
-
-	public int difficultyForFileSize(long size) {
-		final BigInteger powRange = BigInteger.valueOf(POW_MAX_DIFFICULTY - POW_MIN_DIFFICULTY);
-		final BigInteger multiplier = BigInteger.valueOf(100);
-		final BigInteger percentage = BigInteger.valueOf(size).multiply(multiplier).divide(BigInteger.valueOf(MAX_FILE_SIZE));
-		return POW_MIN_DIFFICULTY + powRange.multiply(percentage).divide(multiplier).intValue();
 	}
 
 }

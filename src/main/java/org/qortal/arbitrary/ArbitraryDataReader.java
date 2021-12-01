@@ -303,7 +303,7 @@ public class ArbitraryDataReader {
 
         // Load hashes
         byte[] digest = transactionData.getData();
-        byte[] chunkHashes = transactionData.getChunkHashes();
+        byte[] metadataHash = transactionData.getMetadataHash();
         byte[] signature = transactionData.getSignature();
 
         // Load secret
@@ -315,36 +315,37 @@ public class ArbitraryDataReader {
         // Load data file(s)
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
         ArbitraryTransactionUtils.checkAndRelocateMiscFiles(transactionData);
-        if (!arbitraryDataFile.exists()) {
-            if (!arbitraryDataFile.allChunksExist(chunkHashes) || chunkHashes == null) {
-                if (ArbitraryDataStorageManager.getInstance().isNameInBlacklist(transactionData.getName())) {
-                    throw new DataException(
-                            String.format("Unable to request missing data for file %s due to blacklist", arbitraryDataFile));
+        arbitraryDataFile.setMetadataHash(metadataHash);
+
+        if (!arbitraryDataFile.allFilesExist()) {
+            if (ArbitraryDataStorageManager.getInstance().isNameInBlacklist(transactionData.getName())) {
+                throw new DataException(
+                        String.format("Unable to request missing data for file %s due to blacklist", arbitraryDataFile));
+            }
+            else {
+                // Ask the arbitrary data manager to fetch data for this transaction
+                String message;
+                if (this.canRequestMissingFiles) {
+                    boolean requested = ArbitraryDataManager.getInstance().fetchData(transactionData);
+
+                    if (requested) {
+                        message = String.format("Requested missing data for file %s", arbitraryDataFile);
+                    } else {
+                        message = String.format("Unable to reissue request for missing file %s for signature %s due to rate limit. Please try again later.", arbitraryDataFile, Base58.encode(transactionData.getSignature()));
+                    }
                 }
                 else {
-                    // Ask the arbitrary data manager to fetch data for this transaction
-                    String message;
-                    if (this.canRequestMissingFiles) {
-                        boolean requested = ArbitraryDataManager.getInstance().fetchDataForSignature(transactionData.getSignature());
-
-                        if (requested) {
-                            message = String.format("Requested missing data for file %s", arbitraryDataFile);
-                        } else {
-                            message = String.format("Unable to reissue request for missing file %s for signature %s due to rate limit. Please try again later.", arbitraryDataFile, Base58.encode(transactionData.getSignature()));
-                        }
-                    }
-                    else {
-                        message = String.format("Missing data for file %s", arbitraryDataFile);
-                    }
-
-                    // Throw a missing data exception, which allows subsequent layers to fetch data
-                    LOGGER.info(message);
-                    throw new MissingDataException(message);
+                    message = String.format("Missing data for file %s", arbitraryDataFile);
                 }
-            }
 
+                // Throw a missing data exception, which allows subsequent layers to fetch data
+                LOGGER.info(message);
+                throw new MissingDataException(message);
+            }
+        }
+
+        if (arbitraryDataFile.allChunksExist() && !arbitraryDataFile.exists()) {
             // We have all the chunks but not the complete file, so join them
-            arbitraryDataFile.addChunkHashes(chunkHashes);
             arbitraryDataFile.join();
         }
 

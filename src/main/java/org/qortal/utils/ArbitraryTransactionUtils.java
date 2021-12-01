@@ -101,20 +101,14 @@ public class ArbitraryTransactionUtils {
         }
 
         byte[] digest = transactionData.getData();
-        byte[] chunkHashes = transactionData.getChunkHashes();
+        byte[] metadataHash = transactionData.getMetadataHash();
         byte[] signature = transactionData.getSignature();
-
-        if (chunkHashes == null) {
-            // This file doesn't have any chunks, which is the same as us having them all
-            return true;
-        }
 
         // Load complete file and chunks
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        if (chunkHashes != null && chunkHashes.length > 0) {
-            arbitraryDataFile.addChunkHashes(chunkHashes);
-        }
-        return arbitraryDataFile.allChunksExist(chunkHashes);
+        arbitraryDataFile.setMetadataHash(metadataHash);
+
+        return arbitraryDataFile.allChunksExist();
     }
 
     public static boolean anyChunksExist(ArbitraryTransactionData transactionData) throws DataException {
@@ -123,20 +117,19 @@ public class ArbitraryTransactionUtils {
         }
 
         byte[] digest = transactionData.getData();
-        byte[] chunkHashes = transactionData.getChunkHashes();
+        byte[] metadataHash = transactionData.getMetadataHash();
         byte[] signature = transactionData.getSignature();
 
-        if (chunkHashes == null) {
-            // This file doesn't have any chunks, which means none exist
+        if (metadataHash == null) {
+            // This file doesn't have any metadata/chunks, which means none exist
             return false;
         }
 
         // Load complete file and chunks
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        if (chunkHashes != null && chunkHashes.length > 0) {
-            arbitraryDataFile.addChunkHashes(chunkHashes);
-        }
-        return arbitraryDataFile.anyChunksExist(chunkHashes);
+        arbitraryDataFile.setMetadataHash(metadataHash);
+
+        return arbitraryDataFile.anyChunksExist();
     }
 
     public static int ourChunkCount(ArbitraryTransactionData transactionData) throws DataException {
@@ -145,19 +138,18 @@ public class ArbitraryTransactionUtils {
         }
 
         byte[] digest = transactionData.getData();
-        byte[] chunkHashes = transactionData.getChunkHashes();
+        byte[] metadataHash = transactionData.getMetadataHash();
         byte[] signature = transactionData.getSignature();
 
-        if (chunkHashes == null) {
-            // This file doesn't have any chunks
+        if (metadataHash == null) {
+            // This file doesn't have any metadata, therefore it has no chunks
             return 0;
         }
 
         // Load complete file and chunks
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        if (chunkHashes != null && chunkHashes.length > 0) {
-            arbitraryDataFile.addChunkHashes(chunkHashes);
-        }
+        arbitraryDataFile.setMetadataHash(metadataHash);
+
         return arbitraryDataFile.chunkCount();
     }
 
@@ -195,11 +187,9 @@ public class ArbitraryTransactionUtils {
 
     public static void deleteCompleteFile(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
-        byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
         byte[] signature = arbitraryTransactionData.getSignature();
 
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
-        arbitraryDataFile.addChunkHashes(chunkHashes);
 
         if (!ArbitraryTransactionUtils.isFileHashRecent(completeHash, signature, now, cleanupAfter)) {
             LOGGER.info("Deleting file {} because it can be rebuilt from chunks " +
@@ -211,18 +201,27 @@ public class ArbitraryTransactionUtils {
 
     public static void deleteCompleteFileAndChunks(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
-        byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
         byte[] signature = arbitraryTransactionData.getSignature();
 
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
-        arbitraryDataFile.addChunkHashes(chunkHashes);
+        arbitraryDataFile.setMetadataHash(metadataHash);
         arbitraryDataFile.deleteAll();
     }
 
     public static void convertFileToChunks(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {
         byte[] completeHash = arbitraryTransactionData.getData();
-        byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
         byte[] signature = arbitraryTransactionData.getSignature();
+
+        // Find the expected chunk hashes
+        ArbitraryDataFile expectedDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
+        expectedDataFile.setMetadataHash(metadataHash);
+
+        if (metadataHash == null || !expectedDataFile.getMetadataFile().exists()) {
+            // We don't have the metadata file, or this transaction doesn't have one - nothing to do
+            return;
+        }
 
         // Split the file into chunks
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
@@ -232,9 +231,10 @@ public class ArbitraryTransactionUtils {
                     Base58.encode(completeHash), chunkCount, (chunkCount == 1 ? "" : "s")));
 
             // Verify that the chunk hashes match those in the transaction
+            byte[] chunkHashes = expectedDataFile.chunkHashes();
             if (chunkHashes != null && Arrays.equals(chunkHashes, arbitraryDataFile.chunkHashes())) {
                 // Ensure they exist on disk
-                if (arbitraryDataFile.allChunksExist(chunkHashes)) {
+                if (arbitraryDataFile.allChunksExist()) {
 
                     // Now delete the original file if it's not recent
                     if (!ArbitraryTransactionUtils.isFileHashRecent(completeHash, signature, now, cleanupAfter)) {
@@ -265,17 +265,16 @@ public class ArbitraryTransactionUtils {
         try {
             // Load hashes
             byte[] digest = arbitraryTransactionData.getData();
-            byte[] chunkHashes = arbitraryTransactionData.getChunkHashes();
+            byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
 
             // Load signature
             byte[] signature = arbitraryTransactionData.getSignature();
 
             // Check if any files for this transaction exist in the misc folder
             ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, null);
-            if (chunkHashes != null && chunkHashes.length > 0) {
-                arbitraryDataFile.addChunkHashes(chunkHashes);
-            }
-            if (arbitraryDataFile.anyChunksExist(chunkHashes)) {
+            arbitraryDataFile.setMetadataHash(metadataHash);
+
+            if (arbitraryDataFile.anyChunksExist()) {
                 // At least one chunk exists in the misc folder - move them
                 for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
                     if (chunk.exists()) {
@@ -304,6 +303,23 @@ public class ArbitraryTransactionUtils {
 
                 // Ensure parent directories exist, then copy the file
                 LOGGER.info("Relocating complete file from {} to {}...", oldPath, newPath);
+                Files.createDirectories(newPath.getParent());
+                Files.move(oldPath, newPath, REPLACE_EXISTING);
+                filesRelocatedCount++;
+
+                // Delete empty parent directories
+                FilesystemUtils.safeDeleteEmptyParentDirectories(oldPath);
+            }
+
+            // Also move the metadata file if it exists
+            if (arbitraryDataFile.getMetadataFile() != null && arbitraryDataFile.getMetadataFile().exists()) {
+                // Determine the correct path by initializing a new ArbitraryDataFile instance with the signature
+                ArbitraryDataFile newCompleteFile = ArbitraryDataFile.fromHash(arbitraryDataFile.getMetadataHash(), signature);
+                Path oldPath = arbitraryDataFile.getMetadataFile().getFilePath();
+                Path newPath = newCompleteFile.getFilePath();
+
+                // Ensure parent directories exist, then copy the file
+                LOGGER.info("Relocating metadata file from {} to {}...", oldPath, newPath);
                 Files.createDirectories(newPath.getParent());
                 Files.move(oldPath, newPath, REPLACE_EXISTING);
                 filesRelocatedCount++;

@@ -86,8 +86,8 @@ public class ArbitraryTransactionData extends TransactionData {
 	@Schema(example = "raw_data_in_base58")
 	private byte[] data;
 	private DataType dataType;
-	@Schema(example = "chunk_hashes_in_base58")
-	private byte[] chunkHashes;
+	@Schema(example = "metadata_file_hash_in_base58")
+	private byte[] metadataHash;
 
 	private List<PaymentData> payments;
 
@@ -103,9 +103,9 @@ public class ArbitraryTransactionData extends TransactionData {
 	}
 
 	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
-			int version, Service service, int nonce, int size,
-			String name, String identifier, Method method, byte[] secret, Compression compression,
-			byte[] data, DataType dataType, byte[] chunkHashes, List<PaymentData> payments) {
+									int version, Service service, int nonce, int size,
+									String name, String identifier, Method method, byte[] secret, Compression compression,
+									byte[] data, DataType dataType, byte[] metadataHash, List<PaymentData> payments) {
 		super(TransactionType.ARBITRARY, baseTransactionData);
 
 		this.senderPublicKey = baseTransactionData.creatorPublicKey;
@@ -120,7 +120,7 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.compression = compression;
 		this.data = data;
 		this.dataType = dataType;
-		this.chunkHashes = chunkHashes;
+		this.metadataHash = metadataHash;
 		this.payments = payments;
 	}
 
@@ -186,12 +186,12 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.dataType = dataType;
 	}
 
-	public byte[] getChunkHashes() {
-		return this.chunkHashes;
+	public byte[] getMetadataHash() {
+		return this.metadataHash;
 	}
 
-	public void setChunkHashes(byte[] chunkHashes) {
-		this.chunkHashes = chunkHashes;
+	public void setMetadataHash(byte[] metadataHash) {
+		this.metadataHash = metadataHash;
 	}
 
 	public List<PaymentData> getPayments() {
