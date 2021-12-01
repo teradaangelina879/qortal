@@ -1,17 +1,22 @@
 package org.qortal.transaction;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.qortal.account.Account;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.network.Network;
+import org.qortal.network.message.ArbitrarySignaturesMessage;
+import org.qortal.network.message.Message;
 import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -209,10 +214,21 @@ public class ArbitraryTransaction extends Transaction {
 		// We may need to move files from the misc_ folder
 		ArbitraryTransactionUtils.checkAndRelocateMiscFiles(arbitraryTransactionData);
 
-		// Invalidate the cache for this name if we have the data already
-		if (arbitraryTransactionData.getName() != null) {
-			if (isDataLocal()) {
+		// If the data is local, we need to perform a few actions
+		if (isDataLocal()) {
+
+			// We have the data for this transaction, so invalidate the cache
+			if (arbitraryTransactionData.getName() != null) {
 				ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
+			}
+
+			// We also need to broadcast to the network that we are now hosting files for this transaction,
+			// but only if these files are in accordance with our storage policy
+			if (ArbitraryDataStorageManager.getInstance().canStoreData(arbitraryTransactionData)) {
+				// Use a null peer address to indicate our own
+				byte[] signature = arbitraryTransactionData.getSignature();
+				Message arbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
+				Network.getInstance().broadcast(broadcastPeer -> arbitrarySignatureMessage);
 			}
 		}
 	}
