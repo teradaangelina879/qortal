@@ -217,7 +217,7 @@ public class ArbitraryDataTransactionBuilder {
             }
 
             final BaseTransactionData baseTransactionData = new BaseTransactionData(now, Group.NO_GROUP,
-                    lastReference, creatorPublicKey, BlockChain.getInstance().getUnitFee(), null);
+                    lastReference, creatorPublicKey, 0L, null);
             final int size = (int) arbitraryDataFile.size();
             final int version = 5;
             final int nonce = 0;

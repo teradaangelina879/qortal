@@ -74,6 +74,14 @@ public class ArbitraryTransaction extends Transaction {
 	}
 
 	@Override
+	public ValidationResult isFeeValid() throws DataException {
+		if (this.transactionData.getFee() < 0)
+			return ValidationResult.NEGATIVE_FEE;
+
+		return ValidationResult.OK;
+	}
+
+	@Override
 	public boolean hasValidReference() throws DataException {
 		// We shouldn't really get this far, but just in case:
 		if (this.arbitraryTransactionData.getReference() == null) {
