@@ -40,6 +40,7 @@ import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
+import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -101,28 +102,73 @@ public class ArbitraryResource {
 			}
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.getArbitraryResources(service, identifier, defaultRes, limit, offset, reverse);
+					.getArbitraryResources(service, identifier, null, defaultRes, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
 			}
 
-			if (includeStatus == null || includeStatus == false) {
-				return resources;
+			if (includeStatus != null && includeStatus == true) {
+				resources = this.addStatusToResources(resources);
 			}
 
-			// Determine and add the status of each resource
-			List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
-			for (ArbitraryResourceInfo resourceInfo : resources) {
-				ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
-						resourceInfo.service, resourceInfo.identifier);
-				ArbitraryResourceSummary summary = resource.getSummary();
-				if (summary != null) {
-					resourceInfo.status = summary.status;
-				}
-				updatedResources.add(resourceInfo);
+			return resources;
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/resources/names")
+	@Operation(
+			summary = "List arbitrary resources available on chain, grouped by creator's name",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+					)
 			}
-			return updatedResources;
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<ArbitraryResourceNameInfo> getResourcesGroupedByName(
+			@QueryParam("service") Service service,
+			@QueryParam("identifier") String identifier,
+			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
+			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
+			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
+			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus) {
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			// Treat empty identifier as null
+			if (identifier != null && identifier.isEmpty()) {
+				identifier = null;
+			}
+
+			// Ensure that "default" and "identifier" parameters cannot coexist
+			boolean defaultRes = Boolean.TRUE.equals(defaultResource);
+			if (defaultRes == true && identifier != null) {
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "identifier cannot be specified when requesting a default resource");
+			}
+
+			List<ArbitraryResourceNameInfo> creatorNames = repository.getArbitraryRepository()
+					.getArbitraryResourceCreatorNames(service, identifier, defaultRes, limit, offset, reverse);
+
+			for (ArbitraryResourceNameInfo creatorName : creatorNames) {
+				String name = creatorName.name;
+				if (name != null) {
+					List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
+							.getArbitraryResources(service, identifier, name, defaultRes, null, null, reverse);
+
+					if (includeStatus != null && includeStatus == true) {
+						resources = this.addStatusToResources(resources);
+					}
+					creatorName.resources = resources;
+				}
+			}
+
+			return creatorNames;
 
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
@@ -664,5 +710,20 @@ public class ArbitraryResource {
 
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
 		return resource.getSummary();
+	}
+
+	private List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
+		// Determine and add the status of each resource
+		List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
+		for (ArbitraryResourceInfo resourceInfo : resources) {
+			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
+					resourceInfo.service, resourceInfo.identifier);
+			ArbitraryResourceSummary summary = resource.getSummary();
+			if (summary != null) {
+				resourceInfo.status = summary.status;
+			}
+			updatedResources.add(resourceInfo);
+		}
+		return updatedResources;
 	}
 }

@@ -2,6 +2,7 @@ package org.qortal.repository;
 
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
+import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -23,7 +24,9 @@ public interface ArbitraryRepository {
 	public ArbitraryTransactionData getLatestTransaction(String name, Service service, Method method, String identifier) throws DataException;
 
 
-	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, String name, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	public List<ArbitraryResourceNameInfo> getArbitraryResourceCreatorNames(Service service, String identifier, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 
 	public List<ArbitraryPeerData> getArbitraryPeerDataForSignature(byte[] signature) throws DataException;

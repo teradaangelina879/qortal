@@ -3,6 +3,7 @@ package org.qortal.repository.hsqldb;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -279,11 +280,79 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier,
-			boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, String name,
+															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
+		List<Object> bindParams = new ArrayList<>();
 
 		sql.append("SELECT name, service, identifier FROM ArbitraryTransactions WHERE 1=1");
+
+		if (service != null) {
+			sql.append(" AND service = ");
+			sql.append(service.value);
+		}
+
+		if (defaultResource) {
+			// Default resource requested - use NULL identifier
+			sql.append(" AND identifier IS NULL");
+		}
+		else {
+			// Non-default resource requested
+			// Use an exact match identifier, or list all if supplied identifier is null
+			sql.append(" AND (identifier = ? OR (? IS NULL))");
+			bindParams.add(identifier);
+			bindParams.add(identifier);
+		}
+
+		if (name != null) {
+			sql.append(" AND name = ?");
+			bindParams.add(name);
+		}
+
+		sql.append(" GROUP BY name, service, identifier ORDER BY name");
+
+		if (reverse != null && reverse) {
+			sql.append(" DESC");
+		}
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
+
+		List<ArbitraryResourceInfo> arbitraryResources = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return null;
+
+			do {
+				String nameResult = resultSet.getString(1);
+				Service serviceResult = Service.valueOf(resultSet.getInt(2));
+				String identifierResult = resultSet.getString(3);
+
+				// We should filter out resources without names
+				if (name == null) {
+					continue;
+				}
+
+				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
+				arbitraryResourceInfo.name = nameResult;
+				arbitraryResourceInfo.service = serviceResult;
+				arbitraryResourceInfo.identifier = identifierResult;
+
+				arbitraryResources.add(arbitraryResourceInfo);
+			} while (resultSet.next());
+
+			return arbitraryResources;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch arbitrary transactions from repository", e);
+		}
+	}
+
+	@Override
+	public List<ArbitraryResourceNameInfo> getArbitraryResourceCreatorNames(Service service, String identifier,
+																			boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		StringBuilder sql = new StringBuilder(512);
+
+		sql.append("SELECT name FROM ArbitraryTransactions WHERE 1=1");
 
 		if (service != null) {
 			sql.append(" AND service = ");
@@ -302,7 +371,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			sql.append(" AND (identifier = ? OR (? IS NULL))");
 		}
 
-		sql.append(" GROUP BY name, service, identifier ORDER BY name");
+		sql.append(" GROUP BY name ORDER BY name");
 
 		if (reverse != null && reverse) {
 			sql.append(" DESC");
@@ -310,7 +379,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		List<ArbitraryResourceInfo> arbitraryResources = new ArrayList<>();
+		List<ArbitraryResourceNameInfo> arbitraryResources = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), identifier, identifier)) {
 			if (resultSet == null)
@@ -318,20 +387,16 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 			do {
 				String name = resultSet.getString(1);
-				Service serviceResult = Service.valueOf(resultSet.getInt(2));
-				String identifierResult = resultSet.getString(3);
 
 				// We should filter out resources without names
 				if (name == null) {
 					continue;
 				}
 
-				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
-				arbitraryResourceInfo.name = name;
-				arbitraryResourceInfo.service = serviceResult;
-				arbitraryResourceInfo.identifier = identifierResult;
+				ArbitraryResourceNameInfo arbitraryResourceNameInfo = new ArbitraryResourceNameInfo();
+				arbitraryResourceNameInfo.name = name;
 
-				arbitraryResources.add(arbitraryResourceInfo);
+				arbitraryResources.add(arbitraryResourceNameInfo);
 			} while (resultSet.next());
 
 			return arbitraryResources;
