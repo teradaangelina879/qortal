@@ -125,7 +125,7 @@ public class ArbitraryDataRenderer {
                 }
             }
         } catch (IOException e) {
-            LOGGER.info("Unable to serve file at path: {}", inPath, e);
+            LOGGER.info("Unable to serve file at path: {}", inPath, e.getMessage());
         }
 
         return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
