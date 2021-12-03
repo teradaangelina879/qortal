@@ -4,8 +4,13 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.list.ResourceListManager;
+import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
 import org.qortal.settings.Settings;
+import org.qortal.transaction.Transaction;
+import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.NTP;
 
@@ -13,6 +18,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ArbitraryDataStorageManager extends Thread {
 
@@ -205,6 +213,47 @@ public class ArbitraryDataStorageManager extends Thread {
 
     private boolean isFollowingName(String name) {
         return ResourceListManager.getInstance().listContains("followed", "names", name, false);
+    }
+
+
+    // Hosted data
+    public List<ArbitraryTransactionData> listAllHostedData(Repository repository) throws IOException {
+        List<ArbitraryTransactionData> arbitraryTransactionDataList = new ArrayList<>();
+
+        Path dataPath = Paths.get(Settings.getInstance().getDataPath());
+        Path tempPath = Paths.get(Settings.getInstance().getTempDataPath());
+
+        // Walk through 3 levels of the file tree and find directories that are greater than 32 characters in length
+        // Also exclude the _temp and _misc paths if present
+        List<Path> allPaths = Files.walk(dataPath, 3)
+                .filter(Files::isDirectory)
+                .filter(path -> !path.toAbsolutePath().toString().contains(tempPath.toAbsolutePath().toString()))
+                .filter(path -> !path.toString().contains("_misc"))
+                .filter(path -> path.getFileName().toString().length() > 32)
+                .sorted().collect(Collectors.toList());
+
+        // Loop through each path and attempt to match it to a signature
+        for (Path path : allPaths) {
+            try {
+                if (path.toFile().list().length == 0) {
+                    // Ignore empty directories
+                    continue;
+                }
+
+                String signature58 = path.getFileName().toString();
+                byte[] signature = Base58.decode(signature58);
+                TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+                if (transactionData == null || transactionData.getType() != Transaction.TransactionType.ARBITRARY) {
+                    continue;
+                }
+                arbitraryTransactionDataList.add((ArbitraryTransactionData) transactionData);
+
+            } catch (DataException e) {
+                continue;
+            }
+        }
+
+        return arbitraryTransactionDataList;
     }
 
 

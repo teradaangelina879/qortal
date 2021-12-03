@@ -39,6 +39,7 @@ import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
+import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
@@ -586,6 +587,31 @@ public class ArbitraryResource {
 		Security.checkApiCallAllowed(request);
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64);
+	}
+
+	@GET
+	@Path("/hosted/transactions")
+	@Operation(
+			summary = "List arbitrary transactions hosted by this node",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryTransactionData.class))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<ArbitraryTransactionData> getHostedTransactions() {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedData(repository);
+
+			return hostedTransactions;
+
+		} catch (DataException | IOException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@POST
