@@ -329,7 +329,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				String identifierResult = resultSet.getString(3);
 
 				// We should filter out resources without names
-				if (name == null) {
+				if (nameResult == null) {
 					continue;
 				}
 
