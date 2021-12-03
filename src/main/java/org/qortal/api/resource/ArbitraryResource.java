@@ -614,6 +614,54 @@ public class ArbitraryResource {
 		}
 	}
 
+	@GET
+	@Path("/hosted/resources")
+	@Operation(
+			summary = "List arbitrary resources hosted by this node",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<ArbitraryResourceInfo> getHostedResources(
+			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus) {
+		Security.checkApiCallAllowed(request);
+
+		List<ArbitraryResourceInfo> resources = new ArrayList<>();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<ArbitraryTransactionData> transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedData(repository);
+			for (ArbitraryTransactionData transactionData : transactionDataList) {
+				ArbitraryTransaction transaction = new ArbitraryTransaction(repository, transactionData);
+				if (transaction.isDataLocal()) {
+					String name = transactionData.getName();
+					Service service = transactionData.getService();
+					String identifier = transactionData.getIdentifier();
+
+					if (transactionData.getName() != null) {
+						List<ArbitraryResourceInfo> transactionResources = repository.getArbitraryRepository()
+								.getArbitraryResources(service, identifier, name, (identifier == null), null, null, false);
+						if (transactionResources != null) {
+							resources.addAll(transactionResources);
+						}
+					}
+				}
+			}
+
+			if (includeStatus != null && includeStatus == true) {
+				resources = this.addStatusToResources(resources);
+			}
+
+			return resources;
+
+		} catch (DataException | IOException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 	@POST
 	@Path("/compute")
 	@Operation(
