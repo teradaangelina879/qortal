@@ -78,8 +78,14 @@ if [[ "${method}" == "POST" ]]; then
     echo "Error: no transaction data returned"; exit
   fi
 
+  echo "Computing nonce..."
+  computed_tx_data=$(curl --silent --insecure -X POST "http://${host}:${port}/arbitrary/compute" -H  "Content-Type: application/json" -d "${tx_data}")
+  if [[ "${computed_tx_data}" == *"error"* || "${computed_tx_data}" == *"ERROR"* ]]; then
+    echo "${computed_tx_data}"; exit
+  fi
+
   echo "Signing..."
-  signed_tx_data=$(curl --silent --insecure -X POST "http://${host}:${port}/transactions/sign" -H  "Content-Type: application/json" -d "{\"privateKey\":\"${QORTAL_PRIVKEY}\",\"transactionBytes\":\"${tx_data}\"}")
+  signed_tx_data=$(curl --silent --insecure -X POST "http://${host}:${port}/transactions/sign" -H  "Content-Type: application/json" -d "{\"privateKey\":\"${QORTAL_PRIVKEY}\",\"transactionBytes\":\"${computed_tx_data}\"}")
   if [[ "${signed_tx_data}" == *"error"* || "${signed_tx_data}" == *"ERROR"* ]]; then
     echo "${signed_tx_data}"; exit
   fi

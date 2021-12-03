@@ -1,5 +1,6 @@
 package org.qortal.api.resource;
 
+import com.google.common.primitives.Bytes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -48,11 +49,13 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
+import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
 
 @Path("/arbitrary")
@@ -585,6 +588,77 @@ public class ArbitraryResource {
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64);
 	}
 
+	@POST
+	@Path("/compute")
+	@Operation(
+			summary = "Compute nonce for raw, unsigned ARBITRARY transaction",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string",
+									description = "raw, unsigned ARBITRARY transaction in base58 encoding",
+									example = "raw transaction base58"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String computeNonce(String rawBytes58) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			byte[] rawBytes = Base58.decode(rawBytes58);
+			// We're expecting unsigned transaction, so append empty signature prior to decoding
+			rawBytes = Bytes.concat(rawBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
+
+			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			if (transactionData.getType() != TransactionType.ARBITRARY)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			ArbitraryTransaction arbitraryTransaction = (ArbitraryTransaction) Transaction.fromData(repository, transactionData);
+
+			// Quicker validity check first before we compute nonce
+			ValidationResult result = arbitraryTransaction.isValid();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			LOGGER.info("Computing nonce...");
+			arbitraryTransaction.computeNonce();
+
+			// Re-check, but ignores signature
+			result = arbitraryTransaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			// Strip zeroed signature
+			transactionData.setSignature(null);
+
+			byte[] bytes = ArbitraryTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 	private String upload(Service service, String name, String identifier, String path, String string, String base64) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -630,7 +704,7 @@ public class ArbitraryResource {
 				);
 
 				transactionBuilder.build();
-				transactionBuilder.computeNonce();
+				// Don't compute nonce - this is done by the client (or via POST /arbitrary/compute)
 				ArbitraryTransactionData transactionData = transactionBuilder.getArbitraryTransactionData();
 				return Base58.encode(ArbitraryTransactionTransformer.toBytes(transactionData));
 
