@@ -38,7 +38,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 	 * rebuilding them. The main purpose of this is to avoid deleting files that are currently
 	 * being used by other parts of the system.
 	 */
-	private static long STALE_FILE_TIMEOUT = 60*60*1000L; // 1 hour
+	private static final long STALE_FILE_TIMEOUT = 60*60*1000L; // 1 hour
 
 	/**
 	 * The number of chunks to delete in a batch when over the capacity limit.
@@ -46,7 +46,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 	 * delay between the processing of each batch as it only occurs after a complete
 	 * cleanup cycle (to allow unwanted chunks to be deleted first).
 	 */
-	private static int CHUNK_DELETION_BATCH_SIZE = 10;
+	private static final int CHUNK_DELETION_BATCH_SIZE = 10;
 
 
 	/*
@@ -121,6 +121,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 						// Fetch the transaction data
 						ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
+						if (arbitraryTransactionData == null) {
+							continue;
+						}
 
 						// Raw data doesn't have any associated files to clean up
 						if (arbitraryTransactionData.getDataType() == ArbitraryTransactionData.DataType.RAW_DATA) {
