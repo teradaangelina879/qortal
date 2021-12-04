@@ -205,6 +205,16 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 				try (final Repository repository = RepositoryManager.getRepository()) {
 
+					// Delete additional data at random if we're over our storage limit
+					// Use a threshold of 1, for the same reasons as above
+					if (!storageManager.isStorageSpaceAvailable(1.0f)) {
+
+						// Rate limit, to avoid repeated calls to calculateDirectorySize()
+						Thread.sleep(60000);
+						// Now delete some data at random
+						this.storageLimitReached(repository);
+					}
+
 					// Delete random data associated with name if we're over our storage limit for this name
 					// Use a threshold of 1 so that we only start deleting once the hard limit is reached
 					// This also allows some headroom between the regular threshold (90%) and the hard
@@ -213,12 +223,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 						if (!storageManager.isStorageSpaceAvailableForName(repository, followedName, 1.0f)) {
 							this.storageLimitReachedForName(repository, followedName);
 						}
-					}
-
-					// Delete additional data at random if we're over our storage limit
-					// Use a threshold of 1, for the same reasons as above
-					if (!storageManager.isStorageSpaceAvailable(1.0f)) {
-						this.storageLimitReached(repository);
 					}
 
 				} catch (DataException e) {
@@ -232,9 +236,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 	private void storageLimitReached(Repository repository) throws InterruptedException {
 		// We think that the storage limit has been reached
-
-		// Firstly, rate limit, to avoid repeated calls to calculateDirectorySize()
-		Thread.sleep(60000);
 
 		// Now calculate the used/total storage again, as a safety precaution
 		Long now = NTP.getTime();
@@ -255,15 +256,8 @@ public class ArbitraryDataCleanupManager extends Thread {
 		// FUTURE: consider reducing the expiry time of the reader cache
 	}
 
-	private void storageLimitReachedForName(Repository repository, String name) throws InterruptedException {
-		// We think that the storage limit has been reached for supplied name
-
-		// Firstly, rate limit, to avoid repeated calls to calculateDirectorySize()
-		Thread.sleep(60000);
-
-		// Now calculate the used/total storage again, as a safety precaution
-		Long now = NTP.getTime();
-		ArbitraryDataStorageManager.getInstance().calculateDirectorySize(now);
+	public void storageLimitReachedForName(Repository repository, String name) throws InterruptedException {
+		// We think that the storage limit has been reached for supplied name - but we should double check
 		if (ArbitraryDataStorageManager.getInstance().isStorageSpaceAvailableForName(repository, name, 1.0f)) {
 			// We have space available for this name, so don't delete anything
 			return;
@@ -291,6 +285,12 @@ public class ArbitraryDataCleanupManager extends Thread {
 		final File[] contentsList = directory.listFiles();
 		if (contentsList != null) {
 			SecureRandom random = new SecureRandom();
+
+			// If the directory is empty, there's nothing to do
+			if (contentsList.length == 0) {
+				return false;
+			}
+
 			File randomItem = contentsList[random.nextInt(contentsList.length)];
 
 			// Skip anything relating to the temp directory
@@ -313,17 +313,20 @@ public class ArbitraryDataCleanupManager extends Thread {
 					// A name has been specified, so we need to make sure this file relates to
 					// the name we want to delete. The signature should be the name of parent directory.
 					try {
-						String signature58 = randomItem.toPath().toAbsolutePath().getParent().toString();
-						byte[] signature = Base58.decode(signature58);
-						TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-						if (transactionData == null || transactionData.getType() != Transaction.TransactionType.ARBITRARY) {
-							// Not what we were expecting, so don't delete it
-							return false;
-						}
-						ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData)transactionData;
-						if (!Objects.equals(arbitraryTransactionData.getName(), name)) {
-							// Relates to a different name - don't delete it
-							return false;
+						Path parentFileNamePath = randomItem.toPath().toAbsolutePath().getParent().getFileName();
+						if (parentFileNamePath != null) {
+							String signature58 = parentFileNamePath.toString();
+							byte[] signature = Base58.decode(signature58);
+							TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+							if (transactionData == null || transactionData.getType() != Transaction.TransactionType.ARBITRARY) {
+								// Not what we were expecting, so don't delete it
+								return false;
+							}
+							ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+							if (!Objects.equals(arbitraryTransactionData.getName(), name)) {
+								// Relates to a different name - don't delete it
+								return false;
+							}
 						}
 
 					} catch (DataException e) {
