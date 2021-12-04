@@ -17,6 +17,7 @@ import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.test.common.ArbitraryUtils;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
@@ -55,15 +56,15 @@ public class ArbitraryDataTests extends Common {
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Create PATCH transaction
             Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
-            this.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
 
             // Create another PATCH transaction
             Path path3 = Paths.get("src/test/resources/arbitrary/demo3");
-            this.createAndMintTxn(repository, publicKey58, path3, name, identifier, Method.PATCH, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path3, name, identifier, Method.PATCH, service, alice);
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -100,7 +101,7 @@ public class ArbitraryDataTests extends Common {
             // Create PATCH transaction, ensuring that an exception is thrown
             try {
                 Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-                this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PATCH, service, alice);
+                ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PATCH, service, alice);
                 fail("Creating transaction should fail due to nonexistent PUT transaction");
 
             } catch (DataException expectedException) {
@@ -126,7 +127,7 @@ public class ArbitraryDataTests extends Common {
             // Create PUT transaction, ensuring that an exception is thrown
             try {
                 Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-                this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+                ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
                 fail("Creating transaction should fail due to the name being unregistered");
 
             } catch (DataException expectedException) {
@@ -149,7 +150,7 @@ public class ArbitraryDataTests extends Common {
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-            this.createAndMintTxn(repository, Base58.encode(alice.getPublicKey()), path1, name, identifier, Method.PUT, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, Base58.encode(alice.getPublicKey()), path1, name, identifier, Method.PUT, service, alice);
 
             // Bob attempts to update Alice's data
             PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
@@ -157,7 +158,7 @@ public class ArbitraryDataTests extends Common {
             // Create PATCH transaction, ensuring that an exception is thrown
             try {
                 Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
-                this.createAndMintTxn(repository, Base58.encode(bob.getPublicKey()), path2, name, identifier, Method.PATCH, service, bob);
+                ArbitraryUtils.createAndMintTxn(repository, Base58.encode(bob.getPublicKey()), path2, name, identifier, Method.PATCH, service, bob);
                 fail("Creating transaction should fail due to the name being registered to Alice instead of Bob");
 
             } catch (DataException expectedException) {
@@ -181,7 +182,7 @@ public class ArbitraryDataTests extends Common {
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -192,7 +193,7 @@ public class ArbitraryDataTests extends Common {
 
             // Create PATCH transaction
             Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
-            this.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
 
             // Rebuild the latest state
             ArbitraryDataReader arbitraryDataReader2 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -226,7 +227,7 @@ public class ArbitraryDataTests extends Common {
 
             // Create PUT transaction
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
-            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Build the latest data state for this name, with a null identifier, ensuring that it fails
             ArbitraryDataReader arbitraryDataReader1a = new ArbitraryDataReader(name, ResourceIdType.NAME, service, null);
@@ -260,7 +261,7 @@ public class ArbitraryDataTests extends Common {
 
             // Create PATCH transaction
             Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
-            this.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
 
             // Rebuild the latest state
             ArbitraryDataReader arbitraryDataReader2 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -296,7 +297,7 @@ public class ArbitraryDataTests extends Common {
             Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
             ArbitraryDataDigest path1Digest = new ArbitraryDataDigest(path1);
             path1Digest.compute();
-            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Now build the latest data state for this name with a null identifier, ensuring that it succeeds and the data matches
             ArbitraryDataReader arbitraryDataReader1a = new ArbitraryDataReader(name, ResourceIdType.NAME, service, null);
@@ -346,7 +347,7 @@ public class ArbitraryDataTests extends Common {
             byte[] path1FileDigest = Crypto.digest(path1.toFile());
             ArbitraryDataDigest path1DirectoryDigest = new ArbitraryDataDigest(path1.getParent());
             path1DirectoryDigest.compute();
-            this.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -363,20 +364,6 @@ public class ArbitraryDataTests extends Common {
             builtDirectoryDigest.compute();
             assertFalse(Objects.equals(path1DirectoryDigest.getHash58(), builtDirectoryDigest.getHash58()));
         }
-    }
-
-    private void createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
-                                  Method method, Service service, PrivateKeyAccount account) throws DataException {
-
-        ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
-                repository, publicKey58, path, name, method, service, identifier);
-
-        txnBuilder.build();
-        txnBuilder.computeNonce();
-        ArbitraryTransactionData transactionData = txnBuilder.getArbitraryTransactionData();
-        Transaction.ValidationResult result = TransactionUtils.signAndImport(repository, transactionData, account);
-        assertEquals(Transaction.ValidationResult.OK, result);
-        BlockUtils.mintBlock(repository);
     }
 
 }

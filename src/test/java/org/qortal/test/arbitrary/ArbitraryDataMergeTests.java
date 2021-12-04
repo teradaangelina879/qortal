@@ -7,6 +7,7 @@ import org.qortal.arbitrary.ArbitraryDataCreatePatch;
 import org.qortal.arbitrary.ArbitraryDataDigest;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
+import org.qortal.test.common.ArbitraryUtils;
 import org.qortal.test.common.Common;
 
 import java.io.BufferedWriter;
@@ -239,7 +240,7 @@ public class ArbitraryDataMergeTests extends Common {
 
         // Write a random string to the first file
         BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
-        String initialString = this.generateRandomString(1024);
+        String initialString = ArbitraryUtils.generateRandomString(1024);
         // Add a newline every 50 chars
         initialString = initialString.replaceAll("(.{50})", "$1\n");
         file1Writer.write(initialString);
@@ -308,7 +309,7 @@ public class ArbitraryDataMergeTests extends Common {
 
         // Write a random string to the first file
         BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
-        String initialString = this.generateRandomString(1024);
+        String initialString = ArbitraryUtils.generateRandomString(1024);
         // Add a newline every 50 chars
         initialString = initialString.replaceAll("(.{50})", "$1\n");
         // Remove newline at end of string
@@ -382,7 +383,7 @@ public class ArbitraryDataMergeTests extends Common {
 
         // Write a random string to the first file
         BufferedWriter file1Writer = new BufferedWriter(new FileWriter(file1));
-        String initialString = this.generateRandomString(110 * 1024);
+        String initialString = ArbitraryUtils.generateRandomString(110 * 1024);
         // Add a newline every 50 chars
         initialString = initialString.replaceAll("(.{50})", "$1\n");
         file1Writer.write(initialString);
@@ -440,18 +441,6 @@ public class ArbitraryDataMergeTests extends Common {
         finalPathDigest.compute();
         assertEquals(path2Digest.getHash58(), finalPathDigest.getHash58());
 
-    }
-
-    private String generateRandomString(int length) {
-        int leftLimit = 48; // numeral '0'
-        int rightLimit = 122; // letter 'z'
-        Random random = new Random();
-
-        return random.ints(leftLimit, rightLimit + 1)
-                .filter(i -> (i <= 57 || i >= 65) && (i <= 90 || i >= 97))
-                .limit(length)
-                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
-                .toString();
     }
 
 }
