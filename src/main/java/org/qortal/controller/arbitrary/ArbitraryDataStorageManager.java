@@ -41,6 +41,8 @@ public class ArbitraryDataStorageManager extends Thread {
     private long totalDirectorySize = 0L;
     private long lastDirectorySizeCheck = 0;
 
+    private List<ArbitraryTransactionData> hostedTransactions;
+
     private static long DIRECTORY_SIZE_CHECK_INTERVAL = 10 * 60 * 1000L; // 10 minutes
 
     /** Treat storage as full at 90% usage, to reduce risk of going over the limit.
@@ -219,6 +221,11 @@ public class ArbitraryDataStorageManager extends Thread {
     // Hosted data
 
     public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository) throws IOException {
+        // Load from cache if we can, to avoid disk reads
+        if (this.hostedTransactions != null) {
+            return this.hostedTransactions;
+        }
+
         List<ArbitraryTransactionData> arbitraryTransactionDataList = new ArrayList<>();
 
         Path dataPath = Paths.get(Settings.getInstance().getDataPath());
@@ -254,7 +261,14 @@ public class ArbitraryDataStorageManager extends Thread {
             }
         }
 
+        // Update cache
+        this.hostedTransactions = arbitraryTransactionDataList;
+
         return arbitraryTransactionDataList;
+    }
+
+    public void invalidateHostedTransactionsCache() {
+        this.hostedTransactions = null;
     }
 
 

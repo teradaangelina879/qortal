@@ -703,6 +703,9 @@ public class ArbitraryDataManager extends Thread {
 			repository.discardChanges();
 			repository.getArbitraryRepository().save(arbitraryPeerData);
 			repository.saveChanges();
+
+			// Invalidate the hosted transactions cache as we are now hosting something new
+			ArbitraryDataStorageManager.getInstance().invalidateHostedTransactionsCache();
 		}
 
 		// Check if we have all the files we need for this transaction
