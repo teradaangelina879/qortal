@@ -225,6 +225,10 @@ public class ArbitraryDataStorageManager extends Thread {
         return ResourceListManager.getInstance().listContains("followed", "names", name, false);
     }
 
+    public List<String> followedNames() {
+        return ResourceListManager.getInstance().getStringsInList("followed", "names");
+    }
+
     private int followedNamesCount() {
         return ResourceListManager.getInstance().getItemCountForList("followed", "names");
     }

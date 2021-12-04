@@ -4,10 +4,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
@@ -198,12 +200,26 @@ public class ArbitraryDataCleanupManager extends Thread {
 					LOGGER.error("Repository issue when fetching arbitrary transaction data", e);
 				}
 
-				// Delete additional data at random if we're over our storage limit
-				// Use a threshold of 1 so that we only start deleting once the hard limit is reached
-				// This also allows some headroom between the regular threshold (90%) and the hard
-				// limit, to avoid data getting into a fetch/delete loop.
-				if (!storageManager.isStorageSpaceAvailable(1.0f)) {
-					this.storageLimitReached();
+				try (final Repository repository = RepositoryManager.getRepository()) {
+
+					// Delete random data associated with name if we're over our storage limit for this name
+					// Use a threshold of 1 so that we only start deleting once the hard limit is reached
+					// This also allows some headroom between the regular threshold (90%) and the hard
+					// limit, to avoid data getting into a fetch/delete loop.
+					for (String followedName : storageManager.followedNames()) {
+						if (!storageManager.isStorageSpaceAvailableForName(repository, followedName, 1.0f)) {
+							this.storageLimitReachedForName(repository, followedName);
+						}
+					}
+
+					// Delete additional data at random if we're over our storage limit
+					// Use a threshold of 1, for the same reasons as above
+					if (!storageManager.isStorageSpaceAvailable(1.0f)) {
+						this.storageLimitReached(repository);
+					}
+
+				} catch (DataException e) {
+					LOGGER.error("Repository issue when cleaning up arbitrary transaction data", e);
 				}
 			}
 		} catch (InterruptedException e) {
@@ -211,7 +227,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 		}
 	}
 
-	private void storageLimitReached() throws InterruptedException {
+	private void storageLimitReached(Repository repository) throws InterruptedException {
 		// We think that the storage limit has been reached
 
 		// Firstly, rate limit, to avoid repeated calls to calculateDirectorySize()
@@ -230,10 +246,33 @@ public class ArbitraryDataCleanupManager extends Thread {
 		// when they reach their storage limit
 		Path dataPath = Paths.get(Settings.getInstance().getDataPath());
 		for (int i=0; i<CHUNK_DELETION_BATCH_SIZE; i++) {
-			this.deleteRandomFile(dataPath.toFile());
+			this.deleteRandomFile(repository, dataPath.toFile(), null);
 		}
 
 		// FUTURE: consider reducing the expiry time of the reader cache
+	}
+
+	private void storageLimitReachedForName(Repository repository, String name) throws InterruptedException {
+		// We think that the storage limit has been reached for supplied name
+
+		// Firstly, rate limit, to avoid repeated calls to calculateDirectorySize()
+		Thread.sleep(60000);
+
+		// Now calculate the used/total storage again, as a safety precaution
+		Long now = NTP.getTime();
+		ArbitraryDataStorageManager.getInstance().calculateDirectorySize(now);
+		if (ArbitraryDataStorageManager.getInstance().isStorageSpaceAvailableForName(repository, name, 1.0f)) {
+			// We have space available for this name, so don't delete anything
+			return;
+		}
+
+		// Delete a batch of random chunks associated with this name
+		// This reduces the chance of too many nodes deleting the same chunk
+		// when they reach their storage limit
+		Path dataPath = Paths.get(Settings.getInstance().getDataPath());
+		for (int i=0; i<CHUNK_DELETION_BATCH_SIZE; i++) {
+			this.deleteRandomFile(repository, dataPath.toFile(), name);
+		}
 	}
 
 	/**
@@ -242,7 +281,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 	 * @param directory - the base directory
 	 * @return boolean - whether a file was deleted
 	 */
-	private boolean deleteRandomFile(File directory) {
+	private boolean deleteRandomFile(Repository repository, File directory, String name) {
 		Path tempDataPath = Paths.get(Settings.getInstance().getTempDataPath());
 
 		// Pick a random directory
@@ -262,11 +301,34 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 			// If it's a directory, iteratively repeat the process
 			if (randomItem.isDirectory()) {
-				return this.deleteRandomFile(randomItem);
+				return this.deleteRandomFile(repository, randomItem, name);
 			}
 
-			// If it's a file, we can delete it
+			// If it's a file, we might be able to delete it
 			if (randomItem.isFile()) {
+				if (name != null) {
+					// A name has been specified, so we need to make sure this file relates to
+					// the name we want to delete. The signature should be the name of parent directory.
+					try {
+						String signature58 = randomItem.toPath().toAbsolutePath().getParent().toString();
+						byte[] signature = Base58.decode(signature58);
+						TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+						if (transactionData == null || transactionData.getType() != Transaction.TransactionType.ARBITRARY) {
+							// Not what we were expecting, so don't delete it
+							return false;
+						}
+						ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData)transactionData;
+						if (!Objects.equals(arbitraryTransactionData.getName(), name)) {
+							// Relates to a different name - don't delete it
+							return false;
+						}
+
+					} catch (DataException e) {
+						// Something went wrong and we weren't able to make a decision - so it's best not to delete this file
+						return false;
+					}
+				}
+
 				LOGGER.info("Deleting random file {} because we have reached max storage capacity...", randomItem.toString());
 				boolean success = randomItem.delete();
 				if (success) {
