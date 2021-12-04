@@ -34,6 +34,7 @@ public class ArbitraryDataStoragePolicyTests extends Common {
     @Before
     public void beforeTest() throws DataException, InterruptedException {
         Common.useDefaultSettings();
+        this.deleteDataDirectories();
         this.deleteListsDirectory();
         ArbitraryDataStorageManager.getInstance().start();
 
@@ -45,6 +46,7 @@ public class ArbitraryDataStoragePolicyTests extends Common {
 
     @After
     public void afterTest() throws DataException {
+        this.deleteDataDirectories();
         this.deleteListsDirectory();
         ArbitraryDataStorageManager.getInstance().shutdown();
     }
@@ -68,14 +70,14 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             // We should store and pre-fetch data for this transaction
             assertEquals(StoragePolicy.FOLLOWED_AND_VIEWED, Settings.getInstance().getStoragePolicy());
             assertTrue(storageManager.canStoreData(transactionData));
-            assertTrue(storageManager.shouldPreFetchData(transactionData));
+            assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followed", "names", name, false));
 
             // We should store but not pre-fetch data for this transaction
             assertTrue(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(transactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
         }
     }
 
@@ -101,14 +103,14 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             // We should store and pre-fetch data for this transaction
             assertEquals(StoragePolicy.FOLLOWED, Settings.getInstance().getStoragePolicy());
             assertTrue(storageManager.canStoreData(transactionData));
-            assertTrue(storageManager.shouldPreFetchData(transactionData));
+            assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followed", "names", name, false));
 
             // We shouldn't store or pre-fetch data for this transaction
             assertFalse(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(transactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
         }
     }
 
@@ -134,14 +136,14 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             // We should store but not pre-fetch data for this transaction
             assertEquals(StoragePolicy.VIEWED, Settings.getInstance().getStoragePolicy());
             assertTrue(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(transactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followed", "names", name, false));
 
             // We should store but not pre-fetch data for this transaction
             assertTrue(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(transactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
         }
     }
 
@@ -167,14 +169,14 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             // We should store and pre-fetch data for this transaction
             assertEquals(StoragePolicy.ALL, Settings.getInstance().getStoragePolicy());
             assertTrue(storageManager.canStoreData(transactionData));
-            assertTrue(storageManager.shouldPreFetchData(transactionData));
+            assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followed", "names", name, false));
 
             // We should store and pre-fetch data for this transaction
             assertTrue(storageManager.canStoreData(transactionData));
-            assertTrue(storageManager.shouldPreFetchData(transactionData));
+            assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
         }
     }
 
@@ -200,14 +202,14 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             // We shouldn't store or pre-fetch data for this transaction
             assertEquals(StoragePolicy.NONE, Settings.getInstance().getStoragePolicy());
             assertFalse(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(transactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followed", "names", name, false));
 
             // We shouldn't store or pre-fetch data for this transaction
             assertFalse(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(transactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
         }
     }
 
@@ -223,7 +225,7 @@ public class ArbitraryDataStoragePolicyTests extends Common {
 
             // We should store but not pre-fetch data for this transaction
             assertTrue(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(transactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
         }
     }
 
@@ -238,6 +240,24 @@ public class ArbitraryDataStoragePolicyTests extends Common {
         ArbitraryTransactionData transactionData = txnBuilder.getArbitraryTransactionData();
 
         return transactionData;
+    }
+
+    private void deleteDataDirectories() {
+        // Delete data directory if exists
+        Path dataPath = Paths.get(Settings.getInstance().getDataPath());
+        try {
+            FileUtils.deleteDirectory(dataPath.toFile());
+        } catch (IOException e) {
+
+        }
+
+        // Delete temp data directory if exists
+        Path tempDataPath = Paths.get(Settings.getInstance().getTempDataPath());
+        try {
+            FileUtils.deleteDirectory(tempDataPath.toFile());
+        } catch (IOException e) {
+
+        }
     }
 
     private void deleteListsDirectory() {

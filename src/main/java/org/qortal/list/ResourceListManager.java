@@ -133,4 +133,12 @@ public class ResourceListManager {
         return list.getList();
     }
 
+    public int getItemCountForList(String category, String resourceName) {
+        ResourceList list = this.getList(category, resourceName);
+        if (list == null) {
+            return 0;
+        }
+        return list.getList().size();
+    }
+
 }

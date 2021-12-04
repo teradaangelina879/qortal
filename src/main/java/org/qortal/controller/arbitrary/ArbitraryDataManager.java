@@ -190,7 +190,7 @@ public class ArbitraryDataManager extends Thread {
 					ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) arbitraryTransaction.getTransactionData();
 
 					// Skip transactions that we don't need to proactively store data for
-					if (!storageManager.shouldPreFetchData(arbitraryTransactionData)) {
+					if (!storageManager.shouldPreFetchData(repository, arbitraryTransactionData)) {
 						iterator.remove();
 						continue;
 					}

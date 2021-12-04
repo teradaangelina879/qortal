@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class ArbitraryDataStorageManager extends Thread {
@@ -43,12 +44,12 @@ public class ArbitraryDataStorageManager extends Thread {
 
     private List<ArbitraryTransactionData> hostedTransactions;
 
-    private static long DIRECTORY_SIZE_CHECK_INTERVAL = 10 * 60 * 1000L; // 10 minutes
+    private static final long DIRECTORY_SIZE_CHECK_INTERVAL = 10 * 60 * 1000L; // 10 minutes
 
     /** Treat storage as full at 90% usage, to reduce risk of going over the limit.
      * This is necessary because we don't calculate total storage values before every write.
      * It also helps avoid a fetch/delete loop, as we will stop fetching before the hard limit. */
-    private static double STORAGE_FULL_THRESHOLD = 0.9; // 90%
+    private static final double STORAGE_FULL_THRESHOLD = 0.9; // 90%
 
     public ArbitraryDataStorageManager() {
     }
@@ -133,13 +134,20 @@ public class ArbitraryDataStorageManager extends Thread {
      * @param arbitraryTransactionData - the transaction
      * @return boolean - whether to prefetch or not
      */
-    public boolean shouldPreFetchData(ArbitraryTransactionData arbitraryTransactionData) {
+    public boolean shouldPreFetchData(Repository repository, ArbitraryTransactionData arbitraryTransactionData) {
         String name = arbitraryTransactionData.getName();
 
         // Don't fetch anything more if we're (nearly) out of space
         // Make sure to keep STORAGE_FULL_THRESHOLD considerably less than 1, to
         // avoid a fetch/delete loop
         if (!this.isStorageSpaceAvailable(STORAGE_FULL_THRESHOLD)) {
+            return false;
+        }
+
+        // Don't fetch anything if we're (nearly) out of space for this name
+        // Again, make sure to keep STORAGE_FULL_THRESHOLD considerably less than 1, to
+        // avoid a fetch/delete loop
+        if (!this.isStorageSpaceAvailableForName(repository, arbitraryTransactionData.getName(), STORAGE_FULL_THRESHOLD)) {
             return false;
         }
 
@@ -217,10 +225,14 @@ public class ArbitraryDataStorageManager extends Thread {
         return ResourceListManager.getInstance().listContains("followed", "names", name, false);
     }
 
+    private int followedNamesCount() {
+        return ResourceListManager.getInstance().getItemCountForList("followed", "names");
+    }
+
 
     // Hosted data
 
-    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository) throws IOException {
+    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository) {
         // Load from cache if we can, to avoid disk reads
         if (this.hostedTransactions != null) {
             return this.hostedTransactions;
@@ -233,12 +245,18 @@ public class ArbitraryDataStorageManager extends Thread {
 
         // Walk through 3 levels of the file tree and find directories that are greater than 32 characters in length
         // Also exclude the _temp and _misc paths if present
-        List<Path> allPaths = Files.walk(dataPath, 3)
-                .filter(Files::isDirectory)
-                .filter(path -> !path.toAbsolutePath().toString().contains(tempPath.toAbsolutePath().toString())
-                                && !path.toString().contains("_misc")
-                                && path.getFileName().toString().length() > 32)
-                .collect(Collectors.toList());
+        List<Path> allPaths = new ArrayList<>();
+        try {
+            allPaths = Files.walk(dataPath, 3)
+                    .filter(Files::isDirectory)
+                    .filter(path -> !path.toAbsolutePath().toString().contains(tempPath.toAbsolutePath().toString())
+                            && !path.toString().contains("_misc")
+                            && path.getFileName().toString().length() > 32)
+                    .collect(Collectors.toList());
+        }
+        catch (IOException e) {
+            LOGGER.info("Unable to walk through hosted data: {}", e.getMessage());
+        }
 
         // Loop through each path and attempt to match it to a signature
         for (Path path : allPaths) {
@@ -277,7 +295,7 @@ public class ArbitraryDataStorageManager extends Thread {
     /**
      * Rate limit to reduce IO load
      */
-    private boolean shouldCalculateDirectorySize(Long now) {
+    public boolean shouldCalculateDirectorySize(Long now) {
         if (now == null) {
             return false;
         }
@@ -368,7 +386,71 @@ public class ArbitraryDataStorageManager extends Thread {
         return true;
     }
 
+    public boolean isStorageSpaceAvailableForName(Repository repository, String name, double threshold) {
+        if (!this.isStorageSpaceAvailable(threshold)) {
+            // No storage space available at all, so no need to check this name
+            return false;
+        }
+
+        if (name == null) {
+            // This transaction doesn't have a name, so fall back to total space limitations
+            return true;
+        }
+
+        int followedNamesCount = this.followedNamesCount();
+        if (followedNamesCount == 0) {
+            // Not following any names, so we have space
+            return true;
+        }
+
+        long totalSizeForName = 0;
+        long maxStoragePerName = this.storageCapacityPerName(threshold);
+
+        // Fetch all hosted transactions
+        List<ArbitraryTransactionData> hostedTransactions = this.listAllHostedTransactions(repository);
+        for (ArbitraryTransactionData transactionData : hostedTransactions) {
+            String transactionName = transactionData.getName();
+            if (!Objects.equals(name, transactionName)) {
+                // Transaction relates to a different name
+                continue;
+            }
+
+            totalSizeForName += transactionData.getSize();
+        }
+
+        // Have we reached the limit for this name?
+        if (totalSizeForName > maxStoragePerName) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public long storageCapacityPerName(double threshold) {
+        int followedNamesCount = this.followedNamesCount();
+        if (followedNamesCount == 0) {
+            // Not following any names, so we have the total space available
+            return this.getStorageCapacityIncludingThreshold(threshold);
+        }
+
+        double maxStorageCapacity = (double)this.storageCapacity * threshold;
+        long maxStoragePerName = (long)(maxStorageCapacity / (double)followedNamesCount);
+
+        return maxStoragePerName;
+    }
+
     public boolean isStorageCapacityCalculated() {
         return (this.storageCapacity != null);
+    }
+
+    public Long getStorageCapacity() {
+        return this.storageCapacity;
+    }
+
+    public Long getStorageCapacityIncludingThreshold(double threshold) {
+        if (this.storageCapacity == null) {
+            return null;
+        }
+        return (long)(this.storageCapacity * threshold);
     }
 }

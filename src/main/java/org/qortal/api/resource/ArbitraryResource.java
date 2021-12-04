@@ -609,7 +609,7 @@ public class ArbitraryResource {
 
 			return hostedTransactions;
 
-		} catch (DataException | IOException e) {
+		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
@@ -657,7 +657,7 @@ public class ArbitraryResource {
 
 			return resources;
 
-		} catch (DataException | IOException e) {
+		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
