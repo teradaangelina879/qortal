@@ -235,9 +235,9 @@ public class ArbitraryDataStorageManager extends Thread {
         // Also exclude the _temp and _misc paths if present
         List<Path> allPaths = Files.walk(dataPath, 3)
                 .filter(Files::isDirectory)
-                .filter(path -> !path.toAbsolutePath().toString().contains(tempPath.toAbsolutePath().toString()))
-                .filter(path -> !path.toString().contains("_misc"))
-                .filter(path -> path.getFileName().toString().length() > 32)
+                .filter(path -> !path.toAbsolutePath().toString().contains(tempPath.toAbsolutePath().toString())
+                                && !path.toString().contains("_misc")
+                                && path.getFileName().toString().length() > 32)
                 .collect(Collectors.toList());
 
         // Loop through each path and attempt to match it to a signature
