@@ -357,6 +357,9 @@ public class ArbitraryDataReader {
         if (!Arrays.equals(arbitraryDataFile.digest(), digest)) {
             throw new DataException("Unable to validate complete file hash");
         }
+        // Ensure the file's size matches the size reported by the transaction (throws a DataException if not)
+        arbitraryDataFile.validateFileSize(transactionData.getSize());
+
         // Set filePath to the location of the ArbitraryDataFile
         this.filePath = arbitraryDataFile.getFilePath();
     }

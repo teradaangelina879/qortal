@@ -1,5 +1,7 @@
 package org.qortal.repository.hsqldb;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.crypto.Crypto;
@@ -13,6 +15,7 @@ import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.DataException;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.transaction.Transaction.ApprovalStatus;
+import org.qortal.utils.Base58;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -20,6 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HSQLDBArbitraryRepository implements ArbitraryRepository {
+
+	private static final Logger LOGGER = LogManager.getLogger(HSQLDBArbitraryRepository.class);
 
 	private static final int MAX_RAW_DATA_SIZE = 255; // size of VARBINARY
 
@@ -66,38 +71,53 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public byte[] fetchData(byte[] signature) throws DataException {
-		ArbitraryTransactionData transactionData = getTransactionData(signature);
-		if (transactionData == null) {
-			return null;
-		}
+	public byte[] fetchData(byte[] signature) {
+		try {
+			ArbitraryTransactionData transactionData = getTransactionData(signature);
+			if (transactionData == null) {
+				return null;
+			}
 
-		// Raw data is always available
-		if (transactionData.getDataType() == DataType.RAW_DATA) {
-			return transactionData.getData();
-		}
+			// Raw data is always available
+			if (transactionData.getDataType() == DataType.RAW_DATA) {
+				return transactionData.getData();
+			}
 
-		// Load hashes
-		byte[] digest = transactionData.getData();
-		byte[] metadataHash = transactionData.getMetadataHash();
+			// Load hashes
+			byte[] digest = transactionData.getData();
+			byte[] metadataHash = transactionData.getMetadataHash();
 
-		// Load data file(s)
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-		arbitraryDataFile.setMetadataHash(metadataHash);
+			// Load data file(s)
+			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
+			arbitraryDataFile.setMetadataHash(metadataHash);
 
-		// If we have the complete data file, return it
-		if (arbitraryDataFile.exists()) {
-			return arbitraryDataFile.getBytes();
-		}
+			// If we have the complete data file, return it
+			if (arbitraryDataFile.exists()) {
+				// Ensure the file's size matches the size reported by the transaction (throws a DataException if not)
+				arbitraryDataFile.validateFileSize(transactionData.getSize());
 
-		// Alternatively, if we have all the chunks, combine them into a single file
-		if (arbitraryDataFile.allChunksExist()) {
-			arbitraryDataFile.join();
-
-			// Verify that the combined hash matches the expected hash
-			if (digest.equals(arbitraryDataFile.digest())) {
 				return arbitraryDataFile.getBytes();
 			}
+
+			// Alternatively, if we have all the chunks, combine them into a single file
+			if (arbitraryDataFile.allChunksExist()) {
+				arbitraryDataFile.join();
+
+				// Verify that the combined hash matches the expected hash
+				if (!digest.equals(arbitraryDataFile.digest())) {
+					LOGGER.info(String.format("Hash mismatch for transaction: %s", Base58.encode(signature)));
+					return null;
+				}
+
+				// Ensure the file's size matches the size reported by the transaction
+				arbitraryDataFile.validateFileSize(transactionData.getSize());
+
+				return arbitraryDataFile.getBytes();
+			}
+
+		} catch (DataException e) {
+			LOGGER.info("Unable to fetch data for transaction {}: {}", Base58.encode(signature), e.getMessage());
+			return null;
 		}
 
 		return null;

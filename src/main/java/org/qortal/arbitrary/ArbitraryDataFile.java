@@ -225,6 +225,21 @@ public class ArbitraryDataFile {
         return ValidationResult.OK;
     }
 
+    public void validateFileSize(long expectedSize) throws DataException {
+        // Verify that we can determine the file's size
+        long fileSize = 0;
+        try {
+            fileSize = Files.size(this.getFilePath());
+        } catch (IOException e) {
+            throw new DataException(String.format("Couldn't get file size for transaction %s", Base58.encode(signature)));
+        }
+
+        // Ensure the file's size matches the size reported by the transaction
+        if (fileSize != expectedSize) {
+            throw new DataException(String.format("File size mismatch for transaction %s", Base58.encode(signature)));
+        }
+    }
+
     private void addChunk(ArbitraryDataFileChunk chunk) {
         this.chunks.add(chunk);
     }
