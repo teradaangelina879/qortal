@@ -238,7 +238,7 @@ public class ArbitraryDataStorageManager extends Thread {
                 .filter(path -> !path.toAbsolutePath().toString().contains(tempPath.toAbsolutePath().toString()))
                 .filter(path -> !path.toString().contains("_misc"))
                 .filter(path -> path.getFileName().toString().length() > 32)
-                .sorted().collect(Collectors.toList());
+                .collect(Collectors.toList());
 
         // Loop through each path and attempt to match it to a signature
         for (Path path : allPaths) {
