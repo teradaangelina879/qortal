@@ -605,7 +605,7 @@ public class ArbitraryResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedData(repository);
+			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository);
 
 			return hostedTransactions;
 
@@ -633,7 +633,7 @@ public class ArbitraryResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			List<ArbitraryTransactionData> transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedData(repository);
+			List<ArbitraryTransactionData> transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository);
 			for (ArbitraryTransactionData transactionData : transactionDataList) {
 				ArbitraryTransaction transaction = new ArbitraryTransaction(repository, transactionData);
 				if (transaction.isDataLocal()) {

@@ -217,7 +217,8 @@ public class ArbitraryDataStorageManager extends Thread {
 
 
     // Hosted data
-    public List<ArbitraryTransactionData> listAllHostedData(Repository repository) throws IOException {
+
+    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository) throws IOException {
         List<ArbitraryTransactionData> arbitraryTransactionDataList = new ArrayList<>();
 
         Path dataPath = Paths.get(Settings.getInstance().getDataPath());
