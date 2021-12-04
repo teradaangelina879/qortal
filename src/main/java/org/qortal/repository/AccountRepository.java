@@ -76,6 +76,9 @@ public interface AccountRepository {
 	 */
 	public void setBlocksMintedAdjustment(AccountData accountData) throws DataException;
 
+	/** Returns account's minted block count or null if account not found. */
+	public Integer getMintedBlockCount(String address) throws DataException;
+
 	/**
 	 * Saves account's minted block count and public key if present, in repository.
 	 * <p>
