@@ -23,6 +23,8 @@ import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.*;
 
+import static org.qortal.controller.arbitrary.ArbitraryDataStorageManager.DELETION_THRESHOLD;
+
 public class ArbitraryDataCleanupManager extends Thread {
 
 	private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataCleanupManager.class);
@@ -51,7 +53,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 	/*
 	TODO:
-	- Delete old files not associated with transactions
+	- Delete files from the _misc folder once they reach a certain age
 	 */
 
 
@@ -208,8 +210,10 @@ public class ArbitraryDataCleanupManager extends Thread {
 					this.checkForExpiredTransactions(repository);
 
 					// Delete additional data at random if we're over our storage limit
-					// Use a threshold of 1, for the same reasons as above
-					if (!storageManager.isStorageSpaceAvailable(1.0f)) {
+					// Use the DELETION_THRESHOLD so that we only start deleting once the hard limit is reached
+					// This also allows some headroom between the regular threshold (90%) and the hard
+					// limit, to avoid data getting into a fetch/delete loop.
+					if (!storageManager.isStorageSpaceAvailable(DELETION_THRESHOLD)) {
 
 						// Rate limit, to avoid repeated calls to calculateDirectorySize()
 						Thread.sleep(60000);
@@ -218,11 +222,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 					}
 
 					// Delete random data associated with name if we're over our storage limit for this name
-					// Use a threshold of 1 so that we only start deleting once the hard limit is reached
-					// This also allows some headroom between the regular threshold (90%) and the hard
-					// limit, to avoid data getting into a fetch/delete loop.
+					// Use the DELETION_THRESHOLD, for the same reasons as above
 					for (String followedName : storageManager.followedNames()) {
-						if (!storageManager.isStorageSpaceAvailableForName(repository, followedName, 1.0f)) {
+						if (!storageManager.isStorageSpaceAvailableForName(repository, followedName, DELETION_THRESHOLD)) {
 							this.storageLimitReachedForName(repository, followedName);
 						}
 					}
@@ -281,7 +283,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 		// Now calculate the used/total storage again, as a safety precaution
 		Long now = NTP.getTime();
 		ArbitraryDataStorageManager.getInstance().calculateDirectorySize(now);
-		if (ArbitraryDataStorageManager.getInstance().isStorageSpaceAvailable(1.0f)) {
+		if (ArbitraryDataStorageManager.getInstance().isStorageSpaceAvailable(DELETION_THRESHOLD)) {
 			// We have space available, so don't delete anything
 			return;
 		}
@@ -299,7 +301,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 	public void storageLimitReachedForName(Repository repository, String name) throws InterruptedException {
 		// We think that the storage limit has been reached for supplied name - but we should double check
-		if (ArbitraryDataStorageManager.getInstance().isStorageSpaceAvailableForName(repository, name, 1.0f)) {
+		if (ArbitraryDataStorageManager.getInstance().isStorageSpaceAvailableForName(repository, name, DELETION_THRESHOLD)) {
 			// We have space available for this name, so don't delete anything
 			return;
 		}

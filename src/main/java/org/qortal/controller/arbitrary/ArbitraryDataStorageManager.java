@@ -48,8 +48,13 @@ public class ArbitraryDataStorageManager extends Thread {
 
     /** Treat storage as full at 90% usage, to reduce risk of going over the limit.
      * This is necessary because we don't calculate total storage values before every write.
-     * It also helps avoid a fetch/delete loop, as we will stop fetching before the hard limit. */
-    private static final double STORAGE_FULL_THRESHOLD = 0.9; // 90%
+     * It also helps avoid a fetch/delete loop, as we will stop fetching before the hard limit.
+     * This must be lower than DELETION_THRESHOLD. */
+    private static final double STORAGE_FULL_THRESHOLD = 0.90f; // 90%
+
+    /** Start deleting files once we reach 98% usage.
+     * This must be higher than STORAGE_FULL_THRESHOLD in order to avoid a fetch/delete loop. */
+    public static final double DELETION_THRESHOLD = 0.98f; // 98%
 
     public ArbitraryDataStorageManager() {
     }
