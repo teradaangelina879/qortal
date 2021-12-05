@@ -27,9 +27,10 @@ public class ArbitraryCompressionTests extends Common {
 
     @Test
     public void testZipSingleFile() throws IOException, InterruptedException {
+        String fileName = "data";
         Path inputFile = Files.createTempFile("inputFile", null);
         Path outputDirectory = Files.createTempDirectory("outputDirectory");
-        Path outputFile = Paths.get(outputDirectory.toString(), "data");
+        Path outputFile = Paths.get(outputDirectory.toString(), fileName);
         inputFile.toFile().deleteOnExit();
         outputDirectory.toFile().deleteOnExit();
 
@@ -41,7 +42,6 @@ public class ArbitraryCompressionTests extends Common {
         assertTrue(Files.exists(inputFile));
         assertFalse(Files.exists(outputFile));
 
-        String fileName = "data"; //isSingleFile ? singleFileName : null;
         ZipUtils.zip(inputFile.toString(), outputFile.toString(), fileName);
 
         assertTrue(Files.exists(inputFile));
@@ -53,7 +53,7 @@ public class ArbitraryCompressionTests extends Common {
         // Create paths for unzipping
         Path unzippedDirectory = Files.createTempDirectory("unzippedDirectory");
         // Single file data is unzipped directly, without an enclosing folder
-        Path unzippedFile = Paths.get(unzippedDirectory.toString(), "data");
+        Path unzippedFile = Paths.get(unzippedDirectory.toString(), fileName);
         unzippedDirectory.toFile().deleteOnExit();
         assertFalse(Files.exists(unzippedFile));
 
@@ -69,9 +69,10 @@ public class ArbitraryCompressionTests extends Common {
 
     @Test
     public void testZipMultipleFiles() throws IOException, InterruptedException, DataException {
+        String fileName = "data";
         Path inputDirectory = Files.createTempDirectory("inputDirectory");
         Path outputDirectory = Files.createTempDirectory("outputDirectory");
-        Path outputFile = Paths.get(outputDirectory.toString(), "data");
+        Path outputFile = Paths.get(outputDirectory.toString(), fileName);
         inputDirectory.toFile().deleteOnExit();
         outputDirectory.toFile().deleteOnExit();
 
@@ -89,7 +90,7 @@ public class ArbitraryCompressionTests extends Common {
         assertTrue(Files.exists(inputFile2));
         assertFalse(Files.exists(outputFile));
 
-        String fileName = "data"; //isSingleFile ? singleFileName : null;
+        // Zip...
         ZipUtils.zip(inputDirectory.toString(), outputFile.toString(), fileName);
 
         assertTrue(Files.exists(inputDirectory));
