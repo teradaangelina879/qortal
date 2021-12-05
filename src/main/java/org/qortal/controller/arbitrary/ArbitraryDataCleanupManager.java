@@ -69,9 +69,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 	public void run() {
 		Thread.currentThread().setName("Arbitrary Data Cleanup Manager");
 
-		// Keep a reference to the storage manager as we will need this a lot
-		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
-
 		// Paginate queries when fetching arbitrary transactions
 		final int limit = 100;
 		int offset = 0;
@@ -85,6 +82,8 @@ public class ArbitraryDataCleanupManager extends Thread {
 					// Don't attempt to make decisions if we haven't synced our time yet
 					continue;
 				}
+
+				ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
 
 				// Wait until storage capacity has been calculated
 				if (!storageManager.isStorageCapacityCalculated()) {
