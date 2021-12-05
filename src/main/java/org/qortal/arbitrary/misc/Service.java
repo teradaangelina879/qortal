@@ -1,8 +1,13 @@
 package org.qortal.arbitrary.misc;
 
 import org.json.JSONObject;
+import org.qortal.arbitrary.ArbitraryDataRenderer;
 import org.qortal.transaction.Transaction;
+import org.qortal.utils.FilesystemUtils;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -44,20 +49,26 @@ public enum Service {
         this.requiredKeys = requiredKeys;
     }
 
-    public ValidationResult validate(byte[] data, long size) {
+    public ValidationResult validate(Path path) throws IOException {
         if (!this.isValidationRequired()) {
             return ValidationResult.OK;
         }
 
+        byte[] data = FilesystemUtils.getSingleFileContents(path);
+        long size = FilesystemUtils.getDirectorySize(path);
+
         // Validate max size if needed
         if (this.maxSize != null) {
-            if (size > this.maxSize || data.length > this.maxSize) {
+            if (size > this.maxSize) {
                 return ValidationResult.EXCEEDS_SIZE_LIMIT;
             }
         }
 
         // Validate required keys if needed
         if (this.requiredKeys != null) {
+            if (data == null) {
+                return ValidationResult.MISSING_KEYS;
+            }
             JSONObject json = Service.toJsonObject(data);
             for (String key : this.requiredKeys) {
                 if (!json.has(key)) {
@@ -86,7 +97,8 @@ public enum Service {
     public enum ValidationResult {
         OK(1),
         MISSING_KEYS(2),
-        EXCEEDS_SIZE_LIMIT(3);
+        EXCEEDS_SIZE_LIMIT(3),
+        MISSING_INDEX_FILE(4);
 
         public final int value;
 

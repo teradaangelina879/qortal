@@ -444,11 +444,7 @@ public class ArbitraryDataReader {
 
     private void validate() throws IOException, DataException {
         if (this.service.isValidationRequired()) {
-
-            byte[] data = FilesystemUtils.getSingleFileContents(this.filePath);
-            long size = FilesystemUtils.getDirectorySize(this.filePath);
-
-            Service.ValidationResult result = this.service.validate(data, size);
+            Service.ValidationResult result = this.service.validate(this.filePath);
             if (result != Service.ValidationResult.OK) {
                 throw new DataException(String.format("Validation of %s failed: %s", this.service, result.toString()));
             }
