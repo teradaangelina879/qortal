@@ -18,7 +18,23 @@ import static java.util.stream.Collectors.toMap;
 public enum Service {
     AUTO_UPDATE(1, false, null, null),
     ARBITRARY_DATA(100, false, null, null),
-    WEBSITE(200, false, null, null),
+    WEBSITE(200, true, null, null) {
+        @Override
+        public ValidationResult validate(Path path) {
+            // Custom validation function to require an index HTML file in the root directory
+            List<String> fileNames = ArbitraryDataRenderer.indexFiles();
+            String[] files = path.toFile().list();
+            if (files != null) {
+                for (String file : files) {
+                    Path fileName = Paths.get(file).getFileName();
+                    if (fileName != null && fileNames.contains(fileName.toString())) {
+                        return ValidationResult.OK;
+                    }
+                }
+            }
+            return ValidationResult.MISSING_INDEX_FILE;
+        }
+    },
     GIT_REPOSITORY(300, false, null, null),
     IMAGE(400, true, 10*1024*1024L, null),
     THUMBNAIL(410, true, 500*1024L, null),

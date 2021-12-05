@@ -41,6 +41,67 @@ public class ArbitraryServiceTests extends Common {
     }
 
     @Test
+    public void testValidateWebsite() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateWebsite");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "index.html"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "data2"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "data3"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.WEBSITE;
+        assertTrue(service.isValidationRequired());
+
+        // There is an index file in the root
+        assertEquals(ValidationResult.OK, service.validate(path));
+    }
+
+    @Test
+    public void testValidateWebsiteWithoutIndexFile() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateWebsiteWithoutIndexFile");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "data1.html"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "data2"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "data3"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.WEBSITE;
+        assertTrue(service.isValidationRequired());
+
+        // There is no index file in the root
+        assertEquals(ValidationResult.MISSING_INDEX_FILE, service.validate(path));
+    }
+
+    @Test
+    public void testValidateWebsiteWithoutIndexFileInRoot() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateWebsiteWithoutIndexFileInRoot");
+        path.toFile().deleteOnExit();
+        Files.createDirectories(Paths.get(path.toString(), "directory"));
+        Files.write(Paths.get(path.toString(), "directory", "index.html"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "data2"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "data3"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.WEBSITE;
+        assertTrue(service.isValidationRequired());
+
+        // There is no index file in the root
+        assertEquals(ValidationResult.MISSING_INDEX_FILE, service.validate(path));
+    }
+
+    @Test
     public void testValidQortalMetadata() throws IOException {
         // Metadata is to describe an arbitrary resource (title, description, tags, etc)
         String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";

@@ -234,7 +234,7 @@ public class ArbitraryDataStoragePolicyTests extends Common {
         Path path = Paths.get("src/test/resources/arbitrary/demo1");
 
         ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
-                repository, publicKey58, path, name, Method.PUT, Service.WEBSITE, null);
+                repository, publicKey58, path, name, Method.PUT, Service.ARBITRARY_DATA, null);
 
         txnBuilder.build();
         ArbitraryTransactionData transactionData = txnBuilder.getArbitraryTransactionData();

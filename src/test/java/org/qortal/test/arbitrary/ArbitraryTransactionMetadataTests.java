@@ -48,7 +48,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
-            Service service = Service.WEBSITE; // Can be anything for this test
+            Service service = Service.ARBITRARY_DATA;
             int chunkSize = 100;
             int dataLength = 900; // Actual data length will be longer due to encryption
 

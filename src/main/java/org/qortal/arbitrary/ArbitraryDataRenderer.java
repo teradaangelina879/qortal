@@ -134,7 +134,7 @@ public class ArbitraryDataRenderer {
     private String getFilename(String directory, String userPath) {
         if (userPath == null || userPath.endsWith("/") || userPath.equals("")) {
             // Locate index file
-            List<String> indexFiles = this.indexFiles();
+            List<String> indexFiles = ArbitraryDataRenderer.indexFiles();
             for (String indexFile : indexFiles) {
                 String filePath = directory + File.separator + indexFile;
                 if (Files.exists(Paths.get(filePath))) {
@@ -173,7 +173,7 @@ public class ArbitraryDataRenderer {
         return response;
     }
 
-    private List<String> indexFiles() {
+    public static List<String> indexFiles() {
         List<String> indexFiles = new ArrayList<>();
         indexFiles.add("index.html");
         indexFiles.add("index.htm");

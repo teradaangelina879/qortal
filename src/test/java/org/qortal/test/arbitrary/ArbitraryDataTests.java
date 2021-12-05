@@ -48,7 +48,7 @@ public class ArbitraryDataTests extends Common {
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
-            Service service = Service.WEBSITE; // Can be anything for this test
+            Service service = Service.ARBITRARY_DATA;
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
@@ -96,7 +96,7 @@ public class ArbitraryDataTests extends Common {
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
-            Service service = Service.WEBSITE; // Can be anything for this test
+            Service service = Service.ARBITRARY_DATA;
 
             // Create PATCH transaction, ensuring that an exception is thrown
             try {
@@ -119,7 +119,7 @@ public class ArbitraryDataTests extends Common {
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
-            Service service = Service.WEBSITE; // Can be anything for this test
+            Service service = Service.ARBITRARY_DATA;
 
             // Ensure the name doesn't exist
             assertNull(repository.getNameRepository().fromName(name));
@@ -142,7 +142,7 @@ public class ArbitraryDataTests extends Common {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
-            Service service = Service.WEBSITE; // Can be anything for this test
+            Service service = Service.ARBITRARY_DATA;
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
@@ -174,7 +174,7 @@ public class ArbitraryDataTests extends Common {
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
-            Service service = Service.WEBSITE; // Can be anything for this test
+            Service service = Service.ARBITRARY_DATA;
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
@@ -219,7 +219,7 @@ public class ArbitraryDataTests extends Common {
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
             String identifier = "test_identifier";
-            Service service = Service.WEBSITE; // Can be anything for this test
+            Service service = Service.ARBITRARY_DATA;
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
@@ -287,7 +287,7 @@ public class ArbitraryDataTests extends Common {
             String publicKey58 = Base58.encode(alice.getPublicKey());
             String name = "TEST"; // Can be anything for this test
             String identifier = ""; // Blank, not null
-            Service service = Service.WEBSITE; // Can be anything for this test
+            Service service = Service.ARBITRARY_DATA;
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
