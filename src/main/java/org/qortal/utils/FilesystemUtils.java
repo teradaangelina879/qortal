@@ -156,15 +156,8 @@ public class FilesystemUtils {
         }
 
         if (cleanup) {
-            // Delete the parent directory if it is empty (and exists in our data/temp directory)
-            Path parentDirectory = path.getParent();
-            if (FilesystemUtils.pathInsideDataOrTempPath(parentDirectory)) {
-                try {
-                    Files.deleteIfExists(parentDirectory);
-                } catch (IOException e) {
-                    // This part is optional, so ignore failures
-                }
-            }
+            // Delete the parent directories if they are empty (and exist in our data/temp directory)
+            FilesystemUtils.safeDeleteEmptyParentDirectories(path);
         }
     }
 
