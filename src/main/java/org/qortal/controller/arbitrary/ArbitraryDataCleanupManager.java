@@ -204,6 +204,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 				try (final Repository repository = RepositoryManager.getRepository()) {
 
+					// Check if there are any hosted files that don't have matching transactions
+					this.checkForExpiredTransactions(repository);
+
 					// Delete additional data at random if we're over our storage limit
 					// Use a threshold of 1, for the same reasons as above
 					if (!storageManager.isStorageSpaceAvailable(1.0f)) {
@@ -230,6 +233,45 @@ public class ArbitraryDataCleanupManager extends Thread {
 			}
 		} catch (InterruptedException e) {
 			// Fall-through to exit thread...
+		}
+	}
+
+	public List<Path> findPathsWithNoAssociatedTransaction(Repository repository) {
+		List<Path> pathList = new ArrayList<>();
+
+		// Find all hosted paths
+		List<Path> allPaths = ArbitraryDataStorageManager.getInstance().findAllHostedPaths();
+
+		// Loop through each path and find those without matching signatures
+		for (Path path : allPaths) {
+			try {
+				String[] contents = path.toFile().list();
+				if (contents == null || contents.length == 0) {
+					// Ignore empty directories
+					continue;
+				}
+
+				String signature58 = path.getFileName().toString();
+				byte[] signature = Base58.decode(signature58);
+				TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+				if (transactionData == null) {
+					// No transaction data, and no DataException, so we can assume that this data relates to an expired transaction
+					pathList.add(path);
+				}
+
+			} catch (DataException e) {
+				continue;
+			}
+		}
+
+		return pathList;
+	}
+
+	private void checkForExpiredTransactions(Repository repository) {
+		List<Path> expiredPaths = this.findPathsWithNoAssociatedTransaction(repository);
+		for (Path expiredPath : expiredPaths) {
+			LOGGER.info("Found path with no associated transaction: {}", expiredPath.toString());
+			this.safeDeleteDirectory(expiredPath.toFile(), "no matching transaction");
 		}
 	}
 

@@ -244,28 +244,14 @@ public class ArbitraryDataStorageManager extends Thread {
 
         List<ArbitraryTransactionData> arbitraryTransactionDataList = new ArrayList<>();
 
-        Path dataPath = Paths.get(Settings.getInstance().getDataPath());
-        Path tempPath = Paths.get(Settings.getInstance().getTempDataPath());
-
-        // Walk through 3 levels of the file tree and find directories that are greater than 32 characters in length
-        // Also exclude the _temp and _misc paths if present
-        List<Path> allPaths = new ArrayList<>();
-        try {
-            allPaths = Files.walk(dataPath, 3)
-                    .filter(Files::isDirectory)
-                    .filter(path -> !path.toAbsolutePath().toString().contains(tempPath.toAbsolutePath().toString())
-                            && !path.toString().contains("_misc")
-                            && path.getFileName().toString().length() > 32)
-                    .collect(Collectors.toList());
-        }
-        catch (IOException e) {
-            LOGGER.info("Unable to walk through hosted data: {}", e.getMessage());
-        }
+        // Find all hosted paths
+        List<Path> allPaths = this.findAllHostedPaths();
 
         // Loop through each path and attempt to match it to a signature
         for (Path path : allPaths) {
             try {
-                if (path.toFile().list().length == 0) {
+                String[] contents = path.toFile().list();
+                if (contents == null || contents.length == 0) {
                     // Ignore empty directories
                     continue;
                 }
@@ -287,6 +273,34 @@ public class ArbitraryDataStorageManager extends Thread {
         this.hostedTransactions = arbitraryTransactionDataList;
 
         return arbitraryTransactionDataList;
+    }
+
+    /**
+     * Warning: this method will walk through the entire data directory
+     * Do not call it too frequently as it could create high disk load
+     * in environments with a large amount of hosted data.
+     * @return a list of paths that are being hosted
+     */
+    public List<Path> findAllHostedPaths() {
+        Path dataPath = Paths.get(Settings.getInstance().getDataPath());
+        Path tempPath = Paths.get(Settings.getInstance().getTempDataPath());
+
+        // Walk through 3 levels of the file tree and find directories that are greater than 32 characters in length
+        // Also exclude the _temp and _misc paths if present
+        List<Path> allPaths = new ArrayList<>();
+        try {
+            allPaths = Files.walk(dataPath, 3)
+                    .filter(Files::isDirectory)
+                    .filter(path -> !path.toAbsolutePath().toString().contains(tempPath.toAbsolutePath().toString())
+                            && !path.toString().contains("_misc")
+                            && path.getFileName().toString().length() > 32)
+                    .collect(Collectors.toList());
+        }
+        catch (IOException e) {
+            LOGGER.info("Unable to walk through hosted data: {}", e.getMessage());
+        }
+
+        return allPaths;
     }
 
     public void invalidateHostedTransactionsCache() {
