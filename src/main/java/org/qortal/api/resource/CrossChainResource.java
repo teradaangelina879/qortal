@@ -1,5 +1,6 @@
 package org.qortal.api.resource;
 
+import com.google.common.primitives.Longs;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -10,12 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.function.Supplier;
 
 import javax.servlet.http.HttpServletRequest;
@@ -237,6 +233,20 @@ public class CrossChainResource {
 					CrossChainTradeSummary crossChainTradeSummary = new CrossChainTradeSummary(crossChainTradeData, timestamp);
 					crossChainTrades.add(crossChainTradeSummary);
 				}
+			}
+
+			// Sort the trades by timestamp
+			if (reverse != null && reverse) {
+				crossChainTrades.sort((a, b) -> Longs.compare(b.getTradeTimestamp(), a.getTradeTimestamp()));
+			}
+			else {
+				crossChainTrades.sort((a, b) -> Longs.compare(a.getTradeTimestamp(), b.getTradeTimestamp()));
+			}
+
+			if (limit != null) {
+				// Make sure to not return more than the limit
+				int upperLimit = Math.min(limit, crossChainTrades.size());
+				crossChainTrades = crossChainTrades.subList(0, upperLimit);
 			}
 
 			return crossChainTrades;
