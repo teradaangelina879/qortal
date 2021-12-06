@@ -108,7 +108,9 @@ public class CrossChainResource {
 
 				for (ATData atData : atsData) {
 					CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
-					crossChainTradesData.add(crossChainTradeData);
+					if (crossChainTradeData.mode == AcctMode.OFFERING) {
+						crossChainTradesData.add(crossChainTradeData);
+					}
 				}
 			}
 
