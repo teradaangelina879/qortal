@@ -184,8 +184,8 @@ public class ArbitraryDataWriter {
 
                 if (this.compression == Compression.ZIP) {
                     LOGGER.info("Compressing...");
-                    String fileName = "data"; //isSingleFile ? singleFileName : null;
-                    ZipUtils.zip(this.filePath.toString(), this.compressedPath.toString(), fileName);
+                    String enclosingFolderName = "data";
+                    ZipUtils.zip(this.filePath.toString(), this.compressedPath.toString(), enclosingFolderName);
                 }
                 else {
                     throw new DataException(String.format("Unknown compression type specified: %s", compression.toString()));

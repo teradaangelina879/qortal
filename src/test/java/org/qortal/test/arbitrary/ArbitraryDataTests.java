@@ -352,7 +352,7 @@ public class ArbitraryDataTests extends Common {
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
             arbitraryDataReader1.loadSynchronously(true);
-            Path builtFilePath = Paths.get(arbitraryDataReader1.getFilePath().toString(), "data");
+            Path builtFilePath = Paths.get(arbitraryDataReader1.getFilePath().toString(), path1.getFileName().toString());
             byte[] builtFileDigest = Crypto.digest(builtFilePath.toFile());
 
             // Compare it against the hash of the original file

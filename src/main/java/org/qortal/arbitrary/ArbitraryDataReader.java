@@ -420,19 +420,6 @@ public class ArbitraryDataReader {
             throw new DataException(String.format("Unable to unzip file: %s", e.getMessage()));
         }
 
-        // If unzipped data was a file not a directory, move it into a data/ directory so that the .qortal
-        // metadata folder is able to be created there too
-        if (this.uncompressedPath.toFile().isFile()) {
-            // Rename to temporary filename
-            Path tempDest = Paths.get(this.uncompressedPath.getParent().toString(), "data2");
-            this.uncompressedPath.toFile().renameTo(tempDest.toFile());
-            // Create a "data" directory
-            Files.createDirectories(this.uncompressedPath);
-            // Move the original file into the newly created directory
-            Path finalPath = Paths.get(this.uncompressedPath.toString(), "data");
-            tempDest.toFile().renameTo(finalPath.toFile());
-        }
-
         // Replace filePath pointer with the uncompressed file path
         if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
             if (Files.exists(this.filePath)) {

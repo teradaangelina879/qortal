@@ -21,6 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ * Code modified in 2021 for Qortal Core
+ *
  */
 
 package org.qortal.utils;
@@ -31,44 +33,54 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 public class ZipUtils {
 
-    public static void zip(String sourcePath, String destFilePath, String fileName) throws IOException, InterruptedException {
+    public static void zip(String sourcePath, String destFilePath, String enclosingFolderName) throws IOException, InterruptedException {
         File sourceFile = new File(sourcePath);
-        if (fileName == null) {
-            fileName = sourceFile.getName();
-        }
+        boolean isSingleFile = Paths.get(sourcePath).toFile().isFile();
         FileOutputStream fileOutputStream = new FileOutputStream(destFilePath);
         ZipOutputStream zipOutputStream = new ZipOutputStream(fileOutputStream);
-        ZipUtils.zip(sourceFile, fileName, zipOutputStream);
+        ZipUtils.zip(sourceFile, enclosingFolderName, zipOutputStream, isSingleFile);
         zipOutputStream.close();
         fileOutputStream.close();
     }
 
-    public static void zip(final File fileToZip, final String fileName, final ZipOutputStream zipOut) throws IOException, InterruptedException {
+    public static void zip(final File fileToZip, final String enclosingFolderName, final ZipOutputStream zipOut, boolean isSingleFile) throws IOException, InterruptedException {
         if (Controller.isStopping()) {
             throw new InterruptedException("Controller is stopping");
         }
+
+        // Handle single file resources slightly differently
+        if (isSingleFile) {
+            // Create enclosing folder
+            zipOut.putNextEntry(new ZipEntry(enclosingFolderName + "/"));
+            zipOut.closeEntry();
+            // Place the supplied file within the folder
+            ZipUtils.zip(fileToZip, enclosingFolderName + "/" + fileToZip.getName(), zipOut, false);
+            return;
+        }
+
         if (fileToZip.isDirectory()) {
-            if (fileName.endsWith("/")) {
-                zipOut.putNextEntry(new ZipEntry(fileName));
+            if (enclosingFolderName.endsWith("/")) {
+                zipOut.putNextEntry(new ZipEntry(enclosingFolderName));
                 zipOut.closeEntry();
             } else {
-                zipOut.putNextEntry(new ZipEntry(fileName + "/"));
+                zipOut.putNextEntry(new ZipEntry(enclosingFolderName + "/"));
                 zipOut.closeEntry();
             }
             final File[] children = fileToZip.listFiles();
             for (final File childFile : children) {
-                ZipUtils.zip(childFile, fileName + "/" + childFile.getName(), zipOut);
+                ZipUtils.zip(childFile, enclosingFolderName + "/" + childFile.getName(), zipOut, false);
             }
             return;
         }
         final FileInputStream fis = new FileInputStream(fileToZip);
-        final ZipEntry zipEntry = new ZipEntry(fileName);
+        final ZipEntry zipEntry = new ZipEntry(enclosingFolderName);
         zipOut.putNextEntry(zipEntry);
         final byte[] bytes = new byte[1024];
         int length;
