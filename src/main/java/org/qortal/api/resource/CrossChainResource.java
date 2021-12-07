@@ -304,6 +304,9 @@ public class CrossChainResource {
 			long totalForeign = 0;
 			long totalQort = 0;
 
+			Map<Long, CrossChainTradeData> reverseSortedTradeData = new TreeMap<>(Collections.reverseOrder());
+
+			// Collect recent AT states for each ACCT version
 			for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
 				byte[] codeHash = acctInfo.getKey().value;
 				ACCT acct = acctInfo.getValue().get();
@@ -312,10 +315,35 @@ public class CrossChainResource {
 						isFinished, acct.getModeByteOffset(), (long) AcctMode.REDEEMED.value, minimumCount, maximumCount, minimumPeriod);
 
 				for (ATStateData atState : atStates) {
+					// We also need block timestamp for use as trade timestamp
+					long timestamp = repository.getBlockRepository().getTimestampFromHeight(atState.getHeight());
+					if (timestamp == 0) {
+						// Try the archive
+						timestamp = repository.getBlockArchiveRepository().getTimestampFromHeight(atState.getHeight());
+					}
+
 					CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atState);
-					totalForeign += crossChainTradeData.expectedForeignAmount;
-					totalQort += crossChainTradeData.qortAmount;
+					reverseSortedTradeData.put(timestamp, crossChainTradeData);
 				}
+			}
+
+			// Loop through the sorted map and calculate the average price
+			// Also remove elements beyond the maxtrades limit
+			Set set = reverseSortedTradeData.entrySet();
+			Iterator i = set.iterator();
+			int index = 0;
+			while (i.hasNext()) {
+				Map.Entry tradeDataMap = (Map.Entry)i.next();
+				CrossChainTradeData crossChainTradeData = (CrossChainTradeData) tradeDataMap.getValue();
+
+				if (maxtrades != null && index >= maxtrades) {
+					// We've reached the limit
+					break;
+				}
+
+				totalForeign += crossChainTradeData.expectedForeignAmount;
+				totalQort += crossChainTradeData.qortAmount;
+				index++;
 			}
 
 			return useInversePrice ? Amounts.scaledDivide(totalForeign, totalQort) : Amounts.scaledDivide(totalQort, totalForeign);
