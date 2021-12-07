@@ -91,7 +91,7 @@ public class CrossChainResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		final boolean isExecutable = true;
-		List<CrossChainTradeData> crossChainTradesData = new ArrayList<>();
+		List<CrossChainTradeData> crossChainTrades = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getFilteredAcctMap(foreignBlockchain);
@@ -105,12 +105,26 @@ public class CrossChainResource {
 				for (ATData atData : atsData) {
 					CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
 					if (crossChainTradeData.mode == AcctMode.OFFERING) {
-						crossChainTradesData.add(crossChainTradeData);
+						crossChainTrades.add(crossChainTradeData);
 					}
 				}
 			}
 
-			return crossChainTradesData;
+			// Sort the trades by timestamp
+			if (reverse != null && reverse) {
+				crossChainTrades.sort((a, b) -> Longs.compare(b.creationTimestamp, a.creationTimestamp));
+			}
+			else {
+				crossChainTrades.sort((a, b) -> Longs.compare(a.creationTimestamp, b.creationTimestamp));
+			}
+
+			if (limit != null) {
+				// Make sure to not return more than the limit
+				int upperLimit = Math.min(limit, crossChainTrades.size());
+				crossChainTrades = crossChainTrades.subList(0, upperLimit);
+			}
+
+			return crossChainTrades;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
