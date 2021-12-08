@@ -118,7 +118,7 @@ public class CrossChainResource {
 				crossChainTrades.sort((a, b) -> Longs.compare(a.creationTimestamp, b.creationTimestamp));
 			}
 
-			if (limit != null) {
+			if (limit != null && limit > 0) {
 				// Make sure to not return more than the limit
 				int upperLimit = Math.min(limit, crossChainTrades.size());
 				crossChainTrades = crossChainTrades.subList(0, upperLimit);
@@ -257,7 +257,7 @@ public class CrossChainResource {
 				crossChainTrades.sort((a, b) -> Longs.compare(a.getTradeTimestamp(), b.getTradeTimestamp()));
 			}
 
-			if (limit != null) {
+			if (limit != null && limit > 0) {
 				// Make sure to not return more than the limit
 				int upperLimit = Math.min(limit, crossChainTrades.size());
 				crossChainTrades = crossChainTrades.subList(0, upperLimit);
