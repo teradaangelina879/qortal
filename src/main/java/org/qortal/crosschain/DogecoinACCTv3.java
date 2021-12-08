@@ -88,7 +88,7 @@ public class DogecoinACCTv3 implements ACCT {
 	private static final Logger LOGGER = LogManager.getLogger(DogecoinACCTv3.class);
 
 	public static final String NAME = DogecoinACCTv3.class.getSimpleName();
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("6fff38d6eeb06568a9c879c5628527730319844aa0de53f5f4ffab5506efe885").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("03b44087f6325463eb745aa32d9a782add03148bcfbe73ffd8854ce55ff863d4").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;
 
@@ -464,9 +464,6 @@ public class DogecoinACCTv3 implements ACCT {
 
 				/* Transaction processing loop */
 				labelRedeemTxnLoop = codeByteBuffer.position();
-
-				/* Sleep until message arrives */
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.SLEEP_UNTIL_MESSAGE.value, addrLastTxnTimestamp));
 
 				// Find next transaction to this AT since the last one (if any)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));

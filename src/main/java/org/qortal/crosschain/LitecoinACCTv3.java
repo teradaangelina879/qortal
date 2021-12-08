@@ -84,7 +84,7 @@ import static org.ciyam.at.OpCode.calcOffset;
 public class LitecoinACCTv3 implements ACCT {
 
 	public static final String NAME = LitecoinACCTv3.class.getSimpleName();
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("d5ea386a41441180c854ca8d7bbc620bfd53a97df2650a2b162b52324caf6e19").asBytes(); // SHA256 of AT code bytes
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("31588e7ddb95a908bce310bb6dc76f011ff4693d2f8a3741fab3c989d56ce7c7").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;
 
@@ -457,9 +457,6 @@ public class LitecoinACCTv3 implements ACCT {
 
 				/* Transaction processing loop */
 				labelRedeemTxnLoop = codeByteBuffer.position();
-
-				/* Sleep until message arrives */
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.SLEEP_UNTIL_MESSAGE.value, addrLastTxnTimestamp));
 
 				// Find next transaction to this AT since the last one (if any)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));
