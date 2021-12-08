@@ -39,7 +39,7 @@ public enum SupportedBlockchain {
 
 		@Override
 		public ACCT getLatestAcct() {
-			return LitecoinACCTv2.getInstance();
+			return LitecoinACCTv3.getInstance();
 		}
 	},
 
@@ -55,7 +55,7 @@ public enum SupportedBlockchain {
 
 		@Override
 		public ACCT getLatestAcct() {
-			return DogecoinACCTv2.getInstance();
+			return DogecoinACCTv3.getInstance();
 		}
 	};
 
