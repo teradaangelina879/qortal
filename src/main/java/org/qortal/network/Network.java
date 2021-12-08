@@ -75,7 +75,7 @@ public class Network {
             "node.qortal.ru", "node2.qortal.ru", "node3.qortal.ru", "node.qortal.uk", "node22.qortal.org",
             "cinfu1.crowetic.com", "node.cwd.systems", "bootstrap.cwd.systems", "node1.qortalnodes.live",
             "node2.qortalnodes.live", "node3.qortalnodes.live", "node4.qortalnodes.live", "node5.qortalnodes.live",
-            "node6.qortalnodes.live", "node7.qortalnodes.live"
+            "node6.qortalnodes.live", "node7.qortalnodes.live", "node8.qortalnodes.live"
     };
 
     private static final long NETWORK_EPC_KEEPALIVE = 10L; // seconds
