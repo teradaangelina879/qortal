@@ -38,11 +38,11 @@ public class Settings {
 	private static final int MAINNET_API_PORT = 12393;
 	private static final int TESTNET_API_PORT = 62393;
 
-	private static final int MAINNET_DOMAIN_MAP_SERVICE_PORT = 80;
-	private static final int TESTNET_DOMAIN_MAP_SERVICE_PORT = 8080;
+	private static final int MAINNET_DOMAIN_MAP_PORT = 80;
+	private static final int TESTNET_DOMAIN_MAP_PORT = 8080;
 
-	private static final int MAINNET_GATEWAY_SERVICE_PORT = 80;
-	private static final int TESTNET_GATEWAY_SERVICE_PORT = 8080;
+	private static final int MAINNET_GATEWAY_PORT = 80;
+	private static final int TESTNET_GATEWAY_PORT = 8080;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -91,14 +91,14 @@ public class Settings {
 	private String sslKeystorePassword = null;
 
 	// Domain mapping
-	private Integer domainMapServicePort;
-	private boolean domainMapServiceEnabled = false;
+	private Integer domainMapPort;
+	private boolean domainMapEnabled = false;
 	private boolean domainMapLoggingEnabled = false;
 	private List<DomainMap> domainMap = null;
 
 	// Gateway
-	private Integer gatewayServicePort;
-	private boolean gatewayServiceEnabled = false;
+	private Integer gatewayPort;
+	private boolean gatewayEnabled = false;
 	private boolean gatewayLoggingEnabled = false;
 
 	// Specific to this node
@@ -526,15 +526,15 @@ public class Settings {
 		return this.sslKeystorePassword;
 	}
 
-	public int getDomainMapServicePort() {
-		if (this.domainMapServicePort != null)
-			return this.domainMapServicePort;
+	public int getDomainMapPort() {
+		if (this.domainMapPort != null)
+			return this.domainMapPort;
 
-		return this.isTestNet ? TESTNET_DOMAIN_MAP_SERVICE_PORT : MAINNET_DOMAIN_MAP_SERVICE_PORT;
+		return this.isTestNet ? TESTNET_DOMAIN_MAP_PORT : MAINNET_DOMAIN_MAP_PORT;
 	}
 
-	public boolean isDomainMapServiceEnabled() {
-		return this.domainMapServiceEnabled;
+	public boolean isDomainMapEnabled() {
+		return this.domainMapEnabled;
 	}
 
 	public boolean isDomainMapLoggingEnabled() {
@@ -555,15 +555,15 @@ public class Settings {
 	}
 
 
-	public int getGatewayServicePort() {
-		if (this.gatewayServicePort != null)
-			return this.gatewayServicePort;
+	public int getGatewayPort() {
+		if (this.gatewayPort != null)
+			return this.gatewayPort;
 
-		return this.isTestNet ? TESTNET_GATEWAY_SERVICE_PORT : MAINNET_GATEWAY_SERVICE_PORT;
+		return this.isTestNet ? TESTNET_GATEWAY_PORT : MAINNET_GATEWAY_PORT;
 	}
 
-	public boolean isGatewayServiceEnabled() {
-		return this.gatewayServiceEnabled;
+	public boolean isGatewayEnabled() {
+		return this.gatewayEnabled;
 	}
 
 	public boolean isGatewayLoggingEnabled() {

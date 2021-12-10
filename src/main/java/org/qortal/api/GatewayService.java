@@ -87,7 +87,7 @@ public class GatewayService {
 
 				HttpConfiguration httpConfig = new HttpConfiguration();
 				httpConfig.setSecureScheme("https");
-				httpConfig.setSecurePort(Settings.getInstance().getGatewayServicePort());
+				httpConfig.setSecurePort(Settings.getInstance().getGatewayPort());
 
 				SecureRequestCustomizer src = new SecureRequestCustomizer();
 				httpConfig.addCustomizer(src);
@@ -99,13 +99,13 @@ public class GatewayService {
 						new DetectorConnectionFactory(sslConnectionFactory),
 						httpConnectionFactory);
 				portUnifiedConnector.setHost(Settings.getInstance().getBindAddress());
-				portUnifiedConnector.setPort(Settings.getInstance().getGatewayServicePort());
+				portUnifiedConnector.setPort(Settings.getInstance().getGatewayPort());
 
 				this.server.addConnector(portUnifiedConnector);
 			} else {
 				// Non-SSL
 				InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
-				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getGatewayServicePort());
+				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getGatewayPort());
 				this.server = new Server(endpoint);
 			}
 

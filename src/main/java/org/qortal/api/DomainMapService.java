@@ -88,7 +88,7 @@ public class DomainMapService {
 
 				HttpConfiguration httpConfig = new HttpConfiguration();
 				httpConfig.setSecureScheme("https");
-				httpConfig.setSecurePort(Settings.getInstance().getDomainMapServicePort());
+				httpConfig.setSecurePort(Settings.getInstance().getDomainMapPort());
 
 				SecureRequestCustomizer src = new SecureRequestCustomizer();
 				httpConfig.addCustomizer(src);
@@ -100,13 +100,13 @@ public class DomainMapService {
 						new DetectorConnectionFactory(sslConnectionFactory),
 						httpConnectionFactory);
 				portUnifiedConnector.setHost(Settings.getInstance().getBindAddress());
-				portUnifiedConnector.setPort(Settings.getInstance().getDomainMapServicePort());
+				portUnifiedConnector.setPort(Settings.getInstance().getDomainMapPort());
 
 				this.server.addConnector(portUnifiedConnector);
 			} else {
 				// Non-SSL
 				InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
-				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getDomainMapServicePort());
+				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getDomainMapPort());
 				this.server = new Server(endpoint);
 			}
 

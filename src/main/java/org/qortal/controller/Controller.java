@@ -510,8 +510,8 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
-		if (Settings.getInstance().isGatewayServiceEnabled()) {
-			LOGGER.info(String.format("Starting gateway service on port %d", Settings.getInstance().getGatewayServicePort()));
+		if (Settings.getInstance().isGatewayEnabled()) {
+			LOGGER.info(String.format("Starting gateway service on port %d", Settings.getInstance().getGatewayPort()));
 			try {
 				GatewayService gatewayService = GatewayService.getInstance();
 				gatewayService.start();
@@ -523,8 +523,8 @@ public class Controller extends Thread {
 			}
 		}
 
-		if (Settings.getInstance().isDomainMapServiceEnabled()) {
-			LOGGER.info(String.format("Starting domain map service on port %d", Settings.getInstance().getDomainMapServicePort()));
+		if (Settings.getInstance().isDomainMapEnabled()) {
+			LOGGER.info(String.format("Starting domain map service on port %d", Settings.getInstance().getDomainMapPort()));
 			try {
 				DomainMapService domainMapService = DomainMapService.getInstance();
 				domainMapService.start();
