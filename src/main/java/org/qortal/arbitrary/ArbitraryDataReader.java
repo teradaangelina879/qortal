@@ -318,9 +318,9 @@ public class ArbitraryDataReader {
         arbitraryDataFile.setMetadataHash(metadataHash);
 
         if (!arbitraryDataFile.allFilesExist()) {
-            if (ArbitraryDataStorageManager.getInstance().isNameInBlacklist(transactionData.getName())) {
+            if (ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName())) {
                 throw new DataException(
-                        String.format("Unable to request missing data for file %s due to blacklist", arbitraryDataFile));
+                        String.format("Unable to request missing data for file %s because the name is blocked", arbitraryDataFile));
             }
             else {
                 // Ask the arbitrary data manager to fetch data for this transaction
@@ -379,7 +379,7 @@ public class ArbitraryDataReader {
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-                // TODO: delete files and blacklist this resource if privateDataEnabled is false
+                // TODO: delete files and block this resource if privateDataEnabled is false
                 throw new DataException(String.format("Unable to decrypt file at path %s: %s", this.filePath, e.getMessage()));
             }
         } else {

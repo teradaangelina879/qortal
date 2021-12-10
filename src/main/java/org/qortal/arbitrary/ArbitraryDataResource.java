@@ -41,10 +41,10 @@ public class ArbitraryDataResource {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.UNSUPPORTED);
         }
 
-        // Check if the name is blacklisted
+        // Check if the name is blocked
         if (ResourceListManager.getInstance()
-                .listContains("blacklistedNames", this.resourceId, false)) {
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.BLACKLISTED);
+                .listContains("blockedNames", this.resourceId, false)) {
+            return new ArbitraryResourceSummary(ArbitraryResourceStatus.BLOCKED);
         }
 
         // Firstly check the cache to see if it's already built

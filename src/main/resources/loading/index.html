@@ -62,8 +62,8 @@
         textStatus = "Unsupported request";
         document.getElementById("status").style.color = "red";
       }
-      else if (json.status == "BLACKLISTED") {
-        textStatus = name + " is blacklisted so content cannot be served";
+      else if (json.status == "BLOCKED") {
+        textStatus = name + " is blocked so content cannot be served";
         retryInterval = 5000;
         document.getElementById("status").style.color = "red";
       }

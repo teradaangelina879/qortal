@@ -28,7 +28,7 @@ public class ResourceList {
      * This can be used for local blocking, or even for curating and sharing content lists
      * Lists are backed off to JSON files (in the lists folder) to ease sharing between nodes and users
      *
-     * @param name - the name of the list, for instance "addressblacklist"
+     * @param name - the name of the list, for instance "blockedAddresses"
      * @throws IOException
      */
     public ResourceList(String name) throws IOException {

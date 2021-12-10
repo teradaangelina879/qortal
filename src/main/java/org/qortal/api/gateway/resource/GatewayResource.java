@@ -29,7 +29,7 @@ public class GatewayResource {
     /**
      * We need to allow resource status checking (and building) via the gateway, as the node's API port
      * may not be forwarded and will almost certainly not be authenticated. Since gateways allow for
-     * all resources to be loaded except those that are blacklisted, there is no need for authentication.
+     * all resources to be loaded except those that are blocked, there is no need for authentication.
      */
     @GET
     @Path("/arbitrary/resource/status/{service}/{name}")

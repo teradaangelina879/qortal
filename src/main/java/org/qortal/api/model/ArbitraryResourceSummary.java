@@ -14,7 +14,7 @@ public class ArbitraryResourceSummary {
 		MISSING_DATA,
 		BUILD_FAILED,
 		UNSUPPORTED,
-		BLACKLISTED
+		BLOCKED
 	}
 
 	public ArbitraryResourceStatus status;

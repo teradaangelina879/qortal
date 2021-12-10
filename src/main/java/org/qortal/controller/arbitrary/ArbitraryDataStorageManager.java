@@ -113,13 +113,13 @@ public class ArbitraryDataStorageManager extends Thread {
 
         // Don't check for storage limits here, as it can cause the cleanup manager to delete existing data
 
-        // Check if our storage policy and blacklist allows us to host data for this name
+        // Check if our storage policy and and lists allow us to host data for this name
         switch (Settings.getInstance().getStoragePolicy()) {
             case FOLLOWED_AND_VIEWED:
             case ALL:
             case VIEWED:
-                // If the policy includes viewed data, we can host it as long as it's not blacklisted
-                return !this.isNameInBlacklist(name);
+                // If the policy includes viewed data, we can host it as long as it's not blocked
+                return !this.isNameBlocked(name);
 
             case FOLLOWED:
                 // If the policy is for followed data only, we have to be following it
@@ -166,8 +166,8 @@ public class ArbitraryDataStorageManager extends Thread {
             return this.shouldPreFetchDataWithoutName();
         }
 
-        // Never fetch data from blacklisted names, even if they are followed
-        if (this.isNameInBlacklist(name)) {
+        // Never fetch data from blocked names, even if they are followed
+        if (this.isNameBlocked(name)) {
             return false;
         }
 
@@ -222,8 +222,8 @@ public class ArbitraryDataStorageManager extends Thread {
         return true;
     }
 
-    public boolean isNameInBlacklist(String name) {
-        return ResourceListManager.getInstance().listContains("blacklistedNames", name, false);
+    public boolean isNameBlocked(String name) {
+        return ResourceListManager.getInstance().listContains("blockedNames", name, false);
     }
 
     private boolean isFollowingName(String name) {

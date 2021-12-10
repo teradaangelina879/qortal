@@ -448,10 +448,10 @@ public class ArbitraryDataCleanupManager extends Thread {
 		if (directories != null) {
 			for (final File directory : directories) {
 
-				// Delete data relating to blacklisted names
+				// Delete data relating to blocked names
 				String name = directory.getName();
-				if (name != null && storageManager.isNameInBlacklist(name)) {
-					this.safeDeleteDirectory(directory, "blacklisted name");
+				if (name != null && storageManager.isNameBlocked(name)) {
+					this.safeDeleteDirectory(directory, "blocked name");
 				}
 
 				// Delete cached reader data that has reached its expiry

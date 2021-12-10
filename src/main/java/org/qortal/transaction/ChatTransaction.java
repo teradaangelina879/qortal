@@ -145,19 +145,19 @@ public class ChatTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		// Nonce checking is done via isSignatureValid() as that method is only called once per import
 
-		// Check for blacklisted author by address
+		// Check for blocked author by address
 		ResourceListManager listManager = ResourceListManager.getInstance();
-		if (listManager.listContains("blacklistedAddresses", this.chatTransactionData.getSender(), true)) {
-			return ValidationResult.ADDRESS_IN_BLACKLIST;
+		if (listManager.listContains("blockedAddresses", this.chatTransactionData.getSender(), true)) {
+			return ValidationResult.ADDRESS_BLOCKED;
 		}
 
-		// Check for blacklisted author by registered name
+		// Check for blocked author by registered name
 		List<NameData> names = this.repository.getNameRepository().getNamesByOwner(this.chatTransactionData.getSender());
 		if (names != null && names.size() > 0) {
 			for (NameData nameData : names) {
 				if (nameData != null && nameData.getName() != null) {
-					if (listManager.listContains("blacklistedNames", nameData.getName(), false)) {
-						return ValidationResult.NAME_IN_BLACKLIST;
+					if (listManager.listContains("blockedNames", nameData.getName(), false)) {
+						return ValidationResult.NAME_BLOCKED;
 					}
 				}
 			}
