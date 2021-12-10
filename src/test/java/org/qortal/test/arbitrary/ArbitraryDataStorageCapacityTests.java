@@ -96,18 +96,18 @@ public class ArbitraryDataStorageCapacityTests extends Common {
         assertTrue(storageManager.isStorageCapacityCalculated());
 
         // Storage capacity should initially equal the total
-        assertEquals(0, resourceListManager.getItemCountForList("followed", "names"));
+        assertEquals(0, resourceListManager.getItemCountForList("followedNames"));
         long totalStorageCapacity = storageManager.getStorageCapacityIncludingThreshold(storageFullThreshold);
         assertEquals(totalStorageCapacity, storageManager.storageCapacityPerName(storageFullThreshold));
 
         // Follow some names
-        assertTrue(resourceListManager.addToList("followed", "names", "Test1", false));
-        assertTrue(resourceListManager.addToList("followed", "names", "Test2", false));
-        assertTrue(resourceListManager.addToList("followed", "names", "Test3", false));
-        assertTrue(resourceListManager.addToList("followed", "names", "Test4", false));
+        assertTrue(resourceListManager.addToList("followedNames", "Test1", false));
+        assertTrue(resourceListManager.addToList("followedNames", "Test2", false));
+        assertTrue(resourceListManager.addToList("followedNames", "Test3", false));
+        assertTrue(resourceListManager.addToList("followedNames", "Test4", false));
 
         // Ensure the followed name count is correct
-        assertEquals(4, resourceListManager.getItemCountForList("followed", "names"));
+        assertEquals(4, resourceListManager.getItemCountForList("followedNames"));
 
         // Storage space per name should be the total storage capacity divided by the number of names
         long expectedStorageCapacityPerName = (long)(totalStorageCapacity / 4.0f);

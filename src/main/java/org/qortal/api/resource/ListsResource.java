@@ -33,10 +33,9 @@ public class ListsResource {
 
 
 	@POST
-	@Path("/{category}/{resourceName}")
+	@Path("/{listName}")
 	@Operation(
 			summary = "Add items to a new or existing list",
-			description = "Example categories are 'blacklist' or 'followed'. Example resource names are 'addresses' or 'names'",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
@@ -57,12 +56,11 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String addItemstoList(@PathParam("category") String category,
-								 @PathParam("resourceName") String resourceName,
+	public String addItemstoList(@PathParam("listName") String listName,
 								 ListRequest listRequest) {
 		Security.checkApiCallAllowed(request);
 
-		if (category == null || resourceName == null) {
+		if (listName == null) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 		}
 
@@ -73,64 +71,33 @@ public class ListsResource {
 		int successCount = 0;
 		int errorCount = 0;
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
+		for (String item : listRequest.items) {
 
-			for (String item : listRequest.items) {
-
-				// Validate addresses
-				if (resourceName.equals("address") || resourceName.equals("addresses")) {
-
-					if (!Crypto.isValidAddress(item)) {
-						errorCount++;
-						continue;
-					}
-
-					AccountData accountData = repository.getAccountRepository().getAccount(item);
-					// Not found?
-					if (accountData == null) {
-						errorCount++;
-						continue;
-					}
-				}
-
-				// Validate names
-				if (resourceName.equals("name") || resourceName.equals("names")) {
-					if (!repository.getNameRepository().nameExists(item)) {
-						errorCount++;
-						continue;
-					}
-				}
-
-				// Valid address, so go ahead and blacklist it
-				boolean success = ResourceListManager.getInstance().addToList(category, resourceName, item, false);
-				if (success) {
-					successCount++;
-				}
-				else {
-					errorCount++;
-				}
+			boolean success = ResourceListManager.getInstance().addToList(listName, item, false);
+			if (success) {
+				successCount++;
 			}
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+			else {
+				errorCount++;
+			}
 		}
 
 		if (successCount > 0 && errorCount == 0) {
-			// All were successful, so save the blacklist
-			ResourceListManager.getInstance().saveList(category, resourceName);
+			// All were successful, so save the list
+			ResourceListManager.getInstance().saveList(listName);
 			return "true";
 		}
 		else {
 			// Something went wrong, so revert
-			ResourceListManager.getInstance().revertList(category, resourceName);
+			ResourceListManager.getInstance().revertList(listName);
 			return "false";
 		}
 	}
 
 	@DELETE
-	@Path("/{category}/{resourceName}")
+	@Path("/{listName}")
 	@Operation(
 			summary = "Remove one or more items from a list",
-			description = "Example categories are 'blacklist' or 'followed'. Example resource names are 'addresses' or 'names'",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
@@ -151,8 +118,7 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String removeItemsFromList(@PathParam("category") String category,
-									  @PathParam("resourceName") String resourceName,
+	public String removeItemsFromList(@PathParam("listName") String listName,
 									  ListRequest listRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -167,7 +133,7 @@ public class ListsResource {
 
 			// Attempt to remove the item
 			// Don't save as we will do this at the end of the process
-			boolean success = ResourceListManager.getInstance().removeFromList(category, resourceName, address, false);
+			boolean success = ResourceListManager.getInstance().removeFromList(listName, address, false);
 			if (success) {
 				successCount++;
 			}
@@ -177,22 +143,21 @@ public class ListsResource {
 		}
 
 		if (successCount > 0 && errorCount == 0) {
-			// All were successful, so save the blacklist
-			ResourceListManager.getInstance().saveList(category, resourceName);
+			// All were successful, so save the list
+			ResourceListManager.getInstance().saveList(listName);
 			return "true";
 		}
 		else {
 			// Something went wrong, so revert
-			ResourceListManager.getInstance().revertList(category, resourceName);
+			ResourceListManager.getInstance().revertList(listName);
 			return "false";
 		}
 	}
 
 	@GET
-	@Path("/{category}/{resourceName}")
+	@Path("/{listName}")
 	@Operation(
 			summary = "Fetch all items in a list",
-			description = "Example categories are 'blacklist' or 'followed'. Example resource names are 'addresses' or 'names'",
 			responses = {
 					@ApiResponse(
 							description = "A JSON array of items",
@@ -201,10 +166,9 @@ public class ListsResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String getItemsInList(@PathParam("category") String category,
-								 @PathParam("resourceName") String resourceName) {
+	public String getItemsInList(@PathParam("listName") String listName) {
 		Security.checkApiCallAllowed(request);
-		return ResourceListManager.getInstance().getJSONStringForList(category, resourceName);
+		return ResourceListManager.getInstance().getJSONStringForList(listName);
 	}
 
 }

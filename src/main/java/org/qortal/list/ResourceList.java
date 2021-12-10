@@ -19,8 +19,7 @@ public class ResourceList {
 
     private static final Logger LOGGER = LogManager.getLogger(ResourceList.class);
 
-    private String category;
-    private String resourceName;
+    private String name;
     private List<String> list = new ArrayList<>();
 
     /**
@@ -29,13 +28,11 @@ public class ResourceList {
      * This can be used for local blocking, or even for curating and sharing content lists
      * Lists are backed off to JSON files (in the lists folder) to ease sharing between nodes and users
      *
-     * @param category - for instance "blacklist", "whitelist", or "userlist"
-     * @param resourceName - for instance "address", "poll", or "group"
+     * @param name - the name of the list, for instance "addressblacklist"
      * @throws IOException
      */
-    public ResourceList(String category, String resourceName) throws IOException {
-        this.category = category;
-        this.resourceName = resourceName;
+    public ResourceList(String name) throws IOException {
+        this.name = name;
         this.load();
     }
 
@@ -43,17 +40,14 @@ public class ResourceList {
     /* Filesystem */
 
     private Path getFilePath() {
-        String pathString = String.format("%s%s%s_%s.json", Settings.getInstance().getListsPath(),
-                File.separator, this.category, this.resourceName);
+        String pathString = String.format("%s%s%s.json", Settings.getInstance().getListsPath(),
+                File.separator, this.name);
         return Paths.get(pathString);
     }
 
     public void save() throws IOException {
-        if (this.resourceName == null) {
-            throw new IllegalStateException("Can't save list with missing resource name");
-        }
-        if (this.category == null) {
-            throw new IllegalStateException("Can't save list with missing category");
+        if (this.name == null) {
+            throw new IllegalStateException("Can't save list with missing name");
         }
         String jsonString = ResourceList.listToJSONString(this.list);
         Path filePath = this.getFilePath();
@@ -91,7 +85,7 @@ public class ResourceList {
         try {
             return this.load();
         } catch (IOException e) {
-            LOGGER.info("Unable to revert {} {}", this.resourceName, this.category);
+            LOGGER.info("Unable to revert list {}: {}", this.name, e.getMessage());
         }
         return false;
     }
@@ -159,12 +153,8 @@ public class ResourceList {
         return ResourceList.listToJSONString(this.list);
     }
 
-    public String getCategory() {
-        return this.category;
-    }
-
-    public String getResourceName() {
-        return this.resourceName;
+    public String getName() {
+        return this.name;
     }
 
     public List<String> getList() {
@@ -172,7 +162,7 @@ public class ResourceList {
     }
 
     public String toString() {
-        return String.format("%s %s", this.category, this.resourceName);
+        return this.name;
     }
 
 }

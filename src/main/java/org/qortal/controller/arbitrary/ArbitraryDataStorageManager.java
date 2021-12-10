@@ -223,19 +223,19 @@ public class ArbitraryDataStorageManager extends Thread {
     }
 
     public boolean isNameInBlacklist(String name) {
-        return ResourceListManager.getInstance().listContains("blacklist", "names", name, false);
+        return ResourceListManager.getInstance().listContains("blacklistedNames", name, false);
     }
 
     private boolean isFollowingName(String name) {
-        return ResourceListManager.getInstance().listContains("followed", "names", name, false);
+        return ResourceListManager.getInstance().listContains("followedNames", name, false);
     }
 
     public List<String> followedNames() {
-        return ResourceListManager.getInstance().getStringsInList("followed", "names");
+        return ResourceListManager.getInstance().getStringsInList("followedNames");
     }
 
     private int followedNamesCount() {
-        return ResourceListManager.getInstance().getItemCountForList("followed", "names");
+        return ResourceListManager.getInstance().getItemCountForList("followedNames");
     }
 
 

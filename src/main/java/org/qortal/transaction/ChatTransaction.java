@@ -147,7 +147,7 @@ public class ChatTransaction extends Transaction {
 
 		// Check for blacklisted author by address
 		ResourceListManager listManager = ResourceListManager.getInstance();
-		if (listManager.listContains("blacklist", "addresses", this.chatTransactionData.getSender(), true)) {
+		if (listManager.listContains("blacklistedAddresses", this.chatTransactionData.getSender(), true)) {
 			return ValidationResult.ADDRESS_IN_BLACKLIST;
 		}
 
@@ -156,7 +156,7 @@ public class ChatTransaction extends Transaction {
 		if (names != null && names.size() > 0) {
 			for (NameData nameData : names) {
 				if (nameData != null && nameData.getName() != null) {
-					if (listManager.listContains("blacklist", "names", nameData.getName(), false)) {
+					if (listManager.listContains("blacklistedNames", nameData.getName(), false)) {
 						return ValidationResult.NAME_IN_BLACKLIST;
 					}
 				}

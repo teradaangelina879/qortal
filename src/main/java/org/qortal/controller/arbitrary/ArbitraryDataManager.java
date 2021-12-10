@@ -142,7 +142,7 @@ public class ArbitraryDataManager extends Thread {
 
 	private void processNames() {
 		// Fetch latest list of followed names
-		List<String> followedNames = ResourceListManager.getInstance().getStringsInList("followed", "names");
+		List<String> followedNames = ResourceListManager.getInstance().getStringsInList("followedNames");
 		if (followedNames == null || followedNames.isEmpty()) {
 			return;
 		}

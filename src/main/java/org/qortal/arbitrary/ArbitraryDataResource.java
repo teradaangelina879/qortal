@@ -43,7 +43,7 @@ public class ArbitraryDataResource {
 
         // Check if the name is blacklisted
         if (ResourceListManager.getInstance()
-                .listContains("blacklist", "names", this.resourceId, false)) {
+                .listContains("blacklistedNames", this.resourceId, false)) {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.BLACKLISTED);
         }
 
