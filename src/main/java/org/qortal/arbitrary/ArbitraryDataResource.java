@@ -68,8 +68,11 @@ public class ArbitraryDataResource {
 
         // Check if we have all data locally for this resource
         if (!this.allFilesDownloaded()) {
-            if (this.isDataPotentiallyAvailable()) {
+            if (this.isDownloading()) {
                 return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADING);
+            }
+            else if (this.isDataPotentiallyAvailable()) {
+                return new ArbitraryResourceSummary(ArbitraryResourceStatus.NOT_STARTED);
             }
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.MISSING_DATA);
         }
@@ -138,6 +141,40 @@ public class ArbitraryDataResource {
                     return true;
                 }
             }
+            return false;
+
+        } catch (DataException e) {
+            return false;
+        }
+    }
+
+
+    /**
+     * Best guess as to whether we are currently downloading a resource
+     * This is only used to give an indication to the user of progress
+     * @return - whether we are trying to download the resource
+     */
+    private boolean isDownloading() {
+        try {
+            this.fetchTransactions();
+            Long now = NTP.getTime();
+            if (now == null) {
+                return false;
+            }
+
+            List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
+
+            for (ArbitraryTransactionData transactionData : transactionDataList) {
+                long lastRequestTime = ArbitraryDataManager.getInstance().lastRequestForSignature(transactionData.getSignature());
+                // If were have requested data in the last 30 seconds, treat it as "downloading"
+                if (lastRequestTime > 0 && now - lastRequestTime < 30 * 1000L) {
+                    return true;
+                }
+            }
+
+            // FUTURE: we may want to check for file hashes (including the metadata file hash) in
+            // ArbitraryDataManager.arbitraryDataFileRequests and return true if one is found.
+
             return false;
 
         } catch (DataException e) {

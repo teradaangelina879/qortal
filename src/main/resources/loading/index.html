@@ -78,6 +78,10 @@
       else if (json.status == "BUILD_FAILED") {
         textStatus = "Build failed. Please try again later.";
       }
+      else if (json.status == "NOT_STARTED") {
+        textStatus = "Waiting...";
+        retryInterval = 1000;
+      }
       else if (json.status == "DOWNLOADING") {
         textStatus = "Locating and downloading files...";
         retryInterval = 1000;
