@@ -732,15 +732,7 @@ public class ArbitraryDataManager extends Thread {
 
 	public void onNetworkGetArbitraryDataMessage(Peer peer, Message message) {
 		GetArbitraryDataMessage getArbitraryDataMessage = (GetArbitraryDataMessage) message;
-
 		byte[] signature = getArbitraryDataMessage.getSignature();
-		String signature58 = Base58.encode(signature);
-		Long timestamp = NTP.getTime();
-		Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
-
-		// If we've seen this request recently, then ignore
-		if (arbitraryDataFileListRequests.putIfAbsent(message.getId(), newEntry) != null)
-			return;
 
 		// Do we even have this transaction?
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -755,10 +747,6 @@ public class ArbitraryDataManager extends Thread {
 				byte[] data = transaction.fetchData();
 				if (data == null)
 					return;
-
-				// Update requests map to reflect that we've sent it
-				newEntry = new Triple<>(signature58, null, timestamp);
-				arbitraryDataFileListRequests.put(message.getId(), newEntry);
 
 				Message arbitraryDataMessage = new ArbitraryDataMessage(signature, data);
 				arbitraryDataMessage.setId(message.getId());
@@ -777,10 +765,12 @@ public class ArbitraryDataManager extends Thread {
 
 	public void onNetworkArbitraryDataFileListMessage(Peer peer, Message message) {
 		ArbitraryDataFileListMessage arbitraryDataFileListMessage = (ArbitraryDataFileListMessage) message;
-		LOGGER.info("Received hash list from peer {} with {} hashes", peer, arbitraryDataFileListMessage.getHashes().size());
+		String sourcePeer = arbitraryDataFileListMessage.getPeerAddress();
+		LOGGER.info("Received hash list from peer {} with {} hashes, source peer: {}", peer, arbitraryDataFileListMessage.getHashes().size(), sourcePeer);
 
 		// Do we have a pending request for this data?
 		Triple<String, Peer, Long> request = arbitraryDataFileListRequests.get(message.getId());
+		boolean isRelayRequest = (request.getB() != null);
 		if (request == null || request.getA() == null) {
 			return;
 		}
@@ -825,22 +815,27 @@ public class ArbitraryDataManager extends Thread {
 			Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
 			arbitraryDataFileListRequests.put(message.getId(), newEntry);
 
-			// Go and fetch the actual data
-			this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, hashes);
-			// FUTURE: handle response
+			if (!isRelayRequest || !Settings.getInstance().isRelayModeEnabled()) {
+				// Go and fetch the actual data, since this isn't a relay request
+				this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, hashes);
+			}
 
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while finding arbitrary transaction data list for peer %s", peer), e);
 		}
 
-//		// Forwarding (not yet used)
-//		Peer requestingPeer = request.getB();
-//		if (requestingPeer != null) {
-//			// Forward to requesting peer;
-//			if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
-//				requestingPeer.disconnect("failed to forward arbitrary data file list");
-//			}
-//		}
+		// Forwarding
+		if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
+			Peer requestingPeer = request.getB();
+			if (requestingPeer != null) {
+				// Add the source peer's address
+				arbitraryDataFileListMessage.setPeerAddress(peer.getPeerData().getAddress().toString());
+				// Forward to requesting peer;
+				if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
+					requestingPeer.disconnect("failed to forward arbitrary data file list");
+				}
+			}
+		}
 	}
 
 	public void onNetworkGetArbitraryDataFileMessage(Peer peer, Message message) {
@@ -886,9 +881,18 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	public void onNetworkGetArbitraryDataFileListMessage(Peer peer, Message message) {
+		Controller.getInstance().stats.getArbitraryDataFileListMessageStats.requests.incrementAndGet();
+
 		GetArbitraryDataFileListMessage getArbitraryDataFileListMessage = (GetArbitraryDataFileListMessage) message;
 		byte[] signature = getArbitraryDataFileListMessage.getSignature();
-		Controller.getInstance().stats.getArbitraryDataFileListMessageStats.requests.incrementAndGet();
+		String signature58 = Base58.encode(signature);
+		Long timestamp = NTP.getTime();
+		Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
+
+		// If we've seen this request recently, then ignore
+		if (arbitraryDataFileListRequests.putIfAbsent(message.getId(), newEntry) != null) {
+			return;
+		}
 
 		LOGGER.info("Received hash list request from peer {} for signature {}", peer, Base58.encode(signature));
 
@@ -937,13 +941,22 @@ public class ArbitraryDataManager extends Thread {
 			LOGGER.error(String.format("Repository issue while fetching arbitrary file list for peer %s", peer), e);
 		}
 
-		ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes);
-		arbitraryDataFileListMessage.setId(message.getId());
-		if (!peer.sendMessage(arbitraryDataFileListMessage)) {
-			LOGGER.info("Couldn't send list of hashes");
-			peer.disconnect("failed to send list of hashes");
+		// We should only respond if we have at least one hash
+		if (hashes.size() > 0) {
+
+			// Update requests map to reflect that we've sent it
+			newEntry = new Triple<>(signature58, null, timestamp);
+			arbitraryDataFileListRequests.put(message.getId(), newEntry);
+
+			ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, null, hashes);
+			arbitraryDataFileListMessage.setId(message.getId());
+			if (!peer.sendMessage(arbitraryDataFileListMessage)) {
+				LOGGER.info("Couldn't send list of hashes");
+				peer.disconnect("failed to send list of hashes");
+			}
+			LOGGER.info("Sent list of hashes (count: {})", hashes.size());
+
 		}
-		LOGGER.info("Sent list of hashes (count: {})", hashes.size());
 	}
 
 	public void onNetworkArbitrarySignaturesMessage(Peer peer, Message message) {

@@ -279,6 +279,9 @@ public class Settings {
 	/** Storage policy to indicate which data should be hosted */
 	private String storagePolicy = "FOLLOWED_AND_VIEWED";
 
+	/** Whether to allow data outside of the storage policy to be relayed between other peers */
+	private boolean relayModeEnabled = false;
+
 	/** Expiry time (ms) for (unencrypted) built/cached data */
 	private Long builtDataExpiryInterval = 30 * 24 * 60 * 60 * 1000L; // 30 days
 
@@ -826,6 +829,10 @@ public class Settings {
 
 	public StoragePolicy getStoragePolicy() {
 		return StoragePolicy.valueOf(this.storagePolicy);
+	}
+
+	public boolean isRelayModeEnabled() {
+		return this.relayModeEnabled;
 	}
 
 	public Long getBuiltDataExpiryInterval() {
