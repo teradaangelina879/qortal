@@ -1391,7 +1391,7 @@ public class Controller extends Thread {
 				break;
 
 			case GET_ARBITRARY_DATA:
-				ArbitraryDataManager.getInstance().onNetworkGetArbitraryDataMessage(peer, message);
+				// Not currently supported
 				break;
 
 			case ARBITRARY_DATA_FILE_LIST:
