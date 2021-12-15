@@ -423,17 +423,24 @@ public class BlocksResource {
 	@ApiErrors({
 		ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
-	public BlockData getByHeight(@PathParam("height") int height) {
+	public BlockData getByHeight(@PathParam("height") int height,
+								 @QueryParam("includesignatures") Boolean includeSignatures) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Firstly check the database
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
 			if (blockData != null) {
+				if (includeSignatures == null || includeSignatures == false) {
+					blockData.setOnlineAccountsSignatures(null);
+				}
 				return blockData;
 			}
 
 			// Not found, so try the archive
 			blockData = repository.getBlockArchiveRepository().fromHeight(height);
 			if (blockData != null) {
+				if (includeSignatures == null || includeSignatures == false) {
+					blockData.setOnlineAccountsSignatures(null);
+				}
 				return blockData;
 			}
 
