@@ -770,8 +770,7 @@ public class ArbitraryDataManager extends Thread {
 
 	public void onNetworkArbitraryDataFileListMessage(Peer peer, Message message) {
 		ArbitraryDataFileListMessage arbitraryDataFileListMessage = (ArbitraryDataFileListMessage) message;
-		String sourcePeer = arbitraryDataFileListMessage.getPeerAddress();
-		LOGGER.info("Received hash list from peer {} with {} hashes, source peer: {}", peer, arbitraryDataFileListMessage.getHashes().size(), sourcePeer);
+		LOGGER.info("Received hash list from peer {} with {} hashes", peer, arbitraryDataFileListMessage.getHashes().size());
 
 		// Do we have a pending request for this data?
 		Triple<String, Peer, Long> request = arbitraryDataFileListRequests.get(message.getId());
@@ -833,8 +832,6 @@ public class ArbitraryDataManager extends Thread {
 		if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
 			Peer requestingPeer = request.getB();
 			if (requestingPeer != null) {
-				// Add the source peer's address
-				arbitraryDataFileListMessage.setPeerAddress(peer.getPeerData().getAddress().toString());
 				// Forward to requesting peer;
 				if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
 					requestingPeer.disconnect("failed to forward arbitrary data file list");
@@ -953,7 +950,7 @@ public class ArbitraryDataManager extends Thread {
 			newEntry = new Triple<>(signature58, null, timestamp);
 			arbitraryDataFileListRequests.put(message.getId(), newEntry);
 
-			ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, null, hashes);
+			ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes);
 			arbitraryDataFileListMessage.setId(message.getId());
 			if (!peer.sendMessage(arbitraryDataFileListMessage)) {
 				LOGGER.info("Couldn't send list of hashes");

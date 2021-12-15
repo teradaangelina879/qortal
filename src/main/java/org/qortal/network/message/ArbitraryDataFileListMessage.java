@@ -19,21 +19,18 @@ public class ArbitraryDataFileListMessage extends Message {
 
 	private final byte[] signature;
 	private final List<byte[]> hashes;
-	private String peerAddress;
 
-	public ArbitraryDataFileListMessage(byte[] signature, String peerAddress, List<byte[]> hashes) {
+	public ArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes) {
 		super(MessageType.ARBITRARY_DATA_FILE_LIST);
 
 		this.signature = signature;
-		this.peerAddress = peerAddress;
 		this.hashes = hashes;
 	}
 
-	public ArbitraryDataFileListMessage(int id, byte[] signature, String peerAddress, List<byte[]> hashes) {
+	public ArbitraryDataFileListMessage(int id, byte[] signature, List<byte[]> hashes) {
 		super(id, MessageType.ARBITRARY_DATA_FILE_LIST);
 
 		this.signature = signature;
-		this.peerAddress = peerAddress;
 		this.hashes = hashes;
 	}
 
@@ -45,20 +42,9 @@ public class ArbitraryDataFileListMessage extends Message {
 		return this.signature;
 	}
 
-	public void setPeerAddress(String peerAddress) {
-		this.peerAddress = peerAddress;
-	}
-
-	public String getPeerAddress() {
-		return this.peerAddress;
-	}
-
-
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException, TransformationException {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		bytes.get(signature);
-
-		String peerAddress = Serialization.deserializeSizedString(bytes, 255);
 
 		int count = bytes.getInt();
 
@@ -73,7 +59,7 @@ public class ArbitraryDataFileListMessage extends Message {
 			hashes.add(hash);
 		}
 
-		return new ArbitraryDataFileListMessage(id, signature, peerAddress, hashes);
+		return new ArbitraryDataFileListMessage(id, signature, hashes);
 	}
 
 	@Override
@@ -82,8 +68,6 @@ public class ArbitraryDataFileListMessage extends Message {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
 			bytes.write(this.signature);
-
-			Serialization.serializeSizedString(bytes, this.peerAddress);
 
 			bytes.write(Ints.toByteArray(this.hashes.size()));
 
@@ -98,7 +82,7 @@ public class ArbitraryDataFileListMessage extends Message {
 	}
 
 	public ArbitraryDataFileListMessage cloneWithNewId(int newId) {
-		ArbitraryDataFileListMessage clone = new ArbitraryDataFileListMessage(this.signature, this.peerAddress, this.hashes);
+		ArbitraryDataFileListMessage clone = new ArbitraryDataFileListMessage(this.signature, this.hashes);
 		clone.setId(newId);
 		return clone;
 	}
