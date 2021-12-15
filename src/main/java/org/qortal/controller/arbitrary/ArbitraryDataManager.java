@@ -1061,18 +1061,18 @@ public class ArbitraryDataManager extends Thread {
 						repository.getArbitraryRepository().save(arbitraryPeerData);
 						repository.saveChanges();
 
-						// Remember that this data is new, so that it can be re-broadcast later
+						// Remember that this data is new, so that it can be rebroadcast later
 						containsNewEntry = true;
 					}
 				}
 
-				// If at least one signature in this batch was new to us, we should re-broadcast the message to the
+				// If at least one signature in this batch was new to us, we should rebroadcast the message to the
 				// network in case some peers haven't received it yet
 				if (containsNewEntry) {
 					LOGGER.info("Rebroadcasting arbitrary signature list for peer {}", peerAddress);
 					Network.getInstance().broadcast(broadcastPeer -> arbitrarySignaturesMessage);
 				} else {
-					// Don't re-broadcast as otherwise we could get into a loop
+					// Don't rebroadcast as otherwise we could get into a loop
 				}
 
 				// If anything needed saving, it would already have called saveChanges() above
