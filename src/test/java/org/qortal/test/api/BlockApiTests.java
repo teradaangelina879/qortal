@@ -40,7 +40,7 @@ public class BlockApiTests extends ApiCommon {
 			byte[] signatureBytes = GenesisBlock.getInstance(repository).getSignature();
 			String signature = Base58.encode(signatureBytes);
 
-			assertNotNull(this.blocksResource.getBlock(signature));
+			assertNotNull(this.blocksResource.getBlock(signature, true));
 		}
 	}
 

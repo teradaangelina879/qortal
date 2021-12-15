@@ -75,7 +75,8 @@ public class BlocksResource {
 	@ApiErrors({
 		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
-	public BlockData getBlock(@PathParam("signature") String signature58) {
+	public BlockData getBlock(@PathParam("signature") String signature58,
+							  @QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
 		// Decode signature
 		byte[] signature;
 		try {
@@ -88,12 +89,18 @@ public class BlocksResource {
 		    // Check the database first
 			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 			if (blockData != null) {
+				if (includeOnlineSignatures == null || includeOnlineSignatures == false) {
+					blockData.setOnlineAccountsSignatures(null);
+				}
 				return blockData;
 			}
 
             // Not found, so try the block archive
 			blockData = repository.getBlockArchiveRepository().fromSignature(signature);
 			if (blockData != null) {
+				if (includeOnlineSignatures == null || includeOnlineSignatures == false) {
+					blockData.setOnlineAccountsSignatures(null);
+				}
 				return blockData;
 			}
 
@@ -424,12 +431,12 @@ public class BlocksResource {
 		ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
 	public BlockData getByHeight(@PathParam("height") int height,
-								 @QueryParam("includesignatures") Boolean includeSignatures) {
+								 @QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Firstly check the database
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
 			if (blockData != null) {
-				if (includeSignatures == null || includeSignatures == false) {
+				if (includeOnlineSignatures == null || includeOnlineSignatures == false) {
 					blockData.setOnlineAccountsSignatures(null);
 				}
 				return blockData;
@@ -438,7 +445,7 @@ public class BlocksResource {
 			// Not found, so try the archive
 			blockData = repository.getBlockArchiveRepository().fromHeight(height);
 			if (blockData != null) {
-				if (includeSignatures == null || includeSignatures == false) {
+				if (includeOnlineSignatures == null || includeOnlineSignatures == false) {
 					blockData.setOnlineAccountsSignatures(null);
 				}
 				return blockData;
