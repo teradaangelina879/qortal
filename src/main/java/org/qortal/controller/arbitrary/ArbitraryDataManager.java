@@ -326,6 +326,11 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	private boolean shouldMakeDirectFileRequestsForSignature(String signature58) {
+		if (!Settings.getInstance().isDirectDataRetrievalEnabled()) {
+			// Direct connections are disabled in the settings
+			return false;
+		}
+
 		Triple<Integer, Integer, Long> request = arbitraryDataSignatureRequests.get(signature58);
 
 		if (request == null) {

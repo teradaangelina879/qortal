@@ -282,6 +282,9 @@ public class Settings {
 	/** Whether to allow data outside of the storage policy to be relayed between other peers */
 	private boolean relayModeEnabled = false;
 
+	/** Whether to make connections directly with peers that have the required data */
+	private boolean directDataRetrievalEnabled = true;
+
 	/** Expiry time (ms) for (unencrypted) built/cached data */
 	private Long builtDataExpiryInterval = 30 * 24 * 60 * 60 * 1000L; // 30 days
 
@@ -833,6 +836,10 @@ public class Settings {
 
 	public boolean isRelayModeEnabled() {
 		return this.relayModeEnabled;
+	}
+
+	public boolean isDirectDataRetrievalEnabled() {
+		return this.directDataRetrievalEnabled;
 	}
 
 	public Long getBuiltDataExpiryInterval() {
