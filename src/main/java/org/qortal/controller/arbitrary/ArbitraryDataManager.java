@@ -957,6 +957,11 @@ public class ArbitraryDataManager extends Thread {
 			LOGGER.info("Sent list of hashes (count: {})", hashes.size());
 
 		}
+		else {
+			// Ask our other peers if they have it
+			LOGGER.info("Rebroadcasted hash list request from peer {} for signature {} to our other peers", peer, Base58.encode(signature));
+			Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : message);
+		}
 	}
 
 	public void onNetworkArbitrarySignaturesMessage(Peer peer, Message message) {
