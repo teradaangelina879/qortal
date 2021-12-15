@@ -775,10 +775,10 @@ public class ArbitraryDataManager extends Thread {
 
 		// Do we have a pending request for this data?
 		Triple<String, Peer, Long> request = arbitraryDataFileListRequests.get(message.getId());
-		boolean isRelayRequest = (request.getB() != null);
 		if (request == null || request.getA() == null) {
 			return;
 		}
+		boolean isRelayRequest = (request.getB() != null);
 
 		// Does this message's signature match what we're expecting?
 		byte[] signature = arbitraryDataFileListMessage.getSignature();
