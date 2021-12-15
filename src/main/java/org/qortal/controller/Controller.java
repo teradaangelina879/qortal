@@ -89,6 +89,7 @@ public class Controller extends Thread {
 
 	static {
 		// This must go before any calls to LogManager/Logger
+		System.setProperty("log4j2.formatMsgNoLookups", "true");
 		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
 	}
 
