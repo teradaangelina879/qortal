@@ -1021,12 +1021,14 @@ public class ArbitraryDataManager extends Thread {
 
 		}
 		else {
-			// Ask our other peers if they have it
-			LOGGER.info("Rebroadcasted hash list request from peer {} for signature {} to our other peers", peer, Base58.encode(signature));
-			Network.getInstance().broadcast(
-					broadcastPeer -> broadcastPeer == peer ||
-							Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
-							? null : message);
+			if (Settings.getInstance().isRelayModeEnabled()) {
+				// In relay mode - so ask our other peers if they have it
+				LOGGER.info("Rebroadcasted hash list request from peer {} for signature {} to our other peers", peer, Base58.encode(signature));
+				Network.getInstance().broadcast(
+						broadcastPeer -> broadcastPeer == peer ||
+								Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
+								? null : message);
+			}
 		}
 	}
 
