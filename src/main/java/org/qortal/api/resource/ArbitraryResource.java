@@ -416,6 +416,10 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
+		if (path == null || path.isEmpty()) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
+		}
+
 		return this.upload(Service.valueOf(serviceString), name, null, path, null, null);
 	}
 
@@ -447,6 +451,10 @@ public class ArbitraryResource {
 					   		 			@PathParam("name") String name,
 					   		 			String base64) {
 		Security.checkApiCallAllowed(request);
+
+		if (base64 == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
+		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64);
 	}
@@ -481,6 +489,10 @@ public class ArbitraryResource {
 							 @PathParam("name") String name,
 							 String string) {
 		Security.checkApiCallAllowed(request);
+
+		if (string == null || string.isEmpty()) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
+		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, string, null);
 	}
@@ -518,6 +530,10 @@ public class ArbitraryResource {
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
+		if (path == null || path.isEmpty()) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
+		}
+
 		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null);
 	}
 
@@ -553,6 +569,10 @@ public class ArbitraryResource {
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
+		if (string == null || string.isEmpty()) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
+		}
+
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null);
 	}
 
@@ -585,6 +605,10 @@ public class ArbitraryResource {
 							 			@PathParam("identifier") String identifier,
 							 			String base64) {
 		Security.checkApiCallAllowed(request);
+
+		if (base64 == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
+		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64);
 	}
