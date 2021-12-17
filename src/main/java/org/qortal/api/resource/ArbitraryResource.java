@@ -11,10 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -58,6 +55,7 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ZipUtils;
 
 @Path("/arbitrary")
 @Tag(name = "Arbitrary")
@@ -569,7 +567,7 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, null, path, null, null);
+		return this.upload(Service.valueOf(serviceString), name, null, path, null, null, false);
 	}
 
 	@POST
@@ -608,7 +606,7 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null);
+		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null, false);
 	}
 
 
@@ -640,15 +638,15 @@ public class ArbitraryResource {
 	)
 	@SecurityRequirement(name = "apiKey")
 	public String postBase64EncodedData(@PathParam("service") String serviceString,
-					   		 			@PathParam("name") String name,
-					   		 			String base64) {
+										@PathParam("name") String name,
+										String base64) {
 		Security.checkApiCallAllowed(request);
 
 		if (base64 == null) {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64);
+		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64, false);
 	}
 
 	@POST
@@ -685,7 +683,83 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64);
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64, false);
+	}
+
+
+	// Upload zipped data
+
+	@POST
+	@Path("/{service}/{name}/zip")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on user-supplied zip file, encoded as base64",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_OCTET_STREAM,
+							schema = @Schema(type = "string", format = "byte")
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postZippedData(@PathParam("service") String serviceString,
+								 @PathParam("name") String name,
+								 String base64Zip) {
+		Security.checkApiCallAllowed(request);
+
+		if (base64Zip == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
+		}
+
+		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64Zip, true);
+	}
+
+	@POST
+	@Path("/{service}/{name}/{identifier}/zip")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on user supplied zip file, encoded as base64",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_OCTET_STREAM,
+							schema = @Schema(type = "string", format = "byte")
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postZippedData(@PathParam("service") String serviceString,
+								 @PathParam("name") String name,
+								 @PathParam("identifier") String identifier,
+								 String base64Zip) {
+		Security.checkApiCallAllowed(request);
+
+		if (base64Zip == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
+		}
+
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64Zip, true);
 	}
 
 
@@ -727,7 +801,7 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, null, null, string, null);
+		return this.upload(Service.valueOf(serviceString), name, null, null, string, null, false);
 	}
 
 	@POST
@@ -766,13 +840,13 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null);
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null, false);
 	}
 
 
 	// Shared methods
 
-	private String upload(Service service, String name, String identifier, String path, String string, String base64) {
+	private String upload(Service service, String name, String identifier, String path, String string, String base64, boolean zipped) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
@@ -808,6 +882,25 @@ public class ArbitraryResource {
 				}
 				else {
 					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing path or data string");
+				}
+			}
+
+			if (zipped) {
+				// Unzip the file
+				java.nio.file.Path tempDirectory = Files.createTempDirectory("qortal-");
+				tempDirectory.toFile().deleteOnExit();
+				LOGGER.info("Unzipping...");
+				ZipUtils.unzip(path, tempDirectory.toString());
+				path = tempDirectory.toString();
+
+				// Handle directories slightly differently to files
+				if (tempDirectory.toFile().isDirectory()) {
+					// The actual data will be in a randomly-named subfolder of tempDirectory
+					// Remove hidden folders, i.e. starting with "_", as some systems can add them, e.g. "__MACOSX"
+					String[] files = tempDirectory.toFile().list((parent, child) -> !child.startsWith("_"));
+					if (files.length == 1) { // Single directory or file only
+						path = Paths.get(tempDirectory.toString(), files[0]).toString();
+					}
 				}
 			}
 
