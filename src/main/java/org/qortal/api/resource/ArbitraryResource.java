@@ -331,289 +331,6 @@ public class ArbitraryResource {
 	}
 
 	@GET
-	@Path("/{service}/{name}")
-	@Operation(
-			summary = "Fetch raw data from file with supplied service, name, and relative path",
-			description = "An optional rebuild boolean can be supplied. If true, any existing cached data will be invalidated.",
-			responses = {
-					@ApiResponse(
-							description = "Path to file structure containing requested data",
-							content = @Content(
-									mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
-					)
-			}
-	)
-	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@PathParam("service") Service service,
-								   @PathParam("name") String name,
-								   @QueryParam("filepath") String filepath,
-								   @QueryParam("rebuild") boolean rebuild) {
-		Security.checkApiCallAllowed(request);
-
-		return this.download(service, name, null, filepath, rebuild);
-	}
-
-	@GET
-	@Path("/{service}/{name}/{identifier}")
-	@Operation(
-			summary = "Fetch raw data from file with supplied service, name, identifier, and relative path",
-			description = "An optional rebuild boolean can be supplied. If true, any existing cached data will be invalidated.",
-			responses = {
-					@ApiResponse(
-							description = "Path to file structure containing requested data",
-							content = @Content(
-									mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
-					)
-			}
-	)
-	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@PathParam("service") Service service,
-								   @PathParam("name") String name,
-								   @PathParam("identifier") String identifier,
-								   @QueryParam("filepath") String filepath,
-								   @QueryParam("rebuild") boolean rebuild) {
-		Security.checkApiCallAllowed(request);
-
-		return this.download(service, name, identifier, filepath, rebuild);
-	}
-
-	@POST
-	@Path("/{service}/{name}")
-	@Operation(
-			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path",
-			requestBody = @RequestBody(
-					required = true,
-					content = @Content(
-							mediaType = MediaType.TEXT_PLAIN,
-							schema = @Schema(
-									type = "string", example = "/Users/user/Documents/MyDirectoryOrFile"
-							)
-					)
-			),
-			responses = {
-					@ApiResponse(
-							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
-							content = @Content(
-									mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
-					)
-			}
-	)
-	@SecurityRequirement(name = "apiKey")
-	public String post(@PathParam("service") String serviceString,
-					   @PathParam("name") String name,
-					   String path) {
-		Security.checkApiCallAllowed(request);
-
-		if (path == null || path.isEmpty()) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
-		}
-
-		return this.upload(Service.valueOf(serviceString), name, null, path, null, null);
-	}
-
-	@POST
-	@Path("/{service}/{name}/base64")
-	@Operation(
-			summary = "Build raw, unsigned, ARBITRARY transaction, based on user-supplied base64 encoded data",
-			requestBody = @RequestBody(
-					required = true,
-					content = @Content(
-							mediaType = MediaType.APPLICATION_OCTET_STREAM,
-							schema = @Schema(type = "string", format = "byte")
-					)
-			),
-			responses = {
-					@ApiResponse(
-							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
-							content = @Content(
-									mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
-					)
-			}
-	)
-	@SecurityRequirement(name = "apiKey")
-	public String postBase64EncodedData(@PathParam("service") String serviceString,
-					   		 			@PathParam("name") String name,
-					   		 			String base64) {
-		Security.checkApiCallAllowed(request);
-
-		if (base64 == null) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
-		}
-
-		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64);
-	}
-
-	@POST
-	@Path("/{service}/{name}/string")
-	@Operation(
-			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied string",
-			requestBody = @RequestBody(
-					required = true,
-					content = @Content(
-							mediaType = MediaType.TEXT_PLAIN,
-							schema = @Schema(
-									type = "string", example = "{\"title\":\"\", \"description\":\"\", \"tags\":[]}"
-							)
-					)
-			),
-			responses = {
-					@ApiResponse(
-							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
-							content = @Content(
-									mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
-					)
-			}
-	)
-	@SecurityRequirement(name = "apiKey")
-	public String postString(@PathParam("service") String serviceString,
-							 @PathParam("name") String name,
-							 String string) {
-		Security.checkApiCallAllowed(request);
-
-		if (string == null || string.isEmpty()) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
-		}
-
-		return this.upload(Service.valueOf(serviceString), name, null, null, string, null);
-	}
-
-
-	@POST
-	@Path("/{service}/{name}/{identifier}")
-	@Operation(
-			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path",
-			requestBody = @RequestBody(
-					required = true,
-					content = @Content(
-							mediaType = MediaType.TEXT_PLAIN,
-							schema = @Schema(
-									type = "string", example = "/Users/user/Documents/MyDirectoryOrFile"
-							)
-					)
-			),
-			responses = {
-					@ApiResponse(
-							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
-							content = @Content(
-									mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
-					)
-			}
-	)
-	@SecurityRequirement(name = "apiKey")
-	public String post(@PathParam("service") String serviceString,
-					   @PathParam("name") String name,
-					   @PathParam("identifier") String identifier,
-					   String path) {
-		Security.checkApiCallAllowed(request);
-
-		if (path == null || path.isEmpty()) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
-		}
-
-		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null);
-	}
-
-	@POST
-	@Path("/{service}/{name}/{identifier}/string")
-	@Operation(
-			summary = "Build raw, unsigned, ARBITRARY transaction, based on user supplied string",
-			requestBody = @RequestBody(
-					required = true,
-					content = @Content(
-							mediaType = MediaType.TEXT_PLAIN,
-							schema = @Schema(
-									type = "string", example = "{\"title\":\"\", \"description\":\"\", \"tags\":[]}"
-							)
-					)
-			),
-			responses = {
-					@ApiResponse(
-							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
-							content = @Content(
-									mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
-					)
-			}
-	)
-	@SecurityRequirement(name = "apiKey")
-	public String postString(@PathParam("service") String serviceString,
-							 @PathParam("name") String name,
-							 @PathParam("identifier") String identifier,
-							 String string) {
-		Security.checkApiCallAllowed(request);
-
-		if (string == null || string.isEmpty()) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
-		}
-
-		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null);
-	}
-
-	@POST
-	@Path("/{service}/{name}/{identifier}/base64")
-	@Operation(
-			summary = "Build raw, unsigned, ARBITRARY transaction, based on user supplied base64 encoded data",
-			requestBody = @RequestBody(
-					required = true,
-					content = @Content(
-							mediaType = MediaType.APPLICATION_OCTET_STREAM,
-							schema = @Schema(type = "string", format = "byte")
-					)
-			),
-			responses = {
-					@ApiResponse(
-							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
-							content = @Content(
-									mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
-					)
-			}
-	)
-	@SecurityRequirement(name = "apiKey")
-	public String postBase64EncodedData(@PathParam("service") String serviceString,
-							 			@PathParam("name") String name,
-							 			@PathParam("identifier") String identifier,
-							 			String base64) {
-		Security.checkApiCallAllowed(request);
-
-		if (base64 == null) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
-		}
-
-		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64);
-	}
-
-	@GET
 	@Path("/hosted/transactions")
 	@Operation(
 			summary = "List arbitrary transactions hosted by this node",
@@ -756,6 +473,304 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
+
+
+	@GET
+	@Path("/{service}/{name}")
+	@Operation(
+			summary = "Fetch raw data from file with supplied service, name, and relative path",
+			description = "An optional rebuild boolean can be supplied. If true, any existing cached data will be invalidated.",
+			responses = {
+					@ApiResponse(
+							description = "Path to file structure containing requested data",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public HttpServletResponse get(@PathParam("service") Service service,
+								   @PathParam("name") String name,
+								   @QueryParam("filepath") String filepath,
+								   @QueryParam("rebuild") boolean rebuild) {
+		Security.checkApiCallAllowed(request);
+
+		return this.download(service, name, null, filepath, rebuild);
+	}
+
+	@GET
+	@Path("/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Fetch raw data from file with supplied service, name, identifier, and relative path",
+			description = "An optional rebuild boolean can be supplied. If true, any existing cached data will be invalidated.",
+			responses = {
+					@ApiResponse(
+							description = "Path to file structure containing requested data",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public HttpServletResponse get(@PathParam("service") Service service,
+								   @PathParam("name") String name,
+								   @PathParam("identifier") String identifier,
+								   @QueryParam("filepath") String filepath,
+								   @QueryParam("rebuild") boolean rebuild) {
+		Security.checkApiCallAllowed(request);
+
+		return this.download(service, name, identifier, filepath, rebuild);
+	}
+
+
+
+	// Upload data at supplied path
+
+	@POST
+	@Path("/{service}/{name}")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "/Users/user/Documents/MyDirectoryOrFile"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String post(@PathParam("service") String serviceString,
+					   @PathParam("name") String name,
+					   String path) {
+		Security.checkApiCallAllowed(request);
+
+		if (path == null || path.isEmpty()) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
+		}
+
+		return this.upload(Service.valueOf(serviceString), name, null, path, null, null);
+	}
+
+	@POST
+	@Path("/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied path",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "/Users/user/Documents/MyDirectoryOrFile"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String post(@PathParam("service") String serviceString,
+					   @PathParam("name") String name,
+					   @PathParam("identifier") String identifier,
+					   String path) {
+		Security.checkApiCallAllowed(request);
+
+		if (path == null || path.isEmpty()) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
+		}
+
+		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null);
+	}
+
+
+
+	// Upload base64-encoded data
+
+	@POST
+	@Path("/{service}/{name}/base64")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on user-supplied base64 encoded data",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_OCTET_STREAM,
+							schema = @Schema(type = "string", format = "byte")
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postBase64EncodedData(@PathParam("service") String serviceString,
+					   		 			@PathParam("name") String name,
+					   		 			String base64) {
+		Security.checkApiCallAllowed(request);
+
+		if (base64 == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
+		}
+
+		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64);
+	}
+
+	@POST
+	@Path("/{service}/{name}/{identifier}/base64")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on user supplied base64 encoded data",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_OCTET_STREAM,
+							schema = @Schema(type = "string", format = "byte")
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postBase64EncodedData(@PathParam("service") String serviceString,
+										@PathParam("name") String name,
+										@PathParam("identifier") String identifier,
+										String base64) {
+		Security.checkApiCallAllowed(request);
+
+		if (base64 == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
+		}
+
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64);
+	}
+
+
+
+	// Upload plain-text data in string form
+
+	@POST
+	@Path("/{service}/{name}/string")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on a user-supplied string",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "{\"title\":\"\", \"description\":\"\", \"tags\":[]}"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postString(@PathParam("service") String serviceString,
+							 @PathParam("name") String name,
+							 String string) {
+		Security.checkApiCallAllowed(request);
+
+		if (string == null || string.isEmpty()) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
+		}
+
+		return this.upload(Service.valueOf(serviceString), name, null, null, string, null);
+	}
+
+	@POST
+	@Path("/{service}/{name}/{identifier}/string")
+	@Operation(
+			summary = "Build raw, unsigned, ARBITRARY transaction, based on user supplied string",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string", example = "{\"title\":\"\", \"description\":\"\", \"tags\":[]}"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "raw, unsigned, ARBITRARY transaction encoded in Base58",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String postString(@PathParam("service") String serviceString,
+							 @PathParam("name") String name,
+							 @PathParam("identifier") String identifier,
+							 String string) {
+		Security.checkApiCallAllowed(request);
+
+		if (string == null || string.isEmpty()) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
+		}
+
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null);
+	}
+
+
+	// Shared methods
 
 	private String upload(Service service, String name, String identifier, String path, String string, String base64) {
 		// Fetch public key from registered name
