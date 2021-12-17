@@ -72,6 +72,7 @@ public class Settings {
 	// API-related
 	private boolean apiEnabled = true;
 	private Integer apiPort;
+	private boolean apiWhitelistEnabled = true;
 	private String[] apiWhitelist = new String[] {
 		"::1", "127.0.0.1"
 	};
@@ -492,6 +493,10 @@ public class Settings {
 	}
 
 	public String[] getApiWhitelist() {
+		if (!this.apiWhitelistEnabled) {
+			// Allow all connections if the whitelist is disabled
+			return new String[] {"0.0.0.0/0", "::/0"};
+		}
 		return this.apiWhitelist;
 	}
 
