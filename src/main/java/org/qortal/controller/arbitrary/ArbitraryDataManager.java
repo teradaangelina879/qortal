@@ -1072,7 +1072,7 @@ public class ArbitraryDataManager extends Thread {
 				// network in case some peers haven't received it yet
 				if (containsNewEntry) {
 					LOGGER.info("Rebroadcasting arbitrary signature list for peer {}", peerAddress);
-					Network.getInstance().broadcast(broadcastPeer -> arbitrarySignaturesMessage);
+					Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : arbitrarySignaturesMessage);
 				} else {
 					// Don't rebroadcast as otherwise we could get into a loop
 				}
