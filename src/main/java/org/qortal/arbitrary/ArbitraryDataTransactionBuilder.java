@@ -97,7 +97,13 @@ public class ArbitraryDataTransactionBuilder {
         ArbitraryDataReader reader = new ArbitraryDataReader(this.name, ResourceIdType.NAME, this.service, this.identifier);
         try {
             reader.loadSynchronously(true);
+        } catch (Exception e) {
+            // Catch all exceptions if the existing resource cannot be loaded first time
+            // In these cases it's simplest to just use a PUT transaction
+            return Method.PUT;
+        }
 
+        try {
             // Check layer count
             int layerCount = reader.getLayerCount();
             if (layerCount >= MAX_LAYERS) {
@@ -144,7 +150,7 @@ public class ArbitraryDataTransactionBuilder {
             // State is appropriate for a PATCH transaction
             return Method.PATCH;
         }
-        catch (IOException | DataException | MissingDataException e) {
+        catch (IOException | DataException e) {
             // Handle matching states separately, as it's best to block transactions with duplicate states
             if (e.getMessage().equals("Current state matches previous state. Nothing to do.")) {
                 throw new DataException(e.getMessage());
