@@ -855,6 +855,10 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, error);
 			}
 
+			if (!Controller.getInstance().isUpToDate()) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCKCHAIN_NEEDS_SYNC);
+			}
+
 			AccountData accountData = repository.getAccountRepository().getAccount(nameData.getOwner());
 			if (accountData == null) {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
