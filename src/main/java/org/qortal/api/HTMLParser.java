@@ -27,35 +27,6 @@ public class HTMLParser {
     }
 
     /**
-     * Inject javascript used for back/forward navigation, and other system-level features
-     */
-    public void injectJavascript() {
-        String script = "<script>\n" +
-                "    window.addEventListener('message', (event) => {\n" +
-                "        if (event.data != null && event.data.action != null) {\n" +
-                "            if (event.data.action === 'nav_back') {\n" +
-                "                window.history.back();\n" +
-                "            }\n" +
-                "            if (event.data.action === 'nav_forward') {\n" +
-                "                window.history.forward();\n" +
-                "            }\n" +
-                "        }\n" +
-                "    }, false);\n" +
-                "</script>\n";
-
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        try {
-            // FUTURE: we may want to add it to the <head>, and maybe put the js itself into an external file
-            outputStream.write(script.getBytes());
-            outputStream.write(this.data);
-            this.data = outputStream.toByteArray();
-
-        } catch (IOException e) {
-            LOGGER.info("Unable to inject javascript: {}", e.getMessage());
-        }
-    }
-
-    /**
      * Find relative links and prefix them with the resource ID, using Jsoup
      * @param path
      * @return The data with links replaced
