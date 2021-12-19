@@ -93,11 +93,12 @@ public class ArbitraryDataRenderer {
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
-                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix);
-                data = htmlParser.replaceRelativeLinks(filename, data);
+                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data);
+                htmlParser.injectJavascript();
+                htmlParser.replaceRelativeLinks(filename);
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(data.length);
-                response.getOutputStream().write(data);
+                response.getOutputStream().write(htmlParser.getData());
             }
             else {
                 // Regular file - can be streamed directly
