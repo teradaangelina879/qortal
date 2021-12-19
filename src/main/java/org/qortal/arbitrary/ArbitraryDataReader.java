@@ -355,6 +355,8 @@ public class ArbitraryDataReader {
         }
         // Ensure the complete hash matches the joined chunks
         if (!Arrays.equals(arbitraryDataFile.digest(), digest)) {
+            // Delete the invalid file
+            arbitraryDataFile.delete();
             throw new DataException("Unable to validate complete file hash");
         }
         // Ensure the file's size matches the size reported by the transaction (throws a DataException if not)
