@@ -1,30 +1,66 @@
 package org.qortal.api;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class HTMLParser {
 
-    private String linkPrefix;
+    private static final Logger LOGGER = LogManager.getLogger(HTMLParser.class);
 
-    public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix) {
+    private String linkPrefix;
+    private byte[] data;
+
+    public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data) {
         String inPathWithoutFilename = inPath.substring(0, inPath.lastIndexOf('/'));
         this.linkPrefix = usePrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : "";
+        this.data = data;
+    }
+
+    /**
+     * Inject javascript used for back/forward navigation, and other system-level features
+     */
+    public void injectJavascript() {
+        String script = "<script>\n" +
+                "    window.addEventListener('message', (event) => {\n" +
+                "        if (event.data != null && event.data.action != null) {\n" +
+                "            if (event.data.action === 'nav_back') {\n" +
+                "                window.history.back();\n" +
+                "            }\n" +
+                "            if (event.data.action === 'nav_forward') {\n" +
+                "                window.history.forward();\n" +
+                "            }\n" +
+                "        }\n" +
+                "    }, false);\n" +
+                "</script>\n";
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try {
+            // FUTURE: we may want to add it to the <head>, and maybe put the js itself into an external file
+            outputStream.write(script.getBytes());
+            outputStream.write(this.data);
+            this.data = outputStream.toByteArray();
+
+        } catch (IOException e) {
+            LOGGER.info("Unable to inject javascript: {}", e.getMessage());
+        }
     }
 
     /**
      * Find relative links and prefix them with the resource ID, using Jsoup
      * @param path
-     * @param data
      * @return The data with links replaced
      */
-    public byte[] replaceRelativeLinks(String path, byte[] data) {
+    public void replaceRelativeLinks(String path) {
         if (HTMLParser.isHtmlFile(path)) {
             String fileContents = new String(data);
             Document document = Jsoup.parse(fileContents);
@@ -80,9 +116,8 @@ public class HTMLParser {
             }
             String html = document.html();
             html = this.replaceAmpersands(html);
-            return html.getBytes();
+            this.data = html.getBytes();
         }
-        return data;
     }
 
     private String replaceAmpersands(String html) {
@@ -118,5 +153,9 @@ public class HTMLParser {
             return true;
         }
         return false;
+    }
+
+    public byte[] getData() {
+        return this.data;
     }
 }
