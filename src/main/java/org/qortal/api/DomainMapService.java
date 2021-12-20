@@ -38,7 +38,7 @@ public class DomainMapService {
 
 	private DomainMapService() {
 		this.config = new ResourceConfig();
-		this.config.packages("org.qortal.api.resource");
+		this.config.packages("org.qortal.api.domainmap.resource");
 		this.config.register(OpenApiResource.class);
 		this.config.register(ApiDefinition.class);
 		this.config.register(AnnotationPostProcessor.class);
@@ -148,9 +148,6 @@ public class DomainMapService {
 			ServletHolder apiServlet = new ServletHolder(container);
 			apiServlet.setInitOrder(1);
 			context.addServlet(apiServlet, "/*");
-
-			// Rewrite URLs
-			rewriteHandler.addRule(new RewritePatternRule("/*", "/render/domainmap/")); // rewrite / as /site/domainmap/
 
 			// Start server
 			this.server.start();

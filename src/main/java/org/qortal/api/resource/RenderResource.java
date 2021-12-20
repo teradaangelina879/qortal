@@ -172,25 +172,7 @@ public class RenderResource {
         return this.get(name, ResourceIdType.NAME, service, "/", null, prefix, true, true);
     }
 
-    @GET
-    @Path("/domainmap")
-    public HttpServletResponse getIndexByDomainMap() {
-        return this.getDomainMap("/");
-    }
 
-    @GET
-    @Path("/domainmap/{path:.*}")
-    public HttpServletResponse getPathByDomainMap(@PathParam("path") String inPath) {
-        return this.getDomainMap(inPath);
-    }
-
-    private HttpServletResponse getDomainMap(String inPath) {
-        Map<String, String> domainMap = Settings.getInstance().getSimpleDomainMap();
-        if (domainMap != null && domainMap.containsKey(request.getServerName())) {
-            return this.get(domainMap.get(request.getServerName()), ResourceIdType.NAME, Service.WEBSITE, inPath, null, "", false, true);
-        }
-        return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
-    }
 
     private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
                                     String secret58, String prefix, boolean usePrefix, boolean async) {
