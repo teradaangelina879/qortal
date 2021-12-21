@@ -448,9 +448,6 @@ public class TransactionsResource {
 			ApiError.NON_PRODUCTION, ApiError.TRANSFORMATION_ERROR
 	})
 	public String convertTransactionForSigning(String rawInputBytes58) {
-		if (Settings.getInstance().isApiRestricted())
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
-
 		byte[] rawInputBytes = Base58.decode(rawInputBytes58);
 		if (rawInputBytes.length == 0)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.JSON);
