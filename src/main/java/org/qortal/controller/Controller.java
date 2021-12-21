@@ -422,10 +422,12 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
-		// Rebuild Names table and check database integrity
+		// Rebuild Names table and check database integrity (if enabled)
 		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
 		namesDatabaseIntegrityCheck.rebuildAllNames();
-		namesDatabaseIntegrityCheck.runIntegrityCheck();
+		if (Settings.getInstance().isNamesIntegrityCheckEnabled()) {
+			namesDatabaseIntegrityCheck.runIntegrityCheck();
+		}
 
 		LOGGER.info("Validating blockchain");
 		try {
