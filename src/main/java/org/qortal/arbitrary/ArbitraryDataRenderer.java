@@ -96,7 +96,7 @@ public class ArbitraryDataRenderer {
                 HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data);
                 htmlParser.replaceRelativeLinks(filename);
                 response.setContentType(context.getMimeType(filename));
-                response.setContentLength(data.length);
+                response.setContentLength(htmlParser.getData().length);
                 response.getOutputStream().write(htmlParser.getData());
             }
             else {
