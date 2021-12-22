@@ -40,7 +40,7 @@ public class HTMLParser {
             for (Element element : href)  {
                 String elementHtml = element.attr("href");
                 if (this.shouldReplaceLink(elementHtml)) {
-                    String slash = (elementHtml.startsWith("/") ? "" : File.separator);
+                    String slash = (elementHtml.startsWith("/") ? "" : "/");
                     element.attr("href", this.linkPrefix + slash + element.attr("href"));
                 }
             }
@@ -48,7 +48,7 @@ public class HTMLParser {
             for (Element element : src)  {
                 String elementHtml = element.attr("src");
                 if (this.shouldReplaceLink(elementHtml)) {
-                    String slash = (elementHtml.startsWith("/") ? "" : File.separator);
+                    String slash = (elementHtml.startsWith("/") ? "" : "/");
                     element.attr("src", this.linkPrefix + slash + element.attr("src"));
                 }
             }
@@ -60,7 +60,7 @@ public class HTMLParser {
                     ArrayList<String> newParts = new ArrayList<>();
                     for (String part : parts) {
                         part = part.trim();
-                        String slash = (elementHtml.startsWith("/") ? "" : File.separator);
+                        String slash = (elementHtml.startsWith("/") ? "" : "/");
                         String newPart = this.linkPrefix + slash + part;
                         newParts.add(newPart);
                     }

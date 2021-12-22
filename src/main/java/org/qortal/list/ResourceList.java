@@ -40,8 +40,7 @@ public class ResourceList {
     /* Filesystem */
 
     private Path getFilePath() {
-        String pathString = String.format("%s%s%s.json", Settings.getInstance().getListsPath(),
-                File.separator, this.name);
+        String pathString = String.format("%s.json", Paths.get(Settings.getInstance().getListsPath(), this.name));
         return Paths.get(pathString);
     }
 

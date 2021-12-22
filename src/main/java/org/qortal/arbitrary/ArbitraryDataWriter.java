@@ -184,7 +184,7 @@ public class ArbitraryDataWriter {
     private void compress() throws InterruptedException, DataException {
         // Compress the data if requested
         if (this.compression != Compression.NONE) {
-            this.compressedPath = Paths.get(this.workingPath.toString() + File.separator + "data.zip");
+            this.compressedPath = Paths.get(this.workingPath.toString(), "data.zip");
             try {
 
                 if (this.compression == Compression.ZIP) {
@@ -212,7 +212,7 @@ public class ArbitraryDataWriter {
     }
 
     private void encrypt() throws DataException {
-        this.encryptedPath = Paths.get(this.workingPath.toString() + File.separator + "data.zip.encrypted");
+        this.encryptedPath = Paths.get(this.workingPath.toString(), "data.zip.encrypted");
         try {
             // Encrypt the file with AES
             LOGGER.info("Encrypting...");

@@ -371,7 +371,7 @@ public class ArbitraryDataReader {
         byte[] secret = this.secret58 != null ? Base58.decode(this.secret58) : null;
         if (secret != null && secret.length == Transformer.AES256_LENGTH) {
             try {
-                Path unencryptedPath = Paths.get(this.workingPath.toString() + File.separator + "zipped.zip");
+                Path unencryptedPath = Paths.get(this.workingPath.toString(), "zipped.zip");
                 SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
                 AES.decryptFile("AES", aesKey, this.filePath.toString(), unencryptedPath.toString());
 

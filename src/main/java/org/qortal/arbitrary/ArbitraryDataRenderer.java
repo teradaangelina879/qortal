@@ -19,6 +19,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,7 +89,7 @@ public class ArbitraryDataRenderer {
 
         try {
             String filename = this.getFilename(unzippedPath, inPath);
-            String filePath = unzippedPath + File.separator + filename;
+            String filePath = Paths.get(unzippedPath, filename).toString();
 
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
@@ -136,8 +137,8 @@ public class ArbitraryDataRenderer {
             // Locate index file
             List<String> indexFiles = ArbitraryDataRenderer.indexFiles();
             for (String indexFile : indexFiles) {
-                String filePath = directory + File.separator + indexFile;
-                if (Files.exists(Paths.get(filePath))) {
+                Path path = Paths.get(directory, indexFile);
+                if (Files.exists(path)) {
                     return userPath + indexFile;
                 }
             }
