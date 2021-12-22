@@ -77,11 +77,10 @@ public class ArbitraryDataBuildManager extends Thread {
     // Build queue
 
     public boolean addToBuildQueue(ArbitraryDataBuildQueueItem queueItem) {
-        String resourceId = queueItem.getResourceId();
-        if (resourceId == null) {
+        String key = queueItem.getUniqueKey();
+        if (key == null) {
             return false;
         }
-        resourceId = resourceId.toLowerCase();
 
         if (this.arbitraryDataBuildQueue == null) {
             return false;
@@ -97,20 +96,20 @@ public class ArbitraryDataBuildManager extends Thread {
             return false;
         }
 
-        if (this.arbitraryDataBuildQueue.put(resourceId, queueItem) != null) {
+        if (this.arbitraryDataBuildQueue.put(key, queueItem) != null) {
             // Already in queue
             return true;
         }
 
-        LOGGER.info("Added {} to build queue", resourceId);
+        LOGGER.info("Added {} to build queue", queueItem);
 
         // Added to queue
         return true;
     }
 
     public boolean isInBuildQueue(ArbitraryDataBuildQueueItem queueItem) {
-        String resourceId = queueItem.getResourceId();
-        if (resourceId == null) {
+        String key = queueItem.getUniqueKey();
+        if (key == null) {
             return false;
         }
 
@@ -118,7 +117,7 @@ public class ArbitraryDataBuildManager extends Thread {
             return false;
         }
 
-        if (this.arbitraryDataBuildQueue.containsKey(resourceId)) {
+        if (this.arbitraryDataBuildQueue.containsKey(key)) {
             // Already in queue
             return true;
         }
@@ -131,8 +130,8 @@ public class ArbitraryDataBuildManager extends Thread {
     // Failed builds
 
     public boolean addToFailedBuildsList(ArbitraryDataBuildQueueItem queueItem) {
-        String resourceId = queueItem.getResourceId();
-        if (resourceId == null) {
+        String key = queueItem.getUniqueKey();
+        if (key == null) {
             return false;
         }
 
@@ -145,29 +144,28 @@ public class ArbitraryDataBuildManager extends Thread {
             return false;
         }
 
-        if (this.arbitraryDataFailedBuilds.put(resourceId, queueItem) != null) {
+        if (this.arbitraryDataFailedBuilds.put(key, queueItem) != null) {
             // Already in list
             return true;
         }
 
-        LOGGER.info("Added {} to failed builds list", resourceId);
+        LOGGER.info("Added {} to failed builds list", queueItem);
 
         // Added to queue
         return true;
     }
 
     public boolean isInFailedBuildsList(ArbitraryDataBuildQueueItem queueItem) {
-        String resourceId = queueItem.getResourceId();
-        if (resourceId == null) {
+        String key = queueItem.getUniqueKey();
+        if (key == null) {
             return false;
         }
-        resourceId = resourceId.toLowerCase();
 
         if (this.arbitraryDataFailedBuilds == null) {
             return false;
         }
 
-        if (this.arbitraryDataFailedBuilds.containsKey(resourceId)) {
+        if (this.arbitraryDataFailedBuilds.containsKey(key)) {
             // Already in list
             return true;
         }

@@ -50,11 +50,10 @@ public class ArbitraryDataBuilderThread implements Runnable {
                     continue;
                 }
 
-                String resourceId = next.getKey();
                 ArbitraryDataBuildQueueItem queueItem = next.getValue();
 
                 if (queueItem == null) {
-                    this.removeFromQueue(resourceId);
+                    this.removeFromQueue(queueItem);
                 }
 
                 // Ignore builds that have failed recently
@@ -67,13 +66,13 @@ public class ArbitraryDataBuilderThread implements Runnable {
                     // Perform the build
                     LOGGER.info("Building {}...", queueItem);
                     queueItem.build();
-                    this.removeFromQueue(resourceId);
+                    this.removeFromQueue(queueItem);
                     LOGGER.info("Finished building {}", queueItem);
 
                 } catch (MissingDataException e) {
                     LOGGER.info("Missing data for {}: {}", queueItem, e.getMessage());
                     queueItem.setFailed(true);
-                    this.removeFromQueue(resourceId);
+                    this.removeFromQueue(queueItem);
                     // Don't add to the failed builds list, as we may want to retry sooner
 
                 } catch (IOException | DataException | RuntimeException e) {
@@ -81,7 +80,7 @@ public class ArbitraryDataBuilderThread implements Runnable {
                     // Something went wrong - so remove it from the queue, and add to failed builds list
                     queueItem.setFailed(true);
                     buildManager.addToFailedBuildsList(queueItem);
-                    this.removeFromQueue(resourceId);
+                    this.removeFromQueue(queueItem);
                 }
 
             } catch (InterruptedException e) {
@@ -90,10 +89,10 @@ public class ArbitraryDataBuilderThread implements Runnable {
         }
     }
 
-    private void removeFromQueue(String resourceId) {
-        if (resourceId == null) {
+    private void removeFromQueue(ArbitraryDataBuildQueueItem queueItem) {
+        if (queueItem == null || queueItem.getUniqueKey() == null) {
             return;
         }
-        ArbitraryDataBuildManager.getInstance().arbitraryDataBuildQueue.remove(resourceId.toLowerCase());
+        ArbitraryDataBuildManager.getInstance().arbitraryDataBuildQueue.remove(queueItem.getUniqueKey());
     }
 }

@@ -77,6 +77,13 @@ public class ArbitraryDataBuildQueueItem {
         return this.resourceId;
     }
 
+    /**
+     * @return unique key used to identify this queue item
+     */
+    public String getUniqueKey() {
+        return String.format("%s-%s-%s", this.service, this.resourceId, this.identifier).toLowerCase();
+    }
+
     public Long getBuildStartTimestamp() {
         return this.buildStartTimestamp;
     }
