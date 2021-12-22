@@ -93,9 +93,7 @@ public class ArbitraryDataReader {
     public boolean isCachedDataAvailable() {
         // If this resource is in the build queue then we shouldn't attempt to serve
         // cached data, as it may not be fully built
-        ArbitraryDataBuildQueueItem queueItem =
-                new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service, this.identifier);
-        if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) {
+        if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(this.createQueueItem())) {
             return false;
         }
 
@@ -109,6 +107,10 @@ public class ArbitraryDataReader {
         return false;
     }
 
+    private ArbitraryDataBuildQueueItem createQueueItem() {
+        return new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service, this.identifier);
+    }
+
     /**
      * loadAsynchronously
      *
@@ -119,9 +121,7 @@ public class ArbitraryDataReader {
      * @return true if added or already present in queue; false if not
      */
     public boolean loadAsynchronously() {
-        ArbitraryDataBuildQueueItem queueItem =
-                new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service, this.identifier);
-        return ArbitraryDataBuildManager.getInstance().addToBuildQueue(queueItem);
+        return ArbitraryDataBuildManager.getInstance().addToBuildQueue(this.createQueueItem());
     }
 
     /**
