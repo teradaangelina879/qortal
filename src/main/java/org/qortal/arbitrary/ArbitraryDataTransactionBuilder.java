@@ -64,6 +64,11 @@ public class ArbitraryDataTransactionBuilder {
         this.name = name;
         this.method = method;
         this.service = service;
+
+        // If identifier is a blank string, or reserved keyword "default", treat it as null
+        if (identifier == null || identifier.equals("") || identifier.equals("default")) {
+            identifier = null;
+        }
         this.identifier = identifier;
     }
 

@@ -54,9 +54,14 @@ public class ArbitraryDataWriter {
         this.filePath = filePath;
         this.name = name;
         this.service = service;
-        this.identifier = identifier;
         this.method = method;
         this.compression = compression;
+
+        // If identifier is a blank string, or reserved keyword "default", treat it as null
+        if (identifier == null || identifier.equals("") || identifier.equals("default")) {
+            identifier = null;
+        }
+        this.identifier = identifier;
     }
 
     public void save() throws IOException, DataException, InterruptedException, MissingDataException {

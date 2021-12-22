@@ -55,11 +55,8 @@ if [[ "${method}" == "POST" ]]; then
     echo "Error: missing private key. Set it by running: export QORTAL_PRIVKEY=privkeyhere"; exit
   fi
 
-  # Create identifier component in URL
-  if [[ -z "${identifier}" || "${identifier}" == "default" ]]; then
-      identifier_component=""
-  else
-      identifier_component="/${identifier}"
+  if [ -z "${identifier}" ]; then
+    identifier="default"
   fi
 
   # Create type component in URL
@@ -70,7 +67,7 @@ if [[ "${method}" == "POST" ]]; then
   fi
 
   echo "Creating transaction - this can take a while..."
-  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}${identifier_component}${type_component}" -d "${data}")
+  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}/${identifier}${type_component}" -d "${data}")
 
   if [[ "${tx_data}" == *"error"* || "${tx_data}" == *"ERROR"* ]]; then
     echo "${tx_data}"; exit
