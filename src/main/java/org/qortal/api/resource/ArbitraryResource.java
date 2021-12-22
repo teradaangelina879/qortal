@@ -938,17 +938,18 @@ public class ArbitraryResource {
 			// Loop until we have data
 			while (!Controller.isStopping()) {
 				attempts++;
-				try {
-					arbitraryDataReader.loadSynchronously(rebuild);
-					break;
-				} catch (MissingDataException e) {
-					if (attempts > 5) {
-						// Give up after 5 attempts
-						throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data unavailable. Please try again later.");
+				if (!arbitraryDataReader.isBuilding()) {
+					try {
+						arbitraryDataReader.loadSynchronously(rebuild);
+						break;
+					} catch (MissingDataException e) {
+						if (attempts > 5) {
+							// Give up after 5 attempts
+							throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data unavailable. Please try again later.");
+						}
 					}
-
-					Thread.sleep(3000L);
 				}
+				Thread.sleep(3000L);
 			}
 			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
 
@@ -986,7 +987,9 @@ public class ArbitraryResource {
 		if (build != null && build == true) {
 			ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
 			try {
-				reader.loadSynchronously(false);
+				if (!reader.isBuilding()) {
+					reader.loadSynchronously(false);
+				}
 			} catch (Exception e) {
 				// No need to handle exception, as it will be reflected in the status
 			}

@@ -56,7 +56,9 @@ public class GatewayResource {
         if (build != null && build == true) {
             ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
             try {
-                reader.loadSynchronously(false);
+                if (!reader.isBuilding()) {
+                    reader.loadSynchronously(false);
+                }
             } catch (Exception e) {
                 // No need to handle exception, as it will be reflected in the status
             }

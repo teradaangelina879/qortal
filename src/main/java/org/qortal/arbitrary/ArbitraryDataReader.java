@@ -107,6 +107,10 @@ public class ArbitraryDataReader {
         return false;
     }
 
+    public boolean isBuilding() {
+        return ArbitraryDataBuildManager.getInstance().isInBuildQueue(this.createQueueItem());
+    }
+
     private ArbitraryDataBuildQueueItem createQueueItem() {
         return new ArbitraryDataBuildQueueItem(this.resourceId, this.resourceIdType, this.service, this.identifier);
     }

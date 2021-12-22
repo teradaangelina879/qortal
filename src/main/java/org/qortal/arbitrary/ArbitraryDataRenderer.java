@@ -6,7 +6,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.HTMLParser;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
+import org.qortal.controller.Controller;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -72,8 +74,23 @@ public class ArbitraryDataRenderer {
                     return this.getLoadingResponse(service, resourceId);
                 }
 
-                // Otherwise, hang the request until the build completes
-                arbitraryDataReader.loadSynchronously(false);
+                // Otherwise, loop until we have data
+                int attempts = 0;
+                while (!Controller.isStopping()) {
+                    attempts++;
+                    if (!arbitraryDataReader.isBuilding()) {
+                        try {
+                            arbitraryDataReader.loadSynchronously(false);
+                            break;
+                        } catch (MissingDataException e) {
+                            if (attempts > 5) {
+                                // Give up after 5 attempts
+                                return ArbitraryDataRenderer.getResponse(response, 404, "Data unavailable. Please try again later.");
+                            }
+                        }
+                    }
+                    Thread.sleep(3000L);
+                }
             }
 
         } catch (Exception e) {
