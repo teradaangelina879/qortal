@@ -815,13 +815,15 @@ public class ArbitraryDataManager extends Thread {
 			return;
 		}
 
+		ArbitraryTransactionData arbitraryTransactionData = null;
+
 		// Check transaction exists and hashes are correct
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
 			if (!(transactionData instanceof ArbitraryTransactionData))
 				return;
 
-			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+			arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
 			// Load data file(s)
 			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
@@ -854,21 +856,24 @@ public class ArbitraryDataManager extends Thread {
 
 		// Forwarding
 		if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
-			Peer requestingPeer = request.getB();
-			if (requestingPeer != null) {
-				// Add each hash to our local mapping so we know who to ask later
-				Long now = NTP.getTime();
-				for (byte[] hash : hashes) {
-					String hash58 = Base58.encode(hash);
-					Triple<String, Peer,  Long> value = new Triple<>(signature58, peer, now);
-					this.arbitraryRelayMap.put(hash58, value);
-					LOGGER.debug("Added {} to relay map: {}, {}, {}", hash58, signature58, peer, now);
-				}
+			boolean isBlocked = (arbitraryTransactionData == null || ArbitraryDataStorageManager.getInstance().isNameBlocked(arbitraryTransactionData.getName()));
+			if (!isBlocked) {
+				Peer requestingPeer = request.getB();
+				if (requestingPeer != null) {
+					// Add each hash to our local mapping so we know who to ask later
+					Long now = NTP.getTime();
+					for (byte[] hash : hashes) {
+						String hash58 = Base58.encode(hash);
+						Triple<String, Peer, Long> value = new Triple<>(signature58, peer, now);
+						this.arbitraryRelayMap.put(hash58, value);
+						LOGGER.debug("Added {} to relay map: {}, {}, {}", hash58, signature58, peer, now);
+					}
 
-				// Forward to requesting peer
-				LOGGER.info("Forwarding file list with {} hashes to requesting peer: {}", hashes.size(), requestingPeer);
-				if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
-					requestingPeer.disconnect("failed to forward arbitrary data file list");
+					// Forward to requesting peer
+					LOGGER.info("Forwarding file list with {} hashes to requesting peer: {}", hashes.size(), requestingPeer);
+					if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
+						requestingPeer.disconnect("failed to forward arbitrary data file list");
+					}
 				}
 			}
 		}
@@ -903,12 +908,12 @@ public class ArbitraryDataManager extends Thread {
 				LOGGER.info("We have relay info for hash {}", Base58.encode(hash));
 				// We need to ask this peer for the file
 				Peer peerToAsk = relayInfo.getB();
-				//Peer peerToAsk = Network.getInstance().getConnectedPeerWithAddress(peerAddress);
 				if (peerToAsk != null) {
+
 					// Forward the message to this peer
 					LOGGER.info("Asking peer {} for hash {}", peerToAsk, hash58);
+					this.fetchArbitraryDataFile(peerToAsk, peer, signature, hash, message);
 
-					ArbitraryDataFileMessage arbitraryDataFileMessage = this.fetchArbitraryDataFile(peerToAsk, peer, signature, hash, message);
 					// Remove from the map regardless of outcome, as the relay attempt is now considered complete
 					arbitraryRelayMap.remove(hash58);
 				}
@@ -960,11 +965,12 @@ public class ArbitraryDataManager extends Thread {
 		LOGGER.info("Received hash list request from peer {} for signature {}", peer, Base58.encode(signature));
 
 		List<byte[]> hashes = new ArrayList<>();
+		ArbitraryTransactionData transactionData = null;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			// Firstly we need to lookup this file on chain to get a list of its hashes
-			ArbitraryTransactionData transactionData = (ArbitraryTransactionData)repository.getTransactionRepository().fromSignature(signature);
+			transactionData = (ArbitraryTransactionData)repository.getTransactionRepository().fromSignature(signature);
 			if (transactionData instanceof ArbitraryTransactionData) {
 
 				// Check if we're even allowed to serve data for this transaction
@@ -1021,7 +1027,8 @@ public class ArbitraryDataManager extends Thread {
 
 		}
 		else {
-			if (Settings.getInstance().isRelayModeEnabled()) {
+			boolean isBlocked = (transactionData == null || ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName()));
+			if (Settings.getInstance().isRelayModeEnabled() && !isBlocked) {
 				// In relay mode - so ask our other peers if they have it
 				LOGGER.info("Rebroadcasted hash list request from peer {} for signature {} to our other peers", peer, Base58.encode(signature));
 				Network.getInstance().broadcast(
