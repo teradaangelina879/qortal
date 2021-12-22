@@ -109,9 +109,6 @@ elif [[ "${method}" == "GET" ]]; then
   fi
 
   # Handle default
-  if [[ "${identifier}" == "default" ]]; then
-    identifier=""
-  fi
   if [[ "${filepath}" == "default" ]]; then
     filepath=""
   fi
