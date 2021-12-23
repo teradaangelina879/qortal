@@ -21,12 +21,11 @@ import org.qortal.utils.Triple;
 import java.security.SecureRandom;
 import java.util.*;
 
-public class ArbitraryDataFileManager extends Thread {
+public class ArbitraryDataFileManager {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFileManager.class);
 
     private static ArbitraryDataFileManager instance;
-    private volatile boolean isStopping = false;
 
 
     /**
@@ -49,26 +48,6 @@ public class ArbitraryDataFileManager extends Thread {
             instance = new ArbitraryDataFileManager();
 
         return instance;
-    }
-
-    @Override
-    public void run() {
-        Thread.currentThread().setName("Arbitrary Data File List Manager");
-
-        try {
-            while (!isStopping) {
-                Thread.sleep(2000);
-
-                // TODO
-            }
-        } catch (InterruptedException e) {
-            // Fall-through to exit thread...
-        }
-    }
-
-    public void shutdown() {
-        isStopping = true;
-        this.interrupt();
     }
 
 

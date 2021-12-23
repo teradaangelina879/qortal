@@ -22,12 +22,11 @@ import org.qortal.utils.Triple;
 
 import java.util.*;
 
-public class ArbitraryDataFileListManager extends Thread {
+public class ArbitraryDataFileListManager {
 
     private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFileListManager.class);
 
     private static ArbitraryDataFileListManager instance;
-    private volatile boolean isStopping = false;
 
 
     /**
@@ -65,26 +64,6 @@ public class ArbitraryDataFileListManager extends Thread {
             instance = new ArbitraryDataFileListManager();
 
         return instance;
-    }
-
-    @Override
-    public void run() {
-        Thread.currentThread().setName("Arbitrary Data File List Manager");
-
-        try {
-            while (!isStopping) {
-                Thread.sleep(2000);
-
-                // TODO
-            }
-        } catch (InterruptedException e) {
-            // Fall-through to exit thread...
-        }
-    }
-
-    public void shutdown() {
-        isStopping = true;
-        this.interrupt();
     }
 
 

@@ -67,9 +67,6 @@ public class ArbitraryDataManager extends Thread {
 	public void run() {
 		Thread.currentThread().setName("Arbitrary Data Manager");
 
-		ArbitraryDataFileListManager.getInstance().start();
-		ArbitraryDataFileManager.getInstance().start();
-
 		try {
 			while (!isStopping) {
 				Thread.sleep(2000);
@@ -116,9 +113,6 @@ public class ArbitraryDataManager extends Thread {
 	public void shutdown() {
 		isStopping = true;
 		this.interrupt();
-
-		ArbitraryDataFileListManager.getInstance().shutdown();
-		ArbitraryDataFileManager.getInstance().shutdown();
 	}
 
 	private void processNames() {
