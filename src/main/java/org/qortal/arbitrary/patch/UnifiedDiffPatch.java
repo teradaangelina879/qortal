@@ -196,11 +196,9 @@ public class UnifiedDiffPatch {
             BufferedWriter writer = new BufferedWriter(fileWriter);
             for (int i=0; i<patchedContents.size(); i++) {
                 String line = patchedContents.get(i);
-                LOGGER.info("Applying line: %s", line);
                 writer.append(line);
                 // Add a newline if this isn't the last line, or the original ended with a newline
                 if (i < patchedContents.size()-1 || endsWithNewline) {
-                    LOGGER.info("Applying newline");
                     writer.newLine();
                 }
             }
