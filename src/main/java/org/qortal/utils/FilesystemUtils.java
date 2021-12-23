@@ -6,6 +6,8 @@ import org.qortal.settings.Settings;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 
 public class FilesystemUtils {
@@ -237,6 +239,25 @@ public class FilesystemUtils {
         }
 
         return data;
+    }
+
+    public static byte[] readFromFile(String filePath, long position, int size) throws IOException {
+        RandomAccessFile file = new RandomAccessFile(filePath, "r");
+        file.seek(position);
+        byte[] bytes = new byte[size];
+        file.read(bytes);
+        file.close();
+        return bytes;
+    }
+
+    public static String readUtf8StringFromFile(String filePath, long position, int size) throws IOException {
+        return new String(FilesystemUtils.readFromFile(filePath, position, size), StandardCharsets.UTF_8);
+    }
+
+    public static boolean fileEndsWithNewline(Path path) throws IOException {
+        long length = Files.size(path);
+        String lastCharacter = FilesystemUtils.readUtf8StringFromFile(path.toString(), length-1, 1);
+        return (lastCharacter.equals("\n") || lastCharacter.equals("\r"));
     }
 
 }

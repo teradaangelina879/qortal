@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
+import org.qortal.utils.FilesystemUtils;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -72,6 +73,9 @@ public class UnifiedDiffPatch {
         List<String> original = FileUtils.readLines(before.toFile(), StandardCharsets.UTF_8);
         List<String> revised = FileUtils.readLines(after.toFile(), StandardCharsets.UTF_8);
 
+        // Check if the original file ends with a newline
+        boolean endsWithNewline = FilesystemUtils.fileEndsWithNewline(before);
+
         // Generate diff information
         Patch<String> diff = DiffUtils.diff(original, revised);
 
@@ -83,9 +87,13 @@ public class UnifiedDiffPatch {
         // Write the diff to the destination directory
         FileWriter fileWriter = new FileWriter(destination.toString(), true);
         BufferedWriter writer = new BufferedWriter(fileWriter);
-        for (String line : unifiedDiff) {
+        for (int i=0; i<unifiedDiff.size(); i++) {
+            String line = unifiedDiff.get(i);
             writer.append(line);
-            writer.newLine();
+            // Add a newline if this isn't the last line, or the original ended with a newline
+            if (i < unifiedDiff.size()-1 || endsWithNewline) {
+                writer.newLine();
+            }
         }
         writer.flush();
         writer.close();
@@ -173,6 +181,9 @@ public class UnifiedDiffPatch {
         List<String> originalContents = FileUtils.readLines(originalPath.toFile(), StandardCharsets.UTF_8);
         List<String> patchContents = FileUtils.readLines(patchPath.toFile(), StandardCharsets.UTF_8);
 
+        // Check if the patch file (and therefore the original file) ends with a newline
+        boolean endsWithNewline = FilesystemUtils.fileEndsWithNewline(patchPath);
+
         // At first, parse the unified diff file and get the patch
         Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContents);
 
@@ -183,9 +194,15 @@ public class UnifiedDiffPatch {
             // Write the patched file to the merge directory
             FileWriter fileWriter = new FileWriter(mergePath.toString(), true);
             BufferedWriter writer = new BufferedWriter(fileWriter);
-            for (String line : patchedContents) {
+            for (int i=0; i<patchedContents.size(); i++) {
+                String line = patchedContents.get(i);
+                LOGGER.info("Applying line: %s", line);
                 writer.append(line);
-                writer.newLine();
+                // Add a newline if this isn't the last line, or the original ended with a newline
+                if (i < patchedContents.size()-1 || endsWithNewline) {
+                    LOGGER.info("Applying newline");
+                    writer.newLine();
+                }
             }
             writer.flush();
             writer.close();

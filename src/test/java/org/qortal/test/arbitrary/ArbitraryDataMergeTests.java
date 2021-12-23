@@ -349,12 +349,11 @@ public class ArbitraryDataMergeTests extends Common {
         assertTrue(Files.exists(patchFilePath));
         byte[] patchDigest = Crypto.digest(patchFilePath.toFile());
 
-        // The patch file should be identical to file2, because we don't currently
-        // support arbitrary diff patches on files without trailing newlines
-        assertArrayEquals(patchDigest, file2Digest);
-
         // Make sure that the patch file is different from file1
         assertFalse(Arrays.equals(patchDigest, file1Digest));
+
+        // Make sure that the patch file is different from file2
+        assertFalse(Arrays.equals(patchDigest, file2Digest));
 
         // Now merge the patch with the original path
         ArbitraryDataCombiner combiner = new ArbitraryDataCombiner(tempDir1, patchPath, signature);
