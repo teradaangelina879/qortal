@@ -9,6 +9,8 @@ import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
+import org.qortal.repository.DataException;
+import org.qortal.settings.Settings;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -62,6 +64,11 @@ public class ArbitraryDataRenderer {
     public HttpServletResponse render() {
         if (!inPath.startsWith(File.separator)) {
             inPath = File.separator + inPath;
+        }
+
+        // Don't render data if QDN is disabled
+        if (!Settings.getInstance().isQdnEnabled()) {
+            return ArbitraryDataRenderer.getResponse(response, 500, "QDN is disabled in settings");
         }
 
         ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, null);

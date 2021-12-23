@@ -274,11 +274,13 @@ public class Settings {
 	private Long testNtpOffset = null;
 
 
-	// Data storage
+	// Data storage (QDN)
 
+	/** Data storage enabled/disabled*/
+	private boolean qdnEnabled = true;
 	/** Data storage path. */
 	private String dataPath = "data";
-	/** Data storage path (for temporary data). */
+	/** Data storage path (for temporary data). Defaults to {dataPath}/_temp */
 	private String tempDataPath = null;
 
 	/** Storage policy to indicate which data should be hosted */
@@ -830,6 +832,10 @@ public class Settings {
 		return this.bootstrap;
 	}
 
+
+	public boolean isQdnEnabled() {
+		return this.qdnEnabled;
+	}
 
 	public String getDataPath() {
 		return this.dataPath;

@@ -81,6 +81,8 @@ public class ArbitraryDataWriter {
     }
 
     private void preExecute() throws DataException {
+        this.checkEnabled();
+
         // Enforce compression when uploading a directory
         File file = new File(this.filePath.toString());
         if (file.isDirectory() && compression == Compression.NONE) {
@@ -93,6 +95,12 @@ public class ArbitraryDataWriter {
 
     private void postExecute() throws IOException {
         this.cleanupFilesystem();
+    }
+
+    private void checkEnabled() throws DataException {
+        if (!Settings.getInstance().isQdnEnabled()) {
+            throw new DataException("QDN is disabled in settings");
+        }
     }
 
     private void createWorkingDirectory() throws DataException {

@@ -164,12 +164,19 @@ public class ArbitraryDataReader {
 
     private void preExecute() throws DataException {
         ArbitraryDataBuildManager.getInstance().setBuildInProgress(true);
+        this.checkEnabled();
         this.createWorkingDirectory();
         this.createUncompressedDirectory();
     }
 
     private void postExecute() {
         ArbitraryDataBuildManager.getInstance().setBuildInProgress(false);
+    }
+
+    private void checkEnabled() throws DataException {
+        if (!Settings.getInstance().isQdnEnabled()) {
+            throw new DataException("QDN is disabled in settings");
+        }
     }
 
     private void createWorkingDirectory() throws DataException {

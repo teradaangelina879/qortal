@@ -6,6 +6,7 @@ import java.util.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.arbitrary.ArbitraryDataRenderer;
 import org.qortal.controller.Controller;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -793,6 +794,11 @@ public class ArbitraryDataManager extends Thread {
 	// Network handlers
 
 	public void onNetworkArbitraryDataFileListMessage(Peer peer, Message message) {
+		// Don't process if QDN is disabled
+		if (!Settings.getInstance().isQdnEnabled()) {
+			return;
+		}
+
 		ArbitraryDataFileListMessage arbitraryDataFileListMessage = (ArbitraryDataFileListMessage) message;
 		LOGGER.info("Received hash list from peer {} with {} hashes", peer, arbitraryDataFileListMessage.getHashes().size());
 
@@ -880,6 +886,11 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	public void onNetworkGetArbitraryDataFileMessage(Peer peer, Message message) {
+		// Don't respond if QDN is disabled
+		if (!Settings.getInstance().isQdnEnabled()) {
+			return;
+		}
+
 		GetArbitraryDataFileMessage getArbitraryDataFileMessage = (GetArbitraryDataFileMessage) message;
 		byte[] hash = getArbitraryDataFileMessage.getHash();
 		String hash58 = Base58.encode(hash);
@@ -949,6 +960,11 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	public void onNetworkGetArbitraryDataFileListMessage(Peer peer, Message message) {
+		// Don't respond if QDN is disabled
+		if (!Settings.getInstance().isQdnEnabled()) {
+			return;
+		}
+
 		Controller.getInstance().stats.getArbitraryDataFileListMessageStats.requests.incrementAndGet();
 
 		GetArbitraryDataFileListMessage getArbitraryDataFileListMessage = (GetArbitraryDataFileListMessage) message;
@@ -1040,6 +1056,11 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	public void onNetworkArbitrarySignaturesMessage(Peer peer, Message message) {
+		// Don't process if QDN is disabled
+		if (!Settings.getInstance().isQdnEnabled()) {
+			return;
+		}
+
 		LOGGER.info("Received arbitrary signature list from peer {}", peer);
 
 		ArbitrarySignaturesMessage arbitrarySignaturesMessage = (ArbitrarySignaturesMessage) message;
