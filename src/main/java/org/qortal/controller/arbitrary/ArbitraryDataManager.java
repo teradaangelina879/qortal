@@ -74,6 +74,12 @@ public class ArbitraryDataManager extends Thread {
 			while (!isStopping) {
 				Thread.sleep(2000);
 
+				// Don't run if QDN is disabled
+				if (!Settings.getInstance().isQdnEnabled()) {
+					Thread.sleep(60 * 60 * 1000L);
+					continue;
+				}
+
 				List<Peer> peers = Network.getInstance().getHandshakedPeers();
 
 				// Disregard peers that have "misbehaved" recently

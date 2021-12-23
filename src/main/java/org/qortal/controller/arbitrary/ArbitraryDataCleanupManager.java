@@ -79,6 +79,12 @@ public class ArbitraryDataCleanupManager extends Thread {
 			while (!isStopping) {
 				Thread.sleep(30000);
 
+				// Don't run if QDN is disabled
+				if (!Settings.getInstance().isQdnEnabled()) {
+					Thread.sleep(60 * 60 * 1000L);
+					continue;
+				}
+
 				Long now = NTP.getTime();
 				if (now == null) {
 					// Don't attempt to make decisions if we haven't synced our time yet

@@ -73,6 +73,12 @@ public class ArbitraryDataStorageManager extends Thread {
             while (!isStopping) {
                 Thread.sleep(1000);
 
+                // Don't run if QDN is disabled
+                if (!Settings.getInstance().isQdnEnabled()) {
+                    Thread.sleep(60 * 60 * 1000L);
+                    continue;
+                }
+
                 Long now = NTP.getTime();
                 if (now == null) {
                     continue;
