@@ -50,11 +50,8 @@ import org.qortal.api.GatewayService;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
-import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
-import org.qortal.controller.arbitrary.ArbitraryDataCleanupManager;
-import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.controller.arbitrary.*;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
-import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.controller.repository.PruneManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.controller.tradebot.TradeBot;
@@ -82,8 +79,6 @@ import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.utils.*;
-
-import static org.qortal.network.Peer.FETCH_BLOCKS_TIMEOUT;
 
 public class Controller extends Thread {
 
@@ -1382,15 +1377,15 @@ public class Controller extends Thread {
 				break;
 
 			case ARBITRARY_DATA_FILE_LIST:
-				ArbitraryDataManager.getInstance().onNetworkArbitraryDataFileListMessage(peer, message);
+				ArbitraryDataFileListManager.getInstance().onNetworkArbitraryDataFileListMessage(peer, message);
 				break;
 
 			case GET_ARBITRARY_DATA_FILE:
-				ArbitraryDataManager.getInstance().onNetworkGetArbitraryDataFileMessage(peer, message);
+				ArbitraryDataFileManager.getInstance().onNetworkGetArbitraryDataFileMessage(peer, message);
 				break;
 
 			case GET_ARBITRARY_DATA_FILE_LIST:
-				ArbitraryDataManager.getInstance().onNetworkGetArbitraryDataFileListMessage(peer, message);
+				ArbitraryDataFileListManager.getInstance().onNetworkGetArbitraryDataFileListMessage(peer, message);
 				break;
 
 			case ARBITRARY_SIGNATURES:

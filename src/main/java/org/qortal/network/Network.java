@@ -6,6 +6,7 @@ import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.controller.arbitrary.ArbitraryDataFileManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
@@ -306,7 +307,7 @@ public class Network {
         }
 
         try (final Repository repository = RepositoryManager.getRepository()) {
-            return ArbitraryDataManager.getInstance().fetchAllArbitraryDataFiles(repository, connectedPeer, signature);
+            return ArbitraryDataFileManager.getInstance().fetchAllArbitraryDataFiles(repository, connectedPeer, signature);
         } catch (DataException e) {
             LOGGER.info("Unable to fetch arbitrary data files");
         }
