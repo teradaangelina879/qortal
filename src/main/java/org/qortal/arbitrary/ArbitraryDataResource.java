@@ -19,17 +19,17 @@ import java.util.List;
 
 public class ArbitraryDataResource {
 
-    private final String resourceId;
-    private final ResourceIdType resourceIdType;
-    private final Service service;
-    private final String identifier;
+    protected final String resourceId;
+    protected final ResourceIdType resourceIdType;
+    protected final Service service;
+    protected final String identifier;
 
     private List<ArbitraryTransactionData> transactions;
     private ArbitraryTransactionData latestPutTransaction;
     private int layerCount;
 
     public ArbitraryDataResource(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
-        this.resourceId = resourceId;
+        this.resourceId = resourceId.toLowerCase();
         this.resourceIdType = resourceIdType;
         this.service = service;
         this.identifier = identifier;
@@ -57,12 +57,12 @@ public class ArbitraryDataResource {
         // Next check if there's a build in progress
         ArbitraryDataBuildQueueItem queueItem =
                 new ArbitraryDataBuildQueueItem(resourceId, resourceIdType, service, identifier);
-        if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) { // TODO: currently keyed by name only
+        if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.BUILDING);
         }
 
         // Check if a build has failed
-        if (ArbitraryDataBuildManager.getInstance().isInFailedBuildsList(queueItem)) { // TODO: currently keyed by name only
+        if (ArbitraryDataBuildManager.getInstance().isInFailedBuildsList(queueItem)) {
             return new ArbitraryResourceSummary(ArbitraryResourceStatus.BUILD_FAILED);
         }
 
@@ -227,7 +227,28 @@ public class ArbitraryDataResource {
         return identifier != null ? identifier : "";
     }
 
+    @Override
     public String toString() {
-        return String.format("%s-%s-%s-%s", resourceIdString(), resourceIdTypeString(), serviceString(), identifierString());
+        return String.format("%s %s %s %s", this.serviceString(), this.resourceIdString(), this.resourceIdTypeString(), this.identifierString());
+    }
+
+
+    /**
+     * @return unique key used to identify this resource
+     */
+    public String getUniqueKey() {
+        return String.format("%s-%s-%s", this.service, this.resourceId, this.identifier).toLowerCase();
+    }
+
+    public String getResourceId() {
+        return this.resourceId;
+    }
+
+    public Service getService() {
+        return this.service;
+    }
+
+    public String getIdentifier() {
+        return this.identifier;
     }
 }

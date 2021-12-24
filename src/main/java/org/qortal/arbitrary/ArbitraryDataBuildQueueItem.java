@@ -8,12 +8,8 @@ import org.qortal.utils.NTP;
 
 import java.io.IOException;
 
-public class ArbitraryDataBuildQueueItem {
+public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
 
-    private final String resourceId;
-    private final ResourceIdType resourceIdType;
-    private final Service service;
-    private final String identifier;
     private final Long creationTimestamp;
     private Long buildStartTimestamp = null;
     private Long buildEndTimestamp = null;
@@ -26,10 +22,8 @@ public class ArbitraryDataBuildQueueItem {
     public static long FAILURE_TIMEOUT = 5*60*1000L; // 5 minutes
 
     public ArbitraryDataBuildQueueItem(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
-        this.resourceId = resourceId.toLowerCase();
-        this.resourceIdType = resourceIdType;
-        this.service = service;
-        this.identifier = identifier;
+        super(resourceId, resourceIdType, service, identifier);
+
         this.creationTimestamp = NTP.getTime();
     }
 
@@ -72,18 +66,6 @@ public class ArbitraryDataBuildQueueItem {
         return now - this.buildStartTimestamp > FAILURE_TIMEOUT;
     }
 
-
-    public String getResourceId() {
-        return this.resourceId;
-    }
-
-    /**
-     * @return unique key used to identify this queue item
-     */
-    public String getUniqueKey() {
-        return String.format("%s-%s-%s", this.service, this.resourceId, this.identifier).toLowerCase();
-    }
-
     public Long getBuildStartTimestamp() {
         return this.buildStartTimestamp;
     }
@@ -91,14 +73,4 @@ public class ArbitraryDataBuildQueueItem {
     public void setFailed(boolean failed) {
         this.failed = failed;
     }
-
-
-    @Override
-    public String toString() {
-        if (this.identifier == null) {
-            return String.format("%s %s", this.service, this.resourceId);
-        }
-        return String.format("%s %s %s", this.service, this.resourceId, this.identifier);
-    }
-
 }
