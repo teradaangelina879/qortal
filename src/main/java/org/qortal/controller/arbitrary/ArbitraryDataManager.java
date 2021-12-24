@@ -5,6 +5,9 @@ import java.util.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -265,20 +268,20 @@ public class ArbitraryDataManager extends Thread {
 		ArbitraryDataFileManager.getInstance().cleanupRequestCache(now);
 	}
 
-	public boolean isResourceCached(String resourceId) {
-		if (resourceId == null) {
+	public boolean isResourceCached(ArbitraryDataResource resource) {
+		if (resource == null) {
 			return false;
 		}
-		resourceId = resourceId.toLowerCase();
+		String key = resource.getUniqueKey();
 
 		// We don't have an entry for this resource ID, it is not cached
 		if (this.arbitraryDataCachedResources == null) {
 			return false;
 		}
-		if (!this.arbitraryDataCachedResources.containsKey(resourceId)) {
+		if (!this.arbitraryDataCachedResources.containsKey(key)) {
 			return false;
 		}
-		Long timestamp = this.arbitraryDataCachedResources.get(resourceId);
+		Long timestamp = this.arbitraryDataCachedResources.get(key);
 		if (timestamp == null) {
 			return false;
 		}
@@ -286,7 +289,7 @@ public class ArbitraryDataManager extends Thread {
 		// If the timestamp has reached the timeout, we should remove it from the cache
 		long now = NTP.getTime();
 		if (now > timestamp) {
-			this.arbitraryDataCachedResources.remove(resourceId);
+			this.arbitraryDataCachedResources.remove(key);
 			return false;
 		}
 
@@ -294,11 +297,11 @@ public class ArbitraryDataManager extends Thread {
 		return true;
 	}
 
-	public void addResourceToCache(String resourceId) {
-		if (resourceId == null) {
+	public void addResourceToCache(ArbitraryDataResource resource) {
+		if (resource == null) {
 			return;
 		}
-		resourceId = resourceId.toLowerCase();
+		String key = resource.getUniqueKey();
 
 		// Just in case
 		if (this.arbitraryDataCachedResources == null) {
@@ -312,7 +315,7 @@ public class ArbitraryDataManager extends Thread {
 
 		// Set the timestamp to now + the timeout
 		Long timestamp = NTP.getTime() + ARBITRARY_DATA_CACHE_TIMEOUT;
-		this.arbitraryDataCachedResources.put(resourceId, timestamp);
+		this.arbitraryDataCachedResources.put(key, timestamp);
 	}
 
 	public void invalidateCache(ArbitraryTransactionData arbitraryTransactionData) {
@@ -320,17 +323,22 @@ public class ArbitraryDataManager extends Thread {
 
 		if (arbitraryTransactionData.getName() != null) {
 			String resourceId = arbitraryTransactionData.getName().toLowerCase();
-			LOGGER.info("We have all data for transaction {}", signature58);
-			LOGGER.info("Clearing cache for name {}...", arbitraryTransactionData.getName());
+			Service service = arbitraryTransactionData.getService();
+			String identifier = arbitraryTransactionData.getIdentifier();
 
-			if (this.arbitraryDataCachedResources.containsKey(resourceId)) {
-				this.arbitraryDataCachedResources.remove(resourceId);
+			ArbitraryDataResource resource =
+					new ArbitraryDataResource(resourceId, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+			String key = resource.getUniqueKey();
+			LOGGER.info("Clearing cache for {}...", resource);
+
+			if (this.arbitraryDataCachedResources.containsKey(key)) {
+				this.arbitraryDataCachedResources.remove(key);
 			}
 
 			// Also remove from the failed builds queue in case it previously failed due to missing chunks
 			ArbitraryDataBuildManager buildManager = ArbitraryDataBuildManager.getInstance();
-			if (buildManager.arbitraryDataFailedBuilds.containsKey(resourceId)) {
-				buildManager.arbitraryDataFailedBuilds.remove(resourceId);
+			if (buildManager.arbitraryDataFailedBuilds.containsKey(key)) {
+				buildManager.arbitraryDataFailedBuilds.remove(key);
 			}
 
 			// Remove from the signature requests list now that we have all files for this signature

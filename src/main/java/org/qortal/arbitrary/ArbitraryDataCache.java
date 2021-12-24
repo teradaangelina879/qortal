@@ -87,7 +87,7 @@ public class ArbitraryDataCache {
         if (this.shouldInvalidateDueToSignatureMismatch()) {
 
             // Add to the in-memory cache first, so that we won't check again for a while
-            ArbitraryDataManager.getInstance().addResourceToCache(this.resourceId);
+            ArbitraryDataManager.getInstance().addResourceToCache(this.getArbitraryDataResource());
             return true;
         }
 
@@ -108,7 +108,7 @@ public class ArbitraryDataCache {
      * @return whether to avoid lookups for this resource due to the in-memory cache
      */
     private boolean rateLimitInEffect() {
-        return ArbitraryDataManager.getInstance().isResourceCached(this.resourceId);
+        return ArbitraryDataManager.getInstance().isResourceCached(this.getArbitraryDataResource());
     }
 
     private boolean shouldInvalidateDueToSignatureMismatch() {
@@ -156,6 +156,11 @@ public class ArbitraryDataCache {
         } catch (IOException | DataException e) {
             return null;
         }
+    }
+
+    private ArbitraryDataResource getArbitraryDataResource() {
+        // TODO: pass an ArbitraryDataResource into the constructor, rather than individual components
+        return new ArbitraryDataResource(this.resourceId, this.resourceIdType, this.service, this.identifier);
     }
 
 }
