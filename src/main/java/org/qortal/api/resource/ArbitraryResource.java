@@ -401,6 +401,26 @@ public class ArbitraryResource {
 		}
 	}
 
+	@DELETE
+	@Path("/resource/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Delete arbitrary resource with supplied service, name and identifier",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public boolean deleteResource(@PathParam("service") Service service,
+								  @PathParam("name") String name,
+								  @PathParam("identifier") String identifier) {
+
+		Security.checkApiCallAllowed(request);
+		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
+		return resource.delete();
+	}
+
 	@POST
 	@Path("/compute")
 	@Operation(

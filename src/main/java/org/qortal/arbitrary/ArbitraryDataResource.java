@@ -11,9 +11,14 @@ import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.utils.ArbitraryTransactionUtils;
+import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.NTP;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +37,11 @@ public class ArbitraryDataResource {
         this.resourceId = resourceId.toLowerCase();
         this.resourceIdType = resourceIdType;
         this.service = service;
+
+        // If identifier is a blank string, or reserved keyword "default", treat it as null
+        if (identifier == null || identifier.equals("") || identifier.equals("default")) {
+            identifier = null;
+        }
         this.identifier = identifier;
     }
 
@@ -79,6 +89,42 @@ public class ArbitraryDataResource {
 
         // We have all data locally
         return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADED);
+    }
+
+    public boolean delete() {
+        try {
+            this.fetchTransactions();
+
+            List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
+
+            for (ArbitraryTransactionData transactionData : transactionDataList) {
+                byte[] hash = transactionData.getData();
+                byte[] metadataHash = transactionData.getMetadataHash();
+                byte[] signature = transactionData.getSignature();
+                ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
+                arbitraryDataFile.setMetadataHash(metadataHash);
+
+                // Delete any chunks or complete files from each transaction
+                arbitraryDataFile.deleteAll();
+            }
+
+            // Also delete cached data for the entire resource
+            this.deleteCache();
+
+            return true;
+
+        } catch (DataException | IOException e) {
+            return false;
+        }
+    }
+
+    public void deleteCache() throws IOException {
+        String baseDir = Settings.getInstance().getTempDataPath();
+        String identifier = this.identifier != null ?  this.identifier : "default";
+        Path cachePath = Paths.get(baseDir, "reader", this.resourceIdType.toString(), this.resourceId, this.service.toString(), identifier);
+        if (cachePath.toFile().exists()) {
+            FilesystemUtils.safeDeleteDirectory(cachePath, true);
+        }
     }
 
     private boolean allFilesDownloaded() {
@@ -229,7 +275,7 @@ public class ArbitraryDataResource {
 
     @Override
     public String toString() {
-        return String.format("%s %s %s %s", this.serviceString(), this.resourceIdString(), this.resourceIdTypeString(), this.identifierString());
+        return String.format("%s %s %s", this.serviceString(), this.resourceIdString(), this.identifierString());
     }
 
 

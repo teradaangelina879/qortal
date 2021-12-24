@@ -1,5 +1,6 @@
 package org.qortal.controller.arbitrary;
 
+import java.io.IOException;
 import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
@@ -343,6 +344,13 @@ public class ArbitraryDataManager extends Thread {
 
 			// Remove from the signature requests list now that we have all files for this signature
 			ArbitraryDataFileListManager.getInstance().removeFromSignatureRequests(signature58);
+
+			// Delete cached files themselves
+			try {
+				resource.deleteCache();
+			} catch (IOException e) {
+				LOGGER.info("Unable to delete cache for resource {}: {}", resource, e.getMessage());
+			}
 		}
 	}
 
