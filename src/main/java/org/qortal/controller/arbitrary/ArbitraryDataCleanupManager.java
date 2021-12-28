@@ -167,7 +167,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 							// When a PUT is issued, it replaces any layers that would have been there before.
 							// Therefore any data relating to this older transaction is no longer needed.
 							LOGGER.info(String.format("Newer PUT found for %s %s since transaction %s. " +
-											"Deleting all files.", arbitraryTransactionData.getService(),
+											"Deleting all files associated with the earlier transaction.", arbitraryTransactionData.getService(),
 									arbitraryTransactionData.getName(), Base58.encode(signature)));
 
 							ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
