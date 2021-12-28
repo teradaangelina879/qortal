@@ -112,6 +112,11 @@ public class ArbitraryDataStorageManager extends Thread {
     public boolean canStoreData(ArbitraryTransactionData arbitraryTransactionData) {
         String name = arbitraryTransactionData.getName();
 
+        // We already have RAW_DATA on chain, so we only need to store data associated with hashes
+        if (arbitraryTransactionData.getDataType() != ArbitraryTransactionData.DataType.DATA_HASH) {
+            return false;
+        }
+
         // Don't store data unless it's an allowed type (public/private)
         if (!this.isDataTypeAllowed(arbitraryTransactionData)) {
             return false;
@@ -147,6 +152,11 @@ public class ArbitraryDataStorageManager extends Thread {
      */
     public boolean shouldPreFetchData(Repository repository, ArbitraryTransactionData arbitraryTransactionData) {
         String name = arbitraryTransactionData.getName();
+
+        // Only fetch data associated with hashes, as we already have RAW_DATA
+        if (arbitraryTransactionData.getDataType() != ArbitraryTransactionData.DataType.DATA_HASH) {
+            return false;
+        }
 
         // Don't fetch anything more if we're (nearly) out of space
         // Make sure to keep STORAGE_FULL_THRESHOLD considerably less than 1, to
