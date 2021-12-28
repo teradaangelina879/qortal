@@ -34,7 +34,7 @@ public class ArbitraryDataManager extends Thread {
 
 	/** Difficulty (leading zero bits) used in arbitrary data transactions
 	 * Set here so that it can be more easily reduced when running unit tests */
-	private int powDifficulty = 12; // Must not be final, as unit tests need to reduce this value
+	private int powDifficulty = 14; // Must not be final, as unit tests need to reduce this value
 
 	/** Request timeout when transferring arbitrary data */
 	public static final long ARBITRARY_REQUEST_TIMEOUT = 6 * 1000L; // ms
