@@ -70,7 +70,7 @@ public class ArbitraryDataCreatePatch {
         try {
             FilesystemUtils.safeDeleteDirectory(this.workingPath, true);
         } catch (IOException e) {
-            LOGGER.info("Unable to cleanup working directory");
+            LOGGER.debug("Unable to cleanup working directory");
         }
     }
 
@@ -78,7 +78,7 @@ public class ArbitraryDataCreatePatch {
         try {
             FilesystemUtils.safeDeleteDirectory(this.finalPath, true);
         } catch (IOException e) {
-            LOGGER.info("Unable to cleanup diff directory on failure");
+            LOGGER.debug("Unable to cleanup diff directory on failure");
         }
     }
 

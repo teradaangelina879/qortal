@@ -215,7 +215,7 @@ public class ArbitraryDataBuilder {
         // Loop from the second path onwards
         for (int i=1; i<paths.size(); i++) {
             String identifierPrefix = this.identifier != null ? String.format("[%s]", this.identifier) : "";
-            LOGGER.info(String.format("[%s][%s]%s Applying layer %d...", this.service, this.name, identifierPrefix, i));
+            LOGGER.debug(String.format("[%s][%s]%s Applying layer %d...", this.service, this.name, identifierPrefix, i));
 
             // Create an instance of ArbitraryDataCombiner
             Path pathAfter = this.paths.get(i);

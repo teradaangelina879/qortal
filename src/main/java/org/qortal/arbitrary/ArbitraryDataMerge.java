@@ -82,20 +82,20 @@ public class ArbitraryDataMerge {
 
         List<Path> addedPaths = this.metadata.getAddedPaths();
         for (Path path : addedPaths) {
-            LOGGER.info("File was added: {}", path.toString());
+            LOGGER.trace("File was added: {}", path.toString());
             Path filePath = Paths.get(this.pathAfter.toString(), path.toString());
             ArbitraryDataMerge.copyPathToBaseDir(filePath, this.mergePath, path);
         }
 
         List<ModifiedPath> modifiedPaths = this.metadata.getModifiedPaths();
         for (ModifiedPath modifiedPath : modifiedPaths) {
-            LOGGER.info("File was modified: {}", modifiedPath.toString());
+            LOGGER.trace("File was modified: {}", modifiedPath.toString());
             this.applyPatch(modifiedPath);
         }
 
         List<Path> removedPaths = this.metadata.getRemovedPaths();
         for (Path path : removedPaths) {
-            LOGGER.info("File was removed: {}", path.toString());
+            LOGGER.trace("File was removed: {}", path.toString());
             ArbitraryDataMerge.deletePathInBaseDir(this.mergePath, path);
         }
     }

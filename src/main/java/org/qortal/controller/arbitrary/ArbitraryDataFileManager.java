@@ -118,15 +118,15 @@ public class ArbitraryDataFileManager {
                 if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
                     ArbitraryDataFileMessage receivedArbitraryDataFileMessage = fetchArbitraryDataFile(peer, null, signature, hash, null);
                     if (receivedArbitraryDataFileMessage != null) {
-                        LOGGER.info("Received data file {} from peer {}", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer);
+                        LOGGER.debug("Received data file {} from peer {}", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer);
                         receivedAtLeastOneFile = true;
                     }
                     else {
-                        LOGGER.info("Peer {} didn't respond with data file {} for signature {}", peer, Base58.encode(hash), Base58.encode(signature));
+                        LOGGER.debug("Peer {} didn't respond with data file {} for signature {}", peer, Base58.encode(hash), Base58.encode(signature));
                     }
                 }
                 else {
-                    LOGGER.info("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
+                    LOGGER.debug("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
                 }
             }
         }
@@ -134,7 +134,7 @@ public class ArbitraryDataFileManager {
         if (receivedAtLeastOneFile) {
             // Update our lookup table to indicate that this peer holds data for this signature
             String peerAddress = peer.getPeerData().getAddress().toString();
-            LOGGER.info("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
+            LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
             ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
             repository.discardChanges();
             repository.getArbitraryRepository().save(arbitraryPeerData);
@@ -171,7 +171,7 @@ public class ArbitraryDataFileManager {
         // Fetch the file if it doesn't exist locally
         if (!fileAlreadyExists) {
             String hash58 = Base58.encode(hash);
-            LOGGER.info(String.format("Fetching data file %.8s from peer %s", hash58, peer));
+            LOGGER.debug(String.format("Fetching data file %.8s from peer %s", hash58, peer));
             arbitraryDataFileRequests.put(hash58, NTP.getTime());
             Message getArbitraryDataFileMessage = new GetArbitraryDataFileMessage(signature, hash);
 
@@ -196,7 +196,7 @@ public class ArbitraryDataFileManager {
         if (isRelayRequest) {
             if (!fileAlreadyExists) {
                 // File didn't exist locally before the request, and it's a forwarding request, so delete it
-                LOGGER.info("Deleting file {} because it was needed for forwarding only", Base58.encode(hash));
+                LOGGER.debug("Deleting file {} because it was needed for forwarding only", Base58.encode(hash));
                 ArbitraryDataFile dataFile = arbitraryDataFileMessage.getArbitraryDataFile();
                 dataFile.delete();
             }
@@ -217,17 +217,17 @@ public class ArbitraryDataFileManager {
             return;
         }
 
-        LOGGER.info("Received arbitrary data file - forwarding is needed");
+        LOGGER.debug("Received arbitrary data file - forwarding is needed");
 
         // The ID needs to match that of the original request
         message.setId(originalMessage.getId());
 
         if (!requestingPeer.sendMessage(message)) {
-            LOGGER.info("Failed to forward arbitrary data file to peer {}", requestingPeer);
+            LOGGER.debug("Failed to forward arbitrary data file to peer {}", requestingPeer);
             requestingPeer.disconnect("failed to forward arbitrary data file");
         }
         else {
-            LOGGER.info("Forwarded arbitrary data file to peer {}", requestingPeer);
+            LOGGER.debug("Forwarded arbitrary data file to peer {}", requestingPeer);
         }
     }
 
@@ -243,11 +243,11 @@ public class ArbitraryDataFileManager {
 
             List<ArbitraryPeerData> peers = repository.getArbitraryRepository().getArbitraryPeerDataForSignature(signature);
             if (peers == null || peers.isEmpty()) {
-                LOGGER.info("No peers found for signature {}", signature58);
+                LOGGER.debug("No peers found for signature {}", signature58);
                 return false;
             }
 
-            LOGGER.info("Attempting a direct peer connection for signature {}...", signature58);
+            LOGGER.debug("Attempting a direct peer connection for signature {}...", signature58);
 
             // Peers found, so pick a random one and request data from it
             int index = new SecureRandom().nextInt(peers.size());
@@ -256,7 +256,7 @@ public class ArbitraryDataFileManager {
             return Network.getInstance().requestDataFromPeer(peerAddressString, signature);
 
         } catch (DataException e) {
-            LOGGER.info("Unable to fetch peer list from repository");
+            LOGGER.debug("Unable to fetch peer list from repository");
         }
 
         return false;
@@ -277,43 +277,43 @@ public class ArbitraryDataFileManager {
         byte[] signature = getArbitraryDataFileMessage.getSignature();
         Controller.getInstance().stats.getArbitraryDataFileMessageStats.requests.incrementAndGet();
 
-        LOGGER.info("Received GetArbitraryDataFileMessage from peer {} for hash {}", peer, Base58.encode(hash));
+        LOGGER.debug("Received GetArbitraryDataFileMessage from peer {} for hash {}", peer, Base58.encode(hash));
 
         try {
             ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
             Triple<String, Peer, Long> relayInfo = this.arbitraryRelayMap.get(hash58);
 
             if (arbitraryDataFile.exists()) {
-                LOGGER.info("Hash {} exists", hash58);
+                LOGGER.trace("Hash {} exists", hash58);
 
                 // We can serve the file directly as we already have it
                 ArbitraryDataFileMessage arbitraryDataFileMessage = new ArbitraryDataFileMessage(signature, arbitraryDataFile);
                 arbitraryDataFileMessage.setId(message.getId());
                 if (!peer.sendMessage(arbitraryDataFileMessage)) {
-                    LOGGER.info("Couldn't sent file");
+                    LOGGER.debug("Couldn't sent file");
                     peer.disconnect("failed to send file");
                 }
-                LOGGER.info("Sent file {}", arbitraryDataFile);
+                LOGGER.debug("Sent file {}", arbitraryDataFile);
             }
             else if (relayInfo != null) {
-                LOGGER.info("We have relay info for hash {}", Base58.encode(hash));
+                LOGGER.debug("We have relay info for hash {}", Base58.encode(hash));
                 // We need to ask this peer for the file
                 Peer peerToAsk = relayInfo.getB();
                 if (peerToAsk != null) {
 
                     // Forward the message to this peer
-                    LOGGER.info("Asking peer {} for hash {}", peerToAsk, hash58);
+                    LOGGER.debug("Asking peer {} for hash {}", peerToAsk, hash58);
                     this.fetchArbitraryDataFile(peerToAsk, peer, signature, hash, message);
 
                     // Remove from the map regardless of outcome, as the relay attempt is now considered complete
                     arbitraryRelayMap.remove(hash58);
                 }
                 else {
-                    LOGGER.info("Peer {} not found in relay info", peer);
+                    LOGGER.debug("Peer {} not found in relay info", peer);
                 }
             }
             else {
-                LOGGER.info("Hash {} doesn't exist and we don't have relay info", hash58);
+                LOGGER.debug("Hash {} doesn't exist and we don't have relay info", hash58);
 
                 // We don't have this file
                 Controller.getInstance().stats.getArbitraryDataFileMessageStats.unknownFiles.getAndIncrement();
@@ -326,16 +326,16 @@ public class ArbitraryDataFileManager {
                 Message fileUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
                 fileUnknownMessage.setId(message.getId());
                 if (!peer.sendMessage(fileUnknownMessage)) {
-                    LOGGER.info("Couldn't sent file-unknown response");
+                    LOGGER.debug("Couldn't sent file-unknown response");
                     peer.disconnect("failed to send file-unknown response");
                 }
                 else {
-                    LOGGER.info("Sent file-unknown response for file {}", arbitraryDataFile);
+                    LOGGER.debug("Sent file-unknown response for file {}", arbitraryDataFile);
                 }
             }
         }
         catch (DataException e) {
-            LOGGER.info("Unable to handle request for arbitrary data file: {}", hash58);
+            LOGGER.debug("Unable to handle request for arbitrary data file: {}", hash58);
         }
     }
 

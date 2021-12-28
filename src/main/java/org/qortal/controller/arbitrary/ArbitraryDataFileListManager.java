@@ -235,7 +235,7 @@ public class ArbitraryDataFileListManager {
         }
         this.addToSignatureRequests(signature58, true, false);
 
-        LOGGER.info(String.format("Sending data file list request for signature %s...", Base58.encode(signature)));
+        LOGGER.debug(String.format("Sending data file list request for signature %s...", Base58.encode(signature)));
 
         // Build request
         Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature);
@@ -289,7 +289,7 @@ public class ArbitraryDataFileListManager {
         }
 
         ArbitraryDataFileListMessage arbitraryDataFileListMessage = (ArbitraryDataFileListMessage) message;
-        LOGGER.info("Received hash list from peer {} with {} hashes", peer, arbitraryDataFileListMessage.getHashes().size());
+        LOGGER.debug("Received hash list from peer {} with {} hashes", peer, arbitraryDataFileListMessage.getHashes().size());
 
         // Do we have a pending request for this data? // TODO: might we want to relay all of them anyway?
         Triple<String, Peer, Long> request = arbitraryDataFileListRequests.get(message.getId());
@@ -327,7 +327,7 @@ public class ArbitraryDataFileListManager {
 
 //			// Check all hashes exist
 //			for (byte[] hash : hashes) {
-//				//LOGGER.info("Received hash {}", Base58.encode(hash));
+//				//LOGGER.debug("Received hash {}", Base58.encode(hash));
 //				if (!arbitraryDataFile.containsChunk(hash)) {
 //					// Check the hash against the complete file
 //					if (!Arrays.equals(arbitraryDataFile.getHash(), hash)) {
@@ -366,7 +366,7 @@ public class ArbitraryDataFileListManager {
                     }
 
                     // Forward to requesting peer
-                    LOGGER.info("Forwarding file list with {} hashes to requesting peer: {}", hashes.size(), requestingPeer);
+                    LOGGER.debug("Forwarding file list with {} hashes to requesting peer: {}", hashes.size(), requestingPeer);
                     if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
                         requestingPeer.disconnect("failed to forward arbitrary data file list");
                     }
@@ -394,7 +394,7 @@ public class ArbitraryDataFileListManager {
             return;
         }
 
-        LOGGER.info("Received hash list request from peer {} for signature {}", peer, Base58.encode(signature));
+        LOGGER.debug("Received hash list request from peer {} for signature {}", peer, Base58.encode(signature));
 
         List<byte[]> hashes = new ArrayList<>();
         ArbitraryTransactionData transactionData = null;
@@ -424,9 +424,9 @@ public class ArbitraryDataFileListManager {
                         for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
                             if (chunk.exists()) {
                                 hashes.add(chunk.getHash());
-                                //LOGGER.info("Added hash {}", chunk.getHash58());
+                                //LOGGER.trace("Added hash {}", chunk.getHash58());
                             } else {
-                                LOGGER.info("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
+                                LOGGER.debug("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
                             }
                         }
                     } else {
@@ -452,17 +452,17 @@ public class ArbitraryDataFileListManager {
             ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes);
             arbitraryDataFileListMessage.setId(message.getId());
             if (!peer.sendMessage(arbitraryDataFileListMessage)) {
-                LOGGER.info("Couldn't send list of hashes");
+                LOGGER.debug("Couldn't send list of hashes");
                 peer.disconnect("failed to send list of hashes");
             }
-            LOGGER.info("Sent list of hashes (count: {})", hashes.size());
+            LOGGER.debug("Sent list of hashes (count: {})", hashes.size());
 
         }
         else {
             boolean isBlocked = (transactionData == null || ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName()));
             if (Settings.getInstance().isRelayModeEnabled() && !isBlocked) {
                 // In relay mode - so ask our other peers if they have it
-                LOGGER.info("Rebroadcasted hash list request from peer {} for signature {} to our other peers", peer, Base58.encode(signature));
+                LOGGER.debug("Rebroadcasted hash list request from peer {} for signature {} to our other peers", peer, Base58.encode(signature));
                 Network.getInstance().broadcast(
                         broadcastPeer -> broadcastPeer == peer ||
                                 Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())

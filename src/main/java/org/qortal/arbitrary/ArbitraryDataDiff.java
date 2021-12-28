@@ -106,7 +106,7 @@ public class ArbitraryDataDiff {
     }
 
     private void preExecute() {
-        LOGGER.info("Generating diff...");
+        LOGGER.debug("Generating diff...");
     }
 
     private void postExecute() {
@@ -164,18 +164,18 @@ public class ArbitraryDataDiff {
                     boolean wasModified = false;
 
                     if (!Files.exists(beforePathAbsolute)) {
-                        LOGGER.info("File was added: {}", afterPathRelative.toString());
+                        LOGGER.trace("File was added: {}", afterPathRelative.toString());
                         diff.addedPaths.add(afterPathRelative);
                         wasAdded = true;
                     }
                     else if (Files.size(afterPathAbsolute) != Files.size(beforePathAbsolute)) {
                         // Check file size first because it's quicker
-                        LOGGER.info("File size was modified: {}", afterPathRelative.toString());
+                        LOGGER.trace("File size was modified: {}", afterPathRelative.toString());
                         wasModified = true;
                     }
                     else if (!Arrays.equals(ArbitraryDataDiff.digestFromPath(afterPathAbsolute), ArbitraryDataDiff.digestFromPath(beforePathAbsolute))) {
                         // Check hashes as a last resort
-                        LOGGER.info("File contents were modified: {}", afterPathRelative.toString());
+                        LOGGER.trace("File contents were modified: {}", afterPathRelative.toString());
                         wasModified = true;
                     }
 
@@ -236,7 +236,7 @@ public class ArbitraryDataDiff {
                     }
 
                     if (!Files.exists(directoryPathAfter)) {
-                        LOGGER.info("Directory was removed: {}", directoryPathAfter.toString());
+                        LOGGER.trace("Directory was removed: {}", directoryPathAfter.toString());
                         diff.removedPaths.add(directoryPathBefore);
                         // TODO: we might need to mark directories differently to files
                     }

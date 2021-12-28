@@ -433,7 +433,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 		// If the directory is empty, we still need to delete its parent folder
 		if (contentsCount == 0 && tempDir.toFile().isDirectory() && tempDir.toFile().exists()) {
 			try {
-				LOGGER.info("Parent directory {} is empty, so deleting it", tempDir);
+				LOGGER.debug("Parent directory {} is empty, so deleting it", tempDir);
 				FilesystemUtils.safeDeleteDirectory(tempDir, false);
 			} catch(IOException e){
 				LOGGER.info("Unable to delete parent directory: {}", tempDir);
@@ -519,7 +519,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 			FilesystemUtils.safeDeleteDirectory(directory.toPath(), true);
 			return true;
 		} catch (IOException e) {
-			LOGGER.info("Unable to delete directory: {}", directory);
+			LOGGER.debug("Unable to delete directory: {}", directory);
 		}
 		return false;
 	}

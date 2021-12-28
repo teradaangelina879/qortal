@@ -146,7 +146,7 @@ public class ArbitraryDataRenderer {
                 try {
                     FileUtils.deleteDirectory(new File(unzippedPath));
                 } catch (IOException ioException) {
-                    LOGGER.info("Unable to delete directory: {}", unzippedPath, e);
+                    LOGGER.debug("Unable to delete directory: {}", unzippedPath, e);
                 }
             }
         } catch (IOException e) {

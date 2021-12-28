@@ -61,7 +61,7 @@ public class ArbitraryDataCombiner {
                 FileUtils.deleteDirectory(directory);
             } catch (IOException e) {
                 // This will eventually be cleaned up by a maintenance process, so log the error and continue
-                LOGGER.info("Unable to cleanup directory {}", directory.toString());
+                LOGGER.debug("Unable to cleanup directory {}", directory.toString());
             }
         }
 
@@ -74,7 +74,7 @@ public class ArbitraryDataCombiner {
                 // No need to log anything
             } catch (IOException e) {
                 // This will eventually be cleaned up by a maintenance process, so log the error and continue
-                LOGGER.info("Unable to cleanup parent directory {}", parentDirectory.toString());
+                LOGGER.debug("Unable to cleanup parent directory {}", parentDirectory.toString());
             }
         }
     }

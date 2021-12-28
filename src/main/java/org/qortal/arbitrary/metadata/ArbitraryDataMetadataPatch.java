@@ -123,7 +123,7 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataQortalMetadata {
         patch.put("modified", modifiedPaths);
 
         this.jsonString = patch.toString(2);
-        LOGGER.info("Patch metadata: {}", this.jsonString);
+        LOGGER.debug("Patch metadata: {}", this.jsonString);
     }
 
     public void setAddedPaths(List<Path> addedPaths) {

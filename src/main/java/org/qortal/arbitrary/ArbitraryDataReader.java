@@ -230,7 +230,7 @@ public class ArbitraryDataReader {
 
                     });
                 } catch (IOException e) {
-                    LOGGER.info("Unable to delete file or directory: {}", e.getMessage());
+                    LOGGER.debug("Unable to delete file or directory: {}", e.getMessage());
                 }
             }
         }
@@ -481,7 +481,7 @@ public class ArbitraryDataReader {
                     // No need to log anything
             } catch (IOException e) {
                 // This will eventually be cleaned up by a maintenance process, so log the error and continue
-                LOGGER.info("Unable to cleanup directories: {}", e.getMessage());
+                LOGGER.debug("Unable to cleanup directories: {}", e.getMessage());
             }
 
             // Finally, update filePath to point to uncompressedPath

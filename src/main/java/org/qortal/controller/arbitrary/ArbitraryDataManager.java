@@ -152,7 +152,7 @@ public class ArbitraryDataManager extends Thread {
 			// Any arbitrary transactions we want to fetch data for?
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, ARBITRARY_TX_TYPE, null, name, null, ConfirmationStatus.BOTH, limit, offset, true);
-				// LOGGER.info("Found {} arbitrary transactions at offset: {}, limit: {}", signatures.size(), offset, limit);
+				// LOGGER.trace("Found {} arbitrary transactions at offset: {}, limit: {}", signatures.size(), offset, limit);
 				if (signatures == null || signatures.isEmpty()) {
 					offset = 0;
 					break;
@@ -367,7 +367,7 @@ public class ArbitraryDataManager extends Thread {
 			return;
 		}
 
-		LOGGER.info("Received arbitrary signature list from peer {}", peer);
+		LOGGER.debug("Received arbitrary signature list from peer {}", peer);
 
 		ArbitrarySignaturesMessage arbitrarySignaturesMessage = (ArbitrarySignaturesMessage) message;
 		List<byte[]> signatures = arbitrarySignaturesMessage.getSignatures();
@@ -392,7 +392,7 @@ public class ArbitraryDataManager extends Thread {
 
 					if (existingEntry == null) {
 						// We haven't got a record of this mapping yet, so add it
-						LOGGER.info("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
+						LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
 						ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
 						repository.getArbitraryRepository().save(arbitraryPeerData);
 						repository.saveChanges();
@@ -405,7 +405,7 @@ public class ArbitraryDataManager extends Thread {
 				// If at least one signature in this batch was new to us, we should rebroadcast the message to the
 				// network in case some peers haven't received it yet
 				if (containsNewEntry) {
-					LOGGER.info("Rebroadcasting arbitrary signature list for peer {}", peerAddress);
+					LOGGER.debug("Rebroadcasting arbitrary signature list for peer {}", peerAddress);
 					Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : arbitrarySignaturesMessage);
 				} else {
 					// Don't rebroadcast as otherwise we could get into a loop
