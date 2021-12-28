@@ -1,5 +1,6 @@
 package org.qortal.test.arbitrary;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
@@ -7,38 +8,33 @@ import org.qortal.arbitrary.ArbitraryDataDigest;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.ArbitraryDataReader;
-import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.test.common.ArbitraryUtils;
-import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
-import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Random;
 
 import static org.junit.Assert.*;
 
 public class ArbitraryTransactionMetadataTests extends Common {
 
     @Before
-    public void beforeTest() throws DataException {
+    public void beforeTest() throws DataException, IllegalAccessException {
         Common.useDefaultSettings();
+
+        // Set difficulty to 1 to speed up the tests
+        FieldUtils.writeField(ArbitraryDataManager.getInstance(), "powDifficulty", 1, true);
     }
 
     @Test

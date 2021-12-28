@@ -1,6 +1,7 @@
 package org.qortal.test.arbitrary;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -8,6 +9,7 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataCleanupManager;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.RegisterNameTransactionData;
@@ -32,10 +34,13 @@ import static org.junit.Assert.*;
 public class ArbitraryDataStorageCapacityTests extends Common {
 
     @Before
-    public void beforeTest() throws DataException, InterruptedException {
+    public void beforeTest() throws DataException, InterruptedException, IllegalAccessException {
         Common.useDefaultSettings();
         this.deleteDataDirectories();
         this.deleteListsDirectory();
+
+        // Set difficulty to 1 to speed up the tests
+        FieldUtils.writeField(ArbitraryDataManager.getInstance(), "powDifficulty", 1, true);
     }
 
     @After
