@@ -600,7 +600,6 @@ public class ArbitraryDataFile {
             }
 
             try {
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 for (ArbitraryDataFileChunk chunk : this.chunks) {
                     byte[] chunkHash = chunk.digest();
                     if (chunkHash.length != 32) {
