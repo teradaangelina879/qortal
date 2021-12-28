@@ -32,6 +32,10 @@ public class ArbitraryDataManager extends Thread {
 	private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataManager.class);
 	private static final List<TransactionType> ARBITRARY_TX_TYPE = Arrays.asList(TransactionType.ARBITRARY);
 
+	/** Difficulty (leading zero bits) used in arbitrary data transactions
+	 * Set here so that it can be more easily reduced when running unit tests */
+	private int powDifficulty = 12; // Must not be final, as unit tests need to reduce this value
+
 	/** Request timeout when transferring arbitrary data */
 	public static final long ARBITRARY_REQUEST_TIMEOUT = 6 * 1000L; // ms
 
@@ -413,6 +417,11 @@ public class ArbitraryDataManager extends Thread {
 				LOGGER.error(String.format("Repository issue while processing arbitrary transaction signature list from peer %s", peer), e);
 			}
 		}
+	}
+
+
+	public int getPowDifficulty() {
+		return this.powDifficulty;
 	}
 
 }

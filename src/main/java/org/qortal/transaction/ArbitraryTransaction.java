@@ -36,7 +36,6 @@ public class ArbitraryTransaction extends Transaction {
 	public static final int MAX_METADATA_LENGTH = 32;
 	public static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	public static final int POW_DIFFICULTY = 12; // leading zero bits
 	public static final int MAX_IDENTIFIER_LENGTH = 64;
 
 	// Constructors
@@ -75,7 +74,8 @@ public class ArbitraryTransaction extends Transaction {
 		ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
 		// Calculate nonce
-		this.arbitraryTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY));
+		int difficulty = ArbitraryDataManager.getInstance().getPowDifficulty();
+		this.arbitraryTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
 	}
 
 	@Override
@@ -196,7 +196,8 @@ public class ArbitraryTransaction extends Transaction {
 			ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
 			// Check nonce
-			return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+			int difficulty = ArbitraryDataManager.getInstance().getPowDifficulty();
+			return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
 		}
 
 		return true;
