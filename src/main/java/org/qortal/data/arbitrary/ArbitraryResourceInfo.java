@@ -1,6 +1,5 @@
 package org.qortal.data.arbitrary;
 
-import org.qortal.api.model.ArbitraryResourceSummary.ArbitraryResourceStatus;
 import org.qortal.arbitrary.misc.Service;
 
 import javax.xml.bind.annotation.XmlAccessType;

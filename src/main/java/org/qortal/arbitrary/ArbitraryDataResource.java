@@ -1,11 +1,10 @@
 package org.qortal.arbitrary;
 
-import org.qortal.api.model.ArbitraryResourceSummary;
-import org.qortal.api.model.ArbitraryResourceSummary.ArbitraryResourceStatus;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
@@ -21,6 +20,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.qortal.data.arbitrary.ArbitraryResourceStatus.Status;
 
 public class ArbitraryDataResource {
 
@@ -45,50 +46,50 @@ public class ArbitraryDataResource {
         this.identifier = identifier;
     }
 
-    public ArbitraryResourceSummary getSummary() {
+    public ArbitraryResourceStatus getStatus() {
         if (resourceIdType != ResourceIdType.NAME) {
             // We only support statuses for resources with a name
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.UNSUPPORTED);
+            return new ArbitraryResourceStatus(Status.UNSUPPORTED);
         }
 
         // Check if the name is blocked
         if (ResourceListManager.getInstance()
                 .listContains("blockedNames", this.resourceId, false)) {
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.BLOCKED);
+            return new ArbitraryResourceStatus(Status.BLOCKED);
         }
 
         // Firstly check the cache to see if it's already built
         ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(
                 resourceId, resourceIdType, service, identifier);
         if (arbitraryDataReader.isCachedDataAvailable()) {
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.READY);
+            return new ArbitraryResourceStatus(Status.READY);
         }
 
         // Next check if there's a build in progress
         ArbitraryDataBuildQueueItem queueItem =
                 new ArbitraryDataBuildQueueItem(resourceId, resourceIdType, service, identifier);
         if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) {
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.BUILDING);
+            return new ArbitraryResourceStatus(Status.BUILDING);
         }
 
         // Check if a build has failed
         if (ArbitraryDataBuildManager.getInstance().isInFailedBuildsList(queueItem)) {
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.BUILD_FAILED);
+            return new ArbitraryResourceStatus(Status.BUILD_FAILED);
         }
 
         // Check if we have all data locally for this resource
         if (!this.allFilesDownloaded()) {
             if (this.isDownloading()) {
-                return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADING);
+                return new ArbitraryResourceStatus(Status.DOWNLOADING);
             }
             else if (this.isDataPotentiallyAvailable()) {
-                return new ArbitraryResourceSummary(ArbitraryResourceStatus.NOT_STARTED);
+                return new ArbitraryResourceStatus(Status.NOT_STARTED);
             }
-            return new ArbitraryResourceSummary(ArbitraryResourceStatus.MISSING_DATA);
+            return new ArbitraryResourceStatus(Status.MISSING_DATA);
         }
 
         // We have all data locally
-        return new ArbitraryResourceSummary(ArbitraryResourceStatus.DOWNLOADED);
+        return new ArbitraryResourceStatus(Status.DOWNLOADED);
     }
 
     public boolean delete() {

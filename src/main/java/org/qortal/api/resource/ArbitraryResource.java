@@ -29,7 +29,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.util.encoders.Base64;
 import org.qortal.api.*;
-import org.qortal.api.model.ArbitraryResourceSummary;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.*;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
@@ -40,6 +39,7 @@ import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -184,17 +184,17 @@ public class ArbitraryResource {
 			description = "If build is set to true, the resource will be built synchronously before returning the status.",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceSummary.class))
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceStatus.class))
 					)
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceSummary getDefaultResourceStatus(@PathParam("service") Service service,
+	public ArbitraryResourceStatus getDefaultResourceStatus(@PathParam("service") Service service,
 													  		 @PathParam("name") String name,
 															 @QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, null);
-		return this.getSummary(service, name, null, build);
+		return this.getStatus(service, name, null, build);
 	}
 
 	@GET
@@ -204,18 +204,18 @@ public class ArbitraryResource {
 			description = "If build is set to true, the resource will be built synchronously before returning the status.",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceSummary.class))
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceStatus.class))
 					)
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceSummary getResourceStatus(@PathParam("service") Service service,
+	public ArbitraryResourceStatus getResourceStatus(@PathParam("service") Service service,
 													  @PathParam("name") String name,
 													  @PathParam("identifier") String identifier,
 													  @QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier);
-		return this.getSummary(service, name, identifier, build);
+		return this.getStatus(service, name, identifier, build);
 	}
 
 
@@ -1001,7 +1001,7 @@ public class ArbitraryResource {
 	}
 
 
-	private ArbitraryResourceSummary getSummary(Service service, String name, String identifier, Boolean build) {
+	private ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build) {
 
 		// If "build=true" has been specified in the query string, build the resource before returning its status
 		if (build != null && build == true) {
@@ -1016,7 +1016,7 @@ public class ArbitraryResource {
 		}
 
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.getSummary();
+		return resource.getStatus();
 	}
 
 	private List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
@@ -1025,9 +1025,9 @@ public class ArbitraryResource {
 		for (ArbitraryResourceInfo resourceInfo : resources) {
 			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
 					resourceInfo.service, resourceInfo.identifier);
-			ArbitraryResourceSummary summary = resource.getSummary();
-			if (summary != null) {
-				resourceInfo.status = summary.status;
+			ArbitraryResourceStatus status = resource.getStatus();
+			if (status != null) {
+				resourceInfo.status = status;
 			}
 			updatedResources.add(resourceInfo);
 		}

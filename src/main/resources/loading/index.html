@@ -58,42 +58,42 @@
 
       console.log("status: " + json.status);
 
-      if (json.status == "UNSUPPORTED") {
-        textStatus = "Unsupported request";
+      if (json.id == "UNSUPPORTED") {
+        textStatus = response.description;
         document.getElementById("status").style.color = "red";
       }
-      else if (json.status == "BLOCKED") {
+      else if (json.id == "BLOCKED") {
         textStatus = name + " is blocked so content cannot be served";
         retryInterval = 5000;
         document.getElementById("status").style.color = "red";
       }
-      else if (json.status == "READY") {
-        textStatus = "Ready";
+      else if (json.id == "READY") {
+        textStatus = response.statusDescription;
         window.location.reload();
       }
-      else if (json.status == "BUILDING") {
-        textStatus = "Building...";
+      else if (json.id == "BUILDING") {
+        textStatus = response.statusDescription;
         retryInterval = 1000;
       }
-      else if (json.status == "BUILD_FAILED") {
-        textStatus = "Build failed. Please try again later.";
+      else if (json.id == "BUILD_FAILED") {
+        textStatus = response.statusDescription;
       }
-      else if (json.status == "NOT_STARTED") {
-        textStatus = "Waiting...";
+      else if (json.id == "NOT_STARTED") {
+        textStatus = response.statusDescription;
         retryInterval = 1000;
       }
       else if (json.status == "DOWNLOADING") {
-        textStatus = "Locating and downloading files...";
+        textStatus = response.statusDescription;
         retryInterval = 1000;
       }
-      else if (json.status == "MISSING_DATA") {
-        textStatus = "Unable to locate all files. Please try again later.";
+      else if (json.id == "MISSING_DATA") {
+        textStatus = response.statusDescription;
         retryInterval = 10000;
         document.getElementById("status").style.color = "red";
         document.getElementById("c").style.opacity = "0.5";
       }
-      else if (json.status == "DOWNLOADED") {
-        textStatus = "Files downloaded";
+      else if (json.id == "DOWNLOADED") {
+        textStatus = response.statusDescription;
       }
 
       document.getElementById("status").innerHTML = textStatus;

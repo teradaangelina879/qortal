@@ -3,13 +3,13 @@ package org.qortal.api.gateway.resource;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.qortal.api.Security;
-import org.qortal.api.model.ArbitraryResourceSummary;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.ArbitraryDataRenderer;
 import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.misc.Service;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -33,24 +33,24 @@ public class GatewayResource {
      */
     @GET
     @Path("/arbitrary/resource/status/{service}/{name}")
-    public ArbitraryResourceSummary getDefaultResourceStatus(@PathParam("service") Service service,
+    public ArbitraryResourceStatus getDefaultResourceStatus(@PathParam("service") Service service,
                                                              @PathParam("name") String name,
                                                              @QueryParam("build") Boolean build) {
 
-        return this.getSummary(service, name, null, build);
+        return this.getStatus(service, name, null, build);
     }
 
     @GET
     @Path("/arbitrary/resource/status/{service}/{name}/{identifier}")
-    public ArbitraryResourceSummary getResourceStatus(@PathParam("service") Service service,
+    public ArbitraryResourceStatus getResourceStatus(@PathParam("service") Service service,
                                                       @PathParam("name") String name,
                                                       @PathParam("identifier") String identifier,
                                                       @QueryParam("build") Boolean build) {
 
-        return this.getSummary(service, name, identifier, build);
+        return this.getStatus(service, name, identifier, build);
     }
 
-    private ArbitraryResourceSummary getSummary(Service service, String name, String identifier, Boolean build) {
+    private ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build) {
 
         // If "build=true" has been specified in the query string, build the resource before returning its status
         if (build != null && build == true) {
@@ -65,7 +65,7 @@ public class GatewayResource {
         }
 
         ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-        return resource.getSummary();
+        return resource.getStatus();
     }
 
 
