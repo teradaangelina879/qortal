@@ -129,9 +129,9 @@ public class ArbitraryDataFile {
                 }
                 // Or, if it's already in the data directory, we may need to move it
                 else if (!path.equals(arbitraryDataFile.getFilePath())) {
-                    // Wrong path, so relocate
+                    // Wrong path, so relocate (but don't cleanup, as the source folder may still be needed by the caller)
                     Path dest = arbitraryDataFile.getFilePath();
-                    FilesystemUtils.moveFile(path, dest, true);
+                    FilesystemUtils.moveFile(path, dest, false);
                 }
                 return arbitraryDataFile;
 
