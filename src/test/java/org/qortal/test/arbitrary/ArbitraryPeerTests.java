@@ -41,6 +41,7 @@ public class ArbitraryPeerTests extends Common {
             // Now add this mapping to the db
             Peer peer = new Peer(new PeerData(PeerAddress.fromString(peerAddress)));
             ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
+            assertTrue(arbitraryPeerData.isPeerAddressValid());
             repository.getArbitraryRepository().save(arbitraryPeerData);
 
             // We should now have an entry for this hash/peer combination
@@ -72,6 +73,7 @@ public class ArbitraryPeerTests extends Common {
             // Now add this mapping to the db
             Peer peer = new Peer(new PeerData(PeerAddress.fromString(peerAddress)));
             ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
+            assertTrue(arbitraryPeerData.isPeerAddressValid());
             repository.getArbitraryRepository().save(arbitraryPeerData);
 
             // We should now have an entry for this hash/peer combination
@@ -95,6 +97,7 @@ public class ArbitraryPeerTests extends Common {
             retrievedArbitraryPeerData.markAsAttempted();
             Thread.sleep(100);
             retrievedArbitraryPeerData.markAsRetrieved();
+            assertTrue(arbitraryPeerData.isPeerAddressValid());
             repository.getArbitraryRepository().save(retrievedArbitraryPeerData);
 
             // Retrieve data once again
@@ -135,6 +138,7 @@ public class ArbitraryPeerTests extends Common {
             // Now add this mapping to the db
             Peer peer = new Peer(new PeerData(PeerAddress.fromString(peerAddress1)));
             ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
+            assertTrue(arbitraryPeerData.isPeerAddressValid());
             repository.getArbitraryRepository().save(arbitraryPeerData);
 
             // We should now have an entry for this hash/peer combination

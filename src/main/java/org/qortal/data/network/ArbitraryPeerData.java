@@ -1,5 +1,6 @@
 package org.qortal.data.network;
 
+import com.google.common.net.InetAddresses;
 import org.qortal.crypto.Crypto;
 import org.qortal.network.Peer;
 import org.qortal.utils.NTP;
@@ -26,6 +27,28 @@ public class ArbitraryPeerData {
     public ArbitraryPeerData(byte[] signature, Peer peer) {
         this(Crypto.digest(signature), peer.getPeerData().getAddress().toString(),
                 0, 0, 0L, 0L);
+    }
+
+    public boolean isPeerAddressValid() {
+        // Validate the peer address to prevent arbitrary values being added to the db
+        String[] parts = this.peerAddress.split(":");
+        if (parts.length != 2) {
+            // Invalid format
+            return false;
+        }
+        String host = parts[0];
+        if (!InetAddresses.isInetAddress(host)) {
+            // Invalid host
+            return false;
+        }
+        int port = Integer.valueOf(parts[1]);
+        if (port <= 0 || port > 65535) {
+            // Invalid port
+            return false;
+        }
+
+        // Valid host/port combination
+        return true;
     }
 
     public void incrementSuccesses() {

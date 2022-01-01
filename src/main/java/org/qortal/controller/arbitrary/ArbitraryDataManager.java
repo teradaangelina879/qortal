@@ -396,7 +396,11 @@ public class ArbitraryDataManager extends Thread {
 						// We haven't got a record of this mapping yet, so add it
 						LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
 						ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
-						repository.getArbitraryRepository().save(arbitraryPeerData);
+						repository.discardChanges();
+						if (!arbitraryPeerData.isPeerAddressValid()) {
+							return;
+						}
+ 						repository.getArbitraryRepository().save(arbitraryPeerData);
 						repository.saveChanges();
 
 						// Remember that this data is new, so that it can be rebroadcast later

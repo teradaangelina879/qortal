@@ -137,6 +137,9 @@ public class ArbitraryDataFileManager {
             LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
             ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
             repository.discardChanges();
+            if (!arbitraryPeerData.isPeerAddressValid()) {
+                return false;
+            }
             repository.getArbitraryRepository().save(arbitraryPeerData);
             repository.saveChanges();
 
