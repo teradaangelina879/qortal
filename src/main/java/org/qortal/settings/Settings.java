@@ -289,6 +289,10 @@ public class Settings {
 	/** Whether to allow data outside of the storage policy to be relayed between other peers */
 	private boolean relayModeEnabled = false;
 
+	/** Whether to remember which data was originally uploaded using this node.
+	 * This prevents auto deletion of own files when storage limits are reached. */
+	private boolean originalCopyIndicatorFileEnabled = true;
+
 	/** Whether to make connections directly with peers that have the required data */
 	private boolean directDataRetrievalEnabled = true;
 
@@ -859,6 +863,10 @@ public class Settings {
 
 	public boolean isDirectDataRetrievalEnabled() {
 		return this.directDataRetrievalEnabled;
+	}
+
+	public boolean isOriginalCopyIndicatorFileEnabled() {
+		return this.originalCopyIndicatorFileEnabled;
 	}
 
 	public Long getBuiltDataExpiryInterval() {

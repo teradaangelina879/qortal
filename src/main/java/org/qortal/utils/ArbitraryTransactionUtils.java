@@ -9,10 +9,13 @@ import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.settings.Settings;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 
@@ -326,6 +329,19 @@ public class ArbitraryTransactionUtils {
 
                 // Delete empty parent directories
                 FilesystemUtils.safeDeleteEmptyParentDirectories(oldPath);
+            }
+
+            // If at least one file was relocated, we can assume that the data from this transaction
+            // originated from this node
+            if (filesRelocatedCount > 0) {
+                if (Settings.getInstance().isOriginalCopyIndicatorFileEnabled()) {
+                    // Create a file in the same directory, to indicate that this is the original copy
+                    LOGGER.info("Creating original copy indicator file...");
+                    ArbitraryDataFile completeFile = ArbitraryDataFile.fromHash(arbitraryDataFile.getHash(), signature);
+                    Path parentDirectory = completeFile.getFilePath().getParent();
+                    File file = Paths.get(parentDirectory.toString(), ".original").toFile();
+                    file.createNewFile();
+                }
             }
         }
         catch (DataException | IOException e) {

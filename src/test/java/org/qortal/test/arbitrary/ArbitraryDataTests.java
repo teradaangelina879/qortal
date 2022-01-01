@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.arbitrary.ArbitraryDataDigest;
+import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.exception.MissingDataException;
@@ -17,6 +18,7 @@ import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.test.common.ArbitraryUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
@@ -364,6 +366,61 @@ public class ArbitraryDataTests extends Common {
             ArbitraryDataDigest builtDirectoryDigest = new ArbitraryDataDigest(arbitraryDataReader1.getFilePath());
             builtDirectoryDigest.compute();
             assertFalse(Objects.equals(path1DirectoryDigest.getHash58(), builtDirectoryDigest.getHash58()));
+        }
+    }
+
+    @Test
+    public void testOriginalCopyIndicatorFile() throws DataException, IOException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = "test1"; // Blank, not null
+            Service service = Service.DOCUMENT; // Can be anything for this test
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = Paths.get("src/test/resources/arbitrary/demo1/lorem1.txt");
+            ArbitraryDataDigest path1DirectoryDigest = new ArbitraryDataDigest(path1.getParent());
+            path1DirectoryDigest.compute();
+            ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+
+            // Ensure that an ".original" file exists
+            Path parentPath = arbitraryDataFile.getFilePath().getParent();
+            Path originalCopyIndicatorFile = Paths.get(parentPath.toString(), ".original");
+            assertTrue(Files.exists(originalCopyIndicatorFile));
+        }
+    }
+
+    @Test
+    public void testOriginalCopyIndicatorFileDisabled() throws DataException, IOException, IllegalAccessException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = "test1"; // Blank, not null
+            Service service = Service.DOCUMENT; // Can be anything for this test
+
+            // Set originalCopyIndicatorFileEnabled to false
+            FieldUtils.writeField(Settings.getInstance(), "originalCopyIndicatorFileEnabled", false, true);
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = Paths.get("src/test/resources/arbitrary/demo1/lorem1.txt");
+            ArbitraryDataDigest path1DirectoryDigest = new ArbitraryDataDigest(path1.getParent());
+            path1DirectoryDigest.compute();
+            ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+
+            // Ensure that an ".original" file exists
+            Path parentPath = arbitraryDataFile.getFilePath().getParent();
+            Path originalCopyIndicatorFile = Paths.get(parentPath.toString(), ".original");
+            assertFalse(Files.exists(originalCopyIndicatorFile));
         }
     }
 

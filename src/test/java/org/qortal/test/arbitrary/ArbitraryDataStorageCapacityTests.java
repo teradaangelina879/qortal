@@ -139,12 +139,15 @@ public class ArbitraryDataStorageCapacityTests extends Common {
     }
 
     @Test
-    public void testDeleteRandomFilesForName() throws DataException, IOException, InterruptedException {
+    public void testDeleteRandomFilesForName() throws DataException, IOException, InterruptedException, IllegalAccessException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             String identifier = null; // Not used for this test
             Service service = Service.ARBITRARY_DATA;
             int chunkSize = 100;
             int dataLength = 900; // Actual data length will be longer due to encryption
+
+            // Set originalCopyIndicatorFileEnabled to false, otherwise nothing will be deleted as it all originates from this node
+            FieldUtils.writeField(Settings.getInstance(), "originalCopyIndicatorFileEnabled", false, true);
 
             // Alice hosts some data (with 10 chunks)
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");

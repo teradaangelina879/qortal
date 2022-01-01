@@ -18,6 +18,7 @@ import org.qortal.utils.NTP;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
@@ -358,6 +359,16 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 			// If it's a file, we might be able to delete it
 			if (randomItem.isFile()) {
+
+				// If the parent directory contains an ".original" file, don't delete anything
+				// This indicates that the content was originally updated by this node and so
+				// could be the only copy that exists.
+				Path originalCopyIndicatorPath = Paths.get(randomItem.getParent(), ".original");
+				if (Files.exists(originalCopyIndicatorPath)) {
+					// This is an original seed copy and so shouldn't be deleted
+					return false;
+				}
+
 				if (name != null) {
 					// A name has been specified, so we need to make sure this file relates to
 					// the name we want to delete. The signature should be the name of parent directory.
