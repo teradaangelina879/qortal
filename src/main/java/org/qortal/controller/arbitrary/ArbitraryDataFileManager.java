@@ -253,7 +253,23 @@ public class ArbitraryDataFileManager {
             int index = new SecureRandom().nextInt(peers.size());
             ArbitraryPeerData arbitraryPeerData = peers.get(index);
             String peerAddressString = arbitraryPeerData.getPeerAddress();
-            return Network.getInstance().requestDataFromPeer(peerAddressString, signature);
+            boolean success = Network.getInstance().requestDataFromPeer(peerAddressString, signature);
+
+            // If using a non-standard port, try a second connection with the default listen port, since almost all nodes use that
+            // This is a workaround to account for any ephemeral ports that may have made it into the dataset
+            boolean success2 = false;
+            String[] parts = peerAddressString.split(":");
+            if (parts.length > 1) {
+                String host = parts[0];
+                int port = Integer.parseInt(parts[1]);
+                int defaultPort = Settings.getInstance().getDefaultListenPort();
+                if (port != defaultPort) {
+                    String newPeerAddressString = String.format("%s:%d", host, defaultPort);
+                    success2 = Network.getInstance().requestDataFromPeer(newPeerAddressString, signature);
+                }
+            }
+
+            return success || success2;
 
         } catch (DataException e) {
             LOGGER.debug("Unable to fetch peer list from repository");
