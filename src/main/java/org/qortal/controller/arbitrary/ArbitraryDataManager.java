@@ -386,9 +386,11 @@ public class ArbitraryDataManager extends Thread {
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				for (byte[] signature : signatures) {
 
-					// Check if a record already exists for this hash/peer combination
+					// Check if a record already exists for this hash/host combination
+					// The port is not checked here - only the host/ip - in order to avoid duplicates
+					// from filling up the db due to dynamic/ephemeral ports
 					ArbitraryPeerData existingEntry = repository.getArbitraryRepository()
-							.getArbitraryPeerDataForSignatureAndPeer(signature, peer.getPeerData().getAddress().toString());
+							.getArbitraryPeerDataForSignatureAndHost(signature, peer.getPeerData().getAddress().getHost());
 
 					if (existingEntry == null) {
 						// We haven't got a record of this mapping yet, so add it

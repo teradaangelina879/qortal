@@ -33,6 +33,8 @@ public interface ArbitraryRepository {
 
 	public ArbitraryPeerData getArbitraryPeerDataForSignatureAndPeer(byte[] signature, String peerAddress) throws DataException;
 
+	public ArbitraryPeerData getArbitraryPeerDataForSignatureAndHost(byte[] signature, String host) throws DataException;
+
 	public void save(ArbitraryPeerData arbitraryPeerData) throws DataException;
 
 	public void delete(ArbitraryPeerData arbitraryPeerData) throws DataException;

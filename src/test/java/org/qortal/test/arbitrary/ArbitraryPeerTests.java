@@ -29,13 +29,14 @@ public class ArbitraryPeerTests extends Common {
         try (final Repository repository = RepositoryManager.getRepository()) {
 
             String peerAddress = "127.0.0.1:12392";
+            String host = peerAddress.split(":")[0];
 
             // Create random bytes to represent a signature
             byte[] signature = new byte[64];
             new Random().nextBytes(signature);
 
             // Make sure we don't have an entry for this hash/peer combination
-            assertNull(repository.getArbitraryRepository().getArbitraryPeerDataForSignatureAndPeer(signature, peerAddress));
+            assertNull(repository.getArbitraryRepository().getArbitraryPeerDataForSignatureAndHost(signature, host));
 
             // Now add this mapping to the db
             Peer peer = new Peer(new PeerData(PeerAddress.fromString(peerAddress)));
@@ -44,8 +45,8 @@ public class ArbitraryPeerTests extends Common {
 
             // We should now have an entry for this hash/peer combination
             ArbitraryPeerData retrievedArbitraryPeerData = repository.getArbitraryRepository()
-                    .getArbitraryPeerDataForSignatureAndPeer(signature, peerAddress);
-            assertNotNull(arbitraryPeerData);
+                    .getArbitraryPeerDataForSignatureAndHost(signature, host);
+            assertNotNull(retrievedArbitraryPeerData);
 
             // .. and its data should match what was saved
             assertArrayEquals(Crypto.digest(signature), retrievedArbitraryPeerData.getHash());
@@ -59,13 +60,14 @@ public class ArbitraryPeerTests extends Common {
         try (final Repository repository = RepositoryManager.getRepository()) {
 
             String peerAddress = "127.0.0.1:12392";
+            String host = peerAddress.split(":")[0];
 
             // Create random bytes to represent a signature
             byte[] signature = new byte[64];
             new Random().nextBytes(signature);
 
             // Make sure we don't have an entry for this hash/peer combination
-            assertNull(repository.getArbitraryRepository().getArbitraryPeerDataForSignatureAndPeer(signature, peerAddress));
+            assertNull(repository.getArbitraryRepository().getArbitraryPeerDataForSignatureAndHost(signature, host));
 
             // Now add this mapping to the db
             Peer peer = new Peer(new PeerData(PeerAddress.fromString(peerAddress)));
@@ -74,8 +76,8 @@ public class ArbitraryPeerTests extends Common {
 
             // We should now have an entry for this hash/peer combination
             ArbitraryPeerData retrievedArbitraryPeerData = repository.getArbitraryRepository()
-                    .getArbitraryPeerDataForSignatureAndPeer(signature, peerAddress);
-            assertNotNull(arbitraryPeerData);
+                    .getArbitraryPeerDataForSignatureAndHost(signature, host);
+            assertNotNull(retrievedArbitraryPeerData);
 
             // .. and its data should match what was saved
             assertArrayEquals(Crypto.digest(signature), retrievedArbitraryPeerData.getHash());
@@ -97,7 +99,7 @@ public class ArbitraryPeerTests extends Common {
 
             // Retrieve data once again
             ArbitraryPeerData updatedArbitraryPeerData = repository.getArbitraryRepository()
-                    .getArbitraryPeerDataForSignatureAndPeer(signature, peerAddress);
+                    .getArbitraryPeerDataForSignatureAndHost(signature, host);
             assertNotNull(updatedArbitraryPeerData);
 
             // Check the values
@@ -110,6 +112,40 @@ public class ArbitraryPeerTests extends Common {
             assertTrue(updatedArbitraryPeerData.getLastRetrieved() > updatedArbitraryPeerData.getLastAttempted());
             assertTrue(NTP.getTime() - updatedArbitraryPeerData.getLastRetrieved() < 1000);
             assertTrue(NTP.getTime() - updatedArbitraryPeerData.getLastAttempted() < 1000);
+        }
+    }
+
+    @Test
+    public void testDuplicatePeerHost() throws DataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+
+            String peerAddress1 = "127.0.0.1:12392";
+            String peerAddress2 = "127.0.0.1:62392";
+            String host1 = peerAddress1.split(":")[0];
+            String host2 = peerAddress2.split(":")[0];
+
+            // Create random bytes to represent a signature
+            byte[] signature = new byte[64];
+            new Random().nextBytes(signature);
+
+            // Make sure we don't have an entry for these hash/peer combinations
+            assertNull(repository.getArbitraryRepository().getArbitraryPeerDataForSignatureAndHost(signature, host1));
+            assertNull(repository.getArbitraryRepository().getArbitraryPeerDataForSignatureAndHost(signature, host2));
+
+            // Now add this mapping to the db
+            Peer peer = new Peer(new PeerData(PeerAddress.fromString(peerAddress1)));
+            ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
+            repository.getArbitraryRepository().save(arbitraryPeerData);
+
+            // We should now have an entry for this hash/peer combination
+            ArbitraryPeerData retrievedArbitraryPeerData = repository.getArbitraryRepository()
+                    .getArbitraryPeerDataForSignatureAndHost(signature, host1);
+            assertNotNull(retrievedArbitraryPeerData);
+
+            // And we should also have an entry for the similar peerAddress string with a matching host
+            ArbitraryPeerData retrievedArbitraryPeerData2 = repository.getArbitraryRepository()
+                    .getArbitraryPeerDataForSignatureAndHost(signature, host2);
+            assertNotNull(retrievedArbitraryPeerData2);
         }
     }
 }

@@ -498,6 +498,37 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		}
 	}
 
+	public ArbitraryPeerData getArbitraryPeerDataForSignatureAndHost(byte[] signature, String host) throws DataException {
+		// Hash the signature so it fits within 32 bytes
+		byte[] hashedSignature = Crypto.digest(signature);
+
+		// Create a host wildcard string which allows any port
+		String hostWildcard = String.format("%s:%%", host);
+
+		String sql = "SELECT hash, peer_address, successes, failures, last_attempted, last_retrieved " +
+				"FROM ArbitraryPeers " +
+				"WHERE hash = ? AND peer_address LIKE ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, hashedSignature, hostWildcard)) {
+			if (resultSet == null)
+				return null;
+
+			byte[] hash = resultSet.getBytes(1);
+			String peerAddr = resultSet.getString(2);
+			Integer successes = resultSet.getInt(3);
+			Integer failures = resultSet.getInt(4);
+			Long lastAttempted = resultSet.getLong(5);
+			Long lastRetrieved = resultSet.getLong(6);
+
+			ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(hash, peerAddr, successes, failures,
+					lastAttempted, lastRetrieved);
+
+			return arbitraryPeerData;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch arbitrary peer data from repository", e);
+		}
+	}
+
 	@Override
 	public void save(ArbitraryPeerData arbitraryPeerData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ArbitraryPeers");
