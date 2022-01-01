@@ -424,4 +424,48 @@ public class ArbitraryDataTests extends Common {
         }
     }
 
+    @Test
+    public void testNameWithSpace() throws DataException, IOException, MissingDataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "Test Name";
+            String identifier = null; // Not used for this test
+            Service service = Service.ARBITRARY_DATA;
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = Paths.get("src/test/resources/arbitrary/demo1");
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+
+            // Create PATCH transaction
+            Path path2 = Paths.get("src/test/resources/arbitrary/demo2");
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path2, name, identifier, Method.PATCH, service, alice);
+
+            // Now build the latest data state for this name
+            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
+            arbitraryDataReader.loadSynchronously(true);
+            Path finalPath = arbitraryDataReader.getFilePath();
+
+            // Ensure it exists
+            assertTrue(Files.exists(finalPath));
+
+            // Its directory hash should match the hash of demo2
+            ArbitraryDataDigest path2Digest = new ArbitraryDataDigest(path2);
+            path2Digest.compute();
+            ArbitraryDataDigest finalPathDigest = new ArbitraryDataDigest(finalPath);
+            finalPathDigest.compute();
+            assertEquals(path2Digest.getHash58(), finalPathDigest.getHash58());
+
+            // .. and its directory hash should also match the one included in the metadata
+            ArbitraryDataMetadataPatch patchMetadata = new ArbitraryDataMetadataPatch(finalPath);
+            patchMetadata.read();
+            assertArrayEquals(patchMetadata.getCurrentHash(), path2Digest.getHash());
+
+        }
+    }
+
 }
