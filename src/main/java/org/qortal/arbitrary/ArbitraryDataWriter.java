@@ -273,7 +273,7 @@ public class ArbitraryDataWriter {
 
     private void validate() throws IOException, DataException {
         if (this.arbitraryDataFile == null) {
-            throw new IOException("No file available when validating");
+            throw new DataException("No file available when validating");
         }
         this.arbitraryDataFile.setSecret(this.aesKey.getEncoded());
 
@@ -297,7 +297,7 @@ public class ArbitraryDataWriter {
         if (this.arbitraryDataFile.chunkCount() > 1) {
             ArbitraryDataFile metadataFile = this.arbitraryDataFile.getMetadataFile();
             if (metadataFile == null || !metadataFile.exists()) {
-                throw new IOException("No metadata file available, but there are multiple chunks");
+                throw new DataException("No metadata file available, but there are multiple chunks");
             }
             // Read the file
             ArbitraryDataTransactionMetadata metadata = new ArbitraryDataTransactionMetadata(metadataFile.getFilePath());
@@ -305,7 +305,7 @@ public class ArbitraryDataWriter {
             // Check all chunks exist
             for (byte[] chunk : this.arbitraryDataFile.chunkHashList()) {
                 if (!metadata.containsChunk(chunk)) {
-                    throw new IOException(String.format("Missing chunk %s in metadata file", Base58.encode(chunk)));
+                    throw new DataException(String.format("Missing chunk %s in metadata file", Base58.encode(chunk)));
                 }
             }
         }
