@@ -29,6 +29,10 @@ public class ArbitraryPeerData {
                 0, 0, 0L, 0L);
     }
 
+    public ArbitraryPeerData(byte[] signature, String peerAddress) {
+        this(Crypto.digest(signature), peerAddress, 0, 0, 0L, 0L);
+    }
+
     public boolean isPeerAddressValid() {
         // Validate the peer address to prevent arbitrary values being added to the db
         String[] parts = this.peerAddress.split(":");
