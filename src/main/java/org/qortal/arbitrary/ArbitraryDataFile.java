@@ -694,6 +694,10 @@ public class ArbitraryDataFile {
         return this.secret;
     }
 
+    public byte[] getSignature() {
+        return this.signature;
+    }
+
     public void setMetadataFile(ArbitraryDataFile metadataFile) {
         this.metadataFile = metadataFile;
     }
