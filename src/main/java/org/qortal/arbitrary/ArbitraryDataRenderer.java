@@ -119,7 +119,7 @@ public class ArbitraryDataRenderer {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
                 HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data);
-                htmlParser.replaceRelativeLinks(filename);
+                htmlParser.setDocumentBaseUrl();
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(htmlParser.getData().length);
                 response.getOutputStream().write(htmlParser.getData());
