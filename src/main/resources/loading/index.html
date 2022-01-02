@@ -54,46 +54,46 @@
           'Content-Type': 'application/json'
         }
       });
-      const json = await response.json();
+      const status = await response.json();
 
-      console.log("status: " + json.status);
+      console.log("status: " + status.id);
 
-      if (json.id == "UNSUPPORTED") {
-        textStatus = response.description;
+      if (status.id == "UNSUPPORTED") {
+        textStatus = status.description;
         document.getElementById("status").style.color = "red";
       }
-      else if (json.id == "BLOCKED") {
+      else if (status.id == "BLOCKED") {
         textStatus = name + " is blocked so content cannot be served";
         retryInterval = 5000;
         document.getElementById("status").style.color = "red";
       }
-      else if (json.id == "READY") {
-        textStatus = response.statusDescription;
+      else if (status.id == "READY") {
+        textStatus = status.description;
         window.location.reload();
       }
-      else if (json.id == "BUILDING") {
-        textStatus = response.statusDescription;
+      else if (status.id == "BUILDING") {
+        textStatus = status.description;
         retryInterval = 1000;
       }
-      else if (json.id == "BUILD_FAILED") {
-        textStatus = response.statusDescription;
+      else if (status.id == "BUILD_FAILED") {
+        textStatus = status.description;
       }
-      else if (json.id == "NOT_STARTED") {
-        textStatus = response.statusDescription;
+      else if (status.id == "NOT_STARTED") {
+        textStatus = status.description;
         retryInterval = 1000;
       }
-      else if (json.status == "DOWNLOADING") {
-        textStatus = response.statusDescription;
+      else if (status.status == "DOWNLOADING") {
+        textStatus = status.description;
         retryInterval = 1000;
       }
-      else if (json.id == "MISSING_DATA") {
-        textStatus = response.statusDescription;
+      else if (status.id == "MISSING_DATA") {
+        textStatus = status.description;
         retryInterval = 10000;
         document.getElementById("status").style.color = "red";
         document.getElementById("c").style.opacity = "0.5";
       }
-      else if (json.id == "DOWNLOADED") {
-        textStatus = response.statusDescription;
+      else if (status.id == "DOWNLOADED") {
+        textStatus = status.description;
       }
 
       document.getElementById("status").innerHTML = textStatus;
