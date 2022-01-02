@@ -69,6 +69,11 @@ public class GatewayResource {
     }
 
 
+    @GET
+    public HttpServletResponse getRoot() {
+        return ArbitraryDataRenderer.getResponse(response, 200, "");
+    }
+
 
     @GET
     @Path("{name}/{path:.*}")
