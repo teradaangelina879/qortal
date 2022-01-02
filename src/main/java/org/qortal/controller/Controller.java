@@ -366,6 +366,8 @@ public class Controller extends Thread {
 	// Entry point
 
 	public static void main(String[] args) {
+		LoggingUtils.fixLegacyLog4j2Properties();
+
 		LOGGER.info("Starting up...");
 
 		// Potential GUI startup with splash screen, etc.
