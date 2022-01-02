@@ -478,6 +478,7 @@ public class Controller extends Thread {
 		ArbitraryDataBuildManager.getInstance().start();
 		ArbitraryDataCleanupManager.getInstance().start();
 		ArbitraryDataStorageManager.getInstance().start();
+		ArbitraryDataRenderManager.getInstance().start();
 
 		// Auto-update service?
 		if (Settings.getInstance().isAutoUpdateEnabled()) {
@@ -1069,6 +1070,7 @@ public class Controller extends Thread {
 				ArbitraryDataBuildManager.getInstance().shutdown();
 				ArbitraryDataCleanupManager.getInstance().shutdown();
 				ArbitraryDataStorageManager.getInstance().shutdown();
+				ArbitraryDataRenderManager.getInstance().shutdown();
 
 				if (blockMinter != null) {
 					LOGGER.info("Shutting down block minter");
