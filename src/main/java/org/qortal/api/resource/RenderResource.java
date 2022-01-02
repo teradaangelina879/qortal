@@ -96,6 +96,16 @@ public class RenderResource {
     }
 
     @POST
+    @Path("/authorize/{resourceId}")
+    @SecurityRequirement(name = "apiKey")
+    public boolean authorizeResource(@PathParam("resourceId") String resourceId) {
+        Security.checkApiCallAllowed(request);
+        ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, null, null);
+        ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
+        return true;
+    }
+
+    @POST
     @Path("authorize/{service}/{resourceId}")
     @SecurityRequirement(name = "apiKey")
     public boolean authorizeResource(@PathParam("service") Service service,

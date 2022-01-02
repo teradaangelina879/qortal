@@ -1,8 +1,6 @@
 package org.qortal.controller.arbitrary;
 
-import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataResource;
-import org.qortal.arbitrary.misc.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,9 +29,16 @@ public class ArbitraryDataRenderManager {
     }
 
     public boolean isAuthorized(ArbitraryDataResource resource) {
+        ArbitraryDataResource broadResource = new ArbitraryDataResource(resource.getResourceId(), null, null, null);
+
         for (ArbitraryDataResource authorizedResource : this.authorizedResources) {
             if (authorizedResource != null && resource != null) {
-                if (Objects.equals(authorizedResource.toString(), resource.toString())) {
+                // Check for exact match
+                if (Objects.equals(authorizedResource.getUniqueKey(), resource.getUniqueKey())) {
+                    return true;
+                }
+                // Check for a broad authorization (which applies to all services and identifiers under an authorized name)
+                if (Objects.equals(authorizedResource.getUniqueKey(), broadResource.getUniqueKey())) {
                     return true;
                 }
             }
