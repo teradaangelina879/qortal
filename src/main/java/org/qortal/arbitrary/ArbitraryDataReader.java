@@ -157,6 +157,10 @@ public class ArbitraryDataReader {
             this.uncompress();
             this.validate();
 
+        } catch (DataException e) {
+            this.deleteWorkingDirectory();
+            throw new DataException(e.getMessage());
+
         } finally {
             this.postExecute();
         }
@@ -185,6 +189,15 @@ public class ArbitraryDataReader {
         } catch (IOException e) {
             throw new DataException("Unable to create temp directory");
         }
+    }
+
+    /**
+     * Working directory should only be deleted on failure, since it is currently used to
+     * serve a cached version of the resource for subsequent requests.
+     * @throws IOException
+     */
+    private void deleteWorkingDirectory() throws IOException {
+        FilesystemUtils.safeDeleteDirectory(this.workingPath, true);
     }
 
     private void createUncompressedDirectory() throws DataException {
