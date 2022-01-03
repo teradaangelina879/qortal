@@ -2,6 +2,7 @@ package org.qortal.controller.arbitrary;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -355,6 +356,24 @@ public class ArbitraryDataManager extends Thread {
 			} catch (IOException e) {
 				LOGGER.info("Unable to delete cache for resource {}: {}", resource, e.getMessage());
 			}
+		}
+	}
+
+
+	// Broadcast list of hosted signatures
+
+	public void broadcastHostedSignatureList() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository);
+			List<byte[]> hostedSignatures = hostedTransactions.stream().map(ArbitraryTransactionData::getSignature).collect(Collectors.toList());
+
+			// Broadcast the list, using null to represent our peer address
+			LOGGER.info("Broadcasting list of hosted signatures...");
+			Message arbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, hostedSignatures);
+			Network.getInstance().broadcast(broadcastPeer -> arbitrarySignatureMessage);
+
+		} catch (DataException e) {
+			LOGGER.error("Repository issue when fetching arbitrary transaction data for broadcast", e);
 		}
 	}
 
