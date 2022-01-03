@@ -7,7 +7,6 @@ import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
 import org.qortal.controller.arbitrary.ArbitraryDataFileManager;
-import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.network.PeerData;
@@ -116,6 +115,9 @@ public class Network {
     private volatile long nextBroadcastTimestamp = 0L; // ms - try first broadcast once NTP syncs
 
     private final Lock mergePeersLock = new ReentrantLock();
+
+    private List<String> ourExternalIpAddressHistory = new ArrayList<>();
+    private String ourExternalIpAddress = null;
 
     // Constructors
 
@@ -1101,6 +1103,65 @@ public class Network {
     public Message buildGetUnconfirmedTransactionsMessage(Peer peer) {
         return new GetUnconfirmedTransactionsMessage();
     }
+
+
+    // External IP / peerAddress tracking
+
+    public void ourPeerAddressUpdated(String peerAddress) {
+        if (peerAddress == null) {
+            return;
+        }
+
+        String[] parts = peerAddress.split(":");
+        if (parts.length != 2) {
+            return;
+        }
+        String host = parts[0];
+        try {
+            InetAddress addr = InetAddress.getByName(host);
+            if (addr.isAnyLocalAddress() || addr.isSiteLocalAddress()) {
+                // Ignore local addresses
+                return;
+            }
+        } catch (UnknownHostException e) {
+            return;
+        }
+
+        this.ourExternalIpAddressHistory.add(host);
+
+        // Limit to 10 entries
+        while (this.ourExternalIpAddressHistory.size() > 10) {
+            this.ourExternalIpAddressHistory.remove(0);
+        }
+
+        // If we've had 3 consecutive matching addresses, and they're different from
+        // our stored IP address value, treat it as updated.
+
+        int size = this.ourExternalIpAddressHistory.size();
+        if (size < 3) {
+            // Need at least 3 readings
+            return;
+        }
+
+        String ip1 = this.ourExternalIpAddressHistory.get(size - 1);
+        String ip2 = this.ourExternalIpAddressHistory.get(size - 2);
+        String ip3 = this.ourExternalIpAddressHistory.get(size - 3);
+
+        if (!Objects.equals(ip1, this.ourExternalIpAddress)) {
+            // Latest reading doesn't match our known value
+            if (Objects.equals(ip1, ip2) && Objects.equals(ip1, ip3)) {
+                // Last 3 readings were the same - i.e. more than one peer agreed on the new IP address
+                this.ourExternalIpAddress = ip1;
+                this.onExternalIpUpdate(ip1);
+            }
+        }
+    }
+
+    public void onExternalIpUpdate(String ipAddress) {
+        LOGGER.info("External IP address updated to {}", ipAddress);
+
+    }
+
 
     // Peer-management calls
 

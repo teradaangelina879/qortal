@@ -48,6 +48,9 @@ public enum Handshake {
 				return null;
 			}
 
+			// Make a note of the senderPeerAddress, as this should be our public IP
+			Network.getInstance().ourPeerAddressUpdated(helloMessage.getSenderPeerAddress());
+
 			String versionString = helloMessage.getVersionString();
 
 			Matcher matcher = peer.VERSION_PATTERN.matcher(versionString);
@@ -87,8 +90,9 @@ public enum Handshake {
 		public void action(Peer peer) {
 			String versionString = Controller.getInstance().getVersionString();
 			long timestamp = NTP.getTime();
+			String senderPeerAddress = peer.getPeerData().getAddress().toString();
 
-			Message helloMessage = new HelloMessage(timestamp, versionString);
+			Message helloMessage = new HelloMessage(timestamp, versionString, senderPeerAddress);
 			if (!peer.sendMessage(helloMessage))
 				peer.disconnect("failed to send HELLO");
 		}
