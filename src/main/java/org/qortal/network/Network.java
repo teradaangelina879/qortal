@@ -7,6 +7,7 @@ import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
 import org.qortal.controller.arbitrary.ArbitraryDataFileManager;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.network.PeerData;
