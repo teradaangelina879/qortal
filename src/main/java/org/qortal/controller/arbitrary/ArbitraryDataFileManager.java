@@ -301,6 +301,19 @@ public class ArbitraryDataFileManager {
                 }
             }
 
+            // Keep track of the success or failure
+            arbitraryPeerData.markAsAttempted();
+            if (success) {
+                arbitraryPeerData.markAsRetrieved();
+                arbitraryPeerData.incrementSuccesses();
+            }
+            else {
+                arbitraryPeerData.incrementFailures();
+            }
+            repository.discardChanges();
+            repository.getArbitraryRepository().save(arbitraryPeerData);
+            repository.saveChanges();
+
             return success;
 
         } catch (DataException e) {
