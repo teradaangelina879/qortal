@@ -5,6 +5,9 @@ import org.qortal.crypto.Crypto;
 import org.qortal.network.Peer;
 import org.qortal.utils.NTP;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
 public class ArbitraryPeerData {
 
     private final byte[] hash;
@@ -48,6 +51,17 @@ public class ArbitraryPeerData {
         int port = Integer.valueOf(parts[1]);
         if (port <= 0 || port > 65535) {
             // Invalid port
+            return false;
+        }
+
+        // Make sure that it's not a local address
+        try {
+            InetAddress addr = InetAddress.getByName(host);
+            if (addr.isLoopbackAddress() || addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
+                // Ignore local addresses
+                return false;
+            }
+        } catch (UnknownHostException e) {
             return false;
         }
 
