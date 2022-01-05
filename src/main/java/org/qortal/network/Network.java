@@ -283,10 +283,8 @@ public class Network {
                         LOGGER.info("Making connection to peer {} to request files for signature {}...", peerAddressString, Base58.encode(signature));
                         Peer peer = new Peer(peerData);
                         peer.addPendingSignatureRequest(signature);
-                        this.connectPeer(peer);
-                        // If connection is successful, data will automatically be requested
-                        // TODO: maybe we could block here (with a timeout) and return once we know the result of the file request
-                        return true;
+                        return this.connectPeer(peer);
+                        // If connection (and handshake) is successful, data will automatically be requested
                     }
                     else if (!isHandshaked) {
                         LOGGER.info("Peer {} is connected but not handshaked. Not attempting a new connection.", peerAddress);
@@ -730,14 +728,14 @@ public class Network {
         }
     }
 
-    private void connectPeer(Peer newPeer) throws InterruptedException {
+    private boolean connectPeer(Peer newPeer) throws InterruptedException {
         SocketChannel socketChannel = newPeer.connect(this.channelSelector);
         if (socketChannel == null) {
-            return;
+            return false;
         }
 
         if (Thread.currentThread().isInterrupted()) {
-            return;
+            return false;
         }
 
         synchronized (this.connectedPeers) {
@@ -745,6 +743,8 @@ public class Network {
         }
 
         this.onPeerReady(newPeer);
+
+        return true;
     }
 
     private Peer getPeerFromChannel(SocketChannel socketChannel) {
