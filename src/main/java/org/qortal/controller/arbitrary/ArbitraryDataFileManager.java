@@ -136,14 +136,13 @@ public class ArbitraryDataFileManager {
         if (receivedAtLeastOneFile) {
             // Update our lookup table to indicate that this peer holds data for this signature
             String peerAddress = peer.getPeerData().getAddress().toString();
-            LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
             ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
             repository.discardChanges();
-            if (!arbitraryPeerData.isPeerAddressValid()) {
-                return false;
+            if (arbitraryPeerData.isPeerAddressValid()) {
+                LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
+                repository.getArbitraryRepository().save(arbitraryPeerData);
+                repository.saveChanges();
             }
-            repository.getArbitraryRepository().save(arbitraryPeerData);
-            repository.saveChanges();
 
             // Invalidate the hosted transactions cache as we are now hosting something new
             ArbitraryDataStorageManager.getInstance().invalidateHostedTransactionsCache();

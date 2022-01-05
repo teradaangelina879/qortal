@@ -413,17 +413,16 @@ public class ArbitraryDataManager extends Thread {
 
 					if (existingEntry == null) {
 						// We haven't got a record of this mapping yet, so add it
-						LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
 						ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peerAddress);
 						repository.discardChanges();
-						if (!arbitraryPeerData.isPeerAddressValid()) {
-							return;
-						}
- 						repository.getArbitraryRepository().save(arbitraryPeerData);
-						repository.saveChanges();
+						if (arbitraryPeerData.isPeerAddressValid()) {
+							LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
+							repository.getArbitraryRepository().save(arbitraryPeerData);
+							repository.saveChanges();
 
-						// Remember that this data is new, so that it can be rebroadcast later
-						containsNewEntry = true;
+							// Remember that this data is new, so that it can be rebroadcast later
+							containsNewEntry = true;
+						}
 					}
 				}
 
