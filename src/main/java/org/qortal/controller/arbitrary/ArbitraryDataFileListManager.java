@@ -229,6 +229,7 @@ public class ArbitraryDataFileListManager {
         byte[] signature = arbitraryTransactionData.getSignature();
         String signature58 = Base58.encode(signature);
 
+        // Require an NTP sync
         Long now = NTP.getTime();
         if (now == null) {
             return false;
@@ -246,7 +247,8 @@ public class ArbitraryDataFileListManager {
         }
         this.addToSignatureRequests(signature58, true, false);
 
-        LOGGER.debug(String.format("Sending data file list request for signature %s...", Base58.encode(signature)));
+        List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
+        LOGGER.debug(String.format("Sending data file list request for signature %s to %d peers...", signature58, handshakedPeers.size()));
 
         // Build request
         Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, now, 0);
@@ -402,10 +404,11 @@ public class ArbitraryDataFileListManager {
 
         // If we've seen this request recently, then ignore
         if (arbitraryDataFileListRequests.putIfAbsent(message.getId(), newEntry) != null) {
+            LOGGER.debug("Ignoring hash list request from peer {} for signature {}", peer, signature58);
             return;
         }
 
-        LOGGER.debug("Received hash list request from peer {} for signature {}", peer, Base58.encode(signature));
+        LOGGER.debug("Received hash list request from peer {} for signature {}", peer, signature58);
 
         List<byte[]> hashes = new ArrayList<>();
         ArbitraryTransactionData transactionData = null;

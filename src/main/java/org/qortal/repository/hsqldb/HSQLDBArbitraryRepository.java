@@ -135,7 +135,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return;
 		}
 
-		throw new IllegalStateException(String.format("Supplied data is larger than maximum size (%i bytes). Please use ArbitraryDataWriter.", MAX_RAW_DATA_SIZE));
+		throw new IllegalStateException(String.format("Supplied data is larger than maximum size (%d bytes). Please use ArbitraryDataWriter.", MAX_RAW_DATA_SIZE));
 	}
 
 	@Override

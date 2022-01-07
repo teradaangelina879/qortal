@@ -218,7 +218,7 @@ public class ArbitraryDataTransactionBuilder {
             // Get chunks metadata file
             ArbitraryDataFile metadataFile = arbitraryDataFile.getMetadataFile();
             if (metadataFile == null && arbitraryDataFile.chunkCount() > 1) {
-                throw new DataException(String.format("Chunks metadata data file is null but there are %i chunks", arbitraryDataFile.chunkCount()));
+                throw new DataException(String.format("Chunks metadata data file is null but there are %d chunks", arbitraryDataFile.chunkCount()));
             }
 
             String digest58 = arbitraryDataFile.digest58();
