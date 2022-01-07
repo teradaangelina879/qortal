@@ -56,6 +56,12 @@ public class ArbitraryDataFileListManager {
     private Map<String, Triple<Integer, Integer, Long>> arbitraryDataSignatureRequests = Collections.synchronizedMap(new HashMap<>());
 
 
+    /** Maximum number of seconds that a file list relay request is able to exist on the network */
+    private static long RELAY_REQUEST_MAX_DURATION = 5000L;
+    /** Maximum number of hops that a file list relay request is allowed to make */
+    private static int RELAY_REQUEST_MAX_HOPS = 3;
+
+
     private ArbitraryDataFileListManager() {
     }
 
@@ -223,6 +229,11 @@ public class ArbitraryDataFileListManager {
         byte[] signature = arbitraryTransactionData.getSignature();
         String signature58 = Base58.encode(signature);
 
+        Long now = NTP.getTime();
+        if (now == null) {
+            return false;
+        }
+
         // If we've already tried too many times in a short space of time, make sure to give up
         if (!this.shouldMakeFileListRequestForSignature(signature58)) {
             // Check if we should make direct connections to peers
@@ -238,7 +249,7 @@ public class ArbitraryDataFileListManager {
         LOGGER.debug(String.format("Sending data file list request for signature %s...", Base58.encode(signature)));
 
         // Build request
-        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature);
+        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, now, 0);
 
         // Save our request into requests map
         Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
@@ -386,8 +397,8 @@ public class ArbitraryDataFileListManager {
         GetArbitraryDataFileListMessage getArbitraryDataFileListMessage = (GetArbitraryDataFileListMessage) message;
         byte[] signature = getArbitraryDataFileListMessage.getSignature();
         String signature58 = Base58.encode(signature);
-        Long timestamp = NTP.getTime();
-        Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
+        Long now = NTP.getTime();
+        Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, now);
 
         // If we've seen this request recently, then ignore
         if (arbitraryDataFileListRequests.putIfAbsent(message.getId(), newEntry) != null) {
@@ -446,7 +457,7 @@ public class ArbitraryDataFileListManager {
         if (hashes.size() > 0) {
 
             // Update requests map to reflect that we've sent it
-            newEntry = new Triple<>(signature58, null, timestamp);
+            newEntry = new Triple<>(signature58, null, now);
             arbitraryDataFileListRequests.put(message.getId(), newEntry);
 
             ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes);
@@ -462,11 +473,31 @@ public class ArbitraryDataFileListManager {
             boolean isBlocked = (transactionData == null || ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName()));
             if (Settings.getInstance().isRelayModeEnabled() && !isBlocked) {
                 // In relay mode - so ask our other peers if they have it
-                LOGGER.debug("Rebroadcasted hash list request from peer {} for signature {} to our other peers", peer, Base58.encode(signature));
-                Network.getInstance().broadcast(
-                        broadcastPeer -> broadcastPeer == peer ||
-                                Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
-                                ? null : message);
+
+                long requestTime = getArbitraryDataFileListMessage.getRequestTime();
+                int requestHops = getArbitraryDataFileListMessage.getRequestHops();
+                getArbitraryDataFileListMessage.setRequestHops(++requestHops);
+                long totalRequestTime = now - requestTime;
+
+                if (totalRequestTime < RELAY_REQUEST_MAX_DURATION) {
+                    // Relay request hasn't timed out yet, so can potentially be rebroadcast
+                    if (requestHops < RELAY_REQUEST_MAX_HOPS) {
+                        // Relay request hasn't reached the maximum number of hops yet, so can be rebroadcast
+
+                        LOGGER.info("Rebroadcasting hash list request from peer {} for signature {} to our other peers... totalRequestTime: {}, requestHops: {}", peer, Base58.encode(signature), totalRequestTime, requestHops);
+                        Network.getInstance().broadcast(
+                                broadcastPeer -> broadcastPeer == peer ||
+                                        Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
+                                        ? null : getArbitraryDataFileListMessage);
+
+                    }
+                    else {
+                        // This relay request has reached the maximum number of allowed hops
+                    }
+                }
+                else {
+                    // This relay request has timed out
+                }
             }
         }
     }
