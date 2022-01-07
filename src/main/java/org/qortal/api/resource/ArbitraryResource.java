@@ -329,6 +329,23 @@ public class ArbitraryResource {
 	}
 
 	@GET
+	@Path("/relaymode")
+	@Operation(
+			summary = "Returns whether relay mode is enabled or not",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public boolean getRelayMode() {
+		Security.checkApiCallAllowed(request);
+
+		return Settings.getInstance().isRelayModeEnabled();
+	}
+
+	@GET
 	@Path("/hosted/transactions")
 	@Operation(
 			summary = "List arbitrary transactions hosted by this node",
