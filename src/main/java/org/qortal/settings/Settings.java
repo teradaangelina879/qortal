@@ -287,7 +287,7 @@ public class Settings {
 	private String storagePolicy = "FOLLOWED_AND_VIEWED";
 
 	/** Whether to allow data outside of the storage policy to be relayed between other peers */
-	private boolean relayModeEnabled = false;
+	private boolean relayModeEnabled = true;
 
 	/** Whether to remember which data was originally uploaded using this node.
 	 * This prevents auto deletion of own files when storage limits are reached. */
