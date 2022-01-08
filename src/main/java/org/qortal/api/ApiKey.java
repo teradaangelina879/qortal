@@ -86,6 +86,10 @@ public class ApiKey {
         return (this.apiKey != null);
     }
 
+    public boolean exists() {
+        return this.getFilePath().toFile().exists();
+    }
+
     @Override
     public String toString() {
         return this.apiKey;

@@ -30,4 +30,4 @@
 /tmp
 /data*
 /src/test/resources/arbitrary/*/.qortal/cache
-apikey
+apikey.txt

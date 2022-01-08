@@ -735,7 +735,7 @@ public class AdminResource {
 		ApiKey apiKey = Security.getApiKey(request);
 
 		// If the API key is already generated, we need to authenticate this request
-		if (apiKey.generated()) {
+		if (apiKey.generated() && apiKey.exists()) {
 			Security.checkApiCallAllowed(request);
 		}
 
