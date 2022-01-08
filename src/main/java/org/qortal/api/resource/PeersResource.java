@@ -23,12 +23,9 @@ import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
-import org.qortal.api.ApiError;
-import org.qortal.api.ApiErrors;
-import org.qortal.api.ApiException;
-import org.qortal.api.ApiExceptionFactory;
-import org.qortal.api.Security;
+import org.qortal.api.*;
 import org.qortal.api.model.ConnectedPeer;
+import org.qortal.api.model.PeersSummary;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
@@ -336,6 +333,41 @@ public class PeersResource {
 		} catch (InterruptedException e) {
 			return null;
 		}
+	}
+
+	@GET
+	@Path("/summary")
+	@Operation(
+			summary = "Returns total inbound and outbound connections for connected peers",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									mediaType = MediaType.APPLICATION_JSON,
+									array = @ArraySchema(
+											schema = @Schema(
+													implementation = PeersSummary.class
+											)
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public PeersSummary peersSummary() {
+		Security.checkApiCallAllowed(request);
+
+		PeersSummary peersSummary = new PeersSummary();
+
+		List<Peer> connectedPeers = Network.getInstance().getConnectedPeers().stream().collect(Collectors.toList());
+		for (Peer peer : connectedPeers) {
+			if (peer.isOutbound()) {
+				peersSummary.inboundConnections++;
+			}
+			else {
+				peersSummary.outboundConnections++;
+			}
+		}
+		return peersSummary;
 	}
 
 }

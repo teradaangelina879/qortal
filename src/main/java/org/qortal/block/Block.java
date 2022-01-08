@@ -476,6 +476,16 @@ public class Block {
 		return this.minter;
 	}
 
+
+	public void setRepository(Repository repository) throws DataException {
+		this.repository = repository;
+
+		for (Transaction transaction : this.getTransactions()) {
+			transaction.setRepository(repository);
+		}
+	}
+
+
 	// More information
 
 	/**
@@ -524,8 +534,10 @@ public class Block {
 		long nonAtTransactionCount = transactionsData.stream().filter(transactionData -> transactionData.getType() != TransactionType.AT).count();
 
 		// The number of non-AT transactions fetched from repository should correspond with Block's transactionCount
-		if (nonAtTransactionCount != this.blockData.getTransactionCount())
+		if (nonAtTransactionCount != this.blockData.getTransactionCount()) {
+			LOGGER.error(() -> String.format("Block's transactions from repository (%d) do not match block's transaction count (%d)", nonAtTransactionCount, this.blockData.getTransactionCount()));
 			throw new IllegalStateException("Block's transactions from repository do not match block's transaction count");
+		}
 
 		this.transactions = new ArrayList<>();
 

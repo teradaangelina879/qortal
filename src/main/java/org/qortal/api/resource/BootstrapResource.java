@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -43,6 +44,7 @@ public class BootstrapResource {
 			)
 		}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public String createBootstrap() {
 		Security.checkApiCallAllowed(request);
 
@@ -77,6 +79,7 @@ public class BootstrapResource {
 					)
 			}
 	)
+	@SecurityRequirement(name = "apiKey")
 	public boolean validateBootstrap() {
 		Security.checkApiCallAllowed(request);
 

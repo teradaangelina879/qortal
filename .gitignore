@@ -28,3 +28,6 @@
 /WindowsInstaller/Install Files/qortal.jar
 /*.7z
 /tmp
+/data*
+/src/test/resources/arbitrary/*/.qortal/cache
+apikey.txt

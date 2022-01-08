@@ -290,8 +290,8 @@ public class SysTray {
 	}
 
 	public void setTrayIcon(int iconid) {
-		if (trayIcon != null) {
-			try {
+		try {
+			if (trayIcon != null) {
 				switch (iconid) {
 					case 1:
 						this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_syncing_time-alt.png"));
@@ -306,9 +306,9 @@ public class SysTray {
 						this.trayIcon.setImage(Gui.loadImage("icons/qortal_ui_tray_synced.png"));
 						break;
 				}
-			} catch (NullPointerException e) {
-				LOGGER.info("Unable to set tray icon");
 			}
+		} catch (Exception e) {
+			LOGGER.info("Unable to set tray icon: {}", e.getMessage());
 		}
 	}
 

@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -41,18 +40,21 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import com.google.common.primitives.Longs;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiService;
+import org.qortal.api.DomainMapService;
+import org.qortal.api.GatewayService;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
+import org.qortal.controller.arbitrary.*;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
 import org.qortal.controller.repository.PruneManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.controller.tradebot.TradeBot;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.block.BlockData;
@@ -60,44 +62,23 @@ import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.network.OnlineAccountData;
 import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
-import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
-import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.globalization.Translator;
 import org.qortal.gui.Gui;
 import org.qortal.gui.SysTray;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
-import org.qortal.network.message.ArbitraryDataMessage;
-import org.qortal.network.message.BlockSummariesMessage;
-import org.qortal.network.message.CachedBlockMessage;
-import org.qortal.network.message.GetArbitraryDataMessage;
-import org.qortal.network.message.GetBlockMessage;
-import org.qortal.network.message.GetBlockSummariesMessage;
-import org.qortal.network.message.GetOnlineAccountsMessage;
-import org.qortal.network.message.GetPeersMessage;
-import org.qortal.network.message.GetSignaturesV2Message;
-import org.qortal.network.message.GetTransactionMessage;
-import org.qortal.network.message.GetUnconfirmedTransactionsMessage;
-import org.qortal.network.message.HeightV2Message;
-import org.qortal.network.message.Message;
-import org.qortal.network.message.OnlineAccountsMessage;
-import org.qortal.network.message.SignaturesMessage;
-import org.qortal.network.message.TransactionMessage;
-import org.qortal.network.message.TransactionSignaturesMessage;
+import org.qortal.network.message.*;
 import org.qortal.repository.*;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
-import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.utils.*;
-
-import com.google.common.primitives.Longs;
 
 public class Controller extends Thread {
 
@@ -109,14 +90,13 @@ public class Controller extends Thread {
 
 	/** Controller start-up time (ms) taken using <tt>System.currentTimeMillis()</tt>. */
 	public static final long startTime = System.currentTimeMillis();
-	public static final String VERSION_PREFIX = "qortal-";
+	public static final String VERSION_PREFIX = "qortaldata-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
 	private static final long MISBEHAVIOUR_COOLOFF = 10 * 60 * 1000L; // ms
 	private static final int MAX_BLOCKCHAIN_TIP_AGE = 5; // blocks
 	private static final Object shutdownLock = new Object();
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s" + File.separator + "blockchain;create=true;hsqldb.full_log_replay=true";
-	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000L; // ms
 	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms
 	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000L; // ms
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
@@ -181,25 +161,6 @@ public class Controller extends Thread {
 	private boolean peersAvailable = true; // peersAvailable must default to true
 	private long timePeersLastAvailable = 0;
 
-	/**
-	 * Map of recent requests for ARBITRARY transaction data payloads.
-	 * <p>
-	 * Key is original request's message ID<br>
-	 * Value is Triple&lt;transaction signature in base58, first requesting peer, first request's timestamp&gt;
-	 * <p>
-	 * If peer is null then either:<br>
-	 * <ul>
-	 * <li>we are the original requesting peer</li>
-	 * <li>we have already sent data payload to original requesting peer.</li>
-	 * </ul>
-	 * If signature is null then we have already received the data payload and either:<br>
-	 * <ul>
-	 * <li>we are the original requesting peer and have saved it locally</li>
-	 * <li>we have forwarded the data payload (and maybe also saved it locally)</li>
-	 * </ul>
-	 */
-	private Map<Integer, Triple<String, Peer, Long>> arbitraryDataRequests = Collections.synchronizedMap(new HashMap<>());
-
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly minted block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
 
@@ -242,12 +203,30 @@ public class Controller extends Thread {
 		}
 		public GetBlockSignaturesV2Stats getBlockSignaturesV2Stats = new GetBlockSignaturesV2Stats();
 
+		public static class GetArbitraryDataFileMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong unknownFiles = new AtomicLong();
+
+			public GetArbitraryDataFileMessageStats() {
+			}
+		}
+		public GetArbitraryDataFileMessageStats getArbitraryDataFileMessageStats = new GetArbitraryDataFileMessageStats();
+
+		public static class GetArbitraryDataFileListMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong unknownFiles = new AtomicLong();
+
+			public GetArbitraryDataFileListMessageStats() {
+			}
+		}
+		public GetArbitraryDataFileListMessageStats getArbitraryDataFileListMessageStats = new GetArbitraryDataFileListMessageStats();
+
 		public AtomicLong latestBlocksCacheRefills = new AtomicLong();
 
 		public StatsSnapshot() {
 		}
 	}
-	private final StatsSnapshot stats = new StatsSnapshot();
+	public final StatsSnapshot stats = new StatsSnapshot();
 
 	// Constructors
 
@@ -387,6 +366,8 @@ public class Controller extends Thread {
 	// Entry point
 
 	public static void main(String[] args) {
+		LoggingUtils.fixLegacyLog4j2Properties();
+
 		LOGGER.info("Starting up...");
 
 		// Potential GUI startup with splash screen, etc.
@@ -493,9 +474,13 @@ public class Controller extends Thread {
 		LOGGER.info("Starting trade-bot");
 		TradeBot.getInstance();
 
-		// Arbitrary transaction data manager
-		// LOGGER.info("Starting arbitrary-transaction data manager");
-		// ArbitraryDataManager.getInstance().start();
+		// Arbitrary data controllers
+		LOGGER.info("Starting arbitrary-transaction controllers");
+		ArbitraryDataManager.getInstance().start();
+		ArbitraryDataBuildManager.getInstance().start();
+		ArbitraryDataCleanupManager.getInstance().start();
+		ArbitraryDataStorageManager.getInstance().start();
+		ArbitraryDataRenderManager.getInstance().start();
 
 		// Auto-update service?
 		if (Settings.getInstance().isAutoUpdateEnabled()) {
@@ -512,6 +497,32 @@ public class Controller extends Thread {
 			Controller.getInstance().shutdown();
 			Gui.getInstance().fatalError("API failure", e);
 			return; // Not System.exit() so that GUI can display error
+		}
+
+		if (Settings.getInstance().isGatewayEnabled()) {
+			LOGGER.info(String.format("Starting gateway service on port %d", Settings.getInstance().getGatewayPort()));
+			try {
+				GatewayService gatewayService = GatewayService.getInstance();
+				gatewayService.start();
+			} catch (Exception e) {
+				LOGGER.error("Unable to start gateway service", e);
+				Controller.getInstance().shutdown();
+				Gui.getInstance().fatalError("Gateway service failure", e);
+				return; // Not System.exit() so that GUI can display error
+			}
+		}
+
+		if (Settings.getInstance().isDomainMapEnabled()) {
+			LOGGER.info(String.format("Starting domain map service on port %d", Settings.getInstance().getDomainMapPort()));
+			try {
+				DomainMapService domainMapService = DomainMapService.getInstance();
+				domainMapService.start();
+			} catch (Exception e) {
+				LOGGER.error("Unable to start domain map service", e);
+				Controller.getInstance().shutdown();
+				Gui.getInstance().fatalError("Domain map service failure", e);
+				return; // Not System.exit() so that GUI can display error
+			}
 		}
 
 		// If GUI is enabled, we're no longer starting up but actually running now
@@ -574,8 +585,9 @@ public class Controller extends Thread {
 				}
 
 				// Clean up arbitrary data request cache
-				final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
-				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
+				ArbitraryDataManager.getInstance().cleanupRequestCache(now);
+				// Clean up arbitrary data queues and lists
+				ArbitraryDataBuildManager.getInstance().cleanupQueues(now);
 
 				// Time to 'checkpoint' uncommitted repository writes?
 				if (now >= repositoryCheckpointTimestamp + repositoryCheckpointInterval) {
@@ -1054,9 +1066,13 @@ public class Controller extends Thread {
 					AutoUpdate.getInstance().shutdown();
 				}
 
-				// Arbitrary transaction data manager
-				// LOGGER.info("Shutting down arbitrary-transaction data manager");
-				// ArbitraryDataManager.getInstance().shutdown();
+				// Arbitrary data controllers
+				LOGGER.info("Shutting down arbitrary-transaction controllers");
+				ArbitraryDataManager.getInstance().shutdown();
+				ArbitraryDataBuildManager.getInstance().shutdown();
+				ArbitraryDataCleanupManager.getInstance().shutdown();
+				ArbitraryDataStorageManager.getInstance().shutdown();
+				ArbitraryDataRenderManager.getInstance().shutdown();
 
 				if (blockMinter != null) {
 					LOGGER.info("Shutting down block minter");
@@ -1352,20 +1368,32 @@ public class Controller extends Thread {
 				onNetworkTransactionSignaturesMessage(peer, message);
 				break;
 
-			case GET_ARBITRARY_DATA:
-				onNetworkGetArbitraryDataMessage(peer, message);
-				break;
-
-			case ARBITRARY_DATA:
-				onNetworkArbitraryDataMessage(peer, message);
-				break;
-
 			case GET_ONLINE_ACCOUNTS:
 				onNetworkGetOnlineAccountsMessage(peer, message);
 				break;
 
 			case ONLINE_ACCOUNTS:
 				onNetworkOnlineAccountsMessage(peer, message);
+				break;
+
+			case GET_ARBITRARY_DATA:
+				// Not currently supported
+				break;
+
+			case ARBITRARY_DATA_FILE_LIST:
+				ArbitraryDataFileListManager.getInstance().onNetworkArbitraryDataFileListMessage(peer, message);
+				break;
+
+			case GET_ARBITRARY_DATA_FILE:
+				ArbitraryDataFileManager.getInstance().onNetworkGetArbitraryDataFileMessage(peer, message);
+				break;
+
+			case GET_ARBITRARY_DATA_FILE_LIST:
+				ArbitraryDataFileListManager.getInstance().onNetworkGetArbitraryDataFileListMessage(peer, message);
+				break;
+
+			case ARBITRARY_SIGNATURES:
+				ArbitraryDataManager.getInstance().onNetworkArbitrarySignaturesMessage(peer, message);
 				break;
 
 			default:
@@ -1733,103 +1761,6 @@ public class Controller extends Thread {
 		}
 	}
 
-	private void onNetworkGetArbitraryDataMessage(Peer peer, Message message) {
-		GetArbitraryDataMessage getArbitraryDataMessage = (GetArbitraryDataMessage) message;
-
-		byte[] signature = getArbitraryDataMessage.getSignature();
-		String signature58 = Base58.encode(signature);
-		Long timestamp = NTP.getTime();
-		Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
-
-		// If we've seen this request recently, then ignore
-		if (arbitraryDataRequests.putIfAbsent(message.getId(), newEntry) != null)
-			return;
-
-		// Do we even have this transaction?
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-			if (transactionData == null || transactionData.getType() != TransactionType.ARBITRARY)
-				return;
-
-			ArbitraryTransaction transaction = new ArbitraryTransaction(repository, transactionData);
-
-			// If we have the data then send it
-			if (transaction.isDataLocal()) {
-				byte[] data = transaction.fetchData();
-				if (data == null)
-					return;
-
-				// Update requests map to reflect that we've sent it
-				newEntry = new Triple<>(signature58, null, timestamp);
-				arbitraryDataRequests.put(message.getId(), newEntry);
-
-				Message arbitraryDataMessage = new ArbitraryDataMessage(signature, data);
-				arbitraryDataMessage.setId(message.getId());
-				if (!peer.sendMessage(arbitraryDataMessage))
-					peer.disconnect("failed to send arbitrary data");
-
-				return;
-			}
-
-			// Ask our other peers if they have it
-			Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : message);
-		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while finding arbitrary transaction data for peer %s", peer), e);
-		}
-	}
-
-	private void onNetworkArbitraryDataMessage(Peer peer, Message message) {
-		ArbitraryDataMessage arbitraryDataMessage = (ArbitraryDataMessage) message;
-
-		// Do we have a pending request for this data?
-		Triple<String, Peer, Long> request = arbitraryDataRequests.get(message.getId());
-		if (request == null || request.getA() == null)
-			return;
-
-		// Does this message's signature match what we're expecting?
-		byte[] signature = arbitraryDataMessage.getSignature();
-		String signature58 = Base58.encode(signature);
-		if (!request.getA().equals(signature58))
-			return;
-
-		byte[] data = arbitraryDataMessage.getData();
-
-		// Check transaction exists and payload hash is correct
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-			if (!(transactionData instanceof ArbitraryTransactionData))
-				return;
-
-			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
-
-			byte[] actualHash = Crypto.digest(data);
-
-			// "data" from repository will always be hash of actual raw data
-			if (!Arrays.equals(arbitraryTransactionData.getData(), actualHash))
-				return;
-
-			// Update requests map to reflect that we've received it
-			Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
-			arbitraryDataRequests.put(message.getId(), newEntry);
-
-			// Save payload locally
-			// TODO: storage policy
-			arbitraryTransactionData.setDataType(DataType.RAW_DATA);
-			arbitraryTransactionData.setData(data);
-			repository.getArbitraryRepository().save(arbitraryTransactionData);
-			repository.saveChanges();
-		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while finding arbitrary transaction data for peer %s", peer), e);
-		}
-
-		Peer requestingPeer = request.getB();
-		if (requestingPeer != null) {
-			// Forward to requesting peer;
-			if (!requestingPeer.sendMessage(arbitraryDataMessage))
-				requestingPeer.disconnect("failed to forward arbitrary data");
-		}
-	}
-
 	private void onNetworkGetOnlineAccountsMessage(Peer peer, Message message) {
 		GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
 
@@ -2121,51 +2052,6 @@ public class Controller extends Thread {
 	public void popLatestBlocksOnlineAccounts() {
 		synchronized (this.latestBlocksOnlineAccounts) {
 			this.latestBlocksOnlineAccounts.pollFirst();
-		}
-	}
-
-	public byte[] fetchArbitraryData(byte[] signature) throws InterruptedException {
-		// Build request
-		Message getArbitraryDataMessage = new GetArbitraryDataMessage(signature);
-
-		// Save our request into requests map
-		String signature58 = Base58.encode(signature);
-		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
-
-		// Assign random ID to this message
-		int id;
-		do {
-			id = new Random().nextInt(Integer.MAX_VALUE - 1) + 1;
-
-			// Put queue into map (keyed by message ID) so we can poll for a response
-			// If putIfAbsent() doesn't return null, then this ID is already taken
-		} while (arbitraryDataRequests.put(id, requestEntry) != null);
-		getArbitraryDataMessage.setId(id);
-
-		// Broadcast request
-		Network.getInstance().broadcast(peer -> getArbitraryDataMessage);
-
-		// Poll to see if data has arrived
-		final long singleWait = 100;
-		long totalWait = 0;
-		while (totalWait < ARBITRARY_REQUEST_TIMEOUT) {
-			Thread.sleep(singleWait);
-
-			requestEntry = arbitraryDataRequests.get(id);
-			if (requestEntry == null)
-				return null;
-
-			if (requestEntry.getA() == null)
-				break;
-
-			totalWait += singleWait;
-		}
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getArbitraryRepository().fetchData(signature);
-		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while fetching arbitrary transaction data"), e);
-			return null;
 		}
 	}
 

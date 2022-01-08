@@ -132,7 +132,11 @@ public enum ApiError {
 	FOREIGN_BLOCKCHAIN_TOO_SOON(1203, 408),
 
 	// Trade portal
-	ORDER_SIZE_TOO_SMALL(1300, 402);
+	ORDER_SIZE_TOO_SMALL(1300, 402),
+
+	// Data
+	FILE_NOT_FOUND(1401, 404),
+	NO_REPLY(1402, 404);
 
 	private static final Map<Integer, ApiError> map = stream(ApiError.values()).collect(toMap(apiError -> apiError.code, apiError -> apiError));
 

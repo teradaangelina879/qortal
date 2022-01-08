@@ -25,7 +25,7 @@ public abstract class Message {
 	private static final int MAGIC_LENGTH = 4;
 	private static final int CHECKSUM_LENGTH = 4;
 
-	private static final int MAX_DATA_SIZE = 1024 * 1024; // 1MB
+	private static final int MAX_DATA_SIZE = 10 * 1024 * 1024; // 10MB
 
 	@SuppressWarnings("serial")
 	public static class MessageException extends Exception {
@@ -80,7 +80,18 @@ public abstract class Message {
 		GET_ONLINE_ACCOUNTS(81),
 
 		ARBITRARY_DATA(90),
-		GET_ARBITRARY_DATA(91);
+		GET_ARBITRARY_DATA(91),
+
+		BLOCKS(100),
+		GET_BLOCKS(101),
+
+		ARBITRARY_DATA_FILE(110),
+		GET_ARBITRARY_DATA_FILE(111),
+
+		ARBITRARY_DATA_FILE_LIST(120),
+		GET_ARBITRARY_DATA_FILE_LIST(121),
+
+		ARBITRARY_SIGNATURES(130);
 
 		public final int value;
 		public final Method fromByteBufferMethod;

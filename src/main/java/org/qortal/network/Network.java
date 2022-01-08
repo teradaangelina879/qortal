@@ -6,6 +6,8 @@ import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.controller.arbitrary.ArbitraryDataFileManager;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.network.PeerData;
@@ -15,6 +17,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.utils.Base58;
 import org.qortal.utils.ExecuteProduceConsume;
 import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
 import org.qortal.utils.NTP;
@@ -113,6 +116,9 @@ public class Network {
     private volatile long nextBroadcastTimestamp = 0L; // ms - try first broadcast once NTP syncs
 
     private final Lock mergePeersLock = new ReentrantLock();
+
+    private List<String> ourExternalIpAddressHistory = new ArrayList<>();
+    private String ourExternalIpAddress = null;
 
     // Constructors
 
@@ -232,6 +238,81 @@ public class Network {
         synchronized (this.selfPeers) {
             return new ArrayList<>(this.selfPeers);
         }
+    }
+
+    public boolean requestDataFromPeer(String peerAddressString, byte[] signature) {
+        if (peerAddressString != null) {
+            PeerAddress peerAddress = PeerAddress.fromString(peerAddressString);
+
+            // Reuse an existing PeerData instance if it's already in the known peers list
+            PeerData peerData = this.allKnownPeers.stream()
+                    .filter(knownPeerData -> knownPeerData.getAddress().equals(peerAddress))
+                    .findFirst()
+                    .orElse(null);
+
+            if (peerData == null) {
+                // Not a known peer, so we need to create one
+                Long addedWhen = NTP.getTime();
+                String addedBy = "requestDataFromPeer";
+                peerData = new PeerData(peerAddress, addedWhen, addedBy);
+            }
+
+            if (peerData == null) {
+                LOGGER.info("PeerData is null when trying to request data from peer {}", peerAddressString);
+                return false;
+            }
+
+            // Check if we're already connected to and handshaked with this peer
+            Peer connectedPeer = this.connectedPeers.stream()
+                    .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
+                    .findFirst()
+                    .orElse(null);
+            boolean isConnected = (connectedPeer != null);
+
+            boolean isHandshaked = this.getHandshakedPeers().stream()
+                    .anyMatch(p -> p.getPeerData().getAddress().equals(peerAddress));
+
+            if (isConnected && isHandshaked) {
+                // Already connected
+                return this.requestDataFromConnectedPeer(connectedPeer, signature);
+            }
+            else {
+                // We need to connect to this peer before we can request data
+                try {
+                    if (!isConnected) {
+                        // Add this signature to the list of pending requests for this peer
+                        LOGGER.info("Making connection to peer {} to request files for signature {}...", peerAddressString, Base58.encode(signature));
+                        Peer peer = new Peer(peerData);
+                        peer.addPendingSignatureRequest(signature);
+                        return this.connectPeer(peer);
+                        // If connection (and handshake) is successful, data will automatically be requested
+                    }
+                    else if (!isHandshaked) {
+                        LOGGER.info("Peer {} is connected but not handshaked. Not attempting a new connection.", peerAddress);
+                        return false;
+                    }
+
+                } catch (InterruptedException e) {
+                    LOGGER.info("Interrupted when connecting to peer {}", peerAddress);
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean requestDataFromConnectedPeer(Peer connectedPeer, byte[] signature) {
+        if (signature == null) {
+            // Nothing to do
+            return false;
+        }
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            return ArbitraryDataFileManager.getInstance().fetchAllArbitraryDataFiles(repository, connectedPeer, signature);
+        } catch (DataException e) {
+            LOGGER.info("Unable to fetch arbitrary data files");
+        }
+        return false;
     }
 
     /**
@@ -648,14 +729,14 @@ public class Network {
         }
     }
 
-    private void connectPeer(Peer newPeer) throws InterruptedException {
+    private boolean connectPeer(Peer newPeer) throws InterruptedException {
         SocketChannel socketChannel = newPeer.connect(this.channelSelector);
         if (socketChannel == null) {
-            return;
+            return false;
         }
 
         if (Thread.currentThread().isInterrupted()) {
-            return;
+            return false;
         }
 
         synchronized (this.connectedPeers) {
@@ -663,6 +744,8 @@ public class Network {
         }
 
         this.onPeerReady(newPeer);
+
+        return true;
     }
 
     private Peer getPeerFromChannel(SocketChannel socketChannel) {
@@ -913,6 +996,17 @@ public class Network {
             }
         }
 
+        // Process any pending signature requests, as this peer may have been connected for this purpose only
+        List<byte[]> pendingSignatureRequests = new ArrayList<>(peer.getPendingSignatureRequests());
+        if (pendingSignatureRequests != null && !pendingSignatureRequests.isEmpty()) {
+            for (byte[] signature : pendingSignatureRequests) {
+                this.requestDataFromConnectedPeer(peer, signature);
+                peer.removePendingSignatureRequest(signature);
+            }
+        }
+
+        // FUTURE: we may want to disconnect from this peer if we've finished requesting data from it
+
         // Start regular pings
         peer.startPings();
 
@@ -1010,6 +1104,66 @@ public class Network {
     public Message buildGetUnconfirmedTransactionsMessage(Peer peer) {
         return new GetUnconfirmedTransactionsMessage();
     }
+
+
+    // External IP / peerAddress tracking
+
+    public void ourPeerAddressUpdated(String peerAddress) {
+        if (peerAddress == null) {
+            return;
+        }
+
+        String[] parts = peerAddress.split(":");
+        if (parts.length != 2) {
+            return;
+        }
+        String host = parts[0];
+        try {
+            InetAddress addr = InetAddress.getByName(host);
+            if (addr.isAnyLocalAddress() || addr.isSiteLocalAddress()) {
+                // Ignore local addresses
+                return;
+            }
+        } catch (UnknownHostException e) {
+            return;
+        }
+
+        this.ourExternalIpAddressHistory.add(host);
+
+        // Limit to 10 entries
+        while (this.ourExternalIpAddressHistory.size() > 10) {
+            this.ourExternalIpAddressHistory.remove(0);
+        }
+
+        // If we've had 3 consecutive matching addresses, and they're different from
+        // our stored IP address value, treat it as updated.
+
+        int size = this.ourExternalIpAddressHistory.size();
+        if (size < 3) {
+            // Need at least 3 readings
+            return;
+        }
+
+        String ip1 = this.ourExternalIpAddressHistory.get(size - 1);
+        String ip2 = this.ourExternalIpAddressHistory.get(size - 2);
+        String ip3 = this.ourExternalIpAddressHistory.get(size - 3);
+
+        if (!Objects.equals(ip1, this.ourExternalIpAddress)) {
+            // Latest reading doesn't match our known value
+            if (Objects.equals(ip1, ip2) && Objects.equals(ip1, ip3)) {
+                // Last 3 readings were the same - i.e. more than one peer agreed on the new IP address
+                this.ourExternalIpAddress = ip1;
+                this.onExternalIpUpdate(ip1);
+            }
+        }
+    }
+
+    public void onExternalIpUpdate(String ipAddress) {
+        LOGGER.info("External IP address updated to {}", ipAddress);
+
+        ArbitraryDataManager.getInstance().broadcastHostedSignatureList();
+    }
+
 
     // Peer-management calls
 

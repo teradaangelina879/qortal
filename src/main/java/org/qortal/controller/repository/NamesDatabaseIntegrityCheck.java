@@ -310,7 +310,7 @@ public class NamesDatabaseIntegrityCheck {
         // Fetch all the confirmed REGISTER_NAME transaction signatures
         List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(
                 null, null, null, ALL_NAME_TX_TYPE, null, null,
-                ConfirmationStatus.CONFIRMED, null, null, false);
+                null, ConfirmationStatus.CONFIRMED, null, null, false);
 
         for (byte[] signature : signatures) {
             TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);

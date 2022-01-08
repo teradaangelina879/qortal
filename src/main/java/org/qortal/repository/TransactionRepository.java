@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.group.GroupApprovalData;
 import org.qortal.data.transaction.GroupApprovalTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -70,8 +71,8 @@ public interface TransactionRepository {
 	 * @throws DataException
 	 */
 	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, Integer txGroupId,
-			List<TransactionType> txTypes, Integer service, String address,
-			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
+													  List<TransactionType> txTypes, Service service, String name, String address,
+													  ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns signatures for transactions that match search criteria.

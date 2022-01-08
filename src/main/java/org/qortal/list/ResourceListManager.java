@@ -26,10 +26,9 @@ public class ResourceListManager {
         return instance;
     }
 
-    private ResourceList getList(String category, String resourceName) {
+    private ResourceList getList(String listName) {
         for (ResourceList list : this.lists) {
-            if (Objects.equals(list.getCategory(), category) &&
-                    Objects.equals(list.getResourceName(), resourceName)) {
+            if (Objects.equals(list.getName(), listName)) {
                 return list;
             }
         }
@@ -37,19 +36,19 @@ public class ResourceListManager {
         // List doesn't exist in array yet, so create it
         // This will load any existing data from the filesystem
         try {
-            ResourceList list = new ResourceList(category, resourceName);
+            ResourceList list = new ResourceList(listName);
             this.lists.add(list);
             return list;
 
         } catch (IOException e) {
-            LOGGER.info("Unable to load or create list {} {}: {}", category, resourceName, e.getMessage());
+            LOGGER.info("Unable to load or create list {}: {}", listName, e.getMessage());
             return null;
         }
 
     }
 
-    public boolean addToList(String category, String resourceName, String item, boolean save) {
-        ResourceList list = this.getList(category, resourceName);
+    public boolean addToList(String listName, String item, boolean save) {
+        ResourceList list = this.getList(listName);
         if (list == null) {
             return false;
         }
@@ -67,8 +66,8 @@ public class ResourceListManager {
         }
     }
 
-    public boolean removeFromList(String category, String resourceName, String item, boolean save) {
-        ResourceList list = this.getList(category, resourceName);
+    public boolean removeFromList(String listName, String item, boolean save) {
+        ResourceList list = this.getList(listName);
         if (list == null) {
             return false;
         }
@@ -87,16 +86,16 @@ public class ResourceListManager {
         }
     }
 
-    public boolean listContains(String category, String resourceName, String address) {
-        ResourceList list = this.getList(category, resourceName);
+    public boolean listContains(String listName, String item, boolean caseSensitive) {
+        ResourceList list = this.getList(listName);
         if (list == null) {
             return false;
         }
-        return list.contains(address);
+        return list.contains(item, caseSensitive);
     }
 
-    public void saveList(String category, String resourceName) {
-        ResourceList list = this.getList(category, resourceName);
+    public void saveList(String listName) {
+        ResourceList list = this.getList(listName);
         if (list == null) {
             return;
         }
@@ -109,20 +108,36 @@ public class ResourceListManager {
         }
     }
 
-    public void revertList(String category, String resourceName) {
-        ResourceList list = this.getList(category, resourceName);
+    public void revertList(String listName) {
+        ResourceList list = this.getList(listName);
         if (list == null) {
             return;
         }
         list.revert();
     }
 
-    public String getJSONStringForList(String category, String resourceName) {
-        ResourceList list = this.getList(category, resourceName);
+    public String getJSONStringForList(String listName) {
+        ResourceList list = this.getList(listName);
         if (list == null) {
             return null;
         }
         return list.getJSONString();
+    }
+
+    public List<String> getStringsInList(String listName) {
+        ResourceList list = this.getList(listName);
+        if (list == null) {
+            return null;
+        }
+        return list.getList();
+    }
+
+    public int getItemCountForList(String listName) {
+        ResourceList list = this.getList(listName);
+        if (list == null) {
+            return 0;
+        }
+        return list.getList().size();
     }
 
 }

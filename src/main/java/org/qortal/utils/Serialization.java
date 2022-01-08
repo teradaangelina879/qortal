@@ -101,9 +101,17 @@ public class Serialization {
 	}
 
 	public static void serializeSizedString(ByteArrayOutputStream bytes, String string) throws UnsupportedEncodingException, IOException {
-		byte[] stringBytes = string.getBytes(StandardCharsets.UTF_8);
-		bytes.write(Ints.toByteArray(stringBytes.length));
-		bytes.write(stringBytes);
+		byte[] stringBytes = null;
+		int stringBytesLength = 0;
+
+		if (string != null) {
+			stringBytes = string.getBytes(StandardCharsets.UTF_8);
+			stringBytesLength = stringBytes.length;
+		}
+		bytes.write(Ints.toByteArray(stringBytesLength));
+		if (stringBytesLength > 0) {
+			bytes.write(stringBytes);
+		}
 	}
 
 	public static String deserializeSizedString(ByteBuffer byteBuffer, int maxSize) throws TransformationException {
@@ -113,6 +121,9 @@ public class Serialization {
 
 		if (size > byteBuffer.remaining())
 			throw new TransformationException("Byte data too short for serialized string");
+
+		if (size == 0)
+			return null;
 
 		byte[] bytes = new byte[size];
 		byteBuffer.get(bytes);

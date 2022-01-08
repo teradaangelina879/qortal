@@ -10,5 +10,11 @@
   "testNtpOffset": 0,
   "minPeers": 0,
   "pruneBlockLimit": 100,
-  "bootstrapFilenamePrefix": "test-"
+  "bootstrapFilenamePrefix": "test-",
+  "dataPath": "data-test",
+  "tempDataPath": "data-test/_temp",
+  "listsPath": "lists-test",
+  "storagePolicy": "FOLLOWED_AND_VIEWED",
+  "maxStorageCapacity": 104857600,
+  "localAuthBypassEnabled": true
 }

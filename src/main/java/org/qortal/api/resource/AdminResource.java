@@ -39,12 +39,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
+import org.checkerframework.checker.units.qual.A;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.api.ApiError;
-import org.qortal.api.ApiErrors;
-import org.qortal.api.ApiExceptionFactory;
-import org.qortal.api.Security;
+import org.qortal.api.*;
 import org.qortal.api.model.ActivitySummary;
 import org.qortal.api.model.NodeInfo;
 import org.qortal.api.model.NodeStatus;
@@ -80,7 +78,8 @@ public class AdminResource {
 	@Path("/unused")
 	@Parameter(in = ParameterIn.PATH, name = "assetid", description = "Asset ID, 0 is native coin", schema = @Schema(type = "integer"))
 	@Parameter(in = ParameterIn.PATH, name = "otherassetid", description = "Asset ID, 0 is native coin", schema = @Schema(type = "integer"))
-	@Parameter(in = ParameterIn.PATH, name = "address", description = "an account address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
+	@Parameter(in = ParameterIn.PATH, name = "address", description = "An account address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
+	@Parameter(in = ParameterIn.PATH, name = "path", description = "Local path to folder containing the files", schema = @Schema(type = "String", defaultValue = "/Users/user/Documents/MyStaticWebsite"))
 	@Parameter(in = ParameterIn.QUERY, name = "count", description = "Maximum number of entries to return, 0 means none", schema = @Schema(type = "integer", defaultValue = "20"))
 	@Parameter(in = ParameterIn.QUERY, name = "limit", description = "Maximum number of entries to return, 0 means unlimited", schema = @Schema(type = "integer", defaultValue = "20"))
 	@Parameter(in = ParameterIn.QUERY, name = "offset", description = "Starting entry in results, 0 is first entry", schema = @Schema(type = "integer"))
@@ -714,6 +713,42 @@ public class AdminResource {
 		} catch (DataException | TimeoutException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
+	}
+
+
+	@POST
+	@Path("/apikey/generate")
+	@Operation(
+			summary = "Generate an API key",
+			description = "This request is unauthenticated if no API key has been generated yet. " +
+					"If an API key already exists, it needs to be passed as a header and this endpoint " +
+					"will then generate a new key which replaces the existing one.",
+			responses = {
+					@ApiResponse(
+							description = "API key string",
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String generateApiKey() {
+		ApiKey apiKey = Security.getApiKey(request);
+
+		// If the API key is already generated, we need to authenticate this request
+		if (apiKey.generated() && apiKey.exists()) {
+			Security.checkApiCallAllowed(request);
+		}
+
+		// Not generated yet - so we are safe to generate one
+		// FUTURE: we may want to restrict this to local/loopback only?
+
+		try {
+			apiKey.generate();
+		} catch (IOException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Unable to generate API key");
+		}
+
+		return apiKey.toString();
 	}
 
 }

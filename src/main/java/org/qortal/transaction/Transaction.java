@@ -247,7 +247,8 @@ public abstract class Transaction {
 		INVALID_GROUP_BLOCK_DELAY(93),
 		INCORRECT_NONCE(94),
 		INVALID_TIMESTAMP_SIGNATURE(95),
-		ADDRESS_IN_BLACKLIST(96),
+		ADDRESS_BLOCKED(96),
+		NAME_BLOCKED(97),
 		INVALID_BUT_OK(999),
 		NOT_YET_RELEASED(1000);
 
@@ -316,6 +317,10 @@ public abstract class Transaction {
 		return this.transactionData;
 	}
 
+	public void setRepository(Repository repository) {
+		this.repository = repository;
+	}
+
 	// More information
 
 	public static long getDeadline(TransactionData transactionData) {
@@ -345,6 +350,10 @@ public abstract class Transaction {
 		long unitFee = BlockChain.getInstance().getUnitFee();
 		int maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
 
+		// If the unit fee is zero, any fee is enough to cover the byte-length of the transaction
+		if (unitFee == 0) {
+			return true;
+		}
 		return this.feePerByte() >= maxBytePerUnitFee / unitFee;
 	}
 
@@ -373,7 +382,7 @@ public abstract class Transaction {
 	 * @return transaction version number
 	 */
 	public static int getVersionByTimestamp(long timestamp) {
-		return 4;
+		return 5; // TODO: hard fork timestamp!!
 	}
 
 	/**

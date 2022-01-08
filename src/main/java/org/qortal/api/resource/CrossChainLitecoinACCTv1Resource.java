@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.ApiError;
@@ -72,6 +73,7 @@ public class CrossChainLitecoinACCTv1Resource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
 	public boolean buildRedeemMessage(CrossChainSecretRequest secretRequest) {
 		Security.checkApiCallAllowed(request);
 

@@ -286,7 +286,6 @@ public class HSQLDBDatabaseUpdates {
 							+ "service SMALLINT NOT NULL, is_data_raw BOOLEAN NOT NULL, data ArbitraryData NOT NULL, "
 							+ TRANSACTION_KEYS + ")");
 					// NB: Actual data payload stored elsewhere
-					// For the future: data payload should be encrypted, at the very least with transaction's reference as the seed for the encryption key
 					break;
 
 				case 8:
@@ -897,6 +896,53 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX BlockArchiveTimestampHeightIndex ON BlockArchive (minted_when, height)");
 					// Use a separate table space as this table will be very large.
 					stmt.execute("SET TABLE BlockArchive NEW SPACE");
+					break;
+
+				case 37:
+					// ARBITRARY transaction updates for off-chain data storage
+
+					// We may want to use a nonce rather than a transaction fee on the data chain
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD nonce INT NOT NULL DEFAULT 0");
+					// We need to know the total size of the data file(s) associated with each transaction
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD size INT NOT NULL DEFAULT 0");
+					// Larger data files need to be split into chunks, for easier transmission and greater decentralization
+					// We store their hashes (and possibly other things) in a metadata file
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD metadata_hash VARBINARY(32)");
+					// For finding transactions by file hash
+					stmt.execute("CREATE INDEX ArbitraryDataIndex ON ArbitraryTransactions (is_data_raw, data)");
+					break;
+
+				case 38:
+					// We need the ability for arbitrary transactions to be associated with a name
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD name RegisteredName");
+					// A "method" specifies how the data should be applied (e.g. PUT or PATCH)
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD update_method INTEGER NOT NULL DEFAULT 0");
+					// For public data, the AES shared secret needs to be available. This is more for data obfuscation as apposed to actual encryption.
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD secret VARBINARY(32)");
+					// We want to support compressed and uncompressed data, as well as different compression algorithms
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD compression INTEGER NOT NULL DEFAULT 0");
+					// An optional identifier string can be used to allow more than one resource per user/service combo
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD identifier VARCHAR(64)");
+					// For finding transactions by registered name
+					stmt.execute("CREATE INDEX ArbitraryNameIndex ON ArbitraryTransactions (name)");
+					break;
+
+				case 39:
+					// Add DHT-style lookup table to track file locations
+					// This maps ARBITRARY transactions to peer addresses, but also includes additional metadata to
+					// track the local success rate and reachability. It is keyed by a "hash" column, to keep it
+					// generic, as this way we aren't limited to transaction signatures only.
+					// Multiple rows with the same hash are allowed, to allow for metadata. Longer term it could be
+					// reshaped to one row per hash if this is too verbose.
+					// Transaction signatures are hashed to 32 bytes using SHA256. In doing this we lose the ability
+					// to join against transaction tables, but on balance the space savings seem more important.
+					stmt.execute("CREATE TABLE ArbitraryPeers (hash VARBINARY(32) NOT NULL, "
+							+ "peer_address VARCHAR(255), successes INTEGER NOT NULL, failures INTEGER NOT NULL, "
+							+ "last_attempted EpochMillis NOT NULL, last_retrieved EpochMillis NOT NULL, "
+							+ "PRIMARY KEY (hash, peer_address))");
+
+					// For finding peers by data hash
+					stmt.execute("CREATE INDEX ArbitraryPeersHashIndex ON ArbitraryPeers (hash)");
 					break;
 
 				default:
