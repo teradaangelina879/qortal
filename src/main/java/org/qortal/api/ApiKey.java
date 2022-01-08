@@ -32,7 +32,7 @@ public class ApiKey {
     /* Filesystem */
 
     private Path getFilePath() {
-        return Paths.get(Settings.getInstance().getApiKeyPath(), "apikey");
+        return Paths.get(Settings.getInstance().getApiKeyPath(), "apikey.txt");
     }
 
     private boolean load() throws IOException {
