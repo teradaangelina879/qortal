@@ -137,10 +137,7 @@ public class AdminResource {
 			)
 		}
 	)
-	@SecurityRequirement(name = "apiKey")
 	public NodeStatus status() {
-		Security.checkApiCallAllowed(request);
-
 		NodeStatus nodeStatus = new NodeStatus();
 
 		return nodeStatus;
@@ -252,9 +249,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	@SecurityRequirement(name = "apiKey")
 	public List<MintingAccountData> getMintingAccounts() {
-		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<MintingAccountData> mintingAccounts = repository.getAccountRepository().getMintingAccounts();
