@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class ArbitraryDataStorageManager extends Thread {
 
     public enum StoragePolicy {
-        FOLLOWED_AND_VIEWED,
+        FOLLOWED_OR_VIEWED,
         FOLLOWED,
         VIEWED,
         ALL,
@@ -126,7 +126,7 @@ public class ArbitraryDataStorageManager extends Thread {
 
         // Check if our storage policy and and lists allow us to host data for this name
         switch (Settings.getInstance().getStoragePolicy()) {
-            case FOLLOWED_AND_VIEWED:
+            case FOLLOWED_OR_VIEWED:
             case ALL:
             case VIEWED:
                 // If the policy includes viewed data, we can host it as long as it's not blocked
@@ -189,7 +189,7 @@ public class ArbitraryDataStorageManager extends Thread {
 
         switch (Settings.getInstance().getStoragePolicy()) {
             case FOLLOWED:
-            case FOLLOWED_AND_VIEWED:
+            case FOLLOWED_OR_VIEWED:
                 return this.isFollowingName(name);
                 
             case ALL:
@@ -217,7 +217,7 @@ public class ArbitraryDataStorageManager extends Thread {
             case NONE:
             case VIEWED:
             case FOLLOWED:
-            case FOLLOWED_AND_VIEWED:
+            case FOLLOWED_OR_VIEWED:
             default:
                 return false;
         }

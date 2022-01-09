@@ -102,7 +102,7 @@ public class ArbitraryDataManager extends Thread {
 				// Fetch data according to storage policy
 				switch (Settings.getInstance().getStoragePolicy()) {
 					case FOLLOWED:
-					case FOLLOWED_AND_VIEWED:
+					case FOLLOWED_OR_VIEWED:
 						this.processNames();
 						break;
 
