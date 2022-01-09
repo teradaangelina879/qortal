@@ -352,10 +352,7 @@ public class PeersResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
 	public PeersSummary peersSummary() {
-		Security.checkApiCallAllowed(request);
-
 		PeersSummary peersSummary = new PeersSummary();
 
 		List<Peer> connectedPeers = Network.getInstance().getConnectedPeers().stream().collect(Collectors.toList());
