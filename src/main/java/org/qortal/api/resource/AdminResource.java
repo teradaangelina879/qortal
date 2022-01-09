@@ -746,4 +746,22 @@ public class AdminResource {
 		return apiKey.toString();
 	}
 
+	@GET
+	@Path("/apikey/test")
+	@Operation(
+			summary = "Test an API key",
+			responses = {
+					@ApiResponse(
+							description = "true if authenticated",
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String testApiKey() {
+		Security.checkApiCallAllowed(request);
+
+		return "true";
+	}
+
 }
