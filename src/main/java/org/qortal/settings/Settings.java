@@ -282,7 +282,7 @@ public class Settings {
 	private String tempDataPath = null;
 
 	/** Storage policy to indicate which data should be hosted */
-	private String storagePolicy = "FOLLOWED_AND_VIEWED";
+	private String storagePolicy = "FOLLOWED_OR_VIEWED";
 
 	/** Whether to allow data outside of the storage policy to be relayed between other peers */
 	private boolean relayModeEnabled = true;
