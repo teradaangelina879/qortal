@@ -214,8 +214,6 @@ public class Settings {
 	private int maxBlocksPerRequest = 100;
 	/** Maximum number of blocks this node will serve in a single response */
 	private int maxBlocksPerResponse = 200;
-	/** Maximum number of untrimmed blocks this node will serve in a single response */
-	private int maxUntrimmedBlocksPerResponse = 10;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources
@@ -284,7 +282,7 @@ public class Settings {
 	private String tempDataPath = null;
 
 	/** Storage policy to indicate which data should be hosted */
-	private String storagePolicy = "FOLLOWED_AND_VIEWED";
+	private String storagePolicy = "FOLLOWED_OR_VIEWED";
 
 	/** Whether to allow data outside of the storage policy to be relayed between other peers */
 	private boolean relayModeEnabled = true;
@@ -708,8 +706,6 @@ public class Settings {
 	public int getMaxBlocksPerRequest() { return this.maxBlocksPerRequest; }
 
 	public int getMaxBlocksPerResponse() { return this.maxBlocksPerResponse; }
-
-	public int getMaxUntrimmedBlocksPerResponse() { return this.maxUntrimmedBlocksPerResponse; }
 
 	public boolean isAutoUpdateEnabled() {
 		return this.autoUpdateEnabled;

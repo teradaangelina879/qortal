@@ -68,7 +68,7 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             assertTrue(ResourceListManager.getInstance().addToList("followedNames", name, false));
 
             // We should store and pre-fetch data for this transaction
-            assertEquals(StoragePolicy.FOLLOWED_AND_VIEWED, Settings.getInstance().getStoragePolicy());
+            assertEquals(StoragePolicy.FOLLOWED_OR_VIEWED, Settings.getInstance().getStoragePolicy());
             assertTrue(storageManager.canStoreData(transactionData));
             assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
 

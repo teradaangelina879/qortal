@@ -43,6 +43,9 @@ public class ArbitraryDataManager extends Thread {
 	/** Maximum time to hold information about an in-progress relay */
 	public static final long ARBITRARY_RELAY_TIMEOUT = 30 * 1000L; // ms
 
+	/** Maximum number of hops that an arbitrary signatures request is allowed to make */
+	private static int ARBITRARY_SIGNATURES_REQUEST_MAX_HOPS = 3;
+
 	private static ArbitraryDataManager instance;
 	private final Object peerDataLock = new Object();
 
@@ -99,7 +102,7 @@ public class ArbitraryDataManager extends Thread {
 				// Fetch data according to storage policy
 				switch (Settings.getInstance().getStoragePolicy()) {
 					case FOLLOWED:
-					case FOLLOWED_AND_VIEWED:
+					case FOLLOWED_OR_VIEWED:
 						this.processNames();
 						break;
 
@@ -369,7 +372,7 @@ public class ArbitraryDataManager extends Thread {
 
 			// Broadcast the list, using null to represent our peer address
 			LOGGER.info("Broadcasting list of hosted signatures...");
-			Message arbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, hostedSignatures);
+			Message arbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, 0, hostedSignatures);
 			Network.getInstance().broadcast(broadcastPeer -> arbitrarySignatureMessage);
 
 		} catch (DataException e) {
@@ -429,8 +432,12 @@ public class ArbitraryDataManager extends Thread {
 				// If at least one signature in this batch was new to us, we should rebroadcast the message to the
 				// network in case some peers haven't received it yet
 				if (containsNewEntry) {
-					LOGGER.debug("Rebroadcasting arbitrary signature list for peer {}", peerAddress);
-					Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : arbitrarySignaturesMessage);
+					int requestHops = arbitrarySignaturesMessage.getRequestHops();
+					arbitrarySignaturesMessage.setRequestHops(++requestHops);
+					if (requestHops < ARBITRARY_SIGNATURES_REQUEST_MAX_HOPS) {
+						LOGGER.debug("Rebroadcasting arbitrary signature list for peer {}", peerAddress);
+						Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : arbitrarySignaturesMessage);
+					}
 				} else {
 					// Don't rebroadcast as otherwise we could get into a loop
 				}

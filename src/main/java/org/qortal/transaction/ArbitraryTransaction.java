@@ -228,7 +228,7 @@ public class ArbitraryTransaction extends Transaction {
 			if (ArbitraryDataStorageManager.getInstance().canStoreData(arbitraryTransactionData)) {
 				// Use a null peer address to indicate our own
 				byte[] signature = arbitraryTransactionData.getSignature();
-				Message arbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
+				Message arbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, 0, Arrays.asList(signature));
 				Network.getInstance().broadcast(broadcastPeer -> arbitrarySignatureMessage);
 			}
 		}
