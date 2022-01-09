@@ -159,7 +159,7 @@ public class ArbitraryDataFileManager {
             // but only if these files are in accordance with our storage policy
             if (ArbitraryDataStorageManager.getInstance().canStoreData(arbitraryTransactionData)) {
                 // Use a null peer address to indicate our own
-                Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, Arrays.asList(signature));
+                Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, 0, Arrays.asList(signature));
                 Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
             }
         }
