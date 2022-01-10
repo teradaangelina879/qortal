@@ -32,11 +32,11 @@ import org.qortal.utils.EnumUtils;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class Settings {
 
-	private static final int MAINNET_LISTEN_PORT = 12394;
-	private static final int TESTNET_LISTEN_PORT = 62394;
+	private static final int MAINNET_LISTEN_PORT = 12392;
+	private static final int TESTNET_LISTEN_PORT = 62392;
 
-	private static final int MAINNET_API_PORT = 12393;
-	private static final int TESTNET_API_PORT = 62393;
+	private static final int MAINNET_API_PORT = 12391;
+	private static final int TESTNET_API_PORT = 62391;
 
 	private static final int MAINNET_DOMAIN_MAP_PORT = 80;
 	private static final int TESTNET_DOMAIN_MAP_PORT = 8080;
