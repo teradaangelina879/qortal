@@ -106,9 +106,9 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		if (version >= 5) {
 			nonce = byteBuffer.getInt();
 
-			name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
+			name = Serialization.deserializeSizedStringV2(byteBuffer, Name.MAX_NAME_SIZE);
 
-			identifier = Serialization.deserializeSizedString(byteBuffer, ArbitraryTransaction.MAX_IDENTIFIER_LENGTH);
+			identifier = Serialization.deserializeSizedStringV2(byteBuffer, ArbitraryTransaction.MAX_IDENTIFIER_LENGTH);
 
 			method =  ArbitraryTransactionData.Method.valueOf(byteBuffer.getInt());
 
@@ -203,9 +203,9 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			if (arbitraryTransactionData.getVersion() >= 5) {
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getNonce()));
 
-				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getName());
+				Serialization.serializeSizedStringV2(bytes, arbitraryTransactionData.getName());
 
-				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getIdentifier());
+				Serialization.serializeSizedStringV2(bytes, arbitraryTransactionData.getIdentifier());
 
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getMethod().value));
 
@@ -274,9 +274,9 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			if (arbitraryTransactionData.getVersion() >= 5) {
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getNonce()));
 
-				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getName());
+				Serialization.serializeSizedStringV2(bytes, arbitraryTransactionData.getName());
 
-				Serialization.serializeSizedString(bytes, arbitraryTransactionData.getIdentifier());
+				Serialization.serializeSizedStringV2(bytes, arbitraryTransactionData.getIdentifier());
 
 				bytes.write(Ints.toByteArray(arbitraryTransactionData.getMethod().value));
 
