@@ -395,7 +395,7 @@ public class ArbitraryDataManager extends Thread {
 		List<byte[]> signatures = arbitrarySignaturesMessage.getSignatures();
 
 		String peerAddress = peer.getPeerData().getAddress().toString();
-		if (arbitrarySignaturesMessage.getPeerAddress() != null) {
+		if (arbitrarySignaturesMessage.getPeerAddress() != null && !arbitrarySignaturesMessage.getPeerAddress().isEmpty()) {
 			// This message is about a different peer than the one that sent it
 			peerAddress = arbitrarySignaturesMessage.getPeerAddress();
 		}

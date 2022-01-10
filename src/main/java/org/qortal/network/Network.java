@@ -1109,7 +1109,7 @@ public class Network {
     // External IP / peerAddress tracking
 
     public void ourPeerAddressUpdated(String peerAddress) {
-        if (peerAddress == null) {
+        if (peerAddress == null || peerAddress.isEmpty()) {
             return;
         }
 
