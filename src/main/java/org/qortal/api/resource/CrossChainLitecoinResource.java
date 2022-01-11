@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
@@ -58,7 +59,7 @@ public class CrossChainLitecoinResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String getLitecoinWalletBalance(String key58) {
+	public String getLitecoinWalletBalance(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String key58) {
 		Security.checkApiCallAllowed(request);
 
 		Litecoin litecoin = Litecoin.getInstance();
@@ -97,7 +98,7 @@ public class CrossChainLitecoinResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public List<SimpleTransaction> getLitecoinWalletTransactions(String key58) {
+	public List<SimpleTransaction> getLitecoinWalletTransactions(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String key58) {
 		Security.checkApiCallAllowed(request);
 
 		Litecoin litecoin = Litecoin.getInstance();
@@ -134,7 +135,7 @@ public class CrossChainLitecoinResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.FOREIGN_BLOCKCHAIN_BALANCE_ISSUE, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String sendBitcoin(LitecoinSendRequest litecoinSendRequest) {
+	public String sendBitcoin(@HeaderParam(Security.API_KEY_HEADER) String apiKey, LitecoinSendRequest litecoinSendRequest) {
 		Security.checkApiCallAllowed(request);
 
 		if (litecoinSendRequest.litecoinAmount <= 0)

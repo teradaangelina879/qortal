@@ -27,11 +27,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.QueryParam;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -156,7 +152,7 @@ public class AdminResource {
 		}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String shutdown() {
+	public String shutdown(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		new Thread(() -> {
@@ -185,7 +181,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public ActivitySummary summary() {
+	public ActivitySummary summary(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		ActivitySummary summary = new ActivitySummary();
@@ -231,7 +227,7 @@ public class AdminResource {
 		}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public Controller.StatsSnapshot getEngineStats() {
+	public Controller.StatsSnapshot getEngineStats(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		return Controller.getInstance().getStatsSnapshot();
@@ -295,7 +291,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE, ApiError.CANNOT_MINT})
 	@SecurityRequirement(name = "apiKey")
-	public String addMintingAccount(String seed58) {
+	public String addMintingAccount(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String seed58) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -348,7 +344,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String deleteMintingAccount(String key58) {
+	public String deleteMintingAccount(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String key58) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -448,7 +444,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.INVALID_HEIGHT, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String orphan(String targetHeightString) {
+	public String orphan(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String targetHeightString) {
 		Security.checkApiCallAllowed(request);
 
 		try {
@@ -507,7 +503,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String forceSync(String targetPeerAddress) {
+	public String forceSync(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String targetPeerAddress) {
 		Security.checkApiCallAllowed(request);
 
 		try {
@@ -553,7 +549,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String exportRepository() {
+	public String exportRepository(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -587,7 +583,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String importRepository(String filename) {
+	public String importRepository(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String filename) {
 		Security.checkApiCallAllowed(request);
 
 		// Hard-coded because it's too dangerous to allow user-supplied filenames in weaker security contexts
@@ -633,7 +629,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String checkpointRepository() {
+	public String checkpointRepository(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
@@ -654,7 +650,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String backupRepository() {
+	public String backupRepository(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -688,7 +684,7 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public void performRepositoryMaintenance() {
+	public void performRepositoryMaintenance(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -726,7 +722,7 @@ public class AdminResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String generateApiKey() {
+	public String generateApiKey(@HeaderParam(Security.API_KEY_HEADER) String apiKeyHeader) {
 		ApiKey apiKey = Security.getApiKey(request);
 
 		// If the API key is already generated, we need to authenticate this request
@@ -758,7 +754,7 @@ public class AdminResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String testApiKey() {
+	public String testApiKey(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		return "true";

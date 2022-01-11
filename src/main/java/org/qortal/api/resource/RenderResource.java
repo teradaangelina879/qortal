@@ -69,7 +69,7 @@ public class RenderResource {
             }
     )
     @SecurityRequirement(name = "apiKey")
-    public String preview(String directoryPath) {
+    public String preview(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String directoryPath) {
         Security.checkApiCallAllowed(request);
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
@@ -98,7 +98,7 @@ public class RenderResource {
     @POST
     @Path("/authorize/{resourceId}")
     @SecurityRequirement(name = "apiKey")
-    public boolean authorizeResource(@PathParam("resourceId") String resourceId) {
+    public boolean authorizeResource(@HeaderParam(Security.API_KEY_HEADER) String apiKey, @PathParam("resourceId") String resourceId) {
         Security.checkApiCallAllowed(request);
         ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, null, null);
         ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
@@ -108,7 +108,8 @@ public class RenderResource {
     @POST
     @Path("authorize/{service}/{resourceId}")
     @SecurityRequirement(name = "apiKey")
-    public boolean authorizeResource(@PathParam("service") Service service,
+    public boolean authorizeResource(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+                                     @PathParam("service") Service service,
                                      @PathParam("resourceId") String resourceId) {
         Security.checkApiCallAllowed(request);
         ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, service, null);
@@ -119,7 +120,8 @@ public class RenderResource {
     @POST
     @Path("authorize/{service}/{resourceId}/{identifier}")
     @SecurityRequirement(name = "apiKey")
-    public boolean authorizeResource(@PathParam("service") Service service,
+    public boolean authorizeResource(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+                                     @PathParam("service") Service service,
                                      @PathParam("resourceId") String resourceId,
                                      @PathParam("identifier") String identifier) {
         Security.checkApiCallAllowed(request);

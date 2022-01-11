@@ -14,11 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.QueryParam;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -72,6 +68,7 @@ public class CrossChainTradeBotResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
 	public List<TradeBotData> getTradeBotStates(
+			@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 			@Parameter(
 					description = "Limit to specific blockchain",
 					example = "LITECOIN",
@@ -113,7 +110,7 @@ public class CrossChainTradeBotResource {
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.INSUFFICIENT_BALANCE, ApiError.REPOSITORY_ISSUE, ApiError.ORDER_SIZE_TOO_SMALL})
 	@SuppressWarnings("deprecation")
 	@SecurityRequirement(name = "apiKey")
-	public String tradeBotCreator(TradeBotCreateRequest tradeBotCreateRequest) {
+	public String tradeBotCreator(@HeaderParam(Security.API_KEY_HEADER) String apiKey, TradeBotCreateRequest tradeBotCreateRequest) {
 		Security.checkApiCallAllowed(request);
 
 		if (tradeBotCreateRequest.foreignBlockchain == null)
@@ -183,7 +180,7 @@ public class CrossChainTradeBotResource {
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.FOREIGN_BLOCKCHAIN_BALANCE_ISSUE, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE, ApiError.REPOSITORY_ISSUE})
 	@SuppressWarnings("deprecation")
 	@SecurityRequirement(name = "apiKey")
-	public String tradeBotResponder(TradeBotRespondRequest tradeBotRespondRequest) {
+	public String tradeBotResponder(@HeaderParam(Security.API_KEY_HEADER) String apiKey, TradeBotRespondRequest tradeBotRespondRequest) {
 		Security.checkApiCallAllowed(request);
 
 		final String atAddress = tradeBotRespondRequest.atAddress;
@@ -265,7 +262,7 @@ public class CrossChainTradeBotResource {
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String tradeBotDelete(String tradePrivateKey58) {
+	public String tradeBotDelete(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String tradePrivateKey58) {
 		Security.checkApiCallAllowed(request);
 
 		final byte[] tradePrivateKey;

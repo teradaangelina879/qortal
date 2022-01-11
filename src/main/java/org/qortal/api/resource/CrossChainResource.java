@@ -15,11 +15,7 @@ import java.util.*;
 import java.util.function.Supplier;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -395,7 +391,7 @@ public class CrossChainResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String cancelTrade(CrossChainCancelRequest cancelRequest) {
+	public String cancelTrade(@HeaderParam(Security.API_KEY_HEADER) String apiKey, CrossChainCancelRequest cancelRequest) {
 		Security.checkApiCallAllowed(request);
 
 		byte[] creatorPublicKey = cancelRequest.creatorPublicKey;

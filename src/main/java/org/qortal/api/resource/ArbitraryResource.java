@@ -339,7 +339,7 @@ public class ArbitraryResource {
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public boolean getRelayMode() {
+	public boolean getRelayMode(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		return Settings.getInstance().isRelayModeEnabled();
@@ -356,7 +356,7 @@ public class ArbitraryResource {
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryTransactionData> getHostedTransactions() {
+	public List<ArbitraryTransactionData> getHostedTransactions(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -382,6 +382,7 @@ public class ArbitraryResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryResourceInfo> getHostedResources(
+			@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus) {
 		Security.checkApiCallAllowed(request);
 
@@ -429,7 +430,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public boolean deleteResource(@PathParam("service") Service service,
+	public boolean deleteResource(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+								  @PathParam("service") Service service,
 								  @PathParam("name") String name,
 								  @PathParam("identifier") String identifier) {
 
@@ -467,7 +469,7 @@ public class ArbitraryResource {
 	)
 	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String computeNonce(String rawBytes58) {
+	public String computeNonce(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String rawBytes58) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -528,7 +530,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@PathParam("service") Service service,
+	public HttpServletResponse get(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+								   @PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
 								   @QueryParam("rebuild") boolean rebuild) {
@@ -555,7 +558,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@PathParam("service") Service service,
+	public HttpServletResponse get(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+								   @PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
@@ -595,7 +599,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String post(@PathParam("service") String serviceString,
+	public String post(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+					   @PathParam("service") String serviceString,
 					   @PathParam("name") String name,
 					   String path) {
 		Security.checkApiCallAllowed(request);
@@ -633,7 +638,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String post(@PathParam("service") String serviceString,
+	public String post(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+					   @PathParam("service") String serviceString,
 					   @PathParam("name") String name,
 					   @PathParam("identifier") String identifier,
 					   String path) {
@@ -674,7 +680,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String postBase64EncodedData(@PathParam("service") String serviceString,
+	public String postBase64EncodedData(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+										@PathParam("service") String serviceString,
 										@PathParam("name") String name,
 										String base64) {
 		Security.checkApiCallAllowed(request);
@@ -710,7 +717,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String postBase64EncodedData(@PathParam("service") String serviceString,
+	public String postBase64EncodedData(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+										@PathParam("service") String serviceString,
 										@PathParam("name") String name,
 										@PathParam("identifier") String identifier,
 										String base64) {
@@ -750,7 +758,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String postZippedData(@PathParam("service") String serviceString,
+	public String postZippedData(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+								 @PathParam("service") String serviceString,
 								 @PathParam("name") String name,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
@@ -786,7 +795,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String postZippedData(@PathParam("service") String serviceString,
+	public String postZippedData(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+								 @PathParam("service") String serviceString,
 								 @PathParam("name") String name,
 								 @PathParam("identifier") String identifier,
 								 String base64Zip) {
@@ -829,7 +839,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String postString(@PathParam("service") String serviceString,
+	public String postString(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+							 @PathParam("service") String serviceString,
 							 @PathParam("name") String name,
 							 String string) {
 		Security.checkApiCallAllowed(request);
@@ -867,7 +878,8 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String postString(@PathParam("service") String serviceString,
+	public String postString(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+							 @PathParam("service") String serviceString,
 							 @PathParam("name") String name,
 							 @PathParam("identifier") String identifier,
 							 String string) {

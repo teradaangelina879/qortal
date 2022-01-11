@@ -16,10 +16,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -130,7 +127,7 @@ public class PeersResource {
 		}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ExecuteProduceConsume.StatsSnapshot getEngineStats() {
+	public ExecuteProduceConsume.StatsSnapshot getEngineStats(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		return Network.getInstance().getStatsSnapshot();
@@ -168,7 +165,7 @@ public class PeersResource {
 		ApiError.INVALID_NETWORK_ADDRESS, ApiError.REPOSITORY_ISSUE
 	})
 	@SecurityRequirement(name = "apiKey")
-	public String addPeer(String address) {
+	public String addPeer(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String address) {
 		Security.checkApiCallAllowed(request);
 
 		final Long addedWhen = NTP.getTime();
@@ -223,7 +220,7 @@ public class PeersResource {
 		ApiError.INVALID_NETWORK_ADDRESS, ApiError.REPOSITORY_ISSUE
 	})
 	@SecurityRequirement(name = "apiKey")
-	public String removePeer(String address) {
+	public String removePeer(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String address) {
 		Security.checkApiCallAllowed(request);
 
 		try {
@@ -259,7 +256,7 @@ public class PeersResource {
 		ApiError.REPOSITORY_ISSUE
 	})
 	@SecurityRequirement(name = "apiKey")
-	public String removeKnownPeers(String address) {
+	public String removeKnownPeers(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String address) {
 		Security.checkApiCallAllowed(request);
 
 		try {
@@ -299,7 +296,7 @@ public class PeersResource {
 	)
 	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public List<BlockSummaryData> commonBlock(String targetPeerAddress) {
+	public List<BlockSummaryData> commonBlock(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String targetPeerAddress) {
 		Security.checkApiCallAllowed(request);
 
 		try {

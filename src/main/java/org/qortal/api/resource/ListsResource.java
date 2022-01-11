@@ -56,7 +56,8 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String addItemstoList(@PathParam("listName") String listName,
+	public String addItemstoList(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+								 @PathParam("listName") String listName,
 								 ListRequest listRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -118,7 +119,8 @@ public class ListsResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String removeItemsFromList(@PathParam("listName") String listName,
+	public String removeItemsFromList(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+									  @PathParam("listName") String listName,
 									  ListRequest listRequest) {
 		Security.checkApiCallAllowed(request);
 
@@ -166,7 +168,7 @@ public class ListsResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String getItemsInList(@PathParam("listName") String listName) {
+	public String getItemsInList(@HeaderParam(Security.API_KEY_HEADER) String apiKey, @PathParam("listName") String listName) {
 		Security.checkApiCallAllowed(request);
 		return ResourceListManager.getInstance().getJSONStringForList(listName);
 	}

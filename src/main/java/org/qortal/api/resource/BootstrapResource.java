@@ -45,7 +45,7 @@ public class BootstrapResource {
 		}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String createBootstrap() {
+	public String createBootstrap(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -80,7 +80,7 @@ public class BootstrapResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public boolean validateBootstrap() {
+	public boolean validateBootstrap(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {

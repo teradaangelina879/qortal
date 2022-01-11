@@ -11,10 +11,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -107,7 +104,8 @@ public class CrossChainHtlcResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
 	@SecurityRequirement(name = "apiKey")
-	public CrossChainBitcoinyHTLCStatus checkHtlcStatus(@PathParam("blockchain") String blockchainName,
+	public CrossChainBitcoinyHTLCStatus checkHtlcStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+			@PathParam("blockchain") String blockchainName,
 			@PathParam("refundPKH") String refundPKH,
 			@PathParam("locktime") int lockTime,
 			@PathParam("redeemPKH") String redeemPKH,
@@ -191,7 +189,7 @@ public class CrossChainHtlcResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
 	@SecurityRequirement(name = "apiKey")
-	public boolean redeemHtlc(@PathParam("ataddress") String atAddress) {
+	public boolean redeemHtlc(@HeaderParam(Security.API_KEY_HEADER) String apiKey, @PathParam("ataddress") String atAddress) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -250,7 +248,7 @@ public class CrossChainHtlcResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
 	@SecurityRequirement(name = "apiKey")
-	public boolean redeemAllHtlc() {
+	public boolean redeemAllHtlc(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 		boolean success = false;
 
@@ -435,7 +433,7 @@ public class CrossChainHtlcResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
 	@SecurityRequirement(name = "apiKey")
-	public boolean refundHtlc(@PathParam("ataddress") String atAddress) {
+	public boolean refundHtlc(@HeaderParam(Security.API_KEY_HEADER) String apiKey, @PathParam("ataddress") String atAddress) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -484,7 +482,7 @@ public class CrossChainHtlcResource {
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.ADDRESS_UNKNOWN})
 	@SecurityRequirement(name = "apiKey")
-	public boolean refundAllHtlc() {
+	public boolean refundAllHtlc(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
 		Security.checkApiCallAllowed(request);
 		boolean success = false;
 

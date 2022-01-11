@@ -31,6 +31,7 @@ import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
@@ -74,7 +75,7 @@ public class CrossChainLitecoinACCTv1Resource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public boolean buildRedeemMessage(CrossChainSecretRequest secretRequest) {
+	public boolean buildRedeemMessage(@HeaderParam(Security.API_KEY_HEADER) String apiKey, CrossChainSecretRequest secretRequest) {
 		Security.checkApiCallAllowed(request);
 
 		byte[] partnerPrivateKey = secretRequest.partnerPrivateKey;

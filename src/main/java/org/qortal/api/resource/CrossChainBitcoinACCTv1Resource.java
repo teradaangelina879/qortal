@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Random;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
@@ -81,7 +82,7 @@ public class CrossChainBitcoinACCTv1Resource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_DATA, ApiError.INVALID_REFERENCE, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String buildTrade(CrossChainBuildRequest tradeRequest) {
+	public String buildTrade(@HeaderParam(Security.API_KEY_HEADER) String apiKey, CrossChainBuildRequest tradeRequest) {
 		Security.checkApiCallAllowed(request);
 
 		byte[] creatorPublicKey = tradeRequest.creatorPublicKey;
@@ -177,7 +178,7 @@ public class CrossChainBitcoinACCTv1Resource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String buildTradeMessage(CrossChainTradeRequest tradeRequest) {
+	public String buildTradeMessage(@HeaderParam(Security.API_KEY_HEADER) String apiKey, CrossChainTradeRequest tradeRequest) {
 		Security.checkApiCallAllowed(request);
 
 		byte[] tradePublicKey = tradeRequest.tradePublicKey;
@@ -261,7 +262,7 @@ public class CrossChainBitcoinACCTv1Resource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.INVALID_ADDRESS, ApiError.INVALID_DATA, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String buildRedeemMessage(CrossChainDualSecretRequest secretRequest) {
+	public String buildRedeemMessage(@HeaderParam(Security.API_KEY_HEADER) String apiKey, CrossChainDualSecretRequest secretRequest) {
 		Security.checkApiCallAllowed(request);
 
 		byte[] partnerPublicKey = secretRequest.partnerPublicKey;

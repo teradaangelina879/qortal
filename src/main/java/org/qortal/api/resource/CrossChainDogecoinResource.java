@@ -19,6 +19,7 @@ import org.qortal.crosschain.Dogecoin;
 import org.qortal.crosschain.SimpleTransaction;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
@@ -56,7 +57,7 @@ public class CrossChainDogecoinResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String getDogecoinWalletBalance(String key58) {
+	public String getDogecoinWalletBalance(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String key58) {
 		Security.checkApiCallAllowed(request);
 
 		Dogecoin dogecoin = Dogecoin.getInstance();
@@ -95,7 +96,7 @@ public class CrossChainDogecoinResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public List<SimpleTransaction> getDogecoinWalletTransactions(String key58) {
+	public List<SimpleTransaction> getDogecoinWalletTransactions(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String key58) {
 		Security.checkApiCallAllowed(request);
 
 		Dogecoin dogecoin = Dogecoin.getInstance();
@@ -132,7 +133,7 @@ public class CrossChainDogecoinResource {
 	)
 	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.FOREIGN_BLOCKCHAIN_BALANCE_ISSUE, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String sendBitcoin(DogecoinSendRequest dogecoinSendRequest) {
+	public String sendBitcoin(@HeaderParam(Security.API_KEY_HEADER) String apiKey, DogecoinSendRequest dogecoinSendRequest) {
 		Security.checkApiCallAllowed(request);
 
 		if (dogecoinSendRequest.dogecoinAmount <= 0)

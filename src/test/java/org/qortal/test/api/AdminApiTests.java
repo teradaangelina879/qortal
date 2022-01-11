@@ -30,7 +30,7 @@ public class AdminApiTests extends ApiCommon {
 
 	@Test
 	public void testSummary() {
-		assertNotNull(this.adminResource.summary());
+		assertNotNull(this.adminResource.summary("testApiKey"));
 	}
 
 	@Test
