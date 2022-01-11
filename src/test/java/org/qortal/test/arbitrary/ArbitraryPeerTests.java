@@ -28,7 +28,7 @@ public class ArbitraryPeerTests extends Common {
     public void testSaveArbitraryPeerData() throws DataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
 
-            String peerAddress = "127.0.0.1:12392";
+            String peerAddress = "123.124.125.126:12392";
             String host = peerAddress.split(":")[0];
 
             // Create random bytes to represent a signature
@@ -60,7 +60,7 @@ public class ArbitraryPeerTests extends Common {
     public void testUpdateArbitraryPeerData() throws DataException, InterruptedException {
         try (final Repository repository = RepositoryManager.getRepository()) {
 
-            String peerAddress = "127.0.0.1:12392";
+            String peerAddress = "123.124.125.126:12392";
             String host = peerAddress.split(":")[0];
 
             // Create random bytes to represent a signature
@@ -122,8 +122,8 @@ public class ArbitraryPeerTests extends Common {
     public void testDuplicatePeerHost() throws DataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
 
-            String peerAddress1 = "127.0.0.1:12392";
-            String peerAddress2 = "127.0.0.1:62392";
+            String peerAddress1 = "123.124.125.126:12392";
+            String peerAddress2 = "123.124.125.126:62392";
             String host1 = peerAddress1.split(":")[0];
             String host2 = peerAddress2.split(":")[0];
 
