@@ -1113,6 +1113,7 @@ public class Network {
             return;
         }
 
+        // Validate IP address
         String[] parts = peerAddress.split(":");
         if (parts.length != 2) {
             return;
@@ -1128,32 +1129,47 @@ public class Network {
             return;
         }
 
+        // Add to the list
         this.ourExternalIpAddressHistory.add(host);
 
-        // Limit to 10 entries
-        while (this.ourExternalIpAddressHistory.size() > 10) {
+        // Limit to 25 entries
+        while (this.ourExternalIpAddressHistory.size() > 25) {
             this.ourExternalIpAddressHistory.remove(0);
         }
 
-        // If we've had 3 consecutive matching addresses, and they're different from
+        // If we've had 10 consecutive matching addresses, and they're different from
         // our stored IP address value, treat it as updated.
-
+        int consecutiveReadingsRequired = 10;
         int size = this.ourExternalIpAddressHistory.size();
-        if (size < 3) {
-            // Need at least 3 readings
+        if (size < consecutiveReadingsRequired) {
+            // Need at least 10 readings
             return;
         }
 
-        String ip1 = this.ourExternalIpAddressHistory.get(size - 1);
-        String ip2 = this.ourExternalIpAddressHistory.get(size - 2);
-        String ip3 = this.ourExternalIpAddressHistory.get(size - 3);
+        // Count the number of consecutive IP address readings
+        String lastReading = null;
+        int consecutiveReadings = 0;
+        for (int i = size-1; i >= 0; i--) {
+            String reading = this.ourExternalIpAddressHistory.get(i);
+            if (lastReading != null) {
+                 if (Objects.equals(reading, lastReading)) {
+                    consecutiveReadings++;
+                 }
+                 else {
+                     consecutiveReadings = 0;
+                 }
+            }
+            lastReading = reading;
+        }
 
-        if (!Objects.equals(ip1, this.ourExternalIpAddress)) {
-            // Latest reading doesn't match our known value
-            if (Objects.equals(ip1, ip2) && Objects.equals(ip1, ip3)) {
-                // Last 3 readings were the same - i.e. more than one peer agreed on the new IP address
-                this.ourExternalIpAddress = ip1;
-                this.onExternalIpUpdate(ip1);
+        if (consecutiveReadings >= consecutiveReadingsRequired) {
+            // Last 10 readings were the same - i.e. more than one peer agreed on the new IP address...
+            String ip = this.ourExternalIpAddressHistory.get(size - 1);
+            if (!Objects.equals(ip, this.ourExternalIpAddress)) {
+                // ... and the readings were different to our current recorded value, so
+                // update our external IP address value
+                this.ourExternalIpAddress = ip;
+                this.onExternalIpUpdate(ip);
             }
         }
     }
