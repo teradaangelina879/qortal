@@ -64,6 +64,19 @@ public abstract class Security {
 		}
 	}
 
+	public static void disallowLoopbackRequestsIfAuthBypassEnabled(HttpServletRequest request) {
+		if (Settings.getInstance().isLocalAuthBypassEnabled()) {
+			try {
+				InetAddress remoteAddr = InetAddress.getByName(request.getRemoteAddr());
+				if (remoteAddr.isLoopbackAddress()) {
+					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Local requests not allowed when localAuthBypassEnabled is enabled in settings");
+				}
+			} catch (UnknownHostException e) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.UNAUTHORIZED);
+			}
+		}
+	}
+
 	public static void requirePriorAuthorization(HttpServletRequest request, String resourceId, Service service, String identifier) {
 		ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, service, identifier);
 		if (!ArbitraryDataRenderManager.getInstance().isAuthorized(resource)) {

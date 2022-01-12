@@ -100,6 +100,7 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public boolean authorizeResource(@HeaderParam(Security.API_KEY_HEADER) String apiKey, @PathParam("resourceId") String resourceId) {
         Security.checkApiCallAllowed(request);
+        Security.disallowLoopbackRequestsIfAuthBypassEnabled(request);
         ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, null, null);
         ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
         return true;
@@ -112,6 +113,7 @@ public class RenderResource {
                                      @PathParam("service") Service service,
                                      @PathParam("resourceId") String resourceId) {
         Security.checkApiCallAllowed(request);
+        Security.disallowLoopbackRequestsIfAuthBypassEnabled(request);
         ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, service, null);
         ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
         return true;
@@ -125,6 +127,7 @@ public class RenderResource {
                                      @PathParam("resourceId") String resourceId,
                                      @PathParam("identifier") String identifier) {
         Security.checkApiCallAllowed(request);
+        Security.disallowLoopbackRequestsIfAuthBypassEnabled(request);
         ArbitraryDataResource resource = new ArbitraryDataResource(resourceId, null, service, identifier);
         ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
         return true;
