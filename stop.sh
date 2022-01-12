@@ -23,7 +23,7 @@ is_pid_valid=$?
 
 if [ -z "${pid}" ]; then
   # Attempt to locate the process ID
-  pid=$(ps aux | grep '[q]ortal.jar' | awk '{print $2}')
+  pid=$(ps aux | grep '[q]ortal.jar' | head -n 1 | awk '{print $2}')
 fi
 
 echo "Stopping Qortal process $pid..."
