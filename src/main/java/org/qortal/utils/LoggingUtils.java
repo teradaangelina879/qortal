@@ -18,9 +18,6 @@ public class LoggingUtils {
                 if (content.contains("${dirname:-}")) {
                     content = content.replace("${dirname:-}", "./");
                     FileUtils.writeStringToFile(log4j2PropertiesPath.toFile(), content, "UTF-8");
-
-                    // Force reload the log4j2.properties file
-                    ((org.apache.logging.log4j.core.LoggerContext) LogManager.getContext(false)).reconfigure();
                 }
             } catch (IOException e) {
                 // Not much we can do here
