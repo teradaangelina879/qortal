@@ -363,7 +363,7 @@ public class ArbitraryDataReader {
                 }
 
                 // Throw a missing data exception, which allows subsequent layers to fetch data
-                LOGGER.info(message);
+                LOGGER.debug(message);
                 throw new MissingDataException(message);
             }
         }
