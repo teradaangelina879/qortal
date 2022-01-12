@@ -435,7 +435,7 @@ public class ArbitraryDataManager extends Thread {
 					int requestHops = arbitrarySignaturesMessage.getRequestHops();
 					arbitrarySignaturesMessage.setRequestHops(++requestHops);
 					if (requestHops < ARBITRARY_SIGNATURES_REQUEST_MAX_HOPS) {
-						LOGGER.debug("Rebroadcasting arbitrary signature list for peer {}", peerAddress);
+						LOGGER.debug("Rebroadcasting arbitrary signature list for peer {}. requestHops: {}", peerAddress, requestHops);
 						Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : arbitrarySignaturesMessage);
 					}
 				} else {
