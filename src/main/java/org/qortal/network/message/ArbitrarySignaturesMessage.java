@@ -50,7 +50,7 @@ public class ArbitrarySignaturesMessage extends Message {
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException, TransformationException {
-		String peerAddress = Serialization.deserializeSizedString(bytes, PeerData.MAX_PEER_ADDRESS_SIZE);
+		String peerAddress = Serialization.deserializeSizedStringV2(bytes, PeerData.MAX_PEER_ADDRESS_SIZE);
 
 		int requestHops = bytes.getInt();
 
@@ -74,7 +74,7 @@ public class ArbitrarySignaturesMessage extends Message {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			Serialization.serializeSizedString(bytes, this.peerAddress);
+			Serialization.serializeSizedStringV2(bytes, this.peerAddress);
 
 			bytes.write(Ints.toByteArray(this.requestHops));
 
