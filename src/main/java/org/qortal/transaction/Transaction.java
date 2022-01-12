@@ -382,7 +382,10 @@ public abstract class Transaction {
 	 * @return transaction version number
 	 */
 	public static int getVersionByTimestamp(long timestamp) {
-		return 4; // TODO: hard fork timestamp!!
+		if (timestamp >= 1642176000000L) {
+			return 5;
+		}
+		return 4;
 	}
 
 	/**
