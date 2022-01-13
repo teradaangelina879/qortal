@@ -2,7 +2,7 @@
 <DOCUMENT Type="Advanced Installer" CreateVersion="14.9" version="18.2" Modules="enterprise" RootPath="." Language="en_GB" Id="{713E21E0-28FC-422F-8A95-823D01A5F80B}">
   <COMPONENT cid="caphyon.advinst.msicomp.MsiPropsComponent">
     <ROW Property="AI_BITMAP_DISPLAY_MODE" Value="0"/>
-    <ROW Property="AI_CURRENT_YEAR" Value="2021" ValueLocId="-"/>
+    <ROW Property="AI_CURRENT_YEAR" Value="2022" ValueLocId="-"/>
     <ROW Property="AI_FINDEXE_TITLE" Value="Select the installation package for [|ProductName]" ValueLocId="AI.Property.FindExeTitle"/>
     <ROW Property="AI_PRODUCTNAME_ARP" Value="Qortal"/>
     <ROW Property="AI_RUN_AS_ADMIN" Value="0"/>
@@ -17,10 +17,10 @@
     <ROW Property="Manufacturer" Value="Qortal"/>
     <ROW Property="MsiLogging" MultiBuildValue="DefaultBuild:vp"/>
     <ROW Property="NTP_GOOD" Value="false"/>
-    <ROW Property="ProductCode" Value="1033:{51EFA0B0-C304-4043-AF6D-2C17C783A998} 1049:{C4662BB2-A247-426E-A128-B7DBD12ECE78} 2052:{1AF44520-C8AB-4261-BCFE-EEA941439718} 2057:{C096EB6A-F43F-45EE-921C-D20F9B993E80} " Type="16"/>
+    <ROW Property="ProductCode" Value="1033:{1FB9DC61-308D-4726-B993-82B2D51AD453} 1049:{0EAB0862-4F57-4D79-B8B4-C3E1D84484A2} 2052:{28F67872-0D8B-48D1-9DE1-7F11D5919CB8} 2057:{725A8624-CB8A-426D-8162-68980ED45BCB} " Type="16"/>
     <ROW Property="ProductLanguage" Value="2057"/>
     <ROW Property="ProductName" Value="Qortal"/>
-    <ROW Property="ProductVersion" Value="2.1.3" Type="32"/>
+    <ROW Property="ProductVersion" Value="3.0.1" Type="32"/>
     <ROW Property="RECONFIG_NTP" Value="true"/>
     <ROW Property="REMOVE_BLOCKCHAIN" Value="YES" Type="4"/>
     <ROW Property="REPAIR_BLOCKCHAIN" Value="YES" Type="4"/>
@@ -212,7 +212,7 @@
     <ROW Component="ADDITIONAL_LICENSE_INFO_71" ComponentId="{12A3ADBE-BB7A-496C-8869-410681E6232F}" Directory_="jdk.zipfs_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_71" Type="0"/>
     <ROW Component="ADDITIONAL_LICENSE_INFO_8" ComponentId="{D53AD95E-CF96-4999-80FC-5812277A7456}" Directory_="java.naming_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_8" Type="0"/>
     <ROW Component="ADDITIONAL_LICENSE_INFO_9" ComponentId="{6B7EA9B0-5D17-47A8-B78C-FACE86D15E01}" Directory_="java.net.http_Dir" Attributes="0" KeyPath="ADDITIONAL_LICENSE_INFO_9" Type="0"/>
-    <ROW Component="AI_CustomARPName" ComponentId="{9A243E53-8FC9-4854-B6E2-937493305BB4}" Directory_="APPDIR" Attributes="260" KeyPath="DisplayName" Options="1"/>
+    <ROW Component="AI_CustomARPName" ComponentId="{163A0AFB-3694-4E1B-ABB8-7C5F28F61305}" Directory_="APPDIR" Attributes="260" KeyPath="DisplayName" Options="1"/>
     <ROW Component="AI_ExePath" ComponentId="{3644948D-AE0B-41BB-9FAF-A79E70490A08}" Directory_="APPDIR" Attributes="260" KeyPath="AI_ExePath"/>
     <ROW Component="APPDIR" ComponentId="{680DFDDE-3FB4-47A5-8FF5-934F576C6F91}" Directory_="APPDIR" Attributes="0"/>
     <ROW Component="AccessBridgeCallbacks.h" ComponentId="{288055D1-1062-47A3-AA44-5601B4E38AED}" Directory_="bridge_Dir" Attributes="0" KeyPath="AccessBridgeCallbacks.h" Type="0"/>
