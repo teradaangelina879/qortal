@@ -59,6 +59,10 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 		if (arbitraryTransactionData.getVersion() >= 4)
 			this.repository.getArbitraryRepository().save(arbitraryTransactionData);
 
+		// method and compression use NOT NULL DEFAULT 0, so fall back to these values if null
+		Integer method = arbitraryTransactionData.getMethod() != null ? arbitraryTransactionData.getMethod().value : 0;
+		Integer compression = arbitraryTransactionData.getCompression() != null ? arbitraryTransactionData.getCompression().value : 0;
+
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ArbitraryTransactions");
 
 		saveHelper.bind("signature", arbitraryTransactionData.getSignature()).bind("sender", arbitraryTransactionData.getSenderPublicKey())
@@ -66,8 +70,8 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 				.bind("nonce", arbitraryTransactionData.getNonce()).bind("size", arbitraryTransactionData.getSize())
 				.bind("is_data_raw", arbitraryTransactionData.getDataType() == DataType.RAW_DATA).bind("data", arbitraryTransactionData.getData())
 				.bind("metadata_hash", arbitraryTransactionData.getMetadataHash()).bind("name", arbitraryTransactionData.getName())
-				.bind("identifier", arbitraryTransactionData.getIdentifier()).bind("update_method", arbitraryTransactionData.getMethod().value)
-				.bind("secret", arbitraryTransactionData.getSecret()).bind("compression", arbitraryTransactionData.getCompression().value);
+				.bind("identifier", arbitraryTransactionData.getIdentifier()).bind("update_method", method)
+				.bind("secret", arbitraryTransactionData.getSecret()).bind("compression", compression);
 
 		try {
 			saveHelper.execute(this.repository);
