@@ -22,6 +22,14 @@ if [ -z "$*" ]; then
 	exit
 fi
 
+script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+if [ -f "apikey.txt" ]; then
+  apikey=$(cat "apikey.txt")
+elif [ -f "${script_dir}/../apikey.txt" ]; then
+  apikey=$(cat "${script_dir}/../apikey.txt")
+fi
+
 method=$1
 service=$2
 name=$3
@@ -67,7 +75,7 @@ if [[ "${method}" == "POST" ]]; then
   fi
 
   echo "Creating transaction - this can take a while..."
-  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}/${identifier}${type_component}" -d "${data}")
+  tx_data=$(curl --silent --insecure -X ${method} "http://${host}:${port}/arbitrary/${service}/${name}/${identifier}${type_component}" -H "X-API-KEY: ${apikey}" -d "${data}")
 
   if [[ "${tx_data}" == *"error"* || "${tx_data}" == *"ERROR"* ]]; then
     echo "${tx_data}"; exit
@@ -76,7 +84,7 @@ if [[ "${method}" == "POST" ]]; then
   fi
 
   echo "Computing nonce..."
-  computed_tx_data=$(curl --silent --insecure -X POST "http://${host}:${port}/arbitrary/compute" -H  "Content-Type: application/json" -d "${tx_data}")
+  computed_tx_data=$(curl --silent --insecure -X POST "http://${host}:${port}/arbitrary/compute" -H "Content-Type: application/json" -H "X-API-KEY: ${apikey}" -d "${tx_data}")
   if [[ "${computed_tx_data}" == *"error"* || "${computed_tx_data}" == *"ERROR"* ]]; then
     echo "${computed_tx_data}"; exit
   fi
@@ -112,9 +120,9 @@ elif [[ "${method}" == "GET" ]]; then
 
   # We use a different API depending on whether or not an identifier is supplied
   if [ -n "${identifier}" ]; then
-    response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}/${identifier}?rebuild=${rebuild}&filepath=${filepath}")
+    response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}/${identifier}?rebuild=${rebuild}&filepath=${filepath}" -H "X-API-KEY: ${apikey}")
   else
-    response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}?rebuild=${rebuild}&filepath=${filepath}")
+    response=$(curl --silent --insecure -X GET "http://${host}:${port}/arbitrary/${service}/${name}?rebuild=${rebuild}&filepath=${filepath}" -H "X-API-KEY: ${apikey}")
   fi
 
   if [ -z "${response}" ]; then
