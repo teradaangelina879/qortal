@@ -391,13 +391,26 @@ public class ArbitraryDataReader {
     }
 
     private void decrypt() throws DataException {
+        try {
+            // First try with explicit parameters (CBC mode with PKCS5 padding)
+            this.decryptUsingAlgo("AES/CBC/PKCS5Padding");
+
+        } catch (DataException e) {
+            // Something went wrong, so fall back to default AES params (necessary for legacy resource support)
+            this.decryptUsingAlgo("AES");
+
+            // TODO: delete files and block this resource if privateDataEnabled is false and the second attempt fails too
+        }
+    }
+
+    private void decryptUsingAlgo(String algorithm) throws DataException {
         // Decrypt if we have the secret key.
         byte[] secret = this.secret58 != null ? Base58.decode(this.secret58) : null;
         if (secret != null && secret.length == Transformer.AES256_LENGTH) {
             try {
                 Path unencryptedPath = Paths.get(this.workingPath.toString(), "zipped.zip");
-                SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
-                AES.decryptFile("AES", aesKey, this.filePath.toString(), unencryptedPath.toString());
+                SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, algorithm);
+                AES.decryptFile(algorithm, aesKey, this.filePath.toString(), unencryptedPath.toString());
 
                 // Replace filePath pointer with the encrypted file path
                 // Don't delete the original ArbitraryDataFile, as this is handled in the cleanup phase
@@ -405,7 +418,6 @@ public class ArbitraryDataReader {
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-                // TODO: delete files and block this resource if privateDataEnabled is false
                 throw new DataException(String.format("Unable to decrypt file at path %s: %s", this.filePath, e.getMessage()));
             }
         } else {
