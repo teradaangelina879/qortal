@@ -83,7 +83,7 @@ public class ArbitraryDataResource {
                 return new ArbitraryResourceStatus(Status.DOWNLOADING);
             }
             else if (this.isDataPotentiallyAvailable()) {
-                return new ArbitraryResourceStatus(Status.NOT_STARTED);
+                return new ArbitraryResourceStatus(Status.PUBLISHED);
             }
             return new ArbitraryResourceStatus(Status.MISSING_DATA);
         }

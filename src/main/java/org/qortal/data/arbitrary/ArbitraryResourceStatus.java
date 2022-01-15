@@ -7,7 +7,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 public class ArbitraryResourceStatus {
 
     public enum Status {
-        NOT_STARTED("Not started", "Downloading not yet started"),
+        PUBLISHED("Published", "Published but not yet downloaded"),
         DOWNLOADING("Downloading", "Locating and downloading files..."),
         DOWNLOADED("Downloaded", "Files downloaded"),
         BUILDING("Building", "Building..."),
