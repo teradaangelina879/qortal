@@ -15,6 +15,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 import org.qortal.utils.Triple;
@@ -187,6 +188,9 @@ public class ArbitraryDataFileManager {
             arbitraryDataFileRequests.remove(hash58);
             LOGGER.trace(String.format("Removed hash %.8s from arbitraryDataFileRequests", hash58));
 
+            // We may need to remove the file list request, if we have all the files for this transaction
+            this.handleFileListRequests(signature);
+
             if (message == null || message.getType() != Message.MessageType.ARBITRARY_DATA_FILE) {
                 return null;
             }
@@ -209,6 +213,26 @@ public class ArbitraryDataFileManager {
         return arbitraryDataFileMessage;
     }
 
+    private void handleFileListRequests(byte[] signature) {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+
+            // Fetch the transaction data
+            ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
+            if (arbitraryTransactionData == null) {
+                return;
+            }
+
+            boolean allChunksExist = ArbitraryTransactionUtils.allChunksExist(arbitraryTransactionData);
+
+            if (allChunksExist) {
+                // Update requests map to reflect that we've received all chunks
+                ArbitraryDataFileListManager.getInstance().deleteFileListRequestsForSignature(signature);
+            }
+
+        } catch (DataException e) {
+            LOGGER.debug("Unable to handle file list requests: {}", e.getMessage());
+        }
+    }
 
     public void handleArbitraryDataFileForwarding(Peer requestingPeer, Message message, Message originalMessage) {
         // Return if there is no originally requesting peer to forward to
