@@ -9,7 +9,6 @@ import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
-import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 
 import javax.servlet.ServletContext;
@@ -119,7 +118,7 @@ public class ArbitraryDataRenderer {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
                 HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data);
-                htmlParser.setDocumentBaseUrl();
+                htmlParser.addAdditionalHeaderTags();
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(htmlParser.getData().length);
                 response.getOutputStream().write(htmlParser.getData());

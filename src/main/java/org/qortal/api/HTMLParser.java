@@ -19,14 +19,19 @@ public class HTMLParser {
         this.data = data;
     }
 
-    public void setDocumentBaseUrl() {
+    public void addAdditionalHeaderTags() {
         String fileContents = new String(data);
         Document document = Jsoup.parse(fileContents);
         String baseUrl = this.linkPrefix + "/";
         Elements head = document.getElementsByTag("head");
         if (!head.isEmpty()) {
+            // Add base href tag
             String baseElement = String.format("<base href=\"%s\">", baseUrl);
             head.get(0).prepend(baseElement);
+
+            // Add security policy tag
+            String securityPolicy = String.format("<meta http-equiv=\"Content-Security-Policy\" content=\"connect-src 'self'\">");
+            head.get(0).prepend(securityPolicy);
         }
         String html = document.html();
         this.data = html.getBytes();
