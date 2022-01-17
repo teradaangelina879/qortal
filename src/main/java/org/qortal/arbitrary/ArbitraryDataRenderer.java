@@ -119,6 +119,7 @@ public class ArbitraryDataRenderer {
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
                 HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data);
                 htmlParser.addAdditionalHeaderTags();
+                response.addHeader("Content-Security-Policy", "default-src 'self'");
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(htmlParser.getData().length);
                 response.getOutputStream().write(htmlParser.getData());
@@ -127,6 +128,7 @@ public class ArbitraryDataRenderer {
                 // Regular file - can be streamed directly
                 File file = new File(filePath);
                 FileInputStream inputStream = new FileInputStream(file);
+                response.addHeader("Content-Security-Policy", "default-src 'self'");
                 response.setContentType(context.getMimeType(filename));
                 int bytesRead, length = 0;
                 byte[] buffer = new byte[10240];
