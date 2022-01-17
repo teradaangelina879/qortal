@@ -1024,7 +1024,7 @@ public class ArbitraryResource {
 
 			return response;
 		} catch (Exception e) {
-			LOGGER.info(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
+			LOGGER.debug(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, e.getMessage());
 		}
 	}
