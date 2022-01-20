@@ -195,7 +195,7 @@ public class Settings {
 	private int maxRetries = 2;
 
 	/** Minimum peer version number required in order to sync with them */
-	private String minPeerVersion = "1.5.0";
+	private String minPeerVersion = "3.0.1";
 	/** Whether to allow connections with peers below minPeerVersion
 	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
