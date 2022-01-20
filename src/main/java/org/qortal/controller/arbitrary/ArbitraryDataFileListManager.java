@@ -511,7 +511,7 @@ public class ArbitraryDataFileListManager {
                 if (requestHops < RELAY_REQUEST_MAX_HOPS) {
                     // Relay request hasn't reached the maximum number of hops yet, so can be rebroadcast
 
-                    LOGGER.info("Rebroadcasting hash list request from peer {} for signature {} to our other peers... totalRequestTime: {}, requestHops: {}", peer, Base58.encode(signature), totalRequestTime, requestHops);
+                    LOGGER.debug("Rebroadcasting hash list request from peer {} for signature {} to our other peers... totalRequestTime: {}, requestHops: {}", peer, Base58.encode(signature), totalRequestTime, requestHops);
                     Network.getInstance().broadcast(
                             broadcastPeer -> broadcastPeer == peer ||
                                     Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
