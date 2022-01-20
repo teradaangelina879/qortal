@@ -10,6 +10,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.NTP;
@@ -19,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -257,10 +259,10 @@ public class ArbitraryDataStorageManager extends Thread {
 
     // Hosted data
 
-    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository) {
+    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset) {
         // Load from cache if we can, to avoid disk reads
         if (this.hostedTransactions != null) {
-            return this.hostedTransactions;
+            return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
         }
 
         List<ArbitraryTransactionData> arbitraryTransactionDataList = new ArrayList<>();
@@ -293,7 +295,7 @@ public class ArbitraryDataStorageManager extends Thread {
         // Update cache
         this.hostedTransactions = arbitraryTransactionDataList;
 
-        return arbitraryTransactionDataList;
+        return ArbitraryTransactionUtils.limitOffsetTransactions(arbitraryTransactionDataList, limit, offset);
     }
 
     /**
@@ -446,7 +448,7 @@ public class ArbitraryDataStorageManager extends Thread {
         long maxStoragePerName = this.storageCapacityPerName(threshold);
 
         // Fetch all hosted transactions
-        List<ArbitraryTransactionData> hostedTransactions = this.listAllHostedTransactions(repository);
+        List<ArbitraryTransactionData> hostedTransactions = this.listAllHostedTransactions(repository, null, null);
         for (ArbitraryTransactionData transactionData : hostedTransactions) {
             String transactionName = transactionData.getName();
             if (!Objects.equals(name, transactionName)) {

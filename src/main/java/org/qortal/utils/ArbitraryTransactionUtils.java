@@ -17,7 +17,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -350,6 +353,27 @@ public class ArbitraryTransactionUtils {
         }
 
         return filesRelocatedCount;
+    }
+
+    public static List<ArbitraryTransactionData> limitOffsetTransactions(List<ArbitraryTransactionData> transactions,
+                                                                              Integer limit, Integer offset) {
+        if (limit != null && limit == 0) {
+            limit = null;
+        }
+        if (limit == null && offset == null) {
+            return transactions;
+        }
+        if (offset == null) {
+            offset = 0;
+        }
+        if (offset > transactions.size() - 1) {
+            return new ArrayList<>();
+        }
+
+        if (limit == null) {
+            return transactions.stream().skip(offset).collect(Collectors.toList());
+        }
+        return transactions.stream().skip(offset).limit(limit).collect(Collectors.toList());
     }
 
 }
