@@ -71,6 +71,8 @@ if [ -f "apikey.txt" ]; then
   apikey=$(cat "apikey.txt")
 elif [ -f "${script_dir}/../apikey.txt" ]; then
   apikey=$(cat "${script_dir}/../apikey.txt")
+elif [ -f "${HOME}/qortal/apikey.txt" ]; then
+  apikey=$(cat "${HOME}/qortal/apikey.txt")
 fi
 
 if [ "${url:0:4}" != "http" ]; then
