@@ -400,7 +400,9 @@ public class ArbitraryResource {
 				arbitraryResourceInfo.name = transactionData.getName();
 				arbitraryResourceInfo.service = transactionData.getService();
 				arbitraryResourceInfo.identifier = transactionData.getIdentifier();
-				resources.add(arbitraryResourceInfo);
+				if (!resources.contains(arbitraryResourceInfo)) {
+					resources.add(arbitraryResourceInfo);
+				}
 			}
 
 			if (includeStatus != null && includeStatus == true) {
