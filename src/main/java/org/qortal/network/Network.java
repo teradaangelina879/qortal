@@ -1137,10 +1137,14 @@ public class Network {
             this.ourExternalIpAddressHistory.remove(0);
         }
 
+        // Now take a copy of the IP address history so it can be safely iterated
+        // Without this, another thread could remove an element, resulting in an exception
+        List<String> ipAddressHistory = new ArrayList<>(this.ourExternalIpAddressHistory);
+
         // If we've had 10 consecutive matching addresses, and they're different from
         // our stored IP address value, treat it as updated.
         int consecutiveReadingsRequired = 10;
-        int size = this.ourExternalIpAddressHistory.size();
+        int size = ipAddressHistory.size();
         if (size < consecutiveReadingsRequired) {
             // Need at least 10 readings
             return;
@@ -1150,7 +1154,7 @@ public class Network {
         String lastReading = null;
         int consecutiveReadings = 0;
         for (int i = size-1; i >= 0; i--) {
-            String reading = this.ourExternalIpAddressHistory.get(i);
+            String reading = ipAddressHistory.get(i);
             if (lastReading != null) {
                  if (Objects.equals(reading, lastReading)) {
                     consecutiveReadings++;
@@ -1164,7 +1168,7 @@ public class Network {
 
         if (consecutiveReadings >= consecutiveReadingsRequired) {
             // Last 10 readings were the same - i.e. more than one peer agreed on the new IP address...
-            String ip = this.ourExternalIpAddressHistory.get(size - 1);
+            String ip = ipAddressHistory.get(size - 1);
             if (!Objects.equals(ip, this.ourExternalIpAddress)) {
                 // ... and the readings were different to our current recorded value, so
                 // update our external IP address value
