@@ -392,18 +392,15 @@ public class ArbitraryResource {
 
 			List<ArbitraryTransactionData> transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository);
 			for (ArbitraryTransactionData transactionData : transactionDataList) {
-				ArbitraryTransaction transaction = new ArbitraryTransaction(repository, transactionData);
-				if (transaction.isDataLocal()) {
-					String name = transactionData.getName();
-					Service service = transactionData.getService();
-					String identifier = transactionData.getIdentifier();
+				String name = transactionData.getName();
+				Service service = transactionData.getService();
+				String identifier = transactionData.getIdentifier();
 
-					if (transactionData.getName() != null) {
-						List<ArbitraryResourceInfo> transactionResources = repository.getArbitraryRepository()
-								.getArbitraryResources(service, identifier, name, (identifier == null), null, null, false);
-						if (transactionResources != null) {
-							resources.addAll(transactionResources);
-						}
+				if (transactionData.getName() != null) {
+					List<ArbitraryResourceInfo> transactionResources = repository.getArbitraryRepository()
+							.getArbitraryResources(service, identifier, name, (identifier == null), null, null, false);
+					if (transactionResources != null) {
+						resources.addAll(transactionResources);
 					}
 				}
 			}
