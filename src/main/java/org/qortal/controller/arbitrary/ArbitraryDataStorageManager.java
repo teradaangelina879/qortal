@@ -292,6 +292,9 @@ public class ArbitraryDataStorageManager extends Thread {
             }
         }
 
+        // Sort by newest first
+        arbitraryTransactionDataList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
+
         // Update cache
         this.hostedTransactions = arbitraryTransactionDataList;
 
