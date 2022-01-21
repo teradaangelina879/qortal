@@ -2,6 +2,7 @@ package org.qortal.repository.hsqldb;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bouncycastle.util.Longs;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.crypto.Crypto;
@@ -305,7 +306,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT name, service, identifier FROM ArbitraryTransactions WHERE 1=1");
+		sql.append("SELECT name, service, identifier, MAX(size) AS max_size FROM ArbitraryTransactions WHERE 1=1");
 
 		if (service != null) {
 			sql.append(" AND service = ");
@@ -347,6 +348,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				String nameResult = resultSet.getString(1);
 				Service serviceResult = Service.valueOf(resultSet.getInt(2));
 				String identifierResult = resultSet.getString(3);
+				Integer sizeResult = resultSet.getInt(4);
 
 				// We should filter out resources without names
 				if (nameResult == null) {
@@ -357,6 +359,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryResourceInfo.name = nameResult;
 				arbitraryResourceInfo.service = serviceResult;
 				arbitraryResourceInfo.identifier = identifierResult;
+				arbitraryResourceInfo.size = Longs.valueOf(sizeResult);
 
 				arbitraryResources.add(arbitraryResourceInfo);
 			} while (resultSet.next());
@@ -378,7 +381,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		// Longer term we probably want to copy resources to their own table anyway
 		String queryWildcard = String.format("%%%s%%", query.toLowerCase());
 
-		sql.append("SELECT name, service, identifier FROM ArbitraryTransactions WHERE 1=1");
+		sql.append("SELECT name, service, identifier, MAX(size) AS max_size FROM ArbitraryTransactions WHERE 1=1");
 
 		if (service != null) {
 			sql.append(" AND service = ");
@@ -416,6 +419,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				String nameResult = resultSet.getString(1);
 				Service serviceResult = Service.valueOf(resultSet.getInt(2));
 				String identifierResult = resultSet.getString(3);
+				Integer sizeResult = resultSet.getInt(4);
 
 				// We should filter out resources without names
 				if (nameResult == null) {
@@ -426,6 +430,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryResourceInfo.name = nameResult;
 				arbitraryResourceInfo.service = serviceResult;
 				arbitraryResourceInfo.identifier = identifierResult;
+				arbitraryResourceInfo.size = Longs.valueOf(sizeResult);
 
 				arbitraryResources.add(arbitraryResourceInfo);
 			} while (resultSet.next());

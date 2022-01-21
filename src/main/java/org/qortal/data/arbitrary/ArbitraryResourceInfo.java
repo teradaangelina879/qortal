@@ -14,6 +14,8 @@ public class ArbitraryResourceInfo {
 	public String identifier;
 	public ArbitraryResourceStatus status;
 
+	public Long size;
+
 	public ArbitraryResourceInfo() {
 	}
 
