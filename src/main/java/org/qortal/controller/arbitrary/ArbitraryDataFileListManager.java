@@ -383,8 +383,9 @@ public class ArbitraryDataFileListManager {
                     for (byte[] hash : hashes) {
                         String hash58 = Base58.encode(hash);
                         Triple<String, Peer, Long> value = new Triple<>(signature58, peer, now);
-                        arbitraryDataFileManager.arbitraryRelayMap.put(hash58, value);
-                        LOGGER.debug("Added {} to relay map: {}, {}, {}", hash58, signature58, peer, now);
+                        if (arbitraryDataFileManager.arbitraryRelayMap.putIfAbsent(hash58, value) == null) {
+                            LOGGER.debug("Added {} to relay map: {}, {}, {}", hash58, signature58, peer, now);
+                        }
                     }
 
                     // Forward to requesting peer
