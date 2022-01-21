@@ -15,7 +15,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
 public class OnlineAccountsMessage extends Message {
-	private static final int MAX_ACCOUNT_COUNT = 1000;
+	private static final int MAX_ACCOUNT_COUNT = 5000;
 
 	private List<OnlineAccountData> onlineAccounts;
 
