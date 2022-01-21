@@ -440,26 +440,34 @@ public class ArbitraryDataFileListManager {
                     if (metadataHash != null) {
                         arbitraryDataFile.setMetadataHash(metadataHash);
 
+                        // Assume all chunks exists, unless one can't be found below
+                        allChunksExist = true;
+
                         // If we have the metadata file, add its hash
                         if (arbitraryDataFile.getMetadataFile().exists()) {
                             hashes.add(arbitraryDataFile.getMetadataHash());
                         }
-
-                        // Check if we have all the chunks (and the metadata file)
-                        allChunksExist = arbitraryDataFile.allChunksExist();
+                        else {
+                            allChunksExist = false;
+                        }
 
                         for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
                             if (chunk.exists()) {
                                 hashes.add(chunk.getHash());
                                 //LOGGER.trace("Added hash {}", chunk.getHash58());
                             } else {
-                                LOGGER.debug("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
+                                LOGGER.trace("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
+                                allChunksExist = false;
                             }
                         }
                     } else {
                         // This transaction has no chunks, so include the complete file if we have it
                         if (arbitraryDataFile.exists()) {
                             hashes.add(arbitraryDataFile.getHash());
+                            allChunksExist = true;
+                        }
+                        else {
+                            allChunksExist = false;
                         }
                     }
                 }
