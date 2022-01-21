@@ -368,6 +368,75 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
+	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query,
+															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		StringBuilder sql = new StringBuilder(512);
+		List<Object> bindParams = new ArrayList<>();
+
+		// For now we are searching anywhere in the fields
+		// Note that this will bypass any indexes so may not scale well
+		// Longer term we probably want to copy resources to their own table anyway
+		String queryWildcard = String.format("%%%s%%", query.toLowerCase());
+
+		sql.append("SELECT name, service, identifier FROM ArbitraryTransactions WHERE 1=1");
+
+		if (service != null) {
+			sql.append(" AND service = ");
+			sql.append(service.value);
+		}
+
+		if (defaultResource) {
+			// Default resource requested - use NULL identifier and search name only
+			sql.append(" AND LCASE(name) LIKE ? AND identifier IS NULL");
+			bindParams.add(queryWildcard);
+		}
+		else {
+			// Non-default resource requested
+			// In this case we search the identifier as well as the name
+			sql.append(" AND (LCASE(name) LIKE ? OR LCASE(identifier) LIKE ?)");
+			bindParams.add(queryWildcard);
+			bindParams.add(queryWildcard);
+		}
+
+		sql.append(" GROUP BY name, service, identifier ORDER BY name");
+
+		if (reverse != null && reverse) {
+			sql.append(" DESC");
+		}
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
+
+		List<ArbitraryResourceInfo> arbitraryResources = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return null;
+
+			do {
+				String nameResult = resultSet.getString(1);
+				Service serviceResult = Service.valueOf(resultSet.getInt(2));
+				String identifierResult = resultSet.getString(3);
+
+				// We should filter out resources without names
+				if (nameResult == null) {
+					continue;
+				}
+
+				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
+				arbitraryResourceInfo.name = nameResult;
+				arbitraryResourceInfo.service = serviceResult;
+				arbitraryResourceInfo.identifier = identifierResult;
+
+				arbitraryResources.add(arbitraryResourceInfo);
+			} while (resultSet.next());
+
+			return arbitraryResources;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch arbitrary transactions from repository", e);
+		}
+	}
+
+	@Override
 	public List<ArbitraryResourceNameInfo> getArbitraryResourceCreatorNames(Service service, String identifier,
 																			boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);

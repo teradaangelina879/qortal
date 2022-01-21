@@ -122,6 +122,49 @@ public class ArbitraryResource {
 	}
 
 	@GET
+	@Path("/resources/search")
+	@Operation(
+			summary = "Search arbitrary resources available on chain, optionally filtered by service.\n" +
+					"If default is set to true, only resources without identifiers will be returned.",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<ArbitraryResourceInfo> searchResources(
+			@QueryParam("service") Service service,
+			@QueryParam("query") String query,
+			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
+			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
+			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
+			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus) {
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			boolean defaultRes = Boolean.TRUE.equals(defaultResource);
+
+			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
+					.searchArbitraryResources(service, query, defaultRes, limit, offset, reverse);
+
+			if (resources == null) {
+				return new ArrayList<>();
+			}
+
+			if (includeStatus != null && includeStatus == true) {
+				resources = this.addStatusToResources(resources);
+			}
+
+			return resources;
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
 	@Path("/resources/names")
 	@Operation(
 			summary = "List arbitrary resources available on chain, grouped by creator's name",
