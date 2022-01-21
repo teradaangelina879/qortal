@@ -338,7 +338,7 @@ public class ArbitraryDataManager extends Thread {
 			ArbitraryDataResource resource =
 					new ArbitraryDataResource(resourceId, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 			String key = resource.getUniqueKey();
-			LOGGER.info("Clearing cache for {}...", resource);
+			LOGGER.trace("Clearing cache for {}...", resource);
 
 			if (this.arbitraryDataCachedResources.containsKey(key)) {
 				this.arbitraryDataCachedResources.remove(key);

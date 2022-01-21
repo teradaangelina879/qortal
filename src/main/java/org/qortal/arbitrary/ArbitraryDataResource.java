@@ -1,5 +1,7 @@
 package org.qortal.arbitrary;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
@@ -24,6 +26,8 @@ import java.util.List;
 import static org.qortal.data.arbitrary.ArbitraryResourceStatus.Status;
 
 public class ArbitraryDataResource {
+
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataResource.class);
 
     protected final String resourceId;
     protected final ResourceIdType resourceIdType;
@@ -124,7 +128,10 @@ public class ArbitraryDataResource {
         String identifier = this.identifier != null ?  this.identifier : "default";
         Path cachePath = Paths.get(baseDir, "reader", this.resourceIdType.toString(), this.resourceId, this.service.toString(), identifier);
         if (cachePath.toFile().exists()) {
-            FilesystemUtils.safeDeleteDirectory(cachePath, true);
+            boolean success = FilesystemUtils.safeDeleteDirectory(cachePath, true);
+            if (success) {
+                LOGGER.info("Cleared cache for resource {}", this.toString());
+            }
         }
     }
 

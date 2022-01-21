@@ -242,7 +242,7 @@ public class ArbitraryDataFileListManager {
                 return ArbitraryDataFileManager.getInstance().fetchDataFilesFromPeersForSignature(signature);
             }
 
-            LOGGER.debug("Skipping file list request for signature {} due to rate limit", signature58);
+            LOGGER.trace("Skipping file list request for signature {} due to rate limit", signature58);
             return false;
         }
         this.addToSignatureRequests(signature58, true, false);

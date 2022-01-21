@@ -150,17 +150,24 @@ public class FilesystemUtils {
         }
     }
 
-    public static void safeDeleteDirectory(Path path, boolean cleanup) throws IOException {
+    public static boolean safeDeleteDirectory(Path path, boolean cleanup) throws IOException {
+        boolean success = false;
+
         // Delete path, if it exists in our data/temp directory
         if (FilesystemUtils.pathInsideDataOrTempPath(path)) {
-            File directory = new File(path.toString());
-            FileUtils.deleteDirectory(directory);
+            if (Files.exists(path)) {
+                File directory = new File(path.toString());
+                FileUtils.deleteDirectory(directory);
+                success = true;
+            }
         }
 
-        if (cleanup) {
+        if (success && cleanup) {
             // Delete the parent directories if they are empty (and exist in our data/temp directory)
             FilesystemUtils.safeDeleteEmptyParentDirectories(path);
         }
+
+        return success;
     }
 
     public static void safeDeleteEmptyParentDirectories(Path path) throws IOException {
