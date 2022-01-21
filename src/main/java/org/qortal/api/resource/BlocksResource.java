@@ -268,9 +268,15 @@ public class BlocksResource {
 	@ApiErrors({
 		ApiError.REPOSITORY_ISSUE
 	})
-	public BlockData getLastBlock() {
+	public BlockData getLastBlock(@QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().getLastBlock();
+			BlockData blockData = repository.getBlockRepository().getLastBlock();
+
+			if (includeOnlineSignatures == null || includeOnlineSignatures == false) {
+				blockData.setOnlineAccountsSignatures(null);
+			}
+
+			return blockData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -548,20 +554,25 @@ public class BlocksResource {
 	@ApiErrors({
 		ApiError.BLOCK_UNKNOWN, ApiError.REPOSITORY_ISSUE
 	})
-	public BlockData getByTimestamp(@PathParam("timestamp") long timestamp) {
+	public BlockData getByTimestamp(@PathParam("timestamp") long timestamp,
+									@QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = null;
 
 			// Try the Blocks table
 			int height = repository.getBlockRepository().getHeightFromTimestamp(timestamp);
-			if (height > 0) {
+			if (height > 1) {
 				// Found match in Blocks table
-				return repository.getBlockRepository().fromHeight(height);
+				blockData = repository.getBlockRepository().fromHeight(height);
+				if (includeOnlineSignatures == null || includeOnlineSignatures == false) {
+					blockData.setOnlineAccountsSignatures(null);
+				}
+				return blockData;
 			}
 
 			// Not found in Blocks table, so try the archive
 			height = repository.getBlockArchiveRepository().getHeightFromTimestamp(timestamp);
-			if (height > 0) {
+			if (height > 1) {
 				// Found match in archive
 				blockData = repository.getBlockArchiveRepository().fromHeight(height);
 			}
@@ -569,6 +580,10 @@ public class BlocksResource {
 			// Ensure block exists
 			if (blockData == null) {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+			}
+
+			if (includeOnlineSignatures == null || includeOnlineSignatures == false) {
+				blockData.setOnlineAccountsSignatures(null);
 			}
 
 			return blockData;

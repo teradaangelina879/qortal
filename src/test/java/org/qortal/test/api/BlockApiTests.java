@@ -77,7 +77,7 @@ public class BlockApiTests extends ApiCommon {
 
 	@Test
 	public void testGetBlockByTimestamp() {
-		assertNotNull(this.blocksResource.getByTimestamp(System.currentTimeMillis()));
+		assertNotNull(this.blocksResource.getByTimestamp(System.currentTimeMillis(), false));
 	}
 
 	@Test
