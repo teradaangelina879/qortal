@@ -122,4 +122,43 @@ public class ArbitraryTransactionMetadataTests extends Common {
         }
     }
 
+    @Test
+    public void testMetadataLengths() throws DataException, IOException, MissingDataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
+            Service service = Service.ARBITRARY_DATA;
+            int chunkSize = 100;
+            int dataLength = 900; // Actual data length will be longer due to encryption
+
+            String title = "title Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium";
+            String description = "description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium massa, non pulvinar mi pretium id. Ut gravida sapien vitae dui posuere tincidunt. Quisque in nibh est. Curabitur at blandit nunc, id aliquet neque. Nulla condimentum eget dolor a egestas. Vestibulum vel tincidunt ex. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Cras congue lacus in risus mattis suscipit. Quisque nisl eros, facilisis a lorem quis, vehicula bibendum.";
+            String tags = "tags Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium";
+            String category = "category Lorem ipsum dolor sit amet, consectetur";
+
+            String expectedTitle = "title Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat "; // 80 chars
+            String expectedDescription = "description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium massa, non pulvinar mi pretium id. Ut gravida sapien vitae dui posuere tincidunt. Quisque in nibh est. Curabitur at blandit nunc, id aliquet neque. Nulla condimentum eget dolor a egestas. Vestibulum vel tincidunt ex. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Cras congue lacus in risus mattis suscipit. Quisque nisl eros, facilisis a lorem quis, vehicula biben"; // 500 chars
+            String expectedTags = "tags Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat p"; // 80 chars
+            String expectedCategory = "category Lorem ipsum dolor sit amet, con"; // 40 chars
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = ArbitraryUtils.generateRandomDataPath(dataLength);
+            ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name,
+                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize,
+                    title, description, tags, category);
+
+            // Check the metadata is correct
+            assertEquals(expectedTitle, arbitraryDataFile.getMetadata().getTitle());
+            assertEquals(expectedDescription, arbitraryDataFile.getMetadata().getDescription());
+            assertEquals(expectedTags, arbitraryDataFile.getMetadata().getTags());
+            assertEquals(expectedCategory, arbitraryDataFile.getMetadata().getCategory());
+        }
+    }
+
 }

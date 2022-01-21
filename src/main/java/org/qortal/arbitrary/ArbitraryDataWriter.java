@@ -47,6 +47,11 @@ public class ArbitraryDataWriter {
     private final String tags;
     private final String category;
 
+    private static int MAX_TITLE_LENGTH = 80;
+    private static int MAX_DESCRIPTION_LENGTH = 500;
+    private static int MAX_TAGS_LENGTH = 80;
+    private static int MAX_CATEGORY_LENGTH = 40;
+
     private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
 
     private SecretKey aesKey;
@@ -72,10 +77,10 @@ public class ArbitraryDataWriter {
         this.identifier = identifier;
 
         // Metadata (optional)
-        this.title = title;
-        this.description = description;
-        this.tags = tags;
-        this.category = category;
+        this.title = title.substring(0, MAX_TITLE_LENGTH);;
+        this.description = description.substring(0, MAX_DESCRIPTION_LENGTH);
+        this.tags = tags.substring(0, MAX_TAGS_LENGTH);
+        this.category = category.substring(0, MAX_CATEGORY_LENGTH);
     }
 
     public void save() throws IOException, DataException, InterruptedException, MissingDataException {
