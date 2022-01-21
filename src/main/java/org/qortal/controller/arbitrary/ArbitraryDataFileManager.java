@@ -206,7 +206,18 @@ public class ArbitraryDataFileManager {
                 // File didn't exist locally before the request, and it's a forwarding request, so delete it
                 LOGGER.debug("Deleting file {} because it was needed for forwarding only", Base58.encode(hash));
                 ArbitraryDataFile dataFile = arbitraryDataFileMessage.getArbitraryDataFile();
-                dataFile.delete();
+
+                // Keep trying to delete the data until it is deleted, or we reach 10 attempts
+                for (int i=0; i<10; i++) {
+                    if (dataFile.delete()) {
+                        break;
+                    }
+                    try {
+                        Thread.sleep(1000L);
+                    } catch (InterruptedException e) {
+                        // Fall through to exit method
+                    }
+                }
             }
         }
 
