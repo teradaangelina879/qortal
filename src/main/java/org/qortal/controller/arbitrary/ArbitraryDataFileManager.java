@@ -129,7 +129,7 @@ public class ArbitraryDataFileManager {
                     }
                 }
                 else {
-                    LOGGER.debug("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
+                    LOGGER.trace("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
                 }
             }
         }
