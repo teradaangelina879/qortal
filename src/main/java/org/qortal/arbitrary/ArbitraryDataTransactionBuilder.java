@@ -51,13 +51,20 @@ public class ArbitraryDataTransactionBuilder {
     private final String identifier;
     private final Repository repository;
 
+    // Metadata
+    private final String title;
+    private final String description;
+    private final String tags;
+    private final String category;
+
     private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
 
     private ArbitraryTransactionData arbitraryTransactionData;
     private ArbitraryDataFile arbitraryDataFile;
 
     public ArbitraryDataTransactionBuilder(Repository repository, String publicKey58, Path path, String name,
-                                           Method method, Service service, String identifier) {
+                                           Method method, Service service, String identifier,
+                                           String title, String description, String tags, String category) {
         this.repository = repository;
         this.publicKey58 = publicKey58;
         this.path = path;
@@ -70,6 +77,12 @@ public class ArbitraryDataTransactionBuilder {
             identifier = null;
         }
         this.identifier = identifier;
+
+        // Metadata (optional)
+        this.title = title;
+        this.description = description;
+        this.tags = tags;
+        this.category = category;
     }
 
     public void build() throws DataException {
@@ -200,7 +213,8 @@ public class ArbitraryDataTransactionBuilder {
             // FUTURE? Use zip compression for directories, or no compression for single files
             // Compression compression = (path.toFile().isDirectory()) ? Compression.ZIP : Compression.NONE;
 
-            ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(path, name, service, identifier, method, compression);
+            ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(path, name, service, identifier, method,
+                    compression, title, description, tags, category);
             try {
                 arbitraryDataWriter.setChunkSize(this.chunkSize);
                 arbitraryDataWriter.save();

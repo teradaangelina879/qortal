@@ -642,6 +642,10 @@ public class ArbitraryResource {
 	public String post(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 					   @PathParam("service") String serviceString,
 					   @PathParam("name") String name,
+					   @QueryParam("title") String title,
+					   @QueryParam("description") String description,
+					   @QueryParam("tags") String tags,
+					   @QueryParam("category") String category,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -649,7 +653,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, null, path, null, null, false);
+		return this.upload(Service.valueOf(serviceString), name, null, path, null, null, false,
+				title, description, tags, category);
 	}
 
 	@POST
@@ -682,6 +687,10 @@ public class ArbitraryResource {
 					   @PathParam("service") String serviceString,
 					   @PathParam("name") String name,
 					   @PathParam("identifier") String identifier,
+					   @QueryParam("title") String title,
+					   @QueryParam("description") String description,
+					   @QueryParam("tags") String tags,
+					   @QueryParam("category") String category,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -689,7 +698,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Path not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null, false);
+		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null, false,
+				title, description, tags, category);
 	}
 
 
@@ -723,6 +733,10 @@ public class ArbitraryResource {
 	public String postBase64EncodedData(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 										@PathParam("service") String serviceString,
 										@PathParam("name") String name,
+										@QueryParam("title") String title,
+										@QueryParam("description") String description,
+										@QueryParam("tags") String tags,
+										@QueryParam("category") String category,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -730,7 +744,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64, false);
+		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64, false,
+				title, description, tags, category);
 	}
 
 	@POST
@@ -761,6 +776,10 @@ public class ArbitraryResource {
 										@PathParam("service") String serviceString,
 										@PathParam("name") String name,
 										@PathParam("identifier") String identifier,
+										@QueryParam("title") String title,
+										@QueryParam("description") String description,
+										@QueryParam("tags") String tags,
+										@QueryParam("category") String category,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -768,7 +787,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64, false);
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64, false,
+				title, description, tags, category);
 	}
 
 
@@ -801,6 +821,10 @@ public class ArbitraryResource {
 	public String postZippedData(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 								 @PathParam("service") String serviceString,
 								 @PathParam("name") String name,
+								 @QueryParam("title") String title,
+								 @QueryParam("description") String description,
+								 @QueryParam("tags") String tags,
+								 @QueryParam("category") String category,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -808,7 +832,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64Zip, true);
+		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64Zip, true,
+				title, description, tags, category);
 	}
 
 	@POST
@@ -839,6 +864,10 @@ public class ArbitraryResource {
 								 @PathParam("service") String serviceString,
 								 @PathParam("name") String name,
 								 @PathParam("identifier") String identifier,
+								 @QueryParam("title") String title,
+								 @QueryParam("description") String description,
+								 @QueryParam("tags") String tags,
+								 @QueryParam("category") String category,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -846,7 +875,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64Zip, true);
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64Zip, true,
+				title, description, tags, category);
 	}
 
 
@@ -882,6 +912,10 @@ public class ArbitraryResource {
 	public String postString(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 							 @PathParam("service") String serviceString,
 							 @PathParam("name") String name,
+							 @QueryParam("title") String title,
+							 @QueryParam("description") String description,
+							 @QueryParam("tags") String tags,
+							 @QueryParam("category") String category,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -889,7 +923,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, null, null, string, null, false);
+		return this.upload(Service.valueOf(serviceString), name, null, null, string, null, false,
+				title, description, tags, category);
 	}
 
 	@POST
@@ -922,6 +957,10 @@ public class ArbitraryResource {
 							 @PathParam("service") String serviceString,
 							 @PathParam("name") String name,
 							 @PathParam("identifier") String identifier,
+							 @QueryParam("title") String title,
+							 @QueryParam("description") String description,
+							 @QueryParam("tags") String tags,
+							 @QueryParam("category") String category,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -929,13 +968,16 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data string not supplied");
 		}
 
-		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null, false);
+		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null, false,
+				title, description, tags, category);
 	}
 
 
 	// Shared methods
 
-	private String upload(Service service, String name, String identifier, String path, String string, String base64, boolean zipped) {
+	private String upload(Service service, String name, String identifier,
+						  String path, String string, String base64, boolean zipped,
+						  String title, String description, String tags, String category) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
@@ -999,7 +1041,8 @@ public class ArbitraryResource {
 
 			try {
 				ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
-						repository, publicKey58, Paths.get(path), name, null, service, identifier
+						repository, publicKey58, Paths.get(path), name, null, service, identifier,
+						title, description, tags, category
 				);
 
 				transactionBuilder.build();

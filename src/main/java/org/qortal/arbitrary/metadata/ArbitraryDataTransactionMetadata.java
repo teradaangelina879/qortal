@@ -13,6 +13,10 @@ import java.util.List;
 public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
 
     private List<byte[]> chunks;
+    private String title;
+    private String description;
+    private String tags;
+    private String category;
 
     public ArbitraryDataTransactionMetadata(Path filePath) {
         super(filePath);
@@ -25,10 +29,24 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             throw new DataException("Transaction metadata JSON string is null");
         }
 
+        JSONObject metadata = new JSONObject(this.jsonString);
+
+        if (metadata.has("title")) {
+            this.title = metadata.getString("title");
+        }
+        if (metadata.has("description")) {
+            this.description = metadata.getString("description");
+        }
+        if (metadata.has("tags")) {
+            this.tags = metadata.getString("tags");
+        }
+        if (metadata.has("category")) {
+            this.category = metadata.getString("category");
+        }
+
         List<byte[]> chunksList = new ArrayList<>();
-        JSONObject cache = new JSONObject(this.jsonString);
-        if (cache.has("chunks")) {
-            JSONArray chunks = cache.getJSONArray("chunks");
+        if (metadata.has("chunks")) {
+            JSONArray chunks = metadata.getJSONArray("chunks");
             if (chunks != null) {
                 for (int i=0; i<chunks.length(); i++) {
                     String chunk = chunks.getString(i);
@@ -44,6 +62,19 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
     @Override
     protected void buildJson() {
         JSONObject outer = new JSONObject();
+
+        if (this.title != null && !this.title.isEmpty()) {
+            outer.put("title", this.title);
+        }
+        if (this.description != null && !this.description.isEmpty()) {
+            outer.put("description", this.description);
+        }
+        if (this.tags != null && !this.tags.isEmpty()) {
+            outer.put("tags", this.tags);
+        }
+        if (this.category != null && !this.category.isEmpty()) {
+            outer.put("category", this.category);
+        }
 
         JSONArray chunks = new JSONArray();
         if (this.chunks != null) {
@@ -64,6 +95,38 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
 
     public List<byte[]> getChunks() {
         return this.chunks;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getTitle() {
+        return this.title;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public String getTags() {
+        return this.tags;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getCategory() {
+        return this.category;
     }
 
     public boolean containsChunk(byte[] chunk) {

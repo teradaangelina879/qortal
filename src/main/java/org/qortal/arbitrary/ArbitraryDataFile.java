@@ -728,6 +728,10 @@ public class ArbitraryDataFile {
         this.loadMetadata();
     }
 
+    public ArbitraryDataTransactionMetadata getMetadata() {
+        return this.metadata;
+    }
+
     @Override
     public String toString() {
         return this.shortHash58();

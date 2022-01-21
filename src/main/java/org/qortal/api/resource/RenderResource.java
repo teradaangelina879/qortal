@@ -74,7 +74,9 @@ public class RenderResource {
         Method method = Method.PUT;
         Compression compression = Compression.ZIP;
 
-        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath), null, Service.WEBSITE, null, method, compression);
+        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath),
+                null, Service.WEBSITE, null, method, compression,
+                null, null, null, null);
         try {
             arbitraryDataWriter.save();
         } catch (IOException | DataException | InterruptedException | MissingDataException e) {

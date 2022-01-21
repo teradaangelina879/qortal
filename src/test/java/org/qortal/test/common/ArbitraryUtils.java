@@ -23,11 +23,19 @@ import static org.junit.Assert.assertEquals;
 public class ArbitraryUtils {
 
     public static ArbitraryDataFile createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
+                                                     ArbitraryTransactionData.Method method, Service service, PrivateKeyAccount account,
+                                                     int chunkSize) throws DataException {
+
+        return ArbitraryUtils.createAndMintTxn(repository, publicKey58, path, name, identifier, method, service,
+                account, chunkSize, null, null, null, null);
+    }
+
+    public static ArbitraryDataFile createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
                                                ArbitraryTransactionData.Method method, Service service, PrivateKeyAccount account,
-                                               int chunkSize) throws DataException {
+                                               int chunkSize, String title, String description, String tags, String category) throws DataException {
 
         ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
-                repository, publicKey58, path, name, method, service, identifier);
+                repository, publicKey58, path, name, method, service, identifier, title, description, tags, category);
 
         txnBuilder.setChunkSize(chunkSize);
         txnBuilder.build();

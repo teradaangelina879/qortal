@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Objects;
 
 public class ArbitraryDataWriter {
 
@@ -40,6 +41,12 @@ public class ArbitraryDataWriter {
     private final Method method;
     private final Compression compression;
 
+    // Metadata
+    private final String title;
+    private final String description;
+    private final String tags;
+    private final String category;
+
     private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
 
     private SecretKey aesKey;
@@ -50,7 +57,8 @@ public class ArbitraryDataWriter {
     private Path compressedPath;
     private Path encryptedPath;
 
-    public ArbitraryDataWriter(Path filePath, String name, Service service, String identifier, Method method, Compression compression) {
+    public ArbitraryDataWriter(Path filePath, String name, Service service, String identifier, Method method, Compression compression,
+                               String title, String description, String tags, String category) {
         this.filePath = filePath;
         this.name = name;
         this.service = service;
@@ -62,6 +70,12 @@ public class ArbitraryDataWriter {
             identifier = null;
         }
         this.identifier = identifier;
+
+        // Metadata (optional)
+        this.title = title;
+        this.description = description;
+        this.tags = tags;
+        this.category = category;
     }
 
     public void save() throws IOException, DataException, InterruptedException, MissingDataException {
@@ -258,12 +272,16 @@ public class ArbitraryDataWriter {
 
     private void createMetadataFile() throws IOException, DataException {
         // If we have at least one chunk, we need to create an index file containing their hashes
-        if (this.arbitraryDataFile.chunkCount() > 1) {
+        if (this.needsMetadataFile()) {
             // Create the JSON file
             Path chunkFilePath = Paths.get(this.workingPath.toString(), "metadata.json");
-            ArbitraryDataTransactionMetadata chunkMetadata = new ArbitraryDataTransactionMetadata(chunkFilePath);
-            chunkMetadata.setChunks(this.arbitraryDataFile.chunkHashList());
-            chunkMetadata.write();
+            ArbitraryDataTransactionMetadata metadata = new ArbitraryDataTransactionMetadata(chunkFilePath);
+            metadata.setTitle(this.title);
+            metadata.setDescription(this.description);
+            metadata.setTags(this.tags);
+            metadata.setCategory(this.category);
+            metadata.setChunks(this.arbitraryDataFile.chunkHashList());
+            metadata.write();
 
             // Create an ArbitraryDataFile from the JSON file (we don't have a signature yet)
             ArbitraryDataFile metadataFile = ArbitraryDataFile.fromPath(chunkFilePath, null);
@@ -308,6 +326,20 @@ public class ArbitraryDataWriter {
                     throw new DataException(String.format("Missing chunk %s in metadata file", Base58.encode(chunk)));
                 }
             }
+
+            // Check that the metadata is correct
+            if (!Objects.equals(metadata.getTitle(), this.title)) {
+                throw new DataException("Metadata mismatch: title");
+            }
+            if (!Objects.equals(metadata.getDescription(), this.description)) {
+                throw new DataException("Metadata mismatch: description");
+            }
+            if (!Objects.equals(metadata.getTags(), this.tags)) {
+                throw new DataException("Metadata mismatch: tags");
+            }
+            if (!Objects.equals(metadata.getCategory(), this.category)) {
+                throw new DataException("Metadata mismatch: category");
+            }
         }
     }
 
@@ -328,6 +360,16 @@ public class ArbitraryDataWriter {
         if (FilesystemUtils.pathInsideDataOrTempPath(this.workingPath)) {
             FileUtils.deleteDirectory(new File(this.workingPath.toString()));
         }
+    }
+
+    private boolean needsMetadataFile() {
+        if (this.arbitraryDataFile.chunkCount() > 1) {
+            return true;
+        }
+        if (this.title != null || this.description != null || this.tags != null || this.category != null) {
+            return true;
+        }
+        return false;
     }
 
 
