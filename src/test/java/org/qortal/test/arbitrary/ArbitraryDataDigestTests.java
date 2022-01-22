@@ -8,6 +8,7 @@ import org.qortal.test.common.Common;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
@@ -38,7 +39,9 @@ public class ArbitraryDataDigestTests extends Common {
         // Write a random file to .qortal/cache to ensure it isn't being included in the digest function
         // We exclude all .qortal files from the digest since they can be different with each build, and
         // we only care about the actual user files
-        FileWriter fileWriter = new FileWriter(Paths.get(dataPath.toString(), ".qortal", "cache").toString());
+        Path cachePath = Paths.get(dataPath.toString(), ".qortal", "cache");
+        Files.createDirectories(cachePath.getParent());
+        FileWriter fileWriter = new FileWriter(cachePath.toString());
         fileWriter.append(UUID.randomUUID().toString());
         fileWriter.close();
 
