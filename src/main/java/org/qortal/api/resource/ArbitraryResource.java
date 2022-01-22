@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -33,10 +34,12 @@ import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.*;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.MissingDataException;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
+import org.qortal.controller.arbitrary.ArbitraryMetadataManager;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.arbitrary.ArbitraryCategoryInfo;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
@@ -631,6 +634,42 @@ public class ArbitraryResource {
 		Security.checkApiCallAllowed(request);
 
 		return this.download(service, name, identifier, filepath, rebuild);
+	}
+
+
+	// Metadata
+
+	@GET
+	@Path("/metadata/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Fetch raw metadata from resource with supplied service, name, identifier, and relative path",
+			responses = {
+					@ApiResponse(
+							description = "Path to file structure containing requested data",
+							content = @Content(
+									mediaType = MediaType.APPLICATION_JSON,
+									schema = @Schema(
+											implementation = ArbitraryDataTransactionMetadata.class
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String getMetadata(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+							  @PathParam("service") Service service,
+							  @PathParam("name") String name,
+							  @PathParam("identifier") String identifier) {
+		Security.checkApiCallAllowed(request);
+
+		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
+
+		byte[] metadata = ArbitraryMetadataManager.getInstance().fetchMetadata(resource);
+		if (metadata != null) {
+			return new String(metadata, StandardCharsets.UTF_8);
+		}
+
+		return null;
 	}
 
 

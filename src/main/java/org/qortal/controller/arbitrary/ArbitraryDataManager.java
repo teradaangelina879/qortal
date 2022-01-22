@@ -275,6 +275,9 @@ public class ArbitraryDataManager extends Thread {
 
 		// Cleanup file request caches
 		ArbitraryDataFileManager.getInstance().cleanupRequestCache(now);
+
+		// Clean up metadata request caches
+		ArbitraryMetadataManager.getInstance().cleanupRequestCache(now);
 	}
 
 	public boolean isResourceCached(ArbitraryDataResource resource) {

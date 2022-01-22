@@ -57,9 +57,9 @@ public class ArbitraryDataFileListManager {
 
 
     /** Maximum number of seconds that a file list relay request is able to exist on the network */
-    private static long RELAY_REQUEST_MAX_DURATION = 5000L;
+    public static long RELAY_REQUEST_MAX_DURATION = 5000L;
     /** Maximum number of hops that a file list relay request is allowed to make */
-    private static int RELAY_REQUEST_MAX_HOPS = 3;
+    public static int RELAY_REQUEST_MAX_HOPS = 3;
 
 
     private ArbitraryDataFileListManager() {

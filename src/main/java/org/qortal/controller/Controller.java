@@ -221,6 +221,15 @@ public class Controller extends Thread {
 		}
 		public GetArbitraryDataFileListMessageStats getArbitraryDataFileListMessageStats = new GetArbitraryDataFileListMessageStats();
 
+		public static class GetArbitraryMetadataMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong unknownFiles = new AtomicLong();
+
+			public GetArbitraryMetadataMessageStats() {
+			}
+		}
+		public GetArbitraryMetadataMessageStats getArbitraryMetadataMessageStats = new GetArbitraryMetadataMessageStats();
+
 		public AtomicLong latestBlocksCacheRefills = new AtomicLong();
 
 		public StatsSnapshot() {
@@ -1394,6 +1403,14 @@ public class Controller extends Thread {
 
 			case ARBITRARY_SIGNATURES:
 				ArbitraryDataManager.getInstance().onNetworkArbitrarySignaturesMessage(peer, message);
+				break;
+
+			case GET_ARBITRARY_METADATA:
+				ArbitraryMetadataManager.getInstance().onNetworkGetArbitraryMetadataMessage(peer, message);
+				break;
+
+			case ARBITRARY_METADATA:
+				ArbitraryMetadataManager.getInstance().onNetworkArbitraryMetadataMessage(peer, message);
 				break;
 
 			default:
