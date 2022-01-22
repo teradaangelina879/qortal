@@ -3,6 +3,7 @@ package org.qortal.test.common;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
+import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.repository.DataException;
@@ -32,7 +33,7 @@ public class ArbitraryUtils {
 
     public static ArbitraryDataFile createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
                                                ArbitraryTransactionData.Method method, Service service, PrivateKeyAccount account,
-                                               int chunkSize, String title, String description, String tags, String category) throws DataException {
+                                               int chunkSize, String title, String description, String tags, Category category) throws DataException {
 
         ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
                 repository, publicKey58, path, name, method, service, identifier, title, description, tags, category);

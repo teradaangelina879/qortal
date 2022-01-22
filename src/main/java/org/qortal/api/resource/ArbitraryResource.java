@@ -33,10 +33,12 @@ import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.*;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.MissingDataException;
+import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.data.account.AccountData;
+import org.qortal.data.arbitrary.ArbitraryCategoryInfo;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
@@ -389,6 +391,28 @@ public class ArbitraryResource {
 	}
 
 	@GET
+	@Path("/categories")
+	@Operation(
+			summary = "List arbitrary transaction categories",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryCategoryInfo.class))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<ArbitraryCategoryInfo> getCategories() {
+		List<ArbitraryCategoryInfo> categories = new ArrayList<>();
+		for (Category category : Category.values()) {
+			ArbitraryCategoryInfo arbitraryCategory = new ArbitraryCategoryInfo();
+			arbitraryCategory.id = category.toString();
+			arbitraryCategory.name = category.getName();
+			categories.add(arbitraryCategory);
+		}
+		return categories;
+	}
+
+	@GET
 	@Path("/hosted/transactions")
 	@Operation(
 			summary = "List arbitrary transactions hosted by this node",
@@ -645,7 +669,7 @@ public class ArbitraryResource {
 					   @QueryParam("title") String title,
 					   @QueryParam("description") String description,
 					   @QueryParam("tags") String tags,
-					   @QueryParam("category") String category,
+					   @QueryParam("category") Category category,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -690,7 +714,7 @@ public class ArbitraryResource {
 					   @QueryParam("title") String title,
 					   @QueryParam("description") String description,
 					   @QueryParam("tags") String tags,
-					   @QueryParam("category") String category,
+					   @QueryParam("category") Category category,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -736,7 +760,7 @@ public class ArbitraryResource {
 										@QueryParam("title") String title,
 										@QueryParam("description") String description,
 										@QueryParam("tags") String tags,
-										@QueryParam("category") String category,
+										@QueryParam("category") Category category,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -779,7 +803,7 @@ public class ArbitraryResource {
 										@QueryParam("title") String title,
 										@QueryParam("description") String description,
 										@QueryParam("tags") String tags,
-										@QueryParam("category") String category,
+										@QueryParam("category") Category category,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -824,7 +848,7 @@ public class ArbitraryResource {
 								 @QueryParam("title") String title,
 								 @QueryParam("description") String description,
 								 @QueryParam("tags") String tags,
-								 @QueryParam("category") String category,
+								 @QueryParam("category") Category category,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -867,7 +891,7 @@ public class ArbitraryResource {
 								 @QueryParam("title") String title,
 								 @QueryParam("description") String description,
 								 @QueryParam("tags") String tags,
-								 @QueryParam("category") String category,
+								 @QueryParam("category") Category category,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -915,7 +939,7 @@ public class ArbitraryResource {
 							 @QueryParam("title") String title,
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") String tags,
-							 @QueryParam("category") String category,
+							 @QueryParam("category") Category category,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -960,7 +984,7 @@ public class ArbitraryResource {
 							 @QueryParam("title") String title,
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") String tags,
-							 @QueryParam("category") String category,
+							 @QueryParam("category") Category category,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -977,7 +1001,7 @@ public class ArbitraryResource {
 
 	private String upload(Service service, String name, String identifier,
 						  String path, String string, String base64, boolean zipped,
-						  String title, String description, String tags, String category) {
+						  String title, String description, String tags, Category category) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);

@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
+import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -45,12 +46,11 @@ public class ArbitraryDataWriter {
     private final String title;
     private final String description;
     private final String tags;
-    private final String category;
+    private final Category category;
 
     private static int MAX_TITLE_LENGTH = 80;
     private static int MAX_DESCRIPTION_LENGTH = 500;
     private static int MAX_TAGS_LENGTH = 80;
-    private static int MAX_CATEGORY_LENGTH = 40;
 
     private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
 
@@ -63,7 +63,7 @@ public class ArbitraryDataWriter {
     private Path encryptedPath;
 
     public ArbitraryDataWriter(Path filePath, String name, Service service, String identifier, Method method, Compression compression,
-                               String title, String description, String tags, String category) {
+                               String title, String description, String tags, Category category) {
         this.filePath = filePath;
         this.name = name;
         this.service = service;
@@ -77,10 +77,10 @@ public class ArbitraryDataWriter {
         this.identifier = identifier;
 
         // Metadata (optional)
-        this.title = title.substring(0, MAX_TITLE_LENGTH);;
-        this.description = description.substring(0, MAX_DESCRIPTION_LENGTH);
-        this.tags = tags.substring(0, MAX_TAGS_LENGTH);
-        this.category = category.substring(0, MAX_CATEGORY_LENGTH);
+        this.title = title != null ? title.substring(0, Math.min(title.length(), MAX_TITLE_LENGTH)) : null;
+        this.description = description != null ? description.substring(0, Math.min(description.length(), MAX_DESCRIPTION_LENGTH)) : null;
+        this.tags = tags != null ? tags.substring(0, Math.min(tags.length(), MAX_TAGS_LENGTH)) : null;
+        this.category = category;
     }
 
     public void save() throws IOException, DataException, InterruptedException, MissingDataException {

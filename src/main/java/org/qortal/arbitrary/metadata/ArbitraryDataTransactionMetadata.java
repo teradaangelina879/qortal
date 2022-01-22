@@ -2,6 +2,7 @@ package org.qortal.arbitrary.metadata;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.qortal.arbitrary.misc.Category;
 import org.qortal.repository.DataException;
 import org.qortal.utils.Base58;
 
@@ -16,7 +17,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
     private String title;
     private String description;
     private String tags;
-    private String category;
+    private Category category;
 
     public ArbitraryDataTransactionMetadata(Path filePath) {
         super(filePath);
@@ -41,7 +42,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             this.tags = metadata.getString("tags");
         }
         if (metadata.has("category")) {
-            this.category = metadata.getString("category");
+            this.category = Category.valueOf(metadata.getString("category"));
         }
 
         List<byte[]> chunksList = new ArrayList<>();
@@ -72,8 +73,8 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
         if (this.tags != null && !this.tags.isEmpty()) {
             outer.put("tags", this.tags);
         }
-        if (this.category != null && !this.category.isEmpty()) {
-            outer.put("category", this.category);
+        if (this.category != null) {
+            outer.put("category", this.category.toString());
         }
 
         JSONArray chunks = new JSONArray();
@@ -121,11 +122,11 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
         return this.tags;
     }
 
-    public void setCategory(String category) {
+    public void setCategory(Category category) {
         this.category = category;
     }
 
-    public String getCategory() {
+    public Category getCategory() {
         return this.category;
     }
 

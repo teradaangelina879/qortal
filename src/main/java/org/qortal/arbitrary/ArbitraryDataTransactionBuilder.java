@@ -6,6 +6,7 @@ import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.ArbitraryDataDiff.*;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
+import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
@@ -55,7 +56,7 @@ public class ArbitraryDataTransactionBuilder {
     private final String title;
     private final String description;
     private final String tags;
-    private final String category;
+    private final Category category;
 
     private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
 
@@ -64,7 +65,7 @@ public class ArbitraryDataTransactionBuilder {
 
     public ArbitraryDataTransactionBuilder(Repository repository, String publicKey58, Path path, String name,
                                            Method method, Service service, String identifier,
-                                           String title, String description, String tags, String category) {
+                                           String title, String description, String tags, Category category) {
         this.repository = repository;
         this.publicKey58 = publicKey58;
         this.path = path;
