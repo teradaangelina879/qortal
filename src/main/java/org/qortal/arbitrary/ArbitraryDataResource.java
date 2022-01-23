@@ -6,6 +6,7 @@ import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.list.ResourceListManager;
@@ -115,6 +116,9 @@ public class ArbitraryDataResource {
 
             // Also delete cached data for the entire resource
             this.deleteCache();
+
+            // Invalidate the hosted transactions cache as we have removed an item
+            ArbitraryDataStorageManager.getInstance().invalidateHostedTransactionsCache();
 
             return true;
 
