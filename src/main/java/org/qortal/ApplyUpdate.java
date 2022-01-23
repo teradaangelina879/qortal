@@ -15,7 +15,6 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qortal.api.ApiKey;
 import org.qortal.api.ApiRequest;
-import org.qortal.api.ApiService;
 import org.qortal.controller.AutoUpdate;
 import org.qortal.settings.Settings;
 
@@ -74,14 +73,11 @@ public class ApplyUpdate {
 		boolean apiKeyNewlyGenerated = false;
 		ApiKey apiKey = null;
 		try {
-			apiKey = ApiService.getInstance().getApiKey();
-			if (apiKey == null) {
-				apiKey = new ApiKey();
-				if (!apiKey.generated()) {
-					apiKey.generate();
-					apiKeyNewlyGenerated = true;
-					LOGGER.info("Generated API key");
-				}
+			apiKey = new ApiKey();
+			if (!apiKey.generated()) {
+				apiKey.generate();
+				apiKeyNewlyGenerated = true;
+				LOGGER.info("Generated API key");
 			}
 		} catch (IOException e) {
 			LOGGER.info("Error loading API key: {}", e.getMessage());
@@ -135,12 +131,8 @@ public class ApplyUpdate {
 		try {
 			LOGGER.info("Removing newly generated API key...");
 
-			ApiKey apiKey = ApiService.getInstance().getApiKey();
-			if (apiKey == null) {
-				apiKey = new ApiKey();
-			}
-
 			// Delete the API key since it was only generated for this auto update
+			ApiKey apiKey = new ApiKey();
 			apiKey.delete();
 
 		} catch (IOException e) {
