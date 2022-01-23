@@ -109,6 +109,8 @@ public class Controller extends Thread {
 	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000L);
 	/** How many (latest) blocks' worth of online accounts we cache */
 	private static final int MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS = 2;
+	private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300010002L;
+
 
 	private static volatile boolean isStopping = false;
 	private static BlockMinter blockMinter = null;
@@ -1376,6 +1378,14 @@ public class Controller extends Thread {
 				onNetworkOnlineAccountsMessage(peer, message);
 				break;
 
+			case GET_ONLINE_ACCOUNTS_V2:
+				onNetworkGetOnlineAccountsV2Message(peer, message);
+				break;
+
+			case ONLINE_ACCOUNTS_V2:
+				onNetworkOnlineAccountsV2Message(peer, message);
+				break;
+
 			case GET_ARBITRARY_DATA:
 				// Not currently supported
 				break;
@@ -1808,6 +1818,53 @@ public class Controller extends Thread {
 		}
 	}
 
+	private void onNetworkGetOnlineAccountsV2Message(Peer peer, Message message) {
+		GetOnlineAccountsV2Message getOnlineAccountsMessage = (GetOnlineAccountsV2Message) message;
+
+		List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
+
+		// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
+		List<OnlineAccountData> accountsToSend;
+		synchronized (this.onlineAccounts) {
+			accountsToSend = new ArrayList<>(this.onlineAccounts);
+		}
+
+		Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
+
+		SEND_ITERATOR:
+		while (iterator.hasNext()) {
+			OnlineAccountData onlineAccountData = iterator.next();
+
+			for (int i = 0; i < excludeAccounts.size(); ++i) {
+				OnlineAccountData excludeAccountData = excludeAccounts.get(i);
+
+				if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
+					iterator.remove();
+					continue SEND_ITERATOR;
+				}
+			}
+		}
+
+		Message onlineAccountsMessage = new OnlineAccountsV2Message(accountsToSend);
+		peer.sendMessage(onlineAccountsMessage);
+
+		LOGGER.trace(() -> String.format("Sent %d of our %d online accounts to %s", accountsToSend.size(), this.onlineAccounts.size(), peer));
+	}
+
+	private void onNetworkOnlineAccountsV2Message(Peer peer, Message message) {
+		OnlineAccountsV2Message onlineAccountsMessage = (OnlineAccountsV2Message) message;
+
+		List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
+		LOGGER.trace(() -> String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
+				this.verifyAndAddAccount(repository, onlineAccountData);
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while verifying online accounts from peer %s", peer), e);
+		}
+	}
+
 	// Utilities
 
 	private void verifyAndAddAccount(Repository repository, OnlineAccountData onlineAccountData) throws DataException {
@@ -1919,11 +1976,17 @@ public class Controller extends Thread {
 
 		// Request data from other peers?
 		if ((this.onlineAccountsTasksTimestamp % ONLINE_ACCOUNTS_BROADCAST_INTERVAL) < ONLINE_ACCOUNTS_TASKS_INTERVAL) {
-			Message message;
+			List<OnlineAccountData> safeOnlineAccounts;
 			synchronized (this.onlineAccounts) {
-				message = new GetOnlineAccountsMessage(this.onlineAccounts);
+				safeOnlineAccounts = new ArrayList<>(this.onlineAccounts);
 			}
-			Network.getInstance().broadcast(peer -> message);
+
+			Message messageV1 = new GetOnlineAccountsMessage(safeOnlineAccounts);
+			Message messageV2 = new GetOnlineAccountsV2Message(safeOnlineAccounts);
+
+			Network.getInstance().broadcast(peer ->
+				peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
+			);
 		}
 
 		// Refresh our online accounts signatures?
@@ -2010,8 +2073,12 @@ public class Controller extends Thread {
 		if (!hasInfoChanged)
 			return;
 
-		Message message = new OnlineAccountsMessage(ourOnlineAccounts);
-		Network.getInstance().broadcast(peer -> message);
+		Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
+		Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
+
+		Network.getInstance().broadcast(peer ->
+				peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
+		);
 
 		LOGGER.trace(()-> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
 	}
