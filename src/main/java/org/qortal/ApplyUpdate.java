@@ -7,15 +7,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.Security;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.api.ApiKey;
 import org.qortal.api.ApiRequest;
+import org.qortal.api.ApiService;
 import org.qortal.controller.AutoUpdate;
 import org.qortal.settings.Settings;
 
@@ -70,14 +70,43 @@ public class ApplyUpdate {
 		String baseUri = "http://localhost:" + Settings.getInstance().getApiPort() + "/";
 		LOGGER.info(() -> String.format("Shutting down node using API via %s", baseUri));
 
+		// The /admin/stop endpoint requires an API key, which may or may not be already generated
+		boolean apiKeyNewlyGenerated = false;
+		ApiKey apiKey = null;
+		try {
+			apiKey = ApiService.getInstance().getApiKey();
+			if (apiKey == null) {
+				apiKey = new ApiKey();
+				if (!apiKey.generated()) {
+					apiKey.generate();
+					apiKeyNewlyGenerated = true;
+					LOGGER.info("Generated API key");
+				}
+			}
+		} catch (IOException e) {
+			LOGGER.info("Error loading API key: {}", e.getMessage());
+		}
+
+		// Create GET params
+		Map<String, String> params = new HashMap<>();
+		if (apiKey != null) {
+			params.put("apiKey", apiKey.toString());
+		}
+
+		// Attempt to stop the node
 		int attempt;
 		for (attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
 			final int attemptForLogging = attempt;
 			LOGGER.info(() -> String.format("Attempt #%d out of %d to shutdown node", attemptForLogging + 1, MAX_ATTEMPTS));
-			String response = ApiRequest.perform(baseUri + "admin/stop", null);
-			if (response == null)
+			String response = ApiRequest.perform(baseUri + "admin/stop", params);
+			if (response == null) {
 				// No response - consider node shut down
+				if (apiKeyNewlyGenerated) {
+					// API key was newly generated for this auto update, so we need to remove it
+					ApplyUpdate.removeGeneratedApiKey();
+				}
 				return true;
+			}
 
 			LOGGER.info(() -> String.format("Response from API: %s", response));
 
@@ -89,12 +118,34 @@ public class ApplyUpdate {
 			}
 		}
 
+		if (apiKeyNewlyGenerated) {
+			// API key was newly generated for this auto update, so we need to remove it
+			ApplyUpdate.removeGeneratedApiKey();
+		}
+
 		if (attempt == MAX_ATTEMPTS) {
 			LOGGER.error("Failed to shutdown node - giving up");
 			return false;
 		}
 
 		return true;
+	}
+
+	private static void removeGeneratedApiKey() {
+		try {
+			LOGGER.info("Removing newly generated API key...");
+
+			ApiKey apiKey = ApiService.getInstance().getApiKey();
+			if (apiKey == null) {
+				apiKey = new ApiKey();
+			}
+
+			// Delete the API key since it was only generated for this auto update
+			apiKey.delete();
+
+		} catch (IOException e) {
+			LOGGER.info("Error loading or deleting API key: {}", e.getMessage());
+		}
 	}
 
 	private static void replaceJar() {
