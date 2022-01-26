@@ -1516,7 +1516,7 @@ public class Synchronizer extends Thread {
 		return new Block(repository, blockMessage.getBlockData(), blockMessage.getTransactions(), blockMessage.getAtStates());
 	}
 
-	private void populateBlockSummariesMinterLevels(Repository repository, List<BlockSummaryData> blockSummaries) throws DataException {
+	public void populateBlockSummariesMinterLevels(Repository repository, List<BlockSummaryData> blockSummaries) throws DataException {
 		final int firstBlockHeight = blockSummaries.get(0).getHeight();
 
 		for (int i = 0; i < blockSummaries.size(); ++i) {
