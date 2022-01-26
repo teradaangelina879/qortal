@@ -20,6 +20,7 @@ import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
+import org.qortal.data.block.CommonBlockData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
@@ -295,6 +296,20 @@ public class BlockMinter extends Thread {
 						}
 					}
 
+					try {
+						if (this.higherWeightChainExists(repository, bestWeight)) {
+							LOGGER.info("Higher weight chain found in peers, so not signing a block this round");
+							repository.discardChanges(); // Need to remove blockchain lock so that it can actually sync
+							Thread.sleep(10 * 1000L); // Allow some time for syncing to occur
+							continue;
+						}
+						else {
+							LOGGER.debug("No higher weight chain found in peers");
+						}
+					} catch (DataException e) {
+						LOGGER.debug("Unable to check for a higher weight chain. Proceeding anyway...");
+					}
+
 					// Add unconfirmed transactions
 					addUnconfirmedTransactions(repository, newBlock);
 
@@ -462,6 +477,51 @@ public class BlockMinter extends Thread {
 		}
 	}
 
+	private BigInteger getOurChainWeightSinceBlock(Repository repository, BlockSummaryData commonBlock, List<BlockSummaryData> peerBlockSummaries) throws DataException {
+		final int commonBlockHeight = commonBlock.getHeight();
+		final byte[] commonBlockSig = commonBlock.getSignature();
+		int mutualHeight = commonBlockHeight;
+
+		// Fetch our corresponding block summaries
+		final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
+		List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository()
+				.getBlockSummaries(commonBlockHeight + 1, ourLatestBlockData.getHeight());
+		if (!ourBlockSummaries.isEmpty()) {
+			Synchronizer.getInstance().populateBlockSummariesMinterLevels(repository, ourBlockSummaries);
+		}
+
+		if (ourBlockSummaries != null && peerBlockSummaries != null) {
+			mutualHeight += Math.min(ourBlockSummaries.size(), peerBlockSummaries.size());
+		}
+		return Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries, mutualHeight);
+	}
+
+	private boolean higherWeightChainExists(Repository repository, BigInteger blockCandidateWeight) throws DataException {
+		if (blockCandidateWeight == null) {
+			// Can't make decisions without knowing the block candidate weight
+			return false;
+		}
+		List<Peer> peers = Network.getInstance().getHandshakedPeers();
+		// Loop through handshaked peers and check for any new block candidates
+		for (Peer peer : peers) {
+			if (peer.getCommonBlockData() != null && peer.getCommonBlockData().getCommonBlockSummary() != null) {
+				// This peer has common block data
+				CommonBlockData commonBlockData = peer.getCommonBlockData();
+				BlockSummaryData commonBlockSummaryData = commonBlockData.getCommonBlockSummary();
+				if (commonBlockData.getChainWeight() != null) {
+					// The synchronizer has calculated this peer's chain weight
+					BigInteger ourChainWeightSinceCommonBlock = this.getOurChainWeightSinceBlock(repository, commonBlockSummaryData, commonBlockData.getBlockSummariesAfterCommonBlock());
+					BigInteger ourChainWeight = ourChainWeightSinceCommonBlock.add(blockCandidateWeight);
+					BigInteger peerChainWeight = commonBlockData.getChainWeight();
+					if (peerChainWeight.compareTo(ourChainWeight) >= 0) {
+						// This peer has a higher weight chain than ours (including our block candidate)
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
 	private static void moderatedLog(Runnable logFunction) {
 		// We only log if logging at TRACE or previous log timeout has expired
 		if (!LOGGER.isTraceEnabled() && lastLogTimestamp != null && lastLogTimestamp + logTimeout > System.currentTimeMillis())
