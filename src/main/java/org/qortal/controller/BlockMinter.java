@@ -1,6 +1,8 @@
 package org.qortal.controller;
 
 import java.math.BigInteger;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -501,6 +503,8 @@ public class BlockMinter extends Thread {
 			// Can't make decisions without knowing the block candidate weight
 			return false;
 		}
+		NumberFormat formatter = new DecimalFormat("0.###E0");
+
 		List<Peer> peers = Network.getInstance().getHandshakedPeers();
 		// Loop through handshaked peers and check for any new block candidates
 		for (Peer peer : peers) {
@@ -514,10 +518,18 @@ public class BlockMinter extends Thread {
 					BigInteger ourChainWeight = ourChainWeightSinceCommonBlock.add(blockCandidateWeight);
 					BigInteger peerChainWeight = commonBlockData.getChainWeight();
 					if (peerChainWeight.compareTo(ourChainWeight) >= 0) {
-						// This peer has a higher weight chain than ours (including our block candidate)
+						// This peer has a higher weight chain than ours
+						LOGGER.debug("Peer {} is on a higher weight chain ({}) than ours ({})", peer, formatter.format(peerChainWeight), formatter.format(ourChainWeight));
 						return true;
+
+					} else {
+						LOGGER.debug("Peer {} is on a lower weight chain ({}) than ours ({})", peer, formatter.format(peerChainWeight), formatter.format(ourChainWeight));
 					}
+				} else {
+					LOGGER.debug("Peer {} has no chain weight", peer);
 				}
+			} else {
+				LOGGER.debug("Peer {} has no common block data", peer);
 			}
 		}
 		return false;
