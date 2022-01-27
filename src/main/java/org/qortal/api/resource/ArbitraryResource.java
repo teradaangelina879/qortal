@@ -575,7 +575,11 @@ public class ArbitraryResource {
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
 								   @QueryParam("rebuild") boolean rebuild) {
-		Security.checkApiCallAllowed(request);
+
+		// Authentication can be bypassed in the settings, for those running public QDN nodes
+		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
+			Security.checkApiCallAllowed(request);
+		}
 
 		return this.download(service, name, null, filepath, rebuild);
 	}
@@ -604,7 +608,11 @@ public class ArbitraryResource {
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
 								   @QueryParam("rebuild") boolean rebuild) {
-		Security.checkApiCallAllowed(request);
+
+		// Authentication can be bypassed in the settings, for those running public QDN nodes
+		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
+			Security.checkApiCallAllowed(request);
+		}
 
 		return this.download(service, name, identifier, filepath, rebuild);
 	}
