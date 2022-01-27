@@ -1057,6 +1057,10 @@ public class ArbitraryResource {
 					// This is a single file resource
 					filepath = files[0];
 				}
+				else {
+					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA,
+							"filepath is required for resources containing more than one file");
+				}
 			}
 
 			// TODO: limit file size that can be read into memory
