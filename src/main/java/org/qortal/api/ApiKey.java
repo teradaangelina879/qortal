@@ -81,6 +81,15 @@ public class ApiKey {
         writer.close();
     }
 
+    public void delete() throws IOException {
+        this.apiKey = null;
+
+        Path filePath = this.getFilePath();
+        if (Files.exists(filePath)) {
+            Files.delete(filePath);
+        }
+    }
+
 
     public boolean generated() {
         return (this.apiKey != null);

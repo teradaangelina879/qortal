@@ -308,6 +308,9 @@ public class Settings {
 	/** Maximum total size of hosted data, in bytes. Unlimited if null */
 	private Long maxStorageCapacity = null;
 
+	/** Whether to serve QDN data without authentication */
+	private boolean qdnAuthBypassEnabled = false;
+
 	// Domain mapping
 	public static class DomainMap {
 		private String domain;
@@ -883,5 +886,9 @@ public class Settings {
 
 	public Long getMaxStorageCapacity() {
 		return this.maxStorageCapacity;
+	}
+
+	public boolean isQDNAuthBypassEnabled() {
+		return this.qdnAuthBypassEnabled;
 	}
 }
