@@ -401,7 +401,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			bindParams.add(queryWildcard);
 		}
 
-		sql.append(" GROUP BY name, service, identifier ORDER BY name");
+		sql.append(" GROUP BY name, service, identifier ORDER BY name COLLATE SQL_TEXT_UCC_NO_PAD");
 
 		if (reverse != null && reverse) {
 			sql.append(" DESC");
@@ -465,7 +465,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			sql.append(" AND (identifier = ? OR (? IS NULL))");
 		}
 
-		sql.append(" GROUP BY name ORDER BY name");
+		sql.append(" GROUP BY name ORDER BY name COLLATE SQL_TEXT_UCC_NO_PAD");
 
 		if (reverse != null && reverse) {
 			sql.append(" DESC");
