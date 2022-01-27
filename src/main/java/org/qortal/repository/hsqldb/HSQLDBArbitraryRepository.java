@@ -330,7 +330,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			bindParams.add(name);
 		}
 
-		sql.append(" GROUP BY name, service, identifier ORDER BY name");
+		sql.append(" GROUP BY name, service, identifier ORDER BY name COLLATE SQL_TEXT_UCC_NO_PAD");
 
 		if (reverse != null && reverse) {
 			sql.append(" DESC");
