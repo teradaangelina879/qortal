@@ -51,7 +51,7 @@ public class BlockMinter extends Thread {
 	// Min account level to submit blocks
 	// This is an unvalidated version of Blockchain.minAccountLevelToMint
 	// and exists only to reduce block candidates by default.
-	private static int MIN_LEVEL_FOR_BLOCK_SUBMISSION = 3;
+	private static int MIN_LEVEL_FOR_BLOCK_SUBMISSION = 6;
 
 	// Constructors
 
