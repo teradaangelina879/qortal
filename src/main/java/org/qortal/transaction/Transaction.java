@@ -334,7 +334,7 @@ public abstract class Transaction {
 
 	/** Returns whether transaction's fee is at least minimum unit fee as specified in blockchain config. */
 	public boolean hasMinimumFee() {
-		return this.transactionData.getFee() >= BlockChain.getInstance().getUnitFee();
+		return this.transactionData.getFee() >= this.getUnitFee(this.transactionData.getTimestamp());
 	}
 
 	public long feePerByte() {
@@ -347,7 +347,7 @@ public abstract class Transaction {
 
 	/** Returns whether transaction's fee is at least amount needed to cover byte-length of transaction. */
 	public boolean hasMinimumFeePerByte() {
-		long unitFee = BlockChain.getInstance().getUnitFee();
+		long unitFee = this.getUnitFee(this.transactionData.getTimestamp());
 		int maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
 
 		// If the unit fee is zero, any fee is enough to cover the byte-length of the transaction
@@ -369,7 +369,18 @@ public abstract class Transaction {
 
 		int unitFeeCount = ((dataLength - 1) / maxBytePerUnitFee) + 1;
 
-		return BlockChain.getInstance().getUnitFee() * unitFeeCount;
+		return this.getUnitFee(this.transactionData.getTimestamp()) * unitFeeCount;
+	}
+
+	/**
+	 * Caclulate unit fee for a given transaction type
+	 *
+	 * FUTURE: add "accountLevel" parameter if needed - the level of the transaction creator
+	 * @param timestamp - the transaction's timestamp (currently not used)
+	 * @return
+	 */
+	public long getUnitFee(Long timestamp) {
+		return BlockChain.getInstance().getUnitFee();
 	}
 
 	/**
