@@ -793,7 +793,7 @@ public class Synchronizer {
 			return SynchronizationResult.REPOSITORY_ISSUE;
 
 		if (ourLatestBlockData.getTimestamp() < minLatestBlockTimestamp) {
-			LOGGER.info(String.format("Ditching our chain after height %d as our latest block is very old", commonBlockHeight));
+			LOGGER.info(String.format("Ditching our chain after height %d", commonBlockHeight));
 		} else {
 			// Compare chain weights
 
