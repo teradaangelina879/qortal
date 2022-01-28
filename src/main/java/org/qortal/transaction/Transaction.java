@@ -373,7 +373,7 @@ public abstract class Transaction {
 	}
 
 	/**
-	 * Caclulate unit fee for a given transaction type
+	 * Calculate unit fee for a given transaction type
 	 *
 	 * FUTURE: add "accountLevel" parameter if needed - the level of the transaction creator
 	 * @param timestamp - the transaction's timestamp (currently not used)
