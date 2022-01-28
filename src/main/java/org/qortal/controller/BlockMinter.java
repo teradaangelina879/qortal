@@ -16,7 +16,6 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.block.Block;
 import org.qortal.block.Block.ValidationResult;
 import org.qortal.block.BlockChain;
-import org.qortal.data.account.AccountData;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.block.BlockData;
@@ -48,10 +47,10 @@ public class BlockMinter extends Thread {
 	// Recovery
 	public static final long INVALID_BLOCK_RECOVERY_TIMEOUT = 10 * 60 * 1000L; // ms
 
-	// Min account level to submit blocks
+	// Min effective account level to submit blocks
 	// This is an unvalidated version of Blockchain.minAccountLevelToMint
 	// and exists only to reduce block candidates by default.
-	private static int MIN_LEVEL_FOR_BLOCK_SUBMISSION = 6;
+	private static int MIN_EFFECTIVE_LEVEL_FOR_BLOCK_SUBMISSION = 6;
 
 	// Constructors
 
@@ -138,13 +137,10 @@ public class BlockMinter extends Thread {
 					}
 
 					// Optional (non-validated) prevention of block submissions below a defined level
-					AccountData accountData = repository.getAccountRepository().getAccount(mintingAccount.getAddress());
-					if (accountData != null) {
-						Integer level = accountData.getLevel();
-						if (level != null && level < MIN_LEVEL_FOR_BLOCK_SUBMISSION) {
-							madi.remove();
-							continue;
-						}
+					int level = mintingAccount.getEffectiveMintingLevel();
+					if (level < MIN_EFFECTIVE_LEVEL_FOR_BLOCK_SUBMISSION) {
+						madi.remove();
+						continue;
 					}
 				}
 
