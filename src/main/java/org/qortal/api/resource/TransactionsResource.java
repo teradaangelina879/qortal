@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +46,7 @@ import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
 
 import com.google.common.primitives.Bytes;
+import org.qortal.utils.NTP;
 
 @Path("/transactions")
 @Tag(name = "Transactions")
@@ -360,6 +363,42 @@ public class TransactionsResource {
 			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/unitfee")
+	@Operation(
+			summary = "Get transaction unit fee",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "number"
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({
+			ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE
+	})
+	public long getTransactionUnitFee(@QueryParam("txType") TransactionType txType,
+                                      @QueryParam("timestamp") Long timestamp,
+									  @QueryParam("level") Integer accountLevel) {
+		try {
+			if (timestamp == null) {
+				timestamp = NTP.getTime();
+			}
+
+			Constructor<?> constructor = txType.constructor;
+			Transaction transaction = (Transaction) constructor.newInstance(null, null);
+			// FUTURE: add accountLevel parameter to transaction.getUnitFee() if needed
+			return transaction.getUnitFee(timestamp);
+
+		} catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
 		}
 	}
 
