@@ -128,6 +128,13 @@ public class ArbitraryDataResource {
     }
 
     public void deleteCache() throws IOException {
+        // Don't delete anything if there's a build in progress
+        ArbitraryDataBuildQueueItem queueItem =
+                new ArbitraryDataBuildQueueItem(resourceId, resourceIdType, service, identifier);
+        if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) {
+            return;
+        }
+
         String baseDir = Settings.getInstance().getTempDataPath();
         String identifier = this.identifier != null ?  this.identifier : "default";
         Path cachePath = Paths.get(baseDir, "reader", this.resourceIdType.toString(), this.resourceId, this.service.toString(), identifier);
