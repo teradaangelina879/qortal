@@ -402,6 +402,47 @@ public class TransactionsResource {
 		}
 	}
 
+	@POST
+	@Path("/fee")
+	@Operation(
+			summary = "Get recommended fee for supplied transaction data",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string"
+							)
+					)
+			)
+	)
+	@ApiErrors({
+			ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE
+	})
+	public long getRecommendedTransactionFee(String rawInputBytes58) {
+		byte[] rawInputBytes = Base58.decode(rawInputBytes58);
+		if (rawInputBytes.length == 0)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.JSON);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			// Append null signature on the end before transformation
+			byte[] rawBytes = Bytes.concat(rawInputBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
+
+			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			return transaction.calcRecommendedFee();
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}  catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		}
+	}
+
 	@GET
 	@Path("/creator/{publickey}")
 	@Operation(
