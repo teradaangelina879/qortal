@@ -141,7 +141,7 @@ public class BlockChain {
 	}
 	private List<BlockTimingByHeight> blockTimingsByHeight;
 
-	private int minAccountLevelToMint = 1;
+	private int minAccountLevelToMint;
 	private int minAccountLevelForBlockSubmissions;
 	private int minAccountLevelToRewardShare;
 	private int maxRewardSharesPerMintingAccount;
