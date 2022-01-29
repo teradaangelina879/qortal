@@ -47,11 +47,6 @@ public class BlockMinter extends Thread {
 	// Recovery
 	public static final long INVALID_BLOCK_RECOVERY_TIMEOUT = 10 * 60 * 1000L; // ms
 
-	// Min effective account level to submit blocks
-	// This is an unvalidated version of Blockchain.minAccountLevelToMint
-	// and exists only to reduce block candidates by default.
-	private static int MIN_EFFECTIVE_LEVEL_FOR_BLOCK_SUBMISSION = 6;
-
 	// Constructors
 
 	public BlockMinter() {
@@ -136,9 +131,11 @@ public class BlockMinter extends Thread {
 						continue;
 					}
 
-					// Optional (non-validated) prevention of block submissions below a defined level
+					// Optional (non-validated) prevention of block submissions below a defined level.
+					// This is an unvalidated version of Blockchain.minAccountLevelToMint
+					// and exists only to reduce block candidates by default.
 					int level = mintingAccount.getEffectiveMintingLevel();
-					if (level < MIN_EFFECTIVE_LEVEL_FOR_BLOCK_SUBMISSION) {
+					if (level < BlockChain.getInstance().getMinAccountLevelForBlockSubmissions()) {
 						madi.remove();
 						continue;
 					}

@@ -142,6 +142,7 @@ public class BlockChain {
 	private List<BlockTimingByHeight> blockTimingsByHeight;
 
 	private int minAccountLevelToMint = 1;
+	private int minAccountLevelForBlockSubmissions;
 	private int minAccountLevelToRewardShare;
 	private int maxRewardSharesPerMintingAccount;
 	private int founderEffectiveMintingLevel;
@@ -342,6 +343,10 @@ public class BlockChain {
 
 	public int getMinAccountLevelToMint() {
 		return this.minAccountLevelToMint;
+	}
+
+	public int getMinAccountLevelForBlockSubmissions() {
+		return this.minAccountLevelForBlockSubmissions;
 	}
 
 	public int getMinAccountLevelToRewardShare() {
