@@ -349,6 +349,10 @@ public class TransactionsResource {
 		if (confirmationStatus != ConfirmationStatus.CONFIRMED && (startBlock != null || blockLimit != null))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
+		// You can't ask for unconfirmed and filter by address (due to only public key being stored when unconfirmed)
+		if (confirmationStatus != ConfirmationStatus.CONFIRMED && address != null && !address.isEmpty())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txGroupId,
 					txTypes, null, null, address, confirmationStatus, limit, offset, reverse);
