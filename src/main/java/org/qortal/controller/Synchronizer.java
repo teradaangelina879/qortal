@@ -111,7 +111,7 @@ public class Synchronizer extends Thread {
 	@Override
 	public void run() {
 		try {
-			while (running) {
+			while (running && !Controller.isStopping()) {
 				Thread.sleep(1000);
 
 				if (requestSync) {
