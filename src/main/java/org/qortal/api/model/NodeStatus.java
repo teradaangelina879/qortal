@@ -4,6 +4,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.qortal.controller.Controller;
+import org.qortal.controller.Synchronizer;
 import org.qortal.network.Network;
 
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -22,7 +23,7 @@ public class NodeStatus {
 	public NodeStatus() {
 		this.isMintingPossible = Controller.getInstance().isMintingPossible();
 
-		this.syncPercent = Controller.getInstance().getSyncPercent();
+		this.syncPercent = Synchronizer.getInstance().getSyncPercent();
 		this.isSynchronizing = this.syncPercent != null;
 
 		this.numberOfConnections = Network.getInstance().getHandshakedPeers().size();

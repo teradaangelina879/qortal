@@ -3,6 +3,7 @@ package org.qortal.controller.repository;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
+import org.qortal.controller.Synchronizer;
 import org.qortal.data.block.BlockData;
 import org.qortal.repository.*;
 import org.qortal.settings.Settings;
@@ -51,7 +52,7 @@ public class BlockArchiver implements Runnable {
 				}
 
 				// Don't even attempt if we're mid-sync as our repository requests will be delayed for ages
-				if (Controller.getInstance().isSynchronizing()) {
+				if (Synchronizer.getInstance().isSynchronizing()) {
 					continue;
 				}
 
