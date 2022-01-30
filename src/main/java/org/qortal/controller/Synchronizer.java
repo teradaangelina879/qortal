@@ -571,9 +571,11 @@ public class Synchronizer {
 		// Make sure we're the only thread modifying the blockchain
 		// If we're already synchronizing with another peer then this will also return fast
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		if (!blockchainLock.tryLock())
+		if (!blockchainLock.tryLock()) {
 			// Wasn't peer's fault we couldn't sync
+			LOGGER.info("Synchronizer couldn't acquire blockchain lock");
 			return SynchronizationResult.NO_BLOCKCHAIN_LOCK;
+		}
 
 		try {
 			try (final Repository repository = RepositoryManager.getRepository()) {
