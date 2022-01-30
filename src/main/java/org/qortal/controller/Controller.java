@@ -1511,6 +1511,11 @@ public class Controller extends Thread {
 	}
 
 	private void processIncomingTransactionsQueue() {
+		if (this.incomingTransactions.size() == 0) {
+			// Don't bother locking if there are no new transactions to process
+			return;
+		}
+
 		try {
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 			if (!blockchainLock.tryLock(2, TimeUnit.SECONDS)) {
@@ -1570,7 +1575,6 @@ public class Controller extends Thread {
 			LOGGER.error(String.format("Repository issue while processing incoming transactions", e));
 		} finally {
 			blockchainLock.unlock();
-			LOGGER.info("[processIncomingTransactionsQueue] Released blockchain lock");
 		}
 	}
 
