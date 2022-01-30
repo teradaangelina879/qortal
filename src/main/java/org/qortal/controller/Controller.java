@@ -1279,6 +1279,11 @@ public class Controller extends Thread {
 			return;
 		}
 
+		if (Synchronizer.getInstance().isSyncRequested() || Synchronizer.getInstance().isSynchronizing()) {
+			// Prioritize syncing, and don't attempt to lock
+			return;
+		}
+
 		try {
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 			if (!blockchainLock.tryLock(2, TimeUnit.SECONDS)) {
