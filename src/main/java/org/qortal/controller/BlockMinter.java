@@ -195,6 +195,9 @@ public class BlockMinter extends Thread {
 
 					// Reduce log timeout
 					logTimeout = 10 * 1000L;
+
+					// Last low weight block is no longer valid
+					parentSignatureForLastLowWeightBlock = null;
 				}
 
 				// Discard accounts we have already built blocks with
