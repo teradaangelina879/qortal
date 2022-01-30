@@ -1519,7 +1519,7 @@ public class Controller extends Thread {
 		try {
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 			if (!blockchainLock.tryLock(2, TimeUnit.SECONDS)) {
-				LOGGER.info(() -> String.format("Too busy to process incoming transactions queue"));
+				LOGGER.trace(() -> String.format("Too busy to process incoming transactions queue"));
 				return;
 			}
 		} catch (InterruptedException e) {
