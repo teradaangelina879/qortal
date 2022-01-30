@@ -865,7 +865,7 @@ public class Synchronizer extends Thread {
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 		if (!blockchainLock.tryLock(3, TimeUnit.SECONDS))
 			// Wasn't peer's fault we couldn't sync
-			LOGGER.debug("Synchronizer couldn't acquire blockchain lock");
+			LOGGER.info("Synchronizer couldn't acquire blockchain lock");
 			return SynchronizationResult.NO_BLOCKCHAIN_LOCK;
 		}
 
