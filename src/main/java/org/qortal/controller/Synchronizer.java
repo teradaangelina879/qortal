@@ -116,7 +116,11 @@ public class Synchronizer extends Thread {
 
 				if (requestSync) {
 					requestSync = false;
-					Synchronizer.getInstance().potentiallySynchronize();
+					boolean success = Synchronizer.getInstance().potentiallySynchronize();
+					if (!success) {
+						// Something went wrong, so try again next time
+						requestSync = true;
+					}
 				}
 			}
 		} catch (InterruptedException e) {
@@ -156,10 +160,10 @@ public class Synchronizer extends Thread {
 	}
 
 
-	public void potentiallySynchronize() throws InterruptedException {
+	public boolean potentiallySynchronize() throws InterruptedException {
 		// Already synchronizing via another thread?
 		if (this.isSynchronizing)
-			return;
+			return true;
 
 		List<Peer> peers = Network.getInstance().getHandshakedPeers();
 
@@ -185,7 +189,7 @@ public class Synchronizer extends Thread {
 
 		// Check we have enough peers to potentially synchronize
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
-			return;
+			return true;
 
 		// Disregard peers that have no block signature or the same block signature as us
 		peers.removeIf(Controller.hasNoOrSameBlock);
@@ -209,7 +213,7 @@ public class Synchronizer extends Thread {
 			LOGGER.debug(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
 
 		if (peers.isEmpty())
-			return;
+			return true;
 
 		if (peers.size() > 1) {
 			StringBuilder finalPeersString = new StringBuilder();
@@ -222,7 +226,13 @@ public class Synchronizer extends Thread {
 		int index = new SecureRandom().nextInt(peers.size());
 		Peer peer = peers.get(index);
 
-		actuallySynchronize(peer, false);
+		SynchronizationResult syncResult = actuallySynchronize(peer, false);
+		if (syncResult == SynchronizationResult.NO_BLOCKCHAIN_LOCK) {
+			// No blockchain lock - force a retry by returning false
+			return false;
+		}
+
+		return true;
 	}
 
 	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
