@@ -78,6 +78,10 @@ public class BlockMinter extends Thread {
 			BlockRepository blockRepository = repository.getBlockRepository();
 			BlockData previousBlockData = null;
 
+			// Vars to keep track of blocks that were skipped due to chain weight
+			byte[] parentSignatureForLastLowWeightBlock = null;
+			Long timeOfLastLowWeightBlock = null;
+
 			List<Block> newBlocks = new ArrayList<>();
 
 			// Flags for tracking change in whether minting is possible,
@@ -113,6 +117,14 @@ public class BlockMinter extends Thread {
 				// No minting accounts?
 				if (mintingAccountsData.isEmpty())
 					continue;
+
+				if (parentSignatureForLastLowWeightBlock != null) {
+					// The last iteration found a higher weight block in the network, so sleep for a while
+					// to allow is to sync the higher weight chain. We are sleeping here rather than when
+					// detected as we don't want to hold the blockchain lock open.
+					LOGGER.info("Sleeping for 10 seconds...");
+					Thread.sleep(10 * 1000L);
+				}
 
 				// Disregard minting accounts that are no longer valid, e.g. by transfer/loss of founder flag or account level
 				// Note that minting accounts are actually reward-shares in Qortal
@@ -300,10 +312,26 @@ public class BlockMinter extends Thread {
 
 					try {
 						if (this.higherWeightChainExists(repository, bestWeight)) {
-							LOGGER.info("Higher weight chain found in peers, so not signing a block this round");
-							repository.discardChanges(); // Need to remove blockchain lock so that it can actually sync
-							Thread.sleep(10 * 1000L); // Allow some time for syncing to occur
-							continue;
+
+							// Check if the base block has updated since the last time we were here
+							if (parentSignatureForLastLowWeightBlock == null || timeOfLastLowWeightBlock == null ||
+									!Arrays.equals(parentSignatureForLastLowWeightBlock, previousBlockData.getSignature())) {
+								// We've switched to a different chain, so reset the timer
+								timeOfLastLowWeightBlock = NTP.getTime();
+							}
+							parentSignatureForLastLowWeightBlock = previousBlockData.getSignature();
+
+							// If less than 30 seconds has passed since first detection the higher weight chain,
+							// we should skip our block submission to give us the opportunity to sync to the better chain
+							if (NTP.getTime() - timeOfLastLowWeightBlock < 30*1000L) {
+								LOGGER.info("Higher weight chain found in peers, so not signing a block this round");
+								LOGGER.info("Time since detected: {}", NTP.getTime() - timeOfLastLowWeightBlock);
+								continue;
+							}
+							else {
+								// More than 30 seconds have passed, so we should submit our block candidate anyway.
+								LOGGER.info("More than 30 seconds passed, so proceeding to submit block candidate...");
+							}
 						}
 						else {
 							LOGGER.debug("No higher weight chain found in peers");
@@ -311,6 +339,11 @@ public class BlockMinter extends Thread {
 					} catch (DataException e) {
 						LOGGER.debug("Unable to check for a higher weight chain. Proceeding anyway...");
 					}
+
+					// Clear variables that track low weight blocks
+					parentSignatureForLastLowWeightBlock = null;
+					timeOfLastLowWeightBlock = null;
+
 
 					// Add unconfirmed transactions
 					addUnconfirmedTransactions(repository, newBlock);
