@@ -118,14 +118,6 @@ public class BlockMinter extends Thread {
 				if (mintingAccountsData.isEmpty())
 					continue;
 
-				if (parentSignatureForLastLowWeightBlock != null) {
-					// The last iteration found a higher weight block in the network, so sleep for a while
-					// to allow is to sync the higher weight chain. We are sleeping here rather than when
-					// detected as we don't want to hold the blockchain lock open.
-					LOGGER.info("Sleeping for 10 seconds...");
-					Thread.sleep(10 * 1000L);
-				}
-
 				// Disregard minting accounts that are no longer valid, e.g. by transfer/loss of founder flag or account level
 				// Note that minting accounts are actually reward-shares in Qortal
 				Iterator<MintingAccountData> madi = mintingAccountsData.iterator();
@@ -217,6 +209,14 @@ public class BlockMinter extends Thread {
 				if (mintedLastBlock) {
 					LOGGER.trace(String.format("One of our keys signed the last block, so we won't sign the next one"));
 					continue;
+				}
+
+				if (parentSignatureForLastLowWeightBlock != null) {
+					// The last iteration found a higher weight block in the network, so sleep for a while
+					// to allow is to sync the higher weight chain. We are sleeping here rather than when
+					// detected as we don't want to hold the blockchain lock open.
+					LOGGER.info("Sleeping for 10 seconds...");
+					Thread.sleep(10 * 1000L);
 				}
 
 				for (PrivateKeyAccount mintingAccount : newBlocksMintingAccounts) {
