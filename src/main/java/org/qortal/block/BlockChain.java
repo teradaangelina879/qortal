@@ -68,7 +68,8 @@ public class BlockChain {
 		atFindNextTransactionFix,
 		newBlockSigHeight,
 		shareBinFix,
-		calcChainWeightTimestamp;
+		calcChainWeightTimestamp,
+		transactionV5Timestamp;
 	}
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
@@ -389,6 +390,10 @@ public class BlockChain {
 
 	public long getCalcChainWeightTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.calcChainWeightTimestamp.name()).longValue();
+	}
+
+	public long getTransactionV5Timestamp() {
+		return this.featureTriggers.get(FeatureTrigger.transactionV5Timestamp.name()).longValue();
 	}
 
 	// More complex getters for aspects that change by height or timestamp

@@ -393,7 +393,7 @@ public abstract class Transaction {
 	 * @return transaction version number
 	 */
 	public static int getVersionByTimestamp(long timestamp) {
-		if (timestamp >= 1642176000000L) {
+		if (timestamp >= BlockChain.getInstance().getTransactionV5Timestamp()) {
 			return 5;
 		}
 		return 4;
