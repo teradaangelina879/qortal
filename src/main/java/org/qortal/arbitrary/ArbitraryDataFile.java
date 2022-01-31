@@ -439,6 +439,11 @@ public class ArbitraryDataFile {
                 return chunk.exists();
             }
         }
+        if (Arrays.equals(hash, this.metadataHash)) {
+            if (this.metadataFile != null) {
+                return this.metadataFile.exists();
+            }
+        }
         if (Arrays.equals(this.getHash(), hash)) {
             return this.exists();
         }
