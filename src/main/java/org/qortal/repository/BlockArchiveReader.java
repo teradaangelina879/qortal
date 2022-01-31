@@ -145,20 +145,22 @@ public class BlockArchiveReader {
     }
 
     private String getFilenameForHeight(int height) {
-        Iterator it = this.fileListCache.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry pair = (Map.Entry)it.next();
-            if (pair == null && pair.getKey() == null && pair.getValue() == null) {
-                continue;
-            }
-            Triple<Integer, Integer, Integer> heightInfo = (Triple<Integer, Integer, Integer>) pair.getValue();
-            Integer startHeight = heightInfo.getA();
-            Integer endHeight = heightInfo.getB();
+        synchronized (this.fileListCache) {
+            Iterator it = this.fileListCache.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry pair = (Map.Entry) it.next();
+                if (pair == null && pair.getKey() == null && pair.getValue() == null) {
+                    continue;
+                }
+                Triple<Integer, Integer, Integer> heightInfo = (Triple<Integer, Integer, Integer>) pair.getValue();
+                Integer startHeight = heightInfo.getA();
+                Integer endHeight = heightInfo.getB();
 
-            if (height >= startHeight && height <= endHeight) {
-                // Found the correct file
-                String filename = (String) pair.getKey();
-                return filename;
+                if (height >= startHeight && height <= endHeight) {
+                    // Found the correct file
+                    String filename = (String) pair.getKey();
+                    return filename;
+                }
             }
         }
 
