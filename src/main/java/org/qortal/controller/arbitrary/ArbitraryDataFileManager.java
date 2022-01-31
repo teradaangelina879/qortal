@@ -119,13 +119,16 @@ public class ArbitraryDataFileManager {
             if (!arbitraryDataFile.chunkExists(hash)) {
                 // Only request the file if we aren't already requesting it from someone else
                 if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
+                    LOGGER.debug("Requesting data file {} from peer {}", Base58.encode(hash), peer);
+                    Long startTime = NTP.getTime();
                     ArbitraryDataFileMessage receivedArbitraryDataFileMessage = fetchArbitraryDataFile(peer, null, signature, hash, null);
+                    Long endTime = NTP.getTime();
                     if (receivedArbitraryDataFileMessage != null) {
-                        LOGGER.debug("Received data file {} from peer {}", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer);
+                        LOGGER.debug("Received data file {} from peer {}. Time taken: {} ms", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer, (endTime-startTime));
                         receivedAtLeastOneFile = true;
                     }
                     else {
-                        LOGGER.debug("Peer {} didn't respond with data file {} for signature {}", peer, Base58.encode(hash), Base58.encode(signature));
+                        LOGGER.debug("Peer {} didn't respond with data file {} for signature {}. Time taken: {} ms", peer, Base58.encode(hash), Base58.encode(signature), (endTime-startTime));
                     }
                 }
                 else {
@@ -171,11 +174,11 @@ public class ArbitraryDataFileManager {
     private ArbitraryDataFileMessage fetchArbitraryDataFile(Peer peer, Peer requestingPeer, byte[] signature, byte[] hash, Message originalMessage) throws DataException {
         ArbitraryDataFile existingFile = ArbitraryDataFile.fromHash(hash, signature);
         boolean fileAlreadyExists = existingFile.exists();
+        String hash58 = Base58.encode(hash);
         Message message = null;
 
         // Fetch the file if it doesn't exist locally
         if (!fileAlreadyExists) {
-            String hash58 = Base58.encode(hash);
             LOGGER.debug(String.format("Fetching data file %.8s from peer %s", hash58, peer));
             arbitraryDataFileRequests.put(hash58, NTP.getTime());
             Message getArbitraryDataFileMessage = new GetArbitraryDataFileMessage(signature, hash);
@@ -194,6 +197,9 @@ public class ArbitraryDataFileManager {
             if (message == null || message.getType() != Message.MessageType.ARBITRARY_DATA_FILE) {
                 return null;
             }
+        }
+        else {
+            LOGGER.debug(String.format("File hash %s already exists, so skipping the request", hash58));
         }
         ArbitraryDataFileMessage arbitraryDataFileMessage = (ArbitraryDataFileMessage) message;
 
