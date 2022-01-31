@@ -108,6 +108,10 @@ public class ArbitraryDataCleanupManager extends Thread {
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, ARBITRARY_TX_TYPE, null, null, null, ConfirmationStatus.BOTH, limit, offset, true);
 					// LOGGER.info("Found {} arbitrary transactions at offset: {}, limit: {}", signatures.size(), offset, limit);
+					if (isStopping) {
+						return;
+					}
+
 					if (signatures == null || signatures.isEmpty()) {
 						offset = 0;
 						continue;
@@ -117,6 +121,10 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 					// Loop through the signatures in this batch
 					for (int i=0; i<signatures.size(); i++) {
+						if (isStopping) {
+							return;
+						}
+
 						byte[] signature = signatures.get(i);
 						if (signature == null) {
 							continue;
