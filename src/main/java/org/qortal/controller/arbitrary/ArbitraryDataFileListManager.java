@@ -304,6 +304,60 @@ public class ArbitraryDataFileListManager {
         return true;
     }
 
+    public boolean fetchArbitraryDataFileList(Peer peer, byte[] signature) {
+        String signature58 = Base58.encode(signature);
+
+        // Require an NTP sync
+        Long now = NTP.getTime();
+        if (now == null) {
+            return false;
+        }
+
+        LOGGER.debug(String.format("Sending data file list request for signature %s to peer %s...", signature58, peer));
+
+        // Build request
+        // Use a time in the past, so that the recipient peer doesn't try and relay it
+        long timestamp = now - 60000L;
+        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, timestamp, 0);
+
+        // Save our request into requests map
+        Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
+
+        // Assign random ID to this message
+        int id;
+        do {
+            id = new Random().nextInt(Integer.MAX_VALUE - 1) + 1;
+
+            // Put queue into map (keyed by message ID) so we can poll for a response
+            // If putIfAbsent() doesn't return null, then this ID is already taken
+        } while (arbitraryDataFileListRequests.put(id, requestEntry) != null);
+        getArbitraryDataFileListMessage.setId(id);
+
+        // Send the request
+        peer.sendMessage(getArbitraryDataFileListMessage);
+
+        // Poll to see if data has arrived
+        final long singleWait = 100;
+        long totalWait = 0;
+        while (totalWait < ArbitraryDataManager.ARBITRARY_REQUEST_TIMEOUT) {
+            try {
+                Thread.sleep(singleWait);
+            } catch (InterruptedException e) {
+                break;
+            }
+
+            requestEntry = arbitraryDataFileListRequests.get(id);
+            if (requestEntry == null)
+                return false;
+
+            if (requestEntry.getA() == null)
+                break;
+
+            totalWait += singleWait;
+        }
+        return true;
+    }
+
     public void deleteFileListRequestsForSignature(byte[] signature) {
         String signature58 = Base58.encode(signature);
         for (Iterator<Map.Entry<Integer, Triple<String, Peer, Long>>> it = arbitraryDataFileListRequests.entrySet().iterator(); it.hasNext();) {

@@ -69,22 +69,6 @@ public class ArbitraryDataFileManager {
 
     // Fetch data files by hash
 
-    public boolean fetchAllArbitraryDataFiles(Repository repository, Peer peer, byte[] signature) {
-        try {
-            TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-            if (!(transactionData instanceof ArbitraryTransactionData))
-                return false;
-
-            ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
-
-            // We use null to represent all hashes associated with this transaction
-            return this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, null);
-
-        } catch (DataException e) {}
-
-        return false;
-    }
-
     public boolean fetchArbitraryDataFiles(Repository repository,
                                            Peer peer,
                                            byte[] signature,
@@ -95,23 +79,6 @@ public class ArbitraryDataFileManager {
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
         byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
         arbitraryDataFile.setMetadataHash(metadataHash);
-
-        // If hashes are null, we will treat this to mean all data hashes associated with this file
-        if (hashes == null) {
-            if (metadataHash == null) {
-                // This transaction has no metadata/chunks, so use the main file hash
-                hashes = Arrays.asList(arbitraryDataFile.getHash());
-            }
-            else if (!arbitraryDataFile.getMetadataFile().exists()) {
-                // We don't have the metadata file yet, so request it
-                hashes = Arrays.asList(arbitraryDataFile.getMetadataFile().getHash());
-            }
-            else {
-                // Add the chunk hashes
-                hashes = arbitraryDataFile.getChunkHashes();
-            }
-        }
-
         boolean receivedAtLeastOneFile = false;
 
         // Now fetch actual data from this peer
