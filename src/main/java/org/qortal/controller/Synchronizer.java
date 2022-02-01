@@ -545,6 +545,8 @@ public class Synchronizer extends Thread {
 				// Create a placeholder to track of common blocks that we can discard due to being inferior chains
 				int dropPeersAfterCommonBlockHeight = 0;
 
+				NumberFormat accurateFormatter = new DecimalFormat("0.################E0");
+
 				// Remove peers with no common block data
 				Iterator iterator = peers.iterator();
 				while (iterator.hasNext()) {
@@ -667,9 +669,7 @@ public class Synchronizer extends Thread {
 					if (ourBlockSummaries.size() > 0)
 						ourChainWeight = Block.calcChainWeight(commonBlockSummary.getHeight(), commonBlockSummary.getSignature(), ourBlockSummaries, maxHeightForChainWeightComparisons);
 
-					NumberFormat formatter = new DecimalFormat("0.###E0");
-					NumberFormat accurateFormatter = new DecimalFormat("0.################E0");
-					LOGGER.debug(String.format("Our chain weight based on %d blocks is %s", (usingSameLengthChainWeight ? minChainLength : ourBlockSummaries.size()), formatter.format(ourChainWeight)));
+					LOGGER.debug(String.format("Our chain weight based on %d blocks is %s", (usingSameLengthChainWeight ? minChainLength : ourBlockSummaries.size()), accurateFormatter.format(ourChainWeight)));
 
 					LOGGER.debug(String.format("Listing peers with common block %.8s...", Base58.encode(commonBlockSummary.getSignature())));
 					for (Peer peer : peersSharingCommonBlock) {
@@ -691,7 +691,7 @@ public class Synchronizer extends Thread {
 						LOGGER.debug(String.format("About to calculate chain weight based on %d blocks for peer %s with common block %.8s (peer has %d blocks after common block)", (usingSameLengthChainWeight ? minChainLength : peerBlockSummariesAfterCommonBlock.size()), peer, Base58.encode(commonBlockSummary.getSignature()), peerAdditionalBlocksAfterCommonBlock));
 						BigInteger peerChainWeight = Block.calcChainWeight(commonBlockSummary.getHeight(), commonBlockSummary.getSignature(), peerBlockSummariesAfterCommonBlock, maxHeightForChainWeightComparisons);
 						peer.getCommonBlockData().setChainWeight(peerChainWeight);
-						LOGGER.debug(String.format("Chain weight of peer %s based on %d blocks (%d - %d) is %s", peer, (usingSameLengthChainWeight ? minChainLength : peerBlockSummariesAfterCommonBlock.size()), peerBlockSummariesAfterCommonBlock.get(0).getHeight(), peerBlockSummariesAfterCommonBlock.get(peerBlockSummariesAfterCommonBlock.size()-1).getHeight(), formatter.format(peerChainWeight)));
+						LOGGER.debug(String.format("Chain weight of peer %s based on %d blocks (%d - %d) is %s", peer, (usingSameLengthChainWeight ? minChainLength : peerBlockSummariesAfterCommonBlock.size()), peerBlockSummariesAfterCommonBlock.get(0).getHeight(), peerBlockSummariesAfterCommonBlock.get(peerBlockSummariesAfterCommonBlock.size()-1).getHeight(), accurateFormatter.format(peerChainWeight)));
 
 						// Compare against our chain - if our blockchain has greater weight then don't synchronize with peer (or any others in this group)
 						if (ourChainWeight.compareTo(peerChainWeight) > 0) {
@@ -1141,8 +1141,9 @@ public class Synchronizer extends Thread {
 			BigInteger ourChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries, mutualHeight);
 			BigInteger peerChainWeight = Block.calcChainWeight(commonBlockHeight, commonBlockSig, peerBlockSummaries, mutualHeight);
 
-			NumberFormat formatter = new DecimalFormat("0.###E0");
-			LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", formatter.format(ourChainWeight), formatter.format(peerChainWeight)));
+			NumberFormat accurateFormatter = new DecimalFormat("0.################E0");
+			LOGGER.debug(String.format("commonBlockHeight: %d, commonBlockSig: %.8s, ourBlockSummaries.size(): %d, peerBlockSummaries.size(): %d", commonBlockHeight, Base58.encode(commonBlockSig), ourBlockSummaries.size(), peerBlockSummaries.size()));
+			LOGGER.debug(String.format("Our chain weight: %s, peer's chain weight: %s (higher is better)", accurateFormatter.format(ourChainWeight), accurateFormatter.format(peerChainWeight)));
 
 			// If our blockchain has greater weight then don't synchronize with peer
 			if (ourChainWeight.compareTo(peerChainWeight) >= 0) {
