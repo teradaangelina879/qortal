@@ -1,5 +1,6 @@
 package org.qortal.utils;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
@@ -147,16 +148,49 @@ public class ArbitraryTransactionUtils {
         byte[] metadataHash = transactionData.getMetadataHash();
         byte[] signature = transactionData.getSignature();
 
-        if (metadataHash == null) {
-            // This file doesn't have any metadata, therefore it has no chunks
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
+        arbitraryDataFile.setMetadataHash(metadataHash);
+
+        // Find the folder containing the files
+        Path parentPath = arbitraryDataFile.getFilePath().getParent();
+        String[] files = parentPath.toFile().list();
+        if (files == null) {
             return 0;
+        }
+
+        // Remove the original copy indicator file if it exists
+        files = ArrayUtils.removeElement(files, ".original");
+
+        int count = files.length;
+
+        // If the complete file exists (and this transaction has chunks), subtract it from the count
+        if (arbitraryDataFile.chunkCount() > 0 && arbitraryDataFile.exists()) {
+            // We are only measuring the individual chunks, not the joined file
+            count -= 1;
+        }
+
+        return count;
+    }
+
+    public static int totalChunkCount(ArbitraryTransactionData transactionData) throws DataException {
+        if (transactionData == null) {
+            return 0;
+        }
+
+        byte[] digest = transactionData.getData();
+        byte[] metadataHash = transactionData.getMetadataHash();
+        byte[] signature = transactionData.getSignature();
+
+        if (metadataHash == null) {
+            // This file doesn't have any metadata, therefore it has a single (complete) chunk
+            return 1;
         }
 
         // Load complete file and chunks
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
         arbitraryDataFile.setMetadataHash(metadataHash);
 
-        return arbitraryDataFile.chunkCount();
+        return arbitraryDataFile.chunkCount() + 1; // +1 for the metadata file
     }
 
     public static boolean isFileRecent(Path filePath, long now, long cleanupAfter) {

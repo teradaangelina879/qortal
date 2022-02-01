@@ -38,6 +38,8 @@ public class ArbitraryDataResource {
     private List<ArbitraryTransactionData> transactions;
     private ArbitraryTransactionData latestPutTransaction;
     private int layerCount;
+    private Integer localChunkCount = null;
+    private Integer totalChunkCount = null;
 
     public ArbitraryDataResource(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         this.resourceId = resourceId.toLowerCase();
@@ -51,50 +53,56 @@ public class ArbitraryDataResource {
         this.identifier = identifier;
     }
 
-    public ArbitraryResourceStatus getStatus() {
+    public ArbitraryResourceStatus getStatus(boolean quick) {
+        // Calculate the chunk counts
+        // Avoid this for "quick" statuses, to speed things up
+        if (!quick) {
+            this.calculateChunkCounts();
+        }
+
         if (resourceIdType != ResourceIdType.NAME) {
             // We only support statuses for resources with a name
-            return new ArbitraryResourceStatus(Status.UNSUPPORTED);
+            return new ArbitraryResourceStatus(Status.UNSUPPORTED, this.localChunkCount, this.totalChunkCount);
         }
 
         // Check if the name is blocked
         if (ResourceListManager.getInstance()
                 .listContains("blockedNames", this.resourceId, false)) {
-            return new ArbitraryResourceStatus(Status.BLOCKED);
+            return new ArbitraryResourceStatus(Status.BLOCKED, this.localChunkCount, this.totalChunkCount);
+        }
+
+        // Check if a build has failed
+        ArbitraryDataBuildQueueItem queueItem =
+                new ArbitraryDataBuildQueueItem(resourceId, resourceIdType, service, identifier);
+        if (ArbitraryDataBuildManager.getInstance().isInFailedBuildsList(queueItem)) {
+            return new ArbitraryResourceStatus(Status.BUILD_FAILED, this.localChunkCount, this.totalChunkCount);
         }
 
         // Firstly check the cache to see if it's already built
         ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(
                 resourceId, resourceIdType, service, identifier);
         if (arbitraryDataReader.isCachedDataAvailable()) {
-            return new ArbitraryResourceStatus(Status.READY);
-        }
-
-        // Next check if there's a build in progress
-        ArbitraryDataBuildQueueItem queueItem =
-                new ArbitraryDataBuildQueueItem(resourceId, resourceIdType, service, identifier);
-        if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) {
-            return new ArbitraryResourceStatus(Status.BUILDING);
-        }
-
-        // Check if a build has failed
-        if (ArbitraryDataBuildManager.getInstance().isInFailedBuildsList(queueItem)) {
-            return new ArbitraryResourceStatus(Status.BUILD_FAILED);
+            return new ArbitraryResourceStatus(Status.READY, this.localChunkCount, this.totalChunkCount);
         }
 
         // Check if we have all data locally for this resource
         if (!this.allFilesDownloaded()) {
             if (this.isDownloading()) {
-                return new ArbitraryResourceStatus(Status.DOWNLOADING);
+                return new ArbitraryResourceStatus(Status.DOWNLOADING, this.localChunkCount, this.totalChunkCount);
             }
             else if (this.isDataPotentiallyAvailable()) {
-                return new ArbitraryResourceStatus(Status.PUBLISHED);
+                return new ArbitraryResourceStatus(Status.PUBLISHED, this.localChunkCount, this.totalChunkCount);
             }
-            return new ArbitraryResourceStatus(Status.MISSING_DATA);
+            return new ArbitraryResourceStatus(Status.MISSING_DATA, this.localChunkCount, this.totalChunkCount);
+        }
+
+        // Check if there's a build in progress
+        if (ArbitraryDataBuildManager.getInstance().isInBuildQueue(queueItem)) {
+            return new ArbitraryResourceStatus(Status.BUILDING, this.localChunkCount, this.totalChunkCount);
         }
 
         // We have all data locally
-        return new ArbitraryResourceStatus(Status.DOWNLOADED);
+        return new ArbitraryResourceStatus(Status.DOWNLOADED, this.localChunkCount, this.totalChunkCount);
     }
 
     public boolean delete() {
@@ -147,6 +155,12 @@ public class ArbitraryDataResource {
     }
 
     private boolean allFilesDownloaded() {
+        // Use chunk counts to speed things up if we can
+        if (this.localChunkCount != null && this.totalChunkCount != null &&
+                this.localChunkCount >= this.totalChunkCount) {
+            return true;
+        }
+
         try {
             this.fetchTransactions();
 
@@ -163,6 +177,25 @@ public class ArbitraryDataResource {
         } catch (DataException e) {
             return false;
         }
+    }
+
+    private void calculateChunkCounts() {
+        try {
+            this.fetchTransactions();
+
+            List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
+            int localChunkCount = 0;
+            int totalChunkCount = 0;
+
+            for (ArbitraryTransactionData transactionData : transactionDataList) {
+                localChunkCount += ArbitraryTransactionUtils.ourChunkCount(transactionData);
+                totalChunkCount += ArbitraryTransactionUtils.totalChunkCount(transactionData);
+            }
+
+            this.localChunkCount = localChunkCount;
+            this.totalChunkCount = totalChunkCount;
+
+        } catch (DataException e) {}
     }
 
     private boolean isRateLimited() {

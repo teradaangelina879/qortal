@@ -1097,7 +1097,7 @@ public class ArbitraryResource {
 		}
 
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.getStatus();
+		return resource.getStatus(false);
 	}
 
 	private List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
@@ -1106,7 +1106,7 @@ public class ArbitraryResource {
 		for (ArbitraryResourceInfo resourceInfo : resources) {
 			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
 					resourceInfo.service, resourceInfo.identifier);
-			ArbitraryResourceStatus status = resource.getStatus();
+			ArbitraryResourceStatus status = resource.getStatus(true);
 			if (status != null) {
 				resourceInfo.status = status;
 			}
