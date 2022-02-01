@@ -232,9 +232,10 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceStatus getDefaultResourceStatus(@PathParam("service") Service service,
-													  		 @PathParam("name") String name,
-															 @QueryParam("build") Boolean build) {
+	public ArbitraryResourceStatus getDefaultResourceStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+															@PathParam("service") Service service,
+															@PathParam("name") String name,
+															@QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, null);
 		return this.getStatus(service, name, null, build);
@@ -252,10 +253,11 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceStatus getResourceStatus(@PathParam("service") Service service,
-													  @PathParam("name") String name,
-													  @PathParam("identifier") String identifier,
-													  @QueryParam("build") Boolean build) {
+	public ArbitraryResourceStatus getResourceStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+													 @PathParam("service") Service service,
+													 @PathParam("name") String name,
+													 @PathParam("identifier") String identifier,
+													 @QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier);
 		return this.getStatus(service, name, identifier, build);
