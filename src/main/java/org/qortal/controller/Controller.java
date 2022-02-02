@@ -826,6 +826,9 @@ public class Controller extends Thread {
 			if (!isStopping) {
 				isStopping = true;
 
+				LOGGER.info("Shutting down synchronizer");
+				Synchronizer.getInstance().shutdown();
+
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();
 
@@ -851,9 +854,6 @@ public class Controller extends Thread {
 						// We were interrupted while waiting for thread to join
 					}
 				}
-
-				LOGGER.info("Shutting down synchronizer");
-				Synchronizer.getInstance().shutdown();
 
 				// Export local data
 				LOGGER.info("Backing up local data");
