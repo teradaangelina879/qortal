@@ -307,6 +307,11 @@ public class Synchronizer extends Thread {
 				}
 			}
 
+			if (!running) {
+				// We've stopped
+				return SynchronizationResult.SHUTTING_DOWN;
+			}
+
 			// Has our chain tip changed?
 			BlockData newChainTip;
 
