@@ -870,11 +870,27 @@ public class Controller extends Thread {
 					// We were interrupted while waiting for thread to join
 				}
 
+				// Make sure we're the only thread modifying the blockchain when shutting down the repository
+				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+				try {
+					if (!blockchainLock.tryLock(5, TimeUnit.SECONDS)) {
+						LOGGER.debug("Couldn't acquire blockchain lock even after waiting 5 seconds");
+						// Proceed anyway, as we have to shut down
+					}
+				} catch (InterruptedException e) {
+					LOGGER.info("Interrupted when waiting for blockchain lock");
+				}
+
 				try {
 					LOGGER.info("Shutting down repository");
 					RepositoryManager.closeRepositoryFactory();
 				} catch (DataException e) {
 					LOGGER.error("Error occurred while shutting down repository", e);
+				}
+
+				// Release the lock if we acquired it
+				if (blockchainLock.isHeldByCurrentThread()) {
+					blockchainLock.unlock();
 				}
 
 				LOGGER.info("Shutting down NTP");
