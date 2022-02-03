@@ -365,11 +365,9 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				Long now = NTP.getTime();
 				boolean isCacheStale = (now != null && now - transactionsCacheTimestamp >= TRANSACTIONS_CACHE_TIMEOUT);
 				if (!isCacheStale) {
-					LOGGER.info("Serving transactions from cache");
 					return transactionsCache;
 				}
 			}
-			LOGGER.info("Fetching transactions from ElectrumX");
 
 			Context.propagate(bitcoinjContext);
 
