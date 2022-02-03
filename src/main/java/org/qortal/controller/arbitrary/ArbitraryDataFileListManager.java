@@ -484,6 +484,7 @@ public class ArbitraryDataFileListManager {
         GetArbitraryDataFileListMessage getArbitraryDataFileListMessage = (GetArbitraryDataFileListMessage) message;
         byte[] signature = getArbitraryDataFileListMessage.getSignature();
         String signature58 = Base58.encode(signature);
+        List<byte[]> requestedHashes = getArbitraryDataFileListMessage.getHashes();
         Long now = NTP.getTime();
         Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, now);
 
@@ -513,36 +514,37 @@ public class ArbitraryDataFileListManager {
 
                     // Load file(s) and add any that exist to the list of hashes
                     ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-                    if (metadataHash != null) {
-                        arbitraryDataFile.setMetadataHash(metadataHash);
+                    arbitraryDataFile.setMetadataHash(metadataHash);
 
-                        // Assume all chunks exists, unless one can't be found below
-                        allChunksExist = true;
+                    // If the peer didn't supply a hash list, we need to return all hashes for this transaction
+                    if (requestedHashes == null || requestedHashes.isEmpty()) {
+                        requestedHashes = new ArrayList<>();
 
-                        // If we have the metadata file, add its hash
-                        if (arbitraryDataFile.getMetadataFile().exists()) {
-                            hashes.add(arbitraryDataFile.getMetadataHash());
+                        // Add the metadata file
+                        if (arbitraryDataFile.getMetadataHash() != null) {
+                            requestedHashes.add(arbitraryDataFile.getMetadataHash());
                         }
+
+                        // Add the chunk hashes
+                        if (arbitraryDataFile.getChunkHashes().size() > 0) {
+                            requestedHashes.addAll(arbitraryDataFile.getChunkHashes());
+                        }
+                        // Add complete file if there are no hashes
                         else {
-                            allChunksExist = false;
+                            requestedHashes.add(arbitraryDataFile.getHash());
                         }
+                    }
 
-                        for (ArbitraryDataFileChunk chunk : arbitraryDataFile.getChunks()) {
-                            if (chunk.exists()) {
-                                hashes.add(chunk.getHash());
-                                //LOGGER.trace("Added hash {}", chunk.getHash58());
-                            } else {
-                                LOGGER.trace("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
-                                allChunksExist = false;
-                            }
-                        }
-                    } else {
-                        // This transaction has no chunks, so include the complete file if we have it
-                        if (arbitraryDataFile.exists()) {
-                            hashes.add(arbitraryDataFile.getHash());
-                            allChunksExist = true;
-                        }
-                        else {
+                    // Assume all chunks exists, unless one can't be found below
+                    allChunksExist = true;
+
+                    for (byte[] requestedHash : requestedHashes) {
+                        ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(requestedHash, signature);
+                        if (chunk.exists()) {
+                            hashes.add(chunk.getHash());
+                            //LOGGER.trace("Added hash {}", chunk.getHash58());
+                        } else {
+                            LOGGER.trace("Couldn't add hash {} because it doesn't exist", chunk.getHash58());
                             allChunksExist = false;
                         }
                     }
