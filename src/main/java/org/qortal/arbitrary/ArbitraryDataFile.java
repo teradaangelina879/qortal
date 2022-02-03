@@ -460,9 +460,6 @@ public class ArbitraryDataFile {
 
             if (this.metadataFile == null) {
                 this.metadataFile = ArbitraryDataFile.fromHash(this.metadataHash, this.signature);
-                if (!metadataFile.exists()) {
-                    return false;
-                }
             }
 
             // If the metadata file doesn't exist, we can't check if we have the chunks
@@ -501,9 +498,6 @@ public class ArbitraryDataFile {
 
             if (this.metadataFile == null) {
                 this.metadataFile = ArbitraryDataFile.fromHash(this.metadataHash, this.signature);
-                if (!metadataFile.exists()) {
-                    return false;
-                }
             }
 
             // If the metadata file doesn't exist, we can't check if we have any chunks
