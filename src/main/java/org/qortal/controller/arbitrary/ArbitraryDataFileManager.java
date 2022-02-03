@@ -84,35 +84,57 @@ public class ArbitraryDataFileManager extends Thread {
     private void processFileHashes(Long now) {
         try (final Repository repository = RepositoryManager.getRepository()) {
 
-            for (String hash58 : arbitraryDataFileHashResponses.keySet()) {
-                if (isStopping) {
-                    return;
-                }
+            ArbitraryTransactionData arbitraryTransactionData = null;
+            byte[] signature = null;
+            byte[] hash = null;
+            Peer peer = null;
+            boolean shouldProcess = false;
 
-                Triple<Peer, String, Long> value = arbitraryDataFileHashResponses.get(hash58);
-                if (value != null) {
-                    Peer peer = value.getA();
-                    String signature58 = value.getB();
-                    Long timestamp = value.getC();
-
-                    if (now - timestamp >= ArbitraryDataManager.ARBITRARY_RELAY_TIMEOUT || signature58 == null || peer == null) {
-                        // Ignore - to be deleted
-                        continue;
+            synchronized (arbitraryDataFileHashResponses) {
+                for (String hash58 : arbitraryDataFileHashResponses.keySet()) {
+                    if (isStopping) {
+                        return;
                     }
 
-                    byte[] hash = Base58.decode(hash58);
-                    byte[] signature = Base58.decode(signature58);
+                    Triple<Peer, String, Long> value = arbitraryDataFileHashResponses.get(hash58);
+                    if (value != null) {
+                        peer = value.getA();
+                        String signature58 = value.getB();
+                        Long timestamp = value.getC();
 
-                    // Fetch the transaction data
-                    ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
-                    if (arbitraryTransactionData == null) {
-                        continue;
+                        if (now - timestamp >= ArbitraryDataManager.ARBITRARY_RELAY_TIMEOUT || signature58 == null || peer == null) {
+                            // Ignore - to be deleted
+                            continue;
+                        }
+
+                        hash = Base58.decode(hash58);
+                        signature = Base58.decode(signature58);
+
+                        // Fetch the transaction data
+                        arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
+                        if (arbitraryTransactionData == null) {
+                            continue;
+                        }
+
+                        // We want to process this file
+                        shouldProcess = true;
+                        break;
                     }
-
-                    LOGGER.debug("Fetching file {} from peer {} via response queue...", hash58, peer);
-                    this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, Arrays.asList(hash));
                 }
             }
+
+            if (!shouldProcess) {
+                // Nothing to do
+                return;
+            }
+
+            if (signature == null || hash == null || peer == null || arbitraryTransactionData == null) {
+                return;
+            }
+
+            String hash58 = Base58.encode(hash);
+            LOGGER.debug("Fetching file {} from peer {} via response queue...", hash58, peer);
+            this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, Arrays.asList(hash));
 
         } catch (DataException e) {
             LOGGER.info("Unable to process file hashes: {}", e.getMessage());
