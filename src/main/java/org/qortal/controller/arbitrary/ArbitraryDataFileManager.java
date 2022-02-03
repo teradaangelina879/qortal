@@ -239,7 +239,12 @@ public class ArbitraryDataFileManager extends Thread {
             // We may need to remove the file list request, if we have all the files for this transaction
             this.handleFileListRequests(signature);
 
-            if (message == null || message.getType() != Message.MessageType.ARBITRARY_DATA_FILE) {
+            if (message == null) {
+                LOGGER.debug("Received null message from peer {}", peer);
+                return null;
+            }
+            if (message.getType() != Message.MessageType.ARBITRARY_DATA_FILE) {
+                LOGGER.debug("Received message with invalid type: {} from peer {}", message.getType(), peer);
                 return null;
             }
         }
