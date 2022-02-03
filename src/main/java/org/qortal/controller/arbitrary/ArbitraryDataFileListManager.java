@@ -236,9 +236,11 @@ public class ArbitraryDataFileListManager {
     }
 
 
-    // Lookup file lists by signature
+    // Lookup file lists by signature (and optionally hashes)
 
     public boolean fetchArbitraryDataFileList(ArbitraryTransactionData arbitraryTransactionData) {
+        byte[] digest = arbitraryTransactionData.getData();
+        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
         byte[] signature = arbitraryTransactionData.getSignature();
         String signature58 = Base58.encode(signature);
 
@@ -261,10 +263,24 @@ public class ArbitraryDataFileListManager {
         this.addToSignatureRequests(signature58, true, false);
 
         List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
-        LOGGER.debug(String.format("Sending data file list request for signature %s to %d peers...", signature58, handshakedPeers.size()));
+        List<byte[]> missingHashes = null;
+
+//        // TODO: uncomment after GetArbitraryDataFileListMessage updates are deployed
+//        // Find hashes that we are missing
+//        try {
+//            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
+//            arbitraryDataFile.setMetadataHash(metadataHash);
+//            missingHashes = arbitraryDataFile.missingHashes();
+//        } catch (DataException e) {
+//            // Leave missingHashes as null, so that all hashes are requested
+//        }
+//        int hashCount = missingHashes != null ? missingHashes.size() : 0;
+
+        int hashCount = 0;
+        LOGGER.debug(String.format("Sending data file list request for signature %s with %d hashes to %d peers...", signature58, hashCount, handshakedPeers.size()));
 
         // Build request
-        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, now, 0);
+        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, missingHashes, now, 0);
 
         // Save our request into requests map
         Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
@@ -313,12 +329,16 @@ public class ArbitraryDataFileListManager {
             return false;
         }
 
-        LOGGER.debug(String.format("Sending data file list request for signature %s to peer %s...", signature58, peer));
+        int hashCount = 0;
+        LOGGER.debug(String.format("Sending data file list request for signature %s with %d hashes to peer %s...", signature58, hashCount, peer));
 
         // Build request
         // Use a time in the past, so that the recipient peer doesn't try and relay it
+        // Also, set hashes to null since it's easier to request all hashes than it is to determine which ones we need
+        // This could be optimized in the future
         long timestamp = now - 60000L;
-        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, timestamp, 0);
+        List<byte[]> hashes = null;
+        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, hashes, timestamp, 0);
 
         // Save our request into requests map
         Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
