@@ -452,6 +452,7 @@ public class Controller extends Thread {
 		// Arbitrary data controllers
 		LOGGER.info("Starting arbitrary-transaction controllers");
 		ArbitraryDataManager.getInstance().start();
+		ArbitraryDataFileManager.getInstance().start();
 		ArbitraryDataBuildManager.getInstance().start();
 		ArbitraryDataCleanupManager.getInstance().start();
 		ArbitraryDataStorageManager.getInstance().start();
@@ -840,6 +841,7 @@ public class Controller extends Thread {
 				// Arbitrary data controllers
 				LOGGER.info("Shutting down arbitrary-transaction controllers");
 				ArbitraryDataManager.getInstance().shutdown();
+				ArbitraryDataFileManager.getInstance().shutdown();
 				ArbitraryDataBuildManager.getInstance().shutdown();
 				ArbitraryDataCleanupManager.getInstance().shutdown();
 				ArbitraryDataStorageManager.getInstance().shutdown();

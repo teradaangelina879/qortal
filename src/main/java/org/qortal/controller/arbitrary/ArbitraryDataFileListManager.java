@@ -431,6 +431,14 @@ public class ArbitraryDataFileListManager {
 //			}
 
             if (!isRelayRequest || !Settings.getInstance().isRelayModeEnabled()) {
+                // Keep track of the hashes this peer reports to have access to
+                Long now = NTP.getTime();
+                for (byte[] hash : hashes) {
+                    String hash58 = Base58.encode(hash);
+                    String sig58 = Base58.encode(signature);
+                    ArbitraryDataFileManager.getInstance().arbitraryDataFileHashResponses.put(hash58, new Triple<>(peer, sig58, now));
+                }
+
                 // Go and fetch the actual data, since this isn't a relay request
                 arbitraryDataFileManager.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, hashes);
             }
