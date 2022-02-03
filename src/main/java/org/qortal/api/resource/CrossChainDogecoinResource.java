@@ -65,11 +65,16 @@ public class CrossChainDogecoinResource {
 		if (!dogecoin.isValidDeterministicKey(key58))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
-		Long balance = dogecoin.getWalletBalance(key58);
-		if (balance == null)
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		try {
+			Long balance = dogecoin.getWalletBalanceFromTransactions(key58);
+			if (balance == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 
-		return balance.toString();
+			return balance.toString();
+
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
 	}
 
 	@POST
