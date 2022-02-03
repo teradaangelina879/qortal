@@ -39,6 +39,7 @@ import org.qortal.utils.Amounts;
 import org.qortal.utils.BitTwiddling;
 
 import com.google.common.hash.HashCode;
+import org.qortal.utils.NTP;
 
 /** Bitcoin-like (Bitcoin, Litecoin, etc.) support */
 public abstract class Bitcoiny implements ForeignBlockchain {
@@ -52,6 +53,11 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	protected final String currencyCode;
 
 	protected final NetworkParameters params;
+
+	/** Cache recent transactions to speed up subsequent lookups */
+	protected List<SimpleTransaction> transactionsCache;
+	protected Long transactionsCacheTimestamp;
+	protected static long TRANSACTIONS_CACHE_TIMEOUT = 2 * 60 * 1000L; // 2 minutes
 
 	/** Keys that have been previously marked as fully spent,<br>
 	 * i.e. keys with transactions but with no unspent outputs. */
@@ -353,69 +359,87 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	}
 
 	public List<SimpleTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
-		Context.propagate(bitcoinjContext);
-
-		Wallet wallet = walletFromDeterministicKey58(key58);
-		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
-
-		keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
-		keyChain.maybeLookAhead();
-
-		List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
-
-		Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
-		Set<String> keySet = new HashSet<>();
-
-		// Set the number of consecutive empty batches required before giving up
-		final int numberOfAdditionalBatchesToSearch = 5;
-
-		int unusedCounter = 0;
-		int ki = 0;
-		do {
-			boolean areAllKeysUnused = true;
-
-			for (; ki < keys.size(); ++ki) {
-				DeterministicKey dKey = keys.get(ki);
-
-				// Check for transactions
-				Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
-				keySet.add(address.toString());
-				byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
-
-				// Ask for transaction history - if it's empty then key has never been used
-				List<TransactionHash> historicTransactionHashes = this.blockchain.getAddressTransactions(script, false);
-
-				if (!historicTransactionHashes.isEmpty()) {
-					areAllKeysUnused = false;
-
-					for (TransactionHash transactionHash : historicTransactionHashes)
-						walletTransactions.add(this.getTransaction(transactionHash.txHash));
+		synchronized (this) {
+			// Serve from the cache if it's recent
+			if (transactionsCache != null && transactionsCacheTimestamp != null) {
+				Long now = NTP.getTime();
+				boolean isCacheStale = (now != null && now - transactionsCacheTimestamp >= TRANSACTIONS_CACHE_TIMEOUT);
+				if (!isCacheStale) {
+					LOGGER.info("Serving transactions from cache");
+					return transactionsCache;
 				}
 			}
+			LOGGER.info("Fetching transactions from ElectrumX");
 
-			if (areAllKeysUnused) {
-				// No transactions
-				if (unusedCounter >= numberOfAdditionalBatchesToSearch) {
-					// ... and we've hit our search limit
-					break;
+			Context.propagate(bitcoinjContext);
+
+			Wallet wallet = walletFromDeterministicKey58(key58);
+			DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
+
+			keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
+			keyChain.maybeLookAhead();
+
+			List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
+
+			Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
+			Set<String> keySet = new HashSet<>();
+
+			// Set the number of consecutive empty batches required before giving up
+			final int numberOfAdditionalBatchesToSearch = 5;
+
+			int unusedCounter = 0;
+			int ki = 0;
+			do {
+				boolean areAllKeysUnused = true;
+
+				for (; ki < keys.size(); ++ki) {
+					DeterministicKey dKey = keys.get(ki);
+
+					// Check for transactions
+					Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
+					keySet.add(address.toString());
+					byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
+
+					// Ask for transaction history - if it's empty then key has never been used
+					List<TransactionHash> historicTransactionHashes = this.blockchain.getAddressTransactions(script, false);
+
+					if (!historicTransactionHashes.isEmpty()) {
+						areAllKeysUnused = false;
+
+						for (TransactionHash transactionHash : historicTransactionHashes)
+							walletTransactions.add(this.getTransaction(transactionHash.txHash));
+					}
 				}
-				// We haven't hit our search limit yet so increment the counter and keep looking
-				unusedCounter++;
-			}
-			else {
-				// Some keys in this batch were used, so reset the counter
-				unusedCounter = 0;
-			}
 
-			// Generate some more keys
-			keys.addAll(generateMoreKeys(keyChain));
+				if (areAllKeysUnused) {
+					// No transactions
+					if (unusedCounter >= numberOfAdditionalBatchesToSearch) {
+						// ... and we've hit our search limit
+						break;
+					}
+					// We haven't hit our search limit yet so increment the counter and keep looking
+					unusedCounter++;
+				} else {
+					// Some keys in this batch were used, so reset the counter
+					unusedCounter = 0;
+				}
 
-			// Process new keys
-		} while (true);
+				// Generate some more keys
+				keys.addAll(generateMoreKeys(keyChain));
 
-		Comparator<SimpleTransaction> newestTimestampFirstComparator = Comparator.comparingInt(SimpleTransaction::getTimestamp).reversed();
+				// Process new keys
+			} while (true);
 
-		return walletTransactions.stream().map(t -> convertToSimpleTransaction(t, keySet)).sorted(newestTimestampFirstComparator).collect(Collectors.toList());
+			Comparator<SimpleTransaction> newestTimestampFirstComparator = Comparator.comparingInt(SimpleTransaction::getTimestamp).reversed();
+
+			// Update cache and return
+			transactionsCacheTimestamp = NTP.getTime();
+			transactionsCache = walletTransactions.stream()
+					.map(t -> convertToSimpleTransaction(t, keySet))
+					.sorted(newestTimestampFirstComparator).collect(Collectors.toList());
+
+			return transactionsCache;
+		}
 	}
 
 	protected SimpleTransaction convertToSimpleTransaction(BitcoinyTransaction t, Set<String> keySet) {
