@@ -283,7 +283,36 @@ public class NamesDatabaseIntegrityCheck {
     }
 
     public List<TransactionData> fetchAllTransactionsInvolvingName(String name, Repository repository) throws DataException {
-        return repository.getTransactionRepository().getTransactionsInvolvingName(name, ConfirmationStatus.CONFIRMED);
+        List<byte[]> signatures = new ArrayList<>();
+        String reducedName = Unicode.sanitize(name);
+
+        List<byte[]> registerNameTransactions = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+                TransactionType.REGISTER_NAME, Arrays.asList("(name = ? OR reduced_name = ?)"), Arrays.asList(name, reducedName));
+        signatures.addAll(registerNameTransactions);
+
+        List<byte[]> updateNameTransactions = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+                TransactionType.UPDATE_NAME,
+                Arrays.asList("(name = ? OR new_name = ? OR (reduced_new_name != '' AND reduced_new_name = ?))"),
+                Arrays.asList(name, name, reducedName));
+        signatures.addAll(updateNameTransactions);
+
+        List<byte[]> sellNameTransactions = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+                TransactionType.SELL_NAME, Arrays.asList("name = ?"), Arrays.asList(name));
+        signatures.addAll(sellNameTransactions);
+
+        List<byte[]> buyNameTransactions = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+                TransactionType.BUY_NAME, Arrays.asList("name = ?"), Arrays.asList(name));
+        signatures.addAll(buyNameTransactions);
+
+        List<TransactionData> transactions = new ArrayList<>();
+        for (byte[] signature : signatures) {
+            TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+            // Filter out any unconfirmed transactions
+            if (transactionData.getBlockHeight() != null && transactionData.getBlockHeight() > 0) {
+                transactions.add(transactionData);
+            }
+        }
+        return transactions;
     }
 
     private TransactionData fetchLatestModificationTransactionInvolvingName(String registeredName, Repository repository) throws DataException {

@@ -656,6 +656,44 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
+
+	public List<byte[]> getSignaturesMatchingCustomCriteria(TransactionType txType, List<String> whereClauses,
+															List<Object> bindParams) throws DataException {
+		List<byte[]> signatures = new ArrayList<>();
+
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append(String.format("SELECT signature FROM %sTransactions", txType.className));
+
+		if (!whereClauses.isEmpty()) {
+			sql.append(" WHERE ");
+
+			final int whereClausesSize = whereClauses.size();
+			for (int wci = 0; wci < whereClausesSize; ++wci) {
+				if (wci != 0)
+					sql.append(" AND ");
+
+				sql.append(whereClauses.get(wci));
+			}
+		}
+
+		LOGGER.trace(() -> String.format("Transaction search SQL: %s", sql));
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return signatures;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				signatures.add(signature);
+			} while (resultSet.next());
+
+			return signatures;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching transaction signatures from repository", e);
+		}
+	}
+
 	@Override
 	public byte[] getLatestAutoUpdateTransaction(TransactionType txType, int txGroupId, Integer service) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
