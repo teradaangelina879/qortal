@@ -332,7 +332,8 @@ public class NamesDatabaseIntegrityCheck {
 
             if ((transactionData instanceof RegisterNameTransactionData)) {
                 RegisterNameTransactionData registerNameTransactionData = (RegisterNameTransactionData) transactionData;
-                if (Objects.equals(registerNameTransactionData.getReducedName(), reducedName)) {
+                if (Objects.equals(registerNameTransactionData.getName(), name) ||
+                        Objects.equals(registerNameTransactionData.getReducedName(), reducedName)) {
                     transactions.add(transactionData);
                 }
             }
@@ -340,7 +341,8 @@ public class NamesDatabaseIntegrityCheck {
                 UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
                 boolean hasReducedNewName = updateNameTransactionData.getReducedNewName() == null && !updateNameTransactionData.getReducedNewName().isEmpty();
                 if (Objects.equals(updateNameTransactionData.getName(), name) ||
-                        (hasReducedNewName && Objects.equals(updateNameTransactionData.getReducedNewName(), reducedName))) {
+                        (hasReducedNewName && Objects.equals(updateNameTransactionData.getReducedNewName(), reducedName)) ||
+                        Objects.equals(updateNameTransactionData.getNewName(), name)) {
                     transactions.add(transactionData);
                 }
             }
