@@ -125,7 +125,6 @@ public class IntegrityTests extends Common {
             TransactionUtils.signAndMint(repository, updateTransactionData, alice);
 
             // Register emoji name
-            PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
             String emojiName = "\uD83E\uDD73"; // Translates to a reducedName of ""
 
             // Ensure that the initial_name isn't associated with the emoji name

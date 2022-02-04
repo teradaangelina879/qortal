@@ -30,6 +30,7 @@ import org.qortal.repository.hsqldb.HSQLDBSaver;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
+import org.qortal.utils.Unicode;
 
 public class HSQLDBTransactionRepository implements TransactionRepository {
 
@@ -697,6 +698,88 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return resultSet.getBytes(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch latest auto-update transaction signature from repository", e);
+		}
+	}
+
+	@Override
+	public List<TransactionData> getTransactionsInvolvingName(String name, ConfirmationStatus confirmationStatus) throws DataException {
+		TransactionType[] transactionTypes = new TransactionType[] {
+				REGISTER_NAME, UPDATE_NAME, BUY_NAME, SELL_NAME
+		}; // TODO: CancelSellNameTransaction?
+
+		String reducedName = Unicode.sanitize(name);
+
+		StringBuilder sql = new StringBuilder(1024);
+		List<Object> bindParams = new ArrayList<>();
+		sql.append("SELECT Transactions.signature FROM Transactions");
+
+		for (int ti = 0; ti < transactionTypes.length; ++ti) {
+			sql.append(" LEFT OUTER JOIN ");
+			sql.append(transactionTypes[ti].className);
+			sql.append("Transactions USING (signature)");
+		}
+
+		sql.append(" WHERE Transactions.type IN (");
+		for (int ti = 0; ti < transactionTypes.length; ++ti) {
+			if (ti != 0)
+				sql.append(", ");
+
+			sql.append(transactionTypes[ti].value);
+		}
+		sql.append(")");
+
+		// Confirmation status
+		switch (confirmationStatus) {
+			case BOTH:
+				break;
+
+			case CONFIRMED:
+				sql.append(" AND Transactions.block_height IS NOT NULL");
+				break;
+
+			case UNCONFIRMED:
+				sql.append(" AND Transactions.block_height IS NULL");
+				break;
+		}
+
+		sql.append(" AND (RegisterNameTransactions.name = ?");
+		bindParams.add(name);
+		sql.append(" OR RegisterNameTransactions.reduced_name = ?");
+		bindParams.add(reducedName);
+		sql.append(" OR UpdateNameTransactions.name = ?");
+		bindParams.add(name);
+		sql.append(" OR (UpdateNameTransactions.reduced_new_name != '' AND UpdateNameTransactions.reduced_new_name = ?)");
+		bindParams.add(reducedName);
+		sql.append(" OR UpdateNameTransactions.new_name = ?");
+		bindParams.add(name);
+		sql.append(" OR SellNameTransactions.name = ?");
+		bindParams.add(name);
+		sql.append(" OR BuyNameTransactions.name = ?");
+		bindParams.add(name);
+
+		sql.append(") GROUP BY Transactions.signature, Transactions.created_when ORDER BY Transactions.created_when");
+
+		List<TransactionData> transactions = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return transactions;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				TransactionData transactionData = this.fromSignature(signature);
+
+				if (transactionData == null)
+					// Something inconsistent with the repository
+					throw new DataException("Unable to fetch name-related transaction from repository?");
+
+				transactions.add(transactionData);
+			} while (resultSet.next());
+
+			return transactions;
+		} catch (SQLException | DataException e) {
+			throw new DataException("Unable to fetch name-related transactions from repository", e);
 		}
 	}
 

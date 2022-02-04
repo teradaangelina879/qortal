@@ -320,46 +320,7 @@ public class NamesDatabaseIntegrityCheck {
     }
 
     public List<TransactionData> fetchAllTransactionsInvolvingName(String name, Repository repository) throws DataException {
-        List<TransactionData> transactions = new ArrayList<>();
-        String reducedName = Unicode.sanitize(name);
-
-        // Fetch all the confirmed name-modification transactions
-        if (this.nameTransactions.isEmpty()) {
-            this.fetchAllNameTransactions(repository);
-        }
-
-        for (TransactionData transactionData : this.nameTransactions) {
-
-            if ((transactionData instanceof RegisterNameTransactionData)) {
-                RegisterNameTransactionData registerNameTransactionData = (RegisterNameTransactionData) transactionData;
-                if (Objects.equals(registerNameTransactionData.getName(), name) ||
-                        Objects.equals(registerNameTransactionData.getReducedName(), reducedName)) {
-                    transactions.add(transactionData);
-                }
-            }
-            if ((transactionData instanceof UpdateNameTransactionData)) {
-                UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
-                boolean hasReducedNewName = updateNameTransactionData.getReducedNewName() == null && !updateNameTransactionData.getReducedNewName().isEmpty();
-                if (Objects.equals(updateNameTransactionData.getName(), name) ||
-                        (hasReducedNewName && Objects.equals(updateNameTransactionData.getReducedNewName(), reducedName)) ||
-                        Objects.equals(updateNameTransactionData.getNewName(), name)) {
-                    transactions.add(transactionData);
-                }
-            }
-            if ((transactionData instanceof BuyNameTransactionData)) {
-                BuyNameTransactionData buyNameTransactionData = (BuyNameTransactionData) transactionData;
-                if (Objects.equals(buyNameTransactionData.getName(), name)) {
-                    transactions.add(transactionData);
-                }
-            }
-            if ((transactionData instanceof SellNameTransactionData)) {
-                SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
-                if (Objects.equals(sellNameTransactionData.getName(), name)) {
-                    transactions.add(transactionData);
-                }
-            }
-        }
-        return transactions;
+        return repository.getTransactionRepository().getTransactionsInvolvingName(name, ConfirmationStatus.CONFIRMED);
     }
 
     private TransactionData fetchLatestModificationTransactionInvolvingName(String registeredName, Repository repository) throws DataException {

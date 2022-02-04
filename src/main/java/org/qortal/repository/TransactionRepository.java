@@ -126,6 +126,17 @@ public interface TransactionRepository {
 	public byte[] getLatestAutoUpdateTransaction(TransactionType txType, int txGroupId, Integer service) throws DataException;
 
 	/**
+	 * Returns signatures for all name-registration related transactions relating to supplied name.
+	 * Note: this does not currently include ARBITRARY data relating to the name.
+	 *
+	 * @param name
+	 * @param confirmationStatus
+	 * @return
+	 * @throws DataException
+	 */
+	public List<TransactionData> getTransactionsInvolvingName(String name, ConfirmationStatus confirmationStatus) throws DataException;
+
+	/**
 	 * Returns list of transactions relating to specific asset ID.
 	 * 
 	 * @param assetId
