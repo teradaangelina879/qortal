@@ -105,6 +105,37 @@ public class IntegrityTests extends Common {
     }
 
     @Test
+    public void testUpdateWithBlankNewNameAndBlankEmojiName() throws DataException {
+        // Attempt to simulate a real world problem where an emoji with blank reducedName
+        // confused the integrity check by associating it with previous UPDATE_NAME transactions
+        // due to them also having a blank "newReducedName"
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            // Register-name to Alice
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String name = "initial_name";
+            String data = "initial_data";
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Update the name, but keep the new name blank
+            String newName = "";
+            String newData = "updated_data";
+            UpdateNameTransactionData updateTransactionData = new UpdateNameTransactionData(TestTransaction.generateBase(alice), name, newName, newData);
+            TransactionUtils.signAndMint(repository, updateTransactionData, alice);
+
+            // Register emoji name
+            PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
+            String emojiName = "\uD83E\uDD73"; // Translates to a reducedName of ""
+
+            // Ensure that the initial_name isn't associated with the emoji name
+            NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
+            List<TransactionData> transactions = namesDatabaseIntegrityCheck.fetchAllTransactionsInvolvingName(emojiName, repository);
+            assertEquals(0, transactions.size());
+        }
+    }
+
+    @Test
     public void testMissingName() throws DataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             // Register-name
