@@ -11,7 +11,6 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.Transaction.TransactionType;
-import org.qortal.utils.Unicode;
 
 import java.util.*;
 
@@ -266,42 +265,6 @@ public class NamesDatabaseIntegrityCheck {
             }
         }
         return registerNameTransactions;
-    }
-
-    private List<UpdateNameTransactionData> fetchUpdateNameTransactions() {
-        List<UpdateNameTransactionData> updateNameTransactions = new ArrayList<>();
-
-        for (TransactionData transactionData : this.nameTransactions) {
-            if (transactionData.getType() == TransactionType.UPDATE_NAME) {
-                UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
-                updateNameTransactions.add(updateNameTransactionData);
-            }
-        }
-        return updateNameTransactions;
-    }
-
-    private List<SellNameTransactionData> fetchSellNameTransactions() {
-        List<SellNameTransactionData> sellNameTransactions = new ArrayList<>();
-
-        for (TransactionData transactionData : this.nameTransactions) {
-            if (transactionData.getType() == TransactionType.SELL_NAME) {
-                SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
-                sellNameTransactions.add(sellNameTransactionData);
-            }
-        }
-        return sellNameTransactions;
-    }
-
-    private List<BuyNameTransactionData> fetchBuyNameTransactions() {
-        List<BuyNameTransactionData> buyNameTransactions = new ArrayList<>();
-
-        for (TransactionData transactionData : this.nameTransactions) {
-            if (transactionData.getType() == TransactionType.BUY_NAME) {
-                BuyNameTransactionData buyNameTransactionData = (BuyNameTransactionData) transactionData;
-                buyNameTransactions.add(buyNameTransactionData);
-            }
-        }
-        return buyNameTransactions;
     }
 
     private void fetchAllNameTransactions(Repository repository) throws DataException {
