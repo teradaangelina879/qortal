@@ -13,6 +13,8 @@ import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.Transaction;
 
+import java.util.List;
+
 import static org.junit.Assert.*;
 
 public class IntegrityTests extends Common {
@@ -42,6 +44,63 @@ public class IntegrityTests extends Common {
 
             // Ensure the name still exists and the data is still correct
             assertEquals(data, repository.getNameRepository().fromName(name).getData());
+        }
+    }
+
+    @Test
+    public void testBlankReducedName() throws DataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            // Register-name
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String name = "\uD83E\uDD73"; // Translates to a reducedName of ""
+            String data = "\uD83E\uDD73";
+
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Ensure the name exists and the data is correct
+            assertEquals(data, repository.getNameRepository().fromName(name).getData());
+
+            // Ensure the reducedName is blank
+            assertEquals("", repository.getNameRepository().fromName(name).getReducedName());
+
+            // Run the database integrity check for this name
+            NamesDatabaseIntegrityCheck integrityCheck = new NamesDatabaseIntegrityCheck();
+            assertEquals(1, integrityCheck.rebuildName(name, repository));
+
+            // Ensure the name still exists and the data is still correct
+            assertEquals(data, repository.getNameRepository().fromName(name).getData());
+            assertEquals("", repository.getNameRepository().fromName(name).getReducedName());
+        }
+    }
+
+    @Test
+    public void testUpdateWithBlankNewName() throws DataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            // Register-name to Alice
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String name = "initial_name";
+            String data = "initial_data";
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Update the name, but keep the new name blank
+            String newName = "";
+            String newData = "updated_data";
+            UpdateNameTransactionData updateTransactionData = new UpdateNameTransactionData(TestTransaction.generateBase(alice), name, newName, newData);
+            TransactionUtils.signAndMint(repository, updateTransactionData, alice);
+
+            // Ensure the original name exists and the data is correct
+            assertEquals(name, repository.getNameRepository().fromName(name).getName());
+            assertEquals(newData, repository.getNameRepository().fromName(name).getData());
+
+            // Run the database integrity check for this name
+            NamesDatabaseIntegrityCheck integrityCheck = new NamesDatabaseIntegrityCheck();
+            assertEquals(2, integrityCheck.rebuildName(name, repository));
+
+            // Ensure the name still exists and the data is still correct
+            assertEquals(name, repository.getNameRepository().fromName(name).getName());
+            assertEquals(newData, repository.getNameRepository().fromName(name).getData());
         }
     }
 

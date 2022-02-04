@@ -319,7 +319,7 @@ public class NamesDatabaseIntegrityCheck {
         this.nameTransactions = nameTransactions;
     }
 
-    private List<TransactionData> fetchAllTransactionsInvolvingName(String name, Repository repository) throws DataException {
+    public List<TransactionData> fetchAllTransactionsInvolvingName(String name, Repository repository) throws DataException {
         List<TransactionData> transactions = new ArrayList<>();
         String reducedName = Unicode.sanitize(name);
 
