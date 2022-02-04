@@ -945,6 +945,20 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX ArbitraryPeersHashIndex ON ArbitraryPeers (hash)");
 					break;
 
+				case 40:
+					// For looking up name registration transactions based on name or reduced name
+					stmt.execute("CREATE INDEX RegisterNameNameIndex ON RegisterNameTransactions (name)");
+					stmt.execute("CREATE INDEX RegisterNameReducedNameIndex ON RegisterNameTransactions (reduced_name)");
+					// For looking up update name transactions based on name, new name, or new reduced name
+					stmt.execute("CREATE INDEX UpdateNameNameIndex ON UpdateNameTransactions (name)");
+					stmt.execute("CREATE INDEX UpdateNameNewNameIndex ON UpdateNameTransactions (new_name)");
+					stmt.execute("CREATE INDEX UpdateNameReducedNewNameIndex ON UpdateNameTransactions (reduced_new_name)");
+					// For looking up buy name transactions based on name
+					stmt.execute("CREATE INDEX BuyNameNameIndex ON BuyNameTransactions (name)");
+					// For looking up sell name transactions based on name
+					stmt.execute("CREATE INDEX SellNameNameIndex ON SellNameTransactions (name)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
