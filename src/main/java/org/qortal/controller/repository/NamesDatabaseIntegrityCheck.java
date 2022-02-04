@@ -11,6 +11,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.utils.Unicode;
 
 import java.util.*;
 
