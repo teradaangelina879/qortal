@@ -1287,7 +1287,9 @@ public class Controller extends Thread {
 		TransactionMessage transactionMessage = (TransactionMessage) message;
 		TransactionData transactionData = transactionMessage.getTransactionData();
 		if (this.incomingTransactions.size() < MAX_INCOMING_TRANSACTIONS) {
-			this.incomingTransactions.add(transactionData);
+			if (!this.incomingTransactions.contains(transactionData)) {
+				this.incomingTransactions.add(transactionData);
+			}
 		}
 	}
 
