@@ -344,11 +344,6 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		List<SimpleTransaction> transactions = getWalletTransactions(key58).stream().sorted(oldestTimestampFirstComparator).collect(Collectors.toList());
 		for (SimpleTransaction transaction : transactions) {
 			balance += transaction.getTotalAmount();
-
-			if (transaction.getTotalAmount() < 0) {
-				// Outgoing transaction - so this wallet paid the fee
-				balance -= transaction.getFeeAmount();
-			}
 		}
 		return balance;
 	}
