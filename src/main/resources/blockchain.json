@@ -9,7 +9,7 @@
 	"defaultGroupId": 0,
 	"oneNamePerAccount": true,
 	"minAccountLevelToMint": 1,
-	"minAccountLevelForBlockSubmissions": 6,
+	"minAccountLevelForBlockSubmissions": 5,
 	"minAccountLevelToRewardShare": 5,
 	"maxRewardSharesPerMintingAccount": 6,
 	"founderEffectiveMintingLevel": 10,
