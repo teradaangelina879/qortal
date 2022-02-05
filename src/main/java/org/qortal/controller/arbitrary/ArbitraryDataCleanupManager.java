@@ -239,6 +239,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 					// Delete random data associated with name if we're over our storage limit for this name
 					// Use the DELETION_THRESHOLD, for the same reasons as above
 					for (String followedName : storageManager.followedNames()) {
+						if (isStopping) {
+							return;
+						}
 						if (!storageManager.isStorageSpaceAvailableForName(repository, followedName, DELETION_THRESHOLD)) {
 							this.storageLimitReachedForName(repository, followedName);
 						}
@@ -261,6 +264,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 		// Loop through each path and find those without matching signatures
 		for (Path path : allPaths) {
+			if (isStopping) {
+				break;
+			}
 			try {
 				String[] contents = path.toFile().list();
 				if (contents == null || contents.length == 0) {
@@ -287,6 +293,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 	private void checkForExpiredTransactions(Repository repository) {
 		List<Path> expiredPaths = this.findPathsWithNoAssociatedTransaction(repository);
 		for (Path expiredPath : expiredPaths) {
+			if (isStopping) {
+				return;
+			}
 			LOGGER.info("Found path with no associated transaction: {}", expiredPath.toString());
 			this.safeDeleteDirectory(expiredPath.toFile(), "no matching transaction");
 		}
@@ -308,6 +317,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 		// when they reach their storage limit
 		Path dataPath = Paths.get(Settings.getInstance().getDataPath());
 		for (int i=0; i<CHUNK_DELETION_BATCH_SIZE; i++) {
+			if (isStopping) {
+				return;
+			}
 			this.deleteRandomFile(repository, dataPath.toFile(), null);
 		}
 
@@ -326,6 +338,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 		// when they reach their storage limit
 		Path dataPath = Paths.get(Settings.getInstance().getDataPath());
 		for (int i=0; i<CHUNK_DELETION_BATCH_SIZE; i++) {
+			if (isStopping) {
+				return;
+			}
 			this.deleteRandomFile(repository, dataPath.toFile(), name);
 		}
 	}
@@ -437,6 +452,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 		final File[] directories = tempDir.toFile().listFiles();
 		if (directories != null) {
 			for (final File directory : directories) {
+				if (isStopping) {
+					return;
+				}
 				contentsCount++;
 
 				// We're expecting the contents of each subfolder to be a directory
@@ -472,6 +490,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 		final File[] directories = readerCacheNamesPath.toFile().listFiles();
 		if (directories != null) {
 			for (final File directory : directories) {
+				if (isStopping) {
+					return;
+				}
 
 				// Delete data relating to blocked names
 				String name = directory.getName();
@@ -497,6 +518,9 @@ public class ArbitraryDataCleanupManager extends Thread {
 		final File[] directories = readerNameCachePath.toFile().listFiles();
 		if (directories != null) {
 			for (final File directory : directories) {
+				if (isStopping) {
+					return;
+				}
 				// Each directory is a "service" type
 				String service = directory.getName();
 				this.cleanupReaderCacheForNameAndService(name, service, now);
