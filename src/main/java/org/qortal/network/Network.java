@@ -1164,11 +1164,13 @@ public class Network {
         if (consecutiveReadings >= consecutiveReadingsRequired) {
             // Last 10 readings were the same - i.e. more than one peer agreed on the new IP address...
             String ip = ipAddressHistory.get(size - 1);
-            if (!Objects.equals(ip, this.ourExternalIpAddress)) {
-                // ... and the readings were different to our current recorded value, so
-                // update our external IP address value
-                this.ourExternalIpAddress = ip;
-                this.onExternalIpUpdate(ip);
+            if (ip != null && !Objects.equals(ip, "null")) {
+                if (!Objects.equals(ip, this.ourExternalIpAddress)) {
+                    // ... and the readings were different to our current recorded value, so
+                    // update our external IP address value
+                    this.ourExternalIpAddress = ip;
+                    this.onExternalIpUpdate(ip);
+                }
             }
         }
     }
