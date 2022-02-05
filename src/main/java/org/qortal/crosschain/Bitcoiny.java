@@ -1,12 +1,6 @@
 package org.qortal.crosschain;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -57,6 +51,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	/** Cache recent transactions to speed up subsequent lookups */
 	protected List<SimpleTransaction> transactionsCache;
 	protected Long transactionsCacheTimestamp;
+	protected String transactionsCacheXpub;
 	protected static long TRANSACTIONS_CACHE_TIMEOUT = 2 * 60 * 1000L; // 2 minutes
 
 	/** Keys that have been previously marked as fully spent,<br>
@@ -360,12 +355,14 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	public List<SimpleTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
 		synchronized (this) {
-			// Serve from the cache if it's recent
-			if (transactionsCache != null && transactionsCacheTimestamp != null) {
-				Long now = NTP.getTime();
-				boolean isCacheStale = (now != null && now - transactionsCacheTimestamp >= TRANSACTIONS_CACHE_TIMEOUT);
-				if (!isCacheStale) {
-					return transactionsCache;
+			// Serve from the cache if it's recent, and matches this xpub
+			if (Objects.equals(transactionsCacheXpub, key58)) {
+				if (transactionsCache != null && transactionsCacheTimestamp != null) {
+					Long now = NTP.getTime();
+					boolean isCacheStale = (now != null && now - transactionsCacheTimestamp >= TRANSACTIONS_CACHE_TIMEOUT);
+					if (!isCacheStale) {
+						return transactionsCache;
+					}
 				}
 			}
 
@@ -432,6 +429,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 			// Update cache and return
 			transactionsCacheTimestamp = NTP.getTime();
+			transactionsCacheXpub = key58;
 			transactionsCache = walletTransactions.stream()
 					.map(t -> convertToSimpleTransaction(t, keySet))
 					.sorted(newestTimestampFirstComparator).collect(Collectors.toList());
