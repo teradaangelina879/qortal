@@ -20,8 +20,9 @@ public class ArbitraryDataBuilderThread implements Runnable {
 
     }
 
+    @Override
     public void run() {
-        Thread.currentThread().setName("Arbitrary Data Build Manager");
+        Thread.currentThread().setName("Arbitrary Data Builder Thread");
         ArbitraryDataBuildManager buildManager = ArbitraryDataBuildManager.getInstance();
 
         while (!Controller.isStopping()) {
