@@ -1350,11 +1350,13 @@ public class Controller extends Thread {
 
 					if (validationResult != ValidationResult.OK) {
 						LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature())));
-						Long now = NTP.getTime();
-						if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
-							LOGGER.debug("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", Base58.encode(transactionData.getSignature()));
-							// Invalid, unconfirmed transaction has become stale - add to invalidUnconfirmedTransactions so that we don't keep requesting it
-							invalidUnconfirmedTransactions.put(transactionData.getSignature(), NTP.getTime());
+						if (validationResult != ValidationResult.TIMESTAMP_TOO_OLD) {
+							Long now = NTP.getTime();
+							if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
+								LOGGER.debug("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", Base58.encode(transactionData.getSignature()));
+								// Invalid, unconfirmed transaction has become stale - add to invalidUnconfirmedTransactions so that we don't keep requesting it
+								invalidUnconfirmedTransactions.put(transactionData.getSignature(), NTP.getTime());
+							}
 						}
 						iterator.remove();
 						continue;
