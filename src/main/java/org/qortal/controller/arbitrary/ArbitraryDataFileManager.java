@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.controller.Controller;
+import org.qortal.data.arbitrary.ArbitraryRelayInfo;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -39,10 +40,9 @@ public class ArbitraryDataFileManager extends Thread {
     private Map<String, Long> arbitraryDataFileRequests = Collections.synchronizedMap(new HashMap<>());
 
     /**
-     * Map to keep track of hashes that we might need to relay, keyed by the hash of the file (base58 encoded).
-     * Value is comprised of the base58-encoded signature, the peer that is hosting it, and the timestamp that it was added
+     * Map to keep track of hashes that we might need to relay
      */
-    public Map<String, Triple<String, Peer, Long>> arbitraryRelayMap = Collections.synchronizedMap(new HashMap<>());
+    public List<ArbitraryRelayInfo> arbitraryRelayMap = Collections.synchronizedList(new ArrayList<>());
 
     /**
      * Map to keep track of any arbitrary data file hash responses
@@ -97,7 +97,7 @@ public class ArbitraryDataFileManager extends Thread {
         arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < requestMinimumTimestamp);
 
         final long relayMinimumTimestamp = now - ArbitraryDataManager.getInstance().ARBITRARY_RELAY_TIMEOUT;
-        arbitraryRelayMap.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < relayMinimumTimestamp);
+        arbitraryRelayMap.removeIf(entry -> entry == null || entry.getTimestamp() == null || entry.getTimestamp() < relayMinimumTimestamp);
         arbitraryDataFileHashResponses.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < relayMinimumTimestamp);
     }
 
@@ -391,6 +391,48 @@ public class ArbitraryDataFileManager extends Thread {
     }
 
 
+    // Relays
+
+    private List<ArbitraryRelayInfo> getRelayInfoListForHash(String hash58) {
+        synchronized (arbitraryRelayMap) {
+            return arbitraryRelayMap.stream()
+                    .filter(relayInfo -> Objects.equals(relayInfo.getHash58(), hash58))
+                    .collect(Collectors.toList());
+        }
+    }
+
+    private ArbitraryRelayInfo getRandomRelayInfoEntryForHash(String hash58) {
+        LOGGER.info("Fetching random relay info for hash: {}", hash58);
+        List<ArbitraryRelayInfo> relayInfoList = this.getRelayInfoListForHash(hash58);
+        if (relayInfoList != null && !relayInfoList.isEmpty()) {
+
+            // Pick random item
+            int index = new SecureRandom().nextInt(relayInfoList.size());
+            LOGGER.info("Returning random relay info for hash: {} (index {})", hash58, index);
+            return relayInfoList.get(index);
+        }
+        LOGGER.info("No relay info exists for hash: {}", hash58);
+        return null;
+    }
+
+    public void addToRelayMap(ArbitraryRelayInfo newEntry) {
+        if (newEntry == null || !newEntry.isValid()) {
+            return;
+        }
+
+        // Remove existing entry for this peer if it exists, to renew the timestamp
+        this.removeFromRelayMap(newEntry);
+
+        // Re-add
+        arbitraryRelayMap.add(newEntry);
+        LOGGER.debug("Added entry to relay map: {}", newEntry);
+    }
+
+    private void removeFromRelayMap(ArbitraryRelayInfo entry) {
+        arbitraryRelayMap.removeIf(relayInfo -> relayInfo.equals(entry));
+    }
+
+
     // Network handlers
 
     public void onNetworkGetArbitraryDataFileMessage(Peer peer, Message message) {
@@ -409,7 +451,7 @@ public class ArbitraryDataFileManager extends Thread {
 
         try {
             ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-            Triple<String, Peer, Long> relayInfo = this.arbitraryRelayMap.get(hash58);
+            ArbitraryRelayInfo relayInfo = this.getRandomRelayInfoEntryForHash(hash58);
 
             if (arbitraryDataFile.exists()) {
                 LOGGER.trace("Hash {} exists", hash58);
@@ -426,7 +468,7 @@ public class ArbitraryDataFileManager extends Thread {
             else if (relayInfo != null) {
                 LOGGER.debug("We have relay info for hash {}", Base58.encode(hash));
                 // We need to ask this peer for the file
-                Peer peerToAsk = relayInfo.getB();
+                Peer peerToAsk = relayInfo.getPeer();
                 if (peerToAsk != null) {
 
                     // Forward the message to this peer
