@@ -133,13 +133,19 @@ public class ArbitraryDataFileManager extends Thread {
                     if (receivedArbitraryDataFileMessage != null) {
                         LOGGER.debug("Received data file {} from peer {}. Time taken: {} ms", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer, (endTime-startTime));
                         receivedAtLeastOneFile = true;
+
+                        // Remove this hash from arbitraryDataFileHashResponses now that we have received it
+                        arbitraryDataFileHashResponses.remove(hash58);
                     }
                     else {
                         LOGGER.debug("Peer {} didn't respond with data file {} for signature {}. Time taken: {} ms", peer, Base58.encode(hash), Base58.encode(signature), (endTime-startTime));
-                    }
 
-                    // Remove this hash from arbitraryDataFileHashResponses now that we have tried to request it
-                    arbitraryDataFileHashResponses.remove(hash58);
+                        // Remove this hash from arbitraryDataFileHashResponses now that we have failed to receive it
+                        arbitraryDataFileHashResponses.remove(hash58);
+
+                        // Stop asking for files from this peer
+                        break;
+                    }
                 }
                 else {
                     LOGGER.trace("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
