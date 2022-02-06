@@ -11,18 +11,7 @@ import java.security.Security;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -101,6 +90,11 @@ public class Controller extends Thread {
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
 	private static final int MAX_INCOMING_TRANSACTIONS = 5000;
 
+	/** Minimum time before considering an invalid unconfirmed transaction as "stale" */
+	public static final long INVALID_TRANSACTION_STALE_TIMEOUT = 30 * 60 * 1000L; // ms
+	/** Minimum frequency to re-request stale unconfirmed transactions from peers, to recheck validity */
+	public static final long INVALID_TRANSACTION_RECHECK_INTERVAL = 60 * 60 * 1000L; // ms
+
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
 	private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 1 * 60 * 1000L; // ms
@@ -146,6 +140,9 @@ public class Controller extends Thread {
 
 	/** List of incoming transaction that are in the import queue */
 	private List<TransactionData> incomingTransactions = Collections.synchronizedList(new ArrayList<>());
+
+	/** List of recent invalid unconfirmed transactions */
+	private Map<byte[], Long> invalidUnconfirmedTransactions = Collections.synchronizedMap(new HashMap<>());
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly minted block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
@@ -557,6 +554,8 @@ public class Controller extends Thread {
 
 				// Process incoming transactions queue
 				processIncomingTransactionsQueue();
+				// Clean up invalid incoming transactions list
+				cleanupInvalidTransactionsList(now);
 
 				// Clean up arbitrary data request cache
 				ArbitraryDataManager.getInstance().cleanupRequestCache(now);
@@ -1351,6 +1350,12 @@ public class Controller extends Thread {
 
 					if (validationResult != ValidationResult.OK) {
 						LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature())));
+						Long now = NTP.getTime();
+						if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
+							LOGGER.debug("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", Base58.encode(transactionData.getSignature()));
+							// Invalid, unconfirmed transaction has become stale - add to invalidUnconfirmedTransactions so that we don't keep requesting it
+							invalidUnconfirmedTransactions.put(transactionData.getSignature(), NTP.getTime());
+						}
 						iterator.remove();
 						continue;
 					}
@@ -1364,6 +1369,15 @@ public class Controller extends Thread {
 		} finally {
 			blockchainLock.unlock();
 		}
+	}
+
+	private void cleanupInvalidTransactionsList(Long now) {
+		if (now == null) {
+			return;
+		}
+		// Periodically remove invalid unconfirmed transactions from the list, so that they can be fetched again
+		final long minimumTimestamp = now - INVALID_TRANSACTION_RECHECK_INTERVAL;
+		invalidUnconfirmedTransactions.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < minimumTimestamp);
 	}
 
 	private void onNetworkGetBlockSummariesMessage(Peer peer, Message message) {
@@ -1561,6 +1575,12 @@ public class Controller extends Thread {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			for (byte[] signature : signatures) {
+				if (invalidUnconfirmedTransactions.get(signature) != null) {
+					// Previously invalid transaction - don't keep requesting it
+					// It will be periodically removed from invalidUnconfirmedTransactions to allow for rechecks
+					continue;
+				}
+
 				// Do we have it already? (Before requesting transaction data itself)
 				if (repository.getTransactionRepository().exists(signature)) {
 					LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(signature), peer));
