@@ -93,7 +93,10 @@ public class Controller extends Thread {
 	/** Minimum time before considering an invalid unconfirmed transaction as "stale" */
 	public static final long INVALID_TRANSACTION_STALE_TIMEOUT = 30 * 60 * 1000L; // ms
 	/** Minimum frequency to re-request stale unconfirmed transactions from peers, to recheck validity */
-	public static final long INVALID_TRANSACTION_RECHECK_INTERVAL = 60 * 60 * 1000L; // ms
+	public static final long INVALID_TRANSACTION_RECHECK_INTERVAL = 60 * 60 * 1000L; // ms\
+	/** Minimum frequency to re-request expired unconfirmed transactions from peers, to recheck validity
+	 * This mainly exists to stop expired transactions from bloating the list */
+	public static final long EXPIRED_TRANSACTION_RECHECK_INTERVAL = 10 * 60 * 1000L; // ms
 
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
@@ -1351,13 +1354,17 @@ public class Controller extends Thread {
 					if (validationResult != ValidationResult.OK) {
 						final String signature58 = Base58.encode(transactionData.getSignature());
 						LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), signature58));
-						if (validationResult != ValidationResult.TIMESTAMP_TOO_OLD) {
-							Long now = NTP.getTime();
-							if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
-								LOGGER.debug("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", signature58);
-								// Invalid, unconfirmed transaction has become stale - add to invalidUnconfirmedTransactions so that we don't keep requesting it
-								invalidUnconfirmedTransactions.put(signature58, NTP.getTime());
+						Long now = NTP.getTime();
+						if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
+							Long expiryLength = INVALID_TRANSACTION_RECHECK_INTERVAL;
+							if (validationResult == ValidationResult.TIMESTAMP_TOO_OLD) {
+								// Use shorter recheck interval for expired transactions
+								expiryLength = EXPIRED_TRANSACTION_RECHECK_INTERVAL;
 							}
+							Long expiry = now + expiryLength;
+							LOGGER.debug("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", signature58);
+							// Invalid, unconfirmed transaction has become stale - add to invalidUnconfirmedTransactions so that we don't keep requesting it
+							invalidUnconfirmedTransactions.put(signature58, expiry);
 						}
 						iterator.remove();
 						continue;
@@ -1379,8 +1386,7 @@ public class Controller extends Thread {
 			return;
 		}
 		// Periodically remove invalid unconfirmed transactions from the list, so that they can be fetched again
-		final long minimumTimestamp = now - INVALID_TRANSACTION_RECHECK_INTERVAL;
-		invalidUnconfirmedTransactions.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < minimumTimestamp);
+		invalidUnconfirmedTransactions.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < now);
 	}
 
 	private void onNetworkGetBlockSummariesMessage(Peer peer, Message message) {
