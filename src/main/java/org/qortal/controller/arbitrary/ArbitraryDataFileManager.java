@@ -432,9 +432,6 @@ public class ArbitraryDataFileManager extends Thread {
                     // Forward the message to this peer
                     LOGGER.debug("Asking peer {} for hash {}", peerToAsk, hash58);
                     this.fetchArbitraryDataFile(peerToAsk, peer, signature, hash, message);
-
-                    // Remove from the map regardless of outcome, as the relay attempt is now considered complete
-                    arbitraryRelayMap.remove(hash58);
                 }
                 else {
                     LOGGER.debug("Peer {} not found in relay info", peer);
