@@ -576,14 +576,16 @@ public class ArbitraryResource {
 								   @PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
-								   @QueryParam("rebuild") boolean rebuild) {
+								   @QueryParam("rebuild") boolean rebuild,
+								   @QueryParam("async") boolean async,
+								   @QueryParam("attempts") Integer attempts) {
 
 		// Authentication can be bypassed in the settings, for those running public QDN nodes
 		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
 			Security.checkApiCallAllowed(request);
 		}
 
-		return this.download(service, name, null, filepath, rebuild);
+		return this.download(service, name, null, filepath, rebuild, async, attempts);
 	}
 
 	@GET
@@ -609,14 +611,16 @@ public class ArbitraryResource {
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
-								   @QueryParam("rebuild") boolean rebuild) {
+								   @QueryParam("rebuild") boolean rebuild,
+								   @QueryParam("async") boolean async,
+								   @QueryParam("attempts") Integer attempts) {
 
 		// Authentication can be bypassed in the settings, for those running public QDN nodes
 		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
 			Security.checkApiCallAllowed(request);
 		}
 
-		return this.download(service, name, identifier, filepath, rebuild);
+		return this.download(service, name, identifier, filepath, rebuild, async, attempts);
 	}
 
 
@@ -1027,30 +1031,45 @@ public class ArbitraryResource {
 		}
 	}
 
-	private HttpServletResponse download(Service service, String name, String identifier, String filepath, boolean rebuild) {
+	private HttpServletResponse download(Service service, String name, String identifier, String filepath, boolean rebuild, boolean async, Integer maxAttempts) {
 
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
 
 			int attempts = 0;
+			if (maxAttempts == null) {
+				maxAttempts = 5;
+			}
 
 			// Loop until we have data
-			while (!Controller.isStopping()) {
-				attempts++;
-				if (!arbitraryDataReader.isBuilding()) {
-					try {
-						arbitraryDataReader.loadSynchronously(rebuild);
-						break;
-					} catch (MissingDataException e) {
-						if (attempts > 5) {
-							// Give up after 5 attempts
-							throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data unavailable. Please try again later.");
+			if (async) {
+				// Asynchronous
+				arbitraryDataReader.loadAsynchronously(false);
+			}
+			else {
+				// Synchronous
+				while (!Controller.isStopping()) {
+					attempts++;
+					if (!arbitraryDataReader.isBuilding()) {
+						try {
+							arbitraryDataReader.loadSynchronously(rebuild);
+							break;
+						} catch (MissingDataException e) {
+							if (attempts > maxAttempts) {
+								// Give up after 5 attempts
+								throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data unavailable. Please try again later.");
+							}
 						}
 					}
+					Thread.sleep(3000L);
 				}
-				Thread.sleep(3000L);
 			}
+
 			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
+			if (outputPath == null) {
+				// Assume the resource doesn't exist
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, "File not found");
+			}
 
 			if (filepath == null || filepath.isEmpty()) {
 				// No file path supplied - so check if this is a single file resource

@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.controller.Controller;
+import org.qortal.data.arbitrary.ArbitraryRelayInfo;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -21,6 +22,8 @@ import org.qortal.utils.Triple;
 
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class ArbitraryDataFileManager extends Thread {
@@ -37,10 +40,9 @@ public class ArbitraryDataFileManager extends Thread {
     private Map<String, Long> arbitraryDataFileRequests = Collections.synchronizedMap(new HashMap<>());
 
     /**
-     * Map to keep track of hashes that we might need to relay, keyed by the hash of the file (base58 encoded).
-     * Value is comprised of the base58-encoded signature, the peer that is hosting it, and the timestamp that it was added
+     * Map to keep track of hashes that we might need to relay
      */
-    public Map<String, Triple<String, Peer, Long>> arbitraryRelayMap = Collections.synchronizedMap(new HashMap<>());
+    public List<ArbitraryRelayInfo> arbitraryRelayMap = Collections.synchronizedList(new ArrayList<>());
 
     /**
      * Map to keep track of any arbitrary data file hash responses
@@ -65,11 +67,16 @@ public class ArbitraryDataFileManager extends Thread {
         Thread.currentThread().setName("Arbitrary Data File Manager");
 
         try {
-            while (!isStopping) {
-                Thread.sleep(1000);
+            // Use a fixed thread pool to execute the arbitrary data file requests
+            int threadCount = 10;
+            ExecutorService arbitraryDataFileRequestExecutor = Executors.newFixedThreadPool(threadCount);
+            for (int i = 0; i < threadCount; i++) {
+                arbitraryDataFileRequestExecutor.execute(new ArbitraryDataFileRequestThread());
+            }
 
-                Long now = NTP.getTime();
-                this.processFileHashes(now);
+            while (!isStopping) {
+                // Nothing to do yet
+                Thread.sleep(1000);
             }
         } catch (InterruptedException e) {
             // Fall-through to exit thread...
@@ -81,66 +88,6 @@ public class ArbitraryDataFileManager extends Thread {
         this.interrupt();
     }
 
-    private void processFileHashes(Long now) {
-        try (final Repository repository = RepositoryManager.getRepository()) {
-
-            ArbitraryTransactionData arbitraryTransactionData = null;
-            byte[] signature = null;
-            byte[] hash = null;
-            Peer peer = null;
-            boolean shouldProcess = false;
-
-            synchronized (arbitraryDataFileHashResponses) {
-                for (String hash58 : arbitraryDataFileHashResponses.keySet()) {
-                    if (isStopping) {
-                        return;
-                    }
-
-                    Triple<Peer, String, Long> value = arbitraryDataFileHashResponses.get(hash58);
-                    if (value != null) {
-                        peer = value.getA();
-                        String signature58 = value.getB();
-                        Long timestamp = value.getC();
-
-                        if (now - timestamp >= ArbitraryDataManager.ARBITRARY_RELAY_TIMEOUT || signature58 == null || peer == null) {
-                            // Ignore - to be deleted
-                            continue;
-                        }
-
-                        hash = Base58.decode(hash58);
-                        signature = Base58.decode(signature58);
-
-                        // Fetch the transaction data
-                        arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
-                        if (arbitraryTransactionData == null) {
-                            continue;
-                        }
-
-                        // We want to process this file
-                        shouldProcess = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!shouldProcess) {
-                // Nothing to do
-                return;
-            }
-
-            if (signature == null || hash == null || peer == null || arbitraryTransactionData == null) {
-                return;
-            }
-
-            String hash58 = Base58.encode(hash);
-            LOGGER.debug("Fetching file {} from peer {} via response queue...", hash58, peer);
-            this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, Arrays.asList(hash));
-
-        } catch (DataException e) {
-            LOGGER.info("Unable to process file hashes: {}", e.getMessage());
-        }
-    }
-
 
     public void cleanupRequestCache(Long now) {
         if (now == null) {
@@ -150,7 +97,7 @@ public class ArbitraryDataFileManager extends Thread {
         arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < requestMinimumTimestamp);
 
         final long relayMinimumTimestamp = now - ArbitraryDataManager.getInstance().ARBITRARY_RELAY_TIMEOUT;
-        arbitraryRelayMap.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < relayMinimumTimestamp);
+        arbitraryRelayMap.removeIf(entry -> entry == null || entry.getTimestamp() == null || entry.getTimestamp() < relayMinimumTimestamp);
         arbitraryDataFileHashResponses.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < relayMinimumTimestamp);
     }
 
@@ -186,13 +133,19 @@ public class ArbitraryDataFileManager extends Thread {
                     if (receivedArbitraryDataFileMessage != null) {
                         LOGGER.debug("Received data file {} from peer {}. Time taken: {} ms", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer, (endTime-startTime));
                         receivedAtLeastOneFile = true;
+
+                        // Remove this hash from arbitraryDataFileHashResponses now that we have received it
+                        arbitraryDataFileHashResponses.remove(hash58);
                     }
                     else {
                         LOGGER.debug("Peer {} didn't respond with data file {} for signature {}. Time taken: {} ms", peer, Base58.encode(hash), Base58.encode(signature), (endTime-startTime));
-                    }
 
-                    // Remove this hash from arbitraryDataFileHashResponses now that we have tried to request it
-                    arbitraryDataFileHashResponses.remove(hash58);
+                        // Remove this hash from arbitraryDataFileHashResponses now that we have failed to receive it
+                        arbitraryDataFileHashResponses.remove(hash58);
+
+                        // Stop asking for files from this peer
+                        break;
+                    }
                 }
                 else {
                     LOGGER.trace("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
@@ -217,22 +170,23 @@ public class ArbitraryDataFileManager extends Thread {
 
             // Invalidate the hosted transactions cache as we are now hosting something new
             ArbitraryDataStorageManager.getInstance().invalidateHostedTransactionsCache();
-        }
 
-        // Check if we have all the files we need for this transaction
-        if (arbitraryDataFile.allFilesExist()) {
+            // Check if we have all the files we need for this transaction
+            if (arbitraryDataFile.allFilesExist()) {
 
-            // We have all the chunks for this transaction, so we should invalidate the transaction's name's
-            // data cache so that it is rebuilt the next time we serve it
-            ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
+                // We have all the chunks for this transaction, so we should invalidate the transaction's name's
+                // data cache so that it is rebuilt the next time we serve it
+                ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
 
-            // We may also need to broadcast to the network that we are now hosting files for this transaction,
-            // but only if these files are in accordance with our storage policy
-            if (ArbitraryDataStorageManager.getInstance().canStoreData(arbitraryTransactionData)) {
-                // Use a null peer address to indicate our own
-                Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, 0, Arrays.asList(signature));
-                Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
+                // We may also need to broadcast to the network that we are now hosting files for this transaction,
+                // but only if these files are in accordance with our storage policy
+                if (ArbitraryDataStorageManager.getInstance().canStoreData(arbitraryTransactionData)) {
+                    // Use a null peer address to indicate our own
+                    Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, 0, Arrays.asList(signature));
+                    Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
+                }
             }
+
         }
 
         return receivedAtLeastOneFile;
@@ -437,6 +391,48 @@ public class ArbitraryDataFileManager extends Thread {
     }
 
 
+    // Relays
+
+    private List<ArbitraryRelayInfo> getRelayInfoListForHash(String hash58) {
+        synchronized (arbitraryRelayMap) {
+            return arbitraryRelayMap.stream()
+                    .filter(relayInfo -> Objects.equals(relayInfo.getHash58(), hash58))
+                    .collect(Collectors.toList());
+        }
+    }
+
+    private ArbitraryRelayInfo getRandomRelayInfoEntryForHash(String hash58) {
+        LOGGER.info("Fetching random relay info for hash: {}", hash58);
+        List<ArbitraryRelayInfo> relayInfoList = this.getRelayInfoListForHash(hash58);
+        if (relayInfoList != null && !relayInfoList.isEmpty()) {
+
+            // Pick random item
+            int index = new SecureRandom().nextInt(relayInfoList.size());
+            LOGGER.info("Returning random relay info for hash: {} (index {})", hash58, index);
+            return relayInfoList.get(index);
+        }
+        LOGGER.info("No relay info exists for hash: {}", hash58);
+        return null;
+    }
+
+    public void addToRelayMap(ArbitraryRelayInfo newEntry) {
+        if (newEntry == null || !newEntry.isValid()) {
+            return;
+        }
+
+        // Remove existing entry for this peer if it exists, to renew the timestamp
+        this.removeFromRelayMap(newEntry);
+
+        // Re-add
+        arbitraryRelayMap.add(newEntry);
+        LOGGER.debug("Added entry to relay map: {}", newEntry);
+    }
+
+    private void removeFromRelayMap(ArbitraryRelayInfo entry) {
+        arbitraryRelayMap.removeIf(relayInfo -> relayInfo.equals(entry));
+    }
+
+
     // Network handlers
 
     public void onNetworkGetArbitraryDataFileMessage(Peer peer, Message message) {
@@ -455,7 +451,7 @@ public class ArbitraryDataFileManager extends Thread {
 
         try {
             ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-            Triple<String, Peer, Long> relayInfo = this.arbitraryRelayMap.get(hash58);
+            ArbitraryRelayInfo relayInfo = this.getRandomRelayInfoEntryForHash(hash58);
 
             if (arbitraryDataFile.exists()) {
                 LOGGER.trace("Hash {} exists", hash58);
@@ -472,15 +468,12 @@ public class ArbitraryDataFileManager extends Thread {
             else if (relayInfo != null) {
                 LOGGER.debug("We have relay info for hash {}", Base58.encode(hash));
                 // We need to ask this peer for the file
-                Peer peerToAsk = relayInfo.getB();
+                Peer peerToAsk = relayInfo.getPeer();
                 if (peerToAsk != null) {
 
                     // Forward the message to this peer
                     LOGGER.debug("Asking peer {} for hash {}", peerToAsk, hash58);
                     this.fetchArbitraryDataFile(peerToAsk, peer, signature, hash, message);
-
-                    // Remove from the map regardless of outcome, as the relay attempt is now considered complete
-                    arbitraryRelayMap.remove(hash58);
                 }
                 else {
                     LOGGER.debug("Peer {} not found in relay info", peer);

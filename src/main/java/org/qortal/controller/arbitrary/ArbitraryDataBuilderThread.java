@@ -20,8 +20,9 @@ public class ArbitraryDataBuilderThread implements Runnable {
 
     }
 
+    @Override
     public void run() {
-        Thread.currentThread().setName("Arbitrary Data Build Manager");
+        Thread.currentThread().setName("Arbitrary Data Builder Thread");
         ArbitraryDataBuildManager buildManager = ArbitraryDataBuildManager.getInstance();
 
         while (!Controller.isStopping()) {
@@ -39,7 +40,7 @@ public class ArbitraryDataBuilderThread implements Runnable {
                 Map.Entry<String, ArbitraryDataBuildQueueItem> next = buildManager.arbitraryDataBuildQueue
                         .entrySet().stream()
                         .filter(e -> e.getValue().isQueued())
-                        .findFirst().get();
+                        .findFirst().orElse(null);
 
                 if (next == null) {
                     continue;
