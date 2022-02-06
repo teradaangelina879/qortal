@@ -21,6 +21,8 @@ import org.qortal.utils.Triple;
 
 import java.security.SecureRandom;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class ArbitraryDataFileManager extends Thread {
@@ -65,11 +67,16 @@ public class ArbitraryDataFileManager extends Thread {
         Thread.currentThread().setName("Arbitrary Data File Manager");
 
         try {
-            while (!isStopping) {
-                Thread.sleep(1000);
+            // Use a fixed thread pool to execute the arbitrary data file requests
+            int threadCount = 10;
+            ExecutorService arbitraryDataFileRequestExecutor = Executors.newFixedThreadPool(threadCount);
+            for (int i = 0; i < threadCount; i++) {
+                arbitraryDataFileRequestExecutor.execute(new ArbitraryDataFileRequestThread());
+            }
 
-                Long now = NTP.getTime();
-                this.processFileHashes(now);
+            while (!isStopping) {
+                // Nothing to do yet
+                Thread.sleep(1000);
             }
         } catch (InterruptedException e) {
             // Fall-through to exit thread...
@@ -79,66 +86,6 @@ public class ArbitraryDataFileManager extends Thread {
     public void shutdown() {
         isStopping = true;
         this.interrupt();
-    }
-
-    private void processFileHashes(Long now) {
-        try (final Repository repository = RepositoryManager.getRepository()) {
-
-            ArbitraryTransactionData arbitraryTransactionData = null;
-            byte[] signature = null;
-            byte[] hash = null;
-            Peer peer = null;
-            boolean shouldProcess = false;
-
-            synchronized (arbitraryDataFileHashResponses) {
-                for (String hash58 : arbitraryDataFileHashResponses.keySet()) {
-                    if (isStopping) {
-                        return;
-                    }
-
-                    Triple<Peer, String, Long> value = arbitraryDataFileHashResponses.get(hash58);
-                    if (value != null) {
-                        peer = value.getA();
-                        String signature58 = value.getB();
-                        Long timestamp = value.getC();
-
-                        if (now - timestamp >= ArbitraryDataManager.ARBITRARY_RELAY_TIMEOUT || signature58 == null || peer == null) {
-                            // Ignore - to be deleted
-                            continue;
-                        }
-
-                        hash = Base58.decode(hash58);
-                        signature = Base58.decode(signature58);
-
-                        // Fetch the transaction data
-                        arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
-                        if (arbitraryTransactionData == null) {
-                            continue;
-                        }
-
-                        // We want to process this file
-                        shouldProcess = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!shouldProcess) {
-                // Nothing to do
-                return;
-            }
-
-            if (signature == null || hash == null || peer == null || arbitraryTransactionData == null) {
-                return;
-            }
-
-            String hash58 = Base58.encode(hash);
-            LOGGER.debug("Fetching file {} from peer {} via response queue...", hash58, peer);
-            this.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, Arrays.asList(hash));
-
-        } catch (DataException e) {
-            LOGGER.info("Unable to process file hashes: {}", e.getMessage());
-        }
     }
 
 
