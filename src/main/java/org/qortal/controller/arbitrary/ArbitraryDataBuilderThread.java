@@ -39,7 +39,7 @@ public class ArbitraryDataBuilderThread implements Runnable {
                 Map.Entry<String, ArbitraryDataBuildQueueItem> next = buildManager.arbitraryDataBuildQueue
                         .entrySet().stream()
                         .filter(e -> e.getValue().isQueued())
-                        .findFirst().get();
+                        .findFirst().orElse(null);
 
                 if (next == null) {
                     continue;
