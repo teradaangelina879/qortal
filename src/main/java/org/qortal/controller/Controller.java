@@ -142,7 +142,7 @@ public class Controller extends Thread {
 	private List<TransactionData> incomingTransactions = Collections.synchronizedList(new ArrayList<>());
 
 	/** List of recent invalid unconfirmed transactions */
-	private Map<byte[], Long> invalidUnconfirmedTransactions = Collections.synchronizedMap(new HashMap<>());
+	private Map<String, Long> invalidUnconfirmedTransactions = Collections.synchronizedMap(new HashMap<>());
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly minted block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
@@ -1349,13 +1349,14 @@ public class Controller extends Thread {
 					}
 
 					if (validationResult != ValidationResult.OK) {
-						LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature())));
+						final String signature58 = Base58.encode(transactionData.getSignature());
+						LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), signature58));
 						if (validationResult != ValidationResult.TIMESTAMP_TOO_OLD) {
 							Long now = NTP.getTime();
 							if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
-								LOGGER.debug("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", Base58.encode(transactionData.getSignature()));
+								LOGGER.debug("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", signature58);
 								// Invalid, unconfirmed transaction has become stale - add to invalidUnconfirmedTransactions so that we don't keep requesting it
-								invalidUnconfirmedTransactions.put(transactionData.getSignature(), NTP.getTime());
+								invalidUnconfirmedTransactions.put(signature58, NTP.getTime());
 							}
 						}
 						iterator.remove();
@@ -1577,7 +1578,8 @@ public class Controller extends Thread {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			for (byte[] signature : signatures) {
-				if (invalidUnconfirmedTransactions.get(signature) != null) {
+				String signature58 = Base58.encode(signature);
+				if (invalidUnconfirmedTransactions.containsKey(signature58)) {
 					// Previously invalid transaction - don't keep requesting it
 					// It will be periodically removed from invalidUnconfirmedTransactions to allow for rechecks
 					continue;
