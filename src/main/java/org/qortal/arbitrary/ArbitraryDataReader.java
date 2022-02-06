@@ -122,9 +122,19 @@ public class ArbitraryDataReader {
      * This adds the build task to a queue, and the result will be cached when complete
      * To check the status of the build, periodically call isCachedDataAvailable()
      * Once it returns true, you can then use getFilePath() to access the data itself.
+     *
+     * @param overwrite - set to true to force rebuild an existing cache
      * @return true if added or already present in queue; false if not
      */
-    public boolean loadAsynchronously() {
+    public boolean loadAsynchronously(boolean overwrite) {
+        ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
+                this.resourceId, this.resourceIdType, this.service, this.identifier);
+        if (cache.isCachedDataAvailable()) {
+            // Use cached data
+            this.filePath = this.uncompressedPath;
+            return true;
+        }
+
         return ArbitraryDataBuildManager.getInstance().addToBuildQueue(this.createQueueItem());
     }
 
