@@ -856,6 +856,11 @@ public class Controller extends Thread {
 						return;
 					}
 
+					if (Synchronizer.getInstance().isSyncRequestPending()) {
+						LOGGER.debug("Breaking out of transaction processing loop with {} remaining, because a sync request is pending", this.incomingTransactions.size());
+						return;
+					}
+
 					TransactionData transactionData = (TransactionData) iterator.next();
 					Transaction transaction = Transaction.fromData(repository, transactionData);
 

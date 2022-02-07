@@ -82,6 +82,7 @@ public class Synchronizer extends Thread {
 	private volatile int syncPercent = 0;
 
 	private static volatile boolean requestSync = false;
+	private boolean syncRequestPending = false;
 
 	// Keep track of invalid blocks so that we don't keep trying to sync them
 	private Map<String, Long> invalidBlockSignatures = Collections.synchronizedMap(new HashMap<>());
@@ -123,6 +124,8 @@ public class Synchronizer extends Thread {
 						// Something went wrong, so try again next time
 						requestSync = true;
 					}
+					// Remember that we have a pending sync request if this attempt failed
+					syncRequestPending = !success;
 				}
 			}
 		} catch (InterruptedException e) {
@@ -141,6 +144,10 @@ public class Synchronizer extends Thread {
 
 	public boolean isSynchronizing() {
 		return this.isSynchronizing;
+	}
+
+	public boolean isSyncRequestPending() {
+		return this.syncRequestPending;
 	}
 
 	public Integer getSyncPercent() {
