@@ -42,61 +42,61 @@ public class ArbitraryDataFileRequestThread implements Runnable {
     }
 
     private void processFileHashes(Long now) {
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            ArbitraryDataFileManager arbitraryDataFileManager = ArbitraryDataFileManager.getInstance();
+        ArbitraryDataFileManager arbitraryDataFileManager = ArbitraryDataFileManager.getInstance();
 
-            ArbitraryTransactionData arbitraryTransactionData = null;
-            byte[] signature = null;
-            byte[] hash = null;
-            Peer peer = null;
-            boolean shouldProcess = false;
+        ArbitraryTransactionData arbitraryTransactionData = null;
+        byte[] signature = null;
+        byte[] hash = null;
+        Peer peer = null;
+        boolean shouldProcess = false;
 
-            synchronized (arbitraryDataFileManager.arbitraryDataFileHashResponses) {
-                Iterator iterator = arbitraryDataFileManager.arbitraryDataFileHashResponses.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    if (Controller.isStopping()) {
-                        return;
-                    }
-
-                    Map.Entry entry = (Map.Entry) iterator.next();
-                    if (entry == null || entry.getKey() == null || entry.getValue() == null) {
-                        iterator.remove();
-                        continue;
-                    }
-
-                    String hash58 = (String) entry.getKey();
-                    Triple<Peer, String, Long> value = (Triple<Peer, String, Long>) entry.getValue();
-                    if (value == null) {
-                        iterator.remove();
-                        continue;
-                    }
-
-                    peer = value.getA();
-                    String signature58 = value.getB();
-                    Long timestamp = value.getC();
-
-                    if (now - timestamp >= ArbitraryDataManager.ARBITRARY_RELAY_TIMEOUT || signature58 == null || peer == null) {
-                        // Ignore - to be deleted
-                        iterator.remove();
-                        continue;
-                    }
-
-                    hash = Base58.decode(hash58);
-                    signature = Base58.decode(signature58);
-
-                    // We want to process this file
-                    shouldProcess = true;
-                    iterator.remove();
-                    break;
+        synchronized (arbitraryDataFileManager.arbitraryDataFileHashResponses) {
+            Iterator iterator = arbitraryDataFileManager.arbitraryDataFileHashResponses.entrySet().iterator();
+            while (iterator.hasNext()) {
+                if (Controller.isStopping()) {
+                    return;
                 }
-            }
 
-            if (!shouldProcess) {
-                // Nothing to do
-                return;
-            }
+                Map.Entry entry = (Map.Entry) iterator.next();
+                if (entry == null || entry.getKey() == null || entry.getValue() == null) {
+                    iterator.remove();
+                    continue;
+                }
 
-            // Fetch the transaction data
+                String hash58 = (String) entry.getKey();
+                Triple<Peer, String, Long> value = (Triple<Peer, String, Long>) entry.getValue();
+                if (value == null) {
+                    iterator.remove();
+                    continue;
+                }
+
+                peer = value.getA();
+                String signature58 = value.getB();
+                Long timestamp = value.getC();
+
+                if (now - timestamp >= ArbitraryDataManager.ARBITRARY_RELAY_TIMEOUT || signature58 == null || peer == null) {
+                    // Ignore - to be deleted
+                    iterator.remove();
+                    continue;
+                }
+
+                hash = Base58.decode(hash58);
+                signature = Base58.decode(signature58);
+
+                // We want to process this file
+                shouldProcess = true;
+                iterator.remove();
+                break;
+            }
+        }
+
+        if (!shouldProcess) {
+            // Nothing to do
+            return;
+        }
+
+        // Fetch the transaction data
+        try (final Repository repository = RepositoryManager.getRepository()) {
             arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
             if (arbitraryTransactionData == null) {
                 return;
