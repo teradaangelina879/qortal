@@ -402,16 +402,16 @@ public class ArbitraryDataFileManager extends Thread {
     }
 
     private ArbitraryRelayInfo getRandomRelayInfoEntryForHash(String hash58) {
-        LOGGER.info("Fetching random relay info for hash: {}", hash58);
+        LOGGER.trace("Fetching random relay info for hash: {}", hash58);
         List<ArbitraryRelayInfo> relayInfoList = this.getRelayInfoListForHash(hash58);
         if (relayInfoList != null && !relayInfoList.isEmpty()) {
 
             // Pick random item
             int index = new SecureRandom().nextInt(relayInfoList.size());
-            LOGGER.info("Returning random relay info for hash: {} (index {})", hash58, index);
+            LOGGER.trace("Returning random relay info for hash: {} (index {})", hash58, index);
             return relayInfoList.get(index);
         }
-        LOGGER.info("No relay info exists for hash: {}", hash58);
+        LOGGER.trace("No relay info exists for hash: {}", hash58);
         return null;
     }
 
