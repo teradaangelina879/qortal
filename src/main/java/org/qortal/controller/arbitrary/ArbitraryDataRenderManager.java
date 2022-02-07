@@ -32,7 +32,7 @@ public class ArbitraryDataRenderManager extends Thread {
 
     @Override
     public void run() {
-        Thread.currentThread().setName("Arbitrary Data Manager");
+        Thread.currentThread().setName("Arbitrary Data Render Manager");
 
         try {
             while (!isStopping) {

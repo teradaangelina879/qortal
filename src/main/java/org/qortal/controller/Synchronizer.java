@@ -110,6 +110,8 @@ public class Synchronizer extends Thread {
 
 	@Override
 	public void run() {
+		Thread.currentThread().setName("Synchronizer");
+
 		try {
 			while (running && !Controller.isStopping()) {
 				Thread.sleep(1000);

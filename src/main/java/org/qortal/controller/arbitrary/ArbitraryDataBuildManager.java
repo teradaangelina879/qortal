@@ -37,6 +37,8 @@ public class ArbitraryDataBuildManager extends Thread {
 
     @Override
     public void run() {
+        Thread.currentThread().setName("Arbitrary Data Build Manager");
+
         try {
             // Use a fixed thread pool to execute the arbitrary data build actions (currently just a single thread)
             // This can be expanded to have multiple threads processing the build queue when needed
