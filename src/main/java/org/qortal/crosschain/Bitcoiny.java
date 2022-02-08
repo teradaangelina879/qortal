@@ -447,13 +447,15 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				List<String> senders = t2.outputs.get(input.outputVout).addresses;
 				long inputAmount = t2.outputs.get(input.outputVout).value;
 				totalInputAmount += inputAmount;
-				for (String sender : senders) {
-					boolean addressInWallet = false;
-					if (keySet.contains(sender)) {
-						total += inputAmount;
-						addressInWallet = true;
+				if (senders != null) {
+					for (String sender : senders) {
+						boolean addressInWallet = false;
+						if (keySet.contains(sender)) {
+							total += inputAmount;
+							addressInWallet = true;
+						}
+						inputs.add(new SimpleTransaction.Input(sender, inputAmount, addressInWallet));
 					}
-					inputs.add(new SimpleTransaction.Input(sender, inputAmount, addressInWallet));
 				}
 			} catch (ForeignBlockchainException e) {
 				LOGGER.trace("Failed to retrieve transaction information {}", input.outputTxHash);
@@ -461,17 +463,19 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		}
 		if (t.outputs != null && !t.outputs.isEmpty()) {
 			for (BitcoinyTransaction.Output output : t.outputs) {
-				for (String address : output.addresses) {
-					boolean addressInWallet = false;
-					if (keySet.contains(address)) {
-						if (total > 0L) {
-							amount -= (total - output.value);
-						} else {
-							amount += output.value;
+				if (output.addresses != null) {
+					for (String address : output.addresses) {
+						boolean addressInWallet = false;
+						if (keySet.contains(address)) {
+							if (total > 0L) {
+								amount -= (total - output.value);
+							} else {
+								amount += output.value;
+							}
+							addressInWallet = true;
 						}
-						addressInWallet = true;
+						outputs.add(new SimpleTransaction.Output(address, output.value, addressInWallet));
 					}
-					outputs.add(new SimpleTransaction.Output(address, output.value, addressInWallet));
 				}
 				totalOutputAmount += output.value;
 			}
