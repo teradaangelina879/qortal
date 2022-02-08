@@ -515,7 +515,7 @@ public class Controller extends Thread {
 
 	@Override
 	public void run() {
-		Thread.currentThread().setName("Controller");
+		Thread.currentThread().setName("Qortal");
 
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
 		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
