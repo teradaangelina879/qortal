@@ -45,8 +45,8 @@ public class ArbitraryDataFileRequestThread implements Runnable {
         ArbitraryDataFileManager arbitraryDataFileManager = ArbitraryDataFileManager.getInstance();
 
         ArbitraryTransactionData arbitraryTransactionData = null;
-        byte[] signature = null;
-        byte[] hash = null;
+        String signature58 = null;
+        String hash58 = null;
         Peer peer = null;
         boolean shouldProcess = false;
 
@@ -63,7 +63,7 @@ public class ArbitraryDataFileRequestThread implements Runnable {
                     continue;
                 }
 
-                String hash58 = (String) entry.getKey();
+                hash58 = (String) entry.getKey();
                 Triple<Peer, String, Long> value = (Triple<Peer, String, Long>) entry.getValue();
                 if (value == null) {
                     iterator.remove();
@@ -71,7 +71,7 @@ public class ArbitraryDataFileRequestThread implements Runnable {
                 }
 
                 peer = value.getA();
-                String signature58 = value.getB();
+                signature58 = value.getB();
                 Long timestamp = value.getC();
 
                 if (now - timestamp >= ArbitraryDataManager.ARBITRARY_RELAY_TIMEOUT || signature58 == null || peer == null) {
@@ -79,9 +79,6 @@ public class ArbitraryDataFileRequestThread implements Runnable {
                     iterator.remove();
                     continue;
                 }
-
-                hash = Base58.decode(hash58);
-                signature = Base58.decode(signature58);
 
                 // We want to process this file
                 shouldProcess = true;
@@ -95,6 +92,9 @@ public class ArbitraryDataFileRequestThread implements Runnable {
             return;
         }
 
+        byte[] hash = Base58.decode(hash58);
+        byte[] signature = Base58.decode(signature58);
+
         // Fetch the transaction data
         try (final Repository repository = RepositoryManager.getRepository()) {
             arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
@@ -106,7 +106,6 @@ public class ArbitraryDataFileRequestThread implements Runnable {
                 return;
             }
 
-            String hash58 = Base58.encode(hash);
             LOGGER.debug("Fetching file {} from peer {} via request thread...", hash58, peer);
             arbitraryDataFileManager.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, Arrays.asList(hash));
 
