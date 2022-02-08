@@ -824,6 +824,12 @@ public class Controller extends Thread {
 
 	// Incoming transactions queue
 
+	private boolean incomingTransactionQueueContains(byte[] signature) {
+		synchronized (incomingTransactions) {
+			return incomingTransactions.stream().anyMatch(t -> Arrays.equals(t.getSignature(), signature));
+		}
+	}
+
 	private void processIncomingTransactionsQueue() {
 		if (this.incomingTransactions.size() == 0) {
 			// Don't bother locking if there are no new transactions to process
@@ -1596,6 +1602,12 @@ public class Controller extends Thread {
 				if (invalidUnconfirmedTransactions.containsKey(signature58)) {
 					// Previously invalid transaction - don't keep requesting it
 					// It will be periodically removed from invalidUnconfirmedTransactions to allow for rechecks
+					continue;
+				}
+
+				// Ignore if this transaction is in the queue
+				if (incomingTransactionQueueContains(signature)) {
+					LOGGER.trace(() -> String.format("Ignoring existing queued transaction %s from peer %s", Base58.encode(signature), peer));
 					continue;
 				}
 
