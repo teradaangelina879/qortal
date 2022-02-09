@@ -36,11 +36,15 @@ public class ArbitraryDataBuilderThread implements Runnable {
                     continue;
                 }
 
+                Map.Entry<String, ArbitraryDataBuildQueueItem> next = null;
+
                 // Find resources that are queued for building
-                Map.Entry<String, ArbitraryDataBuildQueueItem> next = buildManager.arbitraryDataBuildQueue
-                        .entrySet().stream()
-                        .filter(e -> e.getValue().isQueued())
-                        .findFirst().orElse(null);
+                synchronized (buildManager.arbitraryDataBuildQueue) {
+                    next = buildManager.arbitraryDataBuildQueue
+                            .entrySet().stream()
+                            .filter(e -> e.getValue().isQueued())
+                            .findFirst().orElse(null);
+                }
 
                 if (next == null) {
                     continue;
