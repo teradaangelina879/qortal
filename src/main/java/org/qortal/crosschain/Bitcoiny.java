@@ -33,6 +33,7 @@ import org.qortal.utils.Amounts;
 import org.qortal.utils.BitTwiddling;
 
 import com.google.common.hash.HashCode;
+import org.qortal.utils.NTP;
 
 /** Bitcoin-like (Bitcoin, Litecoin, etc.) support */
 public abstract class Bitcoiny implements ForeignBlockchain {
@@ -46,6 +47,12 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	protected final String currencyCode;
 
 	protected final NetworkParameters params;
+
+	/** Cache recent transactions to speed up subsequent lookups */
+	protected List<SimpleTransaction> transactionsCache;
+	protected Long transactionsCacheTimestamp;
+	protected String transactionsCacheXpub;
+	protected static long TRANSACTIONS_CACHE_TIMEOUT = 2 * 60 * 1000L; // 2 minutes
 
 	/** Keys that have been previously marked as fully spent,<br>
 	 * i.e. keys with transactions but with no unspent outputs. */
@@ -343,6 +350,17 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	public List<SimpleTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
 		synchronized (this) {
+			// Serve from the cache if it's recent, and matches this xpub
+			if (Objects.equals(transactionsCacheXpub, key58)) {
+				if (transactionsCache != null && transactionsCacheTimestamp != null) {
+					Long now = NTP.getTime();
+					boolean isCacheStale = (now != null && now - transactionsCacheTimestamp >= TRANSACTIONS_CACHE_TIMEOUT);
+					if (!isCacheStale) {
+						return transactionsCache;
+					}
+				}
+			}
+
 			Context.propagate(bitcoinjContext);
 
 			Wallet wallet = walletFromDeterministicKey58(key58);
@@ -405,9 +423,13 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			Comparator<SimpleTransaction> newestTimestampFirstComparator = Comparator.comparingInt(SimpleTransaction::getTimestamp).reversed();
 
 			// Update cache and return
-			return walletTransactions.stream()
+			transactionsCacheTimestamp = NTP.getTime();
+			transactionsCacheXpub = key58;
+			transactionsCache = walletTransactions.stream()
 					.map(t -> convertToSimpleTransaction(t, keySet))
 					.sorted(newestTimestampFirstComparator).collect(Collectors.toList());
+
+			return transactionsCache;
 		}
 	}
 
