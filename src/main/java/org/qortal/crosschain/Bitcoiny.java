@@ -336,6 +336,16 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return balance.value;
 	}
 
+	public Long getWalletBalanceFromTransactions(String key58) throws ForeignBlockchainException {
+		long balance = 0;
+		Comparator<SimpleTransaction> oldestTimestampFirstComparator = Comparator.comparingInt(SimpleTransaction::getTimestamp);
+		List<SimpleTransaction> transactions = getWalletTransactions(key58).stream().sorted(oldestTimestampFirstComparator).collect(Collectors.toList());
+		for (SimpleTransaction transaction : transactions) {
+			balance += transaction.getTotalAmount();
+		}
+		return balance;
+	}
+
 	public List<SimpleTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
 		Context.propagate(bitcoinjContext);
 
