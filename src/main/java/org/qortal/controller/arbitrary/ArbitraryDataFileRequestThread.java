@@ -42,9 +42,11 @@ public class ArbitraryDataFileRequestThread implements Runnable {
     }
 
     private void processFileHashes(Long now) {
-        ArbitraryDataFileManager arbitraryDataFileManager = ArbitraryDataFileManager.getInstance();
+		if (Controller.isStopping()) {
+            return;
+        }
 
-        ArbitraryTransactionData arbitraryTransactionData = null;
+        ArbitraryDataFileManager arbitraryDataFileManager = ArbitraryDataFileManager.getInstance();
         String signature58 = null;
         String hash58 = null;
         Peer peer = null;
@@ -97,7 +99,7 @@ public class ArbitraryDataFileRequestThread implements Runnable {
 
         // Fetch the transaction data
         try (final Repository repository = RepositoryManager.getRepository()) {
-            arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
+            ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
             if (arbitraryTransactionData == null) {
                 return;
             }
