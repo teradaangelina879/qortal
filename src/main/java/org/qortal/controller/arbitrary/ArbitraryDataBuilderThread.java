@@ -27,7 +27,7 @@ public class ArbitraryDataBuilderThread implements Runnable {
 
         while (!Controller.isStopping()) {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(100);
 
                 if (buildManager.arbitraryDataBuildQueue == null) {
                     continue;
