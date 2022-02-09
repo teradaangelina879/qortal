@@ -42,6 +42,10 @@ public class ArbitraryDataFileRequestThread implements Runnable {
     }
 
     private void processFileHashes(Long now) {
+        if (Controller.isStopping()) {
+            return;
+        }
+
         try (final Repository repository = RepositoryManager.getRepository()) {
             ArbitraryDataFileManager arbitraryDataFileManager = ArbitraryDataFileManager.getInstance();
 
