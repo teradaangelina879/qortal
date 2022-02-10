@@ -343,6 +343,9 @@ public class BlockMinter extends Thread {
 						LOGGER.debug("Unable to check for a higher weight chain. Proceeding anyway...");
 					}
 
+					// Discard any uncommitted changes as a result of the higher weight chain detection
+					repository.discardChanges();
+
 					// Clear variables that track low weight blocks
 					parentSignatureForLastLowWeightBlock = null;
 					timeOfLastLowWeightBlock = null;
