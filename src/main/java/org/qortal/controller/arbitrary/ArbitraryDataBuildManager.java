@@ -1,7 +1,5 @@
 package org.qortal.controller.arbitrary;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataBuildQueueItem;
 import org.qortal.utils.NTP;
 
@@ -12,8 +10,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ArbitraryDataBuildManager extends Thread {
-
-    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataBuildManager.class);
 
     private static ArbitraryDataBuildManager instance;
 
@@ -106,7 +102,7 @@ public class ArbitraryDataBuildManager extends Thread {
             return true;
         }
 
-        LOGGER.info("Added {} to build queue", queueItem);
+        queueItem.log(String.format("Added %s to build queue", queueItem));
 
         // Added to queue
         return true;
@@ -154,7 +150,7 @@ public class ArbitraryDataBuildManager extends Thread {
             return true;
         }
 
-        LOGGER.info("Added {} to failed builds list", queueItem);
+        queueItem.log(String.format("Added %s to failed builds list", queueItem));
 
         // Added to queue
         return true;

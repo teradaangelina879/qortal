@@ -1,7 +1,5 @@
 package org.qortal.controller.arbitrary;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataBuildQueueItem;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.controller.Controller;
@@ -14,8 +12,6 @@ import java.util.Map;
 
 
 public class ArbitraryDataBuilderThread implements Runnable {
-
-    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataBuilderThread.class);
 
     public ArbitraryDataBuilderThread() {
 
@@ -75,19 +71,19 @@ public class ArbitraryDataBuilderThread implements Runnable {
 
                 try {
                     // Perform the build
-                    LOGGER.info("Building {}...", queueItem);
+                    queueItem.log(String.format("Building %s... priority: %d", queueItem, queueItem.getPriority()));
                     queueItem.build();
                     this.removeFromQueue(queueItem);
-                    LOGGER.info("Finished building {}", queueItem);
+                    queueItem.log(String.format("Finished building %s", queueItem));
 
                 } catch (MissingDataException e) {
-                    LOGGER.info("Missing data for {}: {}", queueItem, e.getMessage());
+                    queueItem.log(String.format("Missing data for %s: %s", queueItem, e.getMessage()));
                     queueItem.setFailed(true);
                     this.removeFromQueue(queueItem);
                     // Don't add to the failed builds list, as we may want to retry sooner
 
                 } catch (IOException | DataException | RuntimeException e) {
-                    LOGGER.info("Error building {}: {}", queueItem, e.getMessage());
+                    queueItem.log(String.format("Error building %s: %s", queueItem, e.getMessage()));
                     // Something went wrong - so remove it from the queue, and add to failed builds list
                     queueItem.setFailed(true);
                     buildManager.addToFailedBuildsList(queueItem);

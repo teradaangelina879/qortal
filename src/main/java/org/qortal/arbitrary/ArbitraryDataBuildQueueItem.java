@@ -1,5 +1,7 @@
 package org.qortal.arbitrary;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.misc.Service;
@@ -10,11 +12,15 @@ import java.io.IOException;
 
 public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
 
+    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataBuildQueueItem.class);
+
     private final Long creationTimestamp;
     private Long buildStartTimestamp = null;
     private Long buildEndTimestamp = null;
     private Integer priority = 0;
     private boolean failed = false;
+
+    private static int HIGH_PRIORITY_THRESHOLD = 5;
 
     /* The maximum amount of time to spend on a single build */
     // TODO: interrupt an in-progress build
@@ -87,6 +93,19 @@ public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
 
     public void setPriority(Integer priority) {
         this.priority = priority;
+    }
+
+    public boolean isHighPriority() {
+        return this.priority >= HIGH_PRIORITY_THRESHOLD;
+    }
+
+    public void log(String message) {
+        if (this.isHighPriority()) {
+            LOGGER.info(message);
+        }
+        else {
+            LOGGER.debug(message);
+        }
     }
 
     public void setFailed(boolean failed) {
