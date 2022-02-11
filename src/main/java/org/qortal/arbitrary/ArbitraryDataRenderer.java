@@ -76,7 +76,7 @@ public class ArbitraryDataRenderer {
             if (!arbitraryDataReader.isCachedDataAvailable()) {
                 // If async is requested, show a loading screen whilst build is in progress
                 if (async) {
-                    arbitraryDataReader.loadAsynchronously(false);
+                    arbitraryDataReader.loadAsynchronously(false, 10);
                     return this.getLoadingResponse(service, resourceId);
                 }
 

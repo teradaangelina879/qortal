@@ -13,6 +13,7 @@ public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
     private final Long creationTimestamp;
     private Long buildStartTimestamp = null;
     private Long buildEndTimestamp = null;
+    private Integer priority = 0;
     private boolean failed = false;
 
     /* The maximum amount of time to spend on a single build */
@@ -75,6 +76,14 @@ public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
 
     public Long getBuildStartTimestamp() {
         return this.buildStartTimestamp;
+    }
+
+    public Integer getPriority() {
+        return this.priority;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
     }
 
     public void setFailed(boolean failed) {

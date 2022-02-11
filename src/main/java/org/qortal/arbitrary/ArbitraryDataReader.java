@@ -126,7 +126,7 @@ public class ArbitraryDataReader {
      * @param overwrite - set to true to force rebuild an existing cache
      * @return true if added or already present in queue; false if not
      */
-    public boolean loadAsynchronously(boolean overwrite) {
+    public boolean loadAsynchronously(boolean overwrite, int priority) {
         ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
                 this.resourceId, this.resourceIdType, this.service, this.identifier);
         if (cache.isCachedDataAvailable()) {
@@ -135,7 +135,9 @@ public class ArbitraryDataReader {
             return true;
         }
 
-        return ArbitraryDataBuildManager.getInstance().addToBuildQueue(this.createQueueItem());
+        ArbitraryDataBuildQueueItem item = this.createQueueItem();
+        item.setPriority(priority);
+        return ArbitraryDataBuildManager.getInstance().addToBuildQueue(item);
     }
 
     /**

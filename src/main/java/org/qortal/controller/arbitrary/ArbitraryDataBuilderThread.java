@@ -9,6 +9,7 @@ import org.qortal.repository.DataException;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.Map;
 
 
@@ -43,12 +44,13 @@ public class ArbitraryDataBuilderThread implements Runnable {
 
                 ArbitraryDataBuildQueueItem queueItem = null;
 
-                // Find resources that are queued for building
+                // Find resources that are queued for building (sorted by highest priority first)
                 synchronized (buildManager.arbitraryDataBuildQueue) {
                     Map.Entry<String, ArbitraryDataBuildQueueItem> next = buildManager.arbitraryDataBuildQueue
                             .entrySet().stream()
                             .filter(e -> e.getValue().isQueued())
-                            .findFirst().orElse(null);
+                            .sorted(Comparator.comparing(item -> item.getValue().getPriority()))
+                            .reduce((first, second) -> second).orElse(null);
 
                     if (next == null) {
                         continue;
