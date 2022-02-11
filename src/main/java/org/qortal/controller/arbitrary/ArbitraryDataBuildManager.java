@@ -42,8 +42,11 @@ public class ArbitraryDataBuildManager extends Thread {
         try {
             // Use a fixed thread pool to execute the arbitrary data build actions (currently just a single thread)
             // This can be expanded to have multiple threads processing the build queue when needed
-            ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(1);
-            arbitraryDataBuildExecutor.execute(new ArbitraryDataBuilderThread());
+            int threadCount = 5;
+            ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(threadCount);
+            for (int i = 0; i < threadCount; i++) {
+                arbitraryDataBuildExecutor.execute(new ArbitraryDataBuilderThread());
+            }
 
             while (!isStopping) {
                 // Nothing to do yet

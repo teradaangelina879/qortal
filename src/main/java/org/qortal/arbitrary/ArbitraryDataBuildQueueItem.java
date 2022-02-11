@@ -27,13 +27,20 @@ public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
         this.creationTimestamp = NTP.getTime();
     }
 
+    public void prepareForBuild() {
+        this.buildStartTimestamp = NTP.getTime();
+    }
+
     public void build() throws IOException, DataException, MissingDataException {
         Long now = NTP.getTime();
         if (now == null) {
+            this.buildStartTimestamp = null;
             throw new DataException("NTP time hasn't synced yet");
         }
 
-        this.buildStartTimestamp = now;
+        if (this.buildStartTimestamp == null) {
+            this.buildStartTimestamp = now;
+        }
         ArbitraryDataReader arbitraryDataReader =
                 new ArbitraryDataReader(this.resourceId, this.resourceIdType, this.service, this.identifier);
 

@@ -36,36 +36,40 @@ public class ArbitraryDataBuilderThread implements Runnable {
                     continue;
                 }
 
-                Map.Entry<String, ArbitraryDataBuildQueueItem> next = null;
-
-                // Find resources that are queued for building
-                synchronized (buildManager.arbitraryDataBuildQueue) {
-                    next = buildManager.arbitraryDataBuildQueue
-                            .entrySet().stream()
-                            .filter(e -> e.getValue().isQueued())
-                            .findFirst().orElse(null);
-                }
-
-                if (next == null) {
-                    continue;
-                }
-
                 Long now = NTP.getTime();
                 if (now == null) {
                     continue;
                 }
 
-                ArbitraryDataBuildQueueItem queueItem = next.getValue();
+                ArbitraryDataBuildQueueItem queueItem = null;
 
-                if (queueItem == null) {
-                    this.removeFromQueue(queueItem);
+                // Find resources that are queued for building
+                synchronized (buildManager.arbitraryDataBuildQueue) {
+                    Map.Entry<String, ArbitraryDataBuildQueueItem> next = buildManager.arbitraryDataBuildQueue
+                            .entrySet().stream()
+                            .filter(e -> e.getValue().isQueued())
+                            .findFirst().orElse(null);
+
+                    if (next == null) {
+                        continue;
+                    }
+
+                    queueItem = next.getValue();
+
+                    if (queueItem == null) {
+                        this.removeFromQueue(queueItem);
+                        continue;
+                    }
+
+                    // Ignore builds that have failed recently
+                    if (buildManager.isInFailedBuildsList(queueItem)) {
+                        this.removeFromQueue(queueItem);
+                        continue;
+                    }
+
+                    // Set the start timestamp, to prevent other threads from building it at the same time
+                    queueItem.prepareForBuild();
                 }
-
-                // Ignore builds that have failed recently
-                if (buildManager.isInFailedBuildsList(queueItem)) {
-                    continue;
-                }
-
 
                 try {
                     // Perform the build
