@@ -79,7 +79,10 @@ public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
     }
 
     public Integer getPriority() {
-        return this.priority;
+        if (this.priority != null) {
+            return this.priority;
+        }
+        return 0;
     }
 
     public void setPriority(Integer priority) {
