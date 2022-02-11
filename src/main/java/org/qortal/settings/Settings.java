@@ -243,7 +243,8 @@ public class Settings {
 	private String[] bootstrapHosts = new String[] {
 			"http://bootstrap.qortal.org",
 			"http://bootstrap2.qortal.org",
-			"http://cinfu1.crowetic.com"
+			"http://81.169.136.59",
+			"http://62.171.190.193"
 	};
 
 	// Auto-update sources
