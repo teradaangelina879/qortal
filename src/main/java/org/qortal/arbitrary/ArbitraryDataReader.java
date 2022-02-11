@@ -468,12 +468,18 @@ public class ArbitraryDataReader {
             throw new DataException(String.format("Unable to unzip file: %s", e.getMessage()));
         }
 
-        // Replace filePath pointer with the uncompressed file path
+        if (!this.uncompressedPath.toFile().exists()) {
+            throw new DataException(String.format("Unable to unzip file: %s", this.filePath));
+        }
+
+        // Delete original compressed file
         if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
             if (Files.exists(this.filePath)) {
                 Files.delete(this.filePath);
             }
         }
+
+        // Replace filePath pointer with the uncompressed file path
         this.filePath = this.uncompressedPath;
     }
 
