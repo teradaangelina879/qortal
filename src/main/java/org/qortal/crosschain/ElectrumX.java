@@ -103,7 +103,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private Scanner scanner;
 	private int nextId = 1;
 
-	private static final int TX_CACHE_SIZE = 200;
+	private static final int TX_CACHE_SIZE = 1000;
 	@SuppressWarnings("serial")
 	private final Map<String, BitcoinyTransaction> transactionCache = Collections.synchronizedMap(new LinkedHashMap<>(TX_CACHE_SIZE + 1, 0.75F, true) {
 		// This method is called just after a new entry has been added
