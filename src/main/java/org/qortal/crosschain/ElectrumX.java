@@ -5,19 +5,7 @@ import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Random;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,6 +38,9 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	/** Error message sent by some ElectrumX servers when they don't support returning verbose transactions. */
 	private static final String VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE = "verbose transactions are currently unsupported";
 
+	private static final int RESPONSE_TIME_READINGS = 5;
+	private static final long MAX_AVG_RESPONSE_TIME = 1000L; // ms
+
 	public static class Server {
 		String hostname;
 
@@ -57,11 +48,31 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		ConnectionType connectionType;
 
 		int port;
+		private List<Long> responseTimes = new ArrayList<>();
 
 		public Server(String hostname, ConnectionType connectionType, int port) {
 			this.hostname = hostname;
 			this.connectionType = connectionType;
 			this.port = port;
+		}
+
+		public void addResponseTime(long responseTime) {
+			while (this.responseTimes.size() > RESPONSE_TIME_READINGS) {
+				this.responseTimes.remove(0);
+			}
+			this.responseTimes.add(responseTime);
+		}
+
+		public long averageResponseTime() {
+			if (this.responseTimes.size() < RESPONSE_TIME_READINGS) {
+				// Not enough readings yet
+				return 0L;
+			}
+			OptionalDouble average = this.responseTimes.stream().mapToDouble(a -> a).average();
+			if (average.isPresent()) {
+				return Double.valueOf(average.getAsDouble()).longValue();
+			}
+			return 0L;
 		}
 
 		@Override
@@ -539,6 +550,17 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 
 			while (haveConnection()) {
 				Object response = connectedRpc(method, params);
+
+				// If we have more servers and this one replied slowly, try another
+				if (!this.remainingServers.isEmpty()) {
+					long averageResponseTime = this.currentServer.averageResponseTime();
+					if (averageResponseTime > MAX_AVG_RESPONSE_TIME) {
+						LOGGER.info("Slow average response time {}ms from {} - trying another server...", this.currentServer.hostname, averageResponseTime);
+						this.closeServer();
+						break;
+					}
+				}
+
 				if (response != null)
 					return response;
 
@@ -628,6 +650,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		String request = requestJson.toJSONString() + "\n";
 		LOGGER.trace(() -> String.format("Request: %s", request));
 
+		long startTime = System.currentTimeMillis();
 		final String response;
 
 		try {
@@ -638,7 +661,11 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			return null;
 		}
 
+		long endTime = System.currentTimeMillis();
+		long responseTime = endTime-startTime;
+
 		LOGGER.trace(() -> String.format("Response: %s", response));
+		LOGGER.info(() -> String.format("Time taken: %dms", endTime-startTime));
 
 		if (response.isEmpty())
 			// Empty response - try another server?
@@ -648,6 +675,11 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		if (!(responseObj instanceof JSONObject))
 			// Unexpected response - try another server?
 			return null;
+
+		// Keep track of response times
+		if (this.currentServer != null) {
+			this.currentServer.addResponseTime(responseTime);
+		}
 
 		JSONObject responseJson = (JSONObject) responseObj;
 
