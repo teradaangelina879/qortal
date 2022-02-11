@@ -420,7 +420,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 					byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
 
 					// Ask for transaction history - if it's empty then key has never been used
-					List<TransactionHash> historicTransactionHashes = this.blockchain.getAddressTransactions(script, false);
+					List<TransactionHash> historicTransactionHashes = this.getAddressTransactions(script, false);
 
 					if (!historicTransactionHashes.isEmpty()) {
 						areAllKeysUnused = false;
