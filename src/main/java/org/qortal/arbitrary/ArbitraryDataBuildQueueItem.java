@@ -1,7 +1,5 @@
 package org.qortal.arbitrary;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.misc.Service;
@@ -11,8 +9,6 @@ import org.qortal.utils.NTP;
 import java.io.IOException;
 
 public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
-
-    private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataBuildQueueItem.class);
 
     private final Long creationTimestamp;
     private Long buildStartTimestamp = null;
@@ -97,15 +93,6 @@ public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
 
     public boolean isHighPriority() {
         return this.priority >= HIGH_PRIORITY_THRESHOLD;
-    }
-
-    public void log(String message) {
-        if (this.isHighPriority()) {
-            LOGGER.info(message);
-        }
-        else {
-            LOGGER.debug(message);
-        }
     }
 
     public void setFailed(boolean failed) {
