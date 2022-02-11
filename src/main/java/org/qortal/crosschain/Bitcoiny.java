@@ -230,6 +230,25 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	}
 
 	/**
+	 * Returns transactions for passed script
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	public List<TransactionHash> getAddressTransactions(byte[] scriptPubKey, boolean includeUnconfirmed) throws ForeignBlockchainException {
+		int retries = 0;
+		ForeignBlockchainException e2 = null;
+		while (retries <= 3) {
+			try {
+				return this.blockchain.getAddressTransactions(scriptPubKey, includeUnconfirmed);
+			} catch (ForeignBlockchainException e) {
+				e2 = e;
+				retries++;
+			}
+		}
+		throw(e2);
+	}
+
+	/**
 	 * Returns list of transaction hashes pertaining to passed address.
 	 * <p>
 	 * @return list of unspent outputs, or empty list if script unknown
@@ -263,7 +282,17 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	 * @throws ForeignBlockchainException if error occurs
 	 */
 	public BitcoinyTransaction getTransaction(String txHash) throws ForeignBlockchainException {
-		return this.blockchain.getTransaction(txHash);
+		int retries = 0;
+		ForeignBlockchainException e2 = null;
+		while (retries <= 3) {
+			try {
+				return this.blockchain.getTransaction(txHash);
+			} catch (ForeignBlockchainException e) {
+				e2 = e;
+				retries++;
+			}
+		}
+		throw(e2);
 	}
 
 	/**
