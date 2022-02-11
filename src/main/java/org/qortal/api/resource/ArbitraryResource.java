@@ -1044,7 +1044,7 @@ public class ArbitraryResource {
 			// Loop until we have data
 			if (async) {
 				// Asynchronous
-				arbitraryDataReader.loadAsynchronously(false, 0);
+				arbitraryDataReader.loadAsynchronously(false, 1);
 			}
 			else {
 				// Synchronous
