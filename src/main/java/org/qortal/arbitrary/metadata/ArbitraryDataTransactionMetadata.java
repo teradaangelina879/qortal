@@ -42,7 +42,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             this.tags = metadata.getString("tags");
         }
         if (metadata.has("category")) {
-            this.category = Category.valueOf(metadata.getString("category"));
+            this.category = Category.uncategorizedValueOf(metadata.getString("category"));
         }
 
         List<byte[]> chunksList = new ArrayList<>();

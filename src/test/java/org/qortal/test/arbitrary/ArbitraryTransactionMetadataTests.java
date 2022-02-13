@@ -164,4 +164,18 @@ public class ArbitraryTransactionMetadataTests extends Common {
         }
     }
 
+    @Test
+    public void testExistingCategories() {
+        // Matching categories should be correctly located
+        assertEquals(Category.QORTAL, Category.uncategorizedValueOf("QORTAL"));
+        assertEquals(Category.TECHNOLOGY, Category.uncategorizedValueOf("TECHNOLOGY"));
+    }
+
+    @Test
+    public void testMissingCategory() {
+        // Missing or invalid categories should fall back to UNCATEGORIZED
+        assertEquals(Category.UNCATEGORIZED, Category.uncategorizedValueOf("INVALID_CATEGORY"));
+        assertEquals(Category.UNCATEGORIZED, Category.uncategorizedValueOf("Qortal")); // Case-sensitive match required
+    }
+
 }

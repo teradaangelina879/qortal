@@ -64,4 +64,18 @@ public enum Category {
         return this.name;
     }
 
+    /**
+     * Same as valueOf() but with fallback to UNCATEGORIZED if there's no match
+     * @param name
+     * @return a Category (using UNCATEGORIZED if no match found)
+     */
+    public static Category uncategorizedValueOf(String name) {
+        try {
+            return Category.valueOf(name);
+        }
+        catch (IllegalArgumentException e) {
+            return Category.UNCATEGORIZED;
+        }
+    }
+
 }
