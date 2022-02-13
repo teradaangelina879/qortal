@@ -72,6 +72,11 @@ public class BlockChain {
 		transactionV5Timestamp;
 	}
 
+	// Custom transaction fees
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long nameRegistrationUnitFee;
+	private long nameRegistrationUnitFeeTimestamp;
+
 	/** Map of which blockchain features are enabled when (height/timestamp) */
 	@XmlJavaTypeAdapter(StringLongMapXmlAdapter.class)
 	private Map<String, Long> featureTriggers;
@@ -299,6 +304,16 @@ public class BlockChain {
 
 	public int getMaxBlockSize() {
 		return this.maxBlockSize;
+	}
+
+	// Custom transaction fees
+	public long getNameRegistrationUnitFee() {
+		return this.nameRegistrationUnitFee;
+	}
+
+	public long getNameRegistrationUnitFeeTimestamp() {
+		// FUTURE: we could use a separate structure to indicate fee adjustments for different transaction types
+		return this.nameRegistrationUnitFeeTimestamp;
 	}
 
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */

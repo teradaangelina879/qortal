@@ -3,20 +3,26 @@ package org.qortal.test.naming;
 import static org.junit.Assert.*;
 
 import java.util.List;
+import java.util.Optional;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.block.BlockChain;
 import org.qortal.controller.BlockMinter;
 import org.qortal.data.transaction.*;
 import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.test.common.*;
 import org.qortal.test.common.transaction.TestTransaction;
+import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ValidationResult;
+import org.qortal.utils.NTP;
 
 public class MiscTests extends Common {
 
@@ -34,6 +40,7 @@ public class MiscTests extends Common {
 			String data = "{\"age\":30}";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			List<String> recentNames = repository.getNameRepository().getRecentNames(0L);
@@ -53,11 +60,13 @@ public class MiscTests extends Common {
 			String data = "{\"age\":30}";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// duplicate
 			String duplicateName = "TEST-nÁme";
 			transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), duplicateName, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			transaction.sign(alice);
 
@@ -76,12 +85,14 @@ public class MiscTests extends Common {
 			String data = "{}";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// duplicate (this time registered by Bob)
 			PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
 			String duplicateName = "TEST-nÁme";
 			transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(bob), duplicateName, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			transaction.sign(alice);
 
@@ -100,12 +111,14 @@ public class MiscTests extends Common {
 			String data = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Register another name that we will later attempt to rename to first name (above)
 			String otherName = "new-name";
 			String otherData = "";
 			transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), otherName, otherData);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// we shouldn't be able to update name to existing name
@@ -129,6 +142,7 @@ public class MiscTests extends Common {
 			String data = "{\"age\":30}";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			transaction.sign(alice);
 
@@ -147,6 +161,7 @@ public class MiscTests extends Common {
 			String data = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// we shouldn't be able to update name to an address
@@ -175,6 +190,7 @@ public class MiscTests extends Common {
 
 			// Register the name
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Ensure the name exists and the data is correct
@@ -201,6 +217,7 @@ public class MiscTests extends Common {
 
 			// Register the name
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Ensure the name exists and the data is correct
@@ -252,6 +269,7 @@ public class MiscTests extends Common {
 
 				// Register the name
 				RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+				transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 				TransactionUtils.signAndMint(repository, transactionData, alice);
 
 				// Ensure the name exists and the data is correct
@@ -283,6 +301,7 @@ public class MiscTests extends Common {
 
 				PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 				RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+				transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
 
 				// Ensure the name doesn't exist
 				assertNull(repository.getNameRepository().fromName(name));
@@ -301,6 +320,56 @@ public class MiscTests extends Common {
 				assertNull(repository.getNameRepository().fromName(name));
 
 			}
+		}
+	}
+
+	// test name registration fee increase
+	@Test
+	public void testRegisterNameFeeIncrease() throws DataException, IllegalAccessException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			// Set nameRegistrationUnitFeeTimestamp to a time far in the future
+			long futureTimestamp = 9999999999999L; // 20 Nov 2286
+			FieldUtils.writeField(BlockChain.getInstance(), "nameRegistrationUnitFeeTimestamp", futureTimestamp, true);
+			assertEquals(futureTimestamp, BlockChain.getInstance().getNameRegistrationUnitFeeTimestamp());
+
+			// Validate unit fees pre and post timestamp
+			assertEquals(10000000, BlockChain.getInstance().getUnitFee()); // 0.1 QORT
+			assertEquals(500000000, BlockChain.getInstance().getNameRegistrationUnitFee()); // 5 QORT
+
+			// Register-name
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			String name = "test-name";
+			String data = "{\"age\":30}";
+
+			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			assertEquals(10000000L, transactionData.getFee().longValue());
+			TransactionUtils.signAndMint(repository, transactionData, alice);
+
+			// Set nameRegistrationUnitFeeTimestamp to a time in the past
+			Long now = NTP.getTime();
+			FieldUtils.writeField(BlockChain.getInstance(), "nameRegistrationUnitFeeTimestamp", now - 1000L, true);
+			assertEquals(now - 1000L, BlockChain.getInstance().getNameRegistrationUnitFeeTimestamp());
+
+			// Register a different name
+			// First try with the default unit fee
+			String name2 = "test-name-2";
+			transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name2, data);
+			assertEquals(10000000L, transactionData.getFee().longValue());
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			transaction.sign(alice);
+			ValidationResult result = transaction.importAsUnconfirmed();
+			assertTrue("Transaction should be invalid", ValidationResult.INSUFFICIENT_FEE == result);
+
+			// Now try using correct fee (this is specified by the UI, via the /transaction/unitfee API endpoint)
+			transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name2, data);
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			assertEquals(500000000L, transactionData.getFee().longValue());
+			transaction = Transaction.fromData(repository, transactionData);
+			transaction.sign(alice);
+			result = transaction.importAsUnconfirmed();
+			assertTrue("Transaction should be valid", ValidationResult.OK == result);
 		}
 	}
 
