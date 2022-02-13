@@ -93,8 +93,8 @@ public abstract class Message {
 
 		ARBITRARY_SIGNATURES(130),
 
-		ARBITRARY_METADATA(130),
-		GET_ARBITRARY_METADATA(131);
+		ARBITRARY_METADATA(140),
+		GET_ARBITRARY_METADATA(141);
 
 		public final int value;
 		public final Method fromByteBufferMethod;
