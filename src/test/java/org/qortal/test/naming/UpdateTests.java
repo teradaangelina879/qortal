@@ -36,7 +36,7 @@ public class UpdateTests extends Common {
 			String initialData = "{\"age\":30}";
 
 			TransactionData initialTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
-			initialTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			initialTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(initialTransactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, initialTransactionData, alice);
 
 			// Check name, reduced name, and data exist
@@ -103,7 +103,7 @@ public class UpdateTests extends Common {
 			String constantReducedName = "initia1-name";
 
 			TransactionData initialTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
-			initialTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			initialTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(initialTransactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, initialTransactionData, alice);
 
 			// Check initial name exists
@@ -151,7 +151,7 @@ public class UpdateTests extends Common {
 			String initialData = "{\"age\":30}";
 
 			TransactionData initialTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
-			initialTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			initialTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(initialTransactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, initialTransactionData, alice);
 
 			// Check initial name exists
@@ -230,7 +230,7 @@ public class UpdateTests extends Common {
 			String initialData = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
-			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Check initial name exists
@@ -288,7 +288,7 @@ public class UpdateTests extends Common {
 			String initialData = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
-			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Check initial name exists
@@ -330,7 +330,7 @@ public class UpdateTests extends Common {
 			String initialData = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
-			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Check initial name exists
@@ -393,7 +393,7 @@ public class UpdateTests extends Common {
 			String initialData = "{\"age\":30}";
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
-			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Check initial name exists

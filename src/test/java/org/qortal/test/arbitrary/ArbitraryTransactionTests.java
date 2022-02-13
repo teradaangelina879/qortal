@@ -48,7 +48,7 @@ public class ArbitraryTransactionTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
-            registerNameTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+            registerNameTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(registerNameTransactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, registerNameTransactionData, alice);
 
             // Set difficulty to 1

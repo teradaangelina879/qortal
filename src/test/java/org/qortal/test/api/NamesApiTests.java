@@ -49,7 +49,7 @@ public class NamesApiTests extends ApiCommon {
 			String name = "test-name";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
-			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			assertNotNull(this.namesResource.getNamesByAddress(alice.getAddress(), null, null, null));
@@ -65,7 +65,7 @@ public class NamesApiTests extends ApiCommon {
 			String name = "test-name";
 
 			RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
-			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			assertNotNull(this.namesResource.getName(name));
@@ -81,7 +81,7 @@ public class NamesApiTests extends ApiCommon {
 			long price = 1_23456789L;
 
 			TransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
-			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
+			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
 			TransactionUtils.signAndMint(repository, transactionData, alice);
 
 			// Sell-name
