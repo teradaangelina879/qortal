@@ -5,7 +5,7 @@
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.001",
 	"nameRegistrationUnitFee": "5",
-	"nameRegistrationUnitFeeTimestamp": 9999999999999,
+	"nameRegistrationUnitFeeTimestamp": 1645372800000,
 	"useBrokenMD160ForAddresses": false,
 	"requireGroupForApproval": false,
 	"defaultGroupId": 0,
