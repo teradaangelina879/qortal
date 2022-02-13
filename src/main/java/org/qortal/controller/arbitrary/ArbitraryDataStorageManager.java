@@ -259,7 +259,7 @@ public class ArbitraryDataStorageManager extends Thread {
 
     // Hosted data
 
-    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset) {
+    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset, boolean includeMetadataOnly) {
         // Load from cache if we can, to avoid disk reads
         if (this.hostedTransactions != null) {
             return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
@@ -285,7 +285,23 @@ public class ArbitraryDataStorageManager extends Thread {
                 if (transactionData == null || transactionData.getType() != Transaction.TransactionType.ARBITRARY) {
                     continue;
                 }
-                arbitraryTransactionDataList.add((ArbitraryTransactionData) transactionData);
+                ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+
+                // Make sure to exclude metadata-only resources if requested
+                if (!includeMetadataOnly) {
+                    if (arbitraryTransactionData.getMetadataHash() != null) {
+                        if (contents.length == 1) {
+                            String metadataHash58 = Base58.encode(arbitraryTransactionData.getMetadataHash());
+                            if (Objects.equals(metadataHash58, contents[0])) {
+                                // We only have the metadata file for this resource, not the actual data, so exclude it
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                // Found some data matching a transaction, so add it to the list
+                arbitraryTransactionDataList.add(arbitraryTransactionData);
 
             } catch (DataException e) {
                 continue;
@@ -451,7 +467,7 @@ public class ArbitraryDataStorageManager extends Thread {
         long maxStoragePerName = this.storageCapacityPerName(threshold);
 
         // Fetch all hosted transactions
-        List<ArbitraryTransactionData> hostedTransactions = this.listAllHostedTransactions(repository, null, null);
+        List<ArbitraryTransactionData> hostedTransactions = this.listAllHostedTransactions(repository, null, null, true);
         for (ArbitraryTransactionData transactionData : hostedTransactions) {
             String transactionName = transactionData.getName();
             if (!Objects.equals(name, transactionName)) {

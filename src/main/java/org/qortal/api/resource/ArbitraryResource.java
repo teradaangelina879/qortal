@@ -430,12 +430,13 @@ public class ArbitraryResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryTransactionData> getHostedTransactions(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 																@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
-																@Parameter(ref = "offset") @QueryParam("offset") Integer offset) {
+																@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+																@QueryParam("includemetadata") Boolean includeMetadata) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset);
+			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset, includeMetadata);
 
 			return hostedTransactions;
 
@@ -459,14 +460,15 @@ public class ArbitraryResource {
 			@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
-			@Parameter(ref = "offset") @QueryParam("offset") Integer offset) {
+			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@QueryParam("includemetadata") Boolean includeMetadata) {
 		Security.checkApiCallAllowed(request);
 
 		List<ArbitraryResourceInfo> resources = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			List<ArbitraryTransactionData> transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset);
+			List<ArbitraryTransactionData> transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset, includeMetadata);
 			for (ArbitraryTransactionData transactionData : transactionDataList) {
 				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
 				arbitraryResourceInfo.name = transactionData.getName();

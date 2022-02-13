@@ -370,7 +370,7 @@ public class ArbitraryDataManager extends Thread {
 
 	public void broadcastHostedSignatureList() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, null, null);
+			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, null, null, false);
 			List<byte[]> hostedSignatures = hostedTransactions.stream().map(ArbitraryTransactionData::getSignature).collect(Collectors.toList());
 			if (!hostedSignatures.isEmpty()) {
 				// Broadcast the list, using null to represent our peer address
