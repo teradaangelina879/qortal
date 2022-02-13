@@ -434,6 +434,10 @@ public class ArbitraryResource {
 																@QueryParam("includemetadata") Boolean includeMetadata) {
 		Security.checkApiCallAllowed(request);
 
+		if (includeMetadata == null) {
+			includeMetadata = false;
+		}
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset, includeMetadata);
@@ -465,6 +469,10 @@ public class ArbitraryResource {
 		Security.checkApiCallAllowed(request);
 
 		List<ArbitraryResourceInfo> resources = new ArrayList<>();
+
+		if (includeMetadata == null) {
+			includeMetadata = false;
+		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
