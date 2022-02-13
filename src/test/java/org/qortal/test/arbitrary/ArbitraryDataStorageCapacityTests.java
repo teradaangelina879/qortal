@@ -22,6 +22,7 @@ import org.qortal.test.common.ArbitraryUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
+import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
@@ -153,6 +154,7 @@ public class ArbitraryDataStorageCapacityTests extends Common {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
             String aliceName = "alice";
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), aliceName, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
             Path alicePath = ArbitraryUtils.generateRandomDataPath(dataLength);
             ArbitraryDataFile aliceArbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, Base58.encode(alice.getPublicKey()), alicePath, aliceName, identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize);
@@ -161,6 +163,7 @@ public class ArbitraryDataStorageCapacityTests extends Common {
             PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
             String bobName = "bob";
             transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(bob), bobName, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
             TransactionUtils.signAndMint(repository, transactionData, bob);
             Path bobPath = ArbitraryUtils.generateRandomDataPath(dataLength);
             ArbitraryDataFile bobArbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, Base58.encode(bob.getPublicKey()), bobPath, bobName, identifier, ArbitraryTransactionData.Method.PUT, service, bob, chunkSize);

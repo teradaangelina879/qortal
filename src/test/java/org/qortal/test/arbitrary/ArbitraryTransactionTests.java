@@ -19,7 +19,9 @@ import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.ArbitraryTransaction;
+import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Base58;
+import org.qortal.utils.NTP;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -46,6 +48,7 @@ public class ArbitraryTransactionTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            registerNameTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(NTP.getTime()));
             TransactionUtils.signAndMint(repository, registerNameTransactionData, alice);
 
             // Set difficulty to 1
