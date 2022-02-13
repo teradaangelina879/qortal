@@ -15,6 +15,5 @@
   "tempDataPath": "data-test/_temp",
   "listsPath": "lists-test",
   "storagePolicy": "FOLLOWED_OR_VIEWED",
-  "maxStorageCapacity": 104857600,
-  "localAuthBypassEnabled": true
+  "maxStorageCapacity": 104857600
 }

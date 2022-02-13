@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.block.Block;
 import org.qortal.controller.Controller;
+import org.qortal.controller.Synchronizer;
 import org.qortal.data.block.BlockArchiveData;
 import org.qortal.data.block.BlockData;
 import org.qortal.settings.Settings;
@@ -100,7 +101,7 @@ public class BlockArchiveWriter {
             if (Controller.isStopping()) {
                 return BlockArchiveWriteResult.STOPPING;
             }
-            if (Controller.getInstance().isSynchronizing()) {
+            if (Synchronizer.getInstance().isSynchronizing()) {
                 continue;
             }
 

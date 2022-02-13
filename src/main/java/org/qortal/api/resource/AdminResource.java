@@ -44,6 +44,7 @@ import org.qortal.api.model.NodeInfo;
 import org.qortal.api.model.NodeStatus;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.controller.Synchronizer;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
@@ -525,7 +526,7 @@ public class AdminResource {
 			SynchronizationResult syncResult;
 			try {
 				do {
-					syncResult = Controller.getInstance().actuallySynchronize(targetPeer, true);
+					syncResult = Synchronizer.getInstance().actuallySynchronize(targetPeer, true);
 				} while (syncResult == SynchronizationResult.OK);
 			} finally {
 				blockchainLock.unlock();

@@ -4,10 +4,14 @@
 	"maxBlockSize": 2097152,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.001",
+	"nameRegistrationUnitFee": "5",
+	"nameRegistrationUnitFeeTimestamp": 1645372800000,
 	"useBrokenMD160ForAddresses": false,
 	"requireGroupForApproval": false,
 	"defaultGroupId": 0,
 	"oneNamePerAccount": true,
+	"minAccountLevelToMint": 1,
+	"minAccountLevelForBlockSubmissions": 5,
 	"minAccountLevelToRewardShare": 5,
 	"maxRewardSharesPerMintingAccount": 6,
 	"founderEffectiveMintingLevel": 10,
@@ -51,7 +55,8 @@
 		"atFindNextTransactionFix": 275000,
 		"newBlockSigHeight": 320000,
 		"shareBinFix": 399000,
-		"calcChainWeightTimestamp": 1620579600000
+		"calcChainWeightTimestamp": 1620579600000,
+		"transactionV5Timestamp": 1642176000000
 	},
 	"genesisInfo": {
 		"version": 4,

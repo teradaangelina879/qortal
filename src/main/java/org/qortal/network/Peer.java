@@ -473,16 +473,18 @@ public class Peer {
                     return;
                 }
 
-                if (bytesRead > 0) {
-                    byte[] leadingBytes = new byte[Math.min(bytesRead, 8)];
-                    this.byteBuffer.asReadOnlyBuffer().position(priorPosition).get(leadingBytes);
-                    String leadingHex = HashCode.fromBytes(leadingBytes).toString();
+                if (LOGGER.isTraceEnabled()) {
+                    if (bytesRead > 0) {
+                        byte[] leadingBytes = new byte[Math.min(bytesRead, 8)];
+                        this.byteBuffer.asReadOnlyBuffer().position(priorPosition).get(leadingBytes);
+                        String leadingHex = HashCode.fromBytes(leadingBytes).toString();
 
-                    LOGGER.trace("[{}] Received {} bytes, starting {}, into byteBuffer[{}] from peer {}",
-                            this.peerConnectionId, bytesRead, leadingHex, priorPosition, this);
-                } else {
-                    LOGGER.trace("[{}] Received {} bytes into byteBuffer[{}] from peer {}", this.peerConnectionId,
-                            bytesRead, priorPosition, this);
+                        LOGGER.trace("[{}] Received {} bytes, starting {}, into byteBuffer[{}] from peer {}",
+                                this.peerConnectionId, bytesRead, leadingHex, priorPosition, this);
+                    } else {
+                        LOGGER.trace("[{}] Received {} bytes into byteBuffer[{}] from peer {}", this.peerConnectionId,
+                                bytesRead, priorPosition, this);
+                    }
                 }
                 final boolean wasByteBufferFull = !this.byteBuffer.hasRemaining();
 

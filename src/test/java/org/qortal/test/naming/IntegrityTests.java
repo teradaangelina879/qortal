@@ -11,7 +11,11 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
+import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.transaction.Transaction;
+import org.qortal.utils.NTP;
+
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -31,6 +35,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -46,6 +51,96 @@ public class IntegrityTests extends Common {
     }
 
     @Test
+    public void testBlankReducedName() throws DataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            // Register-name
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String name = "\uD83E\uDD73"; // Translates to a reducedName of ""
+            String data = "\uD83E\uDD73";
+
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Ensure the name exists and the data is correct
+            assertEquals(data, repository.getNameRepository().fromName(name).getData());
+
+            // Ensure the reducedName is blank
+            assertEquals("", repository.getNameRepository().fromName(name).getReducedName());
+
+            // Run the database integrity check for this name
+            NamesDatabaseIntegrityCheck integrityCheck = new NamesDatabaseIntegrityCheck();
+            assertEquals(1, integrityCheck.rebuildName(name, repository));
+
+            // Ensure the name still exists and the data is still correct
+            assertEquals(data, repository.getNameRepository().fromName(name).getData());
+            assertEquals("", repository.getNameRepository().fromName(name).getReducedName());
+        }
+    }
+
+    @Test
+    public void testUpdateWithBlankNewName() throws DataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            // Register-name to Alice
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String name = "initial_name";
+            String data = "initial_data";
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Update the name, but keep the new name blank
+            String newName = "";
+            String newData = "updated_data";
+            UpdateNameTransactionData updateTransactionData = new UpdateNameTransactionData(TestTransaction.generateBase(alice), name, newName, newData);
+            TransactionUtils.signAndMint(repository, updateTransactionData, alice);
+
+            // Ensure the original name exists and the data is correct
+            assertEquals(name, repository.getNameRepository().fromName(name).getName());
+            assertEquals(newData, repository.getNameRepository().fromName(name).getData());
+
+            // Run the database integrity check for this name
+            NamesDatabaseIntegrityCheck integrityCheck = new NamesDatabaseIntegrityCheck();
+            assertEquals(2, integrityCheck.rebuildName(name, repository));
+
+            // Ensure the name still exists and the data is still correct
+            assertEquals(name, repository.getNameRepository().fromName(name).getName());
+            assertEquals(newData, repository.getNameRepository().fromName(name).getData());
+        }
+    }
+
+    @Test
+    public void testUpdateWithBlankNewNameAndBlankEmojiName() throws DataException {
+        // Attempt to simulate a real world problem where an emoji with blank reducedName
+        // confused the integrity check by associating it with previous UPDATE_NAME transactions
+        // due to them also having a blank "newReducedName"
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            // Register-name to Alice
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String name = "initial_name";
+            String data = "initial_data";
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Update the name, but keep the new name blank
+            String newName = "";
+            String newData = "updated_data";
+            UpdateNameTransactionData updateTransactionData = new UpdateNameTransactionData(TestTransaction.generateBase(alice), name, newName, newData);
+            TransactionUtils.signAndMint(repository, updateTransactionData, alice);
+
+            // Register emoji name
+            String emojiName = "\uD83E\uDD73"; // Translates to a reducedName of ""
+
+            // Ensure that the initial_name isn't associated with the emoji name
+            NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
+            List<TransactionData> transactions = namesDatabaseIntegrityCheck.fetchAllTransactionsInvolvingName(emojiName, repository);
+            assertEquals(0, transactions.size());
+        }
+    }
+
+    @Test
     public void testMissingName() throws DataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             // Register-name
@@ -54,6 +149,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -83,6 +179,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -121,6 +218,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -146,6 +244,7 @@ public class IntegrityTests extends Common {
 
             // Attempt to register the new name
             transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), newName, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             Transaction transaction = Transaction.fromData(repository, transactionData);
             transaction.sign(alice);
 
@@ -165,6 +264,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -179,6 +279,7 @@ public class IntegrityTests extends Common {
             // Attempt to register the name again
             String duplicateName = "TEST-nÁme";
             transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), duplicateName, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             Transaction transaction = Transaction.fromData(repository, transactionData);
             transaction.sign(alice);
 
@@ -198,6 +299,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -231,6 +333,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -240,6 +343,7 @@ public class IntegrityTests extends Common {
             String secondName = "new-missing-name";
             String secondNameData = "{\"data2\":true}";
             transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), secondName, secondNameData);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the second name exists and the data is correct
@@ -273,6 +377,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -304,6 +409,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct

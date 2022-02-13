@@ -41,7 +41,7 @@ public class ArbitraryDataManager extends Thread {
 	public static final long ARBITRARY_REQUEST_TIMEOUT = 10 * 1000L; // ms
 
 	/** Maximum time to hold information about an in-progress relay */
-	public static final long ARBITRARY_RELAY_TIMEOUT = 30 * 1000L; // ms
+	public static final long ARBITRARY_RELAY_TIMEOUT = 60 * 1000L; // ms
 
 	/** Maximum number of hops that an arbitrary signatures request is allowed to make */
 	private static int ARBITRARY_SIGNATURES_REQUEST_MAX_HOPS = 3;

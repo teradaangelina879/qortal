@@ -30,13 +30,21 @@ public class ArbitraryResourceStatus {
     private String title;
     private String description;
 
+    private Integer localChunkCount;
+    private Integer totalChunkCount;
+
     public ArbitraryResourceStatus() {
     }
 
-    public ArbitraryResourceStatus(Status status) {
+    public ArbitraryResourceStatus(Status status, Integer localChunkCount, Integer totalChunkCount) {
         this.id = status.toString();
         this.title = status.title;
         this.description = status.description;
+        this.localChunkCount = localChunkCount;
+        this.totalChunkCount = totalChunkCount;
     }
 
+    public ArbitraryResourceStatus(Status status) {
+        this(status, null, null);
+    }
 }

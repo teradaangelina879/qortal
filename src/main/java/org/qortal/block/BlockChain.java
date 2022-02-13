@@ -68,8 +68,14 @@ public class BlockChain {
 		atFindNextTransactionFix,
 		newBlockSigHeight,
 		shareBinFix,
-		calcChainWeightTimestamp;
+		calcChainWeightTimestamp,
+		transactionV5Timestamp;
 	}
+
+	// Custom transaction fees
+	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+	private long nameRegistrationUnitFee;
+	private long nameRegistrationUnitFeeTimestamp;
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
 	@XmlJavaTypeAdapter(StringLongMapXmlAdapter.class)
@@ -141,7 +147,8 @@ public class BlockChain {
 	}
 	private List<BlockTimingByHeight> blockTimingsByHeight;
 
-	private int minAccountLevelToMint = 1;
+	private int minAccountLevelToMint;
+	private int minAccountLevelForBlockSubmissions;
 	private int minAccountLevelToRewardShare;
 	private int maxRewardSharesPerMintingAccount;
 	private int founderEffectiveMintingLevel;
@@ -299,6 +306,16 @@ public class BlockChain {
 		return this.maxBlockSize;
 	}
 
+	// Custom transaction fees
+	public long getNameRegistrationUnitFee() {
+		return this.nameRegistrationUnitFee;
+	}
+
+	public long getNameRegistrationUnitFeeTimestamp() {
+		// FUTURE: we could use a separate structure to indicate fee adjustments for different transaction types
+		return this.nameRegistrationUnitFeeTimestamp;
+	}
+
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
 	public boolean getRequireGroupForApproval() {
 		return this.requireGroupForApproval;
@@ -344,6 +361,10 @@ public class BlockChain {
 		return this.minAccountLevelToMint;
 	}
 
+	public int getMinAccountLevelForBlockSubmissions() {
+		return this.minAccountLevelForBlockSubmissions;
+	}
+
 	public int getMinAccountLevelToRewardShare() {
 		return this.minAccountLevelToRewardShare;
 	}
@@ -384,6 +405,10 @@ public class BlockChain {
 
 	public long getCalcChainWeightTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.calcChainWeightTimestamp.name()).longValue();
+	}
+
+	public long getTransactionV5Timestamp() {
+		return this.featureTriggers.get(FeatureTrigger.transactionV5Timestamp.name()).longValue();
 	}
 
 	// More complex getters for aspects that change by height or timestamp

@@ -1,6 +1,8 @@
 package org.qortal.controller;
 
 import java.math.BigInteger;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -16,11 +18,11 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.block.Block;
 import org.qortal.block.Block.ValidationResult;
 import org.qortal.block.BlockChain;
-import org.qortal.data.account.AccountData;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
+import org.qortal.data.block.CommonBlockData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
@@ -47,11 +49,6 @@ public class BlockMinter extends Thread {
 
 	// Recovery
 	public static final long INVALID_BLOCK_RECOVERY_TIMEOUT = 10 * 60 * 1000L; // ms
-
-	// Min account level to submit blocks
-	// This is an unvalidated version of Blockchain.minAccountLevelToMint
-	// and exists only to reduce block candidates by default.
-	private static int MIN_LEVEL_FOR_BLOCK_SUBMISSION = 3;
 
 	// Constructors
 
@@ -80,6 +77,10 @@ public class BlockMinter extends Thread {
 			// Going to need this a lot...
 			BlockRepository blockRepository = repository.getBlockRepository();
 			BlockData previousBlockData = null;
+
+			// Vars to keep track of blocks that were skipped due to chain weight
+			byte[] parentSignatureForLastLowWeightBlock = null;
+			Long timeOfLastLowWeightBlock = null;
 
 			List<Block> newBlocks = new ArrayList<>();
 
@@ -137,14 +138,13 @@ public class BlockMinter extends Thread {
 						continue;
 					}
 
-					// Optional (non-validated) prevention of block submissions below a defined level
-					AccountData accountData = repository.getAccountRepository().getAccount(mintingAccount.getAddress());
-					if (accountData != null) {
-						Integer level = accountData.getLevel();
-						if (level != null && level < MIN_LEVEL_FOR_BLOCK_SUBMISSION) {
-							madi.remove();
-							continue;
-						}
+					// Optional (non-validated) prevention of block submissions below a defined level.
+					// This is an unvalidated version of Blockchain.minAccountLevelToMint
+					// and exists only to reduce block candidates by default.
+					int level = mintingAccount.getEffectiveMintingLevel();
+					if (level < BlockChain.getInstance().getMinAccountLevelForBlockSubmissions()) {
+						madi.remove();
+						continue;
 					}
 				}
 
@@ -156,7 +156,7 @@ public class BlockMinter extends Thread {
 
 				// Disregard peers that don't have a recent block, but only if we're not in recovery mode.
 				// In that mode, we want to allow minting on top of older blocks, to recover stalled networks.
-				if (Controller.getInstance().getRecoveryMode() == false)
+				if (Synchronizer.getInstance().getRecoveryMode() == false)
 					peers.removeIf(Controller.hasNoRecentBlock);
 
 				// Don't mint if we don't have enough up-to-date peers as where would the transactions/consensus come from?
@@ -181,7 +181,7 @@ public class BlockMinter extends Thread {
 
 				// If our latest block isn't recent then we need to synchronize instead of minting, unless we're in recovery mode.
 				if (!peers.isEmpty() && lastBlockData.getTimestamp() < minLatestBlockTimestamp)
-					if (Controller.getInstance().getRecoveryMode() == false && recoverInvalidBlock == false)
+					if (Synchronizer.getInstance().getRecoveryMode() == false && recoverInvalidBlock == false)
 						continue;
 
 				// There are enough peers with a recent block and our latest block is recent
@@ -195,6 +195,9 @@ public class BlockMinter extends Thread {
 
 					// Reduce log timeout
 					logTimeout = 10 * 1000L;
+
+					// Last low weight block is no longer valid
+					parentSignatureForLastLowWeightBlock = null;
 				}
 
 				// Discard accounts we have already built blocks with
@@ -209,6 +212,14 @@ public class BlockMinter extends Thread {
 				if (mintedLastBlock) {
 					LOGGER.trace(String.format("One of our keys signed the last block, so we won't sign the next one"));
 					continue;
+				}
+
+				if (parentSignatureForLastLowWeightBlock != null) {
+					// The last iteration found a higher weight block in the network, so sleep for a while
+					// to allow is to sync the higher weight chain. We are sleeping here rather than when
+					// detected as we don't want to hold the blockchain lock open.
+					LOGGER.info("Sleeping for 10 seconds...");
+					Thread.sleep(10 * 1000L);
 				}
 
 				for (PrivateKeyAccount mintingAccount : newBlocksMintingAccounts) {
@@ -301,6 +312,44 @@ public class BlockMinter extends Thread {
 							bestWeight = blockWeight;
 						}
 					}
+
+					try {
+						if (this.higherWeightChainExists(repository, bestWeight)) {
+
+							// Check if the base block has updated since the last time we were here
+							if (parentSignatureForLastLowWeightBlock == null || timeOfLastLowWeightBlock == null ||
+									!Arrays.equals(parentSignatureForLastLowWeightBlock, previousBlockData.getSignature())) {
+								// We've switched to a different chain, so reset the timer
+								timeOfLastLowWeightBlock = NTP.getTime();
+							}
+							parentSignatureForLastLowWeightBlock = previousBlockData.getSignature();
+
+							// If less than 30 seconds has passed since first detection the higher weight chain,
+							// we should skip our block submission to give us the opportunity to sync to the better chain
+							if (NTP.getTime() - timeOfLastLowWeightBlock < 30*1000L) {
+								LOGGER.info("Higher weight chain found in peers, so not signing a block this round");
+								LOGGER.info("Time since detected: {}", NTP.getTime() - timeOfLastLowWeightBlock);
+								continue;
+							}
+							else {
+								// More than 30 seconds have passed, so we should submit our block candidate anyway.
+								LOGGER.info("More than 30 seconds passed, so proceeding to submit block candidate...");
+							}
+						}
+						else {
+							LOGGER.debug("No higher weight chain found in peers");
+						}
+					} catch (DataException e) {
+						LOGGER.debug("Unable to check for a higher weight chain. Proceeding anyway...");
+					}
+
+					// Discard any uncommitted changes as a result of the higher weight chain detection
+					repository.discardChanges();
+
+					// Clear variables that track low weight blocks
+					parentSignatureForLastLowWeightBlock = null;
+					timeOfLastLowWeightBlock = null;
+
 
 					// Add unconfirmed transactions
 					addUnconfirmedTransactions(repository, newBlock);
@@ -469,6 +518,61 @@ public class BlockMinter extends Thread {
 		}
 	}
 
+	private BigInteger getOurChainWeightSinceBlock(Repository repository, BlockSummaryData commonBlock, List<BlockSummaryData> peerBlockSummaries) throws DataException {
+		final int commonBlockHeight = commonBlock.getHeight();
+		final byte[] commonBlockSig = commonBlock.getSignature();
+		int mutualHeight = commonBlockHeight;
+
+		// Fetch our corresponding block summaries
+		final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
+		List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository()
+				.getBlockSummaries(commonBlockHeight + 1, ourLatestBlockData.getHeight());
+		if (!ourBlockSummaries.isEmpty()) {
+			Synchronizer.getInstance().populateBlockSummariesMinterLevels(repository, ourBlockSummaries);
+		}
+
+		if (ourBlockSummaries != null && peerBlockSummaries != null) {
+			mutualHeight += Math.min(ourBlockSummaries.size(), peerBlockSummaries.size());
+		}
+		return Block.calcChainWeight(commonBlockHeight, commonBlockSig, ourBlockSummaries, mutualHeight);
+	}
+
+	private boolean higherWeightChainExists(Repository repository, BigInteger blockCandidateWeight) throws DataException {
+		if (blockCandidateWeight == null) {
+			// Can't make decisions without knowing the block candidate weight
+			return false;
+		}
+		NumberFormat formatter = new DecimalFormat("0.###E0");
+
+		List<Peer> peers = Network.getInstance().getHandshakedPeers();
+		// Loop through handshaked peers and check for any new block candidates
+		for (Peer peer : peers) {
+			if (peer.getCommonBlockData() != null && peer.getCommonBlockData().getCommonBlockSummary() != null) {
+				// This peer has common block data
+				CommonBlockData commonBlockData = peer.getCommonBlockData();
+				BlockSummaryData commonBlockSummaryData = commonBlockData.getCommonBlockSummary();
+				if (commonBlockData.getChainWeight() != null) {
+					// The synchronizer has calculated this peer's chain weight
+					BigInteger ourChainWeightSinceCommonBlock = this.getOurChainWeightSinceBlock(repository, commonBlockSummaryData, commonBlockData.getBlockSummariesAfterCommonBlock());
+					BigInteger ourChainWeight = ourChainWeightSinceCommonBlock.add(blockCandidateWeight);
+					BigInteger peerChainWeight = commonBlockData.getChainWeight();
+					if (peerChainWeight.compareTo(ourChainWeight) >= 0) {
+						// This peer has a higher weight chain than ours
+						LOGGER.debug("Peer {} is on a higher weight chain ({}) than ours ({})", peer, formatter.format(peerChainWeight), formatter.format(ourChainWeight));
+						return true;
+
+					} else {
+						LOGGER.debug("Peer {} is on a lower weight chain ({}) than ours ({})", peer, formatter.format(peerChainWeight), formatter.format(ourChainWeight));
+					}
+				} else {
+					LOGGER.debug("Peer {} has no chain weight", peer);
+				}
+			} else {
+				LOGGER.debug("Peer {} has no common block data", peer);
+			}
+		}
+		return false;
+	}
 	private static void moderatedLog(Runnable logFunction) {
 		// We only log if logging at TRACE or previous log timeout has expired
 		if (!LOGGER.isTraceEnabled() && lastLogTimestamp != null && lastLogTimestamp + logTimeout > System.currentTimeMillis())

@@ -61,6 +61,9 @@ public class ArbitraryDataCache {
         }
 
         // No need to invalidate the cache
+        // Remember that it's up to date, so that we won't check again for a while
+        ArbitraryDataManager.getInstance().addResourceToCache(this.getArbitraryDataResource());
+
         return false;
     }
 
@@ -84,14 +87,7 @@ public class ArbitraryDataCache {
 
         // If the state's sig doesn't match the latest transaction's sig, we need to invalidate
         // This means that an updated layer is available
-        if (this.shouldInvalidateDueToSignatureMismatch()) {
-
-            // Add to the in-memory cache first, so that we won't check again for a while
-            ArbitraryDataManager.getInstance().addResourceToCache(this.getArbitraryDataResource());
-            return true;
-        }
-
-        return false;
+        return this.shouldInvalidateDueToSignatureMismatch();
     }
 
     /**

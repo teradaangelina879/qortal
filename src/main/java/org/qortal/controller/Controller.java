@@ -7,25 +7,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.SecureRandom;
 import java.security.Security;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -51,7 +40,6 @@ import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.arbitrary.*;
-import org.qortal.controller.Synchronizer.SynchronizationResult;
 import org.qortal.controller.repository.PruneManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.controller.tradebot.TradeBot;
@@ -93,14 +81,22 @@ public class Controller extends Thread {
 	public static final String VERSION_PREFIX = "qortal-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
-	private static final long MISBEHAVIOUR_COOLOFF = 10 * 60 * 1000L; // ms
+	public static final long MISBEHAVIOUR_COOLOFF = 10 * 60 * 1000L; // ms
 	private static final int MAX_BLOCKCHAIN_TIP_AGE = 5; // blocks
 	private static final Object shutdownLock = new Object();
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s" + File.separator + "blockchain;create=true;hsqldb.full_log_replay=true";
 	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000L; // ms
 	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000L; // ms
 	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000L; // ms
-	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000L; // ms
+	private static final int MAX_INCOMING_TRANSACTIONS = 5000;
+
+	/** Minimum time before considering an invalid unconfirmed transaction as "stale" */
+	public static final long INVALID_TRANSACTION_STALE_TIMEOUT = 30 * 60 * 1000L; // ms
+	/** Minimum frequency to re-request stale unconfirmed transactions from peers, to recheck validity */
+	public static final long INVALID_TRANSACTION_RECHECK_INTERVAL = 60 * 60 * 1000L; // ms\
+	/** Minimum frequency to re-request expired unconfirmed transactions from peers, to recheck validity
+	 * This mainly exists to stop expired transactions from bloating the list */
+	public static final long EXPIRED_TRANSACTION_RECHECK_INTERVAL = 10 * 60 * 1000L; // ms
 
 	// To do with online accounts list
 	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
@@ -112,7 +108,6 @@ public class Controller extends Thread {
 
 	private static volatile boolean isStopping = false;
 	private static BlockMinter blockMinter = null;
-	private static volatile boolean requestSync = false;
 	private static volatile boolean requestSysTrayUpdate = true;
 	private static Controller instance;
 
@@ -146,20 +141,11 @@ public class Controller extends Thread {
 	/** Whether we can mint new blocks, as reported by BlockMinter. */
 	private volatile boolean isMintingPossible = false;
 
-	/** Synchronization object for sync variables below */
-	private final Object syncLock = new Object();
-	/** Whether we are attempting to synchronize. */
-	private volatile boolean isSynchronizing = false;
-	/** Temporary estimate of synchronization progress for SysTray use. */
-	private volatile int syncPercent = 0;
+	/** List of incoming transaction that are in the import queue */
+	private List<TransactionData> incomingTransactions = Collections.synchronizedList(new ArrayList<>());
 
-	/** Latest block signatures from other peers that we know are on inferior chains. */
-	List<ByteArray> inferiorChainSignatures = new ArrayList<>();
-
-	/** Recovery mode, which is used to bring back a stalled network */
-	private boolean recoveryMode = false;
-	private boolean peersAvailable = true; // peersAvailable must default to true
-	private long timePeersLastAvailable = 0;
+	/** List of recent invalid unconfirmed transactions */
+	private Map<String, Long> invalidUnconfirmedTransactions = Collections.synchronizedMap(new HashMap<>());
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly minted block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
@@ -358,20 +344,6 @@ public class Controller extends Thread {
 		return this.isMintingPossible;
 	}
 
-	public boolean isSynchronizing() {
-		return this.isSynchronizing;
-	}
-
-	public Integer getSyncPercent() {
-		synchronized (this.syncLock) {
-			return this.isSynchronizing ? this.syncPercent : null;
-		}
-	}
-
-	public boolean getRecoveryMode() {
-		return this.recoveryMode;
-	}
-
 	// Entry point
 
 	public static void main(String[] args) {
@@ -476,6 +448,9 @@ public class Controller extends Thread {
 			}
 		});
 
+		LOGGER.info("Starting synchronizer");
+		Synchronizer.getInstance().start();
+
 		LOGGER.info("Starting block minter");
 		blockMinter = new BlockMinter();
 		blockMinter.start();
@@ -486,6 +461,7 @@ public class Controller extends Thread {
 		// Arbitrary data controllers
 		LOGGER.info("Starting arbitrary-transaction controllers");
 		ArbitraryDataManager.getInstance().start();
+		ArbitraryDataFileManager.getInstance().start();
 		ArbitraryDataBuildManager.getInstance().start();
 		ArbitraryDataCleanupManager.getInstance().start();
 		ArbitraryDataStorageManager.getInstance().start();
@@ -548,7 +524,7 @@ public class Controller extends Thread {
 
 	@Override
 	public void run() {
-		Thread.currentThread().setName("Controller");
+		Thread.currentThread().setName("Qortal");
 
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
 		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
@@ -588,10 +564,10 @@ public class Controller extends Thread {
 					}
 				}
 
-				if (requestSync) {
-					requestSync = false;
-					potentiallySynchronize();
-				}
+				// Process incoming transactions queue
+				processIncomingTransactionsQueue();
+				// Clean up invalid incoming transactions list
+				cleanupInvalidTransactionsList(now);
 
 				// Clean up arbitrary data request cache
 				ArbitraryDataManager.getInstance().cleanupRequestCache(now);
@@ -717,27 +693,6 @@ public class Controller extends Thread {
 		}
 	}
 
-	private long getRandomRepositoryMaintenanceInterval() {
-		final long minInterval = Settings.getInstance().getRepositoryMaintenanceMinInterval();
-		final long maxInterval = Settings.getInstance().getRepositoryMaintenanceMaxInterval();
-		if (maxInterval == 0) {
-			return 0;
-		}
-		return (new Random().nextLong() % (maxInterval - minInterval)) + minInterval;
-	}
-
-	/**
-	 * Export current trade bot states and minting accounts.
-	 */
-	public void exportRepositoryData() {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			repository.exportNodeLocalData();
-
-		} catch (DataException e) {
-			// Fail silently as this is an optional step
-		}
-	}
-
 	public static final Predicate<Peer> hasMisbehaved = peer -> {
 		final Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
 		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
@@ -762,7 +717,7 @@ public class Controller extends Thread {
 
 	public static final Predicate<Peer> hasInferiorChainTip = peer -> {
 		final PeerChainTipData peerChainTipData = peer.getChainTipData();
-		final List<ByteArray> inferiorChainTips = getInstance().inferiorChainSignatures;
+		final List<ByteArray> inferiorChainTips = Synchronizer.getInstance().inferiorChainSignatures;
 		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || inferiorChainTips.contains(new ByteArray(peerChainTipData.getLastBlockSignature()));
 	};
 
@@ -771,218 +726,34 @@ public class Controller extends Thread {
 		return peer.isAtLeastVersion(minPeerVersion) == false;
 	};
 
-	private void potentiallySynchronize() throws InterruptedException {
-		// Already synchronizing via another thread?
-		if (this.isSynchronizing)
-			return;
-
-		List<Peer> peers = Network.getInstance().getHandshakedPeers();
-
-		// Disregard peers that have "misbehaved" recently
-		peers.removeIf(hasMisbehaved);
-
-		// Disregard peers that only have genesis block
-		peers.removeIf(hasOnlyGenesisBlock);
-
-		// Disregard peers that don't have a recent block
-		peers.removeIf(hasNoRecentBlock);
-
-		// Disregard peers that are on an old version
-		peers.removeIf(hasOldVersion);
-
-		checkRecoveryModeForPeers(peers);
-		if (recoveryMode) {
-			peers = Network.getInstance().getHandshakedPeers();
-			peers.removeIf(hasOnlyGenesisBlock);
-			peers.removeIf(hasMisbehaved);
-			peers.removeIf(hasOldVersion);
+	private long getRandomRepositoryMaintenanceInterval() {
+		final long minInterval = Settings.getInstance().getRepositoryMaintenanceMinInterval();
+		final long maxInterval = Settings.getInstance().getRepositoryMaintenanceMaxInterval();
+		if (maxInterval == 0) {
+			return 0;
 		}
-
-		// Check we have enough peers to potentially synchronize
-		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
-			return;
-
-		// Disregard peers that have no block signature or the same block signature as us
-		peers.removeIf(hasNoOrSameBlock);
-
-		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
-		peers.removeIf(hasInferiorChainTip);
-
-		final int peersBeforeComparison = peers.size();
-
-		// Request recent block summaries from the remaining peers, and locate our common block with each
-		Synchronizer.getInstance().findCommonBlocksWithPeers(peers);
-
-		// Compare the peers against each other, and against our chain, which will return an updated list excluding those without common blocks
-		peers = Synchronizer.getInstance().comparePeers(peers);
-
-		// We may have added more inferior chain tips when comparing peers, so remove any peers that are currently on those chains
-		peers.removeIf(hasInferiorChainTip);
-
-		final int peersRemoved = peersBeforeComparison - peers.size();
-		if (peersRemoved > 0 && peers.size() > 0)
-			LOGGER.debug(String.format("Ignoring %d peers on inferior chains. Peers remaining: %d", peersRemoved, peers.size()));
-
-		if (peers.isEmpty())
-			return;
-
-		if (peers.size() > 1) {
-			StringBuilder finalPeersString = new StringBuilder();
-			for (Peer peer : peers)
-				finalPeersString = finalPeersString.length() > 0 ? finalPeersString.append(", ").append(peer) : finalPeersString.append(peer);
-			LOGGER.debug(String.format("Choosing random peer from: [%s]", finalPeersString.toString()));
-		}
-
-		// Pick random peer to sync with
-		int index = new SecureRandom().nextInt(peers.size());
-		Peer peer = peers.get(index);
-
-		actuallySynchronize(peer, false);
+		return (new Random().nextLong() % (maxInterval - minInterval)) + minInterval;
 	}
 
-	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
-		boolean hasStatusChanged = false;
-		BlockData priorChainTip = this.getChainTip();
+	/**
+	 * Export current trade bot states and minting accounts.
+	 */
+	public void exportRepositoryData() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			repository.exportNodeLocalData();
 
-		synchronized (this.syncLock) {
-			this.syncPercent = (priorChainTip.getHeight() * 100) / peer.getChainTipData().getLastHeight();
-
-			// Only update SysTray if we're potentially changing height
-			if (this.syncPercent < 100) {
-				this.isSynchronizing = true;
-				hasStatusChanged = true;
-			}
-		}
-		peer.setSyncInProgress(true);
-
-		if (hasStatusChanged)
-			updateSysTray();
-
-		try {
-			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, force);
-			switch (syncResult) {
-				case GENESIS_ONLY:
-				case NO_COMMON_BLOCK:
-				case TOO_DIVERGENT:
-				case INVALID_DATA: {
-					// These are more serious results that warrant a cool-off
-					LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
-
-					// Don't use this peer again for a while
-					Network.getInstance().peerMisbehaved(peer);
-					break;
-				}
-
-				case INFERIOR_CHAIN: {
-					// Update our list of inferior chain tips
-					ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
-					if (!inferiorChainSignatures.contains(inferiorChainSignature))
-						inferiorChainSignatures.add(inferiorChainSignature);
-
-					// These are minor failure results so fine to try again
-					LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
-
-					// Notify peer of our superior chain
-					if (!peer.sendMessage(Network.getInstance().buildHeightMessage(peer, priorChainTip)))
-						peer.disconnect("failed to notify peer of our superior chain");
-					break;
-				}
-
-				case NO_REPLY:
-				case NO_BLOCKCHAIN_LOCK:
-				case REPOSITORY_ISSUE:
-					// These are minor failure results so fine to try again
-					LOGGER.debug(() -> String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
-					break;
-
-				case SHUTTING_DOWN:
-					// Just quietly exit
-					break;
-
-				case OK:
-					// fall-through...
-				case NOTHING_TO_DO: {
-					// Update our list of inferior chain tips
-					ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
-					if (!inferiorChainSignatures.contains(inferiorChainSignature))
-						inferiorChainSignatures.add(inferiorChainSignature);
-
-					LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
-					break;
-				}
-			}
-
-			// Has our chain tip changed?
-			BlockData newChainTip;
-
-			try (final Repository repository = RepositoryManager.getRepository()) {
-				newChainTip = repository.getBlockRepository().getLastBlock();
-			} catch (DataException e) {
-				LOGGER.warn(String.format("Repository issue when trying to fetch post-synchronization chain tip: %s", e.getMessage()));
-				return syncResult;
-			}
-
-			if (!Arrays.equals(newChainTip.getSignature(), priorChainTip.getSignature())) {
-				// Reset our cache of inferior chains
-				inferiorChainSignatures.clear();
-
-				Network network = Network.getInstance();
-				network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newChainTip));
-			}
-
-			return syncResult;
-		} finally {
-			isSynchronizing = false;
-			peer.setSyncInProgress(false);
+		} catch (DataException e) {
+			// Fail silently as this is an optional step
 		}
 	}
 
-	private boolean checkRecoveryModeForPeers(List<Peer> qualifiedPeers) {
-		List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
-
-		if (handshakedPeers.size() > 0) {
-			// There is at least one handshaked peer
-			if (qualifiedPeers.isEmpty()) {
-				// There are no 'qualified' peers - i.e. peers that have a recent block we can sync to
-				boolean werePeersAvailable = peersAvailable;
-				peersAvailable = false;
-
-				// If peers only just became unavailable, update our record of the time they were last available
-				if (werePeersAvailable)
-					timePeersLastAvailable = NTP.getTime();
-
-				// If enough time has passed, enter recovery mode, which lifts some restrictions on who we can sync with and when we can mint
-				if (NTP.getTime() - timePeersLastAvailable > RECOVERY_MODE_TIMEOUT) {
-					if (recoveryMode == false) {
-						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", RECOVERY_MODE_TIMEOUT/60/1000));
-						recoveryMode = true;
-					}
-				}
-			} else {
-				// We now have at least one peer with a recent block, so we can exit recovery mode and sync normally
-				peersAvailable = true;
-				if (recoveryMode) {
-					LOGGER.info("Peers have become available again. Exiting recovery mode...");
-					recoveryMode = false;
-				}
-			}
-		}
-		return recoveryMode;
-	}
-
-	public void addInferiorChainSignature(byte[] inferiorSignature) {
-		// Update our list of inferior chain tips
-		ByteArray inferiorChainSignature = new ByteArray(inferiorSignature);
-		if (!inferiorChainSignatures.contains(inferiorChainSignature))
-			inferiorChainSignatures.add(inferiorChainSignature);
-	}
 
 	public static class StatusChangeEvent implements Event {
 		public StatusChangeEvent() {
 		}
 	}
 
-	private void updateSysTray() {
+	public void updateSysTray() {
 		if (NTP.getTime() == null) {
 			SysTray.getInstance().setToolTipText(Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_CLOCK"));
 			SysTray.getInstance().setTrayIcon(1);
@@ -998,13 +769,13 @@ public class Controller extends Thread {
 
 		String actionText;
 
-		synchronized (this.syncLock) {
+		synchronized (Synchronizer.getInstance().syncLock) {
 			if (this.isMintingPossible) {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
 				SysTray.getInstance().setTrayIcon(2);
 			}
-			else if (this.isSynchronizing) {
-				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), this.syncPercent);
+			else if (Synchronizer.getInstance().isSynchronizing()) {
+				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), Synchronizer.getInstance().getSyncPercent());
 				SysTray.getInstance().setTrayIcon(3);
 			}
 			else if (numberOfPeers < Settings.getInstance().getMinBlockchainPeers()) {
@@ -1060,12 +831,130 @@ public class Controller extends Thread {
 		}
 	}
 
+	// Incoming transactions queue
+
+	private boolean incomingTransactionQueueContains(byte[] signature) {
+		synchronized (incomingTransactions) {
+			return incomingTransactions.stream().anyMatch(t -> Arrays.equals(t.getSignature(), signature));
+		}
+	}
+
+	private void removeIncomingTransaction(byte[] signature) {
+		incomingTransactions.removeIf(t -> Arrays.equals(t.getSignature(), signature));
+	}
+
+	private void processIncomingTransactionsQueue() {
+		if (this.incomingTransactions.size() == 0) {
+			// Don't bother locking if there are no new transactions to process
+			return;
+		}
+
+		if (Synchronizer.getInstance().isSyncRequested() || Synchronizer.getInstance().isSynchronizing()) {
+			// Prioritize syncing, and don't attempt to lock
+			return;
+		}
+
+		try {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+			if (!blockchainLock.tryLock(2, TimeUnit.SECONDS)) {
+				LOGGER.trace(() -> String.format("Too busy to process incoming transactions queue"));
+				return;
+			}
+		} catch (InterruptedException e) {
+			LOGGER.info("Interrupted when trying to acquire blockchain lock");
+			return;
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			LOGGER.debug("Processing incoming transactions queue (size {})...", this.incomingTransactions.size());
+
+			// Take a copy of incomingTransactions so we can release the lock
+			List<TransactionData>incomingTransactionsCopy = new ArrayList<>(this.incomingTransactions);
+
+			// Iterate through incoming transactions list
+			Iterator iterator = incomingTransactionsCopy.iterator();
+			while (iterator.hasNext()) {
+				if (isStopping) {
+					return;
+				}
+
+				if (Synchronizer.getInstance().isSyncRequestPending()) {
+					LOGGER.debug("Breaking out of transaction processing loop with {} remaining, because a sync request is pending", incomingTransactionsCopy.size());
+					return;
+				}
+
+				TransactionData transactionData = (TransactionData) iterator.next();
+				Transaction transaction = Transaction.fromData(repository, transactionData);
+
+				// Check signature
+				if (!transaction.isSignatureValid()) {
+					LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature", transactionData.getType().name(), Base58.encode(transactionData.getSignature())));
+					removeIncomingTransaction(transactionData.getSignature());
+					continue;
+				}
+
+				ValidationResult validationResult = transaction.importAsUnconfirmed();
+
+				if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
+					LOGGER.trace(() -> String.format("Ignoring existing transaction %s", Base58.encode(transactionData.getSignature())));
+					removeIncomingTransaction(transactionData.getSignature());
+					continue;
+				}
+
+				if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
+					LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction", Base58.encode(transactionData.getSignature())));
+					removeIncomingTransaction(transactionData.getSignature());
+					continue;
+				}
+
+				if (validationResult != ValidationResult.OK) {
+					final String signature58 = Base58.encode(transactionData.getSignature());
+					LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), signature58));
+					Long now = NTP.getTime();
+					if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
+						Long expiryLength = INVALID_TRANSACTION_RECHECK_INTERVAL;
+						if (validationResult == ValidationResult.TIMESTAMP_TOO_OLD) {
+							// Use shorter recheck interval for expired transactions
+							expiryLength = EXPIRED_TRANSACTION_RECHECK_INTERVAL;
+						}
+						Long expiry = now + expiryLength;
+						LOGGER.debug("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", signature58);
+						// Invalid, unconfirmed transaction has become stale - add to invalidUnconfirmedTransactions so that we don't keep requesting it
+						invalidUnconfirmedTransactions.put(signature58, expiry);
+					}
+					removeIncomingTransaction(transactionData.getSignature());
+					continue;
+				}
+
+				LOGGER.debug(() -> String.format("Imported %s transaction %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature())));
+				removeIncomingTransaction(transactionData.getSignature());
+			}
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while processing incoming transactions", e));
+		} finally {
+			LOGGER.debug("Finished processing incoming transactions queue");
+			blockchainLock.unlock();
+		}
+	}
+
+	private void cleanupInvalidTransactionsList(Long now) {
+		if (now == null) {
+			return;
+		}
+		// Periodically remove invalid unconfirmed transactions from the list, so that they can be fetched again
+		invalidUnconfirmedTransactions.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < now);
+	}
+
+
 	// Shutdown
 
 	public void shutdown() {
 		synchronized (shutdownLock) {
 			if (!isStopping) {
 				isStopping = true;
+
+				LOGGER.info("Shutting down synchronizer");
+				Synchronizer.getInstance().shutdown();
 
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();
@@ -1078,6 +967,7 @@ public class Controller extends Thread {
 				// Arbitrary data controllers
 				LOGGER.info("Shutting down arbitrary-transaction controllers");
 				ArbitraryDataManager.getInstance().shutdown();
+				ArbitraryDataFileManager.getInstance().shutdown();
 				ArbitraryDataBuildManager.getInstance().shutdown();
 				ArbitraryDataCleanupManager.getInstance().shutdown();
 				ArbitraryDataStorageManager.getInstance().shutdown();
@@ -1108,11 +998,27 @@ public class Controller extends Thread {
 					// We were interrupted while waiting for thread to join
 				}
 
+				// Make sure we're the only thread modifying the blockchain when shutting down the repository
+				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+				try {
+					if (!blockchainLock.tryLock(5, TimeUnit.SECONDS)) {
+						LOGGER.debug("Couldn't acquire blockchain lock even after waiting 5 seconds");
+						// Proceed anyway, as we have to shut down
+					}
+				} catch (InterruptedException e) {
+					LOGGER.info("Interrupted when waiting for blockchain lock");
+				}
+
 				try {
 					LOGGER.info("Shutting down repository");
 					RepositoryManager.closeRepositoryFactory();
 				} catch (DataException e) {
 					LOGGER.error("Error occurred while shutting down repository", e);
+				}
+
+				// Release the lock if we acquired it
+				if (blockchainLock.isHeldByCurrentThread()) {
+					blockchainLock.unlock();
 				}
 
 				LOGGER.info("Shutting down NTP");
@@ -1514,50 +1420,10 @@ public class Controller extends Thread {
 	private void onNetworkTransactionMessage(Peer peer, Message message) {
 		TransactionMessage transactionMessage = (TransactionMessage) message;
 		TransactionData transactionData = transactionMessage.getTransactionData();
-
-		/*
-		 *  If we can't obtain blockchain lock immediately,
-		 *  e.g. Synchronizer is active, or another transaction is taking a while to validate,
-		 *  then we're using up a network thread for ages and clogging things up
-		 *  so bail out early
-		 */
-		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		if (!blockchainLock.tryLock()) {
-			LOGGER.trace(() -> String.format("Too busy to import %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-			return;
-		}
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			Transaction transaction = Transaction.fromData(repository, transactionData);
-
-			// Check signature
-			if (!transaction.isSignatureValid()) {
-				LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-				return;
+		if (this.incomingTransactions.size() < MAX_INCOMING_TRANSACTIONS) {
+			if (!this.incomingTransactions.contains(transactionData)) {
+				this.incomingTransactions.add(transactionData);
 			}
-
-			ValidationResult validationResult = transaction.importAsUnconfirmed();
-
-			if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
-				LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-				return;
-			}
-
-			if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
-				LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-				return;
-			}
-
-			if (validationResult != ValidationResult.OK) {
-				LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-				return;
-			}
-
-			LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
-		} finally {
-			blockchainLock.unlock();
 		}
 	}
 
@@ -1709,7 +1575,7 @@ public class Controller extends Thread {
 		peer.setChainTipData(newChainTipData);
 
 		// Potentially synchronize
-		requestSync = true;
+		Synchronizer.getInstance().requestSync();
 	}
 
 	private void onNetworkGetTransactionMessage(Peer peer, Message message) {
@@ -1756,6 +1622,19 @@ public class Controller extends Thread {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			for (byte[] signature : signatures) {
+				String signature58 = Base58.encode(signature);
+				if (invalidUnconfirmedTransactions.containsKey(signature58)) {
+					// Previously invalid transaction - don't keep requesting it
+					// It will be periodically removed from invalidUnconfirmedTransactions to allow for rechecks
+					continue;
+				}
+
+				// Ignore if this transaction is in the queue
+				if (incomingTransactionQueueContains(signature)) {
+					LOGGER.trace(() -> String.format("Ignoring existing queued transaction %s from peer %s", Base58.encode(signature), peer));
+					continue;
+				}
+
 				// Do we have it already? (Before requesting transaction data itself)
 				if (repository.getTransactionRepository().exists(signature)) {
 					LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(signature), peer));
@@ -1949,88 +1828,94 @@ public class Controller extends Thread {
 
 	private void sendOurOnlineAccountsInfo() {
 		final Long now = NTP.getTime();
-		if (now == null)
-			return;
+		if (now != null) {
 
-		List<MintingAccountData> mintingAccounts;
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			mintingAccounts = repository.getAccountRepository().getMintingAccounts();
+			List<MintingAccountData> mintingAccounts;
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				mintingAccounts = repository.getAccountRepository().getMintingAccounts();
 
-			// We have no accounts, but don't reset timestamp
-			if (mintingAccounts.isEmpty())
-				return;
+				// We have no accounts, but don't reset timestamp
+				if (mintingAccounts.isEmpty())
+					return;
 
-			// Only reward-share accounts allowed
-			Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
-			while (iterator.hasNext()) {
-				MintingAccountData mintingAccountData = iterator.next();
-
-				RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
-				if (rewardShareData == null) {
-					// Reward-share doesn't even exist - probably not a good sign
-					iterator.remove();
-					continue;
-				}
-
-				Account mintingAccount = new Account(repository, rewardShareData.getMinter());
-				if (!mintingAccount.canMint()) {
-					// Minting-account component of reward-share can no longer mint - disregard
-					iterator.remove();
-					continue;
-				}
-			}
-		} catch (DataException e) {
-			LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
-			return;
-		}
-
-		// 'current' timestamp
-		final long onlineAccountsTimestamp = Controller.toOnlineAccountTimestamp(now);
-		boolean hasInfoChanged = false;
-
-		byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-		List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
-
-		MINTING_ACCOUNTS:
-		for (MintingAccountData mintingAccountData : mintingAccounts) {
-			PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, mintingAccountData.getPrivateKey());
-
-			byte[] signature = mintingAccount.sign(timestampBytes);
-			byte[] publicKey = mintingAccount.getPublicKey();
-
-			// Our account is online
-			OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
-			synchronized (this.onlineAccounts) {
-				Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
+				// Only reward-share accounts allowed
+				Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
+				int i = 0;
 				while (iterator.hasNext()) {
-					OnlineAccountData existingOnlineAccountData = iterator.next();
+					MintingAccountData mintingAccountData = iterator.next();
 
-					if (Arrays.equals(existingOnlineAccountData.getPublicKey(), ourOnlineAccountData.getPublicKey())) {
-						// If our online account is already present, with same timestamp, then move on to next mintingAccount
-						if (existingOnlineAccountData.getTimestamp() == onlineAccountsTimestamp)
-							continue MINTING_ACCOUNTS;
-
-						// If our online account is already present, but with older timestamp, then remove it
+					RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
+					if (rewardShareData == null) {
+						// Reward-share doesn't even exist - probably not a good sign
 						iterator.remove();
-						break;
+						continue;
+					}
+
+					Account mintingAccount = new Account(repository, rewardShareData.getMinter());
+					if (!mintingAccount.canMint()) {
+						// Minting-account component of reward-share can no longer mint - disregard
+						iterator.remove();
+						continue;
+					}
+
+					if (++i > 2) {
+						iterator.remove();
+						continue;
 					}
 				}
-
-				this.onlineAccounts.add(ourOnlineAccountData);
+			} catch (DataException e) {
+				LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
+				return;
 			}
 
-			LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", mintingAccount.getAddress(), onlineAccountsTimestamp));
-			ourOnlineAccounts.add(ourOnlineAccountData);
-			hasInfoChanged = true;
+			// 'current' timestamp
+			final long onlineAccountsTimestamp = Controller.toOnlineAccountTimestamp(now);
+			boolean hasInfoChanged = false;
+
+			byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
+			List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
+
+			MINTING_ACCOUNTS:
+			for (MintingAccountData mintingAccountData : mintingAccounts) {
+				PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, mintingAccountData.getPrivateKey());
+
+				byte[] signature = mintingAccount.sign(timestampBytes);
+				byte[] publicKey = mintingAccount.getPublicKey();
+
+				// Our account is online
+				OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
+				synchronized (this.onlineAccounts) {
+					Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
+					while (iterator.hasNext()) {
+						OnlineAccountData existingOnlineAccountData = iterator.next();
+
+						if (Arrays.equals(existingOnlineAccountData.getPublicKey(), ourOnlineAccountData.getPublicKey())) {
+							// If our online account is already present, with same timestamp, then move on to next mintingAccount
+							if (existingOnlineAccountData.getTimestamp() == onlineAccountsTimestamp)
+								continue MINTING_ACCOUNTS;
+
+							// If our online account is already present, but with older timestamp, then remove it
+							iterator.remove();
+							break;
+						}
+					}
+
+					this.onlineAccounts.add(ourOnlineAccountData);
+				}
+
+				LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", mintingAccount.getAddress(), onlineAccountsTimestamp));
+				ourOnlineAccounts.add(ourOnlineAccountData);
+				hasInfoChanged = true;
+			}
+
+			if (!hasInfoChanged)
+				return;
+
+			Message message = new OnlineAccountsMessage(ourOnlineAccounts);
+			Network.getInstance().broadcast(peer -> message);
+
+			LOGGER.trace(() -> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
 		}
-
-		if (!hasInfoChanged)
-			return;
-
-		Message message = new OnlineAccountsMessage(ourOnlineAccounts);
-		Network.getInstance().broadcast(peer -> message);
-
-		LOGGER.trace(()-> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
 	}
 
 	public static long toOnlineAccountTimestamp(long timestamp) {
