@@ -555,7 +555,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				if (!this.remainingServers.isEmpty()) {
 					long averageResponseTime = this.currentServer.averageResponseTime();
 					if (averageResponseTime > MAX_AVG_RESPONSE_TIME) {
-						LOGGER.info("Slow average response time {}ms from {} - trying another server...", this.currentServer.hostname, averageResponseTime);
+						LOGGER.info("Slow average response time {}ms from {} - trying another server...", averageResponseTime, this.currentServer.hostname);
 						this.closeServer();
 						break;
 					}
@@ -665,7 +665,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		long responseTime = endTime-startTime;
 
 		LOGGER.trace(() -> String.format("Response: %s", response));
-		LOGGER.info(() -> String.format("Time taken: %dms", endTime-startTime));
+		LOGGER.trace(() -> String.format("Time taken: %dms", endTime-startTime));
 
 		if (response.isEmpty())
 			// Empty response - try another server?
