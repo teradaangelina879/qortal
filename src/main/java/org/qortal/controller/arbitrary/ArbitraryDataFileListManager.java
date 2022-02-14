@@ -266,18 +266,16 @@ public class ArbitraryDataFileListManager {
         List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
         List<byte[]> missingHashes = null;
 
-//        // TODO: uncomment after GetArbitraryDataFileListMessage updates are deployed
-//        // Find hashes that we are missing
-//        try {
-//            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-//            arbitraryDataFile.setMetadataHash(metadataHash);
-//            missingHashes = arbitraryDataFile.missingHashes();
-//        } catch (DataException e) {
-//            // Leave missingHashes as null, so that all hashes are requested
-//        }
-//        int hashCount = missingHashes != null ? missingHashes.size() : 0;
+        // Find hashes that we are missing
+        try {
+            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
+            arbitraryDataFile.setMetadataHash(metadataHash);
+            missingHashes = arbitraryDataFile.missingHashes();
+        } catch (DataException e) {
+            // Leave missingHashes as null, so that all hashes are requested
+        }
+        int hashCount = missingHashes != null ? missingHashes.size() : 0;
 
-        int hashCount = 0;
         LOGGER.debug(String.format("Sending data file list request for signature %s with %d hashes to %d peers...", signature58, hashCount, handshakedPeers.size()));
 
         // Build request
