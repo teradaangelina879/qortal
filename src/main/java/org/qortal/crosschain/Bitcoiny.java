@@ -404,7 +404,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			Set<String> keySet = new HashSet<>();
 
 			// Set the number of consecutive empty batches required before giving up
-			final int numberOfAdditionalBatchesToSearch = 5;
+			final int numberOfAdditionalBatchesToSearch = 7;
 
 			int unusedCounter = 0;
 			int ki = 0;
