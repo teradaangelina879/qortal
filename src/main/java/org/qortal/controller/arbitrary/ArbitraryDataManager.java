@@ -80,6 +80,9 @@ public class ArbitraryDataManager extends Thread {
 		Thread.currentThread().setName("Arbitrary Data Manager");
 
 		try {
+			// Wait for node to finish starting up and making connections
+			Thread.sleep(2 * 60 * 1000L);
+
 			while (!isStopping) {
 				Thread.sleep(2000);
 
