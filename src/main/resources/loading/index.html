@@ -46,6 +46,7 @@
 
       var url = host + '/arbitrary/resource/status/' + service + '/' + name + '?build=true';
       var textStatus = "Loading...";
+      var textProgress = "";
       var retryInterval = 2500;
 
       const response = await fetch(url, {
@@ -82,7 +83,7 @@
         textStatus = status.description;
         retryInterval = 1000;
       }
-      else if (status.status == "DOWNLOADING") {
+      else if (status.id == "DOWNLOADING") {
         textStatus = status.description;
         retryInterval = 1000;
       }
@@ -96,7 +97,12 @@
         textStatus = status.description;
       }
 
+      if (status.localChunkCount != null && status.totalChunkCount != null) {
+        textProgress = "Files downloaded: " + status.localChunkCount + " / " + status.totalChunkCount;
+      }
+
       document.getElementById("status").innerHTML = textStatus;
+      document.getElementById("progress").innerHTML = textProgress;
 
       setTimeout(checkStatus, retryInterval);
     }
@@ -260,6 +266,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
       This page will refresh automatically when the content becomes available.
     </p>
     <p><span id="status">Loading...</span></p>
+    <p><span id="progress"></span></p>
   </div>
 </div>
 

@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class ResourceList {
@@ -20,7 +21,7 @@ public class ResourceList {
     private static final Logger LOGGER = LogManager.getLogger(ResourceList.class);
 
     private String name;
-    private List<String> list = new ArrayList<>();
+    private List<String> list = Collections.synchronizedList(new ArrayList<>());
 
     /**
      * ResourceList

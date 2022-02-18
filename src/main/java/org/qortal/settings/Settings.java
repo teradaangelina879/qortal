@@ -195,16 +195,16 @@ public class Settings {
 	private int maxRetries = 2;
 
 	/** Minimum peer version number required in order to sync with them */
-	private String minPeerVersion = "3.0.1";
+	private String minPeerVersion = "3.1.0";
 	/** Whether to allow connections with peers below minPeerVersion
 	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
 	/** Minimum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int minPeerConnectionTime = 2 * 60; // seconds
+	private int minPeerConnectionTime = 5 * 60; // seconds
 	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int maxPeerConnectionTime = 20 * 60; // seconds
+	private int maxPeerConnectionTime = 60 * 60; // seconds
 
 	/** Whether to sync multiple blocks at once in normal operation */
 	private boolean fastSyncEnabled = true;
@@ -243,7 +243,8 @@ public class Settings {
 	private String[] bootstrapHosts = new String[] {
 			"http://bootstrap.qortal.org",
 			"http://bootstrap2.qortal.org",
-			"http://cinfu1.crowetic.com"
+			"http://81.169.136.59",
+			"http://62.171.190.193"
 	};
 
 	// Auto-update sources
@@ -307,6 +308,9 @@ public class Settings {
 
 	/** Maximum total size of hosted data, in bytes. Unlimited if null */
 	private Long maxStorageCapacity = null;
+
+	/** Whether to serve QDN data without authentication */
+	private boolean qdnAuthBypassEnabled = false;
 
 	// Domain mapping
 	public static class DomainMap {
@@ -883,5 +887,9 @@ public class Settings {
 
 	public Long getMaxStorageCapacity() {
 		return this.maxStorageCapacity;
+	}
+
+	public boolean isQDNAuthBypassEnabled() {
+		return this.qdnAuthBypassEnabled;
 	}
 }

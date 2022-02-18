@@ -21,7 +21,9 @@ import org.qortal.settings.Settings;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
+import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Base58;
+import org.qortal.utils.NTP;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -59,25 +61,27 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             String name = "Test";
 
             // Register the name to Alice
-            TransactionUtils.signAndMint(repository, new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, ""), alice);
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create transaction
-            ArbitraryTransactionData transactionData = this.createTxnWithName(repository, alice, name);
+            ArbitraryTransactionData arbitraryTransactionData = this.createTxnWithName(repository, alice, name);
 
             // Add name to followed list
             assertTrue(ResourceListManager.getInstance().addToList("followedNames", name, false));
 
             // We should store and pre-fetch data for this transaction
             assertEquals(StoragePolicy.FOLLOWED_OR_VIEWED, Settings.getInstance().getStoragePolicy());
-            assertTrue(storageManager.canStoreData(transactionData));
-            assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
+            assertTrue(storageManager.canStoreData(arbitraryTransactionData));
+            assertTrue(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followedNames", name, false));
 
             // We should store but not pre-fetch data for this transaction
-            assertTrue(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
+            assertTrue(storageManager.canStoreData(arbitraryTransactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
         }
     }
 
@@ -92,25 +96,27 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             FieldUtils.writeField(Settings.getInstance(), "storagePolicy", "FOLLOWED", true);
 
             // Register the name to Alice
-            TransactionUtils.signAndMint(repository, new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, ""), alice);
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create transaction
-            ArbitraryTransactionData transactionData = this.createTxnWithName(repository, alice, name);
+            ArbitraryTransactionData arbitraryTransactionData = this.createTxnWithName(repository, alice, name);
 
             // Add name to followed list
             assertTrue(ResourceListManager.getInstance().addToList("followedNames", name, false));
 
             // We should store and pre-fetch data for this transaction
             assertEquals(StoragePolicy.FOLLOWED, Settings.getInstance().getStoragePolicy());
-            assertTrue(storageManager.canStoreData(transactionData));
-            assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
+            assertTrue(storageManager.canStoreData(arbitraryTransactionData));
+            assertTrue(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followedNames", name, false));
 
             // We shouldn't store or pre-fetch data for this transaction
-            assertFalse(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
+            assertFalse(storageManager.canStoreData(arbitraryTransactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
         }
     }
 
@@ -125,25 +131,27 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             FieldUtils.writeField(Settings.getInstance(), "storagePolicy", "VIEWED", true);
 
             // Register the name to Alice
-            TransactionUtils.signAndMint(repository, new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, ""), alice);
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create transaction
-            ArbitraryTransactionData transactionData = this.createTxnWithName(repository, alice, name);
+            ArbitraryTransactionData arbitraryTransactionData = this.createTxnWithName(repository, alice, name);
 
             // Add name to followed list
             assertTrue(ResourceListManager.getInstance().addToList("followedNames", name, false));
 
             // We should store but not pre-fetch data for this transaction
             assertEquals(StoragePolicy.VIEWED, Settings.getInstance().getStoragePolicy());
-            assertTrue(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
+            assertTrue(storageManager.canStoreData(arbitraryTransactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followedNames", name, false));
 
             // We should store but not pre-fetch data for this transaction
-            assertTrue(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
+            assertTrue(storageManager.canStoreData(arbitraryTransactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
         }
     }
 
@@ -158,25 +166,27 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             FieldUtils.writeField(Settings.getInstance(), "storagePolicy", "ALL", true);
 
             // Register the name to Alice
-            TransactionUtils.signAndMint(repository, new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, ""), alice);
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create transaction
-            ArbitraryTransactionData transactionData = this.createTxnWithName(repository, alice, name);
+            ArbitraryTransactionData arbitraryTransactionData = this.createTxnWithName(repository, alice, name);
 
             // Add name to followed list
             assertTrue(ResourceListManager.getInstance().addToList("followedNames", name, false));
 
             // We should store and pre-fetch data for this transaction
             assertEquals(StoragePolicy.ALL, Settings.getInstance().getStoragePolicy());
-            assertTrue(storageManager.canStoreData(transactionData));
-            assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
+            assertTrue(storageManager.canStoreData(arbitraryTransactionData));
+            assertTrue(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followedNames", name, false));
 
             // We should store and pre-fetch data for this transaction
-            assertTrue(storageManager.canStoreData(transactionData));
-            assertTrue(storageManager.shouldPreFetchData(repository, transactionData));
+            assertTrue(storageManager.canStoreData(arbitraryTransactionData));
+            assertTrue(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
         }
     }
 
@@ -191,25 +201,27 @@ public class ArbitraryDataStoragePolicyTests extends Common {
             FieldUtils.writeField(Settings.getInstance(), "storagePolicy", "NONE", true);
 
             // Register the name to Alice
-            TransactionUtils.signAndMint(repository, new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, ""), alice);
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create transaction
-            ArbitraryTransactionData transactionData = this.createTxnWithName(repository, alice, name);
+            ArbitraryTransactionData arbitraryTransactionData = this.createTxnWithName(repository, alice, name);
 
             // Add name to followed list
             assertTrue(ResourceListManager.getInstance().addToList("followedNames", name, false));
 
             // We shouldn't store or pre-fetch data for this transaction
             assertEquals(StoragePolicy.NONE, Settings.getInstance().getStoragePolicy());
-            assertFalse(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
+            assertFalse(storageManager.canStoreData(arbitraryTransactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
 
             // Now unfollow the name
             assertTrue(ResourceListManager.getInstance().removeFromList("followedNames", name, false));
 
             // We shouldn't store or pre-fetch data for this transaction
-            assertFalse(storageManager.canStoreData(transactionData));
-            assertFalse(storageManager.shouldPreFetchData(repository, transactionData));
+            assertFalse(storageManager.canStoreData(arbitraryTransactionData));
+            assertFalse(storageManager.shouldPreFetchData(repository, arbitraryTransactionData));
         }
     }
 

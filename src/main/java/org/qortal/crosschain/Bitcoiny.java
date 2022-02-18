@@ -1,12 +1,6 @@
 package org.qortal.crosschain;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -39,6 +33,7 @@ import org.qortal.utils.Amounts;
 import org.qortal.utils.BitTwiddling;
 
 import com.google.common.hash.HashCode;
+import org.qortal.utils.NTP;
 
 /** Bitcoin-like (Bitcoin, Litecoin, etc.) support */
 public abstract class Bitcoiny implements ForeignBlockchain {
@@ -52,6 +47,12 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	protected final String currencyCode;
 
 	protected final NetworkParameters params;
+
+	/** Cache recent transactions to speed up subsequent lookups */
+	protected List<SimpleTransaction> transactionsCache;
+	protected Long transactionsCacheTimestamp;
+	protected String transactionsCacheXpub;
+	protected static long TRANSACTIONS_CACHE_TIMEOUT = 2 * 60 * 1000L; // 2 minutes
 
 	/** Keys that have been previously marked as fully spent,<br>
 	 * i.e. keys with transactions but with no unspent outputs. */
@@ -229,6 +230,25 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	}
 
 	/**
+	 * Returns transactions for passed script
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	public List<TransactionHash> getAddressTransactions(byte[] scriptPubKey, boolean includeUnconfirmed) throws ForeignBlockchainException {
+		int retries = 0;
+		ForeignBlockchainException e2 = null;
+		while (retries <= 3) {
+			try {
+				return this.blockchain.getAddressTransactions(scriptPubKey, includeUnconfirmed);
+			} catch (ForeignBlockchainException e) {
+				e2 = e;
+				retries++;
+			}
+		}
+		throw(e2);
+	}
+
+	/**
 	 * Returns list of transaction hashes pertaining to passed address.
 	 * <p>
 	 * @return list of unspent outputs, or empty list if script unknown
@@ -262,7 +282,17 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	 * @throws ForeignBlockchainException if error occurs
 	 */
 	public BitcoinyTransaction getTransaction(String txHash) throws ForeignBlockchainException {
-		return this.blockchain.getTransaction(txHash);
+		int retries = 0;
+		ForeignBlockchainException e2 = null;
+		while (retries <= 3) {
+			try {
+				return this.blockchain.getTransaction(txHash);
+			} catch (ForeignBlockchainException e) {
+				e2 = e;
+				retries++;
+			}
+		}
+		throw(e2);
 	}
 
 	/**
@@ -337,70 +367,99 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return balance.value;
 	}
 
+	public Long getWalletBalanceFromTransactions(String key58) throws ForeignBlockchainException {
+		long balance = 0;
+		Comparator<SimpleTransaction> oldestTimestampFirstComparator = Comparator.comparingInt(SimpleTransaction::getTimestamp);
+		List<SimpleTransaction> transactions = getWalletTransactions(key58).stream().sorted(oldestTimestampFirstComparator).collect(Collectors.toList());
+		for (SimpleTransaction transaction : transactions) {
+			balance += transaction.getTotalAmount();
+		}
+		return balance;
+	}
+
 	public List<SimpleTransaction> getWalletTransactions(String key58) throws ForeignBlockchainException {
-		Context.propagate(bitcoinjContext);
-
-		Wallet wallet = walletFromDeterministicKey58(key58);
-		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
-
-		keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
-		keyChain.maybeLookAhead();
-
-		List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
-
-		Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
-		Set<String> keySet = new HashSet<>();
-
-		// Set the number of consecutive empty batches required before giving up
-		final int numberOfAdditionalBatchesToSearch = 5;
-
-		int unusedCounter = 0;
-		int ki = 0;
-		do {
-			boolean areAllKeysUnused = true;
-
-			for (; ki < keys.size(); ++ki) {
-				DeterministicKey dKey = keys.get(ki);
-
-				// Check for transactions
-				Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
-				keySet.add(address.toString());
-				byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
-
-				// Ask for transaction history - if it's empty then key has never been used
-				List<TransactionHash> historicTransactionHashes = this.blockchain.getAddressTransactions(script, false);
-
-				if (!historicTransactionHashes.isEmpty()) {
-					areAllKeysUnused = false;
-
-					for (TransactionHash transactionHash : historicTransactionHashes)
-						walletTransactions.add(this.getTransaction(transactionHash.txHash));
+		synchronized (this) {
+			// Serve from the cache if it's recent, and matches this xpub
+			if (Objects.equals(transactionsCacheXpub, key58)) {
+				if (transactionsCache != null && transactionsCacheTimestamp != null) {
+					Long now = NTP.getTime();
+					boolean isCacheStale = (now != null && now - transactionsCacheTimestamp >= TRANSACTIONS_CACHE_TIMEOUT);
+					if (!isCacheStale) {
+						return transactionsCache;
+					}
 				}
 			}
 
-			if (areAllKeysUnused) {
-				// No transactions
-				if (unusedCounter >= numberOfAdditionalBatchesToSearch) {
-					// ... and we've hit our search limit
-					break;
+			Context.propagate(bitcoinjContext);
+
+			Wallet wallet = walletFromDeterministicKey58(key58);
+			DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
+
+			keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
+			keyChain.maybeLookAhead();
+
+			List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
+
+			Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
+			Set<String> keySet = new HashSet<>();
+
+			// Set the number of consecutive empty batches required before giving up
+			final int numberOfAdditionalBatchesToSearch = 7;
+
+			int unusedCounter = 0;
+			int ki = 0;
+			do {
+				boolean areAllKeysUnused = true;
+
+				for (; ki < keys.size(); ++ki) {
+					DeterministicKey dKey = keys.get(ki);
+
+					// Check for transactions
+					Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
+					keySet.add(address.toString());
+					byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
+
+					// Ask for transaction history - if it's empty then key has never been used
+					List<TransactionHash> historicTransactionHashes = this.getAddressTransactions(script, false);
+
+					if (!historicTransactionHashes.isEmpty()) {
+						areAllKeysUnused = false;
+
+						for (TransactionHash transactionHash : historicTransactionHashes)
+							walletTransactions.add(this.getTransaction(transactionHash.txHash));
+					}
 				}
-				// We haven't hit our search limit yet so increment the counter and keep looking
-				unusedCounter++;
-			}
-			else {
-				// Some keys in this batch were used, so reset the counter
-				unusedCounter = 0;
-			}
 
-			// Generate some more keys
-			keys.addAll(generateMoreKeys(keyChain));
+				if (areAllKeysUnused) {
+					// No transactions
+					if (unusedCounter >= numberOfAdditionalBatchesToSearch) {
+						// ... and we've hit our search limit
+						break;
+					}
+					// We haven't hit our search limit yet so increment the counter and keep looking
+					unusedCounter++;
+				} else {
+					// Some keys in this batch were used, so reset the counter
+					unusedCounter = 0;
+				}
 
-			// Process new keys
-		} while (true);
+				// Generate some more keys
+				keys.addAll(generateMoreKeys(keyChain));
 
-		Comparator<SimpleTransaction> newestTimestampFirstComparator = Comparator.comparingInt(SimpleTransaction::getTimestamp).reversed();
+				// Process new keys
+			} while (true);
 
-		return walletTransactions.stream().map(t -> convertToSimpleTransaction(t, keySet)).sorted(newestTimestampFirstComparator).collect(Collectors.toList());
+			Comparator<SimpleTransaction> newestTimestampFirstComparator = Comparator.comparingInt(SimpleTransaction::getTimestamp).reversed();
+
+			// Update cache and return
+			transactionsCacheTimestamp = NTP.getTime();
+			transactionsCacheXpub = key58;
+			transactionsCache = walletTransactions.stream()
+					.map(t -> convertToSimpleTransaction(t, keySet))
+					.sorted(newestTimestampFirstComparator).collect(Collectors.toList());
+
+			return transactionsCache;
+		}
 	}
 
 	protected SimpleTransaction convertToSimpleTransaction(BitcoinyTransaction t, Set<String> keySet) {
@@ -411,19 +470,23 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		List<SimpleTransaction.Input> inputs = new ArrayList<>();
 		List<SimpleTransaction.Output> outputs = new ArrayList<>();
 
+		boolean anyOutputAddressInWallet = false;
+
 		for (BitcoinyTransaction.Input input : t.inputs) {
 			try {
 				BitcoinyTransaction t2 = getTransaction(input.outputTxHash);
 				List<String> senders = t2.outputs.get(input.outputVout).addresses;
 				long inputAmount = t2.outputs.get(input.outputVout).value;
 				totalInputAmount += inputAmount;
-				for (String sender : senders) {
-					boolean addressInWallet = false;
-					if (keySet.contains(sender)) {
-						total += inputAmount;
-						addressInWallet = true;
+				if (senders != null) {
+					for (String sender : senders) {
+						boolean addressInWallet = false;
+						if (keySet.contains(sender)) {
+							total += inputAmount;
+							addressInWallet = true;
+						}
+						inputs.add(new SimpleTransaction.Input(sender, inputAmount, addressInWallet));
 					}
-					inputs.add(new SimpleTransaction.Input(sender, inputAmount, addressInWallet));
 				}
 			} catch (ForeignBlockchainException e) {
 				LOGGER.trace("Failed to retrieve transaction information {}", input.outputTxHash);
@@ -431,22 +494,32 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		}
 		if (t.outputs != null && !t.outputs.isEmpty()) {
 			for (BitcoinyTransaction.Output output : t.outputs) {
-				for (String address : output.addresses) {
-					boolean addressInWallet = false;
-					if (keySet.contains(address)) {
-						if (total > 0L) {
-							amount -= (total - output.value);
-						} else {
-							amount += output.value;
+				if (output.addresses != null) {
+					for (String address : output.addresses) {
+						boolean addressInWallet = false;
+						if (keySet.contains(address)) {
+							if (total > 0L) {
+								amount -= (total - output.value);
+							} else {
+								amount += output.value;
+							}
+							addressInWallet = true;
+							anyOutputAddressInWallet = true;
 						}
-						addressInWallet = true;
+						outputs.add(new SimpleTransaction.Output(address, output.value, addressInWallet));
 					}
-					outputs.add(new SimpleTransaction.Output(address, output.value, addressInWallet));
 				}
 				totalOutputAmount += output.value;
 			}
 		}
 		long fee = totalInputAmount - totalOutputAmount;
+
+		if (!anyOutputAddressInWallet) {
+			// No outputs relate to this wallet - check if any inputs did (which is signified by a positive total)
+			if (total > 0) {
+				amount = total * -1;
+			}
+		}
 		return new SimpleTransaction(t.txHash, t.timestamp, amount, fee, inputs, outputs);
 	}
 

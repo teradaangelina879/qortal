@@ -37,11 +37,16 @@ public class ArbitraryDataBuildManager extends Thread {
 
     @Override
     public void run() {
+        Thread.currentThread().setName("Arbitrary Data Build Manager");
+
         try {
             // Use a fixed thread pool to execute the arbitrary data build actions (currently just a single thread)
             // This can be expanded to have multiple threads processing the build queue when needed
-            ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(1);
-            arbitraryDataBuildExecutor.execute(new ArbitraryDataBuilderThread());
+            int threadCount = 5;
+            ExecutorService arbitraryDataBuildExecutor = Executors.newFixedThreadPool(threadCount);
+            for (int i = 0; i < threadCount; i++) {
+                arbitraryDataBuildExecutor.execute(new ArbitraryDataBuilderThread());
+            }
 
             while (!isStopping) {
                 // Nothing to do yet
@@ -101,7 +106,7 @@ public class ArbitraryDataBuildManager extends Thread {
             return true;
         }
 
-        LOGGER.info("Added {} to build queue", queueItem);
+        log(queueItem, String.format("Added %s to build queue", queueItem));
 
         // Added to queue
         return true;
@@ -149,7 +154,7 @@ public class ArbitraryDataBuildManager extends Thread {
             return true;
         }
 
-        LOGGER.info("Added {} to failed builds list", queueItem);
+        log(queueItem, String.format("Added %s to failed builds list", queueItem));
 
         // Added to queue
         return true;
@@ -181,5 +186,18 @@ public class ArbitraryDataBuildManager extends Thread {
 
     public boolean getBuildInProgress() {
         return this.buildInProgress;
+    }
+
+    private void log(ArbitraryDataBuildQueueItem queueItem, String message) {
+        if (queueItem == null) {
+            return;
+        }
+
+        if (queueItem.isHighPriority()) {
+            LOGGER.info(message);
+        }
+        else {
+            LOGGER.debug(message);
+        }
     }
 }

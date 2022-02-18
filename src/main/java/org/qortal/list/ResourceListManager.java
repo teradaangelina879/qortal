@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -13,7 +14,7 @@ public class ResourceListManager {
     private static final Logger LOGGER = LogManager.getLogger(ResourceListManager.class);
 
     private static ResourceListManager instance;
-    private List<ResourceList> lists = new ArrayList<>();
+    private List<ResourceList> lists = Collections.synchronizedList(new ArrayList<>());
 
 
     public ResourceListManager() {

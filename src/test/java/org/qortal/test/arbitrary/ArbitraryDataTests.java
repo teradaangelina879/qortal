@@ -23,7 +23,9 @@ import org.qortal.test.common.ArbitraryUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
+import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Base58;
+import org.qortal.utils.NTP;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -55,6 +57,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -149,6 +152,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -181,6 +185,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -226,6 +231,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -294,6 +300,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -343,6 +350,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -380,6 +388,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -409,6 +418,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -435,6 +445,7 @@ public class ArbitraryDataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction

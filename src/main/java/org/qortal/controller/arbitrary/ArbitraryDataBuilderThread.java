@@ -9,6 +9,7 @@ import org.qortal.repository.DataException;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.Map;
 
 
@@ -20,13 +21,14 @@ public class ArbitraryDataBuilderThread implements Runnable {
 
     }
 
+    @Override
     public void run() {
-        Thread.currentThread().setName("Arbitrary Data Build Manager");
+        Thread.currentThread().setName("Arbitrary Data Builder Thread");
         ArbitraryDataBuildManager buildManager = ArbitraryDataBuildManager.getInstance();
 
         while (!Controller.isStopping()) {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(100);
 
                 if (buildManager.arbitraryDataBuildQueue == null) {
                     continue;
@@ -35,48 +37,57 @@ public class ArbitraryDataBuilderThread implements Runnable {
                     continue;
                 }
 
-                // Find resources that are queued for building
-                Map.Entry<String, ArbitraryDataBuildQueueItem> next = buildManager.arbitraryDataBuildQueue
-                        .entrySet().stream()
-                        .filter(e -> e.getValue().isQueued())
-                        .findFirst().get();
-
-                if (next == null) {
-                    continue;
-                }
-
                 Long now = NTP.getTime();
                 if (now == null) {
                     continue;
                 }
 
-                ArbitraryDataBuildQueueItem queueItem = next.getValue();
+                ArbitraryDataBuildQueueItem queueItem = null;
 
-                if (queueItem == null) {
-                    this.removeFromQueue(queueItem);
+                // Find resources that are queued for building (sorted by highest priority first)
+                synchronized (buildManager.arbitraryDataBuildQueue) {
+                    Map.Entry<String, ArbitraryDataBuildQueueItem> next = buildManager.arbitraryDataBuildQueue
+                            .entrySet().stream()
+                            .filter(e -> e.getValue().isQueued())
+                            .sorted(Comparator.comparing(item -> item.getValue().getPriority()))
+                            .reduce((first, second) -> second).orElse(null);
+
+                    if (next == null) {
+                        continue;
+                    }
+
+                    queueItem = next.getValue();
+
+                    if (queueItem == null) {
+                        this.removeFromQueue(queueItem);
+                        continue;
+                    }
+
+                    // Ignore builds that have failed recently
+                    if (buildManager.isInFailedBuildsList(queueItem)) {
+                        this.removeFromQueue(queueItem);
+                        continue;
+                    }
+
+                    // Set the start timestamp, to prevent other threads from building it at the same time
+                    queueItem.prepareForBuild();
                 }
-
-                // Ignore builds that have failed recently
-                if (buildManager.isInFailedBuildsList(queueItem)) {
-                    continue;
-                }
-
 
                 try {
                     // Perform the build
-                    LOGGER.info("Building {}...", queueItem);
+                    log(queueItem, String.format("Building %s... priority: %d", queueItem, queueItem.getPriority()));
                     queueItem.build();
                     this.removeFromQueue(queueItem);
-                    LOGGER.info("Finished building {}", queueItem);
+                    log(queueItem, String.format("Finished building %s", queueItem));
 
                 } catch (MissingDataException e) {
-                    LOGGER.info("Missing data for {}: {}", queueItem, e.getMessage());
+                    log(queueItem, String.format("Missing data for %s: %s", queueItem, e.getMessage()));
                     queueItem.setFailed(true);
                     this.removeFromQueue(queueItem);
                     // Don't add to the failed builds list, as we may want to retry sooner
 
                 } catch (IOException | DataException | RuntimeException e) {
-                    LOGGER.info("Error building {}: {}", queueItem, e.getMessage());
+                    log(queueItem, String.format("Error building %s: %s", queueItem, e.getMessage()));
                     // Something went wrong - so remove it from the queue, and add to failed builds list
                     queueItem.setFailed(true);
                     buildManager.addToFailedBuildsList(queueItem);
@@ -94,5 +105,18 @@ public class ArbitraryDataBuilderThread implements Runnable {
             return;
         }
         ArbitraryDataBuildManager.getInstance().arbitraryDataBuildQueue.remove(queueItem.getUniqueKey());
+    }
+
+    private void log(ArbitraryDataBuildQueueItem queueItem, String message) {
+        if (queueItem == null) {
+            return;
+        }
+
+        if (queueItem.isHighPriority()) {
+            LOGGER.info(message);
+        }
+        else {
+            LOGGER.debug(message);
+        }
     }
 }

@@ -38,10 +38,10 @@ public class ArbitraryDataManager extends Thread {
 	private int powDifficulty = 14; // Must not be final, as unit tests need to reduce this value
 
 	/** Request timeout when transferring arbitrary data */
-	public static final long ARBITRARY_REQUEST_TIMEOUT = 10 * 1000L; // ms
+	public static final long ARBITRARY_REQUEST_TIMEOUT = 12 * 1000L; // ms
 
 	/** Maximum time to hold information about an in-progress relay */
-	public static final long ARBITRARY_RELAY_TIMEOUT = 30 * 1000L; // ms
+	public static final long ARBITRARY_RELAY_TIMEOUT = 60 * 1000L; // ms
 
 	/** Maximum number of hops that an arbitrary signatures request is allowed to make */
 	private static int ARBITRARY_SIGNATURES_REQUEST_MAX_HOPS = 3;
@@ -80,6 +80,9 @@ public class ArbitraryDataManager extends Thread {
 		Thread.currentThread().setName("Arbitrary Data Manager");
 
 		try {
+			// Wait for node to finish starting up and making connections
+			Thread.sleep(2 * 60 * 1000L);
+
 			while (!isStopping) {
 				Thread.sleep(2000);
 

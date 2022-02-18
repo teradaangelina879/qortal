@@ -232,9 +232,10 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceStatus getDefaultResourceStatus(@PathParam("service") Service service,
-													  		 @PathParam("name") String name,
-															 @QueryParam("build") Boolean build) {
+	public ArbitraryResourceStatus getDefaultResourceStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+															@PathParam("service") Service service,
+															@PathParam("name") String name,
+															@QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, null);
 		return this.getStatus(service, name, null, build);
@@ -252,10 +253,11 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceStatus getResourceStatus(@PathParam("service") Service service,
-													  @PathParam("name") String name,
-													  @PathParam("identifier") String identifier,
-													  @QueryParam("build") Boolean build) {
+	public ArbitraryResourceStatus getResourceStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+													 @PathParam("service") Service service,
+													 @PathParam("name") String name,
+													 @PathParam("identifier") String identifier,
+													 @QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier);
 		return this.getStatus(service, name, identifier, build);
@@ -574,10 +576,16 @@ public class ArbitraryResource {
 								   @PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
-								   @QueryParam("rebuild") boolean rebuild) {
-		Security.checkApiCallAllowed(request);
+								   @QueryParam("rebuild") boolean rebuild,
+								   @QueryParam("async") boolean async,
+								   @QueryParam("attempts") Integer attempts) {
 
-		return this.download(service, name, null, filepath, rebuild);
+		// Authentication can be bypassed in the settings, for those running public QDN nodes
+		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
+			Security.checkApiCallAllowed(request);
+		}
+
+		return this.download(service, name, null, filepath, rebuild, async, attempts);
 	}
 
 	@GET
@@ -603,10 +611,16 @@ public class ArbitraryResource {
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
-								   @QueryParam("rebuild") boolean rebuild) {
-		Security.checkApiCallAllowed(request);
+								   @QueryParam("rebuild") boolean rebuild,
+								   @QueryParam("async") boolean async,
+								   @QueryParam("attempts") Integer attempts) {
 
-		return this.download(service, name, identifier, filepath, rebuild);
+		// Authentication can be bypassed in the settings, for those running public QDN nodes
+		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
+			Security.checkApiCallAllowed(request);
+		}
+
+		return this.download(service, name, identifier, filepath, rebuild, async, attempts);
 	}
 
 
@@ -1017,30 +1031,45 @@ public class ArbitraryResource {
 		}
 	}
 
-	private HttpServletResponse download(Service service, String name, String identifier, String filepath, boolean rebuild) {
+	private HttpServletResponse download(Service service, String name, String identifier, String filepath, boolean rebuild, boolean async, Integer maxAttempts) {
 
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
 
 			int attempts = 0;
+			if (maxAttempts == null) {
+				maxAttempts = 5;
+			}
 
 			// Loop until we have data
-			while (!Controller.isStopping()) {
-				attempts++;
-				if (!arbitraryDataReader.isBuilding()) {
-					try {
-						arbitraryDataReader.loadSynchronously(rebuild);
-						break;
-					} catch (MissingDataException e) {
-						if (attempts > 5) {
-							// Give up after 5 attempts
-							throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data unavailable. Please try again later.");
+			if (async) {
+				// Asynchronous
+				arbitraryDataReader.loadAsynchronously(false, 1);
+			}
+			else {
+				// Synchronous
+				while (!Controller.isStopping()) {
+					attempts++;
+					if (!arbitraryDataReader.isBuilding()) {
+						try {
+							arbitraryDataReader.loadSynchronously(rebuild);
+							break;
+						} catch (MissingDataException e) {
+							if (attempts > maxAttempts) {
+								// Give up after 5 attempts
+								throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Data unavailable. Please try again later.");
+							}
 						}
 					}
+					Thread.sleep(3000L);
 				}
-				Thread.sleep(3000L);
 			}
+
 			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
+			if (outputPath == null) {
+				// Assume the resource doesn't exist
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, "File not found");
+			}
 
 			if (filepath == null || filepath.isEmpty()) {
 				// No file path supplied - so check if this is a single file resource
@@ -1048,6 +1077,10 @@ public class ArbitraryResource {
 				if (files.length == 1) {
 					// This is a single file resource
 					filepath = files[0];
+				}
+				else {
+					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA,
+							"filepath is required for resources containing more than one file");
 				}
 			}
 
@@ -1085,7 +1118,7 @@ public class ArbitraryResource {
 		}
 
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.getStatus();
+		return resource.getStatus(false);
 	}
 
 	private List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
@@ -1094,7 +1127,7 @@ public class ArbitraryResource {
 		for (ArbitraryResourceInfo resourceInfo : resources) {
 			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
 					resourceInfo.service, resourceInfo.identifier);
-			ArbitraryResourceStatus status = resource.getStatus();
+			ArbitraryResourceStatus status = resource.getStatus(true);
 			if (status != null) {
 				resourceInfo.status = status;
 			}

@@ -366,6 +366,21 @@ public class ArbitraryDataFile {
         return false;
     }
 
+    public boolean delete(int attempts) {
+        // Keep trying to delete the data until it is deleted, or we reach 10 attempts
+        for (int i=0; i<attempts; i++) {
+            if (this.delete()) {
+                return true;
+            }
+            try {
+                Thread.sleep(1000L);
+            } catch (InterruptedException e) {
+                // Fall through to exit method
+            }
+        }
+        return false;
+    }
+
     public boolean deleteAllChunks() {
         boolean success = false;
 
@@ -439,6 +454,11 @@ public class ArbitraryDataFile {
                 return chunk.exists();
             }
         }
+        if (Arrays.equals(hash, this.metadataHash)) {
+            if (this.metadataFile != null) {
+                return this.metadataFile.exists();
+            }
+        }
         if (Arrays.equals(this.getHash(), hash)) {
             return this.exists();
         }
@@ -455,9 +475,6 @@ public class ArbitraryDataFile {
 
             if (this.metadataFile == null) {
                 this.metadataFile = ArbitraryDataFile.fromHash(this.metadataHash, this.signature);
-                if (!metadataFile.exists()) {
-                    return false;
-                }
             }
 
             // If the metadata file doesn't exist, we can't check if we have the chunks
@@ -496,9 +513,6 @@ public class ArbitraryDataFile {
 
             if (this.metadataFile == null) {
                 this.metadataFile = ArbitraryDataFile.fromHash(this.metadataHash, this.signature);
-                if (!metadataFile.exists()) {
-                    return false;
-                }
             }
 
             // If the metadata file doesn't exist, we can't check if we have any chunks
@@ -538,6 +552,50 @@ public class ArbitraryDataFile {
         }
 
         return false;
+    }
+
+    /**
+     * Retrieve a list of file hashes for this transaction that we do not hold locally
+     *
+     * @return a List of chunk hashes, or null if we are unable to determine what is missing
+     */
+    public List<byte[]> missingHashes() {
+        List<byte[]> missingHashes = new ArrayList<>();
+        try {
+            if (this.metadataHash == null) {
+                // We don't have any metadata so can't check if we have the chunks
+                // Even if this transaction has no chunks, we don't have the file either (already checked above)
+                return null;
+            }
+
+            if (this.metadataFile == null) {
+                this.metadataFile = ArbitraryDataFile.fromHash(this.metadataHash, this.signature);
+            }
+
+            // If the metadata file doesn't exist, we can't check if we have the chunks
+            if (!metadataFile.getFilePath().toFile().exists()) {
+                return null;
+            }
+
+            if (this.metadata == null) {
+                this.setMetadata(new ArbitraryDataTransactionMetadata(this.metadataFile.getFilePath()));
+            }
+
+            // Read the metadata
+            List<byte[]> chunks = metadata.getChunks();
+            for (byte[] chunkHash : chunks) {
+                ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
+                if (!chunk.exists()) {
+                    missingHashes.add(chunkHash);
+                }
+            }
+
+            return missingHashes;
+
+        } catch (DataException e) {
+            // Something went wrong, so we can't make a sensible decision
+            return null;
+        }
     }
 
     public boolean containsChunk(byte[] hash) {

@@ -37,6 +37,15 @@ public class RegisterNameTransaction extends Transaction {
 		return Collections.emptyList();
 	}
 
+	@Override
+	public long getUnitFee(Long timestamp) {
+		// Use a higher unit fee after the fee increase timestamp
+		if (timestamp > BlockChain.getInstance().getNameRegistrationUnitFeeTimestamp()) {
+			return BlockChain.getInstance().getNameRegistrationUnitFee();
+		}
+		return BlockChain.getInstance().getUnitFee();
+	}
+
 	// Navigation
 
 	public Account getRegistrant() {

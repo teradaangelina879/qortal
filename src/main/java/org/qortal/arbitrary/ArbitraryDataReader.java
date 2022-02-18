@@ -122,10 +122,22 @@ public class ArbitraryDataReader {
      * This adds the build task to a queue, and the result will be cached when complete
      * To check the status of the build, periodically call isCachedDataAvailable()
      * Once it returns true, you can then use getFilePath() to access the data itself.
+     *
+     * @param overwrite - set to true to force rebuild an existing cache
      * @return true if added or already present in queue; false if not
      */
-    public boolean loadAsynchronously() {
-        return ArbitraryDataBuildManager.getInstance().addToBuildQueue(this.createQueueItem());
+    public boolean loadAsynchronously(boolean overwrite, int priority) {
+        ArbitraryDataCache cache = new ArbitraryDataCache(this.uncompressedPath, overwrite,
+                this.resourceId, this.resourceIdType, this.service, this.identifier);
+        if (cache.isCachedDataAvailable()) {
+            // Use cached data
+            this.filePath = this.uncompressedPath;
+            return true;
+        }
+
+        ArbitraryDataBuildQueueItem item = this.createQueueItem();
+        item.setPriority(priority);
+        return ArbitraryDataBuildManager.getInstance().addToBuildQueue(item);
     }
 
     /**
@@ -363,7 +375,7 @@ public class ArbitraryDataReader {
                 }
 
                 // Throw a missing data exception, which allows subsequent layers to fetch data
-                LOGGER.debug(message);
+                LOGGER.trace(message);
                 throw new MissingDataException(message);
             }
         }
@@ -458,12 +470,18 @@ public class ArbitraryDataReader {
             throw new DataException(String.format("Unable to unzip file: %s", e.getMessage()));
         }
 
-        // Replace filePath pointer with the uncompressed file path
+        if (!this.uncompressedPath.toFile().exists()) {
+            throw new DataException(String.format("Unable to unzip file: %s", this.filePath));
+        }
+
+        // Delete original compressed file
         if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
             if (Files.exists(this.filePath)) {
                 Files.delete(this.filePath);
             }
         }
+
+        // Replace filePath pointer with the uncompressed file path
         this.filePath = this.uncompressedPath;
     }
 

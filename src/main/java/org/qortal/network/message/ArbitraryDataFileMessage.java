@@ -1,6 +1,8 @@
 package org.qortal.network.message;
 
 import com.google.common.primitives.Ints;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.repository.DataException;
 import org.qortal.transform.Transformer;
@@ -11,6 +13,8 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 public class ArbitraryDataFileMessage extends Message {
+
+	private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFileMessage.class);
 
 	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
 
@@ -52,6 +56,7 @@ public class ArbitraryDataFileMessage extends Message {
 			return new ArbitraryDataFileMessage(id, signature, arbitraryDataFile);
 		}
 		catch (DataException e) {
+			LOGGER.info("Unable to process received file: {}", e.getMessage());
 			return null;
 		}
 	}

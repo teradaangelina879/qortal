@@ -268,42 +268,6 @@ public class NamesDatabaseIntegrityCheck {
         return registerNameTransactions;
     }
 
-    private List<UpdateNameTransactionData> fetchUpdateNameTransactions() {
-        List<UpdateNameTransactionData> updateNameTransactions = new ArrayList<>();
-
-        for (TransactionData transactionData : this.nameTransactions) {
-            if (transactionData.getType() == TransactionType.UPDATE_NAME) {
-                UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
-                updateNameTransactions.add(updateNameTransactionData);
-            }
-        }
-        return updateNameTransactions;
-    }
-
-    private List<SellNameTransactionData> fetchSellNameTransactions() {
-        List<SellNameTransactionData> sellNameTransactions = new ArrayList<>();
-
-        for (TransactionData transactionData : this.nameTransactions) {
-            if (transactionData.getType() == TransactionType.SELL_NAME) {
-                SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
-                sellNameTransactions.add(sellNameTransactionData);
-            }
-        }
-        return sellNameTransactions;
-    }
-
-    private List<BuyNameTransactionData> fetchBuyNameTransactions() {
-        List<BuyNameTransactionData> buyNameTransactions = new ArrayList<>();
-
-        for (TransactionData transactionData : this.nameTransactions) {
-            if (transactionData.getType() == TransactionType.BUY_NAME) {
-                BuyNameTransactionData buyNameTransactionData = (BuyNameTransactionData) transactionData;
-                buyNameTransactions.add(buyNameTransactionData);
-            }
-        }
-        return buyNameTransactions;
-    }
-
     private void fetchAllNameTransactions(Repository repository) throws DataException {
         List<TransactionData> nameTransactions = new ArrayList<>();
 
@@ -319,41 +283,34 @@ public class NamesDatabaseIntegrityCheck {
         this.nameTransactions = nameTransactions;
     }
 
-    private List<TransactionData> fetchAllTransactionsInvolvingName(String name, Repository repository) throws DataException {
-        List<TransactionData> transactions = new ArrayList<>();
+    public List<TransactionData> fetchAllTransactionsInvolvingName(String name, Repository repository) throws DataException {
+        List<byte[]> signatures = new ArrayList<>();
         String reducedName = Unicode.sanitize(name);
 
-        // Fetch all the confirmed name-modification transactions
-        if (this.nameTransactions.isEmpty()) {
-            this.fetchAllNameTransactions(repository);
-        }
+        List<byte[]> registerNameTransactions = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+                TransactionType.REGISTER_NAME, Arrays.asList("(name = ? OR reduced_name = ?)"), Arrays.asList(name, reducedName));
+        signatures.addAll(registerNameTransactions);
 
-        for (TransactionData transactionData : this.nameTransactions) {
+        List<byte[]> updateNameTransactions = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+                TransactionType.UPDATE_NAME,
+                Arrays.asList("(name = ? OR new_name = ? OR (reduced_new_name != '' AND reduced_new_name = ?))"),
+                Arrays.asList(name, name, reducedName));
+        signatures.addAll(updateNameTransactions);
 
-            if ((transactionData instanceof RegisterNameTransactionData)) {
-                RegisterNameTransactionData registerNameTransactionData = (RegisterNameTransactionData) transactionData;
-                if (Objects.equals(registerNameTransactionData.getReducedName(), reducedName)) {
-                    transactions.add(transactionData);
-                }
-            }
-            if ((transactionData instanceof UpdateNameTransactionData)) {
-                UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
-                if (Objects.equals(updateNameTransactionData.getName(), name) ||
-                        Objects.equals(updateNameTransactionData.getReducedNewName(), reducedName)) {
-                    transactions.add(transactionData);
-                }
-            }
-            if ((transactionData instanceof BuyNameTransactionData)) {
-                BuyNameTransactionData buyNameTransactionData = (BuyNameTransactionData) transactionData;
-                if (Objects.equals(buyNameTransactionData.getName(), name)) {
-                    transactions.add(transactionData);
-                }
-            }
-            if ((transactionData instanceof SellNameTransactionData)) {
-                SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
-                if (Objects.equals(sellNameTransactionData.getName(), name)) {
-                    transactions.add(transactionData);
-                }
+        List<byte[]> sellNameTransactions = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+                TransactionType.SELL_NAME, Arrays.asList("name = ?"), Arrays.asList(name));
+        signatures.addAll(sellNameTransactions);
+
+        List<byte[]> buyNameTransactions = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+                TransactionType.BUY_NAME, Arrays.asList("name = ?"), Arrays.asList(name));
+        signatures.addAll(buyNameTransactions);
+
+        List<TransactionData> transactions = new ArrayList<>();
+        for (byte[] signature : signatures) {
+            TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+            // Filter out any unconfirmed transactions
+            if (transactionData.getBlockHeight() != null && transactionData.getBlockHeight() > 0) {
+                transactions.add(transactionData);
             }
         }
         return transactions;

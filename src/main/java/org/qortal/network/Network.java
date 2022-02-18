@@ -6,7 +6,7 @@ import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
-import org.qortal.controller.arbitrary.ArbitraryDataFileManager;
+import org.qortal.controller.arbitrary.ArbitraryDataFileListManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
@@ -307,12 +307,7 @@ public class Network {
             return false;
         }
 
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            return ArbitraryDataFileManager.getInstance().fetchAllArbitraryDataFiles(repository, connectedPeer, signature);
-        } catch (DataException e) {
-            LOGGER.info("Unable to fetch arbitrary data files");
-        }
-        return false;
+        return ArbitraryDataFileListManager.getInstance().fetchArbitraryDataFileList(connectedPeer, signature);
     }
 
     /**
@@ -1169,11 +1164,13 @@ public class Network {
         if (consecutiveReadings >= consecutiveReadingsRequired) {
             // Last 10 readings were the same - i.e. more than one peer agreed on the new IP address...
             String ip = ipAddressHistory.get(size - 1);
-            if (!Objects.equals(ip, this.ourExternalIpAddress)) {
-                // ... and the readings were different to our current recorded value, so
-                // update our external IP address value
-                this.ourExternalIpAddress = ip;
-                this.onExternalIpUpdate(ip);
+            if (ip != null && !Objects.equals(ip, "null")) {
+                if (!Objects.equals(ip, this.ourExternalIpAddress)) {
+                    // ... and the readings were different to our current recorded value, so
+                    // update our external IP address value
+                    this.ourExternalIpAddress = ip;
+                    this.onExternalIpUpdate(ip);
+                }
             }
         }
     }
@@ -1181,7 +1178,7 @@ public class Network {
     public void onExternalIpUpdate(String ipAddress) {
         LOGGER.info("External IP address updated to {}", ipAddress);
 
-        ArbitraryDataManager.getInstance().broadcastHostedSignatureList();
+        //ArbitraryDataManager.getInstance().broadcastHostedSignatureList();
     }
 
 

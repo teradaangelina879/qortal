@@ -109,6 +109,23 @@ public interface TransactionRepository {
 			Integer minBlockHeight, Integer maxBlockHeight) throws DataException;
 
 	/**
+	 * Returns signatures for transactions that match search criteria.
+	 * <p>
+	 * Alternate version that allows for custom where clauses and bind params.
+	 * Only use for very specific use cases, such as the names integrity check.
+	 * Not advised to be used otherwise, given that it could be possible for
+	 * unsanitized inputs to be passed in if not careful.
+	 *
+	 * @param txType
+	 * @param whereClauses
+	 * @param bindParams
+	 * @return
+	 * @throws DataException
+	 */
+	public List<byte[]> getSignaturesMatchingCustomCriteria(TransactionType txType, List<String> whereClauses,
+															List<Object> bindParams) throws DataException;
+
+	/**
 	 * Returns signature for latest auto-update transaction.
 	 * <p>
 	 * Transaction must be <tt>CONFIRMED</tt> and <tt>APPROVED</tt>
@@ -124,6 +141,17 @@ public interface TransactionRepository {
 	 * @throws DataException
 	 */
 	public byte[] getLatestAutoUpdateTransaction(TransactionType txType, int txGroupId, Integer service) throws DataException;
+
+	/**
+	 * Returns signatures for all name-registration related transactions relating to supplied name.
+	 * Note: this does not currently include ARBITRARY data relating to the name.
+	 *
+	 * @param name
+	 * @param confirmationStatus
+	 * @return
+	 * @throws DataException
+	 */
+	public List<TransactionData> getTransactionsInvolvingName(String name, ConfirmationStatus confirmationStatus) throws DataException;
 
 	/**
 	 * Returns list of transactions relating to specific asset ID.
