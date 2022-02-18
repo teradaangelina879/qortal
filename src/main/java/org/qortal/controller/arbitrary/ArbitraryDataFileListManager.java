@@ -479,8 +479,8 @@ public class ArbitraryDataFileListManager {
                     Long now = NTP.getTime();
                     for (byte[] hash : hashes) {
                         String hash58 = Base58.encode(hash);
-                        ArbitraryRelayInfo relayMap = new ArbitraryRelayInfo(hash58, signature58, peer, now, requestTime, requestHops);
-                        ArbitraryDataFileManager.getInstance().addToRelayMap(relayMap);
+                        ArbitraryRelayInfo relayInfo = new ArbitraryRelayInfo(hash58, signature58, peer, now, requestTime, requestHops);
+                        ArbitraryDataFileManager.getInstance().addToRelayMap(relayInfo);
                     }
 
                     // Bump requestHops if it exists
