@@ -240,16 +240,7 @@ public class ArbitraryDataFileManager extends Thread {
                 ArbitraryDataFile dataFile = arbitraryDataFileMessage.getArbitraryDataFile();
 
                 // Keep trying to delete the data until it is deleted, or we reach 10 attempts
-                for (int i=0; i<10; i++) {
-                    if (dataFile.delete()) {
-                        break;
-                    }
-                    try {
-                        Thread.sleep(1000L);
-                    } catch (InterruptedException e) {
-                        // Fall through to exit method
-                    }
-                }
+                dataFile.delete(10);
             }
         }
 
