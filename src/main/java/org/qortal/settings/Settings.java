@@ -181,6 +181,8 @@ public class Settings {
 	private boolean isTestNet = false;
 	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
+	/** Whether to attempt to open the listen port via UPnP */
+	private boolean uPnPEnabled = true;
 	/** Minimum number of peers to allow block minting / synchronization. */
 	private int minBlockchainPeers = 5;
 	/** Target number of outbound connections to peers we should make. */
@@ -627,6 +629,10 @@ public class Settings {
 
 	public String getBindAddress() {
 		return this.bindAddress;
+	}
+
+	public boolean isuPnPEnabled() {
+		return this.uPnPEnabled;
 	}
 
 	public int getMinBlockchainPeers() {

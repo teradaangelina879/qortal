@@ -1,5 +1,6 @@
 package org.qortal.network;
 
+import com.dosse.upnp.UPnP;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
@@ -181,6 +182,11 @@ public class Network {
                     this.allKnownPeers.addAll(repository.getNetworkRepository().getAllPeers());
                 }
             }
+        }
+
+        // Attempt to set up UPnP. All errors are ignored.
+        if (Settings.getInstance().isuPnPEnabled()) {
+            UPnP.openPortTCP(Settings.getInstance().getListenPort());
         }
 
         // Start up first networking thread
