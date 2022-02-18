@@ -472,12 +472,20 @@ public class ArbitraryDataFileListManager {
             if (!isBlocked) {
                 Peer requestingPeer = request.getB();
                 if (requestingPeer != null) {
+                    Long requestTime = arbitraryDataFileListMessage.getRequestTime();
+                    Integer requestHops = arbitraryDataFileListMessage.getRequestHops();
+
                     // Add each hash to our local mapping so we know who to ask later
                     Long now = NTP.getTime();
                     for (byte[] hash : hashes) {
                         String hash58 = Base58.encode(hash);
-                        ArbitraryRelayInfo relayMap = new ArbitraryRelayInfo(hash58, signature58, peer, now);
+                        ArbitraryRelayInfo relayMap = new ArbitraryRelayInfo(hash58, signature58, peer, now, requestTime, requestHops);
                         ArbitraryDataFileManager.getInstance().addToRelayMap(relayMap);
+                    }
+
+                    // Bump requestHops if it exists
+                    if (requestHops != null) {
+                        arbitraryDataFileListMessage.setRequestHops(++requestHops);
                     }
 
                     // Forward to requesting peer
@@ -582,7 +590,9 @@ public class ArbitraryDataFileListManager {
                 arbitraryDataFileListRequests.put(message.getId(), newEntry);
             }
 
-            ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes);
+            String ourAddress = Network.getInstance().getOurExternalIpAddress();
+            ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature,
+                    hashes, NTP.getTime(), 0, ourAddress, true);
             arbitraryDataFileListMessage.setId(message.getId());
             if (!peer.sendMessage(arbitraryDataFileListMessage)) {
                 LOGGER.debug("Couldn't send list of hashes");

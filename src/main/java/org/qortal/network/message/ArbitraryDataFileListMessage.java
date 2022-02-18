@@ -1,6 +1,8 @@
 package org.qortal.network.message;
 
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
+import org.qortal.data.network.PeerData;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Serialization;
@@ -16,22 +18,38 @@ public class ArbitraryDataFileListMessage extends Message {
 
 	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
 	private static final int HASH_LENGTH = Transformer.SHA256_LENGTH;
+	private static final int MAX_PEER_ADDRESS_LENGTH = PeerData.MAX_PEER_ADDRESS_SIZE;
 
 	private final byte[] signature;
 	private final List<byte[]> hashes;
+	private final Long requestTime;
+	private Integer requestHops;
+	private final String peerAddress;
+	private final boolean isRelayPossible;
 
-	public ArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes) {
+
+	public ArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes, Long requestTime,
+										Integer requestHops, String peerAddress, boolean isRelayPossible) {
 		super(MessageType.ARBITRARY_DATA_FILE_LIST);
 
 		this.signature = signature;
 		this.hashes = hashes;
+		this.requestTime = requestTime;
+		this.requestHops = requestHops;
+		this.peerAddress = peerAddress;
+		this.isRelayPossible = isRelayPossible;
 	}
 
-	public ArbitraryDataFileListMessage(int id, byte[] signature, List<byte[]> hashes) {
+	public ArbitraryDataFileListMessage(int id, byte[] signature, List<byte[]> hashes, Long requestTime,
+										Integer requestHops, String peerAddress, boolean isRelayPossible) {
 		super(id, MessageType.ARBITRARY_DATA_FILE_LIST);
 
 		this.signature = signature;
 		this.hashes = hashes;
+		this.requestTime = requestTime;
+		this.requestHops = requestHops;
+		this.peerAddress = peerAddress;
+		this.isRelayPossible = isRelayPossible;
 	}
 
 	public List<byte[]> getHashes() {
@@ -48,9 +66,6 @@ public class ArbitraryDataFileListMessage extends Message {
 
 		int count = bytes.getInt();
 
-		if (bytes.remaining() != count * HASH_LENGTH)
-			return null;
-
 		List<byte[]> hashes = new ArrayList<>();
 		for (int i = 0; i < count; ++i) {
 
@@ -59,7 +74,26 @@ public class ArbitraryDataFileListMessage extends Message {
 			hashes.add(hash);
 		}
 
-		return new ArbitraryDataFileListMessage(id, signature, hashes);
+		Long requestTime = null;
+		Integer requestHops = null;
+		String peerAddress = null;
+		boolean isRelayPossible = true; // Legacy versions only send this message when relaying is possible
+
+		// The remaining fields are optional
+
+		if (bytes.hasRemaining()) {
+
+			requestTime = bytes.getLong();
+
+			requestHops = bytes.getInt();
+
+			peerAddress = Serialization.deserializeSizedStringV2(bytes, MAX_PEER_ADDRESS_LENGTH);
+
+			isRelayPossible = bytes.getInt() > 0;
+
+		}
+
+		return new ArbitraryDataFileListMessage(id, signature, hashes, requestTime, requestHops, peerAddress, isRelayPossible);
 	}
 
 	@Override
@@ -75,6 +109,20 @@ public class ArbitraryDataFileListMessage extends Message {
 				bytes.write(hash);
 			}
 
+			if (this.requestTime == null) { // Just in case
+				return bytes.toByteArray();
+			}
+
+			// The remaining fields are optional
+
+			bytes.write(Longs.toByteArray(this.requestTime));
+
+			bytes.write(Ints.toByteArray(this.requestHops));
+
+			Serialization.serializeSizedStringV2(bytes, this.peerAddress);
+
+			bytes.write(Ints.toByteArray(this.isRelayPossible ? 1 : 0));
+
 			return bytes.toByteArray();
 		} catch (IOException e) {
 			return null;
@@ -82,9 +130,30 @@ public class ArbitraryDataFileListMessage extends Message {
 	}
 
 	public ArbitraryDataFileListMessage cloneWithNewId(int newId) {
-		ArbitraryDataFileListMessage clone = new ArbitraryDataFileListMessage(this.signature, this.hashes);
+		ArbitraryDataFileListMessage clone = new ArbitraryDataFileListMessage(this.signature, this.hashes,
+				this.requestTime, this.requestHops, this.peerAddress, this.isRelayPossible);
 		clone.setId(newId);
 		return clone;
+	}
+
+	public Long getRequestTime() {
+		return this.requestTime;
+	}
+
+	public Integer getRequestHops() {
+		return this.requestHops;
+	}
+
+	public void setRequestHops(int requestHops) {
+		this.requestHops = requestHops;
+	}
+
+	public String getPeerAddress() {
+		return this.peerAddress;
+	}
+
+	public boolean isRelayPossible() {
+		return this.isRelayPossible;
 	}
 
 }

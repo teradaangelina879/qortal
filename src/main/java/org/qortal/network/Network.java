@@ -1195,6 +1195,11 @@ public class Network {
         //ArbitraryDataManager.getInstance().broadcastHostedSignatureList();
     }
 
+    public String getOurExternalIpAddress() {
+        // FUTURE: replace port if UPnP is active, as it will be more accurate
+        return this.ourExternalIpAddress;
+    }
+
 
     // Peer-management calls
 
