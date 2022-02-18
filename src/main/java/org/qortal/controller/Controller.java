@@ -105,7 +105,7 @@ public class Controller extends Thread {
 	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000L);
 	/** How many (latest) blocks' worth of online accounts we cache */
 	private static final int MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS = 2;
-	private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300010002L;
+	private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L;
 
 
 	private static volatile boolean isStopping = false;
