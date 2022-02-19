@@ -476,6 +476,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		List<SimpleTransaction.Output> outputs = new ArrayList<>();
 
 		boolean anyOutputAddressInWallet = false;
+		boolean transactionInvolvesExternalWallet = false;
 
 		for (BitcoinyTransaction.Input input : t.inputs) {
 			try {
@@ -490,6 +491,9 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 							total += inputAmount;
 							addressInWallet = true;
 						}
+						else {
+							transactionInvolvesExternalWallet = true;
+						}
 						inputs.add(new SimpleTransaction.Input(sender, inputAmount, addressInWallet));
 					}
 				}
@@ -503,13 +507,16 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 					for (String address : output.addresses) {
 						boolean addressInWallet = false;
 						if (keySet.contains(address)) {
-							if (total > 0L) {
+							if (total > 0L) { // Change returned from sent amount
 								amount -= (total - output.value);
-							} else {
+							} else { // Amount received
 								amount += output.value;
 							}
 							addressInWallet = true;
 							anyOutputAddressInWallet = true;
+						}
+						else {
+							transactionInvolvesExternalWallet = true;
 						}
 						outputs.add(new SimpleTransaction.Output(address, output.value, addressInWallet));
 					}
@@ -524,6 +531,10 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			if (total > 0) {
 				amount = total * -1;
 			}
+		}
+		else if (!transactionInvolvesExternalWallet) {
+			// All inputs and outputs relate to this wallet, so the balance should be unaffected
+			amount = 0;
 		}
 		return new SimpleTransaction(t.txHash, t.timestamp, amount, fee, inputs, outputs);
 	}
