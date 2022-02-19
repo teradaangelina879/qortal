@@ -16,6 +16,7 @@ import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -322,7 +323,7 @@ public class ArbitraryDataStorageManager extends Thread {
                             && path.getFileName().toString().length() > 32)
                     .collect(Collectors.toList());
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             LOGGER.info("Unable to walk through hosted data: {}", e.getMessage());
         }
 
