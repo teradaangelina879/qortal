@@ -2,16 +2,11 @@ package org.qortal.controller.tradebot;
 
 import java.awt.TrayIcon.MessageType;
 import java.security.SecureRandom;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.*;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.util.Supplier;
 import org.bitcoinj.core.ECKey;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
@@ -19,25 +14,26 @@ import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.tradebot.AcctTradeBot.ResponseResult;
 import org.qortal.crosschain.*;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
-import org.qortal.data.transaction.BaseTransactionData;
-import org.qortal.data.transaction.PresenceTransactionData;
+import org.qortal.data.network.OnlineTradeData;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
 import org.qortal.event.Listener;
-import org.qortal.group.Group;
 import org.qortal.gui.SysTray;
+import org.qortal.network.Network;
+import org.qortal.network.Peer;
+import org.qortal.network.message.GetOnlineTradesMessage;
+import org.qortal.network.message.Message;
+import org.qortal.network.message.OnlineTradesMessage;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.repository.hsqldb.HSQLDBImportExport;
 import org.qortal.settings.Settings;
-import org.qortal.transaction.PresenceTransaction;
-import org.qortal.transaction.PresenceTransaction.PresenceType;
-import org.qortal.transaction.Transaction.ValidationResult;
-import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.ByteArray;
 import org.qortal.utils.NTP;
 
 import com.google.common.primitives.Longs;
@@ -56,6 +52,10 @@ public class TradeBot implements Listener {
 
 	private static final Logger LOGGER = LogManager.getLogger(TradeBot.class);
 	private static final Random RANDOM = new SecureRandom();
+
+	private static final long ONLINE_LIFETIME = 30 * 60 * 1000L; // 30 minutes in ms
+
+	private static final long ONLINE_BROADCAST_INTERVAL = 5 * 60 * 1000L; // 5 minutes in ms
 
 	public interface StateNameAndValueSupplier {
 		public String getState();
@@ -87,7 +87,12 @@ public class TradeBot implements Listener {
 
 	private static TradeBot instance;
 
-	private final Map<String, Long> presenceTimestampsByAtAddress = Collections.synchronizedMap(new HashMap<>());
+	private final Map<ByteArray, Long> ourTimestampsByPubkey = Collections.synchronizedMap(new HashMap<>());
+	private final List<OnlineTradeData> pendingOnlineSignatures = Collections.synchronizedList(new ArrayList<>());
+
+	private final Map<ByteArray, OnlineTradeData> allOnlineByPubkey = Collections.synchronizedMap(new HashMap<>());
+	private Map<ByteArray, OnlineTradeData> safeAllOnlineByPubkey = Collections.emptyMap();
+	private long nextBroadcastTimestamp = 0L;
 
 	private TradeBot() {
 		EventBus.INSTANCE.addListener(event -> TradeBot.getInstance().listen(event));
@@ -218,6 +223,8 @@ public class TradeBot implements Listener {
 			return;
 
 		synchronized (this) {
+			expireOldOnlineSignatures();
+
 			List<TradeBotData> allTradeBotData;
 
 			try (final Repository repository = RepositoryManager.getRepository()) {
@@ -248,6 +255,8 @@ public class TradeBot implements Listener {
 				} catch (ForeignBlockchainException e) {
 					LOGGER.warn(() -> String.format("Foreign blockchain issue processing trade-bot entry for AT %s: %s", tradeBotData.getAtAddress(), e.getMessage()));
 				}
+
+			broadcastOnlineSignatures();
 		}
 	}
 
@@ -325,6 +334,15 @@ public class TradeBot implements Listener {
 	}
 
 	// PRESENCE-related
+
+	private void expireOldOnlineSignatures() {
+		long now = NTP.getTime();
+
+		synchronized (this.pendingOnlineSignatures) {
+			this.pendingOnlineSignatures.removeIf(onlineTradeData -> onlineTradeData.getTimestamp() <= now);
+		}
+	}
+
 	/*package*/ void updatePresence(Repository repository, TradeBotData tradeBotData, CrossChainTradeData tradeData)
 			throws DataException {
 		String atAddress = tradeBotData.getAtAddress();
@@ -333,44 +351,167 @@ public class TradeBot implements Listener {
 		String signerAddress = tradeNativeAccount.getAddress();
 
 		/*
-		 * There's no point in Alice trying to build a PRESENCE transaction
-		 * for an AT that isn't locked to her, as other peers won't be able
-		 * to validate the PRESENCE transaction as signing public key won't
-		 * be visible.
+		 * We only broadcast trade entry online signatures for BOB when OFFERING
+		 * so that buyers don't click on offline / expired entries that would waste their time.
 		 */
-		if (!signerAddress.equals(tradeData.qortalCreatorTradeAddress) && !signerAddress.equals(tradeData.qortalPartnerAddress))
-			// Signer is neither Bob, nor Alice, or trade not yet locked to Alice
+		if (tradeData.mode != AcctMode.OFFERING || !signerAddress.equals(tradeData.qortalCreatorTradeAddress))
 			return;
 
 		long now = NTP.getTime();
-		long threshold = now - PresenceType.TRADE_BOT.getLifetime();
 
-		long timestamp = presenceTimestampsByAtAddress.compute(atAddress, (k, v) -> (v == null || v < threshold) ? now : v);
+		// Timestamps are considered good for full lifetime...
+		long expiry = (now + ONLINE_LIFETIME) % ONLINE_LIFETIME;
+		// ... but refresh if older than half-lifetime
+		long threshold = (now + ONLINE_LIFETIME / 2) % (ONLINE_LIFETIME / 2);
+
+		ByteArray pubkeyByteArray = ByteArray.of(tradeNativeAccount.getPublicKey());
+		// If map's timestamp is missing, or too old, use the new timestamp - otherwise use existing timestamp.
+		long timestamp = ourTimestampsByPubkey.compute(pubkeyByteArray, (k, v) -> (v == null || v <= threshold) ? expiry : v);
 
 		// If timestamp hasn't been updated then nothing to do
-		if (timestamp != now)
+		if (timestamp != expiry)
 			return;
 
-		int txGroupId = Group.NO_GROUP;
-		byte[] reference = new byte[TransactionTransformer.SIGNATURE_LENGTH];
-		byte[] creatorPublicKey = tradeNativeAccount.getPublicKey();
-		long fee = 0L;
+		// Create signature
+		byte[] signature = tradeNativeAccount.sign(Longs.toByteArray(timestamp));
 
-		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, null);
+		// Add new online info to queue to be broadcast around network
+		OnlineTradeData onlineTradeData = new OnlineTradeData(timestamp, tradeNativeAccount.getPublicKey(), signature, atAddress);
+		this.pendingOnlineSignatures.add(onlineTradeData);
 
-		int nonce = 0;
-		byte[] timestampSignature = tradeNativeAccount.sign(Longs.toByteArray(timestamp));
-
-		PresenceTransactionData transactionData = new PresenceTransactionData(baseTransactionData, nonce, PresenceType.TRADE_BOT, timestampSignature);
-
-		PresenceTransaction presenceTransaction = new PresenceTransaction(repository, transactionData);
-		presenceTransaction.computeNonce();
-
-		presenceTransaction.sign(tradeNativeAccount);
-
-		ValidationResult result = presenceTransaction.importAsUnconfirmed();
-		if (result != ValidationResult.OK)
-			LOGGER.debug(() -> String.format("Unable to build trade-bot PRESENCE transaction for %s: %s", tradeBotData.getAtAddress(), result.name()));
+		this.allOnlineByPubkey.put(pubkeyByteArray, onlineTradeData);
+		rebuildSafeAllOnline();
 	}
 
+	private void rebuildSafeAllOnline() {
+		synchronized (this.allOnlineByPubkey) {
+			// Collect into a *new* unmodifiable map.
+			this.safeAllOnlineByPubkey = Map.copyOf(this.allOnlineByPubkey);
+		}
+	}
+
+	private void broadcastOnlineSignatures() {
+		// If we have new online signatures that are pending broadcast, send those as a priority
+		if (!this.pendingOnlineSignatures.isEmpty()) {
+			// Create a copy for Network to safely use in another thread
+			List<OnlineTradeData> safeOnlineSignatures;
+			synchronized (this.pendingOnlineSignatures) {
+				safeOnlineSignatures = List.copyOf(this.pendingOnlineSignatures);
+				this.pendingOnlineSignatures.clear();
+			}
+
+			OnlineTradesMessage onlineTradesMessage = new OnlineTradesMessage(safeOnlineSignatures);
+			Network.getInstance().broadcast(peer -> onlineTradesMessage);
+
+			return;
+		}
+
+		// As we have no new online signatures, check whether it's time to do a general broadcast
+		Long now = NTP.getTime();
+		if (now == null || now < nextBroadcastTimestamp)
+			return;
+
+		nextBroadcastTimestamp = now + ONLINE_BROADCAST_INTERVAL;
+
+		List<OnlineTradeData> safeOnlineSignatures = List.copyOf(this.safeAllOnlineByPubkey.values());
+
+		GetOnlineTradesMessage getOnlineTradesMessage = new GetOnlineTradesMessage(safeOnlineSignatures);
+		Network.getInstance().broadcast(peer -> getOnlineTradesMessage);
+	}
+
+	// Network message processing
+
+	public void onGetOnlineTradesMessage(Peer peer, Message message) {
+		GetOnlineTradesMessage getOnlineTradesMessage = (GetOnlineTradesMessage) message;
+
+		List<OnlineTradeData> peersOnlineTrades = getOnlineTradesMessage.getOnlineTrades();
+
+		Map<ByteArray, OnlineTradeData> entriesUnknownToPeer = new HashMap<>(this.safeAllOnlineByPubkey);
+		for (OnlineTradeData peersOnlineTrade : peersOnlineTrades) {
+			ByteArray pubkeyByteArray = ByteArray.of(peersOnlineTrade.getPublicKey());
+
+			OnlineTradeData ourEntry = entriesUnknownToPeer.get(pubkeyByteArray);
+
+			if (ourEntry != null && ourEntry.getTimestamp() == peersOnlineTrade.getTimestamp())
+				entriesUnknownToPeer.remove(pubkeyByteArray);
+		}
+
+		// Send complement to peer
+		List<OnlineTradeData> safeOnlineSignatures = List.copyOf(entriesUnknownToPeer.values());
+		Message responseMessage = new OnlineTradesMessage(safeOnlineSignatures);
+		if (!peer.sendMessage(responseMessage)) {
+			peer.disconnect("failed to send online trades response");
+			return;
+		}
+	}
+
+	public void onOnlineTradesMessage(Peer peer, Message message) {
+		OnlineTradesMessage onlineTradesMessage = (OnlineTradesMessage) message;
+
+		List<OnlineTradeData> peersOnlineTrades = onlineTradesMessage.getOnlineTrades();
+
+		long now = NTP.getTime();
+		// Timestamps after this are too far into the future
+		long futureThreshold = (now % ONLINE_LIFETIME) + ONLINE_LIFETIME + ONLINE_LIFETIME / 2;
+		// Timestamps before this are too far into the past
+		long pastThreshold = now;
+
+		Map<ByteArray, Supplier<ACCT>> acctSuppliersByCodeHash = SupportedBlockchain.getAcctMap();
+
+		int newCount = 0;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (OnlineTradeData peersOnlineTrade : peersOnlineTrades) {
+				long timestamp = peersOnlineTrade.getTimestamp();
+
+				if (timestamp < pastThreshold || timestamp > futureThreshold)
+					continue;
+
+				ByteArray pubkeyByteArray = ByteArray.of(peersOnlineTrade.getPublicKey());
+
+				// Ignore if we've previously verified this timestamp+publickey combo
+				OnlineTradeData existingTradeData = this.safeAllOnlineByPubkey.get(pubkeyByteArray);
+				if (existingTradeData != null && existingTradeData.getTimestamp() == timestamp)
+					continue;
+
+				// Check timestamp signature
+				byte[] timestampSignature = peersOnlineTrade.getSignature();
+				byte[] timestampBytes = Longs.toByteArray(timestamp);
+				byte[] publicKey = peersOnlineTrade.getPublicKey();
+				if (!Crypto.verify(publicKey, timestampSignature, timestampBytes))
+					continue;
+
+				ATData atData = repository.getATRepository().fromATAddress(peersOnlineTrade.getAtAddress());
+				if (atData == null || atData.getIsFrozen() || atData.getIsFinished())
+					continue;
+
+				ByteArray atCodeHash = new ByteArray(atData.getCodeHash());
+				Supplier<ACCT> acctSupplier = acctSuppliersByCodeHash.get(atCodeHash);
+				if (acctSupplier == null)
+					continue;
+
+				CrossChainTradeData tradeData = acctSupplier.get().populateTradeData(repository, atData);
+				if (tradeData == null)
+					continue;
+
+				// Convert signer's public key to address form
+				String signerAddress = Crypto.toAddress(publicKey);
+
+				// Signer's public key (in address form) must match Bob's / Alice's trade public key (in address form)
+				if (!signerAddress.equals(tradeData.qortalCreatorTradeAddress) && !signerAddress.equals(tradeData.qortalPartnerAddress))
+					continue;
+
+				// This is new to us
+				this.allOnlineByPubkey.put(pubkeyByteArray, peersOnlineTrade);
+				++newCount;
+			}
+		} catch (DataException e) {
+			LOGGER.error("Couldn't process ONLINE_TRADES message due to repository issue", e);
+		}
+
+		if (newCount > 0) {
+			LOGGER.debug("New online trade signatures: {}", newCount);
+			rebuildSafeAllOnline();
+		}
+	}
 }

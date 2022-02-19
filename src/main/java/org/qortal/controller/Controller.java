@@ -1222,6 +1222,8 @@ public class Controller extends Thread {
 	}
 
 	public void onPeerHandshakeCompleted(Peer peer) {
+		// XXX: we could turn this into an EventBus event so that listeners like TradeBot get a look-in
+
 		// Only send if outbound
 		if (peer.isOutbound()) {
 			// Request peer's unconfirmed transactions
@@ -1310,6 +1312,14 @@ public class Controller extends Thread {
 
 			case ARBITRARY_SIGNATURES:
 				ArbitraryDataManager.getInstance().onNetworkArbitrarySignaturesMessage(peer, message);
+				break;
+
+			case GET_ONLINE_TRADES:
+				TradeBot.getInstance().onGetOnlineTradesMessage(peer, message);
+				break;
+
+			case ONLINE_TRADES:
+				TradeBot.getInstance().onOnlineTradesMessage(peer, message);
 				break;
 
 			default:
