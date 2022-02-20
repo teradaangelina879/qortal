@@ -22,10 +22,10 @@ public class ArbitraryDataFileListMessage extends Message {
 
 	private final byte[] signature;
 	private final List<byte[]> hashes;
-	private final Long requestTime;
+	private Long requestTime;
 	private Integer requestHops;
-	private final String peerAddress;
-	private final boolean isRelayPossible;
+	private String peerAddress;
+	private Boolean isRelayPossible;
 
 
 	public ArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes, Long requestTime,
@@ -109,7 +109,7 @@ public class ArbitraryDataFileListMessage extends Message {
 				bytes.write(hash);
 			}
 
-			if (this.requestTime == null) { // Just in case
+			if (this.requestTime == null) { // To maintain backwards support
 				return bytes.toByteArray();
 			}
 
@@ -136,15 +136,26 @@ public class ArbitraryDataFileListMessage extends Message {
 		return clone;
 	}
 
+	public void removeOptionalStats() {
+		this.requestTime = null;
+		this.requestHops = null;
+		this.peerAddress = null;
+		this.isRelayPossible = null;
+	}
+
 	public Long getRequestTime() {
 		return this.requestTime;
+	}
+
+	public void setRequestTime(Long requestTime) {
+		this.requestTime = requestTime;
 	}
 
 	public Integer getRequestHops() {
 		return this.requestHops;
 	}
 
-	public void setRequestHops(int requestHops) {
+	public void setRequestHops(Integer requestHops) {
 		this.requestHops = requestHops;
 	}
 
@@ -152,8 +163,16 @@ public class ArbitraryDataFileListMessage extends Message {
 		return this.peerAddress;
 	}
 
-	public boolean isRelayPossible() {
+	public void setPeerAddress(String peerAddress) {
+		this.peerAddress = peerAddress;
+	}
+
+	public Boolean isRelayPossible() {
 		return this.isRelayPossible;
+	}
+
+	public void setIsRelayPossible(Boolean isRelayPossible) {
+		this.isRelayPossible = isRelayPossible;
 	}
 
 }

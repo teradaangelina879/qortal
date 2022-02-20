@@ -29,6 +29,7 @@ public class ArbitraryDataFileListManager {
 
     private static ArbitraryDataFileListManager instance;
 
+    private static String MIN_PEER_VERSION_FOR_FILE_LIST_STATS = "3.2.0";
 
     /**
      * Map of recent incoming requests for ARBITRARY transaction data file lists.
@@ -488,6 +489,12 @@ public class ArbitraryDataFileListManager {
                         arbitraryDataFileListMessage.setRequestHops(++requestHops);
                     }
 
+                    // Remove optional parameters if the requesting peer doesn't support it yet
+                    // A message with less statistical data is better than no message at all
+                    if (!requestingPeer.isAtLeastVersion(MIN_PEER_VERSION_FOR_FILE_LIST_STATS)) {
+                        arbitraryDataFileListMessage.removeOptionalStats();
+                    }
+
                     // Forward to requesting peer
                     LOGGER.debug("Forwarding file list with {} hashes to requesting peer: {}", hashes.size(), requestingPeer);
                     if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
@@ -594,6 +601,13 @@ public class ArbitraryDataFileListManager {
             ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature,
                     hashes, NTP.getTime(), 0, ourAddress, true);
             arbitraryDataFileListMessage.setId(message.getId());
+
+            // Remove optional parameters if the requesting peer doesn't support it yet
+            // A message with less statistical data is better than no message at all
+            if (!peer.isAtLeastVersion(MIN_PEER_VERSION_FOR_FILE_LIST_STATS)) {
+                arbitraryDataFileListMessage.removeOptionalStats();
+            }
+
             if (!peer.sendMessage(arbitraryDataFileListMessage)) {
                 LOGGER.debug("Couldn't send list of hashes");
                 peer.disconnect("failed to send list of hashes");
