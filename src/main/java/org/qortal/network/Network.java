@@ -185,7 +185,7 @@ public class Network {
         }
 
         // Attempt to set up UPnP. All errors are ignored.
-        if (Settings.getInstance().isuPnPEnabled()) {
+        if (Settings.getInstance().isUPnPEnabled()) {
             UPnP.openPortTCP(Settings.getInstance().getListenPort());
         }
         else {

@@ -631,7 +631,7 @@ public class Settings {
 		return this.bindAddress;
 	}
 
-	public boolean isuPnPEnabled() {
+	public boolean isUPnPEnabled() {
 		return this.uPnPEnabled;
 	}
 
