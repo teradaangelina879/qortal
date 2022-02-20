@@ -188,6 +188,9 @@ public class Network {
         if (Settings.getInstance().isuPnPEnabled()) {
             UPnP.openPortTCP(Settings.getInstance().getListenPort());
         }
+        else {
+            UPnP.closePortTCP(Settings.getInstance().getListenPort());
+        }
 
         // Start up first networking thread
         networkEPC.start();
