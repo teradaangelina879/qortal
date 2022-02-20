@@ -251,12 +251,15 @@ public class Network {
     public boolean requestDataFromPeer(String peerAddressString, byte[] signature) {
         if (peerAddressString != null) {
             PeerAddress peerAddress = PeerAddress.fromString(peerAddressString);
+            PeerData peerData = null;
 
             // Reuse an existing PeerData instance if it's already in the known peers list
-            PeerData peerData = this.allKnownPeers.stream()
-                    .filter(knownPeerData -> knownPeerData.getAddress().equals(peerAddress))
-                    .findFirst()
-                    .orElse(null);
+            synchronized (this.allKnownPeers) {
+                peerData = this.allKnownPeers.stream()
+                        .filter(knownPeerData -> knownPeerData.getAddress().equals(peerAddress))
+                        .findFirst()
+                        .orElse(null);
+            }
 
             if (peerData == null) {
                 // Not a known peer, so we need to create one
@@ -271,10 +274,13 @@ public class Network {
             }
 
             // Check if we're already connected to and handshaked with this peer
-            Peer connectedPeer = this.connectedPeers.stream()
-                    .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
-                    .findFirst()
-                    .orElse(null);
+            Peer connectedPeer = null;
+            synchronized (this.connectedPeers) {
+                connectedPeer = this.connectedPeers.stream()
+                        .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
+                        .findFirst()
+                        .orElse(null);
+            }
             boolean isConnected = (connectedPeer != null);
 
             boolean isHandshaked = this.getHandshakedPeers().stream()
