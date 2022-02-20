@@ -95,8 +95,9 @@ public abstract class Message {
 
 		ARBITRARY_SIGNATURES(130),
 
-		GET_ONLINE_TRADES(140),
-		ONLINE_TRADES(141);
+		ONLINE_TRADES(140),
+		GET_ONLINE_TRADES(141),
+		;
 
 		public final int value;
 		public final Method fromByteBufferMethod;

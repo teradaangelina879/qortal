@@ -13,6 +13,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.controller.Controller;
+import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crypto.Crypto;
@@ -191,12 +192,16 @@ public class PresenceTransaction extends Transaction {
 			CrossChainTradeData crossChainTradeData = acctSupplier.get().populateTradeData(repository, atData);
 
 			// OK if signer's public key (in address form) matches Bob's trade public key (in address form)
-			if (signerAddress.equals(crossChainTradeData.qortalCreatorTradeAddress))
+			if (signerAddress.equals(crossChainTradeData.qortalCreatorTradeAddress)) {
+				TradeBot.getInstance().bridgePresence(this.presenceTransactionData.getTimestamp(), this.transactionData.getCreatorPublicKey(), timestampSignature, atData.getATAddress());
 				return ValidationResult.OK;
+			}
 
 			// OK if signer's public key (in address form) matches Alice's trade public key (in address form)
-			if (signerAddress.equals(crossChainTradeData.qortalPartnerAddress))
+			if (signerAddress.equals(crossChainTradeData.qortalPartnerAddress)) {
+				TradeBot.getInstance().bridgePresence(this.presenceTransactionData.getTimestamp(), this.transactionData.getCreatorPublicKey(), timestampSignature, atData.getATAddress());
 				return ValidationResult.OK;
+			}
 		}
 
 		return ValidationResult.AT_UNKNOWN;

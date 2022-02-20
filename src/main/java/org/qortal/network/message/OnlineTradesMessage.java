@@ -4,6 +4,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import org.qortal.data.network.OnlineTradeData;
 import org.qortal.transform.Transformer;
+import org.qortal.utils.Base58;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -53,11 +54,11 @@ public class OnlineTradesMessage extends Message {
 				byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
 				bytes.get(signature);
 
-				byte[] addressBytes = new byte[Transformer.ADDRESS_LENGTH];
-				bytes.get(addressBytes);
-				String address = new String(addressBytes, StandardCharsets.UTF_8);
+				byte[] atAddressBytes = new byte[Transformer.ADDRESS_LENGTH];
+				bytes.get(atAddressBytes);
+				String atAddress = Base58.encode(atAddressBytes);
 
-				onlineTrades.add(new OnlineTradeData(timestamp, publicKey, signature, address));
+				onlineTrades.add(new OnlineTradeData(timestamp, publicKey, signature, atAddress));
 			}
 
 			if (bytes.hasRemaining()) {
@@ -108,7 +109,7 @@ public class OnlineTradesMessage extends Message {
 
 						bytes.write(onlineTradeData.getSignature());
 
-						bytes.write(onlineTradeData.getAtAddress().getBytes(StandardCharsets.UTF_8));
+						bytes.write(Base58.decode(onlineTradeData.getAtAddress()));
 					}
 				}
 			}

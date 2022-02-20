@@ -19,11 +19,11 @@ public class OnlineTradeData {
 	protected OnlineTradeData() {
 	}
 
-	public OnlineTradeData(long timestamp, byte[] publicKey, byte[] signature, String address) {
+	public OnlineTradeData(long timestamp, byte[] publicKey, byte[] signature, String atAddress) {
 		this.timestamp = timestamp;
 		this.publicKey = publicKey;
 		this.signature = signature;
-		this.atAddress = address;
+		this.atAddress = atAddress;
 	}
 
 	public OnlineTradeData(long timestamp, byte[] publicKey) {

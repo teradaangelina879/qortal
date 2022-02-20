@@ -338,9 +338,15 @@ public class TradeBot implements Listener {
 	private void expireOldOnlineSignatures() {
 		long now = NTP.getTime();
 
-		synchronized (this.pendingOnlineSignatures) {
-			this.pendingOnlineSignatures.removeIf(onlineTradeData -> onlineTradeData.getTimestamp() <= now);
+		int removedCount = 0;
+		synchronized (this.allOnlineByPubkey) {
+			int preRemoveCount = this.allOnlineByPubkey.size();
+			this.allOnlineByPubkey.values().removeIf(onlineTradeData -> onlineTradeData.getTimestamp() <= now);
+			removedCount = this.allOnlineByPubkey.size() - preRemoveCount;
 		}
+
+		if (removedCount > 0)
+			LOGGER.trace("Removed {} old online trade signatures", removedCount);
 	}
 
 	/*package*/ void updatePresence(Repository repository, TradeBotData tradeBotData, CrossChainTradeData tradeData)
@@ -359,28 +365,33 @@ public class TradeBot implements Listener {
 
 		long now = NTP.getTime();
 
-		// Timestamps are considered good for full lifetime...
-		long expiry = (now + ONLINE_LIFETIME) % ONLINE_LIFETIME;
-		// ... but refresh if older than half-lifetime
-		long threshold = (now + ONLINE_LIFETIME / 2) % (ONLINE_LIFETIME / 2);
+		// Timestamps are considered good for full lifetime, but we'll refresh if older than half-lifetime
+		long threshold = (now / (ONLINE_LIFETIME / 2)) * (ONLINE_LIFETIME / 2);
+		long newExpiry = threshold + ONLINE_LIFETIME / 2;
 
 		ByteArray pubkeyByteArray = ByteArray.of(tradeNativeAccount.getPublicKey());
 		// If map's timestamp is missing, or too old, use the new timestamp - otherwise use existing timestamp.
-		long timestamp = ourTimestampsByPubkey.compute(pubkeyByteArray, (k, v) -> (v == null || v <= threshold) ? expiry : v);
+		synchronized (this.ourTimestampsByPubkey) {
+			Long currentTimestamp = this.ourTimestampsByPubkey.get(pubkeyByteArray);
 
-		// If timestamp hasn't been updated then nothing to do
-		if (timestamp != expiry)
-			return;
+			if (currentTimestamp != null && currentTimestamp > threshold)
+				// timestamp still good
+				return;
+
+			this.ourTimestampsByPubkey.put(pubkeyByteArray, newExpiry);
+		}
 
 		// Create signature
-		byte[] signature = tradeNativeAccount.sign(Longs.toByteArray(timestamp));
+		byte[] signature = tradeNativeAccount.sign(Longs.toByteArray(newExpiry));
 
 		// Add new online info to queue to be broadcast around network
-		OnlineTradeData onlineTradeData = new OnlineTradeData(timestamp, tradeNativeAccount.getPublicKey(), signature, atAddress);
+		OnlineTradeData onlineTradeData = new OnlineTradeData(newExpiry, tradeNativeAccount.getPublicKey(), signature, atAddress);
 		this.pendingOnlineSignatures.add(onlineTradeData);
 
 		this.allOnlineByPubkey.put(pubkeyByteArray, onlineTradeData);
 		rebuildSafeAllOnline();
+
+		LOGGER.trace("New signed timestamp {} for our online trade {}", newExpiry, atAddress);
 	}
 
 	private void rebuildSafeAllOnline() {
@@ -400,6 +411,8 @@ public class TradeBot implements Listener {
 				this.pendingOnlineSignatures.clear();
 			}
 
+			LOGGER.trace("Broadcasting {} new online trades", safeOnlineSignatures.size());
+
 			OnlineTradesMessage onlineTradesMessage = new OnlineTradesMessage(safeOnlineSignatures);
 			Network.getInstance().broadcast(peer -> onlineTradesMessage);
 
@@ -415,6 +428,13 @@ public class TradeBot implements Listener {
 
 		List<OnlineTradeData> safeOnlineSignatures = List.copyOf(this.safeAllOnlineByPubkey.values());
 
+		if (safeOnlineSignatures.isEmpty())
+			return;
+
+		LOGGER.trace("Broadcasting all {} known online trades. Next broadcast timestamp: {}",
+				safeOnlineSignatures.size(), nextBroadcastTimestamp
+		);
+
 		GetOnlineTradesMessage getOnlineTradesMessage = new GetOnlineTradesMessage(safeOnlineSignatures);
 		Network.getInstance().broadcast(peer -> getOnlineTradesMessage);
 	}
@@ -427,6 +447,8 @@ public class TradeBot implements Listener {
 		List<OnlineTradeData> peersOnlineTrades = getOnlineTradesMessage.getOnlineTrades();
 
 		Map<ByteArray, OnlineTradeData> entriesUnknownToPeer = new HashMap<>(this.safeAllOnlineByPubkey);
+		int knownCount = entriesUnknownToPeer.size();
+
 		for (OnlineTradeData peersOnlineTrade : peersOnlineTrades) {
 			ByteArray pubkeyByteArray = ByteArray.of(peersOnlineTrade.getPublicKey());
 
@@ -435,6 +457,10 @@ public class TradeBot implements Listener {
 			if (ourEntry != null && ourEntry.getTimestamp() == peersOnlineTrade.getTimestamp())
 				entriesUnknownToPeer.remove(pubkeyByteArray);
 		}
+
+		LOGGER.trace("Sending {} known \\ {} peers = {} online trades to peer {}",
+				knownCount, peersOnlineTrades.size(), entriesUnknownToPeer.size()
+		);
 
 		// Send complement to peer
 		List<OnlineTradeData> safeOnlineSignatures = List.copyOf(entriesUnknownToPeer.values());
@@ -452,7 +478,7 @@ public class TradeBot implements Listener {
 
 		long now = NTP.getTime();
 		// Timestamps after this are too far into the future
-		long futureThreshold = (now % ONLINE_LIFETIME) + ONLINE_LIFETIME + ONLINE_LIFETIME / 2;
+		long futureThreshold = (now / ONLINE_LIFETIME + 1) * ONLINE_LIFETIME;
 		// Timestamps before this are too far into the past
 		long pastThreshold = now;
 
@@ -464,46 +490,101 @@ public class TradeBot implements Listener {
 			for (OnlineTradeData peersOnlineTrade : peersOnlineTrades) {
 				long timestamp = peersOnlineTrade.getTimestamp();
 
-				if (timestamp < pastThreshold || timestamp > futureThreshold)
+				// Ignore if timestamp is out of bounds
+				if (timestamp < pastThreshold || timestamp > futureThreshold) {
+					if (timestamp < pastThreshold)
+						LOGGER.trace("Ignoring online trade {} from peer {} as timestamp {} is too old vs {}",
+								peersOnlineTrade.getAtAddress(), peer, timestamp, pastThreshold
+								);
+					else
+						LOGGER.trace("Ignoring online trade {} from peer {} as timestamp {} is too new vs {}",
+								peersOnlineTrade.getAtAddress(), peer, timestamp, pastThreshold
+						);
+
 					continue;
+				}
 
 				ByteArray pubkeyByteArray = ByteArray.of(peersOnlineTrade.getPublicKey());
 
-				// Ignore if we've previously verified this timestamp+publickey combo
+				// Ignore if we've previously verified this timestamp+publickey combo or sent timestamp is older
 				OnlineTradeData existingTradeData = this.safeAllOnlineByPubkey.get(pubkeyByteArray);
-				if (existingTradeData != null && existingTradeData.getTimestamp() == timestamp)
+				if (existingTradeData != null && timestamp <= existingTradeData.getTimestamp()) {
+					if (timestamp == existingTradeData.getTimestamp())
+						LOGGER.trace("Ignoring online trade {} from peer {} as we have verified timestamp {} before",
+								peersOnlineTrade.getAtAddress(), peer, timestamp
+						);
+					else
+						LOGGER.trace("Ignoring online trade {} from peer {} as timestamp {} is older than latest {}",
+								peersOnlineTrade.getAtAddress(), peer, timestamp, existingTradeData.getTimestamp()
+						);
+
 					continue;
+				}
 
 				// Check timestamp signature
 				byte[] timestampSignature = peersOnlineTrade.getSignature();
 				byte[] timestampBytes = Longs.toByteArray(timestamp);
 				byte[] publicKey = peersOnlineTrade.getPublicKey();
-				if (!Crypto.verify(publicKey, timestampSignature, timestampBytes))
+				if (!Crypto.verify(publicKey, timestampSignature, timestampBytes)) {
+					LOGGER.trace("Ignoring online trade {} from peer {} as signature failed to verify",
+							peersOnlineTrade.getAtAddress(), peer
+					);
+
 					continue;
+				}
 
 				ATData atData = repository.getATRepository().fromATAddress(peersOnlineTrade.getAtAddress());
-				if (atData == null || atData.getIsFrozen() || atData.getIsFinished())
+				if (atData == null || atData.getIsFrozen() || atData.getIsFinished()) {
+					if (atData == null)
+						LOGGER.trace("Ignoring online trade {} from peer {} as AT doesn't exist",
+								peersOnlineTrade.getAtAddress(), peer
+						);
+					else
+						LOGGER.trace("Ignoring online trade {} from peer {} as AT is frozen or finished",
+								peersOnlineTrade.getAtAddress(), peer
+						);
+
 					continue;
+				}
 
 				ByteArray atCodeHash = new ByteArray(atData.getCodeHash());
 				Supplier<ACCT> acctSupplier = acctSuppliersByCodeHash.get(atCodeHash);
-				if (acctSupplier == null)
+				if (acctSupplier == null) {
+					LOGGER.trace("Ignoring online trade {} from peer {} as AT isn't a known ACCT?",
+							peersOnlineTrade.getAtAddress(), peer
+					);
+
 					continue;
+				}
 
 				CrossChainTradeData tradeData = acctSupplier.get().populateTradeData(repository, atData);
-				if (tradeData == null)
+				if (tradeData == null) {
+					LOGGER.trace("Ignoring online trade {} from peer {} as trade data not found?",
+							peersOnlineTrade.getAtAddress(), peer
+					);
+
 					continue;
+				}
 
 				// Convert signer's public key to address form
 				String signerAddress = Crypto.toAddress(publicKey);
 
 				// Signer's public key (in address form) must match Bob's / Alice's trade public key (in address form)
-				if (!signerAddress.equals(tradeData.qortalCreatorTradeAddress) && !signerAddress.equals(tradeData.qortalPartnerAddress))
+				if (!signerAddress.equals(tradeData.qortalCreatorTradeAddress) && !signerAddress.equals(tradeData.qortalPartnerAddress)) {
+					LOGGER.trace("Ignoring online trade {} from peer {} as signer isn't Alice or Bob?",
+							peersOnlineTrade.getAtAddress(), peer
+					);
+
 					continue;
+				}
 
 				// This is new to us
 				this.allOnlineByPubkey.put(pubkeyByteArray, peersOnlineTrade);
 				++newCount;
+
+				LOGGER.trace("Added online trade {} from peer {} with timestamp {}",
+						peersOnlineTrade.getAtAddress(), peer, timestamp
+				);
 			}
 		} catch (DataException e) {
 			LOGGER.error("Couldn't process ONLINE_TRADES message due to repository issue", e);
@@ -511,6 +592,20 @@ public class TradeBot implements Listener {
 
 		if (newCount > 0) {
 			LOGGER.debug("New online trade signatures: {}", newCount);
+			rebuildSafeAllOnline();
+		}
+	}
+
+	public void bridgePresence(long timestamp, byte[] publicKey, byte[] signature, String atAddress) {
+		long expiry = (timestamp / ONLINE_LIFETIME + 1) * ONLINE_LIFETIME;
+		ByteArray pubkeyByteArray = ByteArray.of(publicKey);
+
+		OnlineTradeData fakeOnlineTradeData = new OnlineTradeData(expiry, publicKey, signature, atAddress);
+
+		OnlineTradeData computedOnlineTradeData = this.allOnlineByPubkey.compute(pubkeyByteArray, (k, v) -> (v == null || v.getTimestamp() < expiry) ? fakeOnlineTradeData : v);
+
+		if (computedOnlineTradeData == fakeOnlineTradeData) {
+			LOGGER.trace("Bridged online trade {} with timestamp {}", atAddress, expiry);
 			rebuildSafeAllOnline();
 		}
 	}
