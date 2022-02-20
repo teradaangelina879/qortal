@@ -80,6 +80,12 @@ public class ArbitraryDataFileRequestThread implements Runnable {
                     continue;
                 }
 
+                // Skip if already requesting, but don't remove, as we might want to retry later
+                if (arbitraryDataFileManager.arbitraryDataFileRequests.containsKey(hash58)) {
+                    // Already requesting - leave this attempt for later
+                    continue;
+                }
+
                 // We want to process this file
                 shouldProcess = true;
                 iterator.remove();

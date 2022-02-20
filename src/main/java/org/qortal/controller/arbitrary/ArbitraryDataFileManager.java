@@ -37,7 +37,7 @@ public class ArbitraryDataFileManager extends Thread {
     /**
      * Map to keep track of our in progress (outgoing) arbitrary data file requests
      */
-    private Map<String, Long> arbitraryDataFileRequests = Collections.synchronizedMap(new HashMap<>());
+    public Map<String, Long> arbitraryDataFileRequests = Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Map to keep track of hashes that we might need to relay
@@ -148,7 +148,7 @@ public class ArbitraryDataFileManager extends Thread {
                     }
                 }
                 else {
-                    LOGGER.trace("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
+                    LOGGER.trace("Already requesting data file {} for signature {} from peer {}", arbitraryDataFile, Base58.encode(signature), peer);
                 }
             }
             else {
