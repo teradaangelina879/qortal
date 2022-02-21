@@ -767,12 +767,12 @@ public class Controller extends Thread {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
 				SysTray.getInstance().setTrayIcon(2);
 			}
-			else if (Synchronizer.getInstance().isSynchronizing()) {
-				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), Synchronizer.getInstance().getSyncPercent());
-				SysTray.getInstance().setTrayIcon(3);
-			}
 			else if (numberOfPeers < Settings.getInstance().getMinBlockchainPeers()) {
 				actionText = Translator.INSTANCE.translate("SysTray", "CONNECTING");
+				SysTray.getInstance().setTrayIcon(3);
+			}
+			else if (!this.isUpToDate()) {
+				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), Synchronizer.getInstance().getSyncPercent());
 				SysTray.getInstance().setTrayIcon(3);
 			}
 			else {
