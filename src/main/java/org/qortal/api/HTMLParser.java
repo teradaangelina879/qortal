@@ -28,6 +28,11 @@ public class HTMLParser {
             // Add base href tag
             String baseElement = String.format("<base href=\"%s\">", baseUrl);
             head.get(0).prepend(baseElement);
+
+            // Add meta charset tag
+            String metaCharsetElement = "<meta charset=\"UTF-8\">";
+            head.get(0).prepend(metaCharsetElement);
+
         }
         String html = document.html();
         this.data = html.getBytes();
