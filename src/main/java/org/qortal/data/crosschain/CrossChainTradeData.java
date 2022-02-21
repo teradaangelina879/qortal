@@ -94,6 +94,12 @@ public class CrossChainTradeData {
 
 	public String acctName;
 
+	@Schema(description = "Timestamp when AT creator's trade-bot presence expires")
+	public Long creatorPresenceExpiry;
+
+	@Schema(description = "Timestamp when trade partner's trade-bot presence expires")
+	public Long partnerPresenceExpiry;
+
 	// Constructors
 
 	// Necessary for JAXB

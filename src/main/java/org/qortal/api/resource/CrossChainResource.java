@@ -25,6 +25,7 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.api.model.CrossChainCancelRequest;
 import org.qortal.api.model.CrossChainTradeSummary;
+import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.AcctMode;
@@ -120,6 +121,8 @@ public class CrossChainResource {
 				crossChainTrades = crossChainTrades.subList(0, upperLimit);
 			}
 
+			crossChainTrades.stream().forEach(CrossChainResource::decorateTradeDataWithPresence);
+
 			return crossChainTrades;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
@@ -151,7 +154,11 @@ public class CrossChainResource {
 			if (acct == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			return acct.populateTradeData(repository, atData);
+			CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+
+			decorateTradeDataWithPresence(crossChainTradeData);
+
+			return crossChainTradeData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -486,4 +493,7 @@ public class CrossChainResource {
 		}
 	}
 
+	private static void decorateTradeDataWithPresence(CrossChainTradeData crossChainTradeData) {
+		TradeBot.getInstance().decorateTradeDataWithPresence(crossChainTradeData);
+	}
 }

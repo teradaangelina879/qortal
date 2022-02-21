@@ -346,7 +346,7 @@ public class TradeBot implements Listener {
 		}
 
 		if (removedCount > 0)
-			LOGGER.trace("Removed {} old online trade signatures", removedCount);
+			LOGGER.debug("Removed {} old online trade signatures", removedCount);
 	}
 
 	/*package*/ void updatePresence(Repository repository, TradeBotData tradeBotData, CrossChainTradeData tradeData)
@@ -411,7 +411,7 @@ public class TradeBot implements Listener {
 				this.pendingOnlineSignatures.clear();
 			}
 
-			LOGGER.trace("Broadcasting {} new online trades", safeOnlineSignatures.size());
+			LOGGER.debug("Broadcasting {} new online trades", safeOnlineSignatures.size());
 
 			OnlineTradesMessage onlineTradesMessage = new OnlineTradesMessage(safeOnlineSignatures);
 			Network.getInstance().broadcast(peer -> onlineTradesMessage);
@@ -431,7 +431,7 @@ public class TradeBot implements Listener {
 		if (safeOnlineSignatures.isEmpty())
 			return;
 
-		LOGGER.trace("Broadcasting all {} known online trades. Next broadcast timestamp: {}",
+		LOGGER.debug("Broadcasting all {} known online trades. Next broadcast timestamp: {}",
 				safeOnlineSignatures.size(), nextBroadcastTimestamp
 		);
 
@@ -458,8 +458,11 @@ public class TradeBot implements Listener {
 				entriesUnknownToPeer.remove(pubkeyByteArray);
 		}
 
-		LOGGER.trace("Sending {} known \\ {} peers = {} online trades to peer {}",
-				knownCount, peersOnlineTrades.size(), entriesUnknownToPeer.size()
+		if (entriesUnknownToPeer.isEmpty())
+			return;
+
+		LOGGER.debug("Sending {} online trades to peer {} after excluding their {} from known {}",
+				entriesUnknownToPeer.size(), peer, peersOnlineTrades.size(), knownCount
 		);
 
 		// Send complement to peer
@@ -567,7 +570,7 @@ public class TradeBot implements Listener {
 				}
 
 				// Convert signer's public key to address form
-				String signerAddress = Crypto.toAddress(publicKey);
+				String signerAddress = peersOnlineTrade.getTradeAddress();
 
 				// Signer's public key (in address form) must match Bob's / Alice's trade public key (in address form)
 				if (!signerAddress.equals(tradeData.qortalCreatorTradeAddress) && !signerAddress.equals(tradeData.qortalPartnerAddress)) {
@@ -608,5 +611,20 @@ public class TradeBot implements Listener {
 			LOGGER.trace("Bridged online trade {} with timestamp {}", atAddress, expiry);
 			rebuildSafeAllOnline();
 		}
+	}
+
+	public void decorateTradeDataWithPresence(CrossChainTradeData crossChainTradeData) {
+		// Match by AT address, then check for Bob vs Alice
+		this.safeAllOnlineByPubkey.values().stream()
+				.filter(onlineTradeData -> onlineTradeData.getAtAddress().equals(crossChainTradeData.qortalAtAddress))
+				.forEach(onlineTradeData -> {
+					String signerAddress = onlineTradeData.getTradeAddress();
+
+					// Signer's public key (in address form) must match Bob's / Alice's trade public key (in address form)
+					if (signerAddress.equals(crossChainTradeData.qortalCreatorTradeAddress))
+						crossChainTradeData.creatorPresenceExpiry = onlineTradeData.getTimestamp();
+					else if (signerAddress.equals(crossChainTradeData.qortalPartnerAddress))
+						crossChainTradeData.partnerPresenceExpiry = onlineTradeData.getTimestamp();
+				});
 	}
 }

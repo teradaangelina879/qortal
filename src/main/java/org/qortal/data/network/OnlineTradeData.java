@@ -1,5 +1,7 @@
 package org.qortal.data.network;
 
+import org.qortal.crypto.Crypto;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import java.util.Arrays;
@@ -12,6 +14,7 @@ public class OnlineTradeData {
 	protected byte[] publicKey; // Could be BOB's or ALICE's
 	protected byte[] signature; // Not always present
 	protected String atAddress; // Not always present
+	protected String tradeAddress; // Lazily instantiated
 
 	// Constructors
 
@@ -44,6 +47,15 @@ public class OnlineTradeData {
 
 	public String getAtAddress() {
 		return this.atAddress;
+	}
+
+	// Probably don't need synchronization
+	public String getTradeAddress() {
+		if (tradeAddress != null)
+			return tradeAddress;
+
+		tradeAddress = Crypto.toAddress(this.publicKey);
+		return tradeAddress;
 	}
 
 	// Comparison
