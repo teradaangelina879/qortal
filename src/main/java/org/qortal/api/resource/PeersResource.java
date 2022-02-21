@@ -354,7 +354,7 @@ public class PeersResource {
 
 		List<Peer> connectedPeers = Network.getInstance().getConnectedPeers().stream().collect(Collectors.toList());
 		for (Peer peer : connectedPeers) {
-			if (peer.isOutbound()) {
+			if (!peer.isOutbound()) {
 				peersSummary.inboundConnections++;
 			}
 			else {
