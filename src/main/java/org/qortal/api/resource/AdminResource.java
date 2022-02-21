@@ -315,6 +315,7 @@ public class AdminResource {
 
 			repository.getAccountRepository().save(mintingAccountData);
 			repository.saveChanges();
+			repository.exportNodeLocalData();//after adding new minting account let's persist it to the backup  MintingAccounts.json 
 		} catch (IllegalArgumentException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
 		} catch (DataException e) {
@@ -355,6 +356,7 @@ public class AdminResource {
 				return "false";
 
 			repository.saveChanges();
+			repository.exportNodeLocalData();//after removing new minting account let's persist it to the backup  MintingAccounts.json 
 		} catch (IllegalArgumentException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
 		} catch (DataException e) {
@@ -546,7 +548,7 @@ public class AdminResource {
 	@Path("/repository/data")
 	@Operation(
 		summary = "Export sensitive/node-local data from repository.",
-		description = "Exports data to .script files on local machine"
+		description = "Exports data to .json files on local machine"
 	)
 	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
