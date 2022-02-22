@@ -443,7 +443,7 @@ public class ArbitraryResource {
 			
 			List<ArbitraryTransactionData> transactionDataList;
 
-			if(query.equals("")){
+			if(query==null || query.equals("")){
 				transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset);
 			}else{
 				transactionDataList = ArbitraryDataStorageManager.getInstance().searchHostedTransactions(repository,query, limit, offset);

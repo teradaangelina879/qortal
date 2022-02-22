@@ -261,14 +261,8 @@ public class ArbitraryDataStorageManager extends Thread {
     }
 
 
-    // Hosted data
-
-    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset) {
-        // Load from cache if we can, to avoid disk reads
-        if (this.hostedTransactions != null) {
-            return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
-        }
-
+    public List<ArbitraryTransactionData> loadAllHostedTransactions(Repository repository){
+        
         List<ArbitraryTransactionData> arbitraryTransactionDataList = new ArrayList<>();
 
         // Find all hosted paths
@@ -299,10 +293,21 @@ public class ArbitraryDataStorageManager extends Thread {
         // Sort by newest first
         arbitraryTransactionDataList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
 
-        // Update cache
-        this.hostedTransactions = arbitraryTransactionDataList;
 
-        return ArbitraryTransactionUtils.limitOffsetTransactions(arbitraryTransactionDataList, limit, offset);
+        return arbitraryTransactionDataList;
+    }
+    // Hosted data
+
+    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset) {
+        // Load from cache if we can, to avoid disk reads
+
+        if (this.hostedTransactions != null) {
+            return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
+        }
+
+        this.hostedTransactions = this.loadAllHostedTransactions(repository);
+
+        return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
     }
     
     /**
@@ -316,37 +321,28 @@ public class ArbitraryDataStorageManager extends Thread {
      */
 
     public List<ArbitraryTransactionData> searchHostedTransactions(Repository repository, String query, Integer limit, Integer offset) {
-        // Load from cache if we can (results that exists for the same query), to avoid disk reads
+        // Load from results cache if we can (results that exists for the same query), to avoid disk reads
         if (this.searchResultsTransactions != null && this.searchQuery.equals(query.toLowerCase())) {
             return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
         }
+
+        // Using cache if we can, to avoid disk reads
+        if (this.hostedTransactions == null) {
+            this.hostedTransactions = this.loadAllHostedTransactions(repository);
+        }
+
         this.searchQuery=query.toLowerCase();//set the searchQuery so that it can be checked on the next call
 
         List<ArbitraryTransactionData> searchResultsList = new ArrayList<>();
 
-        // Find all hosted paths
-        List<Path> allPaths = this.findAllHostedPaths();
-
-        // Loop through each path and attempt to match it to a signature, and check if it's a match with our search query
-        for (Path path : allPaths) {
+        // Loop through cached hostedTransactions
+        for (ArbitraryTransactionData atd : this.hostedTransactions) {
             try {
-                String[] contents = path.toFile().list();
-                if (contents == null || contents.length == 0) {
-                    // Ignore empty directories
-                    continue;
-                }
+               
+                if(atd.getName().toLowerCase().contains(this.searchQuery) || atd.getIdentifier().toLowerCase().contains(this.searchQuery))
+                    searchResultsList.add(atd);
 
-                String signature58 = path.getFileName().toString();
-                byte[] signature = Base58.decode(signature58);
-                TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-                if (transactionData == null || transactionData.getType() != Transaction.TransactionType.ARBITRARY) {
-                    continue;
-                }
-                ArbitraryTransactionData arbitraryTransactionData =(ArbitraryTransactionData) transactionData;
-                if(arbitraryTransactionData.getName().toLowerCase().contains(this.searchQuery) || arbitraryTransactionData.getIdentifier().toLowerCase().contains(this.searchQuery))
-                    searchResultsList.add(arbitraryTransactionData);
-
-            } catch (DataException e) {
+            } catch (Exception e) {
                 continue;
             }
         }
