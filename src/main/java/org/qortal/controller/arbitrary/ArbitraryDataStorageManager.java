@@ -47,6 +47,9 @@ public class ArbitraryDataStorageManager extends Thread {
 
     private List<ArbitraryTransactionData> hostedTransactions;
 
+    private String searchQuery;
+    private List<ArbitraryTransactionData> searchResultsTransactions;
+
     private static final long DIRECTORY_SIZE_CHECK_INTERVAL = 10 * 60 * 1000L; // 10 minutes
 
     /** Treat storage as full at 90% usage, to reduce risk of going over the limit.
@@ -300,6 +303,61 @@ public class ArbitraryDataStorageManager extends Thread {
         this.hostedTransactions = arbitraryTransactionDataList;
 
         return ArbitraryTransactionUtils.limitOffsetTransactions(arbitraryTransactionDataList, limit, offset);
+    }
+    
+    /**
+     * searchHostedTransactions
+     * Allow to run a query against hosted data names and return matches if there are any
+     * @param repository
+     * @param query
+     * @param limit
+     * @param offset
+     * @return
+     */
+
+    public List<ArbitraryTransactionData> searchHostedTransactions(Repository repository, String query, Integer limit, Integer offset) {
+        // Load from cache if we can (results that exists for the same query), to avoid disk reads
+        if (this.searchResultsTransactions != null && this.searchQuery.equals(query.toLowerCase())) {
+            return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
+        }
+        this.searchQuery=query.toLowerCase();//set the searchQuery so that it can be checked on the next call
+
+        List<ArbitraryTransactionData> searchResultsList = new ArrayList<>();
+
+        // Find all hosted paths
+        List<Path> allPaths = this.findAllHostedPaths();
+
+        // Loop through each path and attempt to match it to a signature, and check if it's a match with our search query
+        for (Path path : allPaths) {
+            try {
+                String[] contents = path.toFile().list();
+                if (contents == null || contents.length == 0) {
+                    // Ignore empty directories
+                    continue;
+                }
+
+                String signature58 = path.getFileName().toString();
+                byte[] signature = Base58.decode(signature58);
+                TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+                if (transactionData == null || transactionData.getType() != Transaction.TransactionType.ARBITRARY) {
+                    continue;
+                }
+                ArbitraryTransactionData arbitraryTransactionData =(ArbitraryTransactionData) transactionData;
+                if(arbitraryTransactionData.getName().toLowerCase().contains(this.searchQuery) || arbitraryTransactionData.getIdentifier().toLowerCase().contains(this.searchQuery))
+                    searchResultsList.add(arbitraryTransactionData);
+
+            } catch (DataException e) {
+                continue;
+            }
+        }
+
+        // Sort by newest first
+        searchResultsList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
+
+        // Update cache
+        this.searchResultsTransactions = searchResultsList;
+
+        return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
     }
 
     /**
