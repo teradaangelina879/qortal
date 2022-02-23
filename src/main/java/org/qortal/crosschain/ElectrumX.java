@@ -410,6 +410,16 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 						addresses.add((String) addressObj);
 				}
 
+				// For the purposes of Qortal we require all outputs to contain addresses
+				// Some servers omit this info, causing problems down the line with balance calculations
+				if (addresses.isEmpty()) {
+					if (this.currentServer != null) {
+						this.uselessServers.add(this.currentServer);
+						this.closeServer(this.currentServer);
+					}
+					throw new ForeignBlockchainException(String.format("No output addresses returned for transaction %s", txHash));
+				}
+
 				outputs.add(new BitcoinyTransaction.Output(scriptPubKey, value, addresses));
 			}
 
