@@ -2048,10 +2048,13 @@ public class Controller extends Thread {
 		return peers;
 	}
 
-	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
-	public boolean isUpToDate() {
+	/**
+	 * Returns whether we think our node has up-to-date blockchain based on our info about other peers.
+	 * @param minLatestBlockTimestamp - the minimum block timestamp to be considered recent
+	 * @return boolean - whether our node's blockchain is up to date or not
+	 */
+	public boolean isUpToDate(Long minLatestBlockTimestamp) {
 		// Do we even have a vaguely recent block?
-		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
 		if (minLatestBlockTimestamp == null)
 			return false;
 
@@ -2075,6 +2078,16 @@ public class Controller extends Thread {
 
 		// If we don't have any peers left then can't synchronize, therefore consider ourself not up to date
 		return !peers.isEmpty();
+	}
+
+	/**
+	 * Returns whether we think our node has up-to-date blockchain based on our info about other peers.
+	 * Uses the default minLatestBlockTimestamp value.
+	 * @return boolean - whether our node's blockchain is up to date or not
+	 */
+	public boolean isUpToDate() {
+		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		return this.isUpToDate(minLatestBlockTimestamp);
 	}
 
 	/** Returns minimum block timestamp for block to be considered 'recent', or <tt>null</tt> if NTP not synced. */
