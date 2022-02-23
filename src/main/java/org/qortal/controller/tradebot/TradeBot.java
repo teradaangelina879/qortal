@@ -79,6 +79,18 @@ public class TradeBot implements Listener {
 		}
 	}
 
+	public static class TradePresenceEvent implements Event {
+		private final TradePresenceData tradePresenceData;
+
+		public TradePresenceEvent(TradePresenceData tradePresenceData) {
+			this.tradePresenceData = tradePresenceData;
+		}
+
+		public TradePresenceData getTradePresenceData() {
+			return this.tradePresenceData;
+		}
+	}
+
 	private static final Map<Class<? extends ACCT>, Supplier<AcctTradeBot>> acctTradeBotSuppliers = new HashMap<>();
 	static {
 		acctTradeBotSuppliers.put(BitcoinACCTv1.class, BitcoinACCTv1TradeBot::getInstance);
@@ -340,6 +352,10 @@ public class TradeBot implements Listener {
 
 	// PRESENCE-related
 
+	public Collection<TradePresenceData> getAllTradePresences() {
+		return this.safeAllTradePresencesByPubkey.values();
+	}
+
 	/** Trade presence timestamps expire in the 'future' so any that reach 'now' have expired and are removed. */
 	private void expireOldPresenceTimestamps() {
 		long now = NTP.getTime();
@@ -407,6 +423,8 @@ public class TradeBot implements Listener {
 		rebuildSafeAllTradePresences();
 
 		LOGGER.trace("New trade presence timestamp {} for our trade {}", newExpiry, atAddress);
+
+		EventBus.INSTANCE.notify(new TradePresenceEvent(tradePresenceData));
 	}
 
 	private void rebuildSafeAllTradePresences() {
@@ -604,6 +622,8 @@ public class TradeBot implements Listener {
 				LOGGER.trace("Added trade presence {} from peer {} with timestamp {}",
 						peersTradePresence.getAtAddress(), peer, timestamp
 				);
+
+				EventBus.INSTANCE.notify(new TradePresenceEvent(peersTradePresence));
 			}
 		} catch (DataException e) {
 			LOGGER.error("Couldn't process TRADE_PRESENCES message due to repository issue", e);

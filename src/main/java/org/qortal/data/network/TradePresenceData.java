@@ -4,6 +4,7 @@ import org.qortal.crypto.Crypto;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
 import java.util.Arrays;
 
 // All properties to be converted to JSON via JAXB
@@ -49,7 +50,8 @@ public class TradePresenceData {
 		return this.atAddress;
 	}
 
-	// Probably don't need synchronization
+	// Probably doesn't need synchronization
+	@XmlElement
 	public String getTradeAddress() {
 		if (tradeAddress != null)
 			return tradeAddress;
