@@ -1314,12 +1314,12 @@ public class Controller extends Thread {
 				ArbitraryDataManager.getInstance().onNetworkArbitrarySignaturesMessage(peer, message);
 				break;
 
-			case GET_ONLINE_TRADES:
-				TradeBot.getInstance().onGetOnlineTradesMessage(peer, message);
+			case GET_TRADE_PRESENCES:
+				TradeBot.getInstance().onGetTradePresencesMessage(peer, message);
 				break;
 
-			case ONLINE_TRADES:
-				TradeBot.getInstance().onOnlineTradesMessage(peer, message);
+			case TRADE_PRESENCES:
+				TradeBot.getInstance().onTradePresencesMessage(peer, message);
 				break;
 
 			default:

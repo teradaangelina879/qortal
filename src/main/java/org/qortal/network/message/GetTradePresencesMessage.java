@@ -2,7 +2,7 @@ package org.qortal.network.message;
 
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
-import org.qortal.data.network.OnlineTradeData;
+import org.qortal.data.network.TradePresenceData;
 import org.qortal.transform.Transformer;
 
 import java.io.ByteArrayOutputStream;
@@ -15,52 +15,52 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * For requesting which trades are online from remote peer, given our list of online trades.
+ * For requesting trade presences from remote peer, given our list of known trade presences.
  *
  * Groups of: number of entries, timestamp, then AT trade pubkey for each entry.
  */
-public class GetOnlineTradesMessage extends Message {
-	private List<OnlineTradeData> onlineTrades;
+public class GetTradePresencesMessage extends Message {
+	private List<TradePresenceData> tradePresences;
 	private byte[] cachedData;
 
-	public GetOnlineTradesMessage(List<OnlineTradeData> onlineTrades) {
-		this(-1, onlineTrades);
+	public GetTradePresencesMessage(List<TradePresenceData> tradePresences) {
+		this(-1, tradePresences);
 	}
 
-	private GetOnlineTradesMessage(int id, List<OnlineTradeData> onlineTrades) {
-		super(id, MessageType.GET_ONLINE_TRADES);
+	private GetTradePresencesMessage(int id, List<TradePresenceData> tradePresences) {
+		super(id, MessageType.GET_TRADE_PRESENCES);
 
-		this.onlineTrades = onlineTrades;
+		this.tradePresences = tradePresences;
 	}
 
-	public List<OnlineTradeData> getOnlineTrades() {
-		return this.onlineTrades;
+	public List<TradePresenceData> getTradePresences() {
+		return this.tradePresences;
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
-		int tradeCount = bytes.getInt();
+		int groupedEntriesCount = bytes.getInt();
 
-		List<OnlineTradeData> onlineTrades = new ArrayList<>(tradeCount);
+		List<TradePresenceData> tradePresences = new ArrayList<>(groupedEntriesCount);
 
-		while (tradeCount > 0) {
+		while (groupedEntriesCount > 0) {
 			long timestamp = bytes.getLong();
 
-			for (int i = 0; i < tradeCount; ++i) {
+			for (int i = 0; i < groupedEntriesCount; ++i) {
 				byte[] publicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
 				bytes.get(publicKey);
 
-				onlineTrades.add(new OnlineTradeData(timestamp, publicKey));
+				tradePresences.add(new TradePresenceData(timestamp, publicKey));
 			}
 
 			if (bytes.hasRemaining()) {
-				tradeCount = bytes.getInt();
+				groupedEntriesCount = bytes.getInt();
 			} else {
 				// we've finished
-				tradeCount = 0;
+				groupedEntriesCount = 0;
 			}
 		}
 
-		return new GetOnlineTradesMessage(id, onlineTrades);
+		return new GetTradePresencesMessage(id, tradePresences);
 	}
 
 	@Override
@@ -68,8 +68,8 @@ public class GetOnlineTradesMessage extends Message {
 		if (this.cachedData != null)
 			return this.cachedData;
 
-		// Shortcut in case we have no online accounts
-		if (this.onlineTrades.isEmpty()) {
+		// Shortcut in case we have no trade presences
+		if (this.tradePresences.isEmpty()) {
 			this.cachedData = Ints.toByteArray(0);
 			return this.cachedData;
 		}
@@ -77,14 +77,14 @@ public class GetOnlineTradesMessage extends Message {
 		// How many of each timestamp
 		Map<Long, Integer> countByTimestamp = new HashMap<>();
 
-		for (OnlineTradeData onlineTradeData : this.onlineTrades) {
-			Long timestamp = onlineTradeData.getTimestamp();
+		for (TradePresenceData tradePresenceData : this.tradePresences) {
+			Long timestamp = tradePresenceData.getTimestamp();
 			countByTimestamp.compute(timestamp, (k, v) -> v == null ? 1 : ++v);
 		}
 
 		// We should know exactly how many bytes to allocate now
 		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
-				+ this.onlineTrades.size() * Transformer.PUBLIC_KEY_LENGTH;
+				+ this.tradePresences.size() * Transformer.PUBLIC_KEY_LENGTH;
 
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
@@ -94,9 +94,9 @@ public class GetOnlineTradesMessage extends Message {
 
 				bytes.write(Longs.toByteArray(timestamp));
 
-				for (OnlineTradeData onlineTradeData : this.onlineTrades) {
-					if (onlineTradeData.getTimestamp() == timestamp)
-						bytes.write(onlineTradeData.getPublicKey());
+				for (TradePresenceData tradePresenceData : this.tradePresences) {
+					if (tradePresenceData.getTimestamp() == timestamp)
+						bytes.write(tradePresenceData.getPublicKey());
 				}
 			}
 

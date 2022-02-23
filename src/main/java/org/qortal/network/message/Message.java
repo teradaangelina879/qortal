@@ -95,8 +95,8 @@ public abstract class Message {
 
 		ARBITRARY_SIGNATURES(130),
 
-		ONLINE_TRADES(140),
-		GET_ONLINE_TRADES(141),
+		TRADE_PRESENCES(140),
+		GET_TRADE_PRESENCES(141),
 		;
 
 		public final int value;

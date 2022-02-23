@@ -8,7 +8,7 @@ import java.util.Arrays;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
-public class OnlineTradeData {
+public class TradePresenceData {
 
 	protected long timestamp;
 	protected byte[] publicKey; // Could be BOB's or ALICE's
@@ -19,17 +19,17 @@ public class OnlineTradeData {
 	// Constructors
 
 	// necessary for JAXB serialization
-	protected OnlineTradeData() {
+	protected TradePresenceData() {
 	}
 
-	public OnlineTradeData(long timestamp, byte[] publicKey, byte[] signature, String atAddress) {
+	public TradePresenceData(long timestamp, byte[] publicKey, byte[] signature, String atAddress) {
 		this.timestamp = timestamp;
 		this.publicKey = publicKey;
 		this.signature = signature;
 		this.atAddress = atAddress;
 	}
 
-	public OnlineTradeData(long timestamp, byte[] publicKey) {
+	public TradePresenceData(long timestamp, byte[] publicKey) {
 		this(timestamp, publicKey, null, null);
 	}
 
@@ -65,25 +65,25 @@ public class OnlineTradeData {
 		if (other == this)
 			return true;
 
-		if (!(other instanceof OnlineTradeData))
+		if (!(other instanceof TradePresenceData))
 			return false;
 
-		OnlineTradeData otherOnlineTradeData = (OnlineTradeData) other;
+		TradePresenceData otherTradePresenceData = (TradePresenceData) other;
 
 		// Very quick comparison
-		if (otherOnlineTradeData.timestamp != this.timestamp)
+		if (otherTradePresenceData.timestamp != this.timestamp)
 			return false;
 
-		if (!Arrays.equals(otherOnlineTradeData.publicKey, this.publicKey))
+		if (!Arrays.equals(otherTradePresenceData.publicKey, this.publicKey))
 			return false;
 
-		if (otherOnlineTradeData.atAddress != null && !otherOnlineTradeData.atAddress.equals(this.atAddress))
+		if (otherTradePresenceData.atAddress != null && !otherTradePresenceData.atAddress.equals(this.atAddress))
 			return false;
 
-		if (this.atAddress != null && !this.atAddress.equals(otherOnlineTradeData.atAddress))
+		if (this.atAddress != null && !this.atAddress.equals(otherTradePresenceData.atAddress))
 			return false;
 
-		if (!Arrays.equals(otherOnlineTradeData.signature, this.signature))
+		if (!Arrays.equals(otherTradePresenceData.signature, this.signature))
 			return false;
 
 		return true;
