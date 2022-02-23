@@ -417,6 +417,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 						this.uselessServers.add(this.currentServer);
 						this.closeServer(this.currentServer);
 					}
+					LOGGER.info("No output addresses returned for transaction {}", txHash);
 					throw new ForeignBlockchainException(String.format("No output addresses returned for transaction %s", txHash));
 				}
 
