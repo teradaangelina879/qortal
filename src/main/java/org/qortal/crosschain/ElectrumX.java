@@ -401,17 +401,29 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				String scriptPubKey = (String) ((JSONObject) outputJson.get("scriptPubKey")).get("hex");
 				long value = BigDecimal.valueOf((Double) outputJson.get("value")).setScale(8).unscaledValue().longValue();
 
-				// address too, if present
+				// address too, if present in the "addresses" array
 				List<String> addresses = null;
 				Object addressesObj = ((JSONObject) outputJson.get("scriptPubKey")).get("addresses");
 				if (addressesObj instanceof JSONArray) {
 					addresses = new ArrayList<>();
-					for (Object addressObj : (JSONArray) addressesObj)
+					for (Object addressObj : (JSONArray) addressesObj) {
 						addresses.add((String) addressObj);
+					}
+				}
+
+				// some peers return a single "address" string
+				Object addressObj = ((JSONObject) outputJson.get("scriptPubKey")).get("address");
+				if (addressObj instanceof String) {
+					if (addresses == null) {
+						addresses = new ArrayList<>();
+					}
+					addresses.add((String) addressObj);
 				}
 
 				// For the purposes of Qortal we require all outputs to contain addresses
 				// Some servers omit this info, causing problems down the line with balance calculations
+				// Update: it turns out that they were just using a different key - "address" instead of "addresses"
+				// The code below can remain in place, just in case a peer returns a missing address in the future
 				if (addresses == null || addresses.isEmpty()) {
 					if (this.currentServer != null) {
 						this.uselessServers.add(this.currentServer);
