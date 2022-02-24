@@ -222,7 +222,11 @@ public class ArbitraryDataCleanupManager extends Thread {
 				try (final Repository repository = RepositoryManager.getRepository()) {
 
 					// Check if there are any hosted files that don't have matching transactions
-					this.checkForExpiredTransactions(repository);
+					// UPDATE: This has been disabled for now as it was deleting valid transactions
+					// and causing chunks to go missing on the network. If ever re-enabled, we MUST
+					// ensure that original copies of data aren't deleted, and that sufficient time
+					// is allowed (ideally several hours) before treating a transaction as missing.
+					// this.checkForExpiredTransactions(repository);
 
 					// Delete additional data at random if we're over our storage limit
 					// Use the DELETION_THRESHOLD so that we only start deleting once the hard limit is reached
