@@ -412,7 +412,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 
 				// For the purposes of Qortal we require all outputs to contain addresses
 				// Some servers omit this info, causing problems down the line with balance calculations
-				if (addresses.isEmpty()) {
+				if (addresses == null || addresses.isEmpty()) {
 					if (this.currentServer != null) {
 						this.uselessServers.add(this.currentServer);
 						this.closeServer(this.currentServer);
