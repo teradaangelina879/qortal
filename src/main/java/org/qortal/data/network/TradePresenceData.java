@@ -5,6 +5,8 @@ import org.qortal.crypto.Crypto;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import java.util.Arrays;
 
 // All properties to be converted to JSON via JAXB
@@ -12,9 +14,21 @@ import java.util.Arrays;
 public class TradePresenceData {
 
 	protected long timestamp;
+
+	@XmlJavaTypeAdapter(
+			type = byte[].class,
+			value = org.qortal.api.Base58TypeAdapter.class
+	)
 	protected byte[] publicKey; // Could be BOB's or ALICE's
+
+	// No need to send this via websocket / API
+	@XmlTransient
 	protected byte[] signature; // Not always present
+
 	protected String atAddress; // Not always present
+
+	// Have JAXB use getter instead
+	@XmlTransient
 	protected String tradeAddress; // Lazily instantiated
 
 	// Constructors
