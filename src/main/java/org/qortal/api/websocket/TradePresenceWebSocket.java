@@ -125,7 +125,7 @@ public class TradePresenceWebSocket extends ApiWebSocket implements Listener {
 
 		TradePresenceData newEntry = currentEntries.compute(pubKey58, (k, v) -> v == null || v.getTimestamp() < tradePresence.getTimestamp() ? tradePresence : v);
 
-		return newEntry != tradePresence;
+		return newEntry == tradePresence;
 	}
 
 	private static void removeOldEntries() {
