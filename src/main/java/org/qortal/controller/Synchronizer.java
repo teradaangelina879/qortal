@@ -22,6 +22,8 @@ import org.qortal.data.block.CommonBlockData;
 import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.transaction.RewardShareTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.event.Event;
+import org.qortal.event.EventBus;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.BlockMessage;
@@ -94,6 +96,24 @@ public class Synchronizer extends Thread {
 
 	public enum SynchronizationResult {
 		OK, NOTHING_TO_DO, GENESIS_ONLY, NO_COMMON_BLOCK, TOO_DIVERGENT, NO_REPLY, INFERIOR_CHAIN, INVALID_DATA, NO_BLOCKCHAIN_LOCK, REPOSITORY_ISSUE, SHUTTING_DOWN;
+	}
+
+	public static class NewChainTipEvent implements Event {
+		private final BlockData priorChainTip;
+		private final BlockData newChainTip;
+
+		public NewChainTipEvent(BlockData priorChainTip, BlockData newChainTip) {
+			this.priorChainTip = priorChainTip;
+			this.newChainTip = newChainTip;
+		}
+
+		public BlockData getPriorChainTip() {
+			return this.priorChainTip;
+		}
+
+		public BlockData getNewChainTip() {
+			return this.newChainTip;
+		}
 	}
 
 	// Constructors
@@ -338,6 +358,8 @@ public class Synchronizer extends Thread {
 
 				Network network = Network.getInstance();
 				network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newChainTip));
+
+				EventBus.INSTANCE.notify(new NewChainTipEvent(priorChainTip, newChainTip));
 			}
 
 			return syncResult;

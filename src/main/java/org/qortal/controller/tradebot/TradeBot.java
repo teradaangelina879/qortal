@@ -16,6 +16,7 @@ import org.bitcoinj.core.ECKey;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
 import org.qortal.controller.Controller;
+import org.qortal.controller.Synchronizer;
 import org.qortal.controller.tradebot.AcctTradeBot.ResponseResult;
 import org.qortal.crosschain.*;
 import org.qortal.data.at.ATData;
@@ -213,7 +214,7 @@ public class TradeBot implements Listener {
 
 	@Override
 	public void listen(Event event) {
-		if (!(event instanceof Controller.NewBlockEvent))
+		if (!(event instanceof Synchronizer.NewChainTipEvent))
 			return;
 
 		synchronized (this) {
