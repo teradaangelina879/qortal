@@ -20,6 +20,7 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.controller.Controller;
+import org.qortal.controller.Synchronizer;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.PresenceTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -99,13 +100,13 @@ public class PresenceWebSocket extends ApiWebSocket implements Listener {
 
 	@Override
 	public void listen(Event event) {
-		// We use NewBlockEvent as a proxy for 1-minute timer
-		if (!(event instanceof Controller.NewTransactionEvent) && !(event instanceof Controller.NewBlockEvent))
+		// We use Synchronizer.NewChainTipEvent as a proxy for 1-minute timer
+		if (!(event instanceof Controller.NewTransactionEvent) && !(event instanceof Synchronizer.NewChainTipEvent))
 			return;
 
 		removeOldEntries();
 
-		if (event instanceof Controller.NewBlockEvent)
+		if (event instanceof Synchronizer.NewChainTipEvent)
 			// We only wanted a chance to cull old entries
 			return;
 
