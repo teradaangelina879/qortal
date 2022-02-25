@@ -404,6 +404,13 @@ public class ArbitraryDataFileListManager {
         ArbitraryDataFileListMessage arbitraryDataFileListMessage = (ArbitraryDataFileListMessage) message;
         LOGGER.debug("Received hash list from peer {} with {} hashes", peer, arbitraryDataFileListMessage.getHashes().size());
 
+        if (LOGGER.isDebugEnabled() && arbitraryDataFileListMessage.getRequestTime() != null) {
+            long totalRequestTime = NTP.getTime() - arbitraryDataFileListMessage.getRequestTime();
+            LOGGER.debug("totalRequestTime: {}, requestHops: {}, peerAddress: {}, isRelayPossible: {}",
+                    totalRequestTime, arbitraryDataFileListMessage.getRequestHops(),
+                    arbitraryDataFileListMessage.getPeerAddress(), arbitraryDataFileListMessage.isRelayPossible());
+        }
+
         // Do we have a pending request for this data?
         Triple<String, Peer, Long> request = arbitraryDataFileListRequests.get(message.getId());
         if (request == null || request.getA() == null) {
