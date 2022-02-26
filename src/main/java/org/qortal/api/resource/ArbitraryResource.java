@@ -433,7 +433,7 @@ public class ArbitraryResource {
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-			@Parameter(ref = "query") @QueryParam("query") String query) {
+			@QueryParam("query") String query) {
 
 		Security.checkApiCallAllowed(request);
 
