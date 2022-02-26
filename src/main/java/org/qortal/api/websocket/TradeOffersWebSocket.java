@@ -23,6 +23,7 @@ import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.model.CrossChainOfferSummary;
 import org.qortal.controller.Controller;
+import org.qortal.controller.Synchronizer;
 import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.AcctMode;
@@ -80,10 +81,10 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 
 	@Override
 	public void listen(Event event) {
-		if (!(event instanceof Controller.NewBlockEvent))
+		if (!(event instanceof Synchronizer.NewChainTipEvent))
 			return;
 
-		BlockData blockData = ((Controller.NewBlockEvent) event).getBlockData();
+		BlockData blockData = ((Synchronizer.NewChainTipEvent) event).getNewChainTip();
 
 		// Process any new info
 

@@ -58,8 +58,13 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	 * i.e. keys with transactions but with no unspent outputs. */
 	protected final Set<ECKey> spentKeys = Collections.synchronizedSet(new HashSet<>());
 
-	/** How many bitcoinj wallet keys to generate in each batch. */
+	/** How many wallet keys to generate in each batch. */
 	private static final int WALLET_KEY_LOOKAHEAD_INCREMENT = 3;
+
+	/** How many wallet keys to generate when using bitcoinj as the data provider.
+	 * We must use a higher value here since we are unable to request multiple batches of keys.
+	 * Without this, the bitcoinj state can be missing transactions, causing errors such as "insufficient balance". */
+	private static final int WALLET_KEY_LOOKAHEAD_INCREMENT_BITCOINJ = 50;
 
 	/** Byte offset into raw block headers to block timestamp. */
 	private static final int TIMESTAMP_OFFSET = 4 + 32 + 32;
@@ -99,8 +104,9 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		try {
 			ScriptType addressType = Address.fromString(this.params, address).getOutputScriptType();
 
-			return addressType == ScriptType.P2PKH || addressType == ScriptType.P2SH;
+			return addressType == ScriptType.P2PKH || addressType == ScriptType.P2SH || addressType == ScriptType.P2WPKH;
 		} catch (AddressFormatException e) {
+			LOGGER.error(String.format("Unrecognised address format: %s", address));
 			return false;
 		}
 	}
@@ -404,7 +410,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			Set<String> keySet = new HashSet<>();
 
 			// Set the number of consecutive empty batches required before giving up
-			final int numberOfAdditionalBatchesToSearch = 5;
+			final int numberOfAdditionalBatchesToSearch = 7;
 
 			int unusedCounter = 0;
 			int ki = 0;
@@ -470,6 +476,9 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		List<SimpleTransaction.Input> inputs = new ArrayList<>();
 		List<SimpleTransaction.Output> outputs = new ArrayList<>();
 
+		boolean anyOutputAddressInWallet = false;
+		boolean transactionInvolvesExternalWallet = false;
+
 		for (BitcoinyTransaction.Input input : t.inputs) {
 			try {
 				BitcoinyTransaction t2 = getTransaction(input.outputTxHash);
@@ -482,6 +491,9 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 						if (keySet.contains(sender)) {
 							total += inputAmount;
 							addressInWallet = true;
+						}
+						else {
+							transactionInvolvesExternalWallet = true;
 						}
 						inputs.add(new SimpleTransaction.Input(sender, inputAmount, addressInWallet));
 					}
@@ -496,12 +508,16 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 					for (String address : output.addresses) {
 						boolean addressInWallet = false;
 						if (keySet.contains(address)) {
-							if (total > 0L) {
+							if (total > 0L) { // Change returned from sent amount
 								amount -= (total - output.value);
-							} else {
+							} else { // Amount received
 								amount += output.value;
 							}
 							addressInWallet = true;
+							anyOutputAddressInWallet = true;
+						}
+						else {
+							transactionInvolvesExternalWallet = true;
 						}
 						outputs.add(new SimpleTransaction.Output(address, output.value, addressInWallet));
 					}
@@ -510,6 +526,17 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			}
 		}
 		long fee = totalInputAmount - totalOutputAmount;
+
+		if (!anyOutputAddressInWallet) {
+			// No outputs relate to this wallet - check if any inputs did (which is signified by a positive total)
+			if (total > 0) {
+				amount = total * -1;
+			}
+		}
+		else if (!transactionInvolvesExternalWallet) {
+			// All inputs and outputs relate to this wallet, so the balance should be unaffected
+			amount = 0;
+		}
 		return new SimpleTransaction(t.txHash, t.timestamp, amount, fee, inputs, outputs);
 	}
 
@@ -602,7 +629,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			this.keyChain = this.wallet.getActiveKeyChain();
 
 			// Set up wallet's key chain
-			this.keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
+			this.keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT_BITCOINJ);
 			this.keyChain.maybeLookAhead();
 		}
 

@@ -37,7 +37,7 @@ public class ArbitraryDataFileManager extends Thread {
     /**
      * Map to keep track of our in progress (outgoing) arbitrary data file requests
      */
-    private Map<String, Long> arbitraryDataFileRequests = Collections.synchronizedMap(new HashMap<>());
+    public Map<String, Long> arbitraryDataFileRequests = Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Map to keep track of hashes that we might need to relay
@@ -148,7 +148,7 @@ public class ArbitraryDataFileManager extends Thread {
                     }
                 }
                 else {
-                    LOGGER.trace("Already requesting data file {} for signature {}", arbitraryDataFile, Base58.encode(signature));
+                    LOGGER.trace("Already requesting data file {} for signature {} from peer {}", arbitraryDataFile, Base58.encode(signature), peer);
                 }
             }
             else {
@@ -240,16 +240,7 @@ public class ArbitraryDataFileManager extends Thread {
                 ArbitraryDataFile dataFile = arbitraryDataFileMessage.getArbitraryDataFile();
 
                 // Keep trying to delete the data until it is deleted, or we reach 10 attempts
-                for (int i=0; i<10; i++) {
-                    if (dataFile.delete()) {
-                        break;
-                    }
-                    try {
-                        Thread.sleep(1000L);
-                    } catch (InterruptedException e) {
-                        // Fall through to exit method
-                    }
-                }
+                dataFile.delete(10);
             }
         }
 
@@ -401,6 +392,33 @@ public class ArbitraryDataFileManager extends Thread {
         }
     }
 
+    private ArbitraryRelayInfo getOptimalRelayInfoEntryForHash(String hash58) {
+        LOGGER.trace("Fetching relay info for hash: {}", hash58);
+        List<ArbitraryRelayInfo> relayInfoList = this.getRelayInfoListForHash(hash58);
+        if (relayInfoList != null && !relayInfoList.isEmpty()) {
+
+            // Remove any with null requestHops
+            relayInfoList.removeIf(r -> r.getRequestHops() == null);
+
+            // If list is now empty, then just return one at random
+            if (relayInfoList.isEmpty()) {
+                return this.getRandomRelayInfoEntryForHash(hash58);
+            }
+
+            // Sort by number of hops (lowest first)
+            relayInfoList.sort(Comparator.comparingInt(ArbitraryRelayInfo::getRequestHops));
+
+            // FUTURE: secondary sort by requestTime?
+
+            ArbitraryRelayInfo relayInfo = relayInfoList.get(0);
+
+            LOGGER.trace("Returning optimal relay info for hash: {} (requestHops {})", hash58, relayInfo.getRequestHops());
+            return relayInfo;
+        }
+        LOGGER.trace("No relay info exists for hash: {}", hash58);
+        return null;
+    }
+
     private ArbitraryRelayInfo getRandomRelayInfoEntryForHash(String hash58) {
         LOGGER.trace("Fetching random relay info for hash: {}", hash58);
         List<ArbitraryRelayInfo> relayInfoList = this.getRelayInfoListForHash(hash58);
@@ -451,7 +469,7 @@ public class ArbitraryDataFileManager extends Thread {
 
         try {
             ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-            ArbitraryRelayInfo relayInfo = this.getRandomRelayInfoEntryForHash(hash58);
+            ArbitraryRelayInfo relayInfo = this.getOptimalRelayInfoEntryForHash(hash58);
 
             if (arbitraryDataFile.exists()) {
                 LOGGER.trace("Hash {} exists", hash58);

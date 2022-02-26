@@ -16,6 +16,7 @@ import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,6 +46,9 @@ public class ArbitraryDataStorageManager extends Thread {
     private long lastDirectorySizeCheck = 0;
 
     private List<ArbitraryTransactionData> hostedTransactions;
+
+    private String searchQuery;
+    private List<ArbitraryTransactionData> searchResultsTransactions;
 
     private static final long DIRECTORY_SIZE_CHECK_INTERVAL = 10 * 60 * 1000L; // 10 minutes
 
@@ -257,14 +261,8 @@ public class ArbitraryDataStorageManager extends Thread {
     }
 
 
-    // Hosted data
-
-    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset, boolean includeMetadataOnly) {
-        // Load from cache if we can, to avoid disk reads
-        if (this.hostedTransactions != null) {
-            return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
-        }
-
+    public List<ArbitraryTransactionData> loadAllHostedTransactions(Repository repository) {
+        
         List<ArbitraryTransactionData> arbitraryTransactionDataList = new ArrayList<>();
 
         // Find all hosted paths
@@ -287,15 +285,13 @@ public class ArbitraryDataStorageManager extends Thread {
                 }
                 ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-                // Make sure to exclude metadata-only resources if requested
-                if (!includeMetadataOnly) {
-                    if (arbitraryTransactionData.getMetadataHash() != null) {
-                        if (contents.length == 1) {
-                            String metadataHash58 = Base58.encode(arbitraryTransactionData.getMetadataHash());
-                            if (Objects.equals(metadataHash58, contents[0])) {
-                                // We only have the metadata file for this resource, not the actual data, so exclude it
-                                continue;
-                            }
+                // Make sure to exclude metadata-only resources
+                if (arbitraryTransactionData.getMetadataHash() != null) {
+                    if (contents.length == 1) {
+                        String metadataHash58 = Base58.encode(arbitraryTransactionData.getMetadataHash());
+                        if (Objects.equals(metadataHash58, contents[0])) {
+                            // We only have the metadata file for this resource, not the actual data, so exclude it
+                            continue;
                         }
                     }
                 }
@@ -311,10 +307,69 @@ public class ArbitraryDataStorageManager extends Thread {
         // Sort by newest first
         arbitraryTransactionDataList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
 
-        // Update cache
-        this.hostedTransactions = arbitraryTransactionDataList;
+        return arbitraryTransactionDataList;
+    }
+    // Hosted data
 
-        return ArbitraryTransactionUtils.limitOffsetTransactions(arbitraryTransactionDataList, limit, offset);
+    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset) {
+        // Load from cache if we can, to avoid disk reads
+
+        if (this.hostedTransactions != null) {
+            return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
+        }
+
+        this.hostedTransactions = this.loadAllHostedTransactions(repository);
+
+        return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
+    }
+    
+    /**
+     * searchHostedTransactions
+     * Allow to run a query against hosted data names and return matches if there are any
+     * @param repository
+     * @param query
+     * @param limit
+     * @param offset
+     * @return
+     */
+
+    public List<ArbitraryTransactionData> searchHostedTransactions(Repository repository, String query, Integer limit, Integer offset) {
+        // Load from results cache if we can (results that exists for the same query), to avoid disk reads
+        if (this.searchResultsTransactions != null && this.searchQuery.equals(query.toLowerCase())) {
+            return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
+        }
+
+        // Using cache if we can, to avoid disk reads
+        if (this.hostedTransactions == null) {
+            this.hostedTransactions = this.loadAllHostedTransactions(repository);
+        }
+
+        this.searchQuery = query.toLowerCase(); //set the searchQuery so that it can be checked on the next call
+
+        List<ArbitraryTransactionData> searchResultsList = new ArrayList<>();
+
+        // Loop through cached hostedTransactions
+        for (ArbitraryTransactionData atd : this.hostedTransactions) {
+            try {
+               if (atd.getName() != null && atd.getName().toLowerCase().contains(this.searchQuery)) {
+                   searchResultsList.add(atd);
+               }
+               else if (atd.getIdentifier() != null && atd.getIdentifier().toLowerCase().contains(this.searchQuery)) {
+                   searchResultsList.add(atd);
+               }
+
+            } catch (Exception e) {
+                continue;
+            }
+        }
+
+        // Sort by newest first
+        searchResultsList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
+
+        // Update cache
+        this.searchResultsTransactions = searchResultsList;
+
+        return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
     }
 
     /**
@@ -338,7 +393,7 @@ public class ArbitraryDataStorageManager extends Thread {
                             && path.getFileName().toString().length() > 32)
                     .collect(Collectors.toList());
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             LOGGER.info("Unable to walk through hosted data: {}", e.getMessage());
         }
 
@@ -467,7 +522,7 @@ public class ArbitraryDataStorageManager extends Thread {
         long maxStoragePerName = this.storageCapacityPerName(threshold);
 
         // Fetch all hosted transactions
-        List<ArbitraryTransactionData> hostedTransactions = this.listAllHostedTransactions(repository, null, null, true);
+        List<ArbitraryTransactionData> hostedTransactions = this.listAllHostedTransactions(repository, null, null);
         for (ArbitraryTransactionData transactionData : hostedTransactions) {
             String transactionName = transactionData.getName();
             if (!Objects.equals(name, transactionName)) {

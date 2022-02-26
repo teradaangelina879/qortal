@@ -58,7 +58,9 @@ public class TransferPrivsTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check recipient is new account
-		if (this.repository.getAccountRepository().accountExists(this.transferPrivsTransactionData.getRecipient()))
+		AccountData recipientAccountData = this.repository.getAccountRepository().getAccount(this.transferPrivsTransactionData.getRecipient());
+		// Non-existent account data is OK, but if account data exists then reference needs to be null
+		if (recipientAccountData != null && recipientAccountData.getReference() != null)
 			return ValidationResult.ACCOUNT_ALREADY_EXISTS;
 
 		// Check sender has funds for fee

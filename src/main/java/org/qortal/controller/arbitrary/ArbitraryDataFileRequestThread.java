@@ -31,8 +31,6 @@ public class ArbitraryDataFileRequestThread implements Runnable {
 
         try {
             while (!Controller.isStopping()) {
-                Thread.sleep(1000);
-
                 Long now = NTP.getTime();
                 this.processFileHashes(now);
             }
@@ -41,7 +39,7 @@ public class ArbitraryDataFileRequestThread implements Runnable {
         }
     }
 
-    private void processFileHashes(Long now) {
+    private void processFileHashes(Long now) throws InterruptedException {
 		if (Controller.isStopping()) {
             return;
         }
@@ -82,6 +80,12 @@ public class ArbitraryDataFileRequestThread implements Runnable {
                     continue;
                 }
 
+                // Skip if already requesting, but don't remove, as we might want to retry later
+                if (arbitraryDataFileManager.arbitraryDataFileRequests.containsKey(hash58)) {
+                    // Already requesting - leave this attempt for later
+                    continue;
+                }
+
                 // We want to process this file
                 shouldProcess = true;
                 iterator.remove();
@@ -91,6 +95,7 @@ public class ArbitraryDataFileRequestThread implements Runnable {
 
         if (!shouldProcess) {
             // Nothing to do
+            Thread.sleep(1000L);
             return;
         }
 

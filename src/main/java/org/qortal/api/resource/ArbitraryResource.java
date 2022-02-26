@@ -430,17 +430,12 @@ public class ArbitraryResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryTransactionData> getHostedTransactions(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 																@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
-																@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-																@QueryParam("includemetadata") Boolean includeMetadata) {
+																@Parameter(ref = "offset") @QueryParam("offset") Integer offset) {
 		Security.checkApiCallAllowed(request);
-
-		if (includeMetadata == null) {
-			includeMetadata = false;
-		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
-			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset, includeMetadata);
+			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset);
 
 			return hostedTransactions;
 
@@ -465,18 +460,21 @@ public class ArbitraryResource {
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-			@QueryParam("includemetadata") Boolean includeMetadata) {
+			@QueryParam("query") String query) {
 		Security.checkApiCallAllowed(request);
 
 		List<ArbitraryResourceInfo> resources = new ArrayList<>();
 
-		if (includeMetadata == null) {
-			includeMetadata = false;
-		}
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			
+			List<ArbitraryTransactionData> transactionDataList;
 
-			List<ArbitraryTransactionData> transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset, includeMetadata);
+			if (query == null || query.equals("")) {
+				transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset);
+			} else {
+				transactionDataList = ArbitraryDataStorageManager.getInstance().searchHostedTransactions(repository,query, limit, offset);
+			}
+
 			for (ArbitraryTransactionData transactionData : transactionDataList) {
 				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
 				arbitraryResourceInfo.name = transactionData.getName();
@@ -497,6 +495,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
+
+
 
 	@DELETE
 	@Path("/resource/{service}/{name}/{identifier}")

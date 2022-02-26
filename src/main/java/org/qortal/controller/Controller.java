@@ -105,6 +105,8 @@ public class Controller extends Thread {
 	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000L);
 	/** How many (latest) blocks' worth of online accounts we cache */
 	private static final int MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS = 2;
+	private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L;
+
 
 	private static volatile boolean isStopping = false;
 	private static BlockMinter blockMinter = null;
@@ -774,12 +776,12 @@ public class Controller extends Thread {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
 				SysTray.getInstance().setTrayIcon(2);
 			}
-			else if (Synchronizer.getInstance().isSynchronizing()) {
-				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), Synchronizer.getInstance().getSyncPercent());
-				SysTray.getInstance().setTrayIcon(3);
-			}
 			else if (numberOfPeers < Settings.getInstance().getMinBlockchainPeers()) {
 				actionText = Translator.INSTANCE.translate("SysTray", "CONNECTING");
+				SysTray.getInstance().setTrayIcon(3);
+			}
+			else if (!this.isUpToDate()) {
+				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), Synchronizer.getInstance().getSyncPercent());
 				SysTray.getInstance().setTrayIcon(3);
 			}
 			else {
@@ -1291,6 +1293,14 @@ public class Controller extends Thread {
 				onNetworkOnlineAccountsMessage(peer, message);
 				break;
 
+			case GET_ONLINE_ACCOUNTS_V2:
+				onNetworkGetOnlineAccountsV2Message(peer, message);
+				break;
+
+			case ONLINE_ACCOUNTS_V2:
+				onNetworkOnlineAccountsV2Message(peer, message);
+				break;
+
 			case GET_ARBITRARY_DATA:
 				// Not currently supported
 				break;
@@ -1704,6 +1714,53 @@ public class Controller extends Thread {
 		}
 	}
 
+	private void onNetworkGetOnlineAccountsV2Message(Peer peer, Message message) {
+		GetOnlineAccountsV2Message getOnlineAccountsMessage = (GetOnlineAccountsV2Message) message;
+
+		List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
+
+		// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
+		List<OnlineAccountData> accountsToSend;
+		synchronized (this.onlineAccounts) {
+			accountsToSend = new ArrayList<>(this.onlineAccounts);
+		}
+
+		Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
+
+		SEND_ITERATOR:
+		while (iterator.hasNext()) {
+			OnlineAccountData onlineAccountData = iterator.next();
+
+			for (int i = 0; i < excludeAccounts.size(); ++i) {
+				OnlineAccountData excludeAccountData = excludeAccounts.get(i);
+
+				if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
+					iterator.remove();
+					continue SEND_ITERATOR;
+				}
+			}
+		}
+
+		Message onlineAccountsMessage = new OnlineAccountsV2Message(accountsToSend);
+		peer.sendMessage(onlineAccountsMessage);
+
+		LOGGER.trace(() -> String.format("Sent %d of our %d online accounts to %s", accountsToSend.size(), this.onlineAccounts.size(), peer));
+	}
+
+	private void onNetworkOnlineAccountsV2Message(Peer peer, Message message) {
+		OnlineAccountsV2Message onlineAccountsMessage = (OnlineAccountsV2Message) message;
+
+		List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
+		LOGGER.trace(() -> String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
+				this.verifyAndAddAccount(repository, onlineAccountData);
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while verifying online accounts from peer %s", peer), e);
+		}
+	}
+
 	// Utilities
 
 	private void verifyAndAddAccount(Repository repository, OnlineAccountData onlineAccountData) throws DataException {
@@ -1815,11 +1872,17 @@ public class Controller extends Thread {
 
 		// Request data from other peers?
 		if ((this.onlineAccountsTasksTimestamp % ONLINE_ACCOUNTS_BROADCAST_INTERVAL) < ONLINE_ACCOUNTS_TASKS_INTERVAL) {
-			Message message;
+			List<OnlineAccountData> safeOnlineAccounts;
 			synchronized (this.onlineAccounts) {
-				message = new GetOnlineAccountsMessage(this.onlineAccounts);
+				safeOnlineAccounts = new ArrayList<>(this.onlineAccounts);
 			}
-			Network.getInstance().broadcast(peer -> message);
+
+			Message messageV1 = new GetOnlineAccountsMessage(safeOnlineAccounts);
+			Message messageV2 = new GetOnlineAccountsV2Message(safeOnlineAccounts);
+
+			Network.getInstance().broadcast(peer ->
+				peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
+			);
 		}
 
 		// Refresh our online accounts signatures?
@@ -1911,8 +1974,12 @@ public class Controller extends Thread {
 			if (!hasInfoChanged)
 				return;
 
-			Message message = new OnlineAccountsMessage(ourOnlineAccounts);
-			Network.getInstance().broadcast(peer -> message);
+		Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
+		Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
+
+		Network.getInstance().broadcast(peer ->
+				peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
+		);
 
 			LOGGER.trace(() -> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
 		}
@@ -1998,10 +2065,13 @@ public class Controller extends Thread {
 		return peers;
 	}
 
-	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
-	public boolean isUpToDate() {
+	/**
+	 * Returns whether we think our node has up-to-date blockchain based on our info about other peers.
+	 * @param minLatestBlockTimestamp - the minimum block timestamp to be considered recent
+	 * @return boolean - whether our node's blockchain is up to date or not
+	 */
+	public boolean isUpToDate(Long minLatestBlockTimestamp) {
 		// Do we even have a vaguely recent block?
-		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
 		if (minLatestBlockTimestamp == null)
 			return false;
 
@@ -2025,6 +2095,16 @@ public class Controller extends Thread {
 
 		// If we don't have any peers left then can't synchronize, therefore consider ourself not up to date
 		return !peers.isEmpty();
+	}
+
+	/**
+	 * Returns whether we think our node has up-to-date blockchain based on our info about other peers.
+	 * Uses the default minLatestBlockTimestamp value.
+	 * @return boolean - whether our node's blockchain is up to date or not
+	 */
+	public boolean isUpToDate() {
+		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		return this.isUpToDate(minLatestBlockTimestamp);
 	}
 
 	/** Returns minimum block timestamp for block to be considered 'recent', or <tt>null</tt> if NTP not synced. */

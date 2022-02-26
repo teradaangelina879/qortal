@@ -1,5 +1,6 @@
 package org.qortal.network;
 
+import com.dosse.upnp.UPnP;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
@@ -7,7 +8,6 @@ import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
 import org.qortal.controller.arbitrary.ArbitraryDataFileListManager;
-import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.network.PeerData;
@@ -183,6 +183,14 @@ public class Network {
             }
         }
 
+        // Attempt to set up UPnP. All errors are ignored.
+        if (Settings.getInstance().isUPnPEnabled()) {
+            UPnP.openPortTCP(Settings.getInstance().getListenPort());
+        }
+        else {
+            UPnP.closePortTCP(Settings.getInstance().getListenPort());
+        }
+
         // Start up first networking thread
         networkEPC.start();
     }
@@ -243,12 +251,15 @@ public class Network {
     public boolean requestDataFromPeer(String peerAddressString, byte[] signature) {
         if (peerAddressString != null) {
             PeerAddress peerAddress = PeerAddress.fromString(peerAddressString);
+            PeerData peerData = null;
 
             // Reuse an existing PeerData instance if it's already in the known peers list
-            PeerData peerData = this.allKnownPeers.stream()
-                    .filter(knownPeerData -> knownPeerData.getAddress().equals(peerAddress))
-                    .findFirst()
-                    .orElse(null);
+            synchronized (this.allKnownPeers) {
+                peerData = this.allKnownPeers.stream()
+                        .filter(knownPeerData -> knownPeerData.getAddress().equals(peerAddress))
+                        .findFirst()
+                        .orElse(null);
+            }
 
             if (peerData == null) {
                 // Not a known peer, so we need to create one
@@ -263,10 +274,13 @@ public class Network {
             }
 
             // Check if we're already connected to and handshaked with this peer
-            Peer connectedPeer = this.connectedPeers.stream()
-                    .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
-                    .findFirst()
-                    .orElse(null);
+            Peer connectedPeer = null;
+            synchronized (this.connectedPeers) {
+                connectedPeer = this.connectedPeers.stream()
+                        .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
+                        .findFirst()
+                        .orElse(null);
+            }
             boolean isConnected = (connectedPeer != null);
 
             boolean isHandshaked = this.getHandshakedPeers().stream()
@@ -1178,7 +1192,12 @@ public class Network {
     public void onExternalIpUpdate(String ipAddress) {
         LOGGER.info("External IP address updated to {}", ipAddress);
 
-        ArbitraryDataManager.getInstance().broadcastHostedSignatureList();
+        //ArbitraryDataManager.getInstance().broadcastHostedSignatureList();
+    }
+
+    public String getOurExternalIpAddress() {
+        // FUTURE: replace port if UPnP is active, as it will be more accurate
+        return this.ourExternalIpAddress;
     }
 
 

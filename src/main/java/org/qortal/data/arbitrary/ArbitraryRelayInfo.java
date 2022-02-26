@@ -9,12 +9,16 @@ public class ArbitraryRelayInfo {
     private final String signature58;
     private final Peer peer;
     private final Long timestamp;
+    private final Long requestTime;
+    private final Integer requestHops;
 
-    public ArbitraryRelayInfo(String hash58, String signature58, Peer peer, Long timestamp) {
+    public ArbitraryRelayInfo(String hash58, String signature58, Peer peer, Long timestamp, Long requestTime, Integer requestHops) {
         this.hash58 = hash58;
         this.signature58 = signature58;
         this.peer = peer;
         this.timestamp = timestamp;
+        this.requestTime = requestTime;
+        this.requestHops = requestHops;
     }
 
     public boolean isValid() {
@@ -36,6 +40,14 @@ public class ArbitraryRelayInfo {
 
     public Long getTimestamp() {
         return timestamp;
+    }
+
+    public Long getRequestTime() {
+        return this.requestTime;
+    }
+
+    public Integer getRequestHops() {
+        return this.requestHops;
     }
 
     @Override

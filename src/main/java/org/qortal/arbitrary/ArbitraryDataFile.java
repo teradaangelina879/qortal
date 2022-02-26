@@ -366,6 +366,21 @@ public class ArbitraryDataFile {
         return false;
     }
 
+    public boolean delete(int attempts) {
+        // Keep trying to delete the data until it is deleted, or we reach 10 attempts
+        for (int i=0; i<attempts; i++) {
+            if (this.delete()) {
+                return true;
+            }
+            try {
+                Thread.sleep(1000L);
+            } catch (InterruptedException e) {
+                // Fall through to exit method
+            }
+        }
+        return false;
+    }
+
     public boolean deleteAllChunks() {
         boolean success = false;
 

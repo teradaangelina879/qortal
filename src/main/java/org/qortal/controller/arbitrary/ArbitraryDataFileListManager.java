@@ -29,6 +29,7 @@ public class ArbitraryDataFileListManager {
 
     private static ArbitraryDataFileListManager instance;
 
+    private static String MIN_PEER_VERSION_FOR_FILE_LIST_STATS = "3.2.0";
 
     /**
      * Map of recent incoming requests for ARBITRARY transaction data file lists.
@@ -266,18 +267,16 @@ public class ArbitraryDataFileListManager {
         List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
         List<byte[]> missingHashes = null;
 
-//        // TODO: uncomment after GetArbitraryDataFileListMessage updates are deployed
-//        // Find hashes that we are missing
-//        try {
-//            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-//            arbitraryDataFile.setMetadataHash(metadataHash);
-//            missingHashes = arbitraryDataFile.missingHashes();
-//        } catch (DataException e) {
-//            // Leave missingHashes as null, so that all hashes are requested
-//        }
-//        int hashCount = missingHashes != null ? missingHashes.size() : 0;
+        // Find hashes that we are missing
+        try {
+            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
+            arbitraryDataFile.setMetadataHash(metadataHash);
+            missingHashes = arbitraryDataFile.missingHashes();
+        } catch (DataException e) {
+            // Leave missingHashes as null, so that all hashes are requested
+        }
+        int hashCount = missingHashes != null ? missingHashes.size() : 0;
 
-        int hashCount = 0;
         LOGGER.debug(String.format("Sending data file list request for signature %s with %d hashes to %d peers...", signature58, hashCount, handshakedPeers.size()));
 
         // Build request
@@ -405,6 +404,13 @@ public class ArbitraryDataFileListManager {
         ArbitraryDataFileListMessage arbitraryDataFileListMessage = (ArbitraryDataFileListMessage) message;
         LOGGER.debug("Received hash list from peer {} with {} hashes", peer, arbitraryDataFileListMessage.getHashes().size());
 
+        if (LOGGER.isDebugEnabled() && arbitraryDataFileListMessage.getRequestTime() != null) {
+            long totalRequestTime = NTP.getTime() - arbitraryDataFileListMessage.getRequestTime();
+            LOGGER.debug("totalRequestTime: {}, requestHops: {}, peerAddress: {}, isRelayPossible: {}",
+                    totalRequestTime, arbitraryDataFileListMessage.getRequestHops(),
+                    arbitraryDataFileListMessage.getPeerAddress(), arbitraryDataFileListMessage.isRelayPossible());
+        }
+
         // Do we have a pending request for this data?
         Triple<String, Peer, Long> request = arbitraryDataFileListRequests.get(message.getId());
         if (request == null || request.getA() == null) {
@@ -474,12 +480,26 @@ public class ArbitraryDataFileListManager {
             if (!isBlocked) {
                 Peer requestingPeer = request.getB();
                 if (requestingPeer != null) {
+                    Long requestTime = arbitraryDataFileListMessage.getRequestTime();
+                    Integer requestHops = arbitraryDataFileListMessage.getRequestHops();
+
                     // Add each hash to our local mapping so we know who to ask later
                     Long now = NTP.getTime();
                     for (byte[] hash : hashes) {
                         String hash58 = Base58.encode(hash);
-                        ArbitraryRelayInfo relayMap = new ArbitraryRelayInfo(hash58, signature58, peer, now);
-                        ArbitraryDataFileManager.getInstance().addToRelayMap(relayMap);
+                        ArbitraryRelayInfo relayInfo = new ArbitraryRelayInfo(hash58, signature58, peer, now, requestTime, requestHops);
+                        ArbitraryDataFileManager.getInstance().addToRelayMap(relayInfo);
+                    }
+
+                    // Bump requestHops if it exists
+                    if (requestHops != null) {
+                        arbitraryDataFileListMessage.setRequestHops(++requestHops);
+                    }
+
+                    // Remove optional parameters if the requesting peer doesn't support it yet
+                    // A message with less statistical data is better than no message at all
+                    if (!requestingPeer.isAtLeastVersion(MIN_PEER_VERSION_FOR_FILE_LIST_STATS)) {
+                        arbitraryDataFileListMessage.removeOptionalStats();
                     }
 
                     // Forward to requesting peer
@@ -584,8 +604,17 @@ public class ArbitraryDataFileListManager {
                 arbitraryDataFileListRequests.put(message.getId(), newEntry);
             }
 
-            ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes);
+            String ourAddress = Network.getInstance().getOurExternalIpAddress();
+            ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature,
+                    hashes, NTP.getTime(), 0, ourAddress, true);
             arbitraryDataFileListMessage.setId(message.getId());
+
+            // Remove optional parameters if the requesting peer doesn't support it yet
+            // A message with less statistical data is better than no message at all
+            if (!peer.isAtLeastVersion(MIN_PEER_VERSION_FOR_FILE_LIST_STATS)) {
+                arbitraryDataFileListMessage.removeOptionalStats();
+            }
+
             if (!peer.sendMessage(arbitraryDataFileListMessage)) {
                 LOGGER.debug("Couldn't send list of hashes");
                 peer.disconnect("failed to send list of hashes");

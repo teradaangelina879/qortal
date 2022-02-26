@@ -41,12 +41,38 @@
 - Start up at least as many nodes as `minBlockchainPeers` (or adjust this value instead)
 - Probably best to perform API call `DELETE /peers/known`
 - Add other nodes via API call `POST /peers <peer-hostname-or-IP>`
-- Add minting private key to node(s) via API call `POST /admin/mintingaccounts <minting-private-key>`
-	This key must have corresponding `REWARD_SHARE` transaction in testnet genesis block
+- Add minting private key to nodes via API call `POST /admin/mintingaccounts <minting-private-key>`
+    The keys must have corresponding `REWARD_SHARE` transactions in testnet genesis block
+- You must have at least 2 separate minting keys and two separate nodes. Assign one minting key to each node.
+- Alternatively, comment out the `if (mintedLastBlock) { }` conditional in BlockMinter.java to allow for a single node and key.
 - Wait for genesis block timestamp to pass
 - A node should mint block 2 approximately 60 seconds after genesis block timestamp
 - Other testnet nodes will sync *as long as there is at least `minBlockchainPeers` peers with an "up-to-date" chain`
 - You can also use API call `POST /admin/forcesync <connected-peer-IP-and-port>` on stuck nodes
+
+## Single-node testnet
+
+A single-node testnet is possible with code modifications, for basic testing, or to more easily start a new testnet.
+To do so, follow these steps:
+- Comment out the `if (mintedLastBlock) { }` conditional in BlockMinter.java
+- Comment out the `minBlockchainPeers` validation in Settings.validate()
+- Set `minBlockchainPeers` to 0 in settings.json
+- Set `Synchronizer.RECOVERY_MODE_TIMEOUT` to `0`
+- All other steps should remain the same. Only a single reward share key is needed.
+- Remember to put these values back after introducing other nodes
+
+## Fixed network
+
+To restrict a testnet to a set of private nodes, you can use the "fixed network" feature.
+This ensures that the testnet nodes only communicate with each other and not other known peers.
+To do this, add the following setting to each testnet node, substituting the IP addresses:
+```
+"fixedNetwork": [
+  "192.168.0.101:62392",
+  "192.168.0.102:62392",
+  "192.168.0.103:62392"
+]
+```
 
 ## Dealing with stuck chain
 

@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.qortal</groupId>
 	<artifactId>qortal</artifactId>
-	<version>3.0.4</version>
+	<version>3.1.1</version>
 	<packaging>jar</packaging>
 	<properties>
 		<skipTests>true</skipTests>
@@ -21,6 +21,7 @@
 		<dagger.version>1.2.2</dagger.version>
 		<guava.version>28.1-jre</guava.version>
 		<hsqldb.version>2.5.1</hsqldb.version>
+		<upnp.version>1.1</upnp.version>
 		<jersey.version>2.29.1</jersey.version>
 		<jetty.version>9.4.29.v20200521</jetty.version>
 		<log4j.version>2.17.1</log4j.version>
@@ -426,6 +427,12 @@
 			<groupId>org.ciyam</groupId>
 			<artifactId>AT</artifactId>
 			<version>${ciyam-at.version}</version>
+		</dependency>
+		<!-- UPnP support -->
+		<dependency>
+			<groupId>com.dosse</groupId>
+			<artifactId>WaifUPnP</artifactId>
+			<version>${upnp.version}</version>
 		</dependency>
 		<!-- Bitcoin support -->
 		<dependency>

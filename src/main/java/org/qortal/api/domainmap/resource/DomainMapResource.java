@@ -17,7 +17,7 @@ import java.util.Map;
 
 
 @Path("/")
-@Tag(name = "Gateway")
+@Tag(name = "Domain Map")
 public class DomainMapResource {
 
     @Context HttpServletRequest request;

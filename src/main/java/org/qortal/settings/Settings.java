@@ -181,6 +181,8 @@ public class Settings {
 	private boolean isTestNet = false;
 	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
+	/** Whether to attempt to open the listen port via UPnP */
+	private boolean uPnPEnabled = true;
 	/** Minimum number of peers to allow block minting / synchronization. */
 	private int minBlockchainPeers = 5;
 	/** Target number of outbound connections to peers we should make. */
@@ -195,7 +197,7 @@ public class Settings {
 	private int maxRetries = 2;
 
 	/** Minimum peer version number required in order to sync with them */
-	private String minPeerVersion = "3.0.1";
+	private String minPeerVersion = "3.1.0";
 	/** Whether to allow connections with peers below minPeerVersion
 	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
@@ -627,6 +629,10 @@ public class Settings {
 
 	public String getBindAddress() {
 		return this.bindAddress;
+	}
+
+	public boolean isUPnPEnabled() {
+		return this.uPnPEnabled;
 	}
 
 	public int getMinBlockchainPeers() {
