@@ -298,8 +298,11 @@ public class ArbitraryMetadataManager {
             return;
         }
 
+        // Update requests map to reflect that we've received all chunks
+        Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
+        arbitraryMetadataRequests.put(message.getId(), newEntry);
+
         ArbitraryTransactionData arbitraryTransactionData = null;
-        ArbitraryDataFileManager arbitraryDataFileManager = ArbitraryDataFileManager.getInstance();
 
         // Forwarding
         if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
