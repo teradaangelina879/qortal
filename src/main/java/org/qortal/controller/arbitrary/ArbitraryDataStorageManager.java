@@ -293,7 +293,6 @@ public class ArbitraryDataStorageManager extends Thread {
         // Sort by newest first
         arbitraryTransactionDataList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
 
-
         return arbitraryTransactionDataList;
     }
     // Hosted data
@@ -331,7 +330,7 @@ public class ArbitraryDataStorageManager extends Thread {
             this.hostedTransactions = this.loadAllHostedTransactions(repository);
         }
 
-        this.searchQuery=query.toLowerCase();//set the searchQuery so that it can be checked on the next call
+        this.searchQuery = query.toLowerCase(); //set the searchQuery so that it can be checked on the next call
 
         List<ArbitraryTransactionData> searchResultsList = new ArrayList<>();
 
