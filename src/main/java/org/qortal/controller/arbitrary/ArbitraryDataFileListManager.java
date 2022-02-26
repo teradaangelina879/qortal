@@ -529,7 +529,7 @@ public class ArbitraryDataFileListManager {
 
         // If we've seen this request recently, then ignore
         if (arbitraryDataFileListRequests.putIfAbsent(message.getId(), newEntry) != null) {
-            LOGGER.debug("Ignoring hash list request from peer {} for signature {}", peer, signature58);
+            LOGGER.trace("Ignoring hash list request from peer {} for signature {}", peer, signature58);
             return;
         }
 
