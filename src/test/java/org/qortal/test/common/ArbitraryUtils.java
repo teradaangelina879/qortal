@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Random;
 
 import static org.junit.Assert.assertEquals;
@@ -32,8 +33,8 @@ public class ArbitraryUtils {
     }
 
     public static ArbitraryDataFile createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
-                                               ArbitraryTransactionData.Method method, Service service, PrivateKeyAccount account,
-                                               int chunkSize, String title, String description, String tags, Category category) throws DataException {
+                                                     ArbitraryTransactionData.Method method, Service service, PrivateKeyAccount account,
+                                                     int chunkSize, String title, String description, List<String> tags, Category category) throws DataException {
 
         ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
                 repository, publicKey58, path, name, method, service, identifier, title, description, tags, category);

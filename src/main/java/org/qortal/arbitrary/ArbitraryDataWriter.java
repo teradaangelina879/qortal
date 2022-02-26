@@ -29,6 +29,9 @@ import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 
 public class ArbitraryDataWriter {
@@ -45,12 +48,8 @@ public class ArbitraryDataWriter {
     // Metadata
     private final String title;
     private final String description;
-    private final String tags;
+    private final List<String> tags;
     private final Category category;
-
-    private static int MAX_TITLE_LENGTH = 80;
-    private static int MAX_DESCRIPTION_LENGTH = 500;
-    private static int MAX_TAGS_LENGTH = 80;
 
     private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
 
@@ -63,7 +62,7 @@ public class ArbitraryDataWriter {
     private Path encryptedPath;
 
     public ArbitraryDataWriter(Path filePath, String name, Service service, String identifier, Method method, Compression compression,
-                               String title, String description, String tags, Category category) {
+                               String title, String description, List<String> tags, Category category) {
         this.filePath = filePath;
         this.name = name;
         this.service = service;
@@ -77,9 +76,9 @@ public class ArbitraryDataWriter {
         this.identifier = identifier;
 
         // Metadata (optional)
-        this.title = title != null ? title.substring(0, Math.min(title.length(), MAX_TITLE_LENGTH)) : null;
-        this.description = description != null ? description.substring(0, Math.min(description.length(), MAX_DESCRIPTION_LENGTH)) : null;
-        this.tags = tags != null ? tags.substring(0, Math.min(tags.length(), MAX_TAGS_LENGTH)) : null;
+        this.title = ArbitraryDataTransactionMetadata.limitTitle(title);
+        this.description = ArbitraryDataTransactionMetadata.limitDescription(description);
+        this.tags = ArbitraryDataTransactionMetadata.limitTags(tags);
         this.category = category;
     }
 

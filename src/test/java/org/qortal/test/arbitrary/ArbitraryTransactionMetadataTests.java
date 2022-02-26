@@ -23,10 +23,11 @@ import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Base58;
-import org.qortal.utils.NTP;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -90,11 +91,12 @@ public class ArbitraryTransactionMetadataTests extends Common {
 
             String title = "Test title";
             String description = "Test description";
-            String tags = "Test tags";
+            List<String> tags = Arrays.asList("Test", "tag", "another tag");
             Category category = Category.QORTAL;
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction
@@ -139,15 +141,16 @@ public class ArbitraryTransactionMetadataTests extends Common {
 
             String title = "title Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium";
             String description = "description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium massa, non pulvinar mi pretium id. Ut gravida sapien vitae dui posuere tincidunt. Quisque in nibh est. Curabitur at blandit nunc, id aliquet neque. Nulla condimentum eget dolor a egestas. Vestibulum vel tincidunt ex. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Cras congue lacus in risus mattis suscipit. Quisque nisl eros, facilisis a lorem quis, vehicula bibendum.";
-            String tags = "tags Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium";
+            List<String> tags = Arrays.asList("tag 1", "tag 2", "tag 3 that is longer than the 20 character limit", "tag 4", "tag 5", "tag 6", "tag 7");
             Category category = Category.CRYPTOCURRENCY;
 
             String expectedTitle = "title Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat "; // 80 chars
             String expectedDescription = "description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium massa, non pulvinar mi pretium id. Ut gravida sapien vitae dui posuere tincidunt. Quisque in nibh est. Curabitur at blandit nunc, id aliquet neque. Nulla condimentum eget dolor a egestas. Vestibulum vel tincidunt ex. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Cras congue lacus in risus mattis suscipit. Quisque nisl eros, facilisis a lorem quis, vehicula biben"; // 500 chars
-            String expectedTags = "tags Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat p"; // 80 chars
+            List<String> expectedTags = Arrays.asList("tag 1", "tag 2", "tag 4", "tag 5", "tag 6");
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction

@@ -735,7 +735,7 @@ public class ArbitraryResource {
 					   @PathParam("name") String name,
 					   @QueryParam("title") String title,
 					   @QueryParam("description") String description,
-					   @QueryParam("tags") String tags,
+					   @QueryParam("tags") List<String> tags,
 					   @QueryParam("category") Category category,
 					   String path) {
 		Security.checkApiCallAllowed(request);
@@ -780,7 +780,7 @@ public class ArbitraryResource {
 					   @PathParam("identifier") String identifier,
 					   @QueryParam("title") String title,
 					   @QueryParam("description") String description,
-					   @QueryParam("tags") String tags,
+					   @QueryParam("tags") List<String> tags,
 					   @QueryParam("category") Category category,
 					   String path) {
 		Security.checkApiCallAllowed(request);
@@ -826,7 +826,7 @@ public class ArbitraryResource {
 										@PathParam("name") String name,
 										@QueryParam("title") String title,
 										@QueryParam("description") String description,
-										@QueryParam("tags") String tags,
+										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
 										String base64) {
 		Security.checkApiCallAllowed(request);
@@ -869,7 +869,7 @@ public class ArbitraryResource {
 										@PathParam("identifier") String identifier,
 										@QueryParam("title") String title,
 										@QueryParam("description") String description,
-										@QueryParam("tags") String tags,
+										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
 										String base64) {
 		Security.checkApiCallAllowed(request);
@@ -914,7 +914,7 @@ public class ArbitraryResource {
 								 @PathParam("name") String name,
 								 @QueryParam("title") String title,
 								 @QueryParam("description") String description,
-								 @QueryParam("tags") String tags,
+								 @QueryParam("tags") List<String> tags,
 								 @QueryParam("category") Category category,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
@@ -957,7 +957,7 @@ public class ArbitraryResource {
 								 @PathParam("identifier") String identifier,
 								 @QueryParam("title") String title,
 								 @QueryParam("description") String description,
-								 @QueryParam("tags") String tags,
+								 @QueryParam("tags") List<String> tags,
 								 @QueryParam("category") Category category,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
@@ -1005,7 +1005,7 @@ public class ArbitraryResource {
 							 @PathParam("name") String name,
 							 @QueryParam("title") String title,
 							 @QueryParam("description") String description,
-							 @QueryParam("tags") String tags,
+							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
 							 String string) {
 		Security.checkApiCallAllowed(request);
@@ -1050,7 +1050,7 @@ public class ArbitraryResource {
 							 @PathParam("identifier") String identifier,
 							 @QueryParam("title") String title,
 							 @QueryParam("description") String description,
-							 @QueryParam("tags") String tags,
+							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
 							 String string) {
 		Security.checkApiCallAllowed(request);
@@ -1068,7 +1068,7 @@ public class ArbitraryResource {
 
 	private String upload(Service service, String name, String identifier,
 						  String path, String string, String base64, boolean zipped,
-						  String title, String description, String tags, Category category) {
+						  String title, String description, List<String> tags, Category category) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
