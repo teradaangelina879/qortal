@@ -64,7 +64,7 @@ public class BuySellTests extends Common {
 	public void testRegisterName() throws DataException {
 		// Register-name
 		RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "{}");
-		transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+		transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
 		TransactionUtils.signAndMint(repository, transactionData, alice);
 
 		String name = transactionData.getName();

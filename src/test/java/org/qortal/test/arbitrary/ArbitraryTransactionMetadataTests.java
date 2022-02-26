@@ -54,7 +54,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
 
             // Register the name to Alice
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Create PUT transaction

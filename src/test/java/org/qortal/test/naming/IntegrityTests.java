@@ -59,7 +59,7 @@ public class IntegrityTests extends Common {
             String data = "\uD83E\uDD73";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -86,7 +86,7 @@ public class IntegrityTests extends Common {
             String name = "initial_name";
             String data = "initial_data";
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Update the name, but keep the new name blank
@@ -121,7 +121,7 @@ public class IntegrityTests extends Common {
             String name = "initial_name";
             String data = "initial_data";
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Update the name, but keep the new name blank
@@ -149,7 +149,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -179,7 +179,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -218,7 +218,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -244,7 +244,7 @@ public class IntegrityTests extends Common {
 
             // Attempt to register the new name
             transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), newName, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             Transaction transaction = Transaction.fromData(repository, transactionData);
             transaction.sign(alice);
 
@@ -264,7 +264,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -279,7 +279,7 @@ public class IntegrityTests extends Common {
             // Attempt to register the name again
             String duplicateName = "TEST-nÁme";
             transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), duplicateName, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             Transaction transaction = Transaction.fromData(repository, transactionData);
             transaction.sign(alice);
 
@@ -299,7 +299,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -333,7 +333,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -343,7 +343,7 @@ public class IntegrityTests extends Common {
             String secondName = "new-missing-name";
             String secondNameData = "{\"data2\":true}";
             transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), secondName, secondNameData);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the second name exists and the data is correct
@@ -377,7 +377,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
@@ -409,7 +409,7 @@ public class IntegrityTests extends Common {
             String data = "{\"age\":30}";
 
             RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));;
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
             TransactionUtils.signAndMint(repository, transactionData, alice);
 
             // Ensure the name exists and the data is correct
