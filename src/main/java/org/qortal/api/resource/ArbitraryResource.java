@@ -432,14 +432,23 @@ public class ArbitraryResource {
 			@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
-			@Parameter(ref = "offset") @QueryParam("offset") Integer offset) {
+			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@QueryParam("query") String query) {
+
 		Security.checkApiCallAllowed(request);
 
 		List<ArbitraryResourceInfo> resources = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			
+			List<ArbitraryTransactionData> transactionDataList;
 
-			List<ArbitraryTransactionData> transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset);
+			if (query == null || query.equals("")) {
+				transactionDataList = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, limit, offset);
+			} else {
+				transactionDataList = ArbitraryDataStorageManager.getInstance().searchHostedTransactions(repository,query, limit, offset);
+			}
+
 			for (ArbitraryTransactionData transactionData : transactionDataList) {
 				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
 				arbitraryResourceInfo.name = transactionData.getName();
@@ -460,6 +469,8 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
+
+
 
 	@DELETE
 	@Path("/resource/{service}/{name}/{identifier}")

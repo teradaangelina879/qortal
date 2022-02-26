@@ -47,6 +47,9 @@ public class ArbitraryDataStorageManager extends Thread {
 
     private List<ArbitraryTransactionData> hostedTransactions;
 
+    private String searchQuery;
+    private List<ArbitraryTransactionData> searchResultsTransactions;
+
     private static final long DIRECTORY_SIZE_CHECK_INTERVAL = 10 * 60 * 1000L; // 10 minutes
 
     /** Treat storage as full at 90% usage, to reduce risk of going over the limit.
@@ -258,14 +261,8 @@ public class ArbitraryDataStorageManager extends Thread {
     }
 
 
-    // Hosted data
-
-    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset) {
-        // Load from cache if we can, to avoid disk reads
-        if (this.hostedTransactions != null) {
-            return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
-        }
-
+    public List<ArbitraryTransactionData> loadAllHostedTransactions(Repository repository){
+        
         List<ArbitraryTransactionData> arbitraryTransactionDataList = new ArrayList<>();
 
         // Find all hosted paths
@@ -296,10 +293,69 @@ public class ArbitraryDataStorageManager extends Thread {
         // Sort by newest first
         arbitraryTransactionDataList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
 
-        // Update cache
-        this.hostedTransactions = arbitraryTransactionDataList;
+        return arbitraryTransactionDataList;
+    }
+    // Hosted data
 
-        return ArbitraryTransactionUtils.limitOffsetTransactions(arbitraryTransactionDataList, limit, offset);
+    public List<ArbitraryTransactionData> listAllHostedTransactions(Repository repository, Integer limit, Integer offset) {
+        // Load from cache if we can, to avoid disk reads
+
+        if (this.hostedTransactions != null) {
+            return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
+        }
+
+        this.hostedTransactions = this.loadAllHostedTransactions(repository);
+
+        return ArbitraryTransactionUtils.limitOffsetTransactions(this.hostedTransactions, limit, offset);
+    }
+    
+    /**
+     * searchHostedTransactions
+     * Allow to run a query against hosted data names and return matches if there are any
+     * @param repository
+     * @param query
+     * @param limit
+     * @param offset
+     * @return
+     */
+
+    public List<ArbitraryTransactionData> searchHostedTransactions(Repository repository, String query, Integer limit, Integer offset) {
+        // Load from results cache if we can (results that exists for the same query), to avoid disk reads
+        if (this.searchResultsTransactions != null && this.searchQuery.equals(query.toLowerCase())) {
+            return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
+        }
+
+        // Using cache if we can, to avoid disk reads
+        if (this.hostedTransactions == null) {
+            this.hostedTransactions = this.loadAllHostedTransactions(repository);
+        }
+
+        this.searchQuery = query.toLowerCase(); //set the searchQuery so that it can be checked on the next call
+
+        List<ArbitraryTransactionData> searchResultsList = new ArrayList<>();
+
+        // Loop through cached hostedTransactions
+        for (ArbitraryTransactionData atd : this.hostedTransactions) {
+            try {
+               if (atd.getName() != null && atd.getName().toLowerCase().contains(this.searchQuery)) {
+                   searchResultsList.add(atd);
+               }
+               else if (atd.getIdentifier() != null && atd.getIdentifier().toLowerCase().contains(this.searchQuery)) {
+                   searchResultsList.add(atd);
+               }
+
+            } catch (Exception e) {
+                continue;
+            }
+        }
+
+        // Sort by newest first
+        searchResultsList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
+
+        // Update cache
+        this.searchResultsTransactions = searchResultsList;
+
+        return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
     }
 
     /**
