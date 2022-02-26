@@ -338,9 +338,12 @@ public class ArbitraryDataStorageManager extends Thread {
         // Loop through cached hostedTransactions
         for (ArbitraryTransactionData atd : this.hostedTransactions) {
             try {
-               
-                if(atd.getName().toLowerCase().contains(this.searchQuery) || atd.getIdentifier().toLowerCase().contains(this.searchQuery))
-                    searchResultsList.add(atd);
+               if (atd.getName() != null && atd.getName().toLowerCase().contains(this.searchQuery)) {
+                   searchResultsList.add(atd);
+               }
+               else if (atd.getIdentifier() != null && atd.getIdentifier().toLowerCase().contains(this.searchQuery)) {
+                   searchResultsList.add(atd);
+               }
 
             } catch (Exception e) {
                 continue;
