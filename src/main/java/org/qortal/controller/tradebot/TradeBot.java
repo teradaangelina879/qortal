@@ -649,6 +649,8 @@ public class TradeBot implements Listener {
 		if (computedTradePresenceData == fakeTradePresenceData) {
 			LOGGER.trace("Bridged PRESENCE transaction for trade {} with timestamp {}", atAddress, expiry);
 			rebuildSafeAllTradePresences();
+
+			EventBus.INSTANCE.notify(new TradePresenceEvent(fakeTradePresenceData));
 		}
 	}
 
