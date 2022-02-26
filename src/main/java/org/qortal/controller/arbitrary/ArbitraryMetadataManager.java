@@ -75,7 +75,7 @@ public class ArbitraryMetadataManager {
     }
 
 
-    public byte[] fetchMetadata(ArbitraryDataResource arbitraryDataResource) {
+    public byte[] fetchMetadata(ArbitraryDataResource arbitraryDataResource, boolean useRateLimiter) {
         try (final Repository repository = RepositoryManager.getRepository()) {
             // Find latest transaction
             ArbitraryTransactionData latestTransaction = repository.getArbitraryRepository()
@@ -87,7 +87,7 @@ public class ArbitraryMetadataManager {
                 byte[] metadataHash = latestTransaction.getMetadataHash();
                 if (metadataHash == null) {
                     // This resource doesn't have metadata
-                    return null;
+                    throw new IllegalArgumentException("This resource doesn't have metadata");
                 }
 
                 ArbitraryDataFile metadataFile = ArbitraryDataFile.fromHash(metadataHash, signature);
@@ -97,7 +97,7 @@ public class ArbitraryMetadataManager {
                 }
                 else {
                     // Request from network
-                    this.fetchArbitraryMetadata(latestTransaction);
+                    return this.fetchArbitraryMetadata(latestTransaction, useRateLimiter);
                 }
             }
 
@@ -111,20 +111,25 @@ public class ArbitraryMetadataManager {
 
     // Request metadata from network
 
-    public boolean fetchArbitraryMetadata(ArbitraryTransactionData arbitraryTransactionData) {
+    public byte[] fetchArbitraryMetadata(ArbitraryTransactionData arbitraryTransactionData, boolean useRateLimiter) {
+        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
+        if (metadataHash == null) {
+            return null;
+        }
+
         byte[] signature = arbitraryTransactionData.getSignature();
         String signature58 = Base58.encode(signature);
 
         // Require an NTP sync
         Long now = NTP.getTime();
         if (now == null) {
-            return false;
+            return null;
         }
 
         // If we've already tried too many times in a short space of time, make sure to give up
-        if (!this.shouldMakeMetadataRequestForSignature(signature58)) {
+        if (useRateLimiter && !this.shouldMakeMetadataRequestForSignature(signature58)) {
             LOGGER.trace("Skipping metadata request for signature {} due to rate limit", signature58);
-            return false;
+            return null;
         }
         this.addToSignatureRequests(signature58, true, false);
 
@@ -162,14 +167,22 @@ public class ArbitraryMetadataManager {
 
             requestEntry = arbitraryMetadataRequests.get(id);
             if (requestEntry == null)
-                return false;
+                return null;
 
             if (requestEntry.getA() == null)
                 break;
 
             totalWait += singleWait;
         }
-        return true;
+
+        try {
+            ArbitraryDataFile metadataFile = ArbitraryDataFile.fromHash(metadataHash, signature);
+            return metadataFile.getBytes();
+        } catch (DataException e) {
+            // Do nothing
+        }
+
+        return null;
     }
 
 

@@ -688,12 +688,16 @@ public class ArbitraryResource {
 
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
 
-		byte[] metadata = ArbitraryMetadataManager.getInstance().fetchMetadata(resource);
-		if (metadata != null) {
-			return new String(metadata, StandardCharsets.UTF_8);
+		try {
+			byte[] metadata = ArbitraryMetadataManager.getInstance().fetchMetadata(resource, false);
+			if (metadata != null) {
+				return new String(metadata, StandardCharsets.UTF_8);
+			}
+		} catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, e.getMessage());
 		}
 
-		return null;
+		throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 	}
 
 
