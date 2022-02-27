@@ -538,6 +538,7 @@ public class ArbitraryDataFileListManager {
         List<byte[]> hashes = new ArrayList<>();
         ArbitraryTransactionData transactionData = null;
         boolean allChunksExist = false;
+        boolean hasMetadata = false;
 
         try (final Repository repository = RepositoryManager.getRepository()) {
 
@@ -562,6 +563,7 @@ public class ArbitraryDataFileListManager {
                         // Add the metadata file
                         if (arbitraryDataFile.getMetadataHash() != null) {
                             requestedHashes.add(arbitraryDataFile.getMetadataHash());
+                            hasMetadata = true;
                         }
 
                         // Add the chunk hashes
@@ -592,6 +594,12 @@ public class ArbitraryDataFileListManager {
 
         } catch (DataException e) {
             LOGGER.error(String.format("Repository issue while fetching arbitrary file list for peer %s", peer), e);
+        }
+
+        // If the only file we have is the metadata then we shouldn't respond. Most nodes will already have that,
+        // or can use the separate metadata protocol to fetch it. This should greatly reduce network spam.
+        if (hasMetadata && hashes.size() == 1) {
+            hashes.clear();
         }
 
         // We should only respond if we have at least one hash
