@@ -41,10 +41,7 @@ import org.qortal.controller.Controller;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.controller.arbitrary.ArbitraryMetadataManager;
 import org.qortal.data.account.AccountData;
-import org.qortal.data.arbitrary.ArbitraryCategoryInfo;
-import org.qortal.data.arbitrary.ArbitraryResourceInfo;
-import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
-import org.qortal.data.arbitrary.ArbitraryResourceStatus;
+import org.qortal.data.arbitrary.*;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -93,7 +90,8 @@ public class ArbitraryResource {
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
-			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus) {
+			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
+			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
@@ -115,8 +113,11 @@ public class ArbitraryResource {
 				return new ArrayList<>();
 			}
 
-			if (includeStatus != null && includeStatus == true) {
+			if (includeStatus != null && includeStatus) {
 				resources = this.addStatusToResources(resources);
+			}
+			if (includeMetadata != null && includeMetadata) {
+				resources = this.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -145,7 +146,8 @@ public class ArbitraryResource {
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
-			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus) {
+			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
+			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
@@ -158,8 +160,11 @@ public class ArbitraryResource {
 				return new ArrayList<>();
 			}
 
-			if (includeStatus != null && includeStatus == true) {
+			if (includeStatus != null && includeStatus) {
 				resources = this.addStatusToResources(resources);
+			}
+			if (includeMetadata != null && includeMetadata) {
+				resources = this.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -187,7 +192,8 @@ public class ArbitraryResource {
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
-			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus) {
+			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
+			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
@@ -211,9 +217,13 @@ public class ArbitraryResource {
 					List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
 							.getArbitraryResources(service, identifier, name, defaultRes, null, null, reverse);
 
-					if (includeStatus != null && includeStatus == true) {
+					if (includeStatus != null && includeStatus) {
 						resources = this.addStatusToResources(resources);
 					}
+					if (includeMetadata != null && includeMetadata) {
+						resources = this.addMetadataToResources(resources);
+					}
+
 					creatorName.resources = resources;
 				}
 			}
@@ -458,6 +468,7 @@ public class ArbitraryResource {
 	public List<ArbitraryResourceInfo> getHostedResources(
 			@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
+			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@QueryParam("query") String query) {
@@ -485,8 +496,11 @@ public class ArbitraryResource {
 				}
 			}
 
-			if (includeStatus != null && includeStatus == true) {
+			if (includeStatus != null && includeStatus) {
 				resources = this.addStatusToResources(resources);
+			}
+			if (includeMetadata != null && includeMetadata) {
+				resources = this.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -1250,6 +1264,22 @@ public class ArbitraryResource {
 			ArbitraryResourceStatus status = resource.getStatus(true);
 			if (status != null) {
 				resourceInfo.status = status;
+			}
+			updatedResources.add(resourceInfo);
+		}
+		return updatedResources;
+	}
+
+	private List<ArbitraryResourceInfo> addMetadataToResources(List<ArbitraryResourceInfo> resources) {
+		// Add metadata fields to each resource if they exist
+		List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
+		for (ArbitraryResourceInfo resourceInfo : resources) {
+			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
+					resourceInfo.service, resourceInfo.identifier);
+			ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
+			ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+			if (resourceMetadata != null) {
+				resourceInfo.metadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
 			}
 			updatedResources.add(resourceInfo);
 		}

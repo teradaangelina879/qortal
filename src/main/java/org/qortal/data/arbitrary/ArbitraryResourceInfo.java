@@ -13,6 +13,7 @@ public class ArbitraryResourceInfo {
 	public Service service;
 	public String identifier;
 	public ArbitraryResourceStatus status;
+	public ArbitraryResourceMetadata metadata;
 
 	public Long size;
 

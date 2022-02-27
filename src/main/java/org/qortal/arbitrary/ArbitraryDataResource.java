@@ -3,6 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
@@ -37,6 +38,7 @@ public class ArbitraryDataResource {
 
     private List<ArbitraryTransactionData> transactions;
     private ArbitraryTransactionData latestPutTransaction;
+    private ArbitraryTransactionData latestTransaction;
     private int layerCount;
     private Integer localChunkCount = null;
     private Integer totalChunkCount = null;
@@ -103,6 +105,33 @@ public class ArbitraryDataResource {
 
         // We have all data locally
         return new ArbitraryResourceStatus(Status.DOWNLOADED, this.localChunkCount, this.totalChunkCount);
+    }
+
+    public ArbitraryDataTransactionMetadata getLatestTransactionMetadata() {
+        this.fetchLatestTransaction();
+
+        if (latestTransaction != null) {
+            byte[] signature = latestTransaction.getSignature();
+            byte[] metadataHash = latestTransaction.getMetadataHash();
+            if (metadataHash == null) {
+                // This resource doesn't have metadata
+                return null;
+            }
+
+            try {
+                ArbitraryDataFile metadataFile = ArbitraryDataFile.fromHash(metadataHash, signature);
+                if (metadataFile.exists()) {
+                    ArbitraryDataTransactionMetadata transactionMetadata = new ArbitraryDataTransactionMetadata(metadataFile.getFilePath());
+                    transactionMetadata.read();
+                    return transactionMetadata;
+                }
+
+            } catch (DataException | IOException e) {
+                // Do nothing
+            }
+        }
+
+        return null;
     }
 
     public boolean delete() {
@@ -306,6 +335,32 @@ public class ArbitraryDataResource {
 
             this.transactions = transactionDataList;
             this.layerCount = transactionDataList.size();
+
+        } catch (DataException e) {
+            LOGGER.info(String.format("Repository error when fetching transactions for resource %s: %s", this, e.getMessage()));
+        }
+    }
+
+    private void fetchLatestTransaction() {
+        if (this.latestTransaction != null) {
+            // Already fetched
+            return;
+        }
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+
+            // Get the most recent transaction
+            ArbitraryTransactionData latestTransaction = repository.getArbitraryRepository()
+                    .getLatestTransaction(this.resourceId, this.service, null, this.identifier);
+            if (latestTransaction == null) {
+                String message = String.format("Couldn't find transaction for name %s, service %s and identifier %s",
+                        this.resourceId, this.service, this.identifierString());
+                throw new DataException(message);
+            }
+            this.latestTransaction = latestTransaction;
+
+        } catch (DataException e) {
+            LOGGER.info(String.format("Repository error when fetching latest transaction for resource %s: %s", this, e.getMessage()));
         }
     }
 
