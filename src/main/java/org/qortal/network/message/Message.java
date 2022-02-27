@@ -93,7 +93,11 @@ public abstract class Message {
 		ARBITRARY_DATA_FILE_LIST(120),
 		GET_ARBITRARY_DATA_FILE_LIST(121),
 
-		ARBITRARY_SIGNATURES(130);
+		ARBITRARY_SIGNATURES(130),
+
+		TRADE_PRESENCES(140),
+		GET_TRADE_PRESENCES(141),
+		;
 
 		public final int value;
 		public final Method fromByteBufferMethod;

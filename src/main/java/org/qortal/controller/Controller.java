@@ -1312,6 +1312,14 @@ public class Controller extends Thread {
 				ArbitraryDataManager.getInstance().onNetworkArbitrarySignaturesMessage(peer, message);
 				break;
 
+			case GET_TRADE_PRESENCES:
+				TradeBot.getInstance().onGetTradePresencesMessage(peer, message);
+				break;
+
+			case TRADE_PRESENCES:
+				TradeBot.getInstance().onTradePresencesMessage(peer, message);
+				break;
+
 			default:
 				LOGGER.debug(() -> String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
