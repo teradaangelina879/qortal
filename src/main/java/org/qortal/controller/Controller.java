@@ -1222,8 +1222,6 @@ public class Controller extends Thread {
 	}
 
 	public void onPeerHandshakeCompleted(Peer peer) {
-		// XXX: we could turn this into an EventBus event so that listeners like TradeBot get a look-in
-
 		// Only send if outbound
 		if (peer.isOutbound()) {
 			// Request peer's unconfirmed transactions
