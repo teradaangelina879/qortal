@@ -102,6 +102,9 @@ public class ArbitraryDataManager extends Thread {
 					continue;
 				}
 
+				// Fetch metadata
+				this.fetchAllMetadata();
+
 				// Fetch data according to storage policy
 				switch (Settings.getInstance().getStoragePolicy()) {
 					case FOLLOWED:
@@ -225,6 +228,83 @@ public class ArbitraryDataManager extends Thread {
 		}
 	}
 
+	private void fetchAllMetadata() {
+		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
+
+		// Paginate queries when fetching arbitrary transactions
+		final int limit = 100;
+		int offset = 0;
+
+		while (!isStopping) {
+
+			// Any arbitrary transactions we want to fetch data for?
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, ARBITRARY_TX_TYPE, null, null, null, ConfirmationStatus.BOTH, limit, offset, true);
+				// LOGGER.trace("Found {} arbitrary transactions at offset: {}, limit: {}", signatures.size(), offset, limit);
+				if (signatures == null || signatures.isEmpty()) {
+					offset = 0;
+					break;
+				}
+				offset += limit;
+
+				// Loop through signatures and remove ones we don't need to process
+				Iterator iterator = signatures.iterator();
+				while (iterator.hasNext()) {
+					byte[] signature = (byte[]) iterator.next();
+
+					ArbitraryTransaction arbitraryTransaction = fetchTransaction(repository, signature);
+					if (arbitraryTransaction == null) {
+						// Best not to process this one
+						iterator.remove();
+						continue;
+					}
+					ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) arbitraryTransaction.getTransactionData();
+
+					// Skip transactions that are blocked
+					if (storageManager.isBlocked(arbitraryTransactionData)) {
+						iterator.remove();
+						continue;
+					}
+
+					// Remove transactions that we already have local data for
+					if (hasLocalMetadata(arbitraryTransaction)) {
+						iterator.remove();
+						continue;
+					}
+				}
+
+				if (signatures.isEmpty()) {
+					continue;
+				}
+
+				// Pick one at random
+				final int index = new Random().nextInt(signatures.size());
+				byte[] signature = signatures.get(index);
+
+				if (signature == null) {
+					continue;
+				}
+
+				// Check to see if we have had a more recent PUT
+				ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
+				boolean hasMoreRecentPutTransaction = ArbitraryTransactionUtils.hasMoreRecentPutTransaction(repository, arbitraryTransactionData);
+				if (hasMoreRecentPutTransaction) {
+					// There is a more recent PUT transaction than the one we are currently processing.
+					// When a PUT is issued, it replaces any layers that would have been there before.
+					// Therefore any data relating to this older transaction is no longer needed and we
+					// shouldn't fetch it from the network.
+					continue;
+				}
+
+				// Ask our connected peers if they have metadata for this signature
+				fetchMetadata(arbitraryTransactionData);
+
+			} catch (DataException e) {
+				LOGGER.error("Repository issue when fetching arbitrary transaction data", e);
+			}
+		}
+	}
+
 	private ArbitraryTransaction fetchTransaction(final Repository repository, byte[] signature) {
 		try {
 			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
@@ -244,14 +324,40 @@ public class ArbitraryDataManager extends Thread {
 
 		} catch (DataException e) {
 			LOGGER.error("Repository issue when checking arbitrary transaction's data is local", e);
-			return true;
+			return true; // Assume true for now, to avoid network spam on error
 		}
 	}
 
+	private boolean hasLocalMetadata(ArbitraryTransaction arbitraryTransaction) {
+		try {
+			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) arbitraryTransaction.getTransactionData();
+			byte[] signature = arbitraryTransactionData.getSignature();
+			byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
+			ArbitraryDataFile metadataFile = ArbitraryDataFile.fromHash(metadataHash, signature);
+
+			return metadataFile.exists();
+
+		} catch (DataException e) {
+			LOGGER.error("Repository issue when checking arbitrary transaction's metadata is local", e);
+			return true; // Assume true for now, to avoid network spam on error
+		}
+	}
 
 	// Entrypoint to request new data from peers
 	public boolean fetchData(ArbitraryTransactionData arbitraryTransactionData) {
 		return ArbitraryDataFileListManager.getInstance().fetchArbitraryDataFileList(arbitraryTransactionData);
+	}
+
+	// Entrypoint to request new metadata from peers
+	public byte[] fetchMetadata(ArbitraryTransactionData arbitraryTransactionData) {
+
+		ArbitraryDataResource resource = new ArbitraryDataResource(
+				arbitraryTransactionData.getName(),
+				ArbitraryDataFile.ResourceIdType.NAME,
+				arbitraryTransactionData.getService(),
+				arbitraryTransactionData.getIdentifier()
+		);
+		return ArbitraryMetadataManager.getInstance().fetchMetadata(resource, true);
 	}
 
 

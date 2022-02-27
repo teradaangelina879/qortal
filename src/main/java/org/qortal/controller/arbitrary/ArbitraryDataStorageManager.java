@@ -229,6 +229,16 @@ public class ArbitraryDataStorageManager extends Thread {
         }
     }
 
+    /**
+     * Check if data relating to a transaction is blocked by this node.
+     *
+     * @param arbitraryTransactionData - the transaction
+     * @return boolean - whether the resource is blocked or not
+     */
+    public boolean isBlocked(ArbitraryTransactionData arbitraryTransactionData) {
+        return isNameBlocked(arbitraryTransactionData.getName());
+    }
+
     private boolean isDataTypeAllowed(ArbitraryTransactionData arbitraryTransactionData) {
         byte[] secret = arbitraryTransactionData.getSecret();
         boolean hasSecret = (secret != null && secret.length == 32);
