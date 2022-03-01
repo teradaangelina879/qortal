@@ -694,7 +694,7 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String getMetadata(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+	public ArbitraryResourceMetadata getMetadata(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 							  @PathParam("service") Service service,
 							  @PathParam("name") String name,
 							  @PathParam("identifier") String identifier) {
@@ -703,12 +703,20 @@ public class ArbitraryResource {
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
 
 		try {
-			byte[] metadata = ArbitraryMetadataManager.getInstance().fetchMetadata(resource, false);
-			if (metadata != null) {
-				return new String(metadata, StandardCharsets.UTF_8);
+			ArbitraryDataTransactionMetadata transactionMetadata = ArbitraryMetadataManager.getInstance().fetchMetadata(resource, false);
+			if (transactionMetadata != null) {
+				ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+				if (resourceMetadata != null) {
+					return resourceMetadata;
+				}
+				else {
+					// The metadata file doesn't contain title, description, category, or tags
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FILE_NOT_FOUND);
+				}
 			}
 		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, e.getMessage());
+			// No metadata exists for this resource
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, e.getMessage());
 		}
 
 		throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
@@ -1279,7 +1287,7 @@ public class ArbitraryResource {
 			ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
 			ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
 			if (resourceMetadata != null) {
-				resourceInfo.metadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+				resourceInfo.metadata = resourceMetadata;
 			}
 			updatedResources.add(resourceInfo);
 		}

@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.controller.Controller;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -18,6 +19,7 @@ import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 import org.qortal.utils.Triple;
 
+import java.io.IOException;
 import java.util.*;
 
 import static org.qortal.controller.arbitrary.ArbitraryDataFileListManager.RELAY_REQUEST_MAX_DURATION;
@@ -75,7 +77,7 @@ public class ArbitraryMetadataManager {
     }
 
 
-    public byte[] fetchMetadata(ArbitraryDataResource arbitraryDataResource, boolean useRateLimiter) {
+    public ArbitraryDataTransactionMetadata fetchMetadata(ArbitraryDataResource arbitraryDataResource, boolean useRateLimiter) {
         try (final Repository repository = RepositoryManager.getRepository()) {
             // Find latest transaction
             ArbitraryTransactionData latestTransaction = repository.getArbitraryRepository()
@@ -91,17 +93,21 @@ public class ArbitraryMetadataManager {
                 }
 
                 ArbitraryDataFile metadataFile = ArbitraryDataFile.fromHash(metadataHash, signature);
+                if (!metadataFile.exists()) {
+                    // Request from network
+                    this.fetchArbitraryMetadata(latestTransaction, useRateLimiter);
+                }
+
+                // Now check again as it may have been downloaded above
                 if (metadataFile.exists()) {
                     // Use local copy
-                    return metadataFile.getBytes();
-                }
-                else {
-                    // Request from network
-                    return this.fetchArbitraryMetadata(latestTransaction, useRateLimiter);
+                    ArbitraryDataTransactionMetadata transactionMetadata = new ArbitraryDataTransactionMetadata(metadataFile.getFilePath());
+                    transactionMetadata.read();
+                    return transactionMetadata;
                 }
             }
 
-        } catch (DataException e) {
+        } catch (DataException | IOException e) {
             LOGGER.error("Repository issue when fetching arbitrary transaction metadata", e);
         }
 

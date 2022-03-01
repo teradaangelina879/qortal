@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
 import org.qortal.data.network.ArbitraryPeerData;
@@ -349,7 +350,7 @@ public class ArbitraryDataManager extends Thread {
 	}
 
 	// Entrypoint to request new metadata from peers
-	public byte[] fetchMetadata(ArbitraryTransactionData arbitraryTransactionData) {
+	public ArbitraryDataTransactionMetadata fetchMetadata(ArbitraryTransactionData arbitraryTransactionData) {
 
 		ArbitraryDataResource resource = new ArbitraryDataResource(
 				arbitraryTransactionData.getName(),
