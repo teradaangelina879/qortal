@@ -128,7 +128,7 @@ public class ArbitraryDataRenderer {
                 // Regular file - can be streamed directly
                 File file = new File(filePath);
                 FileInputStream inputStream = new FileInputStream(file);
-                response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline'; media-src 'self' blob:");
+                response.addHeader("Content-Security-Policy", "default-src 'self'");
                 response.setContentType(context.getMimeType(filename));
                 int bytesRead, length = 0;
                 byte[] buffer = new byte[10240];
