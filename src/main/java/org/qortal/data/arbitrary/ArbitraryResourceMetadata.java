@@ -14,6 +14,7 @@ public class ArbitraryResourceMetadata {
     private String description;
     private List<String> tags;
     private Category category;
+    private String categoryName;
 
     public ArbitraryResourceMetadata() {
     }
@@ -23,6 +24,7 @@ public class ArbitraryResourceMetadata {
         this.description = description;
         this.tags = tags;
         this.category = category;
+        this.categoryName = category.getName();
     }
 
     public static ArbitraryResourceMetadata fromTransactionMetadata(ArbitraryDataTransactionMetadata transactionMetadata) {
