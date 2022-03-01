@@ -104,7 +104,8 @@ public class ArbitraryDataManager extends Thread {
 				}
 
 				// Fetch metadata
-				this.fetchAllMetadata();
+				// Disabled for now. TODO: re-enable later.
+				// this.fetchAllMetadata();
 
 				// Fetch data according to storage policy
 				switch (Settings.getInstance().getStoragePolicy()) {
