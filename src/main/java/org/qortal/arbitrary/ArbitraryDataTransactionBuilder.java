@@ -6,6 +6,7 @@ import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.ArbitraryDataDiff.*;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.crypto.Crypto;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
 
 public class ArbitraryDataTransactionBuilder {
@@ -79,9 +81,9 @@ public class ArbitraryDataTransactionBuilder {
         this.identifier = identifier;
 
         // Metadata (optional)
-        this.title = title;
-        this.description = description;
-        this.tags = tags;
+        this.title = ArbitraryDataTransactionMetadata.limitTitle(title);
+        this.description = ArbitraryDataTransactionMetadata.limitDescription(description);
+        this.tags = ArbitraryDataTransactionMetadata.limitTags(tags);
         this.category = category;
     }
 
@@ -121,6 +123,10 @@ public class ArbitraryDataTransactionBuilder {
             return Method.PUT;
         }
 
+        // Get existing metadata and see if it matches the new metadata
+        ArbitraryDataResource resource = new ArbitraryDataResource(this.name, ResourceIdType.NAME, this.service, this.identifier);
+        ArbitraryDataTransactionMetadata existingMetadata = resource.getLatestTransactionMetadata();
+
         try {
             // Check layer count
             int layerCount = reader.getLayerCount();
@@ -131,7 +137,23 @@ public class ArbitraryDataTransactionBuilder {
 
             // Check size of differences between this layer and previous layer
             ArbitraryDataCreatePatch patch = new ArbitraryDataCreatePatch(reader.getFilePath(), this.path, reader.getLatestSignature());
-            patch.create();
+            try {
+                patch.create();
+            }
+            catch (DataException | IOException e) {
+                // Handle matching states separately, as it's best to block transactions with duplicate states
+                if (e.getMessage().equals("Current state matches previous state. Nothing to do.")) {
+                    // Only throw an exception if the metadata is also identical, as well as the data
+                    if (this.isMetadataEqual(existingMetadata)) {
+                        throw new DataException(e.getMessage());
+                    }
+                }
+
+                LOGGER.info("Caught exception when creating patch: {}", e.getMessage());
+                LOGGER.info("Unable to load existing resource - using PUT to overwrite it.");
+                return Method.PUT;
+            }
+
             long diffSize = FilesystemUtils.getDirectorySize(patch.getFinalPath());
             long existingStateSize = FilesystemUtils.getDirectorySize(reader.getFilePath());
             double difference = (double) diffSize / (double) existingStateSize;
@@ -168,11 +190,8 @@ public class ArbitraryDataTransactionBuilder {
             // State is appropriate for a PATCH transaction
             return Method.PATCH;
         }
-        catch (IOException | DataException e) {
-            // Handle matching states separately, as it's best to block transactions with duplicate states
-            if (e.getMessage().equals("Current state matches previous state. Nothing to do.")) {
-                throw new DataException(e.getMessage());
-            }
+        catch (IOException e) {
+            // IMPORTANT: Don't catch DataException here, as they must be passed to the caller
             LOGGER.info("Caught exception: {}", e.getMessage());
             LOGGER.info("Unable to load existing resource - using PUT to overwrite it.");
             return Method.PUT;
@@ -265,6 +284,22 @@ public class ArbitraryDataTransactionBuilder {
             throw(e);
         }
 
+    }
+
+    private boolean isMetadataEqual(ArbitraryDataTransactionMetadata existingMetadata) {
+        if (!Objects.equals(existingMetadata.getTitle(), this.title)) {
+            return false;
+        }
+        if (!Objects.equals(existingMetadata.getDescription(), this.description)) {
+            return false;
+        }
+        if (!Objects.equals(existingMetadata.getCategory(), this.category)) {
+            return false;
+        }
+        if (!Objects.equals(existingMetadata.getTags(), this.tags)) {
+            return false;
+        }
+        return true;
     }
 
     public void computeNonce() throws DataException {

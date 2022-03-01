@@ -172,12 +172,18 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
         if (title == null) {
             return null;
         }
+        if (title.isEmpty()) {
+            return null;
+        }
 
         return title.substring(0, Math.min(title.length(), MAX_TITLE_LENGTH));
     }
 
     public static String limitDescription(String description) {
         if (description == null) {
+            return null;
+        }
+        if (description.isEmpty()) {
             return null;
         }
 
@@ -199,10 +205,11 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
 
         // Remove tags over the limit
         // This is cleaner than truncating, which results in malformed tags
+        // Also remove tags that are empty
         Iterator iterator = mutableTags.iterator();
         while (iterator.hasNext()) {
             String tag = (String) iterator.next();
-            if (tag == null || tag.length() > MAX_TAG_LENGTH) {
+            if (tag == null || tag.length() > MAX_TAG_LENGTH || tag.isEmpty()) {
                 iterator.remove();
             }
         }
