@@ -847,7 +847,7 @@ public class Controller extends Thread {
 
 	private void processIncomingTransactionsQueue() {
 		if (this.incomingTransactions.isEmpty()) {
-			// Don't bother locking if there are no new transactions to process
+			// Nothing to do?
 			return;
 		}
 
@@ -910,6 +910,11 @@ public class Controller extends Thread {
 
 				// Signature valid - add to shortlist
 				sigValidTransactions.add(transaction);
+			}
+
+			if (sigValidTransactions.isEmpty()) {
+				// Don't bother locking if there are no new transactions to process
+				return;
 			}
 
 			try {
