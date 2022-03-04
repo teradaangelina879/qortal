@@ -148,7 +148,8 @@ public class BlockMinter extends Thread {
 					}
 				}
 
-				List<Peer> peers = Network.getInstance().getHandshakedPeers();
+				// Needs a mutable copy of the unmodifiableList
+				List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
 				BlockData lastBlockData = blockRepository.getLastBlock();
 
 				// Disregard peers that have "misbehaved" recently

@@ -2108,7 +2108,8 @@ public class Controller extends Thread {
 		if (minLatestBlockTimestamp == null)
 			return null;
 
-		List<Peer> peers = Network.getInstance().getHandshakedPeers();
+		// Needs a mutable copy of the unmodifiableList
+		List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
 
 		// Filter out unsuitable peers
 		Iterator<Peer> iterator = peers.iterator();
@@ -2157,7 +2158,8 @@ public class Controller extends Thread {
 		if (latestBlockData == null || latestBlockData.getTimestamp() < minLatestBlockTimestamp)
 			return false;
 
-		List<Peer> peers = Network.getInstance().getHandshakedPeers();
+		// Needs a mutable copy of the unmodifiableList
+		List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
 		if (peers == null)
 			return false;
 

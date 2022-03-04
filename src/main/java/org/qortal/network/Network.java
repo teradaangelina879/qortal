@@ -100,7 +100,9 @@ public class Network {
     private long nextDisconnectionCheck = 0L;
 
     private final List<PeerData> allKnownPeers = new ArrayList<>();
-    private final List<Peer> connectedPeers = new ArrayList<>();
+    private List<Peer> connectedPeers = Collections.unmodifiableList(new ArrayList<>());
+    private List<Peer> handshakedPeers = Collections.unmodifiableList(new ArrayList<>());
+    private List<Peer> outboundHandshakedPeers = Collections.unmodifiableList(new ArrayList<>());
     private final List<PeerAddress> selfPeers = new ArrayList<>();
 
     private final ExecuteProduceConsume networkEPC;
@@ -237,9 +239,23 @@ public class Network {
     }
 
     public List<Peer> getConnectedPeers() {
-        synchronized (this.connectedPeers) {
-            return new ArrayList<>(this.connectedPeers);
-        }
+        return this.connectedPeers;
+    }
+
+    public void addConnectedPeer(Peer peer) {
+        List<Peer> mutableConnectedPeers = new ArrayList<>(this.connectedPeers);
+        mutableConnectedPeers.add(peer);
+        this.connectedPeers = Collections.unmodifiableList(mutableConnectedPeers);
+    }
+
+    public void removeConnectedPeer(Peer peer) {
+        // Firstly remove from handshaked peers
+        this.removeHandshakedPeer(peer);
+
+        // Now remove from connected peers
+        List<Peer> mutableConnectedPeers = new ArrayList<>(this.connectedPeers);
+        mutableConnectedPeers.remove(peer);
+        this.connectedPeers = Collections.unmodifiableList(mutableConnectedPeers);
     }
 
     public List<PeerAddress> getSelfPeers() {
@@ -274,13 +290,11 @@ public class Network {
             }
 
             // Check if we're already connected to and handshaked with this peer
-            Peer connectedPeer = null;
-            synchronized (this.connectedPeers) {
-                connectedPeer = this.connectedPeers.stream()
+            Peer connectedPeer = this.connectedPeers.stream()
                         .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
                         .findFirst()
                         .orElse(null);
-            }
+
             boolean isConnected = (connectedPeer != null);
 
             boolean isHandshaked = this.getHandshakedPeers().stream()
@@ -328,10 +342,28 @@ public class Network {
      * Returns list of connected peers that have completed handshaking.
      */
     public List<Peer> getHandshakedPeers() {
-        synchronized (this.connectedPeers) {
-            return this.connectedPeers.stream()
-                    .filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED)
-                    .collect(Collectors.toList());
+        return this.handshakedPeers;
+    }
+
+    public void addHandshakedPeer(Peer peer) {
+        List<Peer> mutableHandshakedPeers = new ArrayList<>(this.handshakedPeers);
+        mutableHandshakedPeers.add(peer);
+        this.handshakedPeers = Collections.unmodifiableList(mutableHandshakedPeers);
+
+        // Also add to outbound handshaked peers cache
+        if (peer.isOutbound()) {
+            this.addOutboundHandshakedPeer(peer);
+        }
+    }
+
+    public void removeHandshakedPeer(Peer peer) {
+        List<Peer> mutableHandshakedPeers = new ArrayList<>(this.handshakedPeers);
+        mutableHandshakedPeers.remove(peer);
+        this.handshakedPeers = Collections.unmodifiableList(mutableHandshakedPeers);
+
+        // Also remove from outbound handshaked peers cache
+        if (peer.isOutbound()) {
+            this.removeOutboundHandshakedPeer(peer);
         }
     }
 
@@ -339,23 +371,36 @@ public class Network {
      * Returns list of peers we connected to that have completed handshaking.
      */
     public List<Peer> getOutboundHandshakedPeers() {
-        synchronized (this.connectedPeers) {
-            return this.connectedPeers.stream()
-                    .filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED)
-                    .collect(Collectors.toList());
+        return this.outboundHandshakedPeers;
+    }
+
+    public void addOutboundHandshakedPeer(Peer peer) {
+        if (!peer.isOutbound()) {
+            return;
         }
+        
+        List<Peer> mutableOutboundHandshakedPeers = new ArrayList<>(this.outboundHandshakedPeers);
+        mutableOutboundHandshakedPeers.add(peer);
+        this.outboundHandshakedPeers = Collections.unmodifiableList(mutableOutboundHandshakedPeers);
+    }
+
+    public void removeOutboundHandshakedPeer(Peer peer) {
+        if (!peer.isOutbound()) {
+            return;
+        }
+        List<Peer> mutableOutboundHandshakedPeers = new ArrayList<>(this.outboundHandshakedPeers);
+        mutableOutboundHandshakedPeers.remove(peer);
+        this.outboundHandshakedPeers = Collections.unmodifiableList(mutableOutboundHandshakedPeers);
     }
 
     /**
      * Returns first peer that has completed handshaking and has matching public key.
      */
     public Peer getHandshakedPeerWithPublicKey(byte[] publicKey) {
-        synchronized (this.connectedPeers) {
-            return this.connectedPeers.stream()
-                    .filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED
-                            && Arrays.equals(peer.getPeersPublicKey(), publicKey))
-                    .findFirst().orElse(null);
-        }
+        return this.connectedPeers.stream()
+                .filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED
+                        && Arrays.equals(peer.getPeersPublicKey(), publicKey))
+                .findFirst().orElse(null);
     }
 
     // Peer list filters
@@ -368,17 +413,11 @@ public class Network {
         return this.selfPeers.stream().anyMatch(selfPeer -> selfPeer.equals(peerAddress));
     };
 
-    /**
-     * Must be inside <tt>synchronized (this.connectedPeers) {...}</tt>
-     */
     private final Predicate<PeerData> isConnectedPeer = peerData -> {
         PeerAddress peerAddress = peerData.getAddress();
         return this.connectedPeers.stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
     };
 
-    /**
-     * Must be inside <tt>synchronized (this.connectedPeers) {...}</tt>
-     */
     private final Predicate<PeerData> isResolvedAsConnectedPeer = peerData -> {
         try {
             InetSocketAddress resolvedSocketAddress = peerData.getAddress().toSocketAddress();
@@ -641,19 +680,18 @@ public class Network {
                 return;
             }
 
-            synchronized (this.connectedPeers) {
-                if (connectedPeers.size() >= maxPeers) {
-                    // We have enough peers
-                    LOGGER.debug("Connection discarded from peer {} because the server is full", address);
-                    socketChannel.close();
-                    return;
-                }
-
-                LOGGER.debug("Connection accepted from peer {}", address);
-
-                newPeer = new Peer(socketChannel, channelSelector);
-                this.connectedPeers.add(newPeer);
+            if (connectedPeers.size() >= maxPeers) {
+                // We have enough peers
+                LOGGER.debug("Connection discarded from peer {} because the server is full", address);
+                socketChannel.close();
+                return;
             }
+
+            LOGGER.debug("Connection accepted from peer {}", address);
+
+            newPeer = new Peer(socketChannel, channelSelector);
+            this.addConnectedPeer(newPeer);
+
         } catch (IOException e) {
             if (socketChannel.isOpen()) {
                 try {
@@ -701,16 +739,14 @@ public class Network {
                 peers.removeIf(isSelfPeer);
             }
 
-            synchronized (this.connectedPeers) {
-                // Don't consider already connected peers (simple address match)
-                peers.removeIf(isConnectedPeer);
+            // Don't consider already connected peers (simple address match)
+            peers.removeIf(isConnectedPeer);
 
-                // Don't consider already connected peers (resolved address match)
-                // XXX This might be too slow if we end up waiting a long time for hostnames to resolve via DNS
-                peers.removeIf(isResolvedAsConnectedPeer);
+            // Don't consider already connected peers (resolved address match)
+            // XXX This might be too slow if we end up waiting a long time for hostnames to resolve via DNS
+            peers.removeIf(isResolvedAsConnectedPeer);
 
-                this.checkLongestConnection(now);
-            }
+            this.checkLongestConnection(now);
 
             // Any left?
             if (peers.isEmpty()) {
@@ -748,21 +784,16 @@ public class Network {
             return false;
         }
 
-        synchronized (this.connectedPeers) {
-            this.connectedPeers.add(newPeer);
-        }
-
+        this.addConnectedPeer(newPeer);
         this.onPeerReady(newPeer);
 
         return true;
     }
 
     private Peer getPeerFromChannel(SocketChannel socketChannel) {
-        synchronized (this.connectedPeers) {
-            for (Peer peer : this.connectedPeers) {
-                if (peer.getSocketChannel() == socketChannel) {
-                    return peer;
-                }
+        for (Peer peer : this.connectedPeers) {
+            if (peer.getSocketChannel() == socketChannel) {
+                return peer;
             }
         }
 
@@ -826,9 +857,7 @@ public class Network {
             LOGGER.debug("[{}] Failed to connect to peer {}", peer.getPeerConnectionId(), peer);
         }
 
-        synchronized (this.connectedPeers) {
-            this.connectedPeers.remove(peer);
-        }
+        this.removeConnectedPeer(peer);
     }
 
     public void peerMisbehaved(Peer peer) {
@@ -988,6 +1017,9 @@ public class Network {
             peer.disconnect("existing connection");
             return;
         }
+
+        // Add to handshaked peers cache
+        this.addHandshakedPeer(peer);
 
         // Make a note that we've successfully completed handshake (and when)
         peer.getPeerData().setLastConnected(NTP.getTime());
@@ -1273,7 +1305,8 @@ public class Network {
         }
 
         // Disconnect peers that are stuck during handshake
-        List<Peer> handshakePeers = this.getConnectedPeers();
+        // Needs a mutable copy of the unmodifiableList
+        List<Peer> handshakePeers = new ArrayList<>(this.getConnectedPeers());
 
         // Disregard peers that have completed handshake or only connected recently
         handshakePeers.removeIf(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED
@@ -1315,9 +1348,7 @@ public class Network {
                 peers.removeIf(isNotOldPeer);
 
                 // Don't consider already connected peers (simple address match)
-                synchronized (this.connectedPeers) {
-                    peers.removeIf(isConnectedPeer);
-                }
+                peers.removeIf(isConnectedPeer);
 
                 for (PeerData peerData : peers) {
                     LOGGER.debug("Deleting old peer {} from repository", peerData.getAddress().toString());

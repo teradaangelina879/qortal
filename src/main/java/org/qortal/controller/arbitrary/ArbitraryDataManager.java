@@ -93,7 +93,8 @@ public class ArbitraryDataManager extends Thread {
 					continue;
 				}
 
-				List<Peer> peers = Network.getInstance().getHandshakedPeers();
+				// Needs a mutable copy of the unmodifiableList
+				List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
 
 				// Disregard peers that have "misbehaved" recently
 				peers.removeIf(Controller.hasMisbehaved);
