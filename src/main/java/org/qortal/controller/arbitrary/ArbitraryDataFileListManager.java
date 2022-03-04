@@ -476,9 +476,6 @@ public class ArbitraryDataFileListManager {
                         ArbitraryDataFileManager.getInstance().arbitraryDataFileHashResponses.add(responseInfo);
                     }
                 }
-
-                // Go and fetch the actual data, since this isn't a relay request
-                arbitraryDataFileManager.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, hashes);
             }
 
         } catch (DataException e) {
