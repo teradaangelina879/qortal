@@ -474,24 +474,22 @@ public class OnlineAccountsManager extends Thread {
         LOGGER.debug(String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
 
         int importCount = 0;
-        
-        synchronized(onlineAccountsImportQueue) {
-            // Add any online accounts to the queue that aren't already present
-            for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
 
-                // Do we already know about this online account data?
-                if (onlineAccounts.contains(onlineAccountData)) {
-                    continue;
-                }
+        // Add any online accounts to the queue that aren't already present
+        for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
 
-                // Is it already in the import queue?
-                if (onlineAccountsImportQueue.contains(onlineAccountData)) {
-                    continue;
-                }
-
-                onlineAccountsImportQueue.add(onlineAccountData);
-                importCount++;
+            // Do we already know about this online account data?
+            if (onlineAccounts.contains(onlineAccountData)) {
+                continue;
             }
+
+            // Is it already in the import queue?
+            if (onlineAccountsImportQueue.contains(onlineAccountData)) {
+                continue;
+            }
+
+            onlineAccountsImportQueue.add(onlineAccountData);
+            importCount++;
         }
 
         LOGGER.debug(String.format("Added %d online accounts to queue", importCount));
