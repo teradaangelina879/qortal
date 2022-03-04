@@ -209,6 +209,9 @@ public class PresenceTransaction extends Transaction {
 
 	@Override
 	public boolean isSignatureValid() {
+		return false;
+
+/*
 		byte[] signature = this.transactionData.getSignature();
 		if (signature == null)
 			return false;
@@ -231,6 +234,7 @@ public class PresenceTransaction extends Transaction {
 
 		// Check nonce
 		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+*/
 	}
 
 	/**
