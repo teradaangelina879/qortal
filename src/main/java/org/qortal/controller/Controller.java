@@ -857,7 +857,10 @@ public class Controller extends Thread {
 
 			int unvalidatedCount = Collections.frequency(incomingTransactionsCopy.values(), Boolean.FALSE);
 			int validatedCount = 0;
-			LOGGER.debug("Validating signatures in incoming transactions queue (size {})...", unvalidatedCount);
+
+			if (unvalidatedCount > 0) {
+				LOGGER.debug("Validating signatures in incoming transactions queue (size {})...", unvalidatedCount);
+			}
 
 			List<Transaction> sigValidTransactions = new ArrayList<>();
 
@@ -906,7 +909,9 @@ public class Controller extends Thread {
 				sigValidTransactions.add(transaction);
 			}
 
-			LOGGER.debug("Finished validating signatures in incoming transactions queue (valid this round: {}, total pending import: {})...", validatedCount, sigValidTransactions.size());
+			if (unvalidatedCount > 0) {
+				LOGGER.debug("Finished validating signatures in incoming transactions queue (valid this round: {}, total pending import: {})...", validatedCount, sigValidTransactions.size());
+			}
 
 			if (sigValidTransactions.isEmpty()) {
 				// Don't bother locking if there are no new transactions to process
