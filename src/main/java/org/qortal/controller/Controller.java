@@ -851,11 +851,6 @@ public class Controller extends Thread {
 			return;
 		}
 
-		if (Synchronizer.getInstance().isSyncRequested() || Synchronizer.getInstance().isSynchronizing()) {
-			// Prioritize syncing, and don't attempt to lock
-			return;
-		}
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Take a snapshot of incomingTransactions, so we don't need to lock it while processing
 			Map<TransactionData, Boolean> incomingTransactionsCopy = Map.copyOf(this.incomingTransactions);
@@ -869,13 +864,6 @@ public class Controller extends Thread {
 				// Quick exit?
 				if (isStopping) {
 					return;
-				}
-
-				if (Synchronizer.getInstance().isSyncRequestPending()) {
-					LOGGER.debug("Breaking out of transaction signature validation with {} remaining, because a sync request is pending", incomingTransactionsCopy.size());
-
-					// Fall-through to importing, or we could not even attempt to import by changing following line to 'return'
-					break;
 				}
 
 				TransactionData transactionData = transactionEntry.getKey();
@@ -917,10 +905,16 @@ public class Controller extends Thread {
 				return;
 			}
 
+			if (Synchronizer.getInstance().isSyncRequested() || Synchronizer.getInstance().isSynchronizing()) {
+				// Prioritize syncing, and don't attempt to lock
+				// Signature validity is retained in the incomingTransactions map, to avoid the above work being wasted
+				return;
+			}
+
 			try {
 				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 				if (!blockchainLock.tryLock(2, TimeUnit.SECONDS)) {
-					// This is not great if we've just spent a while doing mem-PoW during signature validation round above
+					// Signature validity is retained in the incomingTransactions map, to avoid the above work being wasted
 					LOGGER.debug("Too busy to process incoming transactions queue");
 					return;
 				}
