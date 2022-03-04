@@ -855,7 +855,9 @@ public class Controller extends Thread {
 			// Take a snapshot of incomingTransactions, so we don't need to lock it while processing
 			Map<TransactionData, Boolean> incomingTransactionsCopy = Map.copyOf(this.incomingTransactions);
 
-			LOGGER.debug("Processing incoming transactions queue (size {})...", incomingTransactionsCopy.size());
+			int unvalidatedCount = Collections.frequency(incomingTransactionsCopy.values(), Boolean.FALSE);
+			int validatedCount = 0;
+			LOGGER.debug("Validating signatures in incoming transactions queue (size {})...", unvalidatedCount);
 
 			List<Transaction> sigValidTransactions = new ArrayList<>();
 
@@ -889,6 +891,10 @@ public class Controller extends Thread {
 
 						continue;
 					}
+					else {
+						// Count the number that were validated in this round, for logging purposes
+						validatedCount++;
+					}
 
 					// Add mark signature as valid if transaction still exists in import queue
 					incomingTransactions.computeIfPresent(transactionData, (k, v) -> Boolean.TRUE);
@@ -899,6 +905,8 @@ public class Controller extends Thread {
 				// Signature valid - add to shortlist
 				sigValidTransactions.add(transaction);
 			}
+
+			LOGGER.debug("Finished validating signatures in incoming transactions queue (valid this round: {}, total pending import: {})...", validatedCount, sigValidTransactions.size());
 
 			if (sigValidTransactions.isEmpty()) {
 				// Don't bother locking if there are no new transactions to process
@@ -922,6 +930,8 @@ public class Controller extends Thread {
 				LOGGER.debug("Interrupted when trying to acquire blockchain lock");
 				return;
 			}
+
+			LOGGER.debug("Processing incoming transactions queue (size {})...", sigValidTransactions.size());
 
 			// Import transactions with valid signatures
 			try {
