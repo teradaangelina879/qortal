@@ -98,16 +98,6 @@ public class Controller extends Thread {
 	 * This mainly exists to stop expired transactions from bloating the list */
 	public static final long EXPIRED_TRANSACTION_RECHECK_INTERVAL = 10 * 60 * 1000L; // ms
 
-	// To do with online accounts list
-	private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
-	private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 1 * 60 * 1000L; // ms
-	public static final long ONLINE_TIMESTAMP_MODULUS = 5 * 60 * 1000L;
-	private static final long LAST_SEEN_EXPIRY_PERIOD = (ONLINE_TIMESTAMP_MODULUS * 2) + (1 * 60 * 1000L);
-	/** How many (latest) blocks' worth of online accounts we cache */
-	private static final int MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS = 2;
-	private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L;
-
-
 	private static volatile boolean isStopping = false;
 	private static BlockMinter blockMinter = null;
 	private static volatile boolean requestSysTrayUpdate = true;
@@ -138,8 +128,6 @@ public class Controller extends Thread {
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
 
-	private long onlineAccountsTasksTimestamp = startTime + ONLINE_ACCOUNTS_TASKS_INTERVAL; // ms
-
 	/** Whether we can mint new blocks, as reported by BlockMinter. */
 	private volatile boolean isMintingPossible = false;
 
@@ -151,11 +139,6 @@ public class Controller extends Thread {
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly minted block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
-
-	/** Cache of current 'online accounts' */
-	List<OnlineAccountData> onlineAccounts = new ArrayList<>();
-	/** Cache of latest blocks' online accounts */
-	Deque<List<OnlineAccountData>> latestBlocksOnlineAccounts = new ArrayDeque<>(MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS);
 
 	// Stats
 	@XmlAccessorType(XmlAccessType.FIELD)
@@ -469,6 +452,9 @@ public class Controller extends Thread {
 		ArbitraryDataStorageManager.getInstance().start();
 		ArbitraryDataRenderManager.getInstance().start();
 
+		LOGGER.info("Starting online accounts manager");
+		OnlineAccountsManager.getInstance().start();
+
 		// Auto-update service?
 		if (Settings.getInstance().isAutoUpdateEnabled()) {
 			LOGGER.info("Starting auto-update");
@@ -638,12 +624,6 @@ public class Controller extends Thread {
 				if (now >= deleteExpiredTimestamp) {
 					deleteExpiredTimestamp = now + DELETE_EXPIRED_INTERVAL;
 					deleteExpiredTransactions();
-				}
-
-				// Perform tasks to do with managing online accounts list
-				if (now >= onlineAccountsTasksTimestamp) {
-					onlineAccountsTasksTimestamp = now + ONLINE_ACCOUNTS_TASKS_INTERVAL;
-					performOnlineAccountsTasks();
 				}
 			}
 		} catch (InterruptedException e) {
@@ -1042,6 +1022,9 @@ public class Controller extends Thread {
 				ArbitraryDataStorageManager.getInstance().shutdown();
 				ArbitraryDataRenderManager.getInstance().shutdown();
 
+				LOGGER.info("Shutting down online accounts manager");
+				OnlineAccountsManager.getInstance().shutdown();
+
 				if (blockMinter != null) {
 					LOGGER.info("Shutting down block minter");
 					blockMinter.shutdown();
@@ -1353,19 +1336,19 @@ public class Controller extends Thread {
 				break;
 
 			case GET_ONLINE_ACCOUNTS:
-				onNetworkGetOnlineAccountsMessage(peer, message);
+				OnlineAccountsManager.getInstance().onNetworkGetOnlineAccountsMessage(peer, message);
 				break;
 
 			case ONLINE_ACCOUNTS:
-				onNetworkOnlineAccountsMessage(peer, message);
+				OnlineAccountsManager.getInstance().onNetworkOnlineAccountsMessage(peer, message);
 				break;
 
 			case GET_ONLINE_ACCOUNTS_V2:
-				onNetworkGetOnlineAccountsV2Message(peer, message);
+				OnlineAccountsManager.getInstance().onNetworkGetOnlineAccountsV2Message(peer, message);
 				break;
 
 			case ONLINE_ACCOUNTS_V2:
-				onNetworkOnlineAccountsV2Message(peer, message);
+				OnlineAccountsManager.getInstance().onNetworkOnlineAccountsV2Message(peer, message);
 				break;
 
 			case GET_ARBITRARY_DATA:
@@ -1745,362 +1728,7 @@ public class Controller extends Thread {
 		}
 	}
 
-	private void onNetworkGetOnlineAccountsMessage(Peer peer, Message message) {
-		GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
-
-		List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
-
-		// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-		List<OnlineAccountData> accountsToSend;
-		synchronized (this.onlineAccounts) {
-			accountsToSend = new ArrayList<>(this.onlineAccounts);
-		}
-
-		Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
-
-		SEND_ITERATOR:
-		while (iterator.hasNext()) {
-			OnlineAccountData onlineAccountData = iterator.next();
-
-			for (int i = 0; i < excludeAccounts.size(); ++i) {
-				OnlineAccountData excludeAccountData = excludeAccounts.get(i);
-
-				if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
-					iterator.remove();
-					continue SEND_ITERATOR;
-				}
-			}
-		}
-
-		Message onlineAccountsMessage = new OnlineAccountsMessage(accountsToSend);
-		peer.sendMessage(onlineAccountsMessage);
-
-		LOGGER.trace(() -> String.format("Sent %d of our %d online accounts to %s", accountsToSend.size(), this.onlineAccounts.size(), peer));
-	}
-
-	private void onNetworkOnlineAccountsMessage(Peer peer, Message message) {
-		OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
-
-		List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-		LOGGER.trace(() -> String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
-				this.verifyAndAddAccount(repository, onlineAccountData);
-		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while verifying online accounts from peer %s", peer), e);
-		}
-	}
-
-	private void onNetworkGetOnlineAccountsV2Message(Peer peer, Message message) {
-		GetOnlineAccountsV2Message getOnlineAccountsMessage = (GetOnlineAccountsV2Message) message;
-
-		List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
-
-		// Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-		List<OnlineAccountData> accountsToSend;
-		synchronized (this.onlineAccounts) {
-			accountsToSend = new ArrayList<>(this.onlineAccounts);
-		}
-
-		Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
-
-		SEND_ITERATOR:
-		while (iterator.hasNext()) {
-			OnlineAccountData onlineAccountData = iterator.next();
-
-			for (int i = 0; i < excludeAccounts.size(); ++i) {
-				OnlineAccountData excludeAccountData = excludeAccounts.get(i);
-
-				if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
-					iterator.remove();
-					continue SEND_ITERATOR;
-				}
-			}
-		}
-
-		Message onlineAccountsMessage = new OnlineAccountsV2Message(accountsToSend);
-		peer.sendMessage(onlineAccountsMessage);
-
-		LOGGER.trace(() -> String.format("Sent %d of our %d online accounts to %s", accountsToSend.size(), this.onlineAccounts.size(), peer));
-	}
-
-	private void onNetworkOnlineAccountsV2Message(Peer peer, Message message) {
-		OnlineAccountsV2Message onlineAccountsMessage = (OnlineAccountsV2Message) message;
-
-		List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-		LOGGER.trace(() -> String.format("Received %d online accounts from %s", peersOnlineAccounts.size(), peer));
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			for (OnlineAccountData onlineAccountData : peersOnlineAccounts)
-				this.verifyAndAddAccount(repository, onlineAccountData);
-		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while verifying online accounts from peer %s", peer), e);
-		}
-	}
-
 	// Utilities
-
-	private void verifyAndAddAccount(Repository repository, OnlineAccountData onlineAccountData) throws DataException {
-		final Long now = NTP.getTime();
-		if (now == null)
-			return;
-
-		PublicKeyAccount otherAccount = new PublicKeyAccount(repository, onlineAccountData.getPublicKey());
-
-		// Check timestamp is 'recent' here
-		if (Math.abs(onlineAccountData.getTimestamp() - now) > ONLINE_TIMESTAMP_MODULUS * 2) {
-			LOGGER.trace(() -> String.format("Rejecting online account %s with out of range timestamp %d", otherAccount.getAddress(), onlineAccountData.getTimestamp()));
-			return;
-		}
-
-		// Verify
-		byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
-		if (!otherAccount.verify(onlineAccountData.getSignature(), data)) {
-			LOGGER.trace(() -> String.format("Rejecting invalid online account %s", otherAccount.getAddress()));
-			return;
-		}
-
-		// Qortal: check online account is actually reward-share
-		RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(onlineAccountData.getPublicKey());
-		if (rewardShareData == null) {
-			// Reward-share doesn't even exist - probably not a good sign
-			LOGGER.trace(() -> String.format("Rejecting unknown online reward-share public key %s", Base58.encode(onlineAccountData.getPublicKey())));
-			return;
-		}
-
-		Account mintingAccount = new Account(repository, rewardShareData.getMinter());
-		if (!mintingAccount.canMint()) {
-			// Minting-account component of reward-share can no longer mint - disregard
-			LOGGER.trace(() -> String.format("Rejecting online reward-share with non-minting account %s", mintingAccount.getAddress()));
-			return;
-		}
-
-		synchronized (this.onlineAccounts) {
-			OnlineAccountData existingAccountData = this.onlineAccounts.stream().filter(account -> Arrays.equals(account.getPublicKey(), onlineAccountData.getPublicKey())).findFirst().orElse(null);
-
-			if (existingAccountData != null) {
-				if (existingAccountData.getTimestamp() < onlineAccountData.getTimestamp()) {
-					this.onlineAccounts.remove(existingAccountData);
-
-					LOGGER.trace(() -> String.format("Updated online account %s with timestamp %d (was %d)", otherAccount.getAddress(), onlineAccountData.getTimestamp(), existingAccountData.getTimestamp()));
-				} else {
-					LOGGER.trace(() -> String.format("Not updating existing online account %s", otherAccount.getAddress()));
-
-					return;
-				}
-			} else {
-				LOGGER.trace(() -> String.format("Added online account %s with timestamp %d", otherAccount.getAddress(), onlineAccountData.getTimestamp()));
-			}
-
-			this.onlineAccounts.add(onlineAccountData);
-		}
-	}
-
-	public void ensureTestingAccountsOnline(PrivateKeyAccount... onlineAccounts) {
-		if (!BlockChain.getInstance().isTestChain()) {
-			LOGGER.warn("Ignoring attempt to ensure test account is online for non-test chain!");
-			return;
-		}
-
-		final Long now = NTP.getTime();
-		if (now == null)
-			return;
-
-		final long onlineAccountsTimestamp = Controller.toOnlineAccountTimestamp(now);
-		byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-
-		synchronized (this.onlineAccounts) {
-			this.onlineAccounts.clear();
-
-			for (PrivateKeyAccount onlineAccount : onlineAccounts) {
-				// Check mintingAccount is actually reward-share?
-
-				byte[] signature = onlineAccount.sign(timestampBytes);
-				byte[] publicKey = onlineAccount.getPublicKey();
-
-				OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
-				this.onlineAccounts.add(ourOnlineAccountData);
-			}
-		}
-	}
-
-	private void performOnlineAccountsTasks() {
-		final Long now = NTP.getTime();
-		if (now == null)
-			return;
-
-		// Expire old entries
-		final long cutoffThreshold = now - LAST_SEEN_EXPIRY_PERIOD;
-		synchronized (this.onlineAccounts) {
-			Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
-			while (iterator.hasNext()) {
-				OnlineAccountData onlineAccountData = iterator.next();
-
-				if (onlineAccountData.getTimestamp() < cutoffThreshold) {
-					iterator.remove();
-
-					LOGGER.trace(() -> {
-						PublicKeyAccount otherAccount = new PublicKeyAccount(null, onlineAccountData.getPublicKey());
-						return String.format("Removed expired online account %s with timestamp %d", otherAccount.getAddress(), onlineAccountData.getTimestamp());
-					});
-				}
-			}
-		}
-
-		// Request data from other peers?
-		if ((this.onlineAccountsTasksTimestamp % ONLINE_ACCOUNTS_BROADCAST_INTERVAL) < ONLINE_ACCOUNTS_TASKS_INTERVAL) {
-			List<OnlineAccountData> safeOnlineAccounts;
-			synchronized (this.onlineAccounts) {
-				safeOnlineAccounts = new ArrayList<>(this.onlineAccounts);
-			}
-
-			Message messageV1 = new GetOnlineAccountsMessage(safeOnlineAccounts);
-			Message messageV2 = new GetOnlineAccountsV2Message(safeOnlineAccounts);
-
-			Network.getInstance().broadcast(peer ->
-				peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
-			);
-		}
-
-		// Refresh our online accounts signatures?
-		sendOurOnlineAccountsInfo();
-	}
-
-	private void sendOurOnlineAccountsInfo() {
-		final Long now = NTP.getTime();
-		if (now != null) {
-
-			List<MintingAccountData> mintingAccounts;
-			try (final Repository repository = RepositoryManager.getRepository()) {
-				mintingAccounts = repository.getAccountRepository().getMintingAccounts();
-
-				// We have no accounts, but don't reset timestamp
-				if (mintingAccounts.isEmpty())
-					return;
-
-				// Only reward-share accounts allowed
-				Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
-				int i = 0;
-				while (iterator.hasNext()) {
-					MintingAccountData mintingAccountData = iterator.next();
-
-					RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
-					if (rewardShareData == null) {
-						// Reward-share doesn't even exist - probably not a good sign
-						iterator.remove();
-						continue;
-					}
-
-					Account mintingAccount = new Account(repository, rewardShareData.getMinter());
-					if (!mintingAccount.canMint()) {
-						// Minting-account component of reward-share can no longer mint - disregard
-						iterator.remove();
-						continue;
-					}
-
-					if (++i > 2) {
-						iterator.remove();
-						continue;
-					}
-				}
-			} catch (DataException e) {
-				LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
-				return;
-			}
-
-			// 'current' timestamp
-			final long onlineAccountsTimestamp = Controller.toOnlineAccountTimestamp(now);
-			boolean hasInfoChanged = false;
-
-			byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-			List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
-
-			MINTING_ACCOUNTS:
-			for (MintingAccountData mintingAccountData : mintingAccounts) {
-				PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, mintingAccountData.getPrivateKey());
-
-				byte[] signature = mintingAccount.sign(timestampBytes);
-				byte[] publicKey = mintingAccount.getPublicKey();
-
-				// Our account is online
-				OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
-				synchronized (this.onlineAccounts) {
-					Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
-					while (iterator.hasNext()) {
-						OnlineAccountData existingOnlineAccountData = iterator.next();
-
-						if (Arrays.equals(existingOnlineAccountData.getPublicKey(), ourOnlineAccountData.getPublicKey())) {
-							// If our online account is already present, with same timestamp, then move on to next mintingAccount
-							if (existingOnlineAccountData.getTimestamp() == onlineAccountsTimestamp)
-								continue MINTING_ACCOUNTS;
-
-							// If our online account is already present, but with older timestamp, then remove it
-							iterator.remove();
-							break;
-						}
-					}
-
-					this.onlineAccounts.add(ourOnlineAccountData);
-				}
-
-				LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", mintingAccount.getAddress(), onlineAccountsTimestamp));
-				ourOnlineAccounts.add(ourOnlineAccountData);
-				hasInfoChanged = true;
-			}
-
-			if (!hasInfoChanged)
-				return;
-
-		Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
-		Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
-
-		Network.getInstance().broadcast(peer ->
-				peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
-		);
-
-			LOGGER.trace(() -> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
-		}
-	}
-
-	public static long toOnlineAccountTimestamp(long timestamp) {
-		return (timestamp / ONLINE_TIMESTAMP_MODULUS) * ONLINE_TIMESTAMP_MODULUS;
-	}
-
-	/** Returns list of online accounts with timestamp recent enough to be considered currently online. */
-	public List<OnlineAccountData> getOnlineAccounts() {
-		final long onlineTimestamp = Controller.toOnlineAccountTimestamp(NTP.getTime());
-
-		synchronized (this.onlineAccounts) {
-			return this.onlineAccounts.stream().filter(account -> account.getTimestamp() == onlineTimestamp).collect(Collectors.toList());
-		}
-	}
-
-	/** Returns cached, unmodifiable list of latest block's online accounts. */
-	public List<OnlineAccountData> getLatestBlocksOnlineAccounts() {
-		synchronized (this.latestBlocksOnlineAccounts) {
-			return this.latestBlocksOnlineAccounts.peekFirst();
-		}
-	}
-
-	/** Caches list of latest block's online accounts. Typically called by Block.process() */
-	public void pushLatestBlocksOnlineAccounts(List<OnlineAccountData> latestBlocksOnlineAccounts) {
-		synchronized (this.latestBlocksOnlineAccounts) {
-			if (this.latestBlocksOnlineAccounts.size() == MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS)
-				this.latestBlocksOnlineAccounts.pollLast();
-
-			this.latestBlocksOnlineAccounts.addFirst(latestBlocksOnlineAccounts == null
-					? Collections.emptyList()
-					: Collections.unmodifiableList(latestBlocksOnlineAccounts));
-		}
-	}
-
-	/** Reverts list of latest block's online accounts. Typically called by Block.orphan() */
-	public void popLatestBlocksOnlineAccounts() {
-		synchronized (this.latestBlocksOnlineAccounts) {
-			this.latestBlocksOnlineAccounts.pollFirst();
-		}
-	}
 
 	/** Returns a list of peers that are not misbehaving, and have a recent block. */
 	public List<Peer> getRecentBehavingPeers() {

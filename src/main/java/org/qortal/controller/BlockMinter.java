@@ -110,7 +110,7 @@ public class BlockMinter extends Thread {
 					continue;
 
 				// No online accounts? (e.g. during startup)
-				if (Controller.getInstance().getOnlineAccounts().isEmpty())
+				if (OnlineAccountsManager.getInstance().getOnlineAccounts().isEmpty())
 					continue;
 
 				List<MintingAccountData> mintingAccountsData = repository.getAccountRepository().getMintingAccounts();
@@ -479,7 +479,7 @@ public class BlockMinter extends Thread {
 			throw new DataException("Ignoring attempt to mint testing block for non-test chain!");
 
 		// Ensure mintingAccount is 'online' so blocks can be minted
-		Controller.getInstance().ensureTestingAccountsOnline(mintingAndOnlineAccounts);
+		OnlineAccountsManager.getInstance().ensureTestingAccountsOnline(mintingAndOnlineAccounts);
 
 		PrivateKeyAccount mintingAccount = mintingAndOnlineAccounts[0];
 
