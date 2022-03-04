@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFileChunk;
 import org.qortal.controller.Controller;
+import org.qortal.data.arbitrary.ArbitraryFileListResponseInfo;
 import org.qortal.data.arbitrary.ArbitraryRelayInfo;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -22,6 +23,8 @@ import org.qortal.utils.NTP;
 import org.qortal.utils.Triple;
 
 import java.util.*;
+
+import static org.qortal.controller.arbitrary.ArbitraryDataFileManager.MAX_FILE_HASH_RESPONSES;
 
 public class ArbitraryDataFileListManager {
 
@@ -458,12 +461,20 @@ public class ArbitraryDataFileListManager {
 //			}
 
             if (!isRelayRequest || !Settings.getInstance().isRelayModeEnabled()) {
-                // Keep track of the hashes this peer reports to have access to
-                Long now = NTP.getTime();
-                for (byte[] hash : hashes) {
-                    String hash58 = Base58.encode(hash);
-                    String sig58 = Base58.encode(signature);
-                    ArbitraryDataFileManager.getInstance().arbitraryDataFileHashResponses.put(hash58, new Triple<>(peer, sig58, now));
+                if (ArbitraryDataFileManager.getInstance().arbitraryDataFileHashResponses.size() < MAX_FILE_HASH_RESPONSES) {
+                    // Keep track of the hashes this peer reports to have access to
+                    Long now = NTP.getTime();
+                    for (byte[] hash : hashes) {
+                        String hash58 = Base58.encode(hash);
+
+                        // Treat null request hops as 100, so that they are able to be sorted (and put to the end of the list)
+                        int requestHops = arbitraryDataFileListMessage.getRequestHops() != null ? arbitraryDataFileListMessage.getRequestHops() : 100;
+
+                        ArbitraryFileListResponseInfo responseInfo = new ArbitraryFileListResponseInfo(hash58, signature58,
+                                peer, now, arbitraryDataFileListMessage.getRequestTime(), requestHops);
+
+                        ArbitraryDataFileManager.getInstance().arbitraryDataFileHashResponses.add(responseInfo);
+                    }
                 }
 
                 // Go and fetch the actual data, since this isn't a relay request

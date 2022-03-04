@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.controller.Controller;
+import org.qortal.data.arbitrary.ArbitraryFileListResponseInfo;
 import org.qortal.data.arbitrary.ArbitraryRelayInfo;
 import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.network.PeerData;
@@ -18,7 +19,6 @@ import org.qortal.settings.Settings;
 import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
-import org.qortal.utils.Triple;
 
 import java.security.SecureRandom;
 import java.util.*;
@@ -45,11 +45,11 @@ public class ArbitraryDataFileManager extends Thread {
     public List<ArbitraryRelayInfo> arbitraryRelayMap = Collections.synchronizedList(new ArrayList<>());
 
     /**
-     * Map to keep track of any arbitrary data file hash responses
-     * Key: string - the hash encoded in base58
-     * Value: Triple<respondingPeer, signature58, timeResponded>
+     * List to keep track of any arbitrary data file hash responses
      */
-    public Map<String, Triple<Peer, String, Long>> arbitraryDataFileHashResponses = Collections.synchronizedMap(new HashMap<>());
+    public List<ArbitraryFileListResponseInfo> arbitraryDataFileHashResponses = Collections.synchronizedList(new ArrayList<>());
+
+    public static int MAX_FILE_HASH_RESPONSES = 1000;
 
 
     private ArbitraryDataFileManager() {
@@ -98,7 +98,7 @@ public class ArbitraryDataFileManager extends Thread {
 
         final long relayMinimumTimestamp = now - ArbitraryDataManager.getInstance().ARBITRARY_RELAY_TIMEOUT;
         arbitraryRelayMap.removeIf(entry -> entry == null || entry.getTimestamp() == null || entry.getTimestamp() < relayMinimumTimestamp);
-        arbitraryDataFileHashResponses.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < relayMinimumTimestamp);
+        arbitraryDataFileHashResponses.removeIf(entry -> entry.getTimestamp() < relayMinimumTimestamp);
     }
 
 
