@@ -1393,6 +1393,7 @@ public class Controller extends Thread {
 
 			case TRADE_PRESENCES:
 				TradeBot.getInstance().onTradePresencesMessage(peer, message);
+				break;
 
 			default:
 				LOGGER.debug(() -> String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
