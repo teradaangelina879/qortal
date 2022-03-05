@@ -190,7 +190,7 @@ public class Settings {
 	/** Maximum number of peer connections we allow. */
 	private int maxPeers = 32;
 	/** Maximum number of threads for network engine. */
-	private int maxNetworkThreadPoolSize = 20;
+	private int maxNetworkThreadPoolSize = 32;
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
 	private int networkPoWComputePoolSize = 2;
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
