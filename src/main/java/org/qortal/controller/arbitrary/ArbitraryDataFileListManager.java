@@ -627,7 +627,7 @@ public class ArbitraryDataFileListManager {
                 arbitraryDataFileListRequests.put(message.getId(), newEntry);
             }
 
-            String ourAddress = Network.getInstance().getOurExternalIpAddress();
+            String ourAddress = Network.getInstance().getOurExternalIpAddressAndPort();
             ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature,
                     hashes, NTP.getTime(), 0, ourAddress, true);
             arbitraryDataFileListMessage.setId(message.getId());

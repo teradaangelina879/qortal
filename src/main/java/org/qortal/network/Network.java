@@ -121,6 +121,7 @@ public class Network {
 
     private List<String> ourExternalIpAddressHistory = new ArrayList<>();
     private String ourExternalIpAddress = null;
+    private int ourExternalPort = Settings.getInstance().getListenPort();
 
     // Constructors
 
@@ -1160,6 +1161,7 @@ public class Network {
             return;
         }
         String host = parts[0];
+        
         try {
             InetAddress addr = InetAddress.getByName(host);
             if (addr.isAnyLocalAddress() || addr.isSiteLocalAddress()) {
@@ -1169,6 +1171,9 @@ public class Network {
         } catch (UnknownHostException e) {
             return;
         }
+
+        // Keep track of the port
+        this.ourExternalPort = Integer.parseInt(parts[1]);
 
         // Add to the list
         this.ourExternalIpAddressHistory.add(host);
@@ -1230,6 +1235,14 @@ public class Network {
     public String getOurExternalIpAddress() {
         // FUTURE: replace port if UPnP is active, as it will be more accurate
         return this.ourExternalIpAddress;
+    }
+
+    public String getOurExternalIpAddressAndPort() {
+        String ipAddress = this.getOurExternalIpAddress();
+        if (ipAddress == null) {
+            return null;
+        }
+        return String.format("%s:%d", ipAddress, this.ourExternalPort);
     }
 
 
