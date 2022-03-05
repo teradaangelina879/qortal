@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFileChunk;
 import org.qortal.controller.Controller;
+import org.qortal.data.arbitrary.ArbitraryDirectConnectionInfo;
 import org.qortal.data.arbitrary.ArbitraryFileListResponseInfo;
 import org.qortal.data.arbitrary.ArbitraryRelayInfo;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -434,7 +435,6 @@ public class ArbitraryDataFileListManager {
         }
 
         ArbitraryTransactionData arbitraryTransactionData = null;
-        ArbitraryDataFileManager arbitraryDataFileManager = ArbitraryDataFileManager.getInstance();
 
         // Check transaction exists and hashes are correct
         try (final Repository repository = RepositoryManager.getRepository()) {
@@ -461,9 +461,10 @@ public class ArbitraryDataFileListManager {
 //			}
 
             if (!isRelayRequest || !Settings.getInstance().isRelayModeEnabled()) {
+                Long now = NTP.getTime();
+
                 if (ArbitraryDataFileManager.getInstance().arbitraryDataFileHashResponses.size() < MAX_FILE_HASH_RESPONSES) {
                     // Keep track of the hashes this peer reports to have access to
-                    Long now = NTP.getTime();
                     for (byte[] hash : hashes) {
                         String hash58 = Base58.encode(hash);
 
@@ -475,6 +476,12 @@ public class ArbitraryDataFileListManager {
 
                         ArbitraryDataFileManager.getInstance().arbitraryDataFileHashResponses.add(responseInfo);
                     }
+                }
+
+                // Keep track of the source peer, for direct connections
+                if (arbitraryDataFileListMessage.getPeerAddress() != null) {
+                    ArbitraryDataFileManager.getInstance().directConnectionInfo.add(
+                            new ArbitraryDirectConnectionInfo(signature, arbitraryDataFileListMessage.getPeerAddress(), hashes, now));
                 }
             }
 
