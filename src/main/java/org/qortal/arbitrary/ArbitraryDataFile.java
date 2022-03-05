@@ -110,6 +110,9 @@ public class ArbitraryDataFile {
     }
 
     public static ArbitraryDataFile fromHash(byte[] hash, byte[] signature) throws DataException {
+        if (hash == null) {
+            return null;
+        }
         return ArbitraryDataFile.fromHash58(Base58.encode(hash), signature);
     }
 
