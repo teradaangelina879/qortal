@@ -183,7 +183,9 @@ public class ArbitraryMetadataManager {
 
         try {
             ArbitraryDataFile metadataFile = ArbitraryDataFile.fromHash(metadataHash, signature);
-            return metadataFile.getBytes();
+            if (metadataFile.exists()) {
+                return metadataFile.getBytes();
+            }
         } catch (DataException e) {
             // Do nothing
         }
