@@ -338,6 +338,12 @@ public class ArbitraryDataManager extends Thread {
 			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) arbitraryTransaction.getTransactionData();
 			byte[] signature = arbitraryTransactionData.getSignature();
 			byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
+
+			if (metadataHash == null) {
+				// This transaction doesn't have metadata associated with it, so return true to indicate that we have everything
+				return true;
+			}
+
 			ArbitraryDataFile metadataFile = ArbitraryDataFile.fromHash(metadataHash, signature);
 
 			return metadataFile.exists();
