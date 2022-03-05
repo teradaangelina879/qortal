@@ -340,6 +340,9 @@ public class Block {
 				continue;
 
 			Integer accountIndex = getRewardShareIndex(onlineAccountData.getPublicKey(), allRewardSharePublicKeys);
+			if (accountIndex == null)
+				// Online account (reward-share) with current timestamp but reward-share cancelled
+				continue;
 
 			indexedOnlineAccounts.put(accountIndex, onlineAccountData);
 		}
