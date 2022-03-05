@@ -634,6 +634,27 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public List<byte[]> getRewardSharePublicKeys() throws DataException {
+		String sql = "SELECT reward_share_public_key FROM RewardShares ORDER BY reward_share_public_key";
+
+		List<byte[]> rewardSharePublicKeys = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return null;
+
+			do {
+				byte[] rewardSharePublicKey = resultSet.getBytes(1);
+				rewardSharePublicKeys.add(rewardSharePublicKey);
+			} while (resultSet.next());
+
+			return rewardSharePublicKeys;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch reward-share public keys from repository", e);
+		}
+	}
+
+	@Override
 	public boolean isRewardSharePublicKey(byte[] publicKey) throws DataException {
 		try {
 			return this.repository.exists("RewardShares", "reward_share_public_key = ?", publicKey);

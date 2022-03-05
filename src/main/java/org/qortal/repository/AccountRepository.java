@@ -149,6 +149,8 @@ public interface AccountRepository {
 
 	public RewardShareData getRewardShare(byte[] rewardSharePublicKey) throws DataException;
 
+	public List<byte[]> getRewardSharePublicKeys() throws DataException;
+
 	public boolean isRewardSharePublicKey(byte[] publicKey) throws DataException;
 
 	/** Returns number of active reward-shares involving passed public key as the minting account only. */

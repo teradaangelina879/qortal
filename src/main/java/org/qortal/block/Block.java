@@ -8,13 +8,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Level;
@@ -333,6 +327,11 @@ public class Block {
 				onlineAccountsTimestamp = onlineAccountData.getTimestamp();
 		}
 
+		// Load sorted list of reward share public keys into memory, so that the indexes can be obtained.
+		// This is up to 100x faster than querying each index separately. For 4150 reward share keys, it
+		// was taking around 5000ms to query individually, vs 50ms using this approach.
+		List<byte[]> allRewardSharePublicKeys = repository.getAccountRepository().getRewardSharePublicKeys();
+
 		// Map using index into sorted list of reward-shares as key
 		Map<Integer, OnlineAccountData> indexedOnlineAccounts = new HashMap<>();
 		for (OnlineAccountData onlineAccountData : onlineAccounts) {
@@ -340,10 +339,7 @@ public class Block {
 			if (onlineAccountData.getTimestamp() != onlineAccountsTimestamp)
 				continue;
 
-			Integer accountIndex = repository.getAccountRepository().getRewardShareIndex(onlineAccountData.getPublicKey());
-			if (accountIndex == null)
-				// Online account (reward-share) with current timestamp but reward-share cancelled
-				continue;
+			Integer accountIndex = getRewardShareIndex(onlineAccountData.getPublicKey(), allRewardSharePublicKeys);
 
 			indexedOnlineAccounts.put(accountIndex, onlineAccountData);
 		}
@@ -2027,6 +2023,26 @@ public class Block {
 	/** Opportunity to tidy repository, etc. after block process/orphan. */
 	private void postBlockTidy() throws DataException {
 		this.repository.getAccountRepository().tidy();
+	}
+
+	// Utils
+
+	/**
+	 * Find index of rewardSharePublicKey in list of rewardSharePublicKeys
+	 *
+	 * @param rewardSharePublicKey - the key to query
+	 * @param rewardSharePublicKeys - a sorted list of keys
+	 * @return - the index of the key, or null if not found
+	 */
+	private static Integer getRewardShareIndex(byte[] rewardSharePublicKey, List<byte[]> rewardSharePublicKeys) {
+		int index = 0;
+		for (byte[] publicKey : rewardSharePublicKeys) {
+			if (Arrays.equals(rewardSharePublicKey, publicKey)) {
+				return index;
+			}
+			index++;
+		}
+		return null;
 	}
 
 	private void logDebugInfo() {
