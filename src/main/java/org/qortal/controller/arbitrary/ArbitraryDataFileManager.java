@@ -187,14 +187,6 @@ public class ArbitraryDataFileManager extends Thread {
                 // We have all the chunks for this transaction, so we should invalidate the transaction's name's
                 // data cache so that it is rebuilt the next time we serve it
                 ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
-
-                // We may also need to broadcast to the network that we are now hosting files for this transaction,
-                // but only if these files are in accordance with our storage policy
-                if (ArbitraryDataStorageManager.getInstance().canStoreData(arbitraryTransactionData)) {
-                    // Use a null peer address to indicate our own
-                    Message newArbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, 0, Arrays.asList(signature));
-                    Network.getInstance().broadcast(broadcastPeer -> newArbitrarySignatureMessage);
-                }
             }
 
         }

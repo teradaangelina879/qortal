@@ -1228,8 +1228,6 @@ public class Network {
 
     public void onExternalIpUpdate(String ipAddress) {
         LOGGER.info("External IP address updated to {}", ipAddress);
-
-        //ArbitraryDataManager.getInstance().broadcastHostedSignatureList();
     }
 
     public String getOurExternalIpAddress() {

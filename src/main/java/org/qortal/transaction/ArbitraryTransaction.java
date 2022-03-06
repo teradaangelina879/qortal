@@ -14,9 +14,6 @@ import org.qortal.data.PaymentData;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.network.Network;
-import org.qortal.network.message.ArbitrarySignaturesMessage;
-import org.qortal.network.message.Message;
 import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -221,15 +218,6 @@ public class ArbitraryTransaction extends Transaction {
 			// We have the data for this transaction, so invalidate the cache
 			if (arbitraryTransactionData.getName() != null) {
 				ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
-			}
-
-			// We also need to broadcast to the network that we are now hosting files for this transaction,
-			// but only if these files are in accordance with our storage policy
-			if (ArbitraryDataStorageManager.getInstance().canStoreData(arbitraryTransactionData)) {
-				// Use a null peer address to indicate our own
-				byte[] signature = arbitraryTransactionData.getSignature();
-				Message arbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, 0, Arrays.asList(signature));
-				Network.getInstance().broadcast(broadcastPeer -> arbitrarySignatureMessage);
 			}
 		}
 	}

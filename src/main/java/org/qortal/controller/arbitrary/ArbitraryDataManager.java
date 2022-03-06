@@ -2,7 +2,6 @@ package org.qortal.controller.arbitrary;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,13 +11,11 @@ import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
-import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.list.ResourceListManager;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
-import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -509,24 +506,6 @@ public class ArbitraryDataManager extends Thread {
 			} catch (IOException e) {
 				LOGGER.info("Unable to delete cache for resource {}: {}", resource, e.getMessage());
 			}
-		}
-	}
-
-
-	// Broadcast list of hosted signatures
-
-	public void broadcastHostedSignatureList() {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, null, null);
-			List<byte[]> hostedSignatures = hostedTransactions.stream().map(ArbitraryTransactionData::getSignature).collect(Collectors.toList());
-			if (!hostedSignatures.isEmpty()) {
-				// Broadcast the list, using null to represent our peer address
-				LOGGER.info("Broadcasting list of hosted signatures...");
-				Message arbitrarySignatureMessage = new ArbitrarySignaturesMessage(null, 0, hostedSignatures);
-				Network.getInstance().broadcast(broadcastPeer -> arbitrarySignatureMessage);
-			}
-		} catch (DataException e) {
-			LOGGER.error("Repository issue when fetching arbitrary transaction data for broadcast", e);
 		}
 	}
 
