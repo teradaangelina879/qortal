@@ -1169,7 +1169,7 @@ public class Controller extends Thread {
 				break;
 
 			case ARBITRARY_SIGNATURES:
-				ArbitraryDataManager.getInstance().onNetworkArbitrarySignaturesMessage(peer, message);
+				// Not currently supported
 				break;
 
 			case GET_ARBITRARY_METADATA:
