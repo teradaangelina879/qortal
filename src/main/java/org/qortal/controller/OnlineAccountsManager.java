@@ -276,98 +276,99 @@ public class OnlineAccountsManager extends Thread {
 
     private void sendOurOnlineAccountsInfo() {
         final Long now = NTP.getTime();
-        if (now != null) {
-
-            List<MintingAccountData> mintingAccounts;
-            try (final Repository repository = RepositoryManager.getRepository()) {
-                mintingAccounts = repository.getAccountRepository().getMintingAccounts();
-
-                // We have no accounts, but don't reset timestamp
-                if (mintingAccounts.isEmpty())
-                    return;
-
-                // Only reward-share accounts allowed
-                Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
-                int i = 0;
-                while (iterator.hasNext()) {
-                    MintingAccountData mintingAccountData = iterator.next();
-
-                    RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
-                    if (rewardShareData == null) {
-                        // Reward-share doesn't even exist - probably not a good sign
-                        iterator.remove();
-                        continue;
-                    }
-
-                    Account mintingAccount = new Account(repository, rewardShareData.getMinter());
-                    if (!mintingAccount.canMint()) {
-                        // Minting-account component of reward-share can no longer mint - disregard
-                        iterator.remove();
-                        continue;
-                    }
-
-                    if (++i > 2) {
-                        iterator.remove();
-                        continue;
-                    }
-                }
-            } catch (DataException e) {
-                LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
-                return;
-            }
-
-            // 'current' timestamp
-            final long onlineAccountsTimestamp = toOnlineAccountTimestamp(now);
-            boolean hasInfoChanged = false;
-
-            byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-            List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
-
-            MINTING_ACCOUNTS:
-            for (MintingAccountData mintingAccountData : mintingAccounts) {
-                PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, mintingAccountData.getPrivateKey());
-
-                byte[] signature = mintingAccount.sign(timestampBytes);
-                byte[] publicKey = mintingAccount.getPublicKey();
-
-                // Our account is online
-                OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
-                synchronized (this.onlineAccounts) {
-                    Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
-                    while (iterator.hasNext()) {
-                        OnlineAccountData existingOnlineAccountData = iterator.next();
-
-                        if (Arrays.equals(existingOnlineAccountData.getPublicKey(), ourOnlineAccountData.getPublicKey())) {
-                            // If our online account is already present, with same timestamp, then move on to next mintingAccount
-                            if (existingOnlineAccountData.getTimestamp() == onlineAccountsTimestamp)
-                                continue MINTING_ACCOUNTS;
-
-                            // If our online account is already present, but with older timestamp, then remove it
-                            iterator.remove();
-                            break;
-                        }
-                    }
-
-                    this.onlineAccounts.add(ourOnlineAccountData);
-                }
-
-                LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", mintingAccount.getAddress(), onlineAccountsTimestamp));
-                ourOnlineAccounts.add(ourOnlineAccountData);
-                hasInfoChanged = true;
-            }
-
-            if (!hasInfoChanged)
-                return;
-
-            Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
-            Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
-
-            Network.getInstance().broadcast(peer ->
-                    peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
-            );
-
-            LOGGER.trace(() -> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
+        if (now == null) {
+            return;
         }
+
+        List<MintingAccountData> mintingAccounts;
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            mintingAccounts = repository.getAccountRepository().getMintingAccounts();
+
+            // We have no accounts, but don't reset timestamp
+            if (mintingAccounts.isEmpty())
+                return;
+
+            // Only reward-share accounts allowed
+            Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
+            int i = 0;
+            while (iterator.hasNext()) {
+                MintingAccountData mintingAccountData = iterator.next();
+
+                RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
+                if (rewardShareData == null) {
+                    // Reward-share doesn't even exist - probably not a good sign
+                    iterator.remove();
+                    continue;
+                }
+
+                Account mintingAccount = new Account(repository, rewardShareData.getMinter());
+                if (!mintingAccount.canMint()) {
+                    // Minting-account component of reward-share can no longer mint - disregard
+                    iterator.remove();
+                    continue;
+                }
+
+                if (++i > 1+1) {
+                    iterator.remove();
+                    continue;
+                }
+            }
+        } catch (DataException e) {
+            LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
+            return;
+        }
+
+        // 'current' timestamp
+        final long onlineAccountsTimestamp = toOnlineAccountTimestamp(now);
+        boolean hasInfoChanged = false;
+
+        byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
+        List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
+
+        MINTING_ACCOUNTS:
+        for (MintingAccountData mintingAccountData : mintingAccounts) {
+            PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, mintingAccountData.getPrivateKey());
+
+            byte[] signature = mintingAccount.sign(timestampBytes);
+            byte[] publicKey = mintingAccount.getPublicKey();
+
+            // Our account is online
+            OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
+            synchronized (this.onlineAccounts) {
+                Iterator<OnlineAccountData> iterator = this.onlineAccounts.iterator();
+                while (iterator.hasNext()) {
+                    OnlineAccountData existingOnlineAccountData = iterator.next();
+
+                    if (Arrays.equals(existingOnlineAccountData.getPublicKey(), ourOnlineAccountData.getPublicKey())) {
+                        // If our online account is already present, with same timestamp, then move on to next mintingAccount
+                        if (existingOnlineAccountData.getTimestamp() == onlineAccountsTimestamp)
+                            continue MINTING_ACCOUNTS;
+
+                        // If our online account is already present, but with older timestamp, then remove it
+                        iterator.remove();
+                        break;
+                    }
+                }
+
+                this.onlineAccounts.add(ourOnlineAccountData);
+            }
+
+            LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", mintingAccount.getAddress(), onlineAccountsTimestamp));
+            ourOnlineAccounts.add(ourOnlineAccountData);
+            hasInfoChanged = true;
+        }
+
+        if (!hasInfoChanged)
+            return;
+
+        Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
+        Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
+
+        Network.getInstance().broadcast(peer ->
+                peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
+        );
+
+        LOGGER.trace(() -> String.format("Broadcasted %d online account%s with timestamp %d", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp));
     }
 
     public static long toOnlineAccountTimestamp(long timestamp) {
