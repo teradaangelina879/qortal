@@ -24,6 +24,24 @@ import java.util.stream.Collectors;
 
 public class OnlineAccountsManager extends Thread {
 
+    private class OurOnlineAccountsThread extends Thread {
+
+        public void run() {
+            try {
+                while (!isStopping) {
+                    Thread.sleep(10000L);
+
+                    // Refresh our online accounts signatures?
+                    sendOurOnlineAccountsInfo();
+
+                }
+            } catch (InterruptedException e) {
+                // Fall through to exit thread
+            }
+        }
+    }
+
+
     private static final Logger LOGGER = LogManager.getLogger(OnlineAccountsManager.class);
 
     private static OnlineAccountsManager instance;
@@ -61,11 +79,20 @@ public class OnlineAccountsManager extends Thread {
     }
 
     public void run() {
+
+        // Start separate thread to prepare our online accounts
+        // This could be converted to a thread pool later if more concurrency is needed
+        OurOnlineAccountsThread ourOnlineAccountsThread = new OurOnlineAccountsThread();
+        ourOnlineAccountsThread.start();
+
         try {
             while (!Controller.isStopping()) {
                 Thread.sleep(100L);
 
                 final Long now = NTP.getTime();
+                if (now == null) {
+                    continue;
+                }
 
                 // Perform tasks to do with managing online accounts list
                 if (now >= onlineAccountsTasksTimestamp) {
@@ -80,6 +107,8 @@ public class OnlineAccountsManager extends Thread {
         } catch (InterruptedException e) {
             // Fall through to exit thread
         }
+
+        ourOnlineAccountsThread.interrupt();
     }
 
     public void shutdown() {
@@ -243,9 +272,6 @@ public class OnlineAccountsManager extends Thread {
                     peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION ? messageV2 : messageV1
             );
         }
-
-        // Refresh our online accounts signatures?
-        sendOurOnlineAccountsInfo();
     }
 
     private void sendOurOnlineAccountsInfo() {
