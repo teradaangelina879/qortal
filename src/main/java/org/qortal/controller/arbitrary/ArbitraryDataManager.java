@@ -50,6 +50,12 @@ public class ArbitraryDataManager extends Thread {
 	/** Maximum number of hops that an arbitrary signatures request is allowed to make */
 	private static int ARBITRARY_SIGNATURES_REQUEST_MAX_HOPS = 3;
 
+	private long lastMetadataFetchTime = 0L;
+	private static long METADATA_FETCH_INTERVAL = 5 * 60 * 1000L;
+
+	private long lastDataFetchTime = 0L;
+	private static long DATA_FETCH_INTERVAL = 1 * 60 * 1000L;
+
 	private static ArbitraryDataManager instance;
 	private final Object peerDataLock = new Object();
 
@@ -96,6 +102,11 @@ public class ArbitraryDataManager extends Thread {
 					continue;
 				}
 
+				Long now = NTP.getTime();
+				if (now == null) {
+					continue;
+				}
+
 				// Needs a mutable copy of the unmodifiableList
 				List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
 
@@ -108,7 +119,16 @@ public class ArbitraryDataManager extends Thread {
 				}
 
 				// Fetch metadata
-				 this.fetchAllMetadata();
+				if (NTP.getTime() - lastMetadataFetchTime >= METADATA_FETCH_INTERVAL) {
+					this.fetchAllMetadata();
+					lastMetadataFetchTime = NTP.getTime();
+				}
+
+				// Check if we need to fetch any data
+				if (NTP.getTime() - lastDataFetchTime < DATA_FETCH_INTERVAL) {
+					// Nothing to do yet
+					continue;
+				}
 
 				// Fetch data according to storage policy
 				switch (Settings.getInstance().getStoragePolicy()) {
@@ -127,6 +147,8 @@ public class ArbitraryDataManager extends Thread {
 						Thread.sleep(60000);
 						break;
 				}
+
+				lastDataFetchTime = NTP.getTime();
 			}
 		} catch (InterruptedException e) {
 			// Fall-through to exit thread...
@@ -138,7 +160,7 @@ public class ArbitraryDataManager extends Thread {
 		this.interrupt();
 	}
 
-	private void processNames() {
+	private void processNames() throws InterruptedException {
 		// Fetch latest list of followed names
 		List<String> followedNames = ResourceListManager.getInstance().getStringsInList("followedNames");
 		if (followedNames == null || followedNames.isEmpty()) {
@@ -151,11 +173,11 @@ public class ArbitraryDataManager extends Thread {
 		}
 	}
 
-	private void processAll() {
+	private void processAll() throws InterruptedException {
 		this.fetchAndProcessTransactions(null);
 	}
 
-	private void fetchAndProcessTransactions(String name) {
+	private void fetchAndProcessTransactions(String name) throws InterruptedException {
 		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
 
 		// Paginate queries when fetching arbitrary transactions
@@ -163,6 +185,7 @@ public class ArbitraryDataManager extends Thread {
 		int offset = 0;
 
 		while (!isStopping) {
+			Thread.sleep(1000L);
 
 			// Any arbitrary transactions we want to fetch data for?
 			try (final Repository repository = RepositoryManager.getRepository()) {
@@ -177,6 +200,7 @@ public class ArbitraryDataManager extends Thread {
 				// Loop through signatures and remove ones we don't need to process
 				Iterator iterator = signatures.iterator();
 				while (iterator.hasNext()) {
+					Thread.sleep(25L); // Reduce CPU usage
 					byte[] signature = (byte[]) iterator.next();
 
 					ArbitraryTransaction arbitraryTransaction = fetchTransaction(repository, signature);
@@ -233,7 +257,7 @@ public class ArbitraryDataManager extends Thread {
 		}
 	}
 
-	private void fetchAllMetadata() {
+	private void fetchAllMetadata() throws InterruptedException {
 		ArbitraryDataStorageManager storageManager = ArbitraryDataStorageManager.getInstance();
 
 		// Paginate queries when fetching arbitrary transactions
@@ -241,6 +265,7 @@ public class ArbitraryDataManager extends Thread {
 		int offset = 0;
 
 		while (!isStopping) {
+			Thread.sleep(1000L);
 
 			// Any arbitrary transactions we want to fetch data for?
 			try (final Repository repository = RepositoryManager.getRepository()) {
@@ -255,6 +280,7 @@ public class ArbitraryDataManager extends Thread {
 				// Loop through signatures and remove ones we don't need to process
 				Iterator iterator = signatures.iterator();
 				while (iterator.hasNext()) {
+					Thread.sleep(25L); // Reduce CPU usage
 					byte[] signature = (byte[]) iterator.next();
 
 					ArbitraryTransaction arbitraryTransaction = fetchTransaction(repository, signature);
