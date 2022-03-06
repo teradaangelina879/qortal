@@ -30,17 +30,4 @@ public interface ArbitraryRepository {
 
 	public List<ArbitraryResourceNameInfo> getArbitraryResourceCreatorNames(Service service, String identifier, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-
-	public List<ArbitraryPeerData> getArbitraryPeerDataForSignature(byte[] signature) throws DataException;
-
-	public ArbitraryPeerData getArbitraryPeerDataForSignatureAndPeer(byte[] signature, String peerAddress) throws DataException;
-
-	public ArbitraryPeerData getArbitraryPeerDataForSignatureAndHost(byte[] signature, String host) throws DataException;
-
-	public void save(ArbitraryPeerData arbitraryPeerData) throws DataException;
-
-	public void delete(ArbitraryPeerData arbitraryPeerData) throws DataException;
-
-	public void deleteArbitraryPeersWithSignature(byte[] signature) throws DataException;
-
 }

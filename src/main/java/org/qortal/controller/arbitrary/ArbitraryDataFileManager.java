@@ -168,16 +168,6 @@ public class ArbitraryDataFileManager extends Thread {
         }
 
         if (receivedAtLeastOneFile) {
-            // Update our lookup table to indicate that this peer holds data for this signature
-            String peerAddress = peer.getPeerData().getAddress().toString();
-            ArbitraryPeerData arbitraryPeerData = new ArbitraryPeerData(signature, peer);
-            repository.discardChanges();
-            if (arbitraryPeerData.isPeerAddressValid()) {
-                LOGGER.debug("Adding arbitrary peer: {} for signature {}", peerAddress, Base58.encode(signature));
-                repository.getArbitraryRepository().save(arbitraryPeerData);
-                repository.saveChanges();
-            }
-
             // Invalidate the hosted transactions cache as we are now hosting something new
             ArbitraryDataStorageManager.getInstance().invalidateHostedTransactionsCache();
 
@@ -188,7 +178,6 @@ public class ArbitraryDataFileManager extends Thread {
                 // data cache so that it is rebuilt the next time we serve it
                 ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
             }
-
         }
 
         return receivedAtLeastOneFile;

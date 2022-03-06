@@ -180,9 +180,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 									arbitraryTransactionData.getName(), Base58.encode(signature)));
 
 							ArbitraryTransactionUtils.deleteCompleteFileAndChunks(arbitraryTransactionData);
-
-							// We should also remove peers for this transaction from the lookup table to save space
-							this.removePeersHostingTransactionData(repository, arbitraryTransactionData);
 							continue;
 						}
 
@@ -435,16 +432,6 @@ public class ArbitraryDataCleanupManager extends Thread {
 			}
 		}
 		return false;
-	}
-
-	private void removePeersHostingTransactionData(Repository repository, ArbitraryTransactionData transactionData) {
-		byte[] signature = transactionData.getSignature();
-		try {
-			repository.getArbitraryRepository().deleteArbitraryPeersWithSignature(signature);
-			repository.saveChanges();
-		} catch (DataException e) {
-			LOGGER.debug("Unable to delete peers from lookup table for signature: {}", Base58.encode(signature));
-		}
 	}
 
 	private void cleanupTempDirectory(String folder, long now, long minAge) {
