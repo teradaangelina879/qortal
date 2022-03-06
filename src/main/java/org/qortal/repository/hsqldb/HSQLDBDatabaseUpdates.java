@@ -959,6 +959,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX SellNameNameIndex ON SellNameTransactions (name)");
 					break;
 
+				case 41:
+					// Drop the ArbitraryPeers table as it's no longer needed
+					stmt.execute("DROP TABLE ArbitraryPeers");
+					break;
+
 				default:
 					// nothing to do
 					return false;
