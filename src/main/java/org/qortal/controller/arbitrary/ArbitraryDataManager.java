@@ -139,6 +139,7 @@ public class ArbitraryDataManager extends Thread {
 
 					case ALL:
 						this.processAll();
+						break;
 
 					case NONE:
 					case VIEWED:
