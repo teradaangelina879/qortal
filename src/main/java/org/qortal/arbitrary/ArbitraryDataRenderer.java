@@ -34,6 +34,7 @@ public class ArbitraryDataRenderer {
     private final String resourceId;
     private final ResourceIdType resourceIdType;
     private final Service service;
+    private String theme = "light";
     private String inPath;
     private final String secret58;
     private final String prefix;
@@ -77,7 +78,7 @@ public class ArbitraryDataRenderer {
                 // If async is requested, show a loading screen whilst build is in progress
                 if (async) {
                     arbitraryDataReader.loadAsynchronously(false, 10);
-                    return this.getLoadingResponse(service, resourceId);
+                    return this.getLoadingResponse(service, resourceId, theme);
                 }
 
                 // Otherwise, loop until we have data
@@ -171,7 +172,7 @@ public class ArbitraryDataRenderer {
         return userPath;
     }
 
-    private HttpServletResponse getLoadingResponse(Service service, String name) {
+    private HttpServletResponse getLoadingResponse(Service service, String name, String theme) {
         String responseString = "";
         URL url = Resources.getResource("loading/index.html");
         try {
@@ -180,6 +181,7 @@ public class ArbitraryDataRenderer {
             // Replace vars
             responseString = responseString.replace("%%SERVICE%%", service.toString());
             responseString = responseString.replace("%%NAME%%", name);
+            responseString = responseString.replace("%%THEME%%", theme);
 
         } catch (IOException e) {
             LOGGER.info("Unable to show loading screen: {}", e.getMessage());
@@ -208,6 +210,10 @@ public class ArbitraryDataRenderer {
         indexFiles.add("home.html");
         indexFiles.add("home.htm");
         return indexFiles;
+    }
+
+    public void setTheme(String theme) {
+        this.theme = theme;
     }
 
 }
