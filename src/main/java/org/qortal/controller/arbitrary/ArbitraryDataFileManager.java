@@ -303,9 +303,6 @@ public class ArbitraryDataFileManager extends Thread {
             return false;
         }
 
-        // We have at least one peer, so mark this as a request in progress
-        ArbitraryDataFileListManager.getInstance().addToSignatureRequests(signature58, false, true);
-
         LOGGER.debug("Attempting a direct peer connection for signature {}...", signature58);
 
         // Peers found, so pick a random one and request data from it
@@ -358,6 +355,11 @@ public class ArbitraryDataFileManager extends Thread {
                     }
                 }
             }
+        }
+
+        if (success) {
+            // We were able to connect with a peer, so track the request
+            ArbitraryDataFileListManager.getInstance().addToSignatureRequests(signature58, false, true);
         }
 
         return success;
