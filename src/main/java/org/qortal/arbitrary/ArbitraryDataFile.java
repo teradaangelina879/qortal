@@ -73,7 +73,6 @@ public class ArbitraryDataFile {
     }
 
     public ArbitraryDataFile(String hash58, byte[] signature) throws DataException {
-        this.createDataDirectory();
         this.filePath = ArbitraryDataFile.getOutputFilePath(hash58, signature, false);
         this.chunks = new ArrayList<>();
         this.hash58 = hash58;
@@ -148,19 +147,6 @@ public class ArbitraryDataFile {
 
     public static ArbitraryDataFile fromFile(File file, byte[] signature) {
         return ArbitraryDataFile.fromPath(Paths.get(file.getPath()), signature);
-    }
-
-    private boolean createDataDirectory() {
-        // Create the data directory if it doesn't exist
-        String dataPath = Settings.getInstance().getDataPath();
-        Path dataDirectory = Paths.get(dataPath);
-        try {
-            Files.createDirectories(dataDirectory);
-        } catch (IOException e) {
-            LOGGER.error("Unable to create data directory");
-            return false;
-        }
-        return true;
     }
 
     private Path copyToDataDirectory(Path sourcePath, byte[] signature) throws DataException {

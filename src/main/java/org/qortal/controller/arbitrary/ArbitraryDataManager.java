@@ -1,6 +1,9 @@
 package org.qortal.controller.arbitrary;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
@@ -86,6 +89,9 @@ public class ArbitraryDataManager extends Thread {
 	public void run() {
 		Thread.currentThread().setName("Arbitrary Data Manager");
 
+		// Create data directory in case it doesn't exist yet
+		this.createDataDirectory();
+
 		try {
 			// Wait for node to finish starting up and making connections
 			Thread.sleep(2 * 60 * 1000L);
@@ -126,6 +132,9 @@ public class ArbitraryDataManager extends Thread {
 					// Nothing to do yet
 					continue;
 				}
+
+				// In case the data directory has been deleted...
+				this.createDataDirectory();
 
 				// Fetch data according to storage policy
 				switch (Settings.getInstance().getStoragePolicy()) {
@@ -509,6 +518,18 @@ public class ArbitraryDataManager extends Thread {
 		}
 	}
 
+	private boolean createDataDirectory() {
+		// Create the data directory if it doesn't exist
+		String dataPath = Settings.getInstance().getDataPath();
+		Path dataDirectory = Paths.get(dataPath);
+		try {
+			Files.createDirectories(dataDirectory);
+		} catch (IOException e) {
+			LOGGER.error("Unable to create data directory");
+			return false;
+		}
+		return true;
+	}
 
 	public int getPowDifficulty() {
 		return this.powDifficulty;
