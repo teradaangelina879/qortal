@@ -317,80 +317,102 @@ public class ArbitraryDataFileManager extends Thread {
     public boolean fetchDataFilesFromPeersForSignature(byte[] signature) {
         String signature58 = Base58.encode(signature);
 
-        // Firstly fetch peers that claim to be hosting files for this signature
-        List<ArbitraryDirectConnectionInfo> connectionInfoList = getDirectConnectionInfoForSignature(signature);
-        if (connectionInfoList == null || connectionInfoList.isEmpty()) {
-            LOGGER.debug("No direct connection peers found for signature {}", signature58);
-            return false;
-        }
+        boolean success = false;
 
-        LOGGER.debug("Attempting a direct peer connection for signature {}...", signature58);
-
-        // Peers found, so pick one with the highest number of chunks
-        Comparator<ArbitraryDirectConnectionInfo> highestChunkCountFirstComparator =
-                Comparator.comparingInt(ArbitraryDirectConnectionInfo::getHashCount).reversed();
-        ArbitraryDirectConnectionInfo directConnectionInfo = connectionInfoList.stream()
-                .sorted(highestChunkCountFirstComparator).findFirst().orElse(null);
-
-        if (directConnectionInfo == null) {
-            return false;
-        }
-
-        // Remove from the list so that a different peer is tried next time
-        removeDirectConnectionInfo(directConnectionInfo);
-
-        String peerAddressString = directConnectionInfo.getPeerAddress();
-        boolean success = Network.getInstance().requestDataFromPeer(peerAddressString, signature);
-
-        // Parse the peer address to find the host and port
-        String host = null;
-        int port = -1;
-        String[] parts = peerAddressString.split(":");
-        if (parts.length > 1) {
-            host = parts[0];
-            port = Integer.parseInt(parts[1]);
-        }
-        else {
-            // Use default listen port
-            port = Settings.getInstance().getDefaultListenPort();
-        }
-
-        // If unsuccessful, and using a non-standard port, try a second connection with the default listen port,
-        // since almost all nodes use that. This is a workaround to account for any ephemeral ports that may
-        // have made it into the dataset.
-        if (!success) {
-            if (host != null && port > 0) {
-                int defaultPort = Settings.getInstance().getDefaultListenPort();
-                if (port != defaultPort) {
-                    String newPeerAddressString = String.format("%s:%d", host, defaultPort);
-                    success = Network.getInstance().requestDataFromPeer(newPeerAddressString, signature);
+        try {
+            while (!success) {
+                if (isStopping) {
+                    return false;
                 }
-            }
-        }
+                Thread.sleep(500L);
 
-        // If _still_ unsuccessful, try matching the peer's IP address with some known peers, and then connect
-        // to each of those in turn until one succeeds.
-        if (!success) {
-            if (host != null) {
-                final String finalHost = host;
-                List<PeerData> knownPeers = Network.getInstance().getAllKnownPeers().stream()
-                        .filter(knownPeerData -> knownPeerData.getAddress().getHost().equals(finalHost))
-                        .collect(Collectors.toList());
-                // Loop through each match and attempt a connection
-                for (PeerData matchingPeer : knownPeers) {
-                    String matchingPeerAddress = matchingPeer.getAddress().toString();
-                    success = Network.getInstance().requestDataFromPeer(matchingPeerAddress, signature);
-                    if (success) {
-                        // Successfully connected, so stop making connections
-                        break;
+                // Firstly fetch peers that claim to be hosting files for this signature
+                List<ArbitraryDirectConnectionInfo> connectionInfoList = getDirectConnectionInfoForSignature(signature);
+                if (connectionInfoList == null || connectionInfoList.isEmpty()) {
+                    LOGGER.debug("No remaining direct connection peers found for signature {}", signature58);
+                    return false;
+                }
+
+                LOGGER.debug("Attempting a direct peer connection for signature {}...", signature58);
+
+                // Peers found, so pick one with the highest number of chunks
+                Comparator<ArbitraryDirectConnectionInfo> highestChunkCountFirstComparator =
+                        Comparator.comparingInt(ArbitraryDirectConnectionInfo::getHashCount).reversed();
+                ArbitraryDirectConnectionInfo directConnectionInfo = connectionInfoList.stream()
+                        .sorted(highestChunkCountFirstComparator).findFirst().orElse(null);
+
+                if (directConnectionInfo == null) {
+                    return false;
+                }
+
+                // Remove from the list so that a different peer is tried next time
+                removeDirectConnectionInfo(directConnectionInfo);
+
+                String peerAddressString = directConnectionInfo.getPeerAddress();
+
+                // Parse the peer address to find the host and port
+                String host = null;
+                int port = -1;
+                String[] parts = peerAddressString.split(":");
+                if (parts.length > 1) {
+                    host = parts[0];
+                    port = Integer.parseInt(parts[1]);
+                } else {
+                    // Assume no port included
+                    host = peerAddressString;
+                    // Use default listen port
+                    port = Settings.getInstance().getDefaultListenPort();
+                }
+
+                String peerAddressStringWithPort = String.format("%s:%d", host, port);
+                success = Network.getInstance().requestDataFromPeer(peerAddressStringWithPort, signature);
+
+                int defaultPort = Settings.getInstance().getDefaultListenPort();
+
+                // If unsuccessful, and using a non-standard port, try a second connection with the default listen port,
+                // since almost all nodes use that. This is a workaround to account for any ephemeral ports that may
+                // have made it into the dataset.
+                if (!success) {
+                    if (host != null && port > 0) {
+                        if (port != defaultPort) {
+                            String newPeerAddressString = String.format("%s:%d", host, defaultPort);
+                            success = Network.getInstance().requestDataFromPeer(newPeerAddressString, signature);
+                        }
                     }
                 }
-            }
-        }
 
-        if (success) {
-            // We were able to connect with a peer, so track the request
-            ArbitraryDataFileListManager.getInstance().addToSignatureRequests(signature58, false, true);
+                // If _still_ unsuccessful, try matching the peer's IP address with some known peers, and then connect
+                // to each of those in turn until one succeeds.
+                if (!success) {
+                    if (host != null) {
+                        final String finalHost = host;
+                        List<PeerData> knownPeers = Network.getInstance().getAllKnownPeers().stream()
+                                .filter(knownPeerData -> knownPeerData.getAddress().getHost().equals(finalHost))
+                                .collect(Collectors.toList());
+                        // Loop through each match and attempt a connection
+                        for (PeerData matchingPeer : knownPeers) {
+                            String matchingPeerAddress = matchingPeer.getAddress().toString();
+                            int matchingPeerPort = matchingPeer.getAddress().getPort();
+                            // Make sure that it's not a port we've already tried
+                            if (matchingPeerPort != port && matchingPeerPort != defaultPort) {
+                                success = Network.getInstance().requestDataFromPeer(matchingPeerAddress, signature);
+                                if (success) {
+                                    // Successfully connected, so stop making connections
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (success) {
+                    // We were able to connect with a peer, so track the request
+                    ArbitraryDataFileListManager.getInstance().addToSignatureRequests(signature58, false, true);
+                }
+
+            }
+        } catch (InterruptedException e) {
+            // Do nothing
         }
 
         return success;
