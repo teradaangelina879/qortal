@@ -1,6 +1,8 @@
 package org.qortal.data.arbitrary;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 public class ArbitraryDirectConnectionInfo {
 
@@ -30,5 +32,28 @@ public class ArbitraryDirectConnectionInfo {
     
     public long getTimestamp() {
         return this.timestamp;
+    }
+
+    public int getHashCount() {
+        if (this.hashes == null) {
+            return 0;
+        }
+        return this.hashes.size();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other == this)
+            return true;
+
+        if (!(other instanceof ArbitraryDirectConnectionInfo))
+            return false;
+
+        ArbitraryDirectConnectionInfo otherDirectConnectionInfo = (ArbitraryDirectConnectionInfo) other;
+
+        return Arrays.equals(this.signature, otherDirectConnectionInfo.getSignature())
+                && Objects.equals(this.peerAddress, otherDirectConnectionInfo.getPeerAddress())
+                && Objects.equals(this.hashes, otherDirectConnectionInfo.getHashes())
+                && Objects.equals(this.timestamp, otherDirectConnectionInfo.getTimestamp());
     }
 }

@@ -293,6 +293,10 @@ public class ArbitraryDataFileManager extends Thread {
         }
     }
 
+    private void removeDirectConnectionInfo(ArbitraryDirectConnectionInfo connectionInfo) {
+        this.directConnectionInfo.remove(connectionInfo);
+    }
+
     public boolean fetchDataFilesFromPeersForSignature(byte[] signature) {
         String signature58 = Base58.encode(signature);
 
@@ -305,9 +309,19 @@ public class ArbitraryDataFileManager extends Thread {
 
         LOGGER.debug("Attempting a direct peer connection for signature {}...", signature58);
 
-        // Peers found, so pick a random one and request data from it
-        int index = new SecureRandom().nextInt(connectionInfoList.size());
-        ArbitraryDirectConnectionInfo directConnectionInfo = connectionInfoList.get(index);
+        // Peers found, so pick one with the highest number of chunks
+        Comparator<ArbitraryDirectConnectionInfo> highestChunkCountFirstComparator =
+                Comparator.comparingInt(ArbitraryDirectConnectionInfo::getHashCount).reversed();
+        ArbitraryDirectConnectionInfo directConnectionInfo = connectionInfoList.stream()
+                .sorted(highestChunkCountFirstComparator).findFirst().orElse(null);
+
+        if (directConnectionInfo == null) {
+            return false;
+        }
+
+        // Remove from the list so that a different peer is tried next time
+        removeDirectConnectionInfo(directConnectionInfo);
+
         String peerAddressString = directConnectionInfo.getPeerAddress();
         boolean success = Network.getInstance().requestDataFromPeer(peerAddressString, signature);
 
