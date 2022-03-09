@@ -53,7 +53,7 @@ public class ArbitraryDataFileManager extends Thread {
     /**
      * List to keep track of peers potentially available for direct connections, based on recent requests
      */
-    public List<ArbitraryDirectConnectionInfo> directConnectionInfo = Collections.synchronizedList(new ArrayList<>());
+    private List<ArbitraryDirectConnectionInfo> directConnectionInfo = Collections.synchronizedList(new ArrayList<>());
 
 
     public static int MAX_FILE_HASH_RESPONSES = 1000;
@@ -290,6 +290,23 @@ public class ArbitraryDataFileManager extends Thread {
     private List<ArbitraryDirectConnectionInfo> getDirectConnectionInfoForSignature(byte[] signature) {
         synchronized (directConnectionInfo) {
             return directConnectionInfo.stream().filter(i -> Arrays.equals(i.getSignature(), signature)).collect(Collectors.toList());
+        }
+    }
+
+    /**
+     * Add an ArbitraryDirectConnectionInfo item, but only if one with this peer-signature combination
+     * doesn't already exist.
+     * @param connectionInfo - the direct connection info to add
+     */
+    public void addDirectConnectionInfoIfUnique(ArbitraryDirectConnectionInfo connectionInfo) {
+        boolean peerAlreadyExists;
+        synchronized (directConnectionInfo) {
+            peerAlreadyExists = directConnectionInfo.stream()
+                    .anyMatch(i -> Arrays.equals(i.getSignature(), connectionInfo.getSignature())
+                            && Objects.equals(i.getPeerAddress(), connectionInfo.getPeerAddress()));
+        }
+        if (!peerAlreadyExists) {
+            directConnectionInfo.add(connectionInfo);
         }
     }
 

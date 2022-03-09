@@ -483,7 +483,7 @@ public class ArbitraryDataFileListManager {
 
                 // Keep track of the source peer, for direct connections
                 if (arbitraryDataFileListMessage.getPeerAddress() != null) {
-                    ArbitraryDataFileManager.getInstance().directConnectionInfo.add(
+                    ArbitraryDataFileManager.getInstance().addDirectConnectionInfoIfUnique(
                             new ArbitraryDirectConnectionInfo(signature, arbitraryDataFileListMessage.getPeerAddress(), hashes, now));
                 }
             }
