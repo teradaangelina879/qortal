@@ -283,8 +283,11 @@ public class ArbitraryDataFileListManager {
 
         LOGGER.debug(String.format("Sending data file list request for signature %s with %d hashes to %d peers...", signature58, hashCount, handshakedPeers.size()));
 
+        // FUTURE: send our address as requestingPeer once enough peers have switched to the new protocol
+        String requestingPeer = null; // Network.getInstance().getOurExternalIpAddressAndPort();
+
         // Build request
-        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, missingHashes, now, 0);
+        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, missingHashes, now, 0, requestingPeer);
 
         // Save our request into requests map
         Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
@@ -342,7 +345,7 @@ public class ArbitraryDataFileListManager {
         // This could be optimized in the future
         long timestamp = now - 60000L;
         List<byte[]> hashes = null;
-        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, hashes, timestamp, 0);
+        Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, hashes, timestamp, 0, null);
 
         // Save our request into requests map
         Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());

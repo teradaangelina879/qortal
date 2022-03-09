@@ -2,8 +2,11 @@ package org.qortal.network.message;
 
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
+import org.qortal.data.network.PeerData;
+import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.Serialization;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -19,23 +22,26 @@ public class GetArbitraryDataFileListMessage extends Message {
 
 	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
 	private static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
+	private static final int MAX_PEER_ADDRESS_LENGTH = PeerData.MAX_PEER_ADDRESS_SIZE;
 
 	private final byte[] signature;
 	private List<byte[]> hashes;
 	private final long requestTime;
 	private int requestHops;
+	private String requestingPeer;
 
-	public GetArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes, long requestTime, int requestHops) {
-		this(-1, signature, hashes, requestTime, requestHops);
+	public GetArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes, long requestTime, int requestHops, String requestingPeer) {
+		this(-1, signature, hashes, requestTime, requestHops, requestingPeer);
 	}
 
-	private GetArbitraryDataFileListMessage(int id, byte[] signature, List<byte[]> hashes, long requestTime, int requestHops) {
+	private GetArbitraryDataFileListMessage(int id, byte[] signature, List<byte[]> hashes, long requestTime, int requestHops, String requestingPeer) {
 		super(id, MessageType.GET_ARBITRARY_DATA_FILE_LIST);
 
 		this.signature = signature;
 		this.hashes = hashes;
 		this.requestTime = requestTime;
 		this.requestHops = requestHops;
+		this.requestingPeer = requestingPeer;
 	}
 
 	public byte[] getSignature() {
@@ -46,7 +52,7 @@ public class GetArbitraryDataFileListMessage extends Message {
 		return this.hashes;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException, TransformationException {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 
 		bytes.get(signature);
@@ -59,10 +65,6 @@ public class GetArbitraryDataFileListMessage extends Message {
 		if (bytes.hasRemaining()) {
 			int hashCount = bytes.getInt();
 
-			if (bytes.remaining() != hashCount * HASH_LENGTH) {
-				return null;
-			}
-
 			hashes = new ArrayList<>();
 			for (int i = 0; i < hashCount; ++i) {
 				byte[] hash = new byte[HASH_LENGTH];
@@ -71,7 +73,12 @@ public class GetArbitraryDataFileListMessage extends Message {
 			}
 		}
 
-		return new GetArbitraryDataFileListMessage(id, signature, hashes, requestTime, requestHops);
+		String requestingPeer = null;
+		if (bytes.hasRemaining()) {
+			requestingPeer = Serialization.deserializeSizedStringV2(bytes, MAX_PEER_ADDRESS_LENGTH);
+		}
+
+		return new GetArbitraryDataFileListMessage(id, signature, hashes, requestTime, requestHops, requestingPeer);
 	}
 
 	@Override
@@ -91,6 +98,10 @@ public class GetArbitraryDataFileListMessage extends Message {
 				for (byte[] hash : this.hashes) {
 					bytes.write(hash);
 				}
+			}
+
+			if (this.requestingPeer != null) {
+				Serialization.serializeSizedStringV2(bytes, this.requestingPeer);
 			}
 
 			return bytes.toByteArray();
