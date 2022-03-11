@@ -145,6 +145,10 @@ public class BlockArchiveReader {
     }
 
     private String getFilenameForHeight(int height) {
+        if (this.fileListCache == null || this.fileListCache.isEmpty()) {
+            this.fetchFileList();
+        }
+
         Iterator it = this.fileListCache.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry pair = (Map.Entry) it.next();
@@ -166,7 +170,6 @@ public class BlockArchiveReader {
     }
 
     public byte[] fetchSerializedBlockBytesForSignature(byte[] signature, boolean includeHeightPrefix, Repository repository) {
-
         if (this.fileListCache == null || this.fileListCache.isEmpty()) {
             this.fetchFileList();
         }
