@@ -73,7 +73,9 @@ public class ArbitraryMetadataManager {
             return;
         }
         final long requestMinimumTimestamp = now - ArbitraryDataManager.ARBITRARY_REQUEST_TIMEOUT;
-        arbitraryMetadataRequests.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < requestMinimumTimestamp);
+        synchronized (arbitraryMetadataRequests) {
+            arbitraryMetadataRequests.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < requestMinimumTimestamp);
+        }
     }
 
 

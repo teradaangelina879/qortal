@@ -56,7 +56,9 @@ public class ArbitraryDataRenderManager extends Thread {
             return;
         }
         final long minimumTimestamp = now - AUTHORIZATION_TIMEOUT;
-        this.authorizedResources.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < minimumTimestamp);
+        synchronized (this.authorizedResources) {
+            this.authorizedResources.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < minimumTimestamp);
+        }
     }
 
     public boolean isAuthorized(ArbitraryDataResource resource) {

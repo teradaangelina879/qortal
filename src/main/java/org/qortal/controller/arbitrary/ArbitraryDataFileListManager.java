@@ -84,7 +84,9 @@ public class ArbitraryDataFileListManager {
             return;
         }
         final long requestMinimumTimestamp = now - ArbitraryDataManager.ARBITRARY_REQUEST_TIMEOUT;
-        arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < requestMinimumTimestamp);
+        synchronized (arbitraryDataFileListRequests) {
+            arbitraryDataFileListRequests.entrySet().removeIf(entry -> entry.getValue().getC() == null || entry.getValue().getC() < requestMinimumTimestamp);
+        }
     }
 
 
