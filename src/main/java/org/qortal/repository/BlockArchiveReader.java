@@ -23,7 +23,7 @@ import java.util.*;
 public class BlockArchiveReader {
 
     private static BlockArchiveReader instance;
-    private Map<String, Triple<Integer, Integer, Integer>> fileListCache = Collections.synchronizedMap(new HashMap<>());
+    private Map<String, Triple<Integer, Integer, Integer>> fileListCache;
 
     private static final Logger LOGGER = LogManager.getLogger(BlockArchiveReader.class);
 
@@ -67,7 +67,7 @@ public class BlockArchiveReader {
     }
 
     public Triple<BlockData, List<TransactionData>, List<ATStateData>> fetchBlockAtHeight(int height) {
-        if (this.fileListCache.isEmpty()) {
+        if (this.fileListCache == null || this.fileListCache.isEmpty()) {
             this.fetchFileList();
         }
 
@@ -94,7 +94,7 @@ public class BlockArchiveReader {
     public Triple<BlockData, List<TransactionData>, List<ATStateData>> fetchBlockWithSignature(
             byte[] signature, Repository repository) {
 
-        if (this.fileListCache.isEmpty()) {
+        if (this.fileListCache == null || this.fileListCache.isEmpty()) {
             this.fetchFileList();
         }
 
@@ -167,7 +167,7 @@ public class BlockArchiveReader {
 
     public byte[] fetchSerializedBlockBytesForSignature(byte[] signature, boolean includeHeightPrefix, Repository repository) {
 
-        if (this.fileListCache.isEmpty()) {
+        if (this.fileListCache == null || this.fileListCache.isEmpty()) {
             this.fetchFileList();
         }
 
@@ -278,7 +278,7 @@ public class BlockArchiveReader {
     }
 
     public void invalidateFileListCache() {
-        this.fileListCache.clear();
+        this.fileListCache = null;
     }
 
 }
