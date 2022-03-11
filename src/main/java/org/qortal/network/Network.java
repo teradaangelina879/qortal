@@ -687,7 +687,7 @@ public class Network {
                 return;
             }
 
-            if (immutableConnectedPeers.size() >= maxPeers) {
+            if (getImmutableConnectedPeers().size() >= maxPeers) {
                 // We have enough peers
                 LOGGER.debug("Connection discarded from peer {} because the server is full", address);
                 socketChannel.close();
