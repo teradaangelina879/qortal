@@ -302,7 +302,7 @@ public class Network {
             }
 
             // Check if we're already connected to and handshaked with this peer
-            Peer connectedPeer = this.connectedPeers.stream()
+            Peer connectedPeer = this.getConnectedPeers().stream()
                         .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
                         .findFirst()
                         .orElse(null);
@@ -404,7 +404,7 @@ public class Network {
      * Returns first peer that has completed handshaking and has matching public key.
      */
     public Peer getHandshakedPeerWithPublicKey(byte[] publicKey) {
-        return this.connectedPeers.stream()
+        return this.getConnectedPeers().stream()
                 .filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED
                         && Arrays.equals(peer.getPeersPublicKey(), publicKey))
                 .findFirst().orElse(null);
@@ -422,13 +422,13 @@ public class Network {
 
     private final Predicate<PeerData> isConnectedPeer = peerData -> {
         PeerAddress peerAddress = peerData.getAddress();
-        return this.connectedPeers.stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
+        return this.getConnectedPeers().stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
     };
 
     private final Predicate<PeerData> isResolvedAsConnectedPeer = peerData -> {
         try {
             InetSocketAddress resolvedSocketAddress = peerData.getAddress().toSocketAddress();
-            return this.connectedPeers.stream()
+            return this.getConnectedPeers().stream()
                     .anyMatch(peer -> peer.getResolvedAddress().equals(resolvedSocketAddress));
         } catch (UnknownHostException e) {
             // Can't resolve - no point even trying to connect
@@ -687,7 +687,7 @@ public class Network {
                 return;
             }
 
-            if (connectedPeers.size() >= maxPeers) {
+            if (immutableConnectedPeers.size() >= maxPeers) {
                 // We have enough peers
                 LOGGER.debug("Connection discarded from peer {} because the server is full", address);
                 socketChannel.close();
@@ -798,7 +798,7 @@ public class Network {
     }
 
     private Peer getPeerFromChannel(SocketChannel socketChannel) {
-        for (Peer peer : this.connectedPeers) {
+        for (Peer peer : this.getConnectedPeers()) {
             if (peer.getSocketChannel() == socketChannel) {
                 return peer;
             }
@@ -813,7 +813,7 @@ public class Network {
         }
 
         // Find peers that have reached their maximum connection age, and disconnect them
-        List<Peer> peersToDisconnect = this.connectedPeers.stream()
+        List<Peer> peersToDisconnect = this.getConnectedPeers().stream()
                 .filter(peer -> !peer.isSyncInProgress())
                 .filter(peer -> peer.hasReachedMaxConnectionAge())
                 .collect(Collectors.toList());
