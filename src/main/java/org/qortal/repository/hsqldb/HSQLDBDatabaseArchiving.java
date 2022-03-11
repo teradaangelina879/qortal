@@ -40,8 +40,8 @@ public class HSQLDBDatabaseArchiving {
             return false;
         }
 
-        LOGGER.info("Building block archive - this process could take a while... (approx. 15 mins on high spec)");
-        SplashFrame.getInstance().updateStatus("Building block archive (takes 60+ mins)...");
+        LOGGER.info("Building block archive - this process could take a while...");
+        SplashFrame.getInstance().updateStatus("Building block archive...");
 
         final int maximumArchiveHeight = BlockArchiveWriter.getMaxArchiveHeight(repository);
         int startHeight = 0;
