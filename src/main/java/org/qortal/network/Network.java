@@ -100,9 +100,23 @@ public class Network {
     private long nextDisconnectionCheck = 0L;
 
     private final List<PeerData> allKnownPeers = new ArrayList<>();
-    private List<Peer> connectedPeers = Collections.unmodifiableList(new ArrayList<>());
-    private List<Peer> handshakedPeers = Collections.unmodifiableList(new ArrayList<>());
-    private List<Peer> outboundHandshakedPeers = Collections.unmodifiableList(new ArrayList<>());
+
+    /**
+     * Maintain two lists for each subset of peers:
+     * - A synchronizedList, to be modified when peers are added/removed
+     * - An immutable List, which is rebuilt automatically to mirror the synchronized list, and is then served to consumers
+     * This allows for thread safety without having to synchronize every time a thread requests a peer list
+     */
+    private final List<Peer> connectedPeers = Collections.synchronizedList(new ArrayList<>());
+    private List<Peer> immutableConnectedPeers = Collections.emptyList(); // always rebuilt from mutable, synced list above
+
+    private final List<Peer> handshakedPeers = Collections.synchronizedList(new ArrayList<>());
+    private List<Peer> immutableHandshakedPeers = Collections.emptyList(); // always rebuilt from mutable, synced list above
+
+    private final List<Peer> outboundHandshakedPeers = Collections.synchronizedList(new ArrayList<>());
+    private List<Peer> immutableOutboundHandshakedPeers = Collections.emptyList(); // always rebuilt from mutable, synced list above
+
+
     private final List<PeerAddress> selfPeers = new ArrayList<>();
 
     private final ExecuteProduceConsume networkEPC;
@@ -240,23 +254,20 @@ public class Network {
     }
 
     public List<Peer> getConnectedPeers() {
-        return this.connectedPeers;
+        return this.immutableConnectedPeers;
     }
 
     public void addConnectedPeer(Peer peer) {
-        List<Peer> mutableConnectedPeers = new ArrayList<>(this.connectedPeers);
-        mutableConnectedPeers.add(peer);
-        this.connectedPeers = Collections.unmodifiableList(mutableConnectedPeers);
+        this.connectedPeers.add(peer); // thread safe thanks to synchronized list
+        this.immutableConnectedPeers = List.copyOf(this.connectedPeers); // also thread safe thanks to synchronized collection's toArray() being fed to List.of(array)
     }
 
     public void removeConnectedPeer(Peer peer) {
         // Firstly remove from handshaked peers
         this.removeHandshakedPeer(peer);
 
-        // Now remove from connected peers
-        List<Peer> mutableConnectedPeers = new ArrayList<>(this.connectedPeers);
-        mutableConnectedPeers.remove(peer);
-        this.connectedPeers = Collections.unmodifiableList(mutableConnectedPeers);
+        this.connectedPeers.remove(peer); // thread safe thanks to synchronized list
+        this.immutableConnectedPeers = List.copyOf(this.connectedPeers); // also thread safe thanks to synchronized collection's toArray() being fed to List.of(array)
     }
 
     public List<PeerAddress> getSelfPeers() {
@@ -343,13 +354,12 @@ public class Network {
      * Returns list of connected peers that have completed handshaking.
      */
     public List<Peer> getHandshakedPeers() {
-        return this.handshakedPeers;
+        return this.immutableHandshakedPeers;
     }
 
     public void addHandshakedPeer(Peer peer) {
-        List<Peer> mutableHandshakedPeers = new ArrayList<>(this.handshakedPeers);
-        mutableHandshakedPeers.add(peer);
-        this.handshakedPeers = Collections.unmodifiableList(mutableHandshakedPeers);
+        this.handshakedPeers.add(peer); // thread safe thanks to synchronized list
+        this.immutableHandshakedPeers = List.copyOf(this.handshakedPeers); // also thread safe thanks to synchronized collection's toArray() being fed to List.of(array)
 
         // Also add to outbound handshaked peers cache
         if (peer.isOutbound()) {
@@ -358,9 +368,8 @@ public class Network {
     }
 
     public void removeHandshakedPeer(Peer peer) {
-        List<Peer> mutableHandshakedPeers = new ArrayList<>(this.handshakedPeers);
-        mutableHandshakedPeers.remove(peer);
-        this.handshakedPeers = Collections.unmodifiableList(mutableHandshakedPeers);
+        this.handshakedPeers.remove(peer); // thread safe thanks to synchronized list
+        this.immutableHandshakedPeers = List.copyOf(this.handshakedPeers); // also thread safe thanks to synchronized collection's toArray() being fed to List.of(array)
 
         // Also remove from outbound handshaked peers cache
         if (peer.isOutbound()) {
@@ -372,26 +381,23 @@ public class Network {
      * Returns list of peers we connected to that have completed handshaking.
      */
     public List<Peer> getOutboundHandshakedPeers() {
-        return this.outboundHandshakedPeers;
+        return this.immutableOutboundHandshakedPeers;
     }
 
     public void addOutboundHandshakedPeer(Peer peer) {
         if (!peer.isOutbound()) {
             return;
         }
-        
-        List<Peer> mutableOutboundHandshakedPeers = new ArrayList<>(this.outboundHandshakedPeers);
-        mutableOutboundHandshakedPeers.add(peer);
-        this.outboundHandshakedPeers = Collections.unmodifiableList(mutableOutboundHandshakedPeers);
+        this.outboundHandshakedPeers.add(peer); // thread safe thanks to synchronized list
+        this.immutableOutboundHandshakedPeers = List.copyOf(this.outboundHandshakedPeers); // also thread safe thanks to synchronized collection's toArray() being fed to List.of(array)
     }
 
     public void removeOutboundHandshakedPeer(Peer peer) {
         if (!peer.isOutbound()) {
             return;
         }
-        List<Peer> mutableOutboundHandshakedPeers = new ArrayList<>(this.outboundHandshakedPeers);
-        mutableOutboundHandshakedPeers.remove(peer);
-        this.outboundHandshakedPeers = Collections.unmodifiableList(mutableOutboundHandshakedPeers);
+        this.outboundHandshakedPeers.remove(peer); // thread safe thanks to synchronized list
+        this.immutableOutboundHandshakedPeers = List.copyOf(this.outboundHandshakedPeers); // also thread safe thanks to synchronized collection's toArray() being fed to List.of(array)
     }
 
     /**
