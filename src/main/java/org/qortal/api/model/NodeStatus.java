@@ -24,7 +24,7 @@ public class NodeStatus {
 		this.isMintingPossible = Controller.getInstance().isMintingPossible();
 
 		this.syncPercent = Synchronizer.getInstance().getSyncPercent();
-		this.isSynchronizing = this.syncPercent != null;
+		this.isSynchronizing = Synchronizer.getInstance().isSynchronizing();
 
 		this.numberOfConnections = Network.getInstance().getImmutableHandshakedPeers().size();
 

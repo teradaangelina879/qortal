@@ -173,6 +173,12 @@ public class Synchronizer extends Thread {
 
 	public Integer getSyncPercent() {
 		synchronized (this.syncLock) {
+			// Report as 100% synced if the latest block is within the last 30 mins
+			final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
+			if (Controller.getInstance().isUpToDate(minLatestBlockTimestamp)) {
+				return 100;
+			}
+
 			return this.isSynchronizing ? this.syncPercent : null;
 		}
 	}
