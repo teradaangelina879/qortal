@@ -63,9 +63,7 @@ public class BlockArchiveReader {
                 map.put(filename, new Triple(startHeight, endHeight, range));
             }
         }
-        synchronized (this.fileListCache) {
-            this.fileListCache = map;
-        }
+        this.fileListCache = map;
     }
 
     public Triple<BlockData, List<TransactionData>, List<ATStateData>> fetchBlockAtHeight(int height) {
