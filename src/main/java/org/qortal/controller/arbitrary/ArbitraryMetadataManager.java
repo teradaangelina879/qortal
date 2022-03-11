@@ -139,7 +139,7 @@ public class ArbitraryMetadataManager {
         }
         this.addToSignatureRequests(signature58, true, false);
 
-        List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
+        List<Peer> handshakedPeers = Network.getInstance().getImmutableHandshakedPeers();
         LOGGER.debug(String.format("Sending metadata request for signature %s to %d peers...", signature58, handshakedPeers.size()));
 
         // Build request

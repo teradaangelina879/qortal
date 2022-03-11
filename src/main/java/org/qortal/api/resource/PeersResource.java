@@ -61,7 +61,7 @@ public class PeersResource {
 		}
 	)
 	public List<ConnectedPeer> getPeers() {
-		return Network.getInstance().getConnectedPeers().stream().map(ConnectedPeer::new).collect(Collectors.toList());
+		return Network.getInstance().getImmutableConnectedPeers().stream().map(ConnectedPeer::new).collect(Collectors.toList());
 	}
 
 	@GET
@@ -304,7 +304,7 @@ public class PeersResource {
 			PeerAddress peerAddress = PeerAddress.fromString(targetPeerAddress);
 			InetSocketAddress resolvedAddress = peerAddress.toSocketAddress();
 
-			List<Peer> peers = Network.getInstance().getHandshakedPeers();
+			List<Peer> peers = Network.getInstance().getImmutableHandshakedPeers();
 			Peer targetPeer = peers.stream().filter(peer -> peer.getResolvedAddress().equals(resolvedAddress)).findFirst().orElse(null);
 
 			if (targetPeer == null)
@@ -352,7 +352,7 @@ public class PeersResource {
 	public PeersSummary peersSummary() {
 		PeersSummary peersSummary = new PeersSummary();
 
-		List<Peer> connectedPeers = Network.getInstance().getConnectedPeers().stream().collect(Collectors.toList());
+		List<Peer> connectedPeers = Network.getInstance().getImmutableConnectedPeers().stream().collect(Collectors.toList());
 		for (Peer peer : connectedPeers) {
 			if (!peer.isOutbound()) {
 				peersSummary.inboundConnections++;

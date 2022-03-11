@@ -253,7 +253,7 @@ public class Network {
         }
     }
 
-    public List<Peer> getConnectedPeers() {
+    public List<Peer> getImmutableConnectedPeers() {
         return this.immutableConnectedPeers;
     }
 
@@ -302,14 +302,14 @@ public class Network {
             }
 
             // Check if we're already connected to and handshaked with this peer
-            Peer connectedPeer = this.getConnectedPeers().stream()
+            Peer connectedPeer = this.getImmutableConnectedPeers().stream()
                         .filter(p -> p.getPeerData().getAddress().equals(peerAddress))
                         .findFirst()
                         .orElse(null);
 
             boolean isConnected = (connectedPeer != null);
 
-            boolean isHandshaked = this.getHandshakedPeers().stream()
+            boolean isHandshaked = this.getImmutableHandshakedPeers().stream()
                     .anyMatch(p -> p.getPeerData().getAddress().equals(peerAddress));
 
             if (isConnected && isHandshaked) {
@@ -353,7 +353,7 @@ public class Network {
     /**
      * Returns list of connected peers that have completed handshaking.
      */
-    public List<Peer> getHandshakedPeers() {
+    public List<Peer> getImmutableHandshakedPeers() {
         return this.immutableHandshakedPeers;
     }
 
@@ -380,7 +380,7 @@ public class Network {
     /**
      * Returns list of peers we connected to that have completed handshaking.
      */
-    public List<Peer> getOutboundHandshakedPeers() {
+    public List<Peer> getImmutableOutboundHandshakedPeers() {
         return this.immutableOutboundHandshakedPeers;
     }
 
@@ -404,7 +404,7 @@ public class Network {
      * Returns first peer that has completed handshaking and has matching public key.
      */
     public Peer getHandshakedPeerWithPublicKey(byte[] publicKey) {
-        return this.getConnectedPeers().stream()
+        return this.getImmutableConnectedPeers().stream()
                 .filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED
                         && Arrays.equals(peer.getPeersPublicKey(), publicKey))
                 .findFirst().orElse(null);
@@ -422,13 +422,13 @@ public class Network {
 
     private final Predicate<PeerData> isConnectedPeer = peerData -> {
         PeerAddress peerAddress = peerData.getAddress();
-        return this.getConnectedPeers().stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
+        return this.getImmutableConnectedPeers().stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
     };
 
     private final Predicate<PeerData> isResolvedAsConnectedPeer = peerData -> {
         try {
             InetSocketAddress resolvedSocketAddress = peerData.getAddress().toSocketAddress();
-            return this.getConnectedPeers().stream()
+            return this.getImmutableConnectedPeers().stream()
                     .anyMatch(peer -> peer.getResolvedAddress().equals(resolvedSocketAddress));
         } catch (UnknownHostException e) {
             // Can't resolve - no point even trying to connect
@@ -494,7 +494,7 @@ public class Network {
         }
 
         private Task maybeProducePeerMessageTask() {
-            for (Peer peer : getConnectedPeers()) {
+            for (Peer peer : getImmutableConnectedPeers()) {
                 Task peerTask = peer.getMessageTask();
                 if (peerTask != null) {
                     return peerTask;
@@ -506,7 +506,7 @@ public class Network {
 
         private Task maybeProducePeerPingTask(Long now) {
             // Ask connected peers whether they need a ping
-            for (Peer peer : getHandshakedPeers()) {
+            for (Peer peer : getImmutableHandshakedPeers()) {
                 Task peerTask = peer.getPingTask(now);
                 if (peerTask != null) {
                     return peerTask;
@@ -534,7 +534,7 @@ public class Network {
                 return null;
             }
 
-            if (getOutboundHandshakedPeers().size() >= minOutboundPeers) {
+            if (getImmutableOutboundHandshakedPeers().size() >= minOutboundPeers) {
                 return null;
             }
 
@@ -798,7 +798,7 @@ public class Network {
     }
 
     private Peer getPeerFromChannel(SocketChannel socketChannel) {
-        for (Peer peer : this.getConnectedPeers()) {
+        for (Peer peer : this.getImmutableConnectedPeers()) {
             if (peer.getSocketChannel() == socketChannel) {
                 return peer;
             }
@@ -813,7 +813,7 @@ public class Network {
         }
 
         // Find peers that have reached their maximum connection age, and disconnect them
-        List<Peer> peersToDisconnect = this.getConnectedPeers().stream()
+        List<Peer> peersToDisconnect = this.getImmutableConnectedPeers().stream()
                 .filter(peer -> !peer.isSyncInProgress())
                 .filter(peer -> peer.hasReachedMaxConnectionAge())
                 .collect(Collectors.toList());
@@ -1290,7 +1290,7 @@ public class Network {
             }
         }
 
-        for (Peer peer : this.getConnectedPeers()) {
+        for (Peer peer : this.getImmutableConnectedPeers()) {
             peer.disconnect("to be forgotten");
         }
 
@@ -1302,7 +1302,7 @@ public class Network {
         try {
             InetSocketAddress knownAddress = peerAddress.toSocketAddress();
 
-            List<Peer> peers = this.getConnectedPeers();
+            List<Peer> peers = this.getImmutableConnectedPeers();
             peers.removeIf(peer -> !Peer.addressEquals(knownAddress, peer.getResolvedAddress()));
 
             for (Peer peer : peers) {
@@ -1323,7 +1323,7 @@ public class Network {
 
         // Disconnect peers that are stuck during handshake
         // Needs a mutable copy of the unmodifiableList
-        List<Peer> handshakePeers = new ArrayList<>(this.getConnectedPeers());
+        List<Peer> handshakePeers = new ArrayList<>(this.getImmutableConnectedPeers());
 
         // Disregard peers that have completed handshake or only connected recently
         handshakePeers.removeIf(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED
@@ -1500,7 +1500,7 @@ public class Network {
         }
 
         try {
-            broadcastExecutor.execute(new Broadcaster(this.getHandshakedPeers(), peerMessageBuilder));
+            broadcastExecutor.execute(new Broadcaster(this.getImmutableHandshakedPeers(), peerMessageBuilder));
         } catch (RejectedExecutionException e) {
             // Can't execute - probably because we're shutting down, so ignore
         }
@@ -1538,7 +1538,7 @@ public class Network {
         }
 
         // Close all peer connections
-        for (Peer peer : this.getConnectedPeers()) {
+        for (Peer peer : this.getImmutableConnectedPeers()) {
             peer.shutdown();
         }
     }

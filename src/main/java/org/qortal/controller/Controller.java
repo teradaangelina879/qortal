@@ -717,7 +717,7 @@ public class Controller extends Thread {
 			return;
 		}
 
-		final int numberOfPeers = Network.getInstance().getHandshakedPeers().size();
+		final int numberOfPeers = Network.getInstance().getImmutableHandshakedPeers().size();
 
 		final int height = getChainHeight();
 
@@ -1447,7 +1447,7 @@ public class Controller extends Thread {
 			return null;
 
 		// Needs a mutable copy of the unmodifiableList
-		List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
+		List<Peer> peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());
 
 		// Filter out unsuitable peers
 		Iterator<Peer> iterator = peers.iterator();
@@ -1497,7 +1497,7 @@ public class Controller extends Thread {
 			return false;
 
 		// Needs a mutable copy of the unmodifiableList
-		List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
+		List<Peer> peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());
 		if (peers == null)
 			return false;
 

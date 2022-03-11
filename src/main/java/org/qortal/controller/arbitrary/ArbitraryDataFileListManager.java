@@ -268,7 +268,7 @@ public class ArbitraryDataFileListManager {
         }
         this.addToSignatureRequests(signature58, true, false);
 
-        List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
+        List<Peer> handshakedPeers = Network.getInstance().getImmutableHandshakedPeers();
         List<byte[]> missingHashes = null;
 
         // Find hashes that we are missing

@@ -196,7 +196,7 @@ public class Synchronizer extends Thread {
 			return true;
 
 		// Needs a mutable copy of the unmodifiableList
-		List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
+		List<Peer> peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());
 
 		// Disregard peers that have "misbehaved" recently
 		peers.removeIf(Controller.hasMisbehaved);
@@ -213,7 +213,7 @@ public class Synchronizer extends Thread {
 		checkRecoveryModeForPeers(peers);
 		if (recoveryMode) {
 			// Needs a mutable copy of the unmodifiableList
-			peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
+			peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());
 			peers.removeIf(Controller.hasOnlyGenesisBlock);
 			peers.removeIf(Controller.hasMisbehaved);
 			peers.removeIf(Controller.hasOldVersion);
@@ -372,7 +372,7 @@ public class Synchronizer extends Thread {
 	}
 
 	private boolean checkRecoveryModeForPeers(List<Peer> qualifiedPeers) {
-		List<Peer> handshakedPeers = Network.getInstance().getHandshakedPeers();
+		List<Peer> handshakedPeers = Network.getInstance().getImmutableHandshakedPeers();
 
 		if (handshakedPeers.size() > 0) {
 			// There is at least one handshaked peer

@@ -149,7 +149,7 @@ public class BlockMinter extends Thread {
 				}
 
 				// Needs a mutable copy of the unmodifiableList
-				List<Peer> peers = new ArrayList<>(Network.getInstance().getHandshakedPeers());
+				List<Peer> peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());
 				BlockData lastBlockData = blockRepository.getLastBlock();
 
 				// Disregard peers that have "misbehaved" recently
@@ -545,7 +545,7 @@ public class BlockMinter extends Thread {
 		}
 		NumberFormat formatter = new DecimalFormat("0.###E0");
 
-		List<Peer> peers = Network.getInstance().getHandshakedPeers();
+		List<Peer> peers = Network.getInstance().getImmutableHandshakedPeers();
 		// Loop through handshaked peers and check for any new block candidates
 		for (Peer peer : peers) {
 			if (peer.getCommonBlockData() != null && peer.getCommonBlockData().getCommonBlockSummary() != null) {

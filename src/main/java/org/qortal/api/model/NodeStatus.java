@@ -26,7 +26,7 @@ public class NodeStatus {
 		this.syncPercent = Synchronizer.getInstance().getSyncPercent();
 		this.isSynchronizing = this.syncPercent != null;
 
-		this.numberOfConnections = Network.getInstance().getHandshakedPeers().size();
+		this.numberOfConnections = Network.getInstance().getImmutableHandshakedPeers().size();
 
 		this.height = Controller.getInstance().getChainHeight();
 	}

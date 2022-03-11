@@ -35,7 +35,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
-import org.checkerframework.checker.units.qual.A;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.*;
@@ -514,7 +513,7 @@ public class AdminResource {
 			PeerAddress peerAddress = PeerAddress.fromString(targetPeerAddress);
 			InetSocketAddress resolvedAddress = peerAddress.toSocketAddress();
 
-			List<Peer> peers = Network.getInstance().getHandshakedPeers();
+			List<Peer> peers = Network.getInstance().getImmutableHandshakedPeers();
 			Peer targetPeer = peers.stream().filter(peer -> peer.getResolvedAddress().equals(resolvedAddress)).findFirst().orElse(null);
 
 			if (targetPeer == null)
