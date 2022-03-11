@@ -114,8 +114,10 @@ public abstract class ExecuteProduceConsume implements Runnable {
 			if (this.activeThreadCount > this.greatestActiveThreadCount)
 				this.greatestActiveThreadCount = this.activeThreadCount;
 
-			this.logger.trace(() -> String.format("[%d] started, hasThreadPending was: %b, activeThreadCount now: %d",
-					Thread.currentThread().getId(), this.hasThreadPending, this.activeThreadCount));
+			if (this.isLoggerTraceEnabled) {
+				this.logger.trace(() -> String.format("[%d] started, hasThreadPending was: %b, activeThreadCount now: %d",
+						Thread.currentThread().getId(), this.hasThreadPending, this.activeThreadCount));
+			}
 
 			// Defer clearing hasThreadPending to prevent unnecessary threads waiting to produce...
 			wasThreadPending = this.hasThreadPending;
@@ -128,7 +130,9 @@ public abstract class ExecuteProduceConsume implements Runnable {
 			while (!Thread.currentThread().isInterrupted()) {
 				Task task = null;
 
-				this.logger.trace(() -> String.format("[%d] waiting to produce...", Thread.currentThread().getId()));
+				if (this.isLoggerTraceEnabled) {
+					this.logger.trace(() -> String.format("[%d] waiting to produce...", Thread.currentThread().getId()));
+				}
 
 				synchronized (this) {
 					if (wasThreadPending) {
@@ -138,8 +142,10 @@ public abstract class ExecuteProduceConsume implements Runnable {
 					}
 
 					final boolean lambdaCanIdle = canBlock;
-					this.logger.trace(() -> String.format("[%d] producing, activeThreadCount: %d, consumerCount: %d, canBlock is %b...",
-							Thread.currentThread().getId(), this.activeThreadCount, this.consumerCount, lambdaCanIdle));
+					if (this.isLoggerTraceEnabled) {
+						this.logger.trace(() -> String.format("[%d] producing, activeThreadCount: %d, consumerCount: %d, canBlock is %b...",
+								Thread.currentThread().getId(), this.activeThreadCount, this.consumerCount, lambdaCanIdle));
+					}
 
 					final long beforeProduce = isLoggerTraceEnabled ? System.currentTimeMillis() : 0;
 
@@ -152,18 +158,24 @@ public abstract class ExecuteProduceConsume implements Runnable {
 						this.logger.warn(() -> String.format("[%d] exception while trying to produce task", Thread.currentThread().getId()), e);
 					}
 
-					this.logger.trace(() -> String.format("[%d] producing took %dms", Thread.currentThread().getId(), System.currentTimeMillis() - beforeProduce));
+					if (this.isLoggerTraceEnabled) {
+						this.logger.trace(() -> String.format("[%d] producing took %dms", Thread.currentThread().getId(), System.currentTimeMillis() - beforeProduce));
+					}
 				}
 
 				if (task == null)
 					synchronized (this) {
-						this.logger.trace(() -> String.format("[%d] no task, activeThreadCount: %d, consumerCount: %d",
-								Thread.currentThread().getId(), this.activeThreadCount, this.consumerCount));
+						if (this.isLoggerTraceEnabled) {
+							this.logger.trace(() -> String.format("[%d] no task, activeThreadCount: %d, consumerCount: %d",
+									Thread.currentThread().getId(), this.activeThreadCount, this.consumerCount));
+						}
 
 						if (this.activeThreadCount > this.consumerCount + 1) {
 							--this.activeThreadCount;
-							this.logger.trace(() -> String.format("[%d] ending, activeThreadCount now: %d",
-									Thread.currentThread().getId(), this.activeThreadCount));
+							if (this.isLoggerTraceEnabled) {
+								this.logger.trace(() -> String.format("[%d] ending, activeThreadCount now: %d",
+										Thread.currentThread().getId(), this.activeThreadCount));
+							}
 
 							return;
 						}
@@ -180,12 +192,16 @@ public abstract class ExecuteProduceConsume implements Runnable {
 					++this.tasksProduced;
 					++this.consumerCount;
 
-					this.logger.trace(() -> String.format("[%d] hasThreadPending: %b, activeThreadCount: %d, consumerCount now: %d",
-							Thread.currentThread().getId(), this.hasThreadPending, this.activeThreadCount, this.consumerCount));
+					if (this.isLoggerTraceEnabled) {
+						this.logger.trace(() -> String.format("[%d] hasThreadPending: %b, activeThreadCount: %d, consumerCount now: %d",
+								Thread.currentThread().getId(), this.hasThreadPending, this.activeThreadCount, this.consumerCount));
+					}
 
 					// If we have no thread pending and no excess of threads then we should spawn a fresh thread
 					if (!this.hasThreadPending && this.activeThreadCount <= this.consumerCount + 1) {
-						this.logger.trace(() -> String.format("[%d] spawning another thread", Thread.currentThread().getId()));
+						if (this.isLoggerTraceEnabled) {
+							this.logger.trace(() -> String.format("[%d] spawning another thread", Thread.currentThread().getId()));
+						}
 						this.hasThreadPending = true;
 
 						try {
@@ -193,15 +209,21 @@ public abstract class ExecuteProduceConsume implements Runnable {
 						} catch (RejectedExecutionException e) {
 							++this.spawnFailures;
 							this.hasThreadPending = false;
-							this.logger.trace(() -> String.format("[%d] failed to spawn another thread", Thread.currentThread().getId()));
+							if (this.isLoggerTraceEnabled) {
+								this.logger.trace(() -> String.format("[%d] failed to spawn another thread", Thread.currentThread().getId()));
+							}
 							this.onSpawnFailure();
 						}
 					} else {
-						this.logger.trace(() -> String.format("[%d] NOT spawning another thread", Thread.currentThread().getId()));
+						if (this.isLoggerTraceEnabled) {
+							this.logger.trace(() -> String.format("[%d] NOT spawning another thread", Thread.currentThread().getId()));
+						}
 					}
 				}
 
-				this.logger.trace(() -> String.format("[%d] performing task...", Thread.currentThread().getId()));
+				if (this.isLoggerTraceEnabled) {
+					this.logger.trace(() -> String.format("[%d] performing task...", Thread.currentThread().getId()));
+				}
 
 				try {
 					task.perform(); // This can block for a while
@@ -212,14 +234,18 @@ public abstract class ExecuteProduceConsume implements Runnable {
 					this.logger.warn(() -> String.format("[%d] exception while performing task", Thread.currentThread().getId()), e);
 				}
 
-				this.logger.trace(() -> String.format("[%d] finished task", Thread.currentThread().getId()));
+				if (this.isLoggerTraceEnabled) {
+					this.logger.trace(() -> String.format("[%d] finished task", Thread.currentThread().getId()));
+				}
 
 				synchronized (this) {
 					++this.tasksConsumed;
 					--this.consumerCount;
 
-					this.logger.trace(() -> String.format("[%d] consumerCount now: %d",
-							Thread.currentThread().getId(), this.consumerCount));
+					if (this.isLoggerTraceEnabled) {
+						this.logger.trace(() -> String.format("[%d] consumerCount now: %d",
+								Thread.currentThread().getId(), this.consumerCount));
+					}
 
 					// Quicker, non-blocking produce next round
 					canBlock = false;
