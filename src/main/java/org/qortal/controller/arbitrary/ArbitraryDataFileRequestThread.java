@@ -55,9 +55,9 @@ public class ArbitraryDataFileRequestThread implements Runnable {
                 // Sort by lowest number of node hops first
                 Comparator<ArbitraryFileListResponseInfo> lowestHopsFirstComparator =
                         Comparator.comparingInt(ArbitraryFileListResponseInfo::getRequestHops);
-                arbitraryDataFileManager.arbitraryDataFileHashResponses = arbitraryDataFileManager.arbitraryDataFileHashResponses
-                        .stream().sorted(lowestHopsFirstComparator)
-                        .collect(Collectors.toCollection(() -> Collections.synchronizedList(new ArrayList<>())));
+                List<ArbitraryFileListResponseInfo> sortedResponses = arbitraryDataFileManager.arbitraryDataFileHashResponses
+                        .stream().sorted(lowestHopsFirstComparator).collect(Collectors.toList());
+                arbitraryDataFileManager.arbitraryDataFileHashResponses = Collections.synchronizedList(sortedResponses);
 
                 Iterator iterator = arbitraryDataFileManager.arbitraryDataFileHashResponses.iterator();
                 while (iterator.hasNext()) {
