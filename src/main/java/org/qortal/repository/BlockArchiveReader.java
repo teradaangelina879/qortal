@@ -67,7 +67,7 @@ public class BlockArchiveReader {
     }
 
     public Triple<BlockData, List<TransactionData>, List<ATStateData>> fetchBlockAtHeight(int height) {
-        if (this.fileListCache == null || this.fileListCache.isEmpty()) {
+        if (this.fileListCache == null) {
             this.fetchFileList();
         }
 
@@ -94,7 +94,7 @@ public class BlockArchiveReader {
     public Triple<BlockData, List<TransactionData>, List<ATStateData>> fetchBlockWithSignature(
             byte[] signature, Repository repository) {
 
-        if (this.fileListCache == null || this.fileListCache.isEmpty()) {
+        if (this.fileListCache == null) {
             this.fetchFileList();
         }
 
@@ -145,7 +145,7 @@ public class BlockArchiveReader {
     }
 
     private String getFilenameForHeight(int height) {
-        if (this.fileListCache == null || this.fileListCache.isEmpty()) {
+        if (this.fileListCache == null) {
             this.fetchFileList();
         }
 
@@ -170,7 +170,7 @@ public class BlockArchiveReader {
     }
 
     public byte[] fetchSerializedBlockBytesForSignature(byte[] signature, boolean includeHeightPrefix, Repository repository) {
-        if (this.fileListCache == null || this.fileListCache.isEmpty()) {
+        if (this.fileListCache == null) {
             this.fetchFileList();
         }
 
