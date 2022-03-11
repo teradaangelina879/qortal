@@ -124,4 +124,8 @@ public class GetArbitraryDataFileListMessage extends Message {
 		this.requestHops = requestHops;
 	}
 
+	public String getRequestingPeer() {
+		return this.requestingPeer;
+	}
+
 }

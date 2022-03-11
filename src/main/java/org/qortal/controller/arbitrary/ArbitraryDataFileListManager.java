@@ -543,7 +543,6 @@ public class ArbitraryDataFileListManager {
         GetArbitraryDataFileListMessage getArbitraryDataFileListMessage = (GetArbitraryDataFileListMessage) message;
         byte[] signature = getArbitraryDataFileListMessage.getSignature();
         String signature58 = Base58.encode(signature);
-        List<byte[]> requestedHashes = getArbitraryDataFileListMessage.getHashes();
         Long now = NTP.getTime();
         Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, now);
 
@@ -553,7 +552,16 @@ public class ArbitraryDataFileListManager {
             return;
         }
 
-        LOGGER.debug("Received hash list request from peer {} for signature {}", peer, signature58);
+        List<byte[]> requestedHashes = getArbitraryDataFileListMessage.getHashes();
+        int hashCount = requestedHashes != null ? requestedHashes.size() : 0;
+        String requestingPeer = getArbitraryDataFileListMessage.getRequestingPeer();
+
+        if (requestingPeer != null) {
+            LOGGER.debug("Received hash list request with {} hashes from peer {} (requesting peer {}) for signature {}", hashCount, peer, requestingPeer, signature58);
+        }
+        else {
+            LOGGER.debug("Received hash list request with {} hashes from peer {} for signature {}", hashCount, peer, signature58);
+        }
 
         List<byte[]> hashes = new ArrayList<>();
         ArbitraryTransactionData transactionData = null;
