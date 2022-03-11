@@ -99,6 +99,9 @@ public class GetArbitraryDataFileListMessage extends Message {
 					bytes.write(hash);
 				}
 			}
+			else {
+				bytes.write(Ints.toByteArray(0));
+			}
 
 			if (this.requestingPeer != null) {
 				Serialization.serializeSizedStringV2(bytes, this.requestingPeer);
