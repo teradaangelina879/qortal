@@ -726,6 +726,10 @@ public class Controller extends Thread {
 
 		String actionText;
 
+		// Use a more tolerant latest block timestamp in the isUpToDate() calls below to reduce misleading statuses.
+		// Any block in the last 30 minutes is considered "up to date" for the purposes of displaying statuses.
+		final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
+
 		synchronized (Synchronizer.getInstance().syncLock) {
 			if (this.isMintingPossible) {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
@@ -735,11 +739,11 @@ public class Controller extends Thread {
 				actionText = Translator.INSTANCE.translate("SysTray", "CONNECTING");
 				SysTray.getInstance().setTrayIcon(3);
 			}
-			else if (!this.isUpToDate() && Synchronizer.getInstance().isSynchronizing()) {
+			else if (!this.isUpToDate(minLatestBlockTimestamp) && Synchronizer.getInstance().isSynchronizing()) {
 				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), Synchronizer.getInstance().getSyncPercent());
 				SysTray.getInstance().setTrayIcon(3);
 			}
-			else if (!this.isUpToDate()) {
+			else if (!this.isUpToDate(minLatestBlockTimestamp)) {
 				actionText = String.format("%s", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"));
 				SysTray.getInstance().setTrayIcon(3);
 			}
