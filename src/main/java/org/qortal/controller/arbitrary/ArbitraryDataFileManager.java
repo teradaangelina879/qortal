@@ -48,7 +48,7 @@ public class ArbitraryDataFileManager extends Thread {
     /**
      * List to keep track of any arbitrary data file hash responses
      */
-    public List<ArbitraryFileListResponseInfo> arbitraryDataFileHashResponses = Collections.synchronizedList(new ArrayList<>());
+    public final List<ArbitraryFileListResponseInfo> arbitraryDataFileHashResponses = Collections.synchronizedList(new ArrayList<>());
 
     /**
      * List to keep track of peers potentially available for direct connections, based on recent requests
