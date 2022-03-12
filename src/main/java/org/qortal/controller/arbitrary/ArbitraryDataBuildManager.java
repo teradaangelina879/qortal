@@ -75,12 +75,8 @@ public class ArbitraryDataBuildManager extends Thread {
         if (now == null) {
             return;
         }
-        synchronized (arbitraryDataBuildQueue) {
-            arbitraryDataBuildQueue.entrySet().removeIf(entry -> entry.getValue().hasReachedBuildTimeout(now));
-        }
-        synchronized (arbitraryDataFailedBuilds) {
-            arbitraryDataFailedBuilds.entrySet().removeIf(entry -> entry.getValue().hasReachedFailureTimeout(now));
-        }
+        arbitraryDataBuildQueue.entrySet().removeIf(entry -> entry.getValue().hasReachedBuildTimeout(now));
+        arbitraryDataFailedBuilds.entrySet().removeIf(entry -> entry.getValue().hasReachedFailureTimeout(now));
     }
 
     // Build queue

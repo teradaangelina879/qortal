@@ -101,22 +101,14 @@ public class ArbitraryDataFileManager extends Thread {
             return;
         }
         final long requestMinimumTimestamp = now - ArbitraryDataManager.getInstance().ARBITRARY_REQUEST_TIMEOUT;
-        synchronized (arbitraryDataFileRequests) {
-            arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < requestMinimumTimestamp);
-        }
+        arbitraryDataFileRequests.entrySet().removeIf(entry -> entry.getValue() == null || entry.getValue() < requestMinimumTimestamp);
 
         final long relayMinimumTimestamp = now - ArbitraryDataManager.getInstance().ARBITRARY_RELAY_TIMEOUT;
-        synchronized (arbitraryRelayMap) {
-            arbitraryRelayMap.removeIf(entry -> entry == null || entry.getTimestamp() == null || entry.getTimestamp() < relayMinimumTimestamp);
-        }
-        synchronized (arbitraryDataFileHashResponses) {
-            arbitraryDataFileHashResponses.removeIf(entry -> entry.getTimestamp() < relayMinimumTimestamp);
-        }
+        arbitraryRelayMap.removeIf(entry -> entry == null || entry.getTimestamp() == null || entry.getTimestamp() < relayMinimumTimestamp);
+        arbitraryDataFileHashResponses.removeIf(entry -> entry.getTimestamp() < relayMinimumTimestamp);
 
         final long directConnectionInfoMinimumTimestamp = now - ArbitraryDataManager.getInstance().ARBITRARY_DIRECT_CONNECTION_INFO_TIMEOUT;
-        synchronized (directConnectionInfo) {
-            directConnectionInfo.removeIf(entry -> entry.getTimestamp() < directConnectionInfoMinimumTimestamp);
-        }
+        directConnectionInfo.removeIf(entry -> entry.getTimestamp() < directConnectionInfoMinimumTimestamp);
     }
 
 
@@ -492,9 +484,7 @@ public class ArbitraryDataFileManager extends Thread {
     }
 
     private void removeFromRelayMap(ArbitraryRelayInfo entry) {
-        synchronized (arbitraryRelayMap) {
-            arbitraryRelayMap.removeIf(relayInfo -> relayInfo.equals(entry));
-        }
+        arbitraryRelayMap.removeIf(relayInfo -> relayInfo.equals(entry));
     }
 
 
