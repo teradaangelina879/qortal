@@ -95,7 +95,7 @@ public class Synchronizer extends Thread {
 	private static Synchronizer instance;
 
 	public enum SynchronizationResult {
-		OK, NOTHING_TO_DO, GENESIS_ONLY, NO_COMMON_BLOCK, TOO_DIVERGENT, NO_REPLY, INFERIOR_CHAIN, INVALID_DATA, NO_BLOCKCHAIN_LOCK, REPOSITORY_ISSUE, SHUTTING_DOWN;
+		OK, NOTHING_TO_DO, GENESIS_ONLY, NO_COMMON_BLOCK, TOO_DIVERGENT, NO_REPLY, INFERIOR_CHAIN, INVALID_DATA, NO_BLOCKCHAIN_LOCK, REPOSITORY_ISSUE, SHUTTING_DOWN, CHAIN_TIP_TOO_OLD;
 	}
 
 	public static class NewChainTipEvent implements Event {
@@ -245,6 +245,12 @@ public class Synchronizer extends Thread {
 
 		// We may have added more inferior chain tips when comparing peers, so remove any peers that are currently on those chains
 		peers.removeIf(Controller.hasInferiorChainTip);
+
+		// Remove any peers that are no longer on a recent block since the last check
+		// Except for times when we're in recovery mode, in which case we need to keep them
+		if (!recoveryMode) {
+			peers.removeIf(Controller.hasNoRecentBlock);
+		}
 
 		final int peersRemoved = peersBeforeComparison - peers.size();
 		if (peersRemoved > 0 && peers.size() > 0)
@@ -563,7 +569,7 @@ public class Synchronizer extends Thread {
 				// If our latest block is very old, it's best that we don't try and determine the best peers to sync to.
 				// This is because it can involve very large chain comparisons, which is too intensive.
 				// In reality, most forking problems occur near the chain tips, so we will reserve this functionality for those situations.
-				final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+				Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 				if (minLatestBlockTimestamp == null)
 					return peers;
 
@@ -719,12 +725,21 @@ public class Synchronizer extends Thread {
 					LOGGER.debug(String.format("Listing peers with common block %.8s...", Base58.encode(commonBlockSummary.getSignature())));
 					for (Peer peer : peersSharingCommonBlock) {
 						final int peerHeight = peer.getChainTipData().getLastHeight();
+						final Long peerLastBlockTimestamp = peer.getChainTipData().getLastBlockTimestamp();
 						final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
 						final CommonBlockData peerCommonBlockData = peer.getCommonBlockData();
 
 						if (peerCommonBlockData == null || peerCommonBlockData.getBlockSummariesAfterCommonBlock() == null || peerCommonBlockData.getBlockSummariesAfterCommonBlock().isEmpty()) {
 							// No response - remove this peer for now
 							LOGGER.debug(String.format("Peer %s doesn't have any block summaries - removing it from this round", peer));
+							peers.remove(peer);
+							continue;
+						}
+
+						// If peer is our of date (since our last check), we should exclude it from this round
+						minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+						if (peerLastBlockTimestamp == null || peerLastBlockTimestamp < minLatestBlockTimestamp) {
+							LOGGER.debug(String.format("Peer %s is out of date - removing it from this round", peer));
 							peers.remove(peer);
 							continue;
 						}
@@ -1289,6 +1304,16 @@ public class Synchronizer extends Thread {
 			if (this.containsInvalidBlockSignature(peerBlockSignatures)) {
 				LOGGER.info(String.format("Peer %s sent invalid block signature: %.8s", peer, Base58.encode(latestPeerSignature)));
 				return SynchronizationResult.INVALID_DATA;
+			}
+
+			// Final check to make sure the peer isn't out of date (except for when we're in recovery mode)
+			if (!recoveryMode && peer.getChainTipData() != null) {
+				final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+				final Long peerLastBlockTimestamp = peer.getChainTipData().getLastBlockTimestamp();
+				if (peerLastBlockTimestamp == null || peerLastBlockTimestamp < minLatestBlockTimestamp) {
+					LOGGER.info(String.format("Peer %s is out of date, so abandoning sync attempt", peer));
+					return SynchronizationResult.CHAIN_TIP_TOO_OLD;
+				}
 			}
 
 			byte[] nextPeerSignature = peerBlockSignatures.get(0);
