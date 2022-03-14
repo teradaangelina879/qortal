@@ -17,6 +17,8 @@ import org.qortal.utils.NTP;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -204,6 +206,37 @@ public class BootstrapTests extends Common {
 
         // Ensure that all have been given the opportunity to be used
         assertEquals(uniqueHosts.size(), Arrays.asList(bootstrapHosts).size());
+    }
+
+    @Test
+    public void testBootstrapHosts() throws IOException {
+        String[] bootstrapHosts = Settings.getInstance().getBootstrapHosts();
+        String[] bootstrapTypes = { "archive", "toponly" };
+
+        for (String host : bootstrapHosts) {
+            for (String type : bootstrapTypes) {
+                String bootstrapFilename = String.format("bootstrap-%s.7z", type);
+                String bootstrapUrl = String.format("%s/%s", host, bootstrapFilename);
+
+                // Make a HEAD request to check the status of each bootstrap file
+                URL url = new URL(bootstrapUrl);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("HEAD");
+                connection.connect();
+                long fileSize = connection.getContentLengthLong();
+                long lastModified = connection.getLastModified();
+                connection.disconnect();
+
+                // Ensure the bootstrap exists and has a size greated than 100MiB
+                System.out.println(String.format("%s %s size is %d bytes", host, type, fileSize));
+                assertTrue("Bootstrap size must be at least 100MiB", fileSize > 100*1024*1024L);
+
+                // Ensure the bootstrap has been published recently (in the last 3 days)
+                long minimumLastMofifiedTimestamp = NTP.getTime() - (3 * 24 * 60 * 60 * 1000L);
+                System.out.println(String.format("%s %s last modified timestamp is %d", host, type, lastModified));
+                assertTrue("Bootstrap last modified date must be in the last 3 days", lastModified > minimumLastMofifiedTimestamp);
+            }
+        }
     }
 
     private void deleteBootstraps() throws IOException {
