@@ -330,6 +330,7 @@ public class Synchronizer extends Thread {
 				case NO_REPLY:
 				case NO_BLOCKCHAIN_LOCK:
 				case REPOSITORY_ISSUE:
+				case CHAIN_TIP_TOO_OLD:
 					// These are minor failure results so fine to try again
 					LOGGER.debug(() -> String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
 					break;
