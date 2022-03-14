@@ -118,10 +118,13 @@ public class UpdateNameTransaction extends Transaction {
 		if (!owner.getAddress().equals(nameData.getOwner()))
 			return ValidationResult.INVALID_NAME_OWNER;
 
-		// Check new name isn't already taken, unless it is the same name (this allows for case-adjusting renames)
-		NameData newNameData = this.repository.getNameRepository().fromReducedName(this.updateNameTransactionData.getReducedNewName());
-		if (newNameData != null && !newNameData.getName().equals(nameData.getName()))
-			return ValidationResult.NAME_ALREADY_REGISTERED;
+		// Additional checks if transaction intends to change name
+		if (!this.updateNameTransactionData.getNewName().isEmpty()) {
+			// Check new name isn't already taken, unless it is the same name (this allows for case-adjusting renames)
+			NameData newNameData = this.repository.getNameRepository().fromReducedName(this.updateNameTransactionData.getReducedNewName());
+			if (newNameData != null && !newNameData.getName().equals(nameData.getName()))
+				return ValidationResult.NAME_ALREADY_REGISTERED;
+		}
 
 		return ValidationResult.OK;
 	}

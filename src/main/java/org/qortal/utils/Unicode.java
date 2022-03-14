@@ -18,6 +18,9 @@ import java.util.TreeMap;
 
 import com.google.common.base.CharMatcher;
 
+import com.ibm.icu.text.CaseMap;
+import com.ibm.icu.text.Normalizer2;
+import com.ibm.icu.text.UnicodeSet;
 import net.codebox.homoglyph.HomoglyphBuilder;
 
 public abstract class Unicode {
@@ -31,6 +34,8 @@ public abstract class Unicode {
 	public static final String ZERO_WIDTH_NO_BREAK_SPACE = "\ufeff";
 
 	public static final CharMatcher ZERO_WIDTH_CHAR_MATCHER = CharMatcher.anyOf(ZERO_WIDTH_SPACE + ZERO_WIDTH_NON_JOINER + ZERO_WIDTH_JOINER + WORD_JOINER + ZERO_WIDTH_NO_BREAK_SPACE);
+	private static final UnicodeSet removableUniset = new UnicodeSet("[[:Mark:][:Other:]]").freeze();
+
 
 	private static int[] homoglyphCodePoints;
 	private static int[] reducedCodePoints;
@@ -59,7 +64,7 @@ public abstract class Unicode {
 	public static String normalize(String input) {
 		String output;
 
-		// Normalize
+		// Normalize using NFKC to recompose in canonical form
 		output = Normalizer.normalize(input, Form.NFKC);
 
 		// Remove zero-width code-points, used for rendering
@@ -91,8 +96,8 @@ public abstract class Unicode {
 	public static String sanitize(String input) {
 		String output;
 
-		// Normalize
-		output = Normalizer.normalize(input, Form.NFKD);
+		// Normalize using NFKD to decompose into individual combining code points
+		output = Normalizer2.getNFKDInstance().normalize(input);
 
 		// Remove zero-width code-points, used for rendering
 		output = removeZeroWidth(output);
@@ -100,11 +105,11 @@ public abstract class Unicode {
 		// Normalize whitespace
 		output = CharMatcher.whitespace().trimAndCollapseFrom(output, ' ');
 
-		// Remove accents, combining marks
-		output = output.replaceAll("[\\p{M}\\p{C}]", "");
+		// Remove accents, combining marks - see https://www.unicode.org/reports/tr44/#GC_Values_Table
+		output = removableUniset.stripFrom(output, true);
 
 		// Convert to lowercase
-		output = output.toLowerCase(Locale.ROOT);
+		output = CaseMap.toLower().apply(Locale.ROOT, output);
 
 		// Reduce homoglyphs
 		output = reduceHomoglyphs(output);

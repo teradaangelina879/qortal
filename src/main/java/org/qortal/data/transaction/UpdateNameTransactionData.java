@@ -48,6 +48,7 @@ public class UpdateNameTransactionData extends TransactionData {
 
 	public void afterUnmarshal(Unmarshaller u, Object parent) {
 		this.creatorPublicKey = this.ownerPublicKey;
+		this.reducedNewName = this.newName != null ? Unicode.sanitize(this.newName) : null;
 	}
 
 	/** From repository */
@@ -62,7 +63,7 @@ public class UpdateNameTransactionData extends TransactionData {
 		this.nameReference = nameReference;
 	}
 
-	/** From network/API */
+	/** From network */
 	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String name, String newName, String newData) {
 		this(baseTransactionData, name, newName, newData, Unicode.sanitize(newName), null);
 	}
