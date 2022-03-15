@@ -1303,8 +1303,9 @@ public class Network {
         try {
             InetSocketAddress knownAddress = peerAddress.toSocketAddress();
 
-            List<Peer> peers = this.getImmutableConnectedPeers();
-            peers.removeIf(peer -> !Peer.addressEquals(knownAddress, peer.getResolvedAddress()));
+            List<Peer> peers = this.getImmutableConnectedPeers().stream()
+                    .filter(peer -> Peer.addressEquals(knownAddress, peer.getResolvedAddress()))
+                    .collect(Collectors.toList());
 
             for (Peer peer : peers) {
                 peer.disconnect("to be forgotten");
