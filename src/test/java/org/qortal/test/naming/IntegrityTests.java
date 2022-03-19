@@ -1,20 +1,26 @@
 package org.qortal.test.naming;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
+import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryFactory;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
+import org.qortal.settings.Settings;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.transaction.Transaction;
-import org.qortal.utils.NTP;
+import org.qortal.utils.Unicode;
 
+import java.io.File;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -47,34 +53,6 @@ public class IntegrityTests extends Common {
 
             // Ensure the name still exists and the data is still correct
             assertEquals(data, repository.getNameRepository().fromName(name).getData());
-        }
-    }
-
-    @Test
-    public void testBlankReducedName() throws DataException {
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            // Register-name
-            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
-            String name = "\uD83E\uDD73"; // Translates to a reducedName of ""
-            String data = "\uD83E\uDD73";
-
-            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
-            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
-            TransactionUtils.signAndMint(repository, transactionData, alice);
-
-            // Ensure the name exists and the data is correct
-            assertEquals(data, repository.getNameRepository().fromName(name).getData());
-
-            // Ensure the reducedName is blank
-            assertEquals("", repository.getNameRepository().fromName(name).getReducedName());
-
-            // Run the database integrity check for this name
-            NamesDatabaseIntegrityCheck integrityCheck = new NamesDatabaseIntegrityCheck();
-            assertEquals(1, integrityCheck.rebuildName(name, repository));
-
-            // Ensure the name still exists and the data is still correct
-            assertEquals(data, repository.getNameRepository().fromName(name).getData());
-            assertEquals("", repository.getNameRepository().fromName(name).getReducedName());
         }
     }
 
@@ -448,4 +426,46 @@ public class IntegrityTests extends Common {
         }
     }
 
+    @Ignore("Checks 'live' repository")
+    @Test
+    public void testRepository() throws DataException {
+        Settings.fileInstance("settings.json"); // use 'live' settings
+
+        String repositoryUrlTemplate = "jdbc:hsqldb:file:%s" + File.separator + "blockchain;create=false;hsqldb.full_log_replay=true";
+        String connectionUrl = String.format(repositoryUrlTemplate, Settings.getInstance().getRepositoryPath());
+        RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
+        RepositoryManager.setRepositoryFactory(repositoryFactory);
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            List<NameData> names = repository.getNameRepository().getAllNames();
+
+            for (NameData nameData : names) {
+                String reReduced = Unicode.sanitize(nameData.getName());
+
+                if (reReduced.isBlank()) {
+                    System.err.println(String.format("Name '%s' reduced to blank",
+                            nameData.getName()
+                    ));
+                }
+
+                if (!nameData.getReducedName().equals(reReduced)) {
+                    System.out.println(String.format("Name '%s' reduced form was '%s' but is now '%s'",
+                            nameData.getName(),
+                            nameData.getReducedName(),
+                            reReduced
+                    ));
+
+                    // ...but does another name already have this reduced form?
+                    names.stream()
+                            .filter(tmpNameData -> tmpNameData.getReducedName().equals(reReduced))
+                            .forEach(tmpNameData ->
+                                    System.err.println(String.format("Name '%s' new reduced form also matches name '%s'",
+                                            nameData.getName(),
+                                            tmpNameData.getName()
+                                    ))
+                            );
+                }
+            }
+        }
+    }
 }
