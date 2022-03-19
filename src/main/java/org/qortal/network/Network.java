@@ -43,7 +43,7 @@ public class Network {
     private static final Logger LOGGER = LogManager.getLogger(Network.class);
     private static Network instance;
 
-    private static final int LISTEN_BACKLOG = 10;
+    private static final int LISTEN_BACKLOG = 5;
     /**
      * How long before retrying after a connection failure, in milliseconds.
      */
@@ -122,6 +122,7 @@ public class Network {
     private final ExecuteProduceConsume networkEPC;
     private Selector channelSelector;
     private ServerSocketChannel serverChannel;
+    private SelectionKey serverSelectionKey;
     private Iterator<SelectionKey> channelIterator = null;
 
     // volatile because value is updated inside any one of the EPC threads
@@ -170,7 +171,7 @@ public class Network {
             serverChannel.configureBlocking(false);
             serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
             serverChannel.bind(endpoint, LISTEN_BACKLOG);
-            serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
+            serverSelectionKey = serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
         } catch (UnknownHostException e) {
             LOGGER.error("Can't bind listen socket to address {}", Settings.getInstance().getBindAddress());
             throw new IOException("Can't bind listen socket to address", e);
@@ -657,6 +658,15 @@ public class Network {
         SocketChannel socketChannel;
 
         try {
+            if (getImmutableConnectedPeers().size() >= maxPeers) {
+                // We have enough peers
+                if (serverSelectionKey.interestOps() != 0) {
+                    LOGGER.debug("Ignoring pending incoming connections because the server is full");
+                    serverSelectionKey.interestOps(0);
+                }
+                return;
+            }
+
             socketChannel = serverSocketChannel.accept();
         } catch (IOException e) {
             return;
@@ -684,13 +694,6 @@ public class Network {
         try {
             if (now == null) {
                 LOGGER.debug("Connection discarded from peer {} due to lack of NTP sync", address);
-                socketChannel.close();
-                return;
-            }
-
-            if (getImmutableConnectedPeers().size() >= maxPeers) {
-                // We have enough peers
-                LOGGER.debug("Connection discarded from peer {} because the server is full", address);
                 socketChannel.close();
                 return;
             }
@@ -783,6 +786,10 @@ public class Network {
     }
 
     private boolean connectPeer(Peer newPeer) throws InterruptedException {
+        // NOT CORRECT:
+        if (getImmutableConnectedPeers().size() >= minOutboundPeers)
+            return false;
+
         SocketChannel socketChannel = newPeer.connect(this.channelSelector);
         if (socketChannel == null) {
             return false;
@@ -866,6 +873,15 @@ public class Network {
         }
 
         this.removeConnectedPeer(peer);
+
+        if (getImmutableConnectedPeers().size() < maxPeers - 1 && (serverSelectionKey.interestOps() & SelectionKey.OP_ACCEPT) == 0) {
+            try {
+                LOGGER.debug("Re-enabling accepting incoming connections because the server is not longer full");
+                serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT);
+            } catch (CancelledKeyException e) {
+                LOGGER.error("Failed to re-enable accepting of incoming connections: {}", e.getMessage());
+            }
+        }
     }
 
     public void peerMisbehaved(Peer peer) {
