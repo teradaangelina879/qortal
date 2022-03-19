@@ -209,7 +209,12 @@ public class NamesDatabaseIntegrityCheck {
                                 newName = registeredName;
                             }
                             NameData newNameData = repository.getNameRepository().fromName(newName);
-                            if (!Objects.equals(creator.getAddress(), newNameData.getOwner())) {
+                            if (newNameData == null) {
+                                LOGGER.info("Error: registered name {} has no new name data. This is likely due to account {} " +
+                                                "being renamed another time, which is a scenario that is not yet checked automatically.",
+                                        updateNameTransactionData.getNewName(), creator.getAddress());
+                            }
+                            else if (!Objects.equals(creator.getAddress(), newNameData.getOwner())) {
                                 LOGGER.info("Error: registered name {} is owned by {}, but it should be {}",
                                         updateNameTransactionData.getNewName(), newNameData.getOwner(), creator.getAddress());
                                 integrityCheckFailed = true;
