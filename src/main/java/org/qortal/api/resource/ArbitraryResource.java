@@ -1267,13 +1267,19 @@ public class ArbitraryResource {
 		// Determine and add the status of each resource
 		List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
 		for (ArbitraryResourceInfo resourceInfo : resources) {
-			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
-					resourceInfo.service, resourceInfo.identifier);
-			ArbitraryResourceStatus status = resource.getStatus(true);
-			if (status != null) {
-				resourceInfo.status = status;
+			try {
+				ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
+						resourceInfo.service, resourceInfo.identifier);
+				ArbitraryResourceStatus status = resource.getStatus(true);
+				if (status != null) {
+					resourceInfo.status = status;
+				}
+				updatedResources.add(resourceInfo);
+
+			} catch (Exception e) {
+				// Catch and log all exceptions, since some systems are experiencing 500 errors when including statuses
+				LOGGER.info("Caught exception when adding status to resource %s: %s", resourceInfo, e.toString());
 			}
-			updatedResources.add(resourceInfo);
 		}
 		return updatedResources;
 	}
