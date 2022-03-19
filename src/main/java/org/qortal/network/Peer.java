@@ -633,7 +633,7 @@ public class Peer {
                          * potentially interleaving them on-the-wire, causing checksum failures
                          * and connection loss.
                          */
-                        Thread.sleep(1L); //NOSONAR squid:S2276
+                        Thread.sleep(100L); //NOSONAR squid:S2276
 
                         if (System.currentTimeMillis() - sendStart > timeout) {
                             // We've taken too long to send this message
