@@ -551,7 +551,7 @@ public class QortalATAPI extends API {
 	 * <p>
 	 * Otherwise, assume B is a public key.
 	 */
-	/*package*/ Account getAccountFromB(MachineState state) {
+	private Account getAccountFromB(MachineState state) {
 		byte[] bBytes = this.getB(state);
 
 		if ((bBytes[0] == Crypto.ADDRESS_VERSION || bBytes[0] == Crypto.AT_ADDRESS_VERSION)

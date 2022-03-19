@@ -10,11 +10,9 @@ import org.ciyam.at.ExecutionException;
 import org.ciyam.at.FunctionData;
 import org.ciyam.at.IllegalFunctionCodeException;
 import org.ciyam.at.MachineState;
-import org.qortal.account.Account;
 import org.qortal.crosschain.Bitcoin;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 
 /**
@@ -161,68 +159,6 @@ public enum QortalFunctionCode {
 		@Override
 		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
 			convertAddressInB(Crypto.ADDRESS_VERSION, state);
-		}
-	},
-	/**
-	 * Returns account level of account in B.<br>
-	 * <tt>0x0520</tt><br>
-	 * B should contain either Qortal address or public key,<br>
-	 * e.g. as a result of calling function {@link org.ciyam.at.FunctionCode#PUT_ADDRESS_FROM_TX_IN_A_INTO_B}</code>.
-	 * <p></p>
-	 * Returns account level, or -1 if account unknown.
-	 * <p></p>
-	 * @see QortalATAPI#getAccountFromB(MachineState)
-	 */
-	GET_ACCOUNT_LEVEL_FROM_ACCOUNT_IN_B(0x0520, 0, true) {
-		@Override
-		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
-			QortalATAPI api = (QortalATAPI) state.getAPI();
-			Account account = api.getAccountFromB(state);
-
-			Integer accountLevel = null;
-
-			if (account != null) {
-				try {
-					accountLevel = account.getLevel();
-				} catch (DataException e) {
-					throw new RuntimeException("AT API unable to fetch account level?", e);
-				}
-			}
-
-			functionData.returnValue = accountLevel != null
-					? accountLevel.longValue()
-					: -1;
-		}
-	},
-	/**
-	 * Returns account's minted block count of account in B.<br>
-	 * <tt>0x0521</tt><br>
-	 * B should contain either Qortal address or public key,<br>
-	 * e.g. as a result of calling function {@link org.ciyam.at.FunctionCode#PUT_ADDRESS_FROM_TX_IN_A_INTO_B}</code>.
-	 * <p></p>
-	 * Returns account level, or -1 if account unknown.
-	 * <p></p>
-	 * @see QortalATAPI#getAccountFromB(MachineState)
-	 */
-	GET_BLOCKS_MINTED_FROM_ACCOUNT_IN_B(0x0521, 0, true) {
-		@Override
-		protected void postCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
-			QortalATAPI api = (QortalATAPI) state.getAPI();
-			Account account = api.getAccountFromB(state);
-
-			Integer blocksMinted = null;
-
-			if (account != null) {
-				try {
-					blocksMinted = account.getBlocksMinted();
-				} catch (DataException e) {
-					throw new RuntimeException("AT API unable to fetch account's minted block count?", e);
-				}
-			}
-
-			functionData.returnValue = blocksMinted != null
-					? blocksMinted.longValue()
-					: -1;
 		}
 	};
 

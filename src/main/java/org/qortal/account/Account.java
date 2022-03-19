@@ -205,12 +205,6 @@ public class Account {
 		return false;
 	}
 
-	/** Returns account's blockMinted (0+) or null if account not found in repository. */
-	public Integer getBlocksMinted() throws DataException {
-		return this.repository.getAccountRepository().getMintedBlockCount(this.address);
-	}
-
-
 	/** Returns whether account can build reward-shares.
 	 * <p>
 	 * To be able to create reward-shares, the account needs to pass at least one of these tests:<br>
