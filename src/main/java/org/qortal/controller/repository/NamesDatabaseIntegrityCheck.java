@@ -313,6 +313,10 @@ public class NamesDatabaseIntegrityCheck {
                 transactions.add(transactionData);
             }
         }
+
+        // Sort by lowest timestamp first
+        transactions.sort(Comparator.comparingLong(TransactionData::getTimestamp));
+
         return transactions;
     }
 
