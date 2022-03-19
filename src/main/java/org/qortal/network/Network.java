@@ -596,6 +596,10 @@ public class Network {
 
                 try {
                     peer.readChannel();
+
+                    LOGGER.trace("Thread {} re-registering OP_READ interestOps on channel: {}",
+                            Thread.currentThread().getId(), socketChannel);
+                    socketChannel.register(channelSelector, SelectionKey.OP_READ);
                 } catch (IOException e) {
                     if (e.getMessage() != null && e.getMessage().toLowerCase().contains("connection reset")) {
                         peer.disconnect("Connection reset");
@@ -637,6 +641,12 @@ public class Network {
                 if (channelIterator.hasNext()) {
                     nextSelectionKey = channelIterator.next();
                     channelIterator.remove();
+
+                    if (nextSelectionKey.isReadable()) {
+                        LOGGER.trace("Thread {} clearing all interestOps on channel: {}",
+                                Thread.currentThread().getId(), nextSelectionKey.channel());
+                        nextSelectionKey.interestOps(0);
+                    }
                 } else {
                     nextSelectionKey = null;
                     channelIterator = null; // Nothing to do so reset iterator to cause new select
