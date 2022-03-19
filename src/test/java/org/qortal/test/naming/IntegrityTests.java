@@ -56,6 +56,86 @@ public class IntegrityTests extends Common {
         }
     }
 
+    // Test integrity check after renaming to something else and then back again
+    // This was originally confusing the rebuildName() code and creating a loop
+    @Test
+    public void testUpdateNameLoop() throws DataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            // Register-name
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String initialName = "initial-name";
+            String initialData = "{\"age\":30}";
+            String initialReducedName = "initia1-name";
+
+            TransactionData initialTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), initialName, initialData);
+            initialTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(initialTransactionData.getTimestamp()));
+            TransactionUtils.signAndMint(repository, initialTransactionData, alice);
+
+            // Check initial name exists
+            assertTrue(repository.getNameRepository().nameExists(initialName));
+            assertNotNull(repository.getNameRepository().fromReducedName(initialReducedName));
+
+            // Update the name to something new
+            String newName = "new-name";
+            String newData = "";
+            String newReducedName = "new-name";
+            TransactionData updateTransactionData = new UpdateNameTransactionData(TestTransaction.generateBase(alice), initialName, newName, newData);
+            TransactionUtils.signAndMint(repository, updateTransactionData, alice);
+
+            // Check old name no longer exists
+            assertFalse(repository.getNameRepository().nameExists(initialName));
+            assertNull(repository.getNameRepository().fromReducedName(initialReducedName));
+
+            // Check new name exists
+            assertTrue(repository.getNameRepository().nameExists(newName));
+            assertNotNull(repository.getNameRepository().fromReducedName(newReducedName));
+
+            // Check updated timestamp is correct
+            assertEquals((Long) updateTransactionData.getTimestamp(), repository.getNameRepository().fromName(newName).getUpdated());
+
+            // Update the name to another new name
+            String newName2 = "new-name-2";
+            String newData2 = "";
+            String newReducedName2 = "new-name-2";
+            TransactionData updateTransactionData2 = new UpdateNameTransactionData(TestTransaction.generateBase(alice), newName, newName2, newData2);
+            TransactionUtils.signAndMint(repository, updateTransactionData2, alice);
+
+            // Check old name no longer exists
+            assertFalse(repository.getNameRepository().nameExists(newName));
+            assertNull(repository.getNameRepository().fromReducedName(newReducedName));
+
+            // Check new name exists
+            assertTrue(repository.getNameRepository().nameExists(newName2));
+            assertNotNull(repository.getNameRepository().fromReducedName(newReducedName2));
+
+            // Check updated timestamp is correct
+            assertEquals((Long) updateTransactionData2.getTimestamp(), repository.getNameRepository().fromName(newName2).getUpdated());
+
+            // Update the name back to the initial name
+            TransactionData updateTransactionData3 = new UpdateNameTransactionData(TestTransaction.generateBase(alice), newName2, initialName, initialData);
+            TransactionUtils.signAndMint(repository, updateTransactionData3, alice);
+
+            // Check previous name no longer exists
+            assertFalse(repository.getNameRepository().nameExists(newName2));
+            assertNull(repository.getNameRepository().fromReducedName(newReducedName2));
+
+            // Check initial name exists again
+            assertTrue(repository.getNameRepository().nameExists(initialName));
+            assertNotNull(repository.getNameRepository().fromReducedName(initialReducedName));
+
+            // Check updated timestamp is correct
+            assertEquals((Long) updateTransactionData3.getTimestamp(), repository.getNameRepository().fromName(initialName).getUpdated());
+
+            // Run the database integrity check for the initial name, to ensure it doesn't get into a loop
+            NamesDatabaseIntegrityCheck integrityCheck = new NamesDatabaseIntegrityCheck();
+            assertEquals(2, integrityCheck.rebuildName(initialName, repository));
+
+            // Ensure the new name still exists and the data is still correct
+            assertTrue(repository.getNameRepository().nameExists(initialName));
+            assertEquals(initialData, repository.getNameRepository().fromName(initialName).getData());
+        }
+    }
+
     @Test
     public void testUpdateWithBlankNewName() throws DataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
