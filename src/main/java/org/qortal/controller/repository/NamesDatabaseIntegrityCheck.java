@@ -29,6 +29,15 @@ public class NamesDatabaseIntegrityCheck {
     private List<TransactionData> nameTransactions = new ArrayList<>();
 
     public int rebuildName(String name, Repository repository) {
+        return this.rebuildName(name, repository, null);
+    }
+
+    public int rebuildName(String name, Repository repository, List<String> referenceNames) {
+        // "referenceNames" tracks the linked names that have already been rebuilt, to prevent circular dependencies
+        if (referenceNames == null) {
+            referenceNames = new ArrayList<>();
+        }
+
         int modificationCount = 0;
         try {
             List<TransactionData> transactions = this.fetchAllTransactionsInvolvingName(name, repository);
@@ -56,7 +65,14 @@ public class NamesDatabaseIntegrityCheck {
                     if (Objects.equals(updateNameTransactionData.getNewName(), name) &&
                             !Objects.equals(updateNameTransactionData.getName(), updateNameTransactionData.getNewName())) {
                         // This renames an existing name, so we need to process that instead
-                        this.rebuildName(updateNameTransactionData.getName(), repository);
+
+                        if (!referenceNames.contains(name)) {
+                            referenceNames.add(name);
+                            this.rebuildName(updateNameTransactionData.getName(), repository, referenceNames);
+                        }
+                        else {
+                            // We've already processed this name so there's nothing more to do
+                        }
                     }
                     else {
                         Name nameObj = new Name(repository, name);
