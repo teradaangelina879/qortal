@@ -8,7 +8,6 @@ import org.qortal.utils.Base58;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,7 +20,7 @@ import java.util.Map;
  * Groups of: number of entries, timestamp, then pubkey + sig + AT address for each entry.
  */
 public class TradePresencesMessage extends Message {
-	private List<TradePresenceData> tradePresences;
+	private final List<TradePresenceData> tradePresences;
 	private byte[] cachedData;
 
 	public TradePresencesMessage(List<TradePresenceData> tradePresences) {
@@ -38,7 +37,7 @@ public class TradePresencesMessage extends Message {
 		return this.tradePresences;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		int groupedEntriesCount = bytes.getInt();
 
 		List<TradePresenceData> tradePresences = new ArrayList<>(groupedEntriesCount);
@@ -72,7 +71,7 @@ public class TradePresencesMessage extends Message {
 	}
 
 	@Override
-	protected synchronized byte[] toData() {
+	protected synchronized byte[] toData() throws IOException {
 		if (this.cachedData != null)
 			return this.cachedData;
 
@@ -94,30 +93,26 @@ public class TradePresencesMessage extends Message {
 		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
 				+ this.tradePresences.size() * (Transformer.PUBLIC_KEY_LENGTH + Transformer.SIGNATURE_LENGTH + Transformer.ADDRESS_LENGTH);
 
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
 
-			for (long timestamp : countByTimestamp.keySet()) {
-				bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
+		for (long timestamp : countByTimestamp.keySet()) {
+			bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
 
-				bytes.write(Longs.toByteArray(timestamp));
+			bytes.write(Longs.toByteArray(timestamp));
 
-				for (TradePresenceData tradePresenceData : this.tradePresences) {
-					if (tradePresenceData.getTimestamp() == timestamp) {
-						bytes.write(tradePresenceData.getPublicKey());
+			for (TradePresenceData tradePresenceData : this.tradePresences) {
+				if (tradePresenceData.getTimestamp() == timestamp) {
+					bytes.write(tradePresenceData.getPublicKey());
 
-						bytes.write(tradePresenceData.getSignature());
+					bytes.write(tradePresenceData.getSignature());
 
-						bytes.write(Base58.decode(tradePresenceData.getAtAddress()));
-					}
+					bytes.write(Base58.decode(tradePresenceData.getAtAddress()));
 				}
 			}
-
-			this.cachedData = bytes.toByteArray();
-			return this.cachedData;
-		} catch (IOException e) {
-			return null;
 		}
+
+		this.cachedData = bytes.toByteArray();
+		return this.cachedData;
 	}
 
 }

@@ -2,18 +2,18 @@ package org.qortal.network.message;
 
 import java.nio.ByteBuffer;
 
-public class GetPeersMessage extends Message {
+public class PongMessage extends Message {
 
-	public GetPeersMessage() {
+	public PongMessage() {
 		this(-1);
 	}
 
-	private GetPeersMessage(int id) {
-		super(id, MessageType.GET_PEERS);
+	private PongMessage(int id) {
+		super(id, MessageType.PONG);
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
-		return new GetPeersMessage(id);
+		return new PongMessage(id);
 	}
 
 	@Override

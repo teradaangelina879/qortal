@@ -9,14 +9,12 @@ import org.qortal.transform.Transformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 
 public class ArbitraryDataFileMessage extends Message {
 
 	private static final Logger LOGGER = LogManager.getLogger(ArbitraryDataFileMessage.class);
-
-	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
 
 	private final byte[] signature;
 	private final ArbitraryDataFile arbitraryDataFile;
@@ -39,14 +37,14 @@ public class ArbitraryDataFileMessage extends Message {
 		return this.arbitraryDataFile;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
-		byte[] signature = new byte[SIGNATURE_LENGTH];
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
+		byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
 		int dataLength = byteBuffer.getInt();
 
-		if (byteBuffer.remaining() != dataLength)
-			return null;
+		if (byteBuffer.remaining() < dataLength)
+			throw new BufferUnderflowException();
 
 		byte[] data = new byte[dataLength];
 		byteBuffer.get(data);
@@ -54,15 +52,14 @@ public class ArbitraryDataFileMessage extends Message {
 		try {
 			ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(data, signature);
 			return new ArbitraryDataFileMessage(id, signature, arbitraryDataFile);
-		}
-		catch (DataException e) {
+		} catch (DataException e) {
 			LOGGER.info("Unable to process received file: {}", e.getMessage());
-			return null;
+			throw new MessageException("Unable to process received file: " + e.getMessage(), e);
 		}
 	}
 
 	@Override
-	protected byte[] toData() {
+	protected byte[] toData() throws IOException {
 		if (this.arbitraryDataFile == null) {
 			return null;
 		}
@@ -72,19 +69,15 @@ public class ArbitraryDataFileMessage extends Message {
 			return null;
 		}
 
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(signature);
+		bytes.write(signature);
 
-			bytes.write(Ints.toByteArray(data.length));
+		bytes.write(Ints.toByteArray(data.length));
 
-			bytes.write(data);
+		bytes.write(data);
 
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
+		return bytes.toByteArray();
 	}
 
 	public ArbitraryDataFileMessage cloneWithNewId(int newId) {

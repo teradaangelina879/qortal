@@ -1,7 +1,5 @@
 package org.qortal.network.message;
 
-import java.util.Map;
-
 import org.qortal.crypto.Crypto;
 import org.qortal.network.Network;
 import org.qortal.transform.TransformationException;
@@ -13,8 +11,6 @@ import static java.util.stream.Collectors.toMap;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -26,127 +22,6 @@ public abstract class Message {
 	private static final int CHECKSUM_LENGTH = 4;
 
 	private static final int MAX_DATA_SIZE = 10 * 1024 * 1024; // 10MB
-
-	@SuppressWarnings("serial")
-	public static class MessageException extends Exception {
-		public MessageException() {
-		}
-
-		public MessageException(String message) {
-			super(message);
-		}
-
-		public MessageException(String message, Throwable cause) {
-			super(message, cause);
-		}
-
-		public MessageException(Throwable cause) {
-			super(cause);
-		}
-	}
-
-	public enum MessageType {
-		// Handshaking
-		HELLO(0),
-		GOODBYE(1),
-		CHALLENGE(2),
-		RESPONSE(3),
-
-		// Status / notifications
-		HEIGHT_V2(10),
-		PING(11),
-		PONG(12),
-
-		// Requesting data
-		PEERS_V2(20),
-		GET_PEERS(21),
-
-		TRANSACTION(30),
-		GET_TRANSACTION(31),
-
-		TRANSACTION_SIGNATURES(40),
-		GET_UNCONFIRMED_TRANSACTIONS(41),
-
-		BLOCK(50),
-		GET_BLOCK(51),
-
-		SIGNATURES(60),
-		GET_SIGNATURES_V2(61),
-
-		BLOCK_SUMMARIES(70),
-		GET_BLOCK_SUMMARIES(71),
-
-		ONLINE_ACCOUNTS(80),
-		GET_ONLINE_ACCOUNTS(81),
-		ONLINE_ACCOUNTS_V2(82),
-		GET_ONLINE_ACCOUNTS_V2(83),
-
-		ARBITRARY_DATA(90),
-		GET_ARBITRARY_DATA(91),
-
-		BLOCKS(100),
-		GET_BLOCKS(101),
-
-		ARBITRARY_DATA_FILE(110),
-		GET_ARBITRARY_DATA_FILE(111),
-
-		ARBITRARY_DATA_FILE_LIST(120),
-		GET_ARBITRARY_DATA_FILE_LIST(121),
-
-		ARBITRARY_SIGNATURES(130),
-
-		TRADE_PRESENCES(140),
-		GET_TRADE_PRESENCES(141),
-		
-		ARBITRARY_METADATA(150),
-		GET_ARBITRARY_METADATA(151);
-
-		public final int value;
-		public final Method fromByteBufferMethod;
-
-		private static final Map<Integer, MessageType> map = stream(MessageType.values())
-				.collect(toMap(messageType -> messageType.value, messageType -> messageType));
-
-		private MessageType(int value) {
-			this.value = value;
-
-			String[] classNameParts = this.name().toLowerCase().split("_");
-
-			for (int i = 0; i < classNameParts.length; ++i)
-				classNameParts[i] = classNameParts[i].substring(0, 1).toUpperCase().concat(classNameParts[i].substring(1));
-
-			String className = String.join("", classNameParts);
-
-			Method method;
-			try {
-				Class<?> subclass = Class.forName(String.join("", Message.class.getPackage().getName(), ".", className, "Message"));
-
-				method = subclass.getDeclaredMethod("fromByteBuffer", int.class, ByteBuffer.class);
-			} catch (ClassNotFoundException | NoSuchMethodException | SecurityException e) {
-				method = null;
-			}
-
-			this.fromByteBufferMethod = method;
-		}
-
-		public static MessageType valueOf(int value) {
-			return map.get(value);
-		}
-
-		public Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
-			if (this.fromByteBufferMethod == null)
-				throw new MessageException("Unsupported message type [" + value + "] during conversion from bytes");
-
-			try {
-				return (Message) this.fromByteBufferMethod.invoke(null, id, byteBuffer);
-			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-				if (e.getCause() instanceof BufferUnderflowException)
-					throw new MessageException("Byte data too short for " + name() + " message");
-
-				throw new MessageException("Internal error with " + name() + " message during conversion from bytes");
-			}
-		}
-	}
 
 	private int id;
 	private MessageType type;
@@ -181,7 +56,7 @@ public abstract class Message {
 	 * 
 	 * @param readOnlyBuffer
 	 * @return null if no complete message can be read
-	 * @throws MessageException
+	 * @throws MessageException if message could not be decoded or is invalid
 	 */
 	public static Message fromByteBuffer(ByteBuffer readOnlyBuffer) throws MessageException {
 		try {
@@ -293,6 +168,12 @@ public abstract class Message {
 		}
 	}
 
+	/** Serialize message into bytes.
+	 *
+	 * @return message as byte array, or null if message is missing payload data / uninitialized somehow
+	 * @throws IOException if unable / failed to serialize
+	 * @throws TransformationException if unable / failed to serialize
+	 */
 	protected abstract byte[] toData() throws IOException, TransformationException;
 
 }

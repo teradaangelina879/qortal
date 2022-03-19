@@ -2,7 +2,7 @@ package org.qortal.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +17,7 @@ public class BlockSummariesMessage extends Message {
 
 	private static final int BLOCK_SUMMARY_LENGTH = BlockTransformer.BLOCK_SIGNATURE_LENGTH + Transformer.INT_LENGTH + Transformer.PUBLIC_KEY_LENGTH + Transformer.INT_LENGTH;
 
-	private List<BlockSummaryData> blockSummaries;
+	private final List<BlockSummaryData> blockSummaries;
 
 	public BlockSummariesMessage(List<BlockSummaryData> blockSummaries) {
 		this(-1, blockSummaries);
@@ -33,11 +33,11 @@ public class BlockSummariesMessage extends Message {
 		return this.blockSummaries;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		int count = bytes.getInt();
 
-		if (bytes.remaining() != count * BLOCK_SUMMARY_LENGTH)
-			return null;
+		if (bytes.remaining() < count * BLOCK_SUMMARY_LENGTH)
+			throw new BufferUnderflowException();
 
 		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 		for (int i = 0; i < count; ++i) {
@@ -59,23 +59,19 @@ public class BlockSummariesMessage extends Message {
 	}
 
 	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+	protected byte[] toData() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(this.blockSummaries.size()));
+		bytes.write(Ints.toByteArray(this.blockSummaries.size()));
 
-			for (BlockSummaryData blockSummary : this.blockSummaries) {
-				bytes.write(Ints.toByteArray(blockSummary.getHeight()));
-				bytes.write(blockSummary.getSignature());
-				bytes.write(blockSummary.getMinterPublicKey());
-				bytes.write(Ints.toByteArray(blockSummary.getOnlineAccountsCount()));
-			}
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
+		for (BlockSummaryData blockSummary : this.blockSummaries) {
+			bytes.write(Ints.toByteArray(blockSummary.getHeight()));
+			bytes.write(blockSummary.getSignature());
+			bytes.write(blockSummary.getMinterPublicKey());
+			bytes.write(Ints.toByteArray(blockSummary.getOnlineAccountsCount()));
 		}
+
+		return bytes.toByteArray();
 	}
 
 }

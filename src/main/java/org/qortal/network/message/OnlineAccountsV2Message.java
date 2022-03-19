@@ -7,13 +7,11 @@ import org.qortal.transform.Transformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * For sending online accounts info to remote peer.
@@ -25,7 +23,7 @@ import java.util.stream.Collectors;
  * Also V2 only builds online accounts message once!
  */
 public class OnlineAccountsV2Message extends Message {
-	private List<OnlineAccountData> onlineAccounts;
+	private final List<OnlineAccountData> onlineAccounts;
 	private byte[] cachedData;
 
 	public OnlineAccountsV2Message(List<OnlineAccountData> onlineAccounts) {
@@ -42,7 +40,7 @@ public class OnlineAccountsV2Message extends Message {
 		return this.onlineAccounts;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws MessageException {
 		int accountCount = bytes.getInt();
 
 		List<OnlineAccountData> onlineAccounts = new ArrayList<>(accountCount);
@@ -72,7 +70,7 @@ public class OnlineAccountsV2Message extends Message {
 	}
 
 	@Override
-	protected synchronized byte[] toData() {
+	protected synchronized byte[] toData() throws IOException {
 		if (this.cachedData != null)
 			return this.cachedData;
 
@@ -85,8 +83,7 @@ public class OnlineAccountsV2Message extends Message {
 		// How many of each timestamp
 		Map<Long, Integer> countByTimestamp = new HashMap<>();
 
-		for (int i = 0; i < this.onlineAccounts.size(); ++i) {
-			OnlineAccountData onlineAccountData = this.onlineAccounts.get(i);
+		for (OnlineAccountData onlineAccountData : this.onlineAccounts) {
 			Long timestamp = onlineAccountData.getTimestamp();
 			countByTimestamp.compute(timestamp, (k, v) -> v == null ? 1 : ++v);
 		}
@@ -95,30 +92,23 @@ public class OnlineAccountsV2Message extends Message {
 		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
 				+ this.onlineAccounts.size() * (Transformer.SIGNATURE_LENGTH + Transformer.PUBLIC_KEY_LENGTH);
 
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
 
-			for (long timestamp : countByTimestamp.keySet()) {
-				bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
+		for (long timestamp : countByTimestamp.keySet()) {
+			bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
 
-				bytes.write(Longs.toByteArray(timestamp));
+			bytes.write(Longs.toByteArray(timestamp));
 
-				for (int i = 0; i < this.onlineAccounts.size(); ++i) {
-					OnlineAccountData onlineAccountData = this.onlineAccounts.get(i);
-
-					if (onlineAccountData.getTimestamp() == timestamp) {
-						bytes.write(onlineAccountData.getSignature());
-
-						bytes.write(onlineAccountData.getPublicKey());
-					}
+			for (OnlineAccountData onlineAccountData : this.onlineAccounts) {
+				if (onlineAccountData.getTimestamp() == timestamp) {
+					bytes.write(onlineAccountData.getSignature());
+					bytes.write(onlineAccountData.getPublicKey());
 				}
 			}
-
-			this.cachedData = bytes.toByteArray();
-			return this.cachedData;
-		} catch (IOException e) {
-			return null;
 		}
+
+		this.cachedData = bytes.toByteArray();
+		return this.cachedData;
 	}
 
 }

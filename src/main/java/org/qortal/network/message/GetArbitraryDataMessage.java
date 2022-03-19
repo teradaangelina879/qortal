@@ -2,16 +2,13 @@ package org.qortal.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 import org.qortal.transform.Transformer;
 
 public class GetArbitraryDataMessage extends Message {
 
-	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
-
-	private byte[] signature;
+	private final byte[] signature;
 
 	public GetArbitraryDataMessage(byte[] signature) {
 		this(-1, signature);
@@ -27,11 +24,8 @@ public class GetArbitraryDataMessage extends Message {
 		return this.signature;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
-		if (bytes.remaining() != SIGNATURE_LENGTH)
-			return null;
-
-		byte[] signature = new byte[SIGNATURE_LENGTH];
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
+		byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
 
 		bytes.get(signature);
 
@@ -39,16 +33,12 @@ public class GetArbitraryDataMessage extends Message {
 	}
 
 	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+	protected byte[] toData() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(this.signature);
+		bytes.write(this.signature);
 
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
+		return bytes.toByteArray();
 	}
 
 }

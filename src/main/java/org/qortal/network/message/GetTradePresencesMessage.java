@@ -7,7 +7,6 @@ import org.qortal.transform.Transformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,7 +19,7 @@ import java.util.Map;
  * Groups of: number of entries, timestamp, then AT trade pubkey for each entry.
  */
 public class GetTradePresencesMessage extends Message {
-	private List<TradePresenceData> tradePresences;
+	private final List<TradePresenceData> tradePresences;
 	private byte[] cachedData;
 
 	public GetTradePresencesMessage(List<TradePresenceData> tradePresences) {
@@ -37,7 +36,7 @@ public class GetTradePresencesMessage extends Message {
 		return this.tradePresences;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		int groupedEntriesCount = bytes.getInt();
 
 		List<TradePresenceData> tradePresences = new ArrayList<>(groupedEntriesCount);
@@ -64,7 +63,7 @@ public class GetTradePresencesMessage extends Message {
 	}
 
 	@Override
-	protected synchronized byte[] toData() {
+	protected synchronized byte[] toData() throws IOException {
 		if (this.cachedData != null)
 			return this.cachedData;
 
@@ -86,25 +85,21 @@ public class GetTradePresencesMessage extends Message {
 		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
 				+ this.tradePresences.size() * Transformer.PUBLIC_KEY_LENGTH;
 
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
 
-			for (long timestamp : countByTimestamp.keySet()) {
-				bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
+		for (long timestamp : countByTimestamp.keySet()) {
+			bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
 
-				bytes.write(Longs.toByteArray(timestamp));
+			bytes.write(Longs.toByteArray(timestamp));
 
-				for (TradePresenceData tradePresenceData : this.tradePresences) {
-					if (tradePresenceData.getTimestamp() == timestamp)
-						bytes.write(tradePresenceData.getPublicKey());
-				}
+			for (TradePresenceData tradePresenceData : this.tradePresences) {
+				if (tradePresenceData.getTimestamp() == timestamp)
+					bytes.write(tradePresenceData.getPublicKey());
 			}
-
-			this.cachedData = bytes.toByteArray();
-			return this.cachedData;
-		} catch (IOException e) {
-			return null;
 		}
+
+		this.cachedData = bytes.toByteArray();
+		return this.cachedData;
 	}
 
 }

@@ -1,6 +1,5 @@
 package org.qortal.network.message;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 public class PingMessage extends Message {
@@ -13,7 +12,7 @@ public class PingMessage extends Message {
 		super(id, MessageType.PING);
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		return new PingMessage(id);
 	}
 

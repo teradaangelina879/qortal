@@ -1,17 +1,12 @@
 package org.qortal.network.message;
 
 import org.qortal.transform.Transformer;
-import org.qortal.transform.transaction.TransactionTransformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 public class GetArbitraryDataFileMessage extends Message {
-
-	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
-	private static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
 
 	private final byte[] signature;
 	private final byte[] hash;
@@ -35,32 +30,25 @@ public class GetArbitraryDataFileMessage extends Message {
 		return this.hash;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
-		if (bytes.remaining() != HASH_LENGTH + SIGNATURE_LENGTH)
-			return null;
-
-		byte[] signature = new byte[SIGNATURE_LENGTH];
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
+		byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
 		bytes.get(signature);
 
-		byte[] hash = new byte[HASH_LENGTH];
+		byte[] hash = new byte[Transformer.SHA256_LENGTH];
 		bytes.get(hash);
 
 		return new GetArbitraryDataFileMessage(id, signature, hash);
 	}
 
 	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+	protected byte[] toData() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(this.signature);
+		bytes.write(this.signature);
 
-			bytes.write(this.hash);
+		bytes.write(this.hash);
 
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
+		return bytes.toByteArray();
 	}
 
 }

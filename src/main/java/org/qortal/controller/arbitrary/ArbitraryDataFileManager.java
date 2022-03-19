@@ -7,7 +7,6 @@ import org.qortal.controller.Controller;
 import org.qortal.data.arbitrary.ArbitraryDirectConnectionInfo;
 import org.qortal.data.arbitrary.ArbitraryFileListResponseInfo;
 import org.qortal.data.arbitrary.ArbitraryRelayInfo;
-import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.network.Network;
@@ -210,7 +209,7 @@ public class ArbitraryDataFileManager extends Thread {
                 LOGGER.debug("Received null message from peer {}", peer);
                 return null;
             }
-            if (message.getType() != Message.MessageType.ARBITRARY_DATA_FILE) {
+            if (message.getType() != MessageType.ARBITRARY_DATA_FILE) {
                 LOGGER.debug("Received message with invalid type: {} from peer {}", message.getType(), peer);
                 return null;
             }

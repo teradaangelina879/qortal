@@ -2,7 +2,6 @@ package org.qortal.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -28,7 +27,7 @@ public class BlockMessage extends Message {
 	private List<TransactionData> transactions = null;
 	private List<ATStateData> atStates = null;
 
-	private int height;
+	private final int height;
 
 	public BlockMessage(Block block) {
 		super(MessageType.BLOCK);
@@ -60,7 +59,7 @@ public class BlockMessage extends Message {
 		return this.atStates;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
 		try {
 			int height = byteBuffer.getInt();
 
@@ -72,26 +71,22 @@ public class BlockMessage extends Message {
 			return new BlockMessage(id, blockData, blockInfo.getB(), blockInfo.getC());
 		} catch (TransformationException e) {
 			LOGGER.info(String.format("Received garbled BLOCK message: %s", e.getMessage()));
-			return null;
+			throw new MessageException(e.getMessage(), e);
 		}
 	}
 
 	@Override
-	protected byte[] toData() {
+	protected byte[] toData() throws IOException, TransformationException {
 		if (this.block == null)
 			return null;
 
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(this.height));
+		bytes.write(Ints.toByteArray(this.height));
 
-			bytes.write(BlockTransformer.toBytes(this.block));
+		bytes.write(BlockTransformer.toBytes(this.block));
 
-			return bytes.toByteArray();
-		} catch (TransformationException | IOException e) {
-			return null;
-		}
+		return bytes.toByteArray();
 	}
 
 	public BlockMessage cloneWithNewId(int newId) {

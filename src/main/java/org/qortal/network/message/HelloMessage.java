@@ -39,15 +39,20 @@ public class HelloMessage extends Message {
 		return this.senderPeerAddress;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws TransformationException {
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
 		long timestamp = byteBuffer.getLong();
 
-		String versionString = Serialization.deserializeSizedString(byteBuffer, 255);
-
-		// Sender peer address added in v3.0, so is an optional field. Older versions won't send it.
+		String versionString;
 		String senderPeerAddress = null;
-		if (byteBuffer.hasRemaining()) {
-			senderPeerAddress = Serialization.deserializeSizedString(byteBuffer, 255);
+		try {
+			versionString = Serialization.deserializeSizedString(byteBuffer, 255);
+
+			// Sender peer address added in v3.0, so is an optional field. Older versions won't send it.
+			if (byteBuffer.hasRemaining()) {
+				senderPeerAddress = Serialization.deserializeSizedString(byteBuffer, 255);
+			}
+		} catch (TransformationException e) {
+			throw new MessageException(e.getMessage(), e);
 		}
 
 		return new HelloMessage(id, timestamp, versionString, senderPeerAddress);

@@ -2,7 +2,6 @@ package org.qortal.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 import org.qortal.transform.Transformer;
@@ -13,10 +12,10 @@ import com.google.common.primitives.Longs;
 
 public class HeightV2Message extends Message {
 
-	private int height;
-	private byte[] signature;
-	private long timestamp;
-	private byte[] minterPublicKey;
+	private final int height;
+	private final byte[] signature;
+	private final long timestamp;
+	private final byte[] minterPublicKey;
 
 	public HeightV2Message(int height, byte[] signature, long timestamp, byte[] minterPublicKey) {
 		this(-1, height, signature, timestamp, minterPublicKey);
@@ -47,7 +46,7 @@ public class HeightV2Message extends Message {
 		return this.minterPublicKey;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		int height = bytes.getInt();
 
 		byte[] signature = new byte[BlockTransformer.BLOCK_SIGNATURE_LENGTH];
@@ -62,22 +61,18 @@ public class HeightV2Message extends Message {
 	}
 
 	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+	protected byte[] toData() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(this.height));
+		bytes.write(Ints.toByteArray(this.height));
 
-			bytes.write(this.signature);
+		bytes.write(this.signature);
 
-			bytes.write(Longs.toByteArray(this.timestamp));
+		bytes.write(Longs.toByteArray(this.timestamp));
 
-			bytes.write(this.minterPublicKey);
+		bytes.write(this.minterPublicKey);
 
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
+		return bytes.toByteArray();
 	}
 
 }

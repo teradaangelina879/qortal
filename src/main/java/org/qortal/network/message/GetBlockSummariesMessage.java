@@ -2,20 +2,16 @@ package org.qortal.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
-import org.qortal.transform.Transformer;
 import org.qortal.transform.block.BlockTransformer;
 
 import com.google.common.primitives.Ints;
 
 public class GetBlockSummariesMessage extends Message {
 
-	private static final int BLOCK_SIGNATURE_LENGTH = BlockTransformer.BLOCK_SIGNATURE_LENGTH;
-
-	private byte[] parentSignature;
-	private int numberRequested;
+	private final byte[] parentSignature;
+	private final int numberRequested;
 
 	public GetBlockSummariesMessage(byte[] parentSignature, int numberRequested) {
 		this(-1, parentSignature, numberRequested);
@@ -36,11 +32,8 @@ public class GetBlockSummariesMessage extends Message {
 		return this.numberRequested;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
-		if (bytes.remaining() != BLOCK_SIGNATURE_LENGTH + Transformer.INT_LENGTH)
-			return null;
-
-		byte[] parentSignature = new byte[BLOCK_SIGNATURE_LENGTH];
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
+		byte[] parentSignature = new byte[BlockTransformer.BLOCK_SIGNATURE_LENGTH];
 		bytes.get(parentSignature);
 
 		int numberRequested = bytes.getInt();
@@ -49,18 +42,14 @@ public class GetBlockSummariesMessage extends Message {
 	}
 
 	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+	protected byte[] toData() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(this.parentSignature);
+		bytes.write(this.parentSignature);
 
-			bytes.write(Ints.toByteArray(this.numberRequested));
+		bytes.write(Ints.toByteArray(this.numberRequested));
 
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
+		return bytes.toByteArray();
 	}
 
 }

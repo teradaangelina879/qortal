@@ -1,6 +1,5 @@
 package org.qortal.network.message;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 import org.qortal.data.transaction.TransactionData;
@@ -25,26 +24,24 @@ public class TransactionMessage extends Message {
 		return this.transactionData;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
-		try {
-			TransactionData transactionData = TransactionTransformer.fromByteBuffer(byteBuffer);
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
+		TransactionData transactionData;
 
-			return new TransactionMessage(id, transactionData);
+		try {
+			transactionData = TransactionTransformer.fromByteBuffer(byteBuffer);
 		} catch (TransformationException e) {
-			return null;
+			throw new MessageException(e.getMessage(), e);
 		}
+
+		return new TransactionMessage(id, transactionData);
 	}
 
 	@Override
-	protected byte[] toData() {
+	protected byte[] toData() throws TransformationException {
 		if (this.transactionData == null)
 			return null;
 
-		try {
-			return TransactionTransformer.toBytes(this.transactionData);
-		} catch (TransformationException e) {
-			return null;
-		}
+		return TransactionTransformer.toBytes(this.transactionData);
 	}
 
 }

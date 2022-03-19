@@ -6,15 +6,9 @@ import org.qortal.transform.Transformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
-import static org.qortal.transform.Transformer.INT_LENGTH;
-import static org.qortal.transform.Transformer.LONG_LENGTH;
-
 public class GetArbitraryMetadataMessage extends Message {
-
-	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
 
 	private final byte[] signature;
 	private final long requestTime;
@@ -36,12 +30,8 @@ public class GetArbitraryMetadataMessage extends Message {
 		return this.signature;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
-		if (bytes.remaining() != SIGNATURE_LENGTH + LONG_LENGTH + INT_LENGTH)
-			return null;
-
-		byte[] signature = new byte[SIGNATURE_LENGTH];
-
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
+		byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
 		bytes.get(signature);
 
 		long requestTime = bytes.getLong();
@@ -52,20 +42,16 @@ public class GetArbitraryMetadataMessage extends Message {
 	}
 
 	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+	protected byte[] toData() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(this.signature);
+		bytes.write(this.signature);
 
-			bytes.write(Longs.toByteArray(this.requestTime));
+		bytes.write(Longs.toByteArray(this.requestTime));
 
-			bytes.write(Ints.toByteArray(this.requestHops));
+		bytes.write(Ints.toByteArray(this.requestHops));
 
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
+		return bytes.toByteArray();
 	}
 
 	public long getRequestTime() {

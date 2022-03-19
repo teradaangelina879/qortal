@@ -2,7 +2,6 @@ package org.qortal.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +16,7 @@ import com.google.common.primitives.Longs;
 public class GetOnlineAccountsMessage extends Message {
 	private static final int MAX_ACCOUNT_COUNT = 5000;
 
-	private List<OnlineAccountData> onlineAccounts;
+	private final List<OnlineAccountData> onlineAccounts;
 
 	public GetOnlineAccountsMessage(List<OnlineAccountData> onlineAccounts) {
 		this(-1, onlineAccounts);
@@ -33,7 +32,7 @@ public class GetOnlineAccountsMessage extends Message {
 		return this.onlineAccounts;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		final int accountCount = bytes.getInt();
 
 		List<OnlineAccountData> onlineAccounts = new ArrayList<>(accountCount);
@@ -51,23 +50,18 @@ public class GetOnlineAccountsMessage extends Message {
 	}
 
 	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+	protected byte[] toData() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(this.onlineAccounts.size()));
+		bytes.write(Ints.toByteArray(this.onlineAccounts.size()));
 
-			for (int i = 0; i < this.onlineAccounts.size(); ++i) {
-				OnlineAccountData onlineAccountData = this.onlineAccounts.get(i);
-				bytes.write(Longs.toByteArray(onlineAccountData.getTimestamp()));
+		for (OnlineAccountData onlineAccountData : this.onlineAccounts) {
+			bytes.write(Longs.toByteArray(onlineAccountData.getTimestamp()));
 
-				bytes.write(onlineAccountData.getPublicKey());
-			}
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
+			bytes.write(onlineAccountData.getPublicKey());
 		}
+
+		return bytes.toByteArray();
 	}
 
 }

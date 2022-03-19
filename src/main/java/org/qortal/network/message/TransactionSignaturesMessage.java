@@ -2,7 +2,7 @@ package org.qortal.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,9 +13,7 @@ import com.google.common.primitives.Ints;
 
 public class TransactionSignaturesMessage extends Message {
 
-	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
-
-	private List<byte[]> signatures;
+	private final List<byte[]> signatures;
 
 	public TransactionSignaturesMessage(List<byte[]> signatures) {
 		this(-1, signatures);
@@ -31,15 +29,15 @@ public class TransactionSignaturesMessage extends Message {
 		return this.signatures;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		int count = bytes.getInt();
 
-		if (bytes.remaining() != count * SIGNATURE_LENGTH)
-			return null;
+		if (bytes.remaining() < count * Transformer.SIGNATURE_LENGTH)
+			throw new BufferUnderflowException();
 
 		List<byte[]> signatures = new ArrayList<>();
 		for (int i = 0; i < count; ++i) {
-			byte[] signature = new byte[SIGNATURE_LENGTH];
+			byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
 			bytes.get(signature);
 			signatures.add(signature);
 		}
@@ -48,19 +46,15 @@ public class TransactionSignaturesMessage extends Message {
 	}
 
 	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+	protected byte[] toData() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(this.signatures.size()));
+		bytes.write(Ints.toByteArray(this.signatures.size()));
 
-			for (byte[] signature : this.signatures)
-				bytes.write(signature);
+		for (byte[] signature : this.signatures)
+			bytes.write(signature);
 
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
+		return bytes.toByteArray();
 	}
 
 }

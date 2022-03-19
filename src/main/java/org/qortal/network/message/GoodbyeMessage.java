@@ -22,7 +22,7 @@ public class GoodbyeMessage extends Message {
 		private static final Map<Integer, Reason> map = stream(Reason.values())
 				.collect(toMap(reason -> reason.value, reason -> reason));
 
-		private Reason(int value) {
+		Reason(int value) {
 			this.value = value;
 		}
 
@@ -47,12 +47,12 @@ public class GoodbyeMessage extends Message {
 		return this.reason;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) {
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
 		int reasonValue = byteBuffer.getInt();
 
 		Reason reason = Reason.valueOf(reasonValue);
 		if (reason == null)
-			return null;
+			throw new MessageException("Invalid reason " + reasonValue + " in GOODBYE message");
 
 		return new GoodbyeMessage(id, reason);
 	}

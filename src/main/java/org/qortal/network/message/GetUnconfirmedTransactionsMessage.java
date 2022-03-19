@@ -1,6 +1,5 @@
 package org.qortal.network.message;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 public class GetUnconfirmedTransactionsMessage extends Message {
@@ -13,7 +12,7 @@ public class GetUnconfirmedTransactionsMessage extends Message {
 		super(id, MessageType.GET_UNCONFIRMED_TRANSACTIONS);
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		return new GetUnconfirmedTransactionsMessage(id);
 	}
 
