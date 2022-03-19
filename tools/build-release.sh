@@ -95,7 +95,6 @@ cat <<__JAR__
 
 ### [${project}.jar](${git_url}/releases/download/${git_tag}/${project}.jar)
 
-If built using OpenJDK 11:
 __JAR__
 3hash target/${project}*.jar
 
