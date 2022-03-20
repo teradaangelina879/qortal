@@ -362,23 +362,27 @@ public class Controller extends Thread {
 			return; // Not System.exit() so that GUI can display error
 		}
 
-		// Rebuild Names table and check database integrity (if enabled)
-		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
-		namesDatabaseIntegrityCheck.rebuildAllNames();
-		if (Settings.getInstance().isNamesIntegrityCheckEnabled()) {
-			namesDatabaseIntegrityCheck.runIntegrityCheck();
-		}
+		// If we have a non-lite node, we need to perform some startup actions
+		if (!Settings.getInstance().isLite()) {
 
-		LOGGER.info("Validating blockchain");
-		try {
-			BlockChain.validate();
+			// Rebuild Names table and check database integrity (if enabled)
+			NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
+			namesDatabaseIntegrityCheck.rebuildAllNames();
+			if (Settings.getInstance().isNamesIntegrityCheckEnabled()) {
+				namesDatabaseIntegrityCheck.runIntegrityCheck();
+			}
 
-			Controller.getInstance().refillLatestBlocksCache();
-			LOGGER.info(String.format("Our chain height at start-up: %d", Controller.getInstance().getChainHeight()));
-		} catch (DataException e) {
-			LOGGER.error("Couldn't validate blockchain", e);
-			Gui.getInstance().fatalError("Blockchain validation issue", e);
-			return; // Not System.exit() so that GUI can display error
+			LOGGER.info("Validating blockchain");
+			try {
+				BlockChain.validate();
+
+				Controller.getInstance().refillLatestBlocksCache();
+				LOGGER.info(String.format("Our chain height at start-up: %d", Controller.getInstance().getChainHeight()));
+			} catch (DataException e) {
+				LOGGER.error("Couldn't validate blockchain", e);
+				Gui.getInstance().fatalError("Blockchain validation issue", e);
+				return; // Not System.exit() so that GUI can display error
+			}
 		}
 
 		// Import current trade bot states and minting accounts if they exist
@@ -754,7 +758,11 @@ public class Controller extends Thread {
 		final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
 
 		synchronized (Synchronizer.getInstance().syncLock) {
-			if (this.isMintingPossible) {
+			if (Settings.getInstance().isLite()) {
+				actionText = Translator.INSTANCE.translate("SysTray", "LITE_NODE");
+				SysTray.getInstance().setTrayIcon(4);
+			}
+			else if (this.isMintingPossible) {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
 				SysTray.getInstance().setTrayIcon(2);
 			}
@@ -776,7 +784,11 @@ public class Controller extends Thread {
 			}
 		}
 
-		String tooltip = String.format("%s - %d %s - %s %d", actionText, numberOfPeers, connectionsText, heightText, height) + "\n" + String.format("%s: %s", Translator.INSTANCE.translate("SysTray", "BUILD_VERSION"), this.buildVersion);
+		String tooltip = String.format("%s - %d %s", actionText, numberOfPeers, connectionsText);
+		if (!Settings.getInstance().isLite()) {
+			tooltip.concat(String.format(" - %s %d", heightText, height));
+		}
+		tooltip.concat(String.format("\n%s: %s", Translator.INSTANCE.translate("SysTray", "BUILD_VERSION"), this.buildVersion));
 		SysTray.getInstance().setToolTipText(tooltip);
 
 		this.callbackExecutor.execute(() -> {
@@ -933,6 +945,11 @@ public class Controller extends Thread {
 	// Callbacks for/from network
 
 	public void doNetworkBroadcast() {
+		if (Settings.getInstance().isLite()) {
+			// Lite nodes have nothing to broadcast
+			return;
+		}
+
 		Network network = Network.getInstance();
 
 		// Send (if outbound) / Request peer lists
@@ -1450,11 +1467,13 @@ public class Controller extends Thread {
 	private void onNetworkHeightV2Message(Peer peer, Message message) {
 		HeightV2Message heightV2Message = (HeightV2Message) message;
 
-		// If peer is inbound and we've not updated their height
-		// then this is probably their initial HEIGHT_V2 message
-		// so they need a corresponding HEIGHT_V2 message from us
-		if (!peer.isOutbound() && (peer.getChainTipData() == null || peer.getChainTipData().getLastHeight() == null))
-			peer.sendMessage(Network.getInstance().buildHeightMessage(peer, getChainTip()));
+		if (!Settings.getInstance().isLite()) {
+			// If peer is inbound and we've not updated their height
+			// then this is probably their initial HEIGHT_V2 message
+			// so they need a corresponding HEIGHT_V2 message from us
+			if (!peer.isOutbound() && (peer.getChainTipData() == null || peer.getChainTipData().getLastHeight() == null))
+				peer.sendMessage(Network.getInstance().buildHeightMessage(peer, getChainTip()));
+		}
 
 		// Update peer chain tip data
 		PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getMinterPublicKey());
@@ -1515,6 +1534,11 @@ public class Controller extends Thread {
 	 * @return boolean - whether our node's blockchain is up to date or not
 	 */
 	public boolean isUpToDate(Long minLatestBlockTimestamp) {
+		if (Settings.getInstance().isLite()) {
+			// Lite nodes are always "up to date"
+			return true;
+		}
+
 		// Do we even have a vaguely recent block?
 		if (minLatestBlockTimestamp == null)
 			return false;
