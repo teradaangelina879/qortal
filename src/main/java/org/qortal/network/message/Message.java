@@ -99,7 +99,12 @@ public abstract class Message {
 		GET_TRADE_PRESENCES(141),
 		
 		ARBITRARY_METADATA(150),
-		GET_ARBITRARY_METADATA(151);
+		GET_ARBITRARY_METADATA(151),
+
+		ACCOUNT(160),
+		GET_ACCOUNT(161),
+		ACCOUNT_BALANCE(162),
+		GET_ACCOUNT_BALANCE(163);
 
 		public final int value;
 		public final Method fromByteBufferMethod;

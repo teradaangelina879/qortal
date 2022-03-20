@@ -39,6 +39,8 @@ import org.qortal.controller.arbitrary.*;
 import org.qortal.controller.repository.PruneManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.controller.tradebot.TradeBot;
+import org.qortal.data.account.AccountBalanceData;
+import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.network.PeerChainTipData;
@@ -177,6 +179,28 @@ public class Controller extends Thread {
 			}
 		}
 		public GetArbitraryMetadataMessageStats getArbitraryMetadataMessageStats = new GetArbitraryMetadataMessageStats();
+
+		public static class GetAccountMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong cacheHits = new AtomicLong();
+			public AtomicLong unknownAccounts = new AtomicLong();
+			public AtomicLong cacheFills = new AtomicLong();
+
+			public GetAccountMessageStats() {
+			}
+		}
+		public GetAccountMessageStats getAccountMessageStats = new GetAccountMessageStats();
+
+		public static class GetAccountBalanceMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong cacheHits = new AtomicLong();
+			public AtomicLong unknownAccounts = new AtomicLong();
+			public AtomicLong cacheFills = new AtomicLong();
+
+			public GetAccountBalanceMessageStats() {
+			}
+		}
+		public GetAccountBalanceMessageStats getAccountBalanceMessageStats = new GetAccountBalanceMessageStats();
 
 		public AtomicLong latestBlocksCacheRefills = new AtomicLong();
 
@@ -1232,6 +1256,14 @@ public class Controller extends Thread {
 				TradeBot.getInstance().onTradePresencesMessage(peer, message);
 				break;
 
+			case GET_ACCOUNT:
+				onNetworkGetAccountMessage(peer, message);
+				break;
+
+			case GET_ACCOUNT_BALANCE:
+				onNetworkGetAccountBalanceMessage(peer, message);
+				break;
+
 			default:
 				LOGGER.debug(() -> String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
@@ -1481,6 +1513,77 @@ public class Controller extends Thread {
 
 		// Potentially synchronize
 		Synchronizer.getInstance().requestSync();
+	}
+
+	private void onNetworkGetAccountMessage(Peer peer, Message message) {
+		GetAccountMessage getAccountMessage = (GetAccountMessage) message;
+		String address = getAccountMessage.getAddress();
+		this.stats.getAccountMessageStats.requests.incrementAndGet();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			AccountData accountData = repository.getAccountRepository().getAccount(address);
+
+			if (accountData == null) {
+				// We don't have this account
+				this.stats.getAccountMessageStats.unknownAccounts.getAndIncrement();
+
+				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
+				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT request for unknown account %s", peer, address));
+
+				// We'll send empty block summaries message as it's very short
+				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				accountUnknownMessage.setId(message.getId());
+				if (!peer.sendMessage(accountUnknownMessage))
+					peer.disconnect("failed to send account-unknown response");
+				return;
+			}
+
+			AccountMessage accountMessage = new AccountMessage(accountData);
+			accountMessage.setId(message.getId());
+
+			if (!peer.sendMessage(accountMessage)) {
+				peer.disconnect("failed to send account");
+			}
+
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while send account %s to peer %s", address, peer), e);
+		}
+	}
+
+	private void onNetworkGetAccountBalanceMessage(Peer peer, Message message) {
+		GetAccountBalanceMessage getAccountBalanceMessage = (GetAccountBalanceMessage) message;
+		String address = getAccountBalanceMessage.getAddress();
+		long assetId = getAccountBalanceMessage.getAssetId();
+		this.stats.getAccountBalanceMessageStats.requests.incrementAndGet();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			AccountBalanceData accountBalanceData = repository.getAccountRepository().getBalance(address, assetId);
+
+			if (accountBalanceData == null) {
+				// We don't have this account
+				this.stats.getAccountBalanceMessageStats.unknownAccounts.getAndIncrement();
+
+				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
+				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT request for unknown account %s and asset ID %d", peer, address, assetId));
+
+				// We'll send empty block summaries message as it's very short
+				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				accountUnknownMessage.setId(message.getId());
+				if (!peer.sendMessage(accountUnknownMessage))
+					peer.disconnect("failed to send account-unknown response");
+				return;
+			}
+
+			AccountBalanceMessage accountMessage = new AccountBalanceMessage(accountBalanceData);
+			accountMessage.setId(message.getId());
+
+			if (!peer.sendMessage(accountMessage)) {
+				peer.disconnect("failed to send account");
+			}
+
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while send balance for account %s and asset ID %d to peer %s", address, assetId, peer), e);
+		}
 	}
 
 
