@@ -26,6 +26,7 @@ import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.model.NameSummary;
+import org.qortal.controller.LiteNode;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.BuyNameTransactionData;
@@ -101,7 +102,14 @@ public class NamesResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<NameData> names = repository.getNameRepository().getNamesByOwner(address, limit, offset, reverse);
+			List<NameData> names;
+
+			if (Settings.getInstance().isLite()) {
+				names = LiteNode.getInstance().fetchAccountNames(address);
+			}
+			else {
+				names = repository.getNameRepository().getNamesByOwner(address, limit, offset, reverse);
+			}
 
 			return names.stream().map(NameSummary::new).collect(Collectors.toList());
 		} catch (DataException e) {

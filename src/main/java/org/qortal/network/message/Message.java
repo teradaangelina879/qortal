@@ -101,10 +101,15 @@ public abstract class Message {
 		ARBITRARY_METADATA(150),
 		GET_ARBITRARY_METADATA(151),
 
+		// Lite node support
 		ACCOUNT(160),
 		GET_ACCOUNT(161),
-		ACCOUNT_BALANCE(162),
-		GET_ACCOUNT_BALANCE(163);
+
+		ACCOUNT_BALANCE(170),
+		GET_ACCOUNT_BALANCE(171),
+
+		NAMES(180),
+		GET_ACCOUNT_NAMES(181);
 
 		public final int value;
 		public final Method fromByteBufferMethod;

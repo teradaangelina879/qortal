@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
+import org.qortal.data.naming.NameData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.*;
@@ -63,6 +64,20 @@ public class LiteNode {
             return null;
         }
         return accountMessage.getAccountBalanceData();
+    }
+
+    /**
+     * Fetch list of names for given QORT address
+     * @param address - the QORT address to query
+     * @return a list of NameData objects, or null if not retrieved
+     */
+    public List<NameData> fetchAccountNames(String address) {
+        GetAccountNamesMessage getAccountNamesMessage = new GetAccountNamesMessage(address);
+        NamesMessage namesMessage = (NamesMessage) this.sendMessage(getAccountNamesMessage, NAMES);
+        if (namesMessage == null) {
+            return null;
+        }
+        return namesMessage.getNameDataList();
     }
 
 

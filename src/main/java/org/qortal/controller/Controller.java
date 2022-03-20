@@ -43,6 +43,7 @@ import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
+import org.qortal.data.naming.NameData;
 import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ChatTransactionData;
@@ -201,6 +202,15 @@ public class Controller extends Thread {
 			}
 		}
 		public GetAccountBalanceMessageStats getAccountBalanceMessageStats = new GetAccountBalanceMessageStats();
+
+		public static class GetAccountNamesMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong unknownAccounts = new AtomicLong();
+
+			public GetAccountNamesMessageStats() {
+			}
+		}
+		public GetAccountNamesMessageStats getAccountNamesMessageStats = new GetAccountNamesMessageStats();
 
 		public AtomicLong latestBlocksCacheRefills = new AtomicLong();
 
@@ -1264,6 +1274,10 @@ public class Controller extends Thread {
 				onNetworkGetAccountBalanceMessage(peer, message);
 				break;
 
+			case GET_ACCOUNT_NAMES:
+				onNetworkGetAccountNamesMessage(peer, message);
+				break;
+
 			default:
 				LOGGER.debug(() -> String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
@@ -1583,6 +1597,41 @@ public class Controller extends Thread {
 
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while send balance for account %s and asset ID %d to peer %s", address, assetId, peer), e);
+		}
+	}
+
+	private void onNetworkGetAccountNamesMessage(Peer peer, Message message) {
+		GetAccountNamesMessage getAccountNamesMessage = (GetAccountNamesMessage) message;
+		String address = getAccountNamesMessage.getAddress();
+		this.stats.getAccountNamesMessageStats.requests.incrementAndGet();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<NameData> namesDataList = repository.getNameRepository().getNamesByOwner(address);
+
+			if (namesDataList == null) {
+				// We don't have this account
+				this.stats.getAccountNamesMessageStats.unknownAccounts.getAndIncrement();
+
+				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
+				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT_NAMES request for unknown account %s", peer, address));
+
+				// We'll send empty block summaries message as it's very short
+				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				accountUnknownMessage.setId(message.getId());
+				if (!peer.sendMessage(accountUnknownMessage))
+					peer.disconnect("failed to send account-unknown response");
+				return;
+			}
+
+			NamesMessage namesMessage = new NamesMessage(namesDataList);
+			namesMessage.setId(message.getId());
+
+			if (!peer.sendMessage(namesMessage)) {
+				peer.disconnect("failed to send account names");
+			}
+
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while send names for account %s to peer %s", address, peer), e);
 		}
 	}
 
