@@ -122,7 +122,7 @@ public class TransactionImporter extends Thread {
                 Boolean isSigValid = transactionEntry.getValue();
                 if (!Boolean.TRUE.equals(isSigValid)) {
                     if (isLiteNode) {
-                        // Lite nodes can't validate transactions, so can only assume that everything is valid
+                        // Lite nodes can't easily validate transactions, so for now we will have to assume that everything is valid
                         sigValidTransactions.add(transaction);
                         continue;
                     }
