@@ -185,7 +185,6 @@ public class Controller extends Thread {
 			public AtomicLong requests = new AtomicLong();
 			public AtomicLong cacheHits = new AtomicLong();
 			public AtomicLong unknownAccounts = new AtomicLong();
-			public AtomicLong cacheFills = new AtomicLong();
 
 			public GetAccountMessageStats() {
 			}
@@ -194,9 +193,7 @@ public class Controller extends Thread {
 
 		public static class GetAccountBalanceMessageStats {
 			public AtomicLong requests = new AtomicLong();
-			public AtomicLong cacheHits = new AtomicLong();
 			public AtomicLong unknownAccounts = new AtomicLong();
-			public AtomicLong cacheFills = new AtomicLong();
 
 			public GetAccountBalanceMessageStats() {
 			}
@@ -1578,7 +1575,7 @@ public class Controller extends Thread {
 				this.stats.getAccountBalanceMessageStats.unknownAccounts.getAndIncrement();
 
 				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
-				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT request for unknown account %s and asset ID %d", peer, address, assetId));
+				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT_BALANCE request for unknown account %s and asset ID %d", peer, address, assetId));
 
 				// We'll send empty block summaries message as it's very short
 				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
@@ -1592,7 +1589,7 @@ public class Controller extends Thread {
 			accountMessage.setId(message.getId());
 
 			if (!peer.sendMessage(accountMessage)) {
-				peer.disconnect("failed to send account");
+				peer.disconnect("failed to send account balance");
 			}
 
 		} catch (DataException e) {
