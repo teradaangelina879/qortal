@@ -80,6 +80,25 @@ public class LiteNode {
         return namesMessage.getNameDataList();
     }
 
+    /**
+     * Fetch info about a registered name
+     * @param name - the name to query
+     * @return a NameData object, or null if not retrieved
+     */
+    public NameData fetchNameData(String name) {
+        GetNameMessage getNameMessage = new GetNameMessage(name);
+        NamesMessage namesMessage = (NamesMessage) this.sendMessage(getNameMessage, NAMES);
+        if (namesMessage == null) {
+            return null;
+        }
+        List<NameData> nameDataList = namesMessage.getNameDataList();
+        if (nameDataList == null || nameDataList.size() != 1) {
+            return null;
+        }
+        // We are only expecting a single item in the list
+        return nameDataList.get(0);
+    }
+
 
     private Message sendMessage(Message message, MessageType expectedResponseMessageType) {
         // This asks a random peer for the data

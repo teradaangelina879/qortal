@@ -209,6 +209,15 @@ public class Controller extends Thread {
 		}
 		public GetAccountNamesMessageStats getAccountNamesMessageStats = new GetAccountNamesMessageStats();
 
+		public static class GetNameMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong unknownAccounts = new AtomicLong();
+
+			public GetNameMessageStats() {
+			}
+		}
+		public GetNameMessageStats getNameMessageStats = new GetNameMessageStats();
+
 		public AtomicLong latestBlocksCacheRefills = new AtomicLong();
 
 		public StatsSnapshot() {
@@ -1275,6 +1284,10 @@ public class Controller extends Thread {
 				onNetworkGetAccountNamesMessage(peer, message);
 				break;
 
+			case GET_NAME:
+				onNetworkGetNameMessage(peer, message);
+				break;
+
 			default:
 				LOGGER.debug(() -> String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
@@ -1629,6 +1642,41 @@ public class Controller extends Thread {
 
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while send names for account %s to peer %s", address, peer), e);
+		}
+	}
+
+	private void onNetworkGetNameMessage(Peer peer, Message message) {
+		GetNameMessage getNameMessage = (GetNameMessage) message;
+		String name = getNameMessage.getName();
+		this.stats.getNameMessageStats.requests.incrementAndGet();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			NameData nameData = repository.getNameRepository().fromName(name);
+
+			if (nameData == null) {
+				// We don't have this account
+				this.stats.getNameMessageStats.unknownAccounts.getAndIncrement();
+
+				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
+				LOGGER.debug(() -> String.format("Sending 'name unknown' response to peer %s for GET_NAME request for unknown name %s", peer, name));
+
+				// We'll send empty block summaries message as it's very short
+				Message nameUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				nameUnknownMessage.setId(message.getId());
+				if (!peer.sendMessage(nameUnknownMessage))
+					peer.disconnect("failed to send name-unknown response");
+				return;
+			}
+
+			NamesMessage namesMessage = new NamesMessage(Arrays.asList(nameData));
+			namesMessage.setId(message.getId());
+
+			if (!peer.sendMessage(namesMessage)) {
+				peer.disconnect("failed to send name data");
+			}
+
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while send name %s to peer %s", name, peer), e);
 		}
 	}
 

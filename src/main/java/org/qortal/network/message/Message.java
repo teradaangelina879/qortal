@@ -109,7 +109,8 @@ public abstract class Message {
 		GET_ACCOUNT_BALANCE(171),
 
 		NAMES(180),
-		GET_ACCOUNT_NAMES(181);
+		GET_ACCOUNT_NAMES(181),
+		GET_NAME(182);
 
 		public final int value;
 		public final Method fromByteBufferMethod;

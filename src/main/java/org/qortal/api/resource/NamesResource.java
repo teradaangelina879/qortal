@@ -134,10 +134,18 @@ public class NamesResource {
 	@ApiErrors({ApiError.NAME_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public NameData getName(@PathParam("name") String name) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			NameData nameData = repository.getNameRepository().fromName(name);
+			NameData nameData;
 
-			if (nameData == null)
+			if (Settings.getInstance().isLite()) {
+				nameData = LiteNode.getInstance().fetchNameData(name);
+			}
+			else {
+				nameData = repository.getNameRepository().fromName(name);
+			}
+
+			if (nameData == null) {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NAME_UNKNOWN);
+			}
 
 			return nameData;
 		} catch (ApiException e) {
