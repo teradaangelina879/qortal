@@ -4,8 +4,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.qortal.account.NullAccount;
 import org.qortal.data.transaction.ATTransactionData;
+import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.group.Group;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
@@ -18,11 +21,34 @@ public class AtTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		throw new TransformationException("Serialized AT transactions should not exist!");
+		long timestamp = byteBuffer.getLong();
+
+		byte[] reference = new byte[REFERENCE_LENGTH];
+		byteBuffer.get(reference);
+
+		String atAddress = Serialization.deserializeAddress(byteBuffer);
+
+		String recipient = Serialization.deserializeAddress(byteBuffer);
+
+		// Assume PAYMENT-type, as these are the only ones used in ACCTs
+		// TODO: add support for MESSAGE-type
+		long assetId = byteBuffer.getLong();
+
+		long amount = byteBuffer.getLong();
+
+		long fee = byteBuffer.getLong();
+
+		byte[] signature = new byte[SIGNATURE_LENGTH];
+		byteBuffer.get(signature);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, NullAccount.PUBLIC_KEY, fee, signature);
+
+		return new ATTransactionData(baseTransactionData, atAddress, recipient, amount, assetId);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		throw new TransformationException("Serialized AT transactions should not exist!");
+		return TYPE_LENGTH + TIMESTAMP_LENGTH + REFERENCE_LENGTH + ADDRESS_LENGTH + ADDRESS_LENGTH +
+				ASSET_ID_LENGTH + AMOUNT_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
 	}
 
 	// Used for generating fake transaction signatures
