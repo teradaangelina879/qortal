@@ -32,6 +32,7 @@ import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qortal.api.ApiService;
 import org.qortal.api.DomainMapService;
 import org.qortal.api.GatewayService;
+import org.qortal.api.resource.TransactionsResource;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
@@ -199,6 +200,15 @@ public class Controller extends Thread {
 			}
 		}
 		public GetAccountBalanceMessageStats getAccountBalanceMessageStats = new GetAccountBalanceMessageStats();
+
+		public static class GetAccountTransactionsMessageStats {
+			public AtomicLong requests = new AtomicLong();
+			public AtomicLong unknownAccounts = new AtomicLong();
+
+			public GetAccountTransactionsMessageStats() {
+			}
+		}
+		public GetAccountTransactionsMessageStats getAccountTransactionsMessageStats = new GetAccountTransactionsMessageStats();
 
 		public static class GetAccountNamesMessageStats {
 			public AtomicLong requests = new AtomicLong();
@@ -1280,6 +1290,10 @@ public class Controller extends Thread {
 				onNetworkGetAccountBalanceMessage(peer, message);
 				break;
 
+			case GET_ACCOUNT_TRANSACTIONS:
+				onNetworkGetAccountTransactionsMessage(peer, message);
+				break;
+
 			case GET_ACCOUNT_NAMES:
 				onNetworkGetAccountNamesMessage(peer, message);
 				break;
@@ -1607,6 +1621,50 @@ public class Controller extends Thread {
 
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while send balance for account %s and asset ID %d to peer %s", address, assetId, peer), e);
+		}
+	}
+
+	private void onNetworkGetAccountTransactionsMessage(Peer peer, Message message) {
+		GetAccountTransactionsMessage getAccountTransactionsMessage = (GetAccountTransactionsMessage) message;
+		String address = getAccountTransactionsMessage.getAddress();
+		int limit = Math.min(getAccountTransactionsMessage.getLimit(), 100);
+		int offset = getAccountTransactionsMessage.getOffset();
+		this.stats.getAccountTransactionsMessageStats.requests.incrementAndGet();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null,
+					null, null, null, address, TransactionsResource.ConfirmationStatus.CONFIRMED, limit, offset, false);
+
+			// Expand signatures to transactions
+			List<TransactionData> transactions = new ArrayList<>(signatures.size());
+			for (byte[] signature : signatures) {
+				transactions.add(repository.getTransactionRepository().fromSignature(signature));
+			}
+
+			if (transactions == null) {
+				// We don't have this account
+				this.stats.getAccountTransactionsMessageStats.unknownAccounts.getAndIncrement();
+
+				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
+				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT_TRANSACTIONS request for unknown account %s", peer, address));
+
+				// We'll send empty block summaries message as it's very short
+				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				accountUnknownMessage.setId(message.getId());
+				if (!peer.sendMessage(accountUnknownMessage))
+					peer.disconnect("failed to send account-unknown response");
+				return;
+			}
+
+			TransactionsMessage transactionsMessage = new TransactionsMessage(transactions);
+			transactionsMessage.setId(message.getId());
+
+			if (!peer.sendMessage(transactionsMessage)) {
+				peer.disconnect("failed to send account transactions");
+			}
+
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while send transactions for account %s %d to peer %s", address, peer), e);
 		}
 	}
 

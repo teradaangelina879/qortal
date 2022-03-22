@@ -110,7 +110,10 @@ public abstract class Message {
 
 		NAMES(180),
 		GET_ACCOUNT_NAMES(181),
-		GET_NAME(182);
+		GET_NAME(182),
+
+		TRANSACTIONS(190),
+		GET_ACCOUNT_TRANSACTIONS(191);
 
 		public final int value;
 		public final Method fromByteBufferMethod;

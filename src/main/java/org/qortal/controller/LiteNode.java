@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.naming.NameData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.*;
@@ -23,6 +24,8 @@ public class LiteNode {
 
 
     public Map<Integer, Long> pendingRequests = Collections.synchronizedMap(new HashMap<>());
+
+    public int MAX_TRANSACTIONS_PER_MESSAGE = 100;
 
 
     public LiteNode() {
@@ -64,6 +67,37 @@ public class LiteNode {
             return null;
         }
         return accountMessage.getAccountBalanceData();
+    }
+
+    /**
+     * Fetch list of transactions for given QORT address
+     * @param address - the QORT address to query
+     * @param limit - the maximum number of results to return
+     * @param offset - the starting index
+     * @return a list of TransactionData objects, or null if not retrieved
+     */
+    public List<TransactionData> fetchAccountTransactions(String address, int limit, int offset) {
+        List<TransactionData> allTransactions = new ArrayList<>();
+        if (limit == 0) {
+            limit = Integer.MAX_VALUE;
+        }
+        int batchSize = Math.min(limit, MAX_TRANSACTIONS_PER_MESSAGE);
+
+        while (allTransactions.size() < limit) {
+            GetAccountTransactionsMessage getAccountTransactionsMessage = new GetAccountTransactionsMessage(address, batchSize, offset);
+            TransactionsMessage transactionsMessage = (TransactionsMessage) this.sendMessage(getAccountTransactionsMessage, TRANSACTIONS);
+            if (transactionsMessage == null) {
+                // An error occurred, so give up instead of returning partial results
+                return null;
+            }
+            allTransactions.addAll(transactionsMessage.getTransactions());
+            if (transactionsMessage.getTransactions().size() < batchSize) {
+                // No more transactions to fetch
+                break;
+            }
+            offset += batchSize;
+        }
+        return allTransactions;
     }
 
     /**
