@@ -145,13 +145,13 @@ public class LiteNode {
         peers.removeIf(Controller.hasMisbehaved);
 
         // Disregard peers that only have genesis block
-        peers.removeIf(Controller.hasOnlyGenesisBlock);
+        // TODO: peers.removeIf(Controller.hasOnlyGenesisBlock);
 
         // Disregard peers that are on an old version
         peers.removeIf(Controller.hasOldVersion);
 
         // Disregard peers that are on a known inferior chain tip
-        peers.removeIf(Controller.hasInferiorChainTip);
+        // TODO: peers.removeIf(Controller.hasInferiorChainTip);
 
         if (peers.isEmpty()) {
             LOGGER.info("No peers available to send {} message to", message.getType());
