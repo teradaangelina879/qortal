@@ -97,9 +97,9 @@ public abstract class ExecuteProduceConsume implements Runnable {
 	 */
 	protected abstract Task produceTask(boolean canBlock) throws InterruptedException;
 
-	@FunctionalInterface
 	public interface Task {
-		public abstract void perform() throws InterruptedException;
+		String getName();
+		void perform() throws InterruptedException;
 	}
 
 	@Override
@@ -152,7 +152,7 @@ public abstract class ExecuteProduceConsume implements Runnable {
 
 					if (this.logger.isDebugEnabled()) {
 						final long productionPeriod = System.currentTimeMillis() - beforeProduce;
-						taskType = task == null ? "no task" : task.getClass().getCanonicalName();
+						taskType = task == null ? "no task" : task.getName();
 
 						this.logger.debug(() -> String.format("[%d] produced [%s] in %dms [canBlock: %b]",
 								Thread.currentThread().getId(),

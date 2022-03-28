@@ -12,24 +12,20 @@ import org.qortal.data.network.PeerData;
 import org.qortal.network.message.ChallengeMessage;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.MessageException;
-import org.qortal.network.message.MessageType;
-import org.qortal.network.message.PingMessage;
+import org.qortal.network.task.MessageTask;
+import org.qortal.network.task.PingTask;
 import org.qortal.settings.Settings;
-import org.qortal.utils.ExecuteProduceConsume;
+import org.qortal.utils.ExecuteProduceConsume.Task;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.security.SecureRandom;
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -98,7 +94,7 @@ public class Peer {
     /**
      * When last PING message was sent, or null if pings not started yet.
      */
-    private Long lastPingSent;
+    private Long lastPingSent = null;
 
     byte[] ourChallenge;
 
@@ -160,10 +156,10 @@ public class Peer {
     /**
      * Construct Peer using existing, connected socket
      */
-    public Peer(SocketChannel socketChannel, Selector channelSelector) throws IOException {
+    public Peer(SocketChannel socketChannel) throws IOException {
         this.isOutbound = false;
         this.socketChannel = socketChannel;
-        sharedSetup(channelSelector);
+        sharedSetup();
 
         this.resolvedAddress = ((InetSocketAddress) socketChannel.socket().getRemoteSocketAddress());
         this.isLocal = isAddressLocal(this.resolvedAddress.getAddress());
@@ -276,7 +272,7 @@ public class Peer {
         }
     }
 
-    protected void setLastPing(long lastPing) {
+    public void setLastPing(long lastPing) {
         synchronized (this.peerInfoLock) {
             this.lastPing = lastPing;
         }
@@ -396,13 +392,13 @@ public class Peer {
 
     // Processing
 
-    private void sharedSetup(Selector channelSelector) throws IOException {
+    private void sharedSetup() throws IOException {
         this.connectionTimestamp = NTP.getTime();
         this.socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
         this.socketChannel.configureBlocking(false);
-        this.socketChannel.register(channelSelector, SelectionKey.OP_READ);
+        Network.getInstance().setInterestOps(this.socketChannel, SelectionKey.OP_READ);
         this.byteBuffer = null; // Defer allocation to when we need it, to save memory. Sorry GC!
-        this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
+        this.replyQueues = new ConcurrentHashMap<>();
         this.pendingMessages = new LinkedBlockingQueue<>();
 
         Random random = new SecureRandom();
@@ -410,7 +406,7 @@ public class Peer {
         random.nextBytes(this.ourChallenge);
     }
 
-    public SocketChannel connect(Selector channelSelector) {
+    public SocketChannel connect() {
         LOGGER.trace("[{}] Connecting to peer {}", this.peerConnectionId, this);
 
         try {
@@ -432,7 +428,7 @@ public class Peer {
 
         try {
             LOGGER.debug("[{}] Connected to peer {}", this.peerConnectionId, this);
-            sharedSetup(channelSelector);
+            sharedSetup();
             return socketChannel;
         } catch (IOException e) {
             LOGGER.trace("[{}] Post-connection setup failed, peer {}", this.peerConnectionId, this);
@@ -450,7 +446,7 @@ public class Peer {
      *
      * @throws IOException If this channel is not yet connected
      */
-    protected void readChannel() throws IOException {
+    public void readChannel() throws IOException {
         synchronized (this.byteBufferLock) {
             while (true) {
                 if (!this.socketChannel.isOpen() || this.socketChannel.socket().isClosed()) {
@@ -556,7 +552,16 @@ public class Peer {
         }
     }
 
-    protected ExecuteProduceConsume.Task getMessageTask() {
+    /** Maybe send some pending outgoing messages.
+     *
+     * @return true if more data is pending to be sent
+     */
+    public boolean writeChannel() throws IOException {
+        // TODO
+        return false;
+    }
+
+    protected Task getMessageTask() {
         /*
          * If we are still handshaking and there is a message yet to be processed then
          * don't produce another message task. This allows us to process handshake
@@ -580,7 +585,7 @@ public class Peer {
         }
 
         // Return a task to process message in queue
-        return () -> Network.getInstance().onMessage(this, nextMessage);
+        return new MessageTask(this, nextMessage);
     }
 
     /**
@@ -720,7 +725,7 @@ public class Peer {
         this.lastPingSent = NTP.getTime();
     }
 
-    protected ExecuteProduceConsume.Task getPingTask(Long now) {
+    protected Task getPingTask(Long now) {
         // Pings not enabled yet?
         if (now == null || this.lastPingSent == null) {
             return null;
@@ -734,19 +739,7 @@ public class Peer {
         // Not strictly true, but prevents this peer from being immediately chosen again
         this.lastPingSent = now;
 
-        return () -> {
-            PingMessage pingMessage = new PingMessage();
-            Message message = this.getResponse(pingMessage);
-
-            if (message == null || message.getType() != MessageType.PING) {
-                LOGGER.debug("[{}] Didn't receive reply from {} for PING ID {}", this.peerConnectionId, this,
-                        pingMessage.getId());
-                this.disconnect("no ping received");
-                return;
-            }
-
-            this.setLastPing(NTP.getTime() - now);
-        };
+        return new PingTask(this, now);
     }
 
     public void disconnect(String reason) {
