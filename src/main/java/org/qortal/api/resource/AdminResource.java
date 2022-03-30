@@ -588,10 +588,6 @@ public class AdminResource {
 	public String importRepository(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String filename) {
 		Security.checkApiCallAllowed(request);
 
-		// Hard-coded because it's too dangerous to allow user-supplied filenames in weaker security contexts
-		if (Settings.getInstance().getApiKey() == null)
-			filename = "qortal-backup/TradeBotStates.json";
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 
