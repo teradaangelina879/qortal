@@ -242,6 +242,20 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public Integer getMintedBlockCount(String address) throws DataException {
+		String sql = "SELECT blocks_minted FROM Accounts WHERE account = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
+			if (resultSet == null)
+				return null;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's minted block count from repository", e);
+		}
+	}
+
+	@Override
 	public void setMintedBlockCount(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 
