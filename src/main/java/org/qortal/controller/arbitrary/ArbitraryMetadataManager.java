@@ -216,30 +216,24 @@ public class ArbitraryMetadataManager {
 
         long timeSinceLastAttempt = NTP.getTime() - lastAttemptTimestamp;
 
-        // Allow a second attempt after 15 seconds, and another after 30 seconds
-        if (timeSinceLastAttempt > 15 * 1000L) {
-            // We haven't tried for at least 15 seconds
+        // Allow a second attempt after 60 seconds
+        if (timeSinceLastAttempt > 60 * 1000L) {
+            // We haven't tried for at least 60 seconds
+
+            if (networkBroadcastCount < 2) {
+                // We've made less than 2 total attempts
+                return true;
+            }
+        }
+
+        // Then allow another attempt after 60 minutes
+        if (timeSinceLastAttempt > 60 * 60 * 1000L) {
+            // We haven't tried for at least 60 minutes
 
             if (networkBroadcastCount < 3) {
                 // We've made less than 3 total attempts
                 return true;
             }
-        }
-
-        // Then allow another 5 attempts, each 5 minutes apart
-        if (timeSinceLastAttempt > 5 * 60 * 1000L) {
-            // We haven't tried for at least 5 minutes
-
-            if (networkBroadcastCount < 5) {
-                // We've made less than 5 total attempts
-                return true;
-            }
-        }
-
-        // From then on, only try once every 24 hours, to reduce network spam
-        if (timeSinceLastAttempt > 24 * 60 * 60 * 1000L) {
-            // We haven't tried for at least 24 hours
-            return true;
         }
 
         return false;
