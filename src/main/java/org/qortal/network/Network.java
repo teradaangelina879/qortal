@@ -582,6 +582,10 @@ public class Network {
                 final SelectionKey nextSelectionKey = channelIterator.next();
                 channelIterator.remove();
 
+                // Just in case underlying socket channel already closed elsewhere, etc.
+                if (!nextSelectionKey.isValid())
+                    return null;
+
                 LOGGER.trace("Thread {}, nextSelectionKey {}", Thread.currentThread().getId(), nextSelectionKey);
 
                 SelectableChannel socketChannel = nextSelectionKey.channel();
@@ -844,7 +848,9 @@ public class Network {
         this.removeConnectedPeer(peer);
         this.channelsPendingWrite.remove(peer.getSocketChannel());
 
-        if (getImmutableConnectedPeers().size() < maxPeers - 1 && (serverSelectionKey.interestOps() & SelectionKey.OP_ACCEPT) == 0) {
+        if (getImmutableConnectedPeers().size() < maxPeers - 1
+                && serverSelectionKey.isValid()
+                && (serverSelectionKey.interestOps() & SelectionKey.OP_ACCEPT) == 0) {
             try {
                 LOGGER.debug("Re-enabling accepting incoming connections because the server is not longer full");
                 setInterestOps(serverSelectionKey, SelectionKey.OP_ACCEPT);
