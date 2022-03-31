@@ -45,25 +45,16 @@ public class Litecoin extends Bitcoiny {
 				return Arrays.asList(
 						// Servers chosen on NO BASIS WHATSOEVER from various sources!
 						// Status verified at https://1209k.com/bitcoin-eye/ele.php?chain=ltc
-						//CLOSED new Server("electrum.jochen-hoenicke.de", Server.ConnectionType.TCP, 50005),
 						//CLOSED new Server("electrum-ltc.petrkr.net", Server.ConnectionType.SSL, 60002),
 						//CLOSED new Server("electrum-ltc.someguy123.net", Server.ConnectionType.SSL, 50002),
-						//CLOSED new Server("electrum-ltc-bysh.me", Server.ConnectionType.TCP, 50002),
-						//CLOSED new Server("node.ispol.sk", Server.ConnectionType.TCP, 50004),
 						new Server("backup.electrum-ltc.org", Server.ConnectionType.SSL, 443),
-						new Server("backup.electrum-ltc.org", Server.ConnectionType.TCP, 50001),
 						new Server("electrum.ltc.xurious.com", Server.ConnectionType.SSL, 50002),
-						new Server("electrum.ltc.xurious.com", Server.ConnectionType.TCP, 50001),
 						new Server("electrum-ltc.bysh.me", Server.ConnectionType.SSL, 50002),
 						new Server("electrum1.cipig.net", Server.ConnectionType.SSL, 20063),
-						new Server("electrum1.cipig.net", Server.ConnectionType.TCP, 10063),
 						new Server("electrum2.cipig.net", Server.ConnectionType.SSL, 20063),
-						new Server("electrum2.cipig.net", Server.ConnectionType.TCP, 10063),
 						new Server("electrum3.cipig.net", Server.ConnectionType.SSL, 20063),
-						new Server("electrum3.cipig.net", ConnectionType.TCP, 10063),
 						new Server("ltc.litepay.ch", Server.ConnectionType.SSL, 50022),
-						new Server("ltc.rentonrisk.com", Server.ConnectionType.SSL, 50002),
-						new Server("ltc.rentonrisk.com", Server.ConnectionType.TCP, 50001));
+						new Server("ltc.rentonrisk.com", Server.ConnectionType.SSL, 50002));
 			}
 
 			@Override
