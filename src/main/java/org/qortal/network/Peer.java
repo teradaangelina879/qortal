@@ -44,9 +44,9 @@ public class Peer {
     private static final int RESPONSE_TIMEOUT = 3000; // ms
 
     /**
-     * Maximum time to wait for a peer to respond with blocks (ms)
+     * Maximum time to wait for a message to be added to sendQueue (ms)
      */
-    public static final int FETCH_BLOCKS_TIMEOUT = 10000;
+    private static final int QUEUE_TIMEOUT = 1000; // ms
 
     /**
      * Interval between PING messages to a peer. (ms)
@@ -67,9 +67,13 @@ public class Peer {
     private final UUID peerConnectionId = UUID.randomUUID();
     private final Object byteBufferLock = new Object();
     private ByteBuffer byteBuffer;
-
     private Map<Integer, BlockingQueue<Message>> replyQueues;
     private LinkedBlockingQueue<Message> pendingMessages;
+
+    private TransferQueue<Message> sendQueue;
+    private ByteBuffer outputBuffer;
+    private String outputMessageType;
+    private int outputMessageId;
 
     /**
      * True if we created connection to peer, false if we accepted incoming connection from peer.
@@ -342,12 +346,6 @@ public class Peer {
         }
     }
 
-    protected void queueMessage(Message message) {
-        if (!this.pendingMessages.offer(message)) {
-            LOGGER.info("[{}] No room to queue message from peer {} - discarding", this.peerConnectionId, this);
-        }
-    }
-
     public boolean isSyncInProgress() {
         return this.syncInProgress;
     }
@@ -398,6 +396,7 @@ public class Peer {
         this.socketChannel.configureBlocking(false);
         Network.getInstance().setInterestOps(this.socketChannel, SelectionKey.OP_READ);
         this.byteBuffer = null; // Defer allocation to when we need it, to save memory. Sorry GC!
+        this.sendQueue = new LinkedTransferQueue<>();
         this.replyQueues = new ConcurrentHashMap<>();
         this.pendingMessages = new LinkedBlockingQueue<>();
 
@@ -557,8 +556,59 @@ public class Peer {
      * @return true if more data is pending to be sent
      */
     public boolean writeChannel() throws IOException {
-        // TODO
-        return false;
+        // It is the responsibility of ChannelWriteTask's producer to produce only one call to writeChannel() at a time
+
+        while (true) {
+            // If output byte buffer is null, fetch next message from queue (if any)
+            while (this.outputBuffer == null) {
+                Message message;
+
+                try {
+                    // Allow other thread time to add message to queue having raised OP_WRITE.
+                    // Timeout is overkill but not excessive enough to clog up networking / EPC.
+                    // This is to avoid race condition in sendMessageWithTimeout() below.
+                    message = this.sendQueue.poll(QUEUE_TIMEOUT, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    // Shutdown situation
+                    return false;
+                }
+
+                // No message? No further work to be done
+                if (message == null)
+                    return false;
+
+                try {
+                    this.outputBuffer = ByteBuffer.wrap(message.toBytes());
+                    this.outputMessageType = message.getType().name();
+                    this.outputMessageId = message.getId();
+
+                    LOGGER.trace("[{}] Sending {} message with ID {} to peer {}",
+                            this.peerConnectionId, this.outputMessageType, this.outputMessageId, this);
+                } catch (MessageException e) {
+                    // Something went wrong converting message to bytes, so discard but allow another round
+                    LOGGER.warn("[{}] Failed to send {} message with ID {} to peer {}: {}", this.peerConnectionId,
+                            message.getType().name(), message.getId(), this, e.getMessage());
+                }
+            }
+
+            // If output byte buffer is not null, send from that
+            int bytesWritten = this.socketChannel.write(outputBuffer);
+
+            LOGGER.trace("[{}] Sent {} bytes of {} message with ID {} to peer {} ({} total)", this.peerConnectionId,
+                    bytesWritten, this.outputMessageType, this.outputMessageId, this, outputBuffer.limit());
+
+            // If we've sent 0 bytes then socket buffer is full so we need to wait until it's empty again
+            if (bytesWritten == 0) {
+                return true;
+            }
+
+            // If we then exhaust the byte buffer, set it to null (otherwise loop and try to send more)
+            if (!this.outputBuffer.hasRemaining()) {
+                this.outputMessageType = null;
+                this.outputMessageId = 0;
+                this.outputBuffer = null;
+            }
+        }
     }
 
     protected Task getMessageTask() {
@@ -610,54 +660,19 @@ public class Peer {
         }
 
         try {
-            // Send message
-            LOGGER.trace("[{}] Sending {} message with ID {} to peer {}", this.peerConnectionId,
+            // Queue message, to be picked up by ChannelWriteTask and then peer.writeChannel()
+            LOGGER.trace("[{}] Queuing {} message with ID {} to peer {}", this.peerConnectionId,
                     message.getType().name(), message.getId(), this);
 
-            ByteBuffer outputBuffer = ByteBuffer.wrap(message.toBytes());
-
-            synchronized (this.socketChannel) {
-                final long sendStart = System.currentTimeMillis();
-                long totalBytes = 0;
-
-                while (outputBuffer.hasRemaining()) {
-                    int bytesWritten = this.socketChannel.write(outputBuffer);
-                    totalBytes += bytesWritten;
-
-                    LOGGER.trace("[{}] Sent {} bytes of {} message with ID {} to peer {} ({} total)", this.peerConnectionId,
-                            bytesWritten, message.getType().name(), message.getId(), this, totalBytes);
-
-                    if (bytesWritten == 0) {
-                        // Underlying socket's internal buffer probably full,
-                        // so wait a short while for bytes to actually be transmitted over the wire
-
-                        /*
-                         * NOSONAR squid:S2276 - we don't want to use this.socketChannel.wait()
-                         * as this releases the lock held by synchronized() above
-                         * and would allow another thread to send another message,
-                         * potentially interleaving them on-the-wire, causing checksum failures
-                         * and connection loss.
-                         */
-                        Thread.sleep(100L); //NOSONAR squid:S2276
-
-                        if (System.currentTimeMillis() - sendStart > timeout) {
-                            // We've taken too long to send this message
-                            return false;
-                        }
-                    }
-                }
-            }
-        } catch (MessageException e) {
-            LOGGER.warn("[{}] Failed to send {} message with ID {} to peer {}: {}", this.peerConnectionId,
-                    message.getType().name(), message.getId(), this, e.getMessage());
-            return false;
-        } catch (IOException | InterruptedException e) {
+            // Possible race condition:
+            // We set OP_WRITE, EPC creates ChannelWriteTask which calls Peer.writeChannel, writeChannel's poll() finds no message to send
+            // Avoided by poll-with-timeout in writeChannel() above.
+            Network.getInstance().setInterestOps(this.socketChannel, SelectionKey.OP_WRITE);
+            return this.sendQueue.tryTransfer(message, timeout, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
             // Send failure
             return false;
         }
-
-        // Sent OK
-        return true;
     }
 
     /**

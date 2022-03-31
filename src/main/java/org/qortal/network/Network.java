@@ -33,6 +33,7 @@ import java.nio.channels.*;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
@@ -42,7 +43,6 @@ import java.util.stream.Collectors;
 // For managing peers
 public class Network {
     private static final Logger LOGGER = LogManager.getLogger(Network.class);
-    private static Network instance;
 
     private static final int LISTEN_BACKLOG = 5;
     /**
@@ -124,14 +124,9 @@ public class Network {
     private Selector channelSelector;
     private ServerSocketChannel serverChannel;
     private SelectionKey serverSelectionKey;
-    private Iterator<SelectionKey> channelIterator = null;
-
-    // volatile because value is updated inside any one of the EPC threads
-    private volatile long nextConnectTaskTimestamp = 0L; // ms - try first connect once NTP syncs
+    private final Set<SelectableChannel> channelsPendingWrite = ConcurrentHashMap.newKeySet();
 
     private final ExecutorService broadcastExecutor = Executors.newCachedThreadPool();
-    // volatile because value is updated inside any one of the EPC threads
-    private volatile long nextBroadcastTimestamp = 0L; // ms - try first broadcast once NTP syncs
 
     private final Lock mergePeersLock = new ReentrantLock();
 
@@ -460,6 +455,11 @@ public class Network {
 
     class NetworkProcessor extends ExecuteProduceConsume {
 
+        private final AtomicLong nextConnectTaskTimestamp = new AtomicLong(0L); // ms - try first connect once NTP syncs
+        private final AtomicLong nextBroadcastTimestamp = new AtomicLong(0L); // ms - try first broadcast once NTP syncs
+
+        private Iterator<SelectionKey> channelIterator = null;
+
         NetworkProcessor(ExecutorService executor) {
             super(executor);
         }
@@ -517,7 +517,7 @@ public class Network {
         }
 
         private Task maybeProduceConnectPeerTask(Long now) throws InterruptedException {
-            if (now == null || now < nextConnectTaskTimestamp) {
+            if (now == null || now < nextConnectTaskTimestamp.get()) {
                 return null;
             }
 
@@ -525,7 +525,7 @@ public class Network {
                 return null;
             }
 
-            nextConnectTaskTimestamp = now + 1000L;
+            nextConnectTaskTimestamp.set(now + 1000L);
 
             Peer targetPeer = getConnectablePeer(now);
             if (targetPeer == null) {
@@ -537,11 +537,11 @@ public class Network {
         }
 
         private Task maybeProduceBroadcastTask(Long now) {
-            if (now == null || now < nextBroadcastTimestamp) {
+            if (now == null || now < nextBroadcastTimestamp.get()) {
                 return null;
             }
 
-            nextBroadcastTimestamp = now + BROADCAST_INTERVAL;
+            nextBroadcastTimestamp.set(now + BROADCAST_INTERVAL);
             return new BroadcastTask();
         }
 
@@ -584,19 +584,34 @@ public class Network {
 
                 LOGGER.trace("Thread {}, nextSelectionKey {}", Thread.currentThread().getId(), nextSelectionKey);
 
+                SelectableChannel socketChannel = nextSelectionKey.channel();
+
                 if (nextSelectionKey.isReadable()) {
                     clearInterestOps(nextSelectionKey, SelectionKey.OP_READ);
-                    return new ChannelReadTask(nextSelectionKey);
+                    Peer peer = getPeerFromChannel((SocketChannel) socketChannel);
+                    if (peer == null)
+                        return null;
+
+                    return new ChannelReadTask((SocketChannel) socketChannel, peer);
                 }
 
                 if (nextSelectionKey.isWritable()) {
                     clearInterestOps(nextSelectionKey, SelectionKey.OP_WRITE);
-                    return new ChannelWriteTask(nextSelectionKey);
+                    Peer peer = getPeerFromChannel((SocketChannel) socketChannel);
+                    if (peer == null)
+                        return null;
+
+                    // Any thread that queues a message to send can set OP_WRITE,
+                    // but we only allow one pending/active ChannelWriteTask per Peer
+                    if (!channelsPendingWrite.add(socketChannel))
+                        return null;
+
+                    return new ChannelWriteTask((SocketChannel) socketChannel, peer);
                 }
 
                 if (nextSelectionKey.isAcceptable()) {
                     clearInterestOps(nextSelectionKey, SelectionKey.OP_ACCEPT);
-                    return new ChannelAcceptTask(nextSelectionKey);
+                    return new ChannelAcceptTask((ServerSocketChannel) socketChannel);
                 }
             }
 
@@ -788,7 +803,11 @@ public class Network {
         selectionKey.interestOpsOr(interestOps);
     }
 
-    // Peer callbacks
+    // Peer / Task callbacks
+
+    public void notifyChannelNotWriting(SelectableChannel socketChannel) {
+        this.channelsPendingWrite.remove(socketChannel);
+    }
 
     protected void wakeupChannelSelector() {
         this.channelSelector.wakeup();
@@ -823,6 +842,7 @@ public class Network {
         }
 
         this.removeConnectedPeer(peer);
+        this.channelsPendingWrite.remove(peer.getSocketChannel());
 
         if (getImmutableConnectedPeers().size() < maxPeers - 1 && (serverSelectionKey.interestOps() & SelectionKey.OP_ACCEPT) == 0) {
             try {

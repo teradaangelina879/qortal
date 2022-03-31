@@ -14,15 +14,13 @@ import java.nio.channels.SocketChannel;
 public class ChannelReadTask implements Task {
     private static final Logger LOGGER = LogManager.getLogger(ChannelReadTask.class);
 
-    private final SelectionKey selectionKey;
     private final SocketChannel socketChannel;
     private final Peer peer;
     private final String name;
 
-    public ChannelReadTask(SelectionKey selectionKey) {
-        this.selectionKey = selectionKey;
-        this.socketChannel = (SocketChannel) this.selectionKey.channel();
-        this.peer = Network.getInstance().getPeerFromChannel(this.socketChannel);
+    public ChannelReadTask(SocketChannel socketChannel, Peer peer) {
+        this.socketChannel = socketChannel;
+        this.peer = peer;
         this.name = "ChannelReadTask::" + peer;
     }
 
@@ -33,10 +31,6 @@ public class ChannelReadTask implements Task {
 
     @Override
     public void perform() throws InterruptedException {
-        if (peer == null) {
-            return;
-        }
-
         try {
             peer.readChannel();
 

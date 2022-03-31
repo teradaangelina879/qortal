@@ -13,15 +13,13 @@ import java.nio.channels.SocketChannel;
 public class ChannelWriteTask implements Task {
     private static final Logger LOGGER = LogManager.getLogger(ChannelWriteTask.class);
 
-    private final SelectionKey selectionKey;
     private final SocketChannel socketChannel;
     private final Peer peer;
     private final String name;
 
-    public ChannelWriteTask(SelectionKey selectionKey) {
-        this.selectionKey = selectionKey;
-        this.socketChannel = (SocketChannel) this.selectionKey.channel();
-        this.peer = Network.getInstance().getPeerFromChannel(this.socketChannel);
+    public ChannelWriteTask(SocketChannel socketChannel, Peer peer) {
+        this.socketChannel = socketChannel;
+        this.peer = peer;
         this.name = "ChannelWriteTask::" + peer;
     }
 
@@ -32,16 +30,14 @@ public class ChannelWriteTask implements Task {
 
     @Override
     public void perform() throws InterruptedException {
-        if (peer == null) {
-            return;
-        }
-
         try {
-            boolean isMoreDataPending = peer.writeChannel();
+            boolean isSocketClogged = peer.writeChannel();
 
-            if (isMoreDataPending) {
-                Network.getInstance().setInterestOps(socketChannel, SelectionKey.OP_WRITE);
-            }
+            // Tell Network that we've finished
+            Network.getInstance().notifyChannelNotWriting(socketChannel);
+
+            if (isSocketClogged)
+                Network.getInstance().setInterestOps(this.socketChannel, SelectionKey.OP_WRITE);
         } catch (IOException e) {
             if (e.getMessage() != null && e.getMessage().toLowerCase().contains("connection reset")) {
                 peer.disconnect("Connection reset");

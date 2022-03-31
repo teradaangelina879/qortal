@@ -18,12 +18,10 @@ import java.util.List;
 public class ChannelAcceptTask implements Task {
     private static final Logger LOGGER = LogManager.getLogger(ChannelAcceptTask.class);
 
-    private final SelectionKey serverSelectionKey;
     private final ServerSocketChannel serverSocketChannel;
 
-    public ChannelAcceptTask(SelectionKey selectionKey) {
-        this.serverSelectionKey = selectionKey;
-        this.serverSocketChannel = (ServerSocketChannel) this.serverSelectionKey.channel();
+    public ChannelAcceptTask(ServerSocketChannel serverSocketChannel) {
+        this.serverSocketChannel = serverSocketChannel;
     }
 
     @Override
