@@ -45,9 +45,9 @@ public class Dogecoin extends Bitcoiny {
 			public Collection<Server> getServers() {
 				return Arrays.asList(
 						// Servers chosen on NO BASIS WHATSOEVER from various sources!
-						new Server("electrum1.cipig.net", ConnectionType.TCP, 10060),
-						new Server("electrum2.cipig.net", ConnectionType.TCP, 10060),
-						new Server("electrum3.cipig.net", ConnectionType.TCP, 10060));
+						new Server("electrum1.cipig.net", ConnectionType.SSL, 20060),
+						new Server("electrum2.cipig.net", ConnectionType.SSL, 20060),
+						new Server("electrum3.cipig.net", ConnectionType.SSL, 20060));
 						// TODO: add more mainnet servers. It's too centralized.
 			}
 

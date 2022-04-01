@@ -419,8 +419,8 @@ public class Bootstrap {
                 downloaded += bytesRead;
 
                 if (fileSize > 0) {
-                    int progress = (int)((double)downloaded / (double)fileSize * 100);
-                    SplashFrame.getInstance().updateStatus(String.format("Downloading %s bootstrap... (%d%%)", type, progress));
+                    double progress = (double)downloaded / (double)fileSize * 100;
+                    SplashFrame.getInstance().updateStatus(String.format("Downloading %s bootstrap... (%.1f%%)", type, progress));
                 }
             }
 
