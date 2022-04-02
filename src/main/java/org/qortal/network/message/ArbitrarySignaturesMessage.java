@@ -20,7 +20,25 @@ public class ArbitrarySignaturesMessage extends Message {
 	private List<byte[]> signatures;
 
 	public ArbitrarySignaturesMessage(String peerAddress, int requestHops, List<byte[]> signatures) {
-		this(-1, peerAddress, requestHops, signatures);
+		super(MessageType.ARBITRARY_SIGNATURES);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			Serialization.serializeSizedStringV2(bytes, peerAddress);
+
+			bytes.write(Ints.toByteArray(requestHops));
+
+			bytes.write(Ints.toByteArray(signatures.size()));
+
+			for (byte[] signature : signatures)
+				bytes.write(signature);
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private ArbitrarySignaturesMessage(int id, String peerAddress, int requestHops, List<byte[]> signatures) {
@@ -37,14 +55,6 @@ public class ArbitrarySignaturesMessage extends Message {
 
 	public List<byte[]> getSignatures() {
 		return this.signatures;
-	}
-
-	public int getRequestHops() {
-		return this.requestHops;
-	}
-
-	public void setRequestHops(int requestHops) {
-		this.requestHops = requestHops;
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws MessageException {
@@ -70,22 +80,6 @@ public class ArbitrarySignaturesMessage extends Message {
 		}
 
 		return new ArbitrarySignaturesMessage(id, peerAddress, requestHops, signatures);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		Serialization.serializeSizedStringV2(bytes, this.peerAddress);
-
-		bytes.write(Ints.toByteArray(this.requestHops));
-
-		bytes.write(Ints.toByteArray(this.signatures.size()));
-
-		for (byte[] signature : this.signatures)
-			bytes.write(signature);
-
-		return bytes.toByteArray();
 	}
 
 }

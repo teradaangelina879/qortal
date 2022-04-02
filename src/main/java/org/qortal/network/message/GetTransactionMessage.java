@@ -1,17 +1,19 @@
 package org.qortal.network.message;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import org.qortal.transform.Transformer;
 
 public class GetTransactionMessage extends Message {
 
-	private final byte[] signature;
+	private byte[] signature;
 
 	public GetTransactionMessage(byte[] signature) {
-		this(-1, signature);
+		super(MessageType.GET_TRANSACTION);
+
+		this.dataBytes = Arrays.copyOf(signature, signature.length);
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetTransactionMessage(int id, byte[] signature) {
@@ -30,15 +32,6 @@ public class GetTransactionMessage extends Message {
 		bytes.get(signature);
 
 		return new GetTransactionMessage(id, signature);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(this.signature);
-
-		return bytes.toByteArray();
 	}
 
 }

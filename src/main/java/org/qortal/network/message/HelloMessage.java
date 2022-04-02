@@ -11,9 +11,28 @@ import com.google.common.primitives.Longs;
 
 public class HelloMessage extends Message {
 
-	private final long timestamp;
-	private final String versionString;
-	private final String senderPeerAddress;
+	private long timestamp;
+	private String versionString;
+	private String senderPeerAddress;
+
+	public HelloMessage(long timestamp, String versionString, String senderPeerAddress) {
+		super(MessageType.HELLO);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(Longs.toByteArray(timestamp));
+
+			Serialization.serializeSizedString(bytes, versionString);
+
+			Serialization.serializeSizedString(bytes, senderPeerAddress);
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
+	}
 
 	private HelloMessage(int id, long timestamp, String versionString, String senderPeerAddress) {
 		super(id, MessageType.HELLO);
@@ -21,10 +40,6 @@ public class HelloMessage extends Message {
 		this.timestamp = timestamp;
 		this.versionString = versionString;
 		this.senderPeerAddress = senderPeerAddress;
-	}
-
-	public HelloMessage(long timestamp, String versionString, String senderPeerAddress) {
-		this(-1, timestamp, versionString, senderPeerAddress);
 	}
 
 	public long getTimestamp() {
@@ -56,19 +71,6 @@ public class HelloMessage extends Message {
 		}
 
 		return new HelloMessage(id, timestamp, versionString, senderPeerAddress);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(Longs.toByteArray(this.timestamp));
-
-		Serialization.serializeSizedString(bytes, this.versionString);
-
-		Serialization.serializeSizedString(bytes, this.senderPeerAddress);
-
-		return bytes.toByteArray();
 	}
 
 }

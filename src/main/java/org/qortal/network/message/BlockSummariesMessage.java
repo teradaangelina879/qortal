@@ -17,10 +17,28 @@ public class BlockSummariesMessage extends Message {
 
 	private static final int BLOCK_SUMMARY_LENGTH = BlockTransformer.BLOCK_SIGNATURE_LENGTH + Transformer.INT_LENGTH + Transformer.PUBLIC_KEY_LENGTH + Transformer.INT_LENGTH;
 
-	private final List<BlockSummaryData> blockSummaries;
+	private List<BlockSummaryData> blockSummaries;
 
 	public BlockSummariesMessage(List<BlockSummaryData> blockSummaries) {
-		this(-1, blockSummaries);
+		super(MessageType.BLOCK_SUMMARIES);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(Ints.toByteArray(blockSummaries.size()));
+
+			for (BlockSummaryData blockSummary : blockSummaries) {
+				bytes.write(Ints.toByteArray(blockSummary.getHeight()));
+				bytes.write(blockSummary.getSignature());
+				bytes.write(blockSummary.getMinterPublicKey());
+				bytes.write(Ints.toByteArray(blockSummary.getOnlineAccountsCount()));
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private BlockSummariesMessage(int id, List<BlockSummaryData> blockSummaries) {
@@ -56,22 +74,6 @@ public class BlockSummariesMessage extends Message {
 		}
 
 		return new BlockSummariesMessage(id, blockSummaries);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(Ints.toByteArray(this.blockSummaries.size()));
-
-		for (BlockSummaryData blockSummary : this.blockSummaries) {
-			bytes.write(Ints.toByteArray(blockSummary.getHeight()));
-			bytes.write(blockSummary.getSignature());
-			bytes.write(blockSummary.getMinterPublicKey());
-			bytes.write(Ints.toByteArray(blockSummary.getOnlineAccountsCount()));
-		}
-
-		return bytes.toByteArray();
 	}
 
 }

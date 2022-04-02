@@ -15,14 +15,44 @@ import java.util.List;
 
 public class GetArbitraryDataFileListMessage extends Message {
 
-	private final byte[] signature;
+	private byte[] signature;
 	private List<byte[]> hashes;
-	private final long requestTime;
+	private long requestTime;
 	private int requestHops;
 	private String requestingPeer;
 
 	public GetArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes, long requestTime, int requestHops, String requestingPeer) {
-		this(-1, signature, hashes, requestTime, requestHops, requestingPeer);
+		super(MessageType.GET_ARBITRARY_DATA_FILE_LIST);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(signature);
+
+			bytes.write(Longs.toByteArray(requestTime));
+
+			bytes.write(Ints.toByteArray(requestHops));
+
+			if (hashes != null) {
+				bytes.write(Ints.toByteArray(hashes.size()));
+
+				for (byte[] hash : hashes) {
+					bytes.write(hash);
+				}
+			}
+			else {
+				bytes.write(Ints.toByteArray(0));
+			}
+
+			if (requestingPeer != null) {
+				Serialization.serializeSizedStringV2(bytes, requestingPeer);
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetArbitraryDataFileListMessage(int id, byte[] signature, List<byte[]> hashes, long requestTime, int requestHops, String requestingPeer) {
@@ -41,6 +71,18 @@ public class GetArbitraryDataFileListMessage extends Message {
 
 	public List<byte[]> getHashes() {
 		return this.hashes;
+	}
+
+	public long getRequestTime() {
+		return this.requestTime;
+	}
+
+	public int getRequestHops() {
+		return this.requestHops;
+	}
+
+	public String getRequestingPeer() {
+		return this.requestingPeer;
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws MessageException {
@@ -74,49 +116,6 @@ public class GetArbitraryDataFileListMessage extends Message {
 		}
 
 		return new GetArbitraryDataFileListMessage(id, signature, hashes, requestTime, requestHops, requestingPeer);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(this.signature);
-
-		bytes.write(Longs.toByteArray(this.requestTime));
-
-		bytes.write(Ints.toByteArray(this.requestHops));
-
-		if (this.hashes != null) {
-			bytes.write(Ints.toByteArray(this.hashes.size()));
-
-			for (byte[] hash : this.hashes) {
-				bytes.write(hash);
-			}
-		}
-		else {
-			bytes.write(Ints.toByteArray(0));
-		}
-
-		if (this.requestingPeer != null) {
-			Serialization.serializeSizedStringV2(bytes, this.requestingPeer);
-		}
-
-		return bytes.toByteArray();
-	}
-
-	public long getRequestTime() {
-		return this.requestTime;
-	}
-
-	public int getRequestHops() {
-		return this.requestHops;
-	}
-	public void setRequestHops(int requestHops) {
-		this.requestHops = requestHops;
-	}
-
-	public String getRequestingPeer() {
-		return this.requestingPeer;
 	}
 
 }

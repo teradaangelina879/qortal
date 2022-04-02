@@ -126,8 +126,6 @@ public class Network {
     private SelectionKey serverSelectionKey;
     private final Set<SelectableChannel> channelsPendingWrite = ConcurrentHashMap.newKeySet();
 
-    private final ExecutorService broadcastExecutor = Executors.newCachedThreadPool();
-
     private final Lock mergePeersLock = new ReentrantLock();
 
     private List<String> ourExternalIpAddressHistory = new ArrayList<>();
@@ -1455,48 +1453,16 @@ public class Network {
     }
 
     public void broadcast(Function<Peer, Message> peerMessageBuilder) {
-        class Broadcaster implements Runnable {
-            private final Random random = new Random();
+        for (Peer peer : getImmutableHandshakedPeers()) {
+            Message message = peerMessageBuilder.apply(peer);
 
-            private List<Peer> targetPeers;
-            private Function<Peer, Message> peerMessageBuilder;
-
-            Broadcaster(List<Peer> targetPeers, Function<Peer, Message> peerMessageBuilder) {
-                this.targetPeers = targetPeers;
-                this.peerMessageBuilder = peerMessageBuilder;
+            if (message == null) {
+                continue;
             }
 
-            @Override
-            public void run() {
-                Thread.currentThread().setName("Network Broadcast");
-
-                for (Peer peer : targetPeers) {
-                    // Very short sleep to reduce strain, improve multi-threading and catch interrupts
-                    try {
-                        Thread.sleep(random.nextInt(20) + 20L);
-                    } catch (InterruptedException e) {
-                        break;
-                    }
-
-                    Message message = peerMessageBuilder.apply(peer);
-
-                    if (message == null) {
-                        continue;
-                    }
-
-                    if (!peer.sendMessage(message)) {
-                        peer.disconnect("failed to broadcast message");
-                    }
-                }
-
-                Thread.currentThread().setName("Network Broadcast (dormant)");
+            if (!peer.sendMessage(message)) {
+                peer.disconnect("failed to broadcast message");
             }
-        }
-
-        try {
-            broadcastExecutor.execute(new Broadcaster(this.getImmutableHandshakedPeers(), peerMessageBuilder));
-        } catch (RejectedExecutionException e) {
-            // Can't execute - probably because we're shutting down, so ignore
         }
     }
 
@@ -1519,16 +1485,6 @@ public class Network {
             }
         } catch (InterruptedException e) {
             LOGGER.warn("Interrupted while waiting for networking threads to terminate");
-        }
-
-        // Stop broadcasts
-        this.broadcastExecutor.shutdownNow();
-        try {
-            if (!this.broadcastExecutor.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
-                LOGGER.warn("Broadcast threads failed to terminate");
-            }
-        } catch (InterruptedException e) {
-            LOGGER.warn("Interrupted while waiting for broadcast threads failed to terminate");
         }
 
         // Close all peer connections

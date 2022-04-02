@@ -8,11 +8,24 @@ import java.nio.ByteBuffer;
 
 public class GetArbitraryDataFileMessage extends Message {
 
-	private final byte[] signature;
-	private final byte[] hash;
+	private byte[] signature;
+	private byte[] hash;
 
 	public GetArbitraryDataFileMessage(byte[] signature, byte[] hash) {
-		this(-1, signature, hash);
+		super(MessageType.GET_ARBITRARY_DATA_FILE);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(signature.length + hash.length);
+
+		try {
+			bytes.write(signature);
+
+			bytes.write(hash);
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetArbitraryDataFileMessage(int id, byte[] signature, byte[] hash) {
@@ -38,17 +51,6 @@ public class GetArbitraryDataFileMessage extends Message {
 		bytes.get(hash);
 
 		return new GetArbitraryDataFileMessage(id, signature, hash);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(this.signature);
-
-		bytes.write(this.hash);
-
-		return bytes.toByteArray();
 	}
 
 }

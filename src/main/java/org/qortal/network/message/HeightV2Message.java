@@ -12,13 +12,30 @@ import com.google.common.primitives.Longs;
 
 public class HeightV2Message extends Message {
 
-	private final int height;
-	private final byte[] signature;
-	private final long timestamp;
-	private final byte[] minterPublicKey;
+	private int height;
+	private byte[] signature;
+	private long timestamp;
+	private byte[] minterPublicKey;
 
 	public HeightV2Message(int height, byte[] signature, long timestamp, byte[] minterPublicKey) {
-		this(-1, height, signature, timestamp, minterPublicKey);
+		super(MessageType.HEIGHT_V2);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(Ints.toByteArray(height));
+
+			bytes.write(signature);
+
+			bytes.write(Longs.toByteArray(timestamp));
+
+			bytes.write(minterPublicKey);
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private HeightV2Message(int id, int height, byte[] signature, long timestamp, byte[] minterPublicKey) {
@@ -58,21 +75,6 @@ public class HeightV2Message extends Message {
 		bytes.get(minterPublicKey);
 
 		return new HeightV2Message(id, height, signature, timestamp, minterPublicKey);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(Ints.toByteArray(this.height));
-
-		bytes.write(this.signature);
-
-		bytes.write(Longs.toByteArray(this.timestamp));
-
-		bytes.write(this.minterPublicKey);
-
-		return bytes.toByteArray();
 	}
 
 }

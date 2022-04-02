@@ -5,7 +5,9 @@ import java.nio.ByteBuffer;
 public class PongMessage extends Message {
 
 	public PongMessage() {
-		this(-1);
+		super(MessageType.PONG);
+
+		this.dataBytes = EMPTY_DATA_BYTES;
 	}
 
 	private PongMessage(int id) {
@@ -14,11 +16,6 @@ public class PongMessage extends Message {
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		return new PongMessage(id);
-	}
-
-	@Override
-	protected byte[] toData() {
-		return new byte[0];
 	}
 
 }

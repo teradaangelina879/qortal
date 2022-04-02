@@ -10,12 +10,27 @@ import java.nio.ByteBuffer;
 
 public class GetArbitraryMetadataMessage extends Message {
 
-	private final byte[] signature;
-	private final long requestTime;
+	private byte[] signature;
+	private long requestTime;
 	private int requestHops;
 
 	public GetArbitraryMetadataMessage(byte[] signature, long requestTime, int requestHops) {
-		this(-1, signature, requestTime, requestHops);
+		super(MessageType.GET_ARBITRARY_METADATA);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(signature);
+
+			bytes.write(Longs.toByteArray(requestTime));
+
+			bytes.write(Ints.toByteArray(requestHops));
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetArbitraryMetadataMessage(int id, byte[] signature, long requestTime, int requestHops) {
@@ -30,6 +45,14 @@ public class GetArbitraryMetadataMessage extends Message {
 		return this.signature;
 	}
 
+	public long getRequestTime() {
+		return this.requestTime;
+	}
+
+	public int getRequestHops() {
+		return this.requestHops;
+	}
+
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
 		bytes.get(signature);
@@ -39,31 +62,6 @@ public class GetArbitraryMetadataMessage extends Message {
 		int requestHops = bytes.getInt();
 
 		return new GetArbitraryMetadataMessage(id, signature, requestTime, requestHops);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(this.signature);
-
-		bytes.write(Longs.toByteArray(this.requestTime));
-
-		bytes.write(Ints.toByteArray(this.requestHops));
-
-		return bytes.toByteArray();
-	}
-
-	public long getRequestTime() {
-		return this.requestTime;
-	}
-
-	public int getRequestHops() {
-		return this.requestHops;
-	}
-
-	public void setRequestHops(int requestHops) {
-		this.requestHops = requestHops;
 	}
 
 }

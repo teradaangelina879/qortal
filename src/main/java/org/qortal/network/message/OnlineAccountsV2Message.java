@@ -23,11 +23,52 @@ import java.util.Map;
  * Also V2 only builds online accounts message once!
  */
 public class OnlineAccountsV2Message extends Message {
-	private final List<OnlineAccountData> onlineAccounts;
-	private byte[] cachedData;
+
+	private List<OnlineAccountData> onlineAccounts;
 
 	public OnlineAccountsV2Message(List<OnlineAccountData> onlineAccounts) {
-		this(-1, onlineAccounts);
+		super(MessageType.ONLINE_ACCOUNTS_V2);
+
+		// Shortcut in case we have no online accounts
+		if (onlineAccounts.isEmpty()) {
+			this.dataBytes = Ints.toByteArray(0);
+			this.checksumBytes = Message.generateChecksum(this.dataBytes);
+			return;
+		}
+
+		// How many of each timestamp
+		Map<Long, Integer> countByTimestamp = new HashMap<>();
+
+		for (OnlineAccountData onlineAccountData : onlineAccounts) {
+			Long timestamp = onlineAccountData.getTimestamp();
+			countByTimestamp.compute(timestamp, (k, v) -> v == null ? 1 : ++v);
+		}
+
+		// We should know exactly how many bytes to allocate now
+		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
+				+ onlineAccounts.size() * (Transformer.SIGNATURE_LENGTH + Transformer.PUBLIC_KEY_LENGTH);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
+
+		try {
+			for (long timestamp : countByTimestamp.keySet()) {
+				bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
+
+				bytes.write(Longs.toByteArray(timestamp));
+
+				for (OnlineAccountData onlineAccountData : onlineAccounts) {
+					if (onlineAccountData.getTimestamp() == timestamp) {
+						bytes.write(onlineAccountData.getSignature());
+						bytes.write(onlineAccountData.getPublicKey());
+					}
+				}
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private OnlineAccountsV2Message(int id, List<OnlineAccountData> onlineAccounts) {
@@ -67,48 +108,6 @@ public class OnlineAccountsV2Message extends Message {
 		}
 
 		return new OnlineAccountsV2Message(id, onlineAccounts);
-	}
-
-	@Override
-	protected synchronized byte[] toData() throws IOException {
-		if (this.cachedData != null)
-			return this.cachedData;
-
-		// Shortcut in case we have no online accounts
-		if (this.onlineAccounts.isEmpty()) {
-			this.cachedData = Ints.toByteArray(0);
-			return this.cachedData;
-		}
-
-		// How many of each timestamp
-		Map<Long, Integer> countByTimestamp = new HashMap<>();
-
-		for (OnlineAccountData onlineAccountData : this.onlineAccounts) {
-			Long timestamp = onlineAccountData.getTimestamp();
-			countByTimestamp.compute(timestamp, (k, v) -> v == null ? 1 : ++v);
-		}
-
-		// We should know exactly how many bytes to allocate now
-		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
-				+ this.onlineAccounts.size() * (Transformer.SIGNATURE_LENGTH + Transformer.PUBLIC_KEY_LENGTH);
-
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
-
-		for (long timestamp : countByTimestamp.keySet()) {
-			bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
-
-			bytes.write(Longs.toByteArray(timestamp));
-
-			for (OnlineAccountData onlineAccountData : this.onlineAccounts) {
-				if (onlineAccountData.getTimestamp() == timestamp) {
-					bytes.write(onlineAccountData.getSignature());
-					bytes.write(onlineAccountData.getPublicKey());
-				}
-			}
-		}
-
-		this.cachedData = bytes.toByteArray();
-		return this.cachedData;
 	}
 
 }

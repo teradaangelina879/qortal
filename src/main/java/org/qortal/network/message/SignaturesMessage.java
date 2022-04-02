@@ -13,10 +13,24 @@ import com.google.common.primitives.Ints;
 
 public class SignaturesMessage extends Message {
 
-	private final List<byte[]> signatures;
+	private List<byte[]> signatures;
 
 	public SignaturesMessage(List<byte[]> signatures) {
-		this(-1, signatures);
+		super(MessageType.SIGNATURES);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(Ints.toByteArray(signatures.size()));
+
+			for (byte[] signature : signatures)
+				bytes.write(signature);
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private SignaturesMessage(int id, List<byte[]> signatures) {
@@ -43,18 +57,6 @@ public class SignaturesMessage extends Message {
 		}
 
 		return new SignaturesMessage(id, signatures);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(Ints.toByteArray(this.signatures.size()));
-
-		for (byte[] signature : this.signatures)
-			bytes.write(signature);
-
-		return bytes.toByteArray();
 	}
 
 }

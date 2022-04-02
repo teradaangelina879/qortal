@@ -19,11 +19,49 @@ import java.util.Map;
  * Groups of: number of entries, timestamp, then AT trade pubkey for each entry.
  */
 public class GetTradePresencesMessage extends Message {
-	private final List<TradePresenceData> tradePresences;
-	private byte[] cachedData;
+	private List<TradePresenceData> tradePresences;
 
 	public GetTradePresencesMessage(List<TradePresenceData> tradePresences) {
-		this(-1, tradePresences);
+		super(MessageType.GET_TRADE_PRESENCES);
+
+		// Shortcut in case we have no trade presences
+		if (tradePresences.isEmpty()) {
+			this.dataBytes = Ints.toByteArray(0);
+			this.checksumBytes = Message.generateChecksum(this.dataBytes);
+			return;
+		}
+
+		// How many of each timestamp
+		Map<Long, Integer> countByTimestamp = new HashMap<>();
+
+		for (TradePresenceData tradePresenceData : tradePresences) {
+			Long timestamp = tradePresenceData.getTimestamp();
+			countByTimestamp.compute(timestamp, (k, v) -> v == null ? 1 : ++v);
+		}
+
+		// We should know exactly how many bytes to allocate now
+		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
+				+ tradePresences.size() * Transformer.PUBLIC_KEY_LENGTH;
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
+
+		try {
+			for (long timestamp : countByTimestamp.keySet()) {
+				bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
+
+				bytes.write(Longs.toByteArray(timestamp));
+
+				for (TradePresenceData tradePresenceData : tradePresences) {
+					if (tradePresenceData.getTimestamp() == timestamp)
+						bytes.write(tradePresenceData.getPublicKey());
+				}
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetTradePresencesMessage(int id, List<TradePresenceData> tradePresences) {
@@ -60,46 +98,6 @@ public class GetTradePresencesMessage extends Message {
 		}
 
 		return new GetTradePresencesMessage(id, tradePresences);
-	}
-
-	@Override
-	protected synchronized byte[] toData() throws IOException {
-		if (this.cachedData != null)
-			return this.cachedData;
-
-		// Shortcut in case we have no trade presences
-		if (this.tradePresences.isEmpty()) {
-			this.cachedData = Ints.toByteArray(0);
-			return this.cachedData;
-		}
-
-		// How many of each timestamp
-		Map<Long, Integer> countByTimestamp = new HashMap<>();
-
-		for (TradePresenceData tradePresenceData : this.tradePresences) {
-			Long timestamp = tradePresenceData.getTimestamp();
-			countByTimestamp.compute(timestamp, (k, v) -> v == null ? 1 : ++v);
-		}
-
-		// We should know exactly how many bytes to allocate now
-		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
-				+ this.tradePresences.size() * Transformer.PUBLIC_KEY_LENGTH;
-
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
-
-		for (long timestamp : countByTimestamp.keySet()) {
-			bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
-
-			bytes.write(Longs.toByteArray(timestamp));
-
-			for (TradePresenceData tradePresenceData : this.tradePresences) {
-				if (tradePresenceData.getTimestamp() == timestamp)
-					bytes.write(tradePresenceData.getPublicKey());
-			}
-		}
-
-		this.cachedData = bytes.toByteArray();
-		return this.cachedData;
 	}
 
 }

@@ -664,6 +664,9 @@ public class Peer {
             LOGGER.trace("[{}] Queuing {} message with ID {} to peer {}", this.peerConnectionId,
                     message.getType().name(), message.getId(), this);
 
+            // Check message properly constructed
+            message.checkValidOutgoing();
+
             // Possible race condition:
             // We set OP_WRITE, EPC creates ChannelWriteTask which calls Peer.writeChannel, writeChannel's poll() finds no message to send
             // Avoided by poll-with-timeout in writeChannel() above.
@@ -671,6 +674,9 @@ public class Peer {
             return this.sendQueue.tryTransfer(message, timeout, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             // Send failure
+            return false;
+        } catch (MessageException e) {
+            LOGGER.error(e.getMessage(), e);
             return false;
         }
     }

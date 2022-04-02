@@ -10,11 +10,24 @@ import com.google.common.primitives.Ints;
 
 public class GetSignaturesV2Message extends Message {
 
-	private final byte[] parentSignature;
-	private final int numberRequested;
+	private byte[] parentSignature;
+	private int numberRequested;
 
 	public GetSignaturesV2Message(byte[] parentSignature, int numberRequested) {
-		this(-1, parentSignature, numberRequested);
+		super(MessageType.GET_SIGNATURES_V2);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(parentSignature);
+
+			bytes.write(Ints.toByteArray(numberRequested));
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetSignaturesV2Message(int id, byte[] parentSignature, int numberRequested) {
@@ -39,17 +52,6 @@ public class GetSignaturesV2Message extends Message {
 		int numberRequested = bytes.getInt();
 
 		return new GetSignaturesV2Message(id, parentSignature, numberRequested);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(this.parentSignature);
-
-		bytes.write(Ints.toByteArray(this.numberRequested));
-
-		return bytes.toByteArray();
 	}
 
 }

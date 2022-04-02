@@ -5,7 +5,9 @@ import java.nio.ByteBuffer;
 public class GetPeersMessage extends Message {
 
 	public GetPeersMessage() {
-		this(-1);
+		super(MessageType.GET_PEERS);
+
+		this.dataBytes = EMPTY_DATA_BYTES;
 	}
 
 	private GetPeersMessage(int id) {
@@ -14,11 +16,6 @@ public class GetPeersMessage extends Message {
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		return new GetPeersMessage(id);
-	}
-
-	@Override
-	protected byte[] toData() {
-		return new byte[0];
 	}
 
 }

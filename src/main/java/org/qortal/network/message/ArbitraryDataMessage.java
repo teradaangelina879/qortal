@@ -11,11 +11,26 @@ import com.google.common.primitives.Ints;
 
 public class ArbitraryDataMessage extends Message {
 
-	private final byte[] signature;
-	private final byte[] data;
+	private byte[] signature;
+	private byte[] data;
 
 	public ArbitraryDataMessage(byte[] signature, byte[] data) {
-		this(-1, signature, data);
+		super(MessageType.ARBITRARY_DATA);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(signature);
+
+			bytes.write(Ints.toByteArray(data.length));
+
+			bytes.write(data);
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private ArbitraryDataMessage(int id, byte[] signature, byte[] data) {
@@ -46,22 +61,6 @@ public class ArbitraryDataMessage extends Message {
 		byteBuffer.get(data);
 
 		return new ArbitraryDataMessage(id, signature, data);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		if (this.data == null)
-			return null;
-
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(this.signature);
-
-		bytes.write(Ints.toByteArray(this.data.length));
-
-		bytes.write(this.data);
-
-		return bytes.toByteArray();
 	}
 
 }

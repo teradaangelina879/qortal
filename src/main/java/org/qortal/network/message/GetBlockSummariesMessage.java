@@ -10,11 +10,24 @@ import com.google.common.primitives.Ints;
 
 public class GetBlockSummariesMessage extends Message {
 
-	private final byte[] parentSignature;
-	private final int numberRequested;
+	private byte[] parentSignature;
+	private int numberRequested;
 
 	public GetBlockSummariesMessage(byte[] parentSignature, int numberRequested) {
-		this(-1, parentSignature, numberRequested);
+		super(MessageType.GET_BLOCK_SUMMARIES);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(parentSignature);
+
+			bytes.write(Ints.toByteArray(numberRequested));
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetBlockSummariesMessage(int id, byte[] parentSignature, int numberRequested) {
@@ -39,17 +52,6 @@ public class GetBlockSummariesMessage extends Message {
 		int numberRequested = bytes.getInt();
 
 		return new GetBlockSummariesMessage(id, parentSignature, numberRequested);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(this.parentSignature);
-
-		bytes.write(Ints.toByteArray(this.numberRequested));
-
-		return bytes.toByteArray();
 	}
 
 }

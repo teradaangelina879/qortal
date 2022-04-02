@@ -16,10 +16,27 @@ import com.google.common.primitives.Longs;
 public class GetOnlineAccountsMessage extends Message {
 	private static final int MAX_ACCOUNT_COUNT = 5000;
 
-	private final List<OnlineAccountData> onlineAccounts;
+	private List<OnlineAccountData> onlineAccounts;
 
 	public GetOnlineAccountsMessage(List<OnlineAccountData> onlineAccounts) {
-		this(-1, onlineAccounts);
+		super(MessageType.GET_ONLINE_ACCOUNTS);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(Ints.toByteArray(onlineAccounts.size()));
+
+			for (OnlineAccountData onlineAccountData : onlineAccounts) {
+				bytes.write(Longs.toByteArray(onlineAccountData.getTimestamp()));
+
+				bytes.write(onlineAccountData.getPublicKey());
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetOnlineAccountsMessage(int id, List<OnlineAccountData> onlineAccounts) {
@@ -47,21 +64,6 @@ public class GetOnlineAccountsMessage extends Message {
 		}
 
 		return new GetOnlineAccountsMessage(id, onlineAccounts);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(Ints.toByteArray(this.onlineAccounts.size()));
-
-		for (OnlineAccountData onlineAccountData : this.onlineAccounts) {
-			bytes.write(Longs.toByteArray(onlineAccountData.getTimestamp()));
-
-			bytes.write(onlineAccountData.getPublicKey());
-		}
-
-		return bytes.toByteArray();
 	}
 
 }

@@ -15,10 +15,38 @@ import com.google.common.primitives.Ints;
 // NOTE: this message supports hostnames, literal IP addresses (IPv4 and IPv6) with port numbers
 public class PeersV2Message extends Message {
 
-	private final List<PeerAddress> peerAddresses;
+	private List<PeerAddress> peerAddresses;
 
 	public PeersV2Message(List<PeerAddress> peerAddresses) {
-		this(-1, peerAddresses);
+		super(MessageType.PEERS_V2);
+
+		List<byte[]> addresses = new ArrayList<>();
+
+		// First entry represents sending node but contains only port number with empty address.
+		addresses.add(("0.0.0.0:" + Settings.getInstance().getListenPort()).getBytes(StandardCharsets.UTF_8));
+
+		for (PeerAddress peerAddress : peerAddresses)
+			addresses.add(peerAddress.toString().getBytes(StandardCharsets.UTF_8));
+
+		// We can't send addresses that are longer than 255 bytes as length itself is encoded in one byte.
+		addresses.removeIf(addressString -> addressString.length > 255);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			// Number of entries
+			bytes.write(Ints.toByteArray(addresses.size()));
+
+			for (byte[] address : addresses) {
+				bytes.write(address.length);
+				bytes.write(address);
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private PeersV2Message(int id, List<PeerAddress> peerAddresses) {
@@ -53,34 +81,6 @@ public class PeersV2Message extends Message {
 		}
 
 		return new PeersV2Message(id, peerAddresses);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		List<byte[]> addresses = new ArrayList<>();
-
-		// First entry represents sending node but contains only port number with empty address.
-		addresses.add(("0.0.0.0:" + Settings.getInstance().getListenPort()).getBytes(StandardCharsets.UTF_8));
-
-		for (PeerAddress peerAddress : this.peerAddresses)
-			addresses.add(peerAddress.toString().getBytes(StandardCharsets.UTF_8));
-
-		// We can't send addresses that are longer than 255 bytes as length itself is encoded in one byte.
-		addresses.removeIf(addressString -> addressString.length > 255);
-
-		// Serialize
-
-		// Number of entries
-		bytes.write(Ints.toByteArray(addresses.size()));
-
-		for (byte[] address : addresses) {
-			bytes.write(address.length);
-			bytes.write(address);
-		}
-
-		return bytes.toByteArray();
 	}
 
 }

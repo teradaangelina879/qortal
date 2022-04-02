@@ -3,7 +3,6 @@ package org.qortal.network.message;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
@@ -31,16 +30,19 @@ public class GoodbyeMessage extends Message {
 		}
 	}
 
-	private final Reason reason;
+	private Reason reason;
+
+	public GoodbyeMessage(Reason reason) {
+		super(MessageType.GOODBYE);
+
+		this.dataBytes = Ints.toByteArray(reason.value);
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
+	}
 
 	private GoodbyeMessage(int id, Reason reason) {
 		super(id, MessageType.GOODBYE);
 
 		this.reason = reason;
-	}
-
-	public GoodbyeMessage(Reason reason) {
-		this(-1, reason);
 	}
 
 	public Reason getReason() {
@@ -55,11 +57,6 @@ public class GoodbyeMessage extends Message {
 			throw new MessageException("Invalid reason " + reasonValue + " in GOODBYE message");
 
 		return new GoodbyeMessage(id, reason);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		return Ints.toByteArray(this.reason.value);
 	}
 
 }

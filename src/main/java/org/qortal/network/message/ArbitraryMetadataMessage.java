@@ -12,21 +12,35 @@ import java.nio.ByteBuffer;
 
 public class ArbitraryMetadataMessage extends Message {
 
-	private final byte[] signature;
-	private final ArbitraryDataFile arbitraryMetadataFile;
+	private byte[] signature;
+	private ArbitraryDataFile arbitraryMetadataFile;
 
-	public ArbitraryMetadataMessage(byte[] signature, ArbitraryDataFile arbitraryDataFile) {
+	public ArbitraryMetadataMessage(byte[] signature, ArbitraryDataFile arbitraryMetadataFile) {
 		super(MessageType.ARBITRARY_METADATA);
 
-		this.signature = signature;
-		this.arbitraryMetadataFile = arbitraryDataFile;
+		byte[] data = arbitraryMetadataFile.getBytes();
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(signature);
+
+			bytes.write(Ints.toByteArray(data.length));
+
+			bytes.write(data);
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
-	public ArbitraryMetadataMessage(int id, byte[] signature, ArbitraryDataFile arbitraryDataFile) {
+	private ArbitraryMetadataMessage(int id, byte[] signature, ArbitraryDataFile arbitraryMetadataFile) {
 		super(id, MessageType.ARBITRARY_METADATA);
 
 		this.signature = signature;
-		this.arbitraryMetadataFile = arbitraryDataFile;
+		this.arbitraryMetadataFile = arbitraryMetadataFile;
 	}
 
 	public byte[] getSignature() {
@@ -55,34 +69,6 @@ public class ArbitraryMetadataMessage extends Message {
 		} catch (DataException e) {
 			throw new MessageException("Unable to process arbitrary metadata message: " + e.getMessage(), e);
 		}
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		if (this.arbitraryMetadataFile == null) {
-			return null;
-		}
-
-		byte[] data = this.arbitraryMetadataFile.getBytes();
-		if (data == null) {
-			return null;
-		}
-
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(signature);
-
-		bytes.write(Ints.toByteArray(data.length));
-
-		bytes.write(data);
-
-		return bytes.toByteArray();
-	}
-
-	public ArbitraryMetadataMessage cloneWithNewId(int newId) {
-		ArbitraryMetadataMessage clone = new ArbitraryMetadataMessage(this.signature, this.arbitraryMetadataFile);
-		clone.setId(newId);
-		return clone;
 	}
 
 }

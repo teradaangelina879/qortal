@@ -10,8 +10,11 @@ public class TransactionMessage extends Message {
 
 	private TransactionData transactionData;
 
-	public TransactionMessage(TransactionData transactionData) {
-		this(-1, transactionData);
+	public TransactionMessage(TransactionData transactionData) throws TransformationException {
+		super(MessageType.TRANSACTION);
+
+		this.dataBytes = TransactionTransformer.toBytes(transactionData);
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private TransactionMessage(int id, TransactionData transactionData) {
@@ -34,14 +37,6 @@ public class TransactionMessage extends Message {
 		}
 
 		return new TransactionMessage(id, transactionData);
-	}
-
-	@Override
-	protected byte[] toData() throws TransformationException {
-		if (this.transactionData == null)
-			return null;
-
-		return TransactionTransformer.toBytes(this.transactionData);
 	}
 
 }

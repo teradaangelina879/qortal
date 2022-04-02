@@ -15,27 +15,53 @@ import java.util.List;
 
 public class ArbitraryDataFileListMessage extends Message {
 
-	private final byte[] signature;
-	private final List<byte[]> hashes;
+	private byte[] signature;
+	private List<byte[]> hashes;
 	private Long requestTime;
 	private Integer requestHops;
 	private String peerAddress;
 	private Boolean isRelayPossible;
 
-
 	public ArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes, Long requestTime,
-										Integer requestHops, String peerAddress, boolean isRelayPossible) {
+										Integer requestHops, String peerAddress, Boolean isRelayPossible) {
 		super(MessageType.ARBITRARY_DATA_FILE_LIST);
 
-		this.signature = signature;
-		this.hashes = hashes;
-		this.requestTime = requestTime;
-		this.requestHops = requestHops;
-		this.peerAddress = peerAddress;
-		this.isRelayPossible = isRelayPossible;
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(signature);
+
+			bytes.write(Ints.toByteArray(hashes.size()));
+
+			for (byte[] hash : hashes) {
+				bytes.write(hash);
+			}
+
+			if (requestTime != null) {
+				// The remaining fields are optional
+
+				bytes.write(Longs.toByteArray(requestTime));
+
+				bytes.write(Ints.toByteArray(requestHops));
+
+				Serialization.serializeSizedStringV2(bytes, peerAddress);
+
+				bytes.write(Ints.toByteArray(Boolean.TRUE.equals(isRelayPossible) ? 1 : 0));
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
-	public ArbitraryDataFileListMessage(int id, byte[] signature, List<byte[]> hashes, Long requestTime,
+	/** Legacy version */
+	public ArbitraryDataFileListMessage(byte[] signature, List<byte[]> hashes) {
+		this(signature, hashes, null, null, null, null);
+	}
+
+	private ArbitraryDataFileListMessage(int id, byte[] signature, List<byte[]> hashes, Long requestTime,
 										Integer requestHops, String peerAddress, boolean isRelayPossible) {
 		super(id, MessageType.ARBITRARY_DATA_FILE_LIST);
 
@@ -47,12 +73,28 @@ public class ArbitraryDataFileListMessage extends Message {
 		this.isRelayPossible = isRelayPossible;
 	}
 
+	public byte[] getSignature() {
+		return this.signature;
+	}
+
 	public List<byte[]> getHashes() {
 		return this.hashes;
 	}
 
-	public byte[] getSignature() {
-		return this.signature;
+	public Long getRequestTime() {
+		return this.requestTime;
+	}
+
+	public Integer getRequestHops() {
+		return this.requestHops;
+	}
+
+	public String getPeerAddress() {
+		return this.peerAddress;
+	}
+
+	public Boolean isRelayPossible() {
+		return this.isRelayPossible;
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws MessageException {
@@ -74,7 +116,6 @@ public class ArbitraryDataFileListMessage extends Message {
 		boolean isRelayPossible = true; // Legacy versions only send this message when relaying is possible
 
 		// The remaining fields are optional
-
 		if (bytes.hasRemaining()) {
 			try {
 				requestTime = bytes.getLong();
@@ -90,81 +131,6 @@ public class ArbitraryDataFileListMessage extends Message {
 		}
 
 		return new ArbitraryDataFileListMessage(id, signature, hashes, requestTime, requestHops, peerAddress, isRelayPossible);
-	}
-
-	@Override
-	protected byte[] toData() throws IOException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-		bytes.write(this.signature);
-
-		bytes.write(Ints.toByteArray(this.hashes.size()));
-
-		for (byte[] hash : this.hashes) {
-			bytes.write(hash);
-		}
-
-		if (this.requestTime == null) { // To maintain backwards support
-			return bytes.toByteArray();
-		}
-
-		// The remaining fields are optional
-
-		bytes.write(Longs.toByteArray(this.requestTime));
-
-		bytes.write(Ints.toByteArray(this.requestHops));
-
-		Serialization.serializeSizedStringV2(bytes, this.peerAddress);
-
-		bytes.write(Ints.toByteArray(this.isRelayPossible ? 1 : 0));
-
-		return bytes.toByteArray();
-	}
-
-	public ArbitraryDataFileListMessage cloneWithNewId(int newId) {
-		ArbitraryDataFileListMessage clone = new ArbitraryDataFileListMessage(this.signature, this.hashes,
-				this.requestTime, this.requestHops, this.peerAddress, this.isRelayPossible);
-		clone.setId(newId);
-		return clone;
-	}
-
-	public void removeOptionalStats() {
-		this.requestTime = null;
-		this.requestHops = null;
-		this.peerAddress = null;
-		this.isRelayPossible = null;
-	}
-
-	public Long getRequestTime() {
-		return this.requestTime;
-	}
-
-	public void setRequestTime(Long requestTime) {
-		this.requestTime = requestTime;
-	}
-
-	public Integer getRequestHops() {
-		return this.requestHops;
-	}
-
-	public void setRequestHops(Integer requestHops) {
-		this.requestHops = requestHops;
-	}
-
-	public String getPeerAddress() {
-		return this.peerAddress;
-	}
-
-	public void setPeerAddress(String peerAddress) {
-		this.peerAddress = peerAddress;
-	}
-
-	public Boolean isRelayPossible() {
-		return this.isRelayPossible;
-	}
-
-	public void setIsRelayPossible(Boolean isRelayPossible) {
-		this.isRelayPossible = isRelayPossible;
 	}
 
 }
