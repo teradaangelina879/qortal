@@ -132,6 +132,8 @@ public class Network {
     private String ourExternalIpAddress = null;
     private int ourExternalPort = Settings.getInstance().getListenPort();
 
+    private volatile boolean isShuttingDown = false;
+
     // Constructors
 
     private Network() {
@@ -835,8 +837,6 @@ public class Network {
     }
 
     public void onDisconnect(Peer peer) {
-        // Notify Controller
-        Controller.getInstance().onPeerDisconnect(peer);
         if (peer.getConnectionEstablishedTime() > 0L) {
             LOGGER.debug("[{}] Disconnected from peer {}", peer.getPeerConnectionId(), peer);
         } else {
@@ -845,6 +845,10 @@ public class Network {
 
         this.removeConnectedPeer(peer);
         this.channelsPendingWrite.remove(peer.getSocketChannel());
+
+        if (this.isShuttingDown)
+            // No need to do any further processing, like re-enabling listen socket or notifying Controller
+            return;
 
         if (getImmutableConnectedPeers().size() < maxPeers - 1
                 && serverSelectionKey.isValid()
@@ -856,6 +860,9 @@ public class Network {
                 LOGGER.error("Failed to re-enable accepting of incoming connections: {}", e.getMessage());
             }
         }
+
+        // Notify Controller
+        Controller.getInstance().onPeerDisconnect(peer);
     }
 
     public void peerMisbehaved(Peer peer) {
@@ -1454,6 +1461,9 @@ public class Network {
 
     public void broadcast(Function<Peer, Message> peerMessageBuilder) {
         for (Peer peer : getImmutableHandshakedPeers()) {
+            if (this.isShuttingDown)
+                return;
+
             Message message = peerMessageBuilder.apply(peer);
 
             if (message == null) {
@@ -1469,6 +1479,8 @@ public class Network {
     // Shutdown
 
     public void shutdown() {
+        this.isShuttingDown = true;
+
         // Close listen socket to prevent more incoming connections
         if (this.serverChannel.isOpen()) {
             try {
