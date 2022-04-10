@@ -402,7 +402,7 @@ public class TradeBot implements Listener {
 
 		long now = NTP.getTime();
 		long newExpiry = generateExpiry(now);
-		ByteArray pubkeyByteArray = ByteArray.of(tradeNativeAccount.getPublicKey());
+		ByteArray pubkeyByteArray = ByteArray.wrap(tradeNativeAccount.getPublicKey());
 
 		// If map entry's timestamp is missing, or within early renewal period, use the new expiry - otherwise use existing timestamp.
 		synchronized (this.ourTradePresenceTimestampsByPubkey) {
@@ -489,7 +489,7 @@ public class TradeBot implements Listener {
 		int knownCount = entriesUnknownToPeer.size();
 
 		for (TradePresenceData peersTradePresence : peersTradePresences) {
-			ByteArray pubkeyByteArray = ByteArray.of(peersTradePresence.getPublicKey());
+			ByteArray pubkeyByteArray = ByteArray.wrap(peersTradePresence.getPublicKey());
 
 			TradePresenceData ourEntry = entriesUnknownToPeer.get(pubkeyByteArray);
 
@@ -546,7 +546,7 @@ public class TradeBot implements Listener {
 					continue;
 				}
 
-				ByteArray pubkeyByteArray = ByteArray.of(peersTradePresence.getPublicKey());
+				ByteArray pubkeyByteArray = ByteArray.wrap(peersTradePresence.getPublicKey());
 
 				// Ignore if we've previously verified this timestamp+publickey combo or sent timestamp is older
 				TradePresenceData existingTradeData = this.safeAllTradePresencesByPubkey.get(pubkeyByteArray);
@@ -589,7 +589,7 @@ public class TradeBot implements Listener {
 					continue;
 				}
 
-				ByteArray atCodeHash = new ByteArray(atData.getCodeHash());
+				ByteArray atCodeHash = ByteArray.wrap(atData.getCodeHash());
 				Supplier<ACCT> acctSupplier = acctSuppliersByCodeHash.get(atCodeHash);
 				if (acctSupplier == null) {
 					LOGGER.trace("Ignoring trade presence {} from peer {} as AT isn't a known ACCT?",
@@ -642,7 +642,7 @@ public class TradeBot implements Listener {
 
 	public void bridgePresence(long timestamp, byte[] publicKey, byte[] signature, String atAddress) {
 		long expiry = generateExpiry(timestamp);
-		ByteArray pubkeyByteArray = ByteArray.of(publicKey);
+		ByteArray pubkeyByteArray = ByteArray.wrap(publicKey);
 
 		TradePresenceData fakeTradePresenceData = new TradePresenceData(expiry, publicKey, signature, atAddress);
 

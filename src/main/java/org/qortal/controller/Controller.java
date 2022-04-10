@@ -675,7 +675,7 @@ public class Controller extends Thread {
 	public static final Predicate<Peer> hasInferiorChainTip = peer -> {
 		final PeerChainTipData peerChainTipData = peer.getChainTipData();
 		final List<ByteArray> inferiorChainTips = Synchronizer.getInstance().inferiorChainSignatures;
-		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || inferiorChainTips.contains(new ByteArray(peerChainTipData.getLastBlockSignature()));
+		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || inferiorChainTips.contains(ByteArray.wrap(peerChainTipData.getLastBlockSignature()));
 	};
 
 	public static final Predicate<Peer> hasOldVersion = peer -> {
@@ -1203,7 +1203,7 @@ public class Controller extends Thread {
 		byte[] signature = getBlockMessage.getSignature();
 		this.stats.getBlockMessageStats.requests.incrementAndGet();
 
-		ByteArray signatureAsByteArray = new ByteArray(signature);
+		ByteArray signatureAsByteArray = ByteArray.wrap(signature);
 
 		CachedBlockMessage cachedBlockMessage = this.blockMessageCache.get(signatureAsByteArray);
 		int blockCacheSize = Settings.getInstance().getBlockCacheSize();
@@ -1283,7 +1283,7 @@ public class Controller extends Thread {
 			if (getChainHeight() - blockData.getHeight() <= blockCacheSize) {
 				this.stats.getBlockMessageStats.cacheFills.incrementAndGet();
 
-				this.blockMessageCache.put(new ByteArray(blockData.getSignature()), blockMessage);
+				this.blockMessageCache.put(ByteArray.wrap(blockData.getSignature()), blockMessage);
 			}
 		} catch (DataException e) {
 			LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);

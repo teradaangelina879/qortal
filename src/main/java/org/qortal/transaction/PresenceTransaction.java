@@ -185,7 +185,7 @@ public class PresenceTransaction extends Transaction {
 		String signerAddress = Crypto.toAddress(this.transactionData.getCreatorPublicKey());
 
 		for (ATData atData : atsData) {
-			ByteArray atCodeHash = new ByteArray(atData.getCodeHash());
+			ByteArray atCodeHash = ByteArray.wrap(atData.getCodeHash());
 			Supplier<ACCT> acctSupplier = acctSuppliersByCodeHash.get(atCodeHash);
 			if (acctSupplier == null)
 				continue;

@@ -55,7 +55,7 @@ public class TradeBotPresenceTests {
 
     @Test
     public void testEnforceLatestTimestamp() {
-        ByteArray pubkeyByteArray = ByteArray.of("publickey".getBytes(StandardCharsets.UTF_8));
+        ByteArray pubkeyByteArray = ByteArray.wrap("publickey".getBytes(StandardCharsets.UTF_8));
 
         Map<ByteArray, Long> timestampsByPublicKey = new HashMap<>();
 
