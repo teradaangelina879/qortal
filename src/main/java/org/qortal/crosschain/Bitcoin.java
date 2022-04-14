@@ -171,6 +171,8 @@ public class Bitcoin extends Bitcoiny {
 			Context bitcoinjContext = new Context(bitcoinNet.getParams());
 
 			instance = new Bitcoin(bitcoinNet, electrumX, bitcoinjContext, CURRENCY_CODE);
+
+			electrumX.setBlockchain(instance);
 		}
 
 		return instance;

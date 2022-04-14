@@ -135,6 +135,8 @@ public class Dogecoin extends Bitcoiny {
 			Context bitcoinjContext = new Context(dogecoinNet.getParams());
 
 			instance = new Dogecoin(dogecoinNet, electrumX, bitcoinjContext, CURRENCY_CODE);
+
+			electrumX.setBlockchain(instance);
 		}
 
 		return instance;

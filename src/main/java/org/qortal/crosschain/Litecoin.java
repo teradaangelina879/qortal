@@ -145,6 +145,8 @@ public class Litecoin extends Bitcoiny {
 			Context bitcoinjContext = new Context(litecoinNet.getParams());
 
 			instance = new Litecoin(litecoinNet, electrumX, bitcoinjContext, CURRENCY_CODE);
+
+			electrumX.setBlockchain(instance);
 		}
 
 		return instance;

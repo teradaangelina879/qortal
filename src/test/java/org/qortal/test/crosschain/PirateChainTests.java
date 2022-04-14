@@ -1,46 +1,47 @@
 package org.qortal.test.crosschain;
 
-import static org.junit.Assert.*;
-
-import java.util.Arrays;
-
+import cash.z.wallet.sdk.rpc.CompactFormats.*;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.store.BlockStoreException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
-import org.qortal.crosschain.Bitcoin;
-import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.BitcoinyHTLC;
+import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.Litecoin;
+import org.qortal.crosschain.PirateChain;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
-public class BitcoinTests extends Common {
+import java.util.Arrays;
+import java.util.List;
 
-	private Bitcoin bitcoin;
+import static org.junit.Assert.*;
+
+public class PirateChainTests extends Common {
+
+	private PirateChain pirateChain;
 
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useDefaultSettings(); // TestNet3
-		bitcoin = Bitcoin.getInstance();
+		pirateChain = PirateChain.getInstance();
 	}
 
 	@After
 	public void afterTest() {
-		Bitcoin.resetForTesting();
-		bitcoin = null;
+		Litecoin.resetForTesting();
+		pirateChain = null;
 	}
 
 	@Test
 	public void testGetMedianBlockTime() throws BlockStoreException, ForeignBlockchainException {
-		System.out.println(String.format("Starting BTC instance..."));
-		System.out.println(String.format("BTC instance started"));
-
 		long before = System.currentTimeMillis();
-		System.out.println(String.format("Bitcoin median blocktime: %d", bitcoin.getMedianBlockTime()));
+		System.out.println(String.format("Pirate Chain median blocktime: %d", pirateChain.getMedianBlockTime()));
 		long afterFirst = System.currentTimeMillis();
 
-		System.out.println(String.format("Bitcoin median blocktime: %d", bitcoin.getMedianBlockTime()));
+		System.out.println(String.format("Pirate Chain median blocktime: %d", pirateChain.getMedianBlockTime()));
 		long afterSecond = System.currentTimeMillis();
 
 		long firstPeriod = afterFirst - before;
@@ -53,59 +54,81 @@ public class BitcoinTests extends Common {
 	}
 
 	@Test
+	public void testGetCompactBlocks() throws ForeignBlockchainException {
+		int startHeight = 1000000;
+		int count = 20;
+
+		long before = System.currentTimeMillis();
+		List<CompactBlock> compactBlocks = pirateChain.getCompactBlocks(startHeight, count);
+		long after = System.currentTimeMillis();
+
+		System.out.println(String.format("Retrieval took: %d ms", after-before));
+
+		for (CompactBlock block : compactBlocks) {
+			System.out.println(String.format("Block height: %d, transaction count: %d", block.getHeight(), block.getVtxCount()));
+		}
+
+		assertEquals(count, compactBlocks.size());
+	}
+
+	@Test
+	@Ignore(value = "Doesn't work, to be fixed later")
 	public void testFindHtlcSecret() throws ForeignBlockchainException {
 		// This actually exists on TEST3 but can take a while to fetch
 		String p2shAddress = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 
 		byte[] expectedSecret = "This string is exactly 32 bytes!".getBytes();
-		byte[] secret = BitcoinyHTLC.findHtlcSecret(bitcoin, p2shAddress);
+		byte[] secret = BitcoinyHTLC.findHtlcSecret(pirateChain, p2shAddress);
 
-		assertNotNull(secret);
+		assertNotNull("secret not found", secret);
 		assertTrue("secret incorrect", Arrays.equals(expectedSecret, secret));
 	}
 
 	@Test
+	@Ignore(value = "Needs adapting for Pirate Chain")
 	public void testBuildSpend() {
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
 		String recipient = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 		long amount = 1000L;
 
-		Transaction transaction = bitcoin.buildSpend(xprv58, recipient, amount);
-		assertNotNull(transaction);
+		Transaction transaction = pirateChain.buildSpend(xprv58, recipient, amount);
+		assertNotNull("insufficient funds", transaction);
 
 		// Check spent key caching doesn't affect outcome
 
-		transaction = bitcoin.buildSpend(xprv58, recipient, amount);
-		assertNotNull(transaction);
+		transaction = pirateChain.buildSpend(xprv58, recipient, amount);
+		assertNotNull("insufficient funds", transaction);
 	}
 
 	@Test
+	@Ignore(value = "Needs adapting for Pirate Chain")
 	public void testGetWalletBalance() throws ForeignBlockchainException {
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
-		Long balance = bitcoin.getWalletBalance(xprv58);
+		Long balance = pirateChain.getWalletBalance(xprv58);
 
 		assertNotNull(balance);
 
-		System.out.println(bitcoin.format(balance));
+		System.out.println(pirateChain.format(balance));
 
 		// Check spent key caching doesn't affect outcome
 
-		Long repeatBalance = bitcoin.getWalletBalance(xprv58);
+		Long repeatBalance = pirateChain.getWalletBalance(xprv58);
 
 		assertNotNull(repeatBalance);
 
-		System.out.println(bitcoin.format(repeatBalance));
+		System.out.println(pirateChain.format(repeatBalance));
 
 		assertEquals(balance, repeatBalance);
 	}
 
 	@Test
+	@Ignore(value = "Needs adapting for Pirate Chain")
 	public void testGetUnusedReceiveAddress() throws ForeignBlockchainException {
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
-		String address = bitcoin.getUnusedReceiveAddress(xprv58);
+		String address = pirateChain.getUnusedReceiveAddress(xprv58);
 
 		assertNotNull(address);
 

@@ -81,7 +81,7 @@ public class DogecoinTests extends Common {
 	}
 
 	@Test
-	public void testGetWalletBalance() {
+	public void testGetWalletBalance() throws ForeignBlockchainException {
 		String xprv58 = "dgpv51eADS3spNJh9drNeW1Tc1P9z2LyaQRXPBortsq6yice1k47C2u2Prvgxycr2ihNBWzKZ2LthcBBGiYkWZ69KUTVkcLVbnjq7pD8mnApEru";
 
 		Long balance = dogecoin.getWalletBalance(xprv58);
