@@ -62,7 +62,7 @@ public enum SupportedBlockchain {
 	private static final Map<ByteArray, Supplier<ACCT>> supportedAcctsByCodeHash = Arrays.stream(SupportedBlockchain.values())
 			.map(supportedBlockchain -> supportedBlockchain.supportedAccts)
 			.flatMap(List::stream)
-			.collect(Collectors.toUnmodifiableMap(triple -> new ByteArray(triple.getB()), Triple::getC));
+			.collect(Collectors.toUnmodifiableMap(triple -> ByteArray.wrap(triple.getB()), Triple::getC));
 
 	private static final Map<String, Supplier<ACCT>> supportedAcctsByName = Arrays.stream(SupportedBlockchain.values())
 			.map(supportedBlockchain -> supportedBlockchain.supportedAccts)
@@ -94,7 +94,7 @@ public enum SupportedBlockchain {
 			return getAcctMap();
 
 		return blockchain.supportedAccts.stream()
-				.collect(Collectors.toUnmodifiableMap(triple -> new ByteArray(triple.getB()), Triple::getC));
+				.collect(Collectors.toUnmodifiableMap(triple -> ByteArray.wrap(triple.getB()), Triple::getC));
 	}
 
 	public static Map<ByteArray, Supplier<ACCT>> getFilteredAcctMap(String specificBlockchain) {
@@ -109,7 +109,7 @@ public enum SupportedBlockchain {
 	}
 
 	public static ACCT getAcctByCodeHash(byte[] codeHash) {
-		ByteArray wrappedCodeHash = new ByteArray(codeHash);
+		ByteArray wrappedCodeHash = ByteArray.wrap(codeHash);
 
 		Supplier<ACCT> acctInstanceSupplier = supportedAcctsByCodeHash.get(wrappedCodeHash);
 

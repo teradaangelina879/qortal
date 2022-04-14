@@ -8,12 +8,16 @@ public class ByteArray implements Comparable<ByteArray> {
 	private int hash;
 	public final byte[] value;
 
-	public ByteArray(byte[] value) {
-		this.value = Objects.requireNonNull(value);
+	private ByteArray(byte[] value) {
+		this.value = value;
 	}
 
-	public static ByteArray of(byte[] value) {
-		return new ByteArray(value);
+	public static ByteArray wrap(byte[] value) {
+		return new ByteArray(Objects.requireNonNull(value));
+	}
+
+	public static ByteArray copyOf(byte[] value) {
+		return new ByteArray(Arrays.copyOf(value, value.length));
 	}
 
 	@Override
@@ -36,12 +40,7 @@ public class ByteArray implements Comparable<ByteArray> {
 		byte[] val = this.value;
 
 		if (h == 0 && val.length > 0) {
-			h = 1;
-
-			for (int i = 0; i < val.length; ++i)
-				h = 31 * h + val[i];
-
-			this.hash = h;
+			this.hash = h = Arrays.hashCode(val);
 		}
 		return h;
 	}
@@ -53,24 +52,7 @@ public class ByteArray implements Comparable<ByteArray> {
 	}
 
 	public int compareToPrimitive(byte[] otherValue) {
-		byte[] val = this.value;
-
-		if (val.length < otherValue.length)
-			return -1;
-
-		if (val.length > otherValue.length)
-			return 1;
-
-		for (int i = 0; i < val.length; ++i) {
-			int a = val[i] & 0xFF;
-			int b = otherValue[i] & 0xFF;
-			if (a < b)
-				return -1;
-			if (a > b)
-				return 1;
-		}
-
-		return 0;
+		return Arrays.compareUnsigned(this.value, otherValue);
 	}
 
 	public String toString() {
