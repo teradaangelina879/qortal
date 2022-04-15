@@ -99,7 +99,13 @@ public class GroupsResource {
 	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<GroupData> allGroupData = repository.getGroupRepository().getAllGroups(limit, offset, reverse);
-			// allGroupData.forEach(GroupData -> GroupData.memberCount = repository.getGroupRepository().countGroupMembers(GroupData.groupId));
+			allGroupData.forEach(groupData -> {
+				try {
+					groupData.memberCount = repository.getGroupRepository().countGroupMembers(groupData.getGroupId());
+				} catch (DataException e) {
+					// Exclude memberCount for this group
+				}
+			});
 			return allGroupData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
