@@ -158,7 +158,15 @@ public class GroupsResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getGroupRepository().getGroupsWithMember(member);
+			List<GroupData> allGroupData = repository.getGroupRepository().getGroupsWithMember(member);
+			allGroupData.forEach(groupData -> {
+				try {
+					groupData.memberCount = repository.getGroupRepository().countGroupMembers(groupData.getGroupId());
+				} catch (DataException e) {
+					// Exclude memberCount for this group
+				}
+			});
+			return allGroupData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
