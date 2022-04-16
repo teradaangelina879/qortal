@@ -549,6 +549,10 @@ public abstract class Transaction {
 			return ValidationResult.OK;
 		}
 
+		PublicKeyAccount creator = this.getCreator();
+		if (creator == null)
+			return ValidationResult.MISSING_CREATOR;
+
 		// Reject if unconfirmed pile already has X transactions from same creator
 		if (countUnconfirmedByCreator(creator) >= Settings.getInstance().getMaxUnconfirmedPerAccount())
 			return ValidationResult.TOO_MANY_UNCONFIRMED;
@@ -558,10 +562,6 @@ public abstract class Transaction {
 		BlockData latestBlock = repository.getBlockRepository().getLastBlock();
 		if (this.getDeadline() <= latestBlock.getTimestamp())
 			return ValidationResult.TIMESTAMP_TOO_OLD;
-
-		PublicKeyAccount creator = this.getCreator();
-		if (creator == null)
-			return ValidationResult.MISSING_CREATOR;
 
 		// Check transaction's txGroupId
 		if (!this.isValidTxGroupId())
