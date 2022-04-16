@@ -96,7 +96,7 @@ public class ArbitraryDataFile {
             this.filePath = outputFilePath;
             // Verify hash
             if (!this.hash58.equals(this.digest58())) {
-                LOGGER.error("Hash {} does not match file digest {}", this.hash58, this.digest58());
+                LOGGER.error("Hash {} does not match file digest {} for signature: {}", this.hash58, this.digest58(), Base58.encode(signature));
                 this.delete();
                 throw new DataException("Data file digest validation failed");
             }
