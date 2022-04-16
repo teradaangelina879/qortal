@@ -79,6 +79,118 @@ public class ArbitraryTransactionMetadataTests extends Common {
     }
 
     @Test
+    public void testSingleChunkWithMetadata() throws DataException, IOException, MissingDataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
+            Service service = Service.ARBITRARY_DATA;
+            int chunkSize = 1000;
+            int dataLength = 10; // Actual data length will be longer due to encryption
+
+            String title = "Test title";
+            String description = "Test description";
+            List<String> tags = Arrays.asList("Test", "tag", "another tag");
+            Category category = Category.QORTAL;
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = ArbitraryUtils.generateRandomDataPath(dataLength);
+            ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name,
+                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize,
+                    title, description, tags, category);
+
+            // Check the chunk count is correct
+            assertEquals(0, arbitraryDataFile.chunkCount());
+
+            // Check the metadata is correct
+            assertEquals(title, arbitraryDataFile.getMetadata().getTitle());
+            assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
+            assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
+            assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+
+            // Now build the latest data state for this name
+            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
+            arbitraryDataReader.loadSynchronously(true);
+            Path initialLayerPath = arbitraryDataReader.getFilePath();
+            ArbitraryDataDigest initialLayerDigest = new ArbitraryDataDigest(initialLayerPath);
+            initialLayerDigest.compute();
+
+            // Its directory hash should match the original directory hash
+            ArbitraryDataDigest path1Digest = new ArbitraryDataDigest(path1);
+            path1Digest.compute();
+            assertEquals(path1Digest.getHash58(), initialLayerDigest.getHash58());
+        }
+    }
+
+    @Test
+    public void testSingleNonLocalChunkWithMetadata() throws DataException, IOException, MissingDataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
+            Service service = Service.ARBITRARY_DATA;
+            int chunkSize = 1000;
+            int dataLength = 10; // Actual data length will be longer due to encryption
+
+            String title = "Test title";
+            String description = "Test description";
+            List<String> tags = Arrays.asList("Test", "tag", "another tag");
+            Category category = Category.QORTAL;
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = ArbitraryUtils.generateRandomDataPath(dataLength);
+            ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name,
+                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize,
+                    title, description, tags, category);
+
+            // Check the chunk count is correct
+            assertEquals(0, arbitraryDataFile.chunkCount());
+
+            // Check the metadata is correct
+            assertEquals(title, arbitraryDataFile.getMetadata().getTitle());
+            assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
+            assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
+            assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+
+            // Delete the file, to simulate that it hasn't been fetched from the network yet
+            arbitraryDataFile.delete();
+
+            boolean missingDataExceptionCaught = false;
+            boolean ioExceptionCaught = false;
+
+            // Now build the latest data state for this name
+            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
+            try {
+                arbitraryDataReader.loadSynchronously(true);
+            }
+            catch (MissingDataException e) {
+                missingDataExceptionCaught = true;
+            }
+            catch (IOException e) {
+                ioExceptionCaught = true;
+            }
+
+            // We expect a MissingDataException, not an IOException.
+            // This is because MissingDataException means that the core has correctly identified a file is missing,
+            // whereas an IOException would be due to trying to build without first having everything that is needed.
+            assertTrue(missingDataExceptionCaught);
+            assertFalse(ioExceptionCaught);
+        }
+    }
+
+    @Test
     public void testDescriptiveMetadata() throws DataException, IOException, MissingDataException {
         try (final Repository repository = RepositoryManager.getRepository()) {
             PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");

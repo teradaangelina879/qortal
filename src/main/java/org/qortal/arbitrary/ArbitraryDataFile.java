@@ -478,6 +478,14 @@ public class ArbitraryDataFile {
 
             // Read the metadata
             List<byte[]> chunks = metadata.getChunks();
+
+            // If the chunks array is empty, then this resource has no chunks,
+            // so we must return false to avoid confusing the caller.
+            if (chunks.isEmpty()) {
+                return false;
+            }
+
+            // Otherwise, we need to check each chunk individually
             for (byte[] chunkHash : chunks) {
                 ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
                 if (!chunk.exists()) {
