@@ -73,9 +73,13 @@ public class BlockChain {
 	}
 
 	// Custom transaction fees
-	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	private long nameRegistrationUnitFee;
-	private long nameRegistrationUnitFeeTimestamp;
+	/** Unit fees by transaction timestamp */
+	public static class UnitFeesByTimestamp {
+		public long timestamp;
+		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+		public long fee;
+	}
+	private List<UnitFeesByTimestamp> nameRegistrationUnitFees;
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
 	@XmlJavaTypeAdapter(StringLongMapXmlAdapter.class)
@@ -306,16 +310,6 @@ public class BlockChain {
 		return this.maxBlockSize;
 	}
 
-	// Custom transaction fees
-	public long getNameRegistrationUnitFee() {
-		return this.nameRegistrationUnitFee;
-	}
-
-	public long getNameRegistrationUnitFeeTimestamp() {
-		// FUTURE: we could use a separate structure to indicate fee adjustments for different transaction types
-		return this.nameRegistrationUnitFeeTimestamp;
-	}
-
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
 	public boolean getRequireGroupForApproval() {
 		return this.requireGroupForApproval;
@@ -428,6 +422,16 @@ public class BlockChain {
 				return blockTimingsByHeight.get(i);
 
 		throw new IllegalStateException(String.format("No block timing info available for height %d", ourHeight));
+	}
+
+	public long getNameRegistrationUnitFeeAtTimestamp(long ourTimestamp) {
+		// Scan through for reward at our height
+		for (int i = 0; i < nameRegistrationUnitFees.size(); ++i)
+			if (ourTimestamp >= nameRegistrationUnitFees.get(i).timestamp)
+				return nameRegistrationUnitFees.get(i).fee;
+
+		// Default to system-wide unit fee
+		return this.getUnitFee();
 	}
 
 	/** Validate blockchain config read from JSON */

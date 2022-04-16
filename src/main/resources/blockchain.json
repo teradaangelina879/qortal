@@ -4,8 +4,9 @@
 	"maxBlockSize": 2097152,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.001",
-	"nameRegistrationUnitFee": "5",
-	"nameRegistrationUnitFeeTimestamp": 1645372800000,
+	"nameRegistrationUnitFees": [
+		{ "timestamp": 1645372800000, "fee": "5" }
+	],
 	"useBrokenMD160ForAddresses": false,
 	"requireGroupForApproval": false,
 	"defaultGroupId": 0,

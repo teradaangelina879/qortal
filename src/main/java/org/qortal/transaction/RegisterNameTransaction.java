@@ -39,11 +39,7 @@ public class RegisterNameTransaction extends Transaction {
 
 	@Override
 	public long getUnitFee(Long timestamp) {
-		// Use a higher unit fee after the fee increase timestamp
-		if (timestamp > BlockChain.getInstance().getNameRegistrationUnitFeeTimestamp()) {
-			return BlockChain.getInstance().getNameRegistrationUnitFee();
-		}
-		return BlockChain.getInstance().getUnitFee();
+		return BlockChain.getInstance().getNameRegistrationUnitFeeAtTimestamp(timestamp);
 	}
 
 	// Navigation

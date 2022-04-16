@@ -2,21 +2,22 @@ package org.qortal.test.naming;
 
 import static org.junit.Assert.*;
 
+import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.api.AmountTypeAdapter;
 import org.qortal.block.BlockChain;
+import org.qortal.block.BlockChain.*;
 import org.qortal.controller.BlockMinter;
 import org.qortal.data.transaction.*;
 import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.settings.Settings;
 import org.qortal.test.common.*;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.RegisterNameTransaction;
@@ -325,17 +326,20 @@ public class MiscTests extends Common {
 
 	// test name registration fee increase
 	@Test
-	public void testRegisterNameFeeIncrease() throws DataException, IllegalAccessException {
+	public void testRegisterNameFeeIncrease() throws Exception {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			// Set nameRegistrationUnitFeeTimestamp to a time far in the future
-			long futureTimestamp = 9999999999999L; // 20 Nov 2286
-			FieldUtils.writeField(BlockChain.getInstance(), "nameRegistrationUnitFeeTimestamp", futureTimestamp, true);
-			assertEquals(futureTimestamp, BlockChain.getInstance().getNameRegistrationUnitFeeTimestamp());
+			UnitFeesByTimestamp futureFeeIncrease = new UnitFeesByTimestamp();
+			futureFeeIncrease.timestamp = 9999999999999L; // 20 Nov 2286
+			futureFeeIncrease.fee = new AmountTypeAdapter().unmarshal("5");
+			FieldUtils.writeField(BlockChain.getInstance(), "nameRegistrationUnitFees", Arrays.asList(futureFeeIncrease), true);
+			assertEquals(futureFeeIncrease.fee, BlockChain.getInstance().getNameRegistrationUnitFeeAtTimestamp(futureFeeIncrease.timestamp));
 
 			// Validate unit fees pre and post timestamp
 			assertEquals(10000000, BlockChain.getInstance().getUnitFee()); // 0.1 QORT
-			assertEquals(500000000, BlockChain.getInstance().getNameRegistrationUnitFee()); // 5 QORT
+			assertEquals(10000000, BlockChain.getInstance().getNameRegistrationUnitFeeAtTimestamp(futureFeeIncrease.timestamp - 1)); // 0.1 QORT
+			assertEquals(500000000, BlockChain.getInstance().getNameRegistrationUnitFeeAtTimestamp(futureFeeIncrease.timestamp)); // 5 QORT
 
 			// Register-name
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
@@ -349,8 +353,11 @@ public class MiscTests extends Common {
 
 			// Set nameRegistrationUnitFeeTimestamp to a time in the past
 			Long now = NTP.getTime();
-			FieldUtils.writeField(BlockChain.getInstance(), "nameRegistrationUnitFeeTimestamp", now - 1000L, true);
-			assertEquals(now - 1000L, BlockChain.getInstance().getNameRegistrationUnitFeeTimestamp());
+			UnitFeesByTimestamp pastFeeIncrease = new UnitFeesByTimestamp();
+			pastFeeIncrease.timestamp = now - 1000L; // 1 second ago
+			pastFeeIncrease.fee = new AmountTypeAdapter().unmarshal("3");
+			FieldUtils.writeField(BlockChain.getInstance(), "nameRegistrationUnitFees", Arrays.asList(pastFeeIncrease), true);
+			assertEquals(pastFeeIncrease.fee, BlockChain.getInstance().getNameRegistrationUnitFeeAtTimestamp(pastFeeIncrease.timestamp));
 
 			// Register a different name
 			// First try with the default unit fee
@@ -365,7 +372,7 @@ public class MiscTests extends Common {
 			// Now try using correct fee (this is specified by the UI, via the /transaction/unitfee API endpoint)
 			transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name2, data);
 			transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
-			assertEquals(500000000L, transactionData.getFee().longValue());
+			assertEquals(300000000L, transactionData.getFee().longValue());
 			transaction = Transaction.fromData(repository, transactionData);
 			transaction.sign(alice);
 			result = transaction.importAsUnconfirmed();
