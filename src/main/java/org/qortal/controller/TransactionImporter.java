@@ -55,6 +55,8 @@ public class TransactionImporter extends Thread {
 
     @Override
     public void run() {
+        Thread.currentThread().setName("Transaction Importer");
+
         try {
             while (!Controller.isStopping()) {
                 Thread.sleep(1000L);
