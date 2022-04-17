@@ -29,6 +29,14 @@ public class GetOnlineAccountsV2Message extends Message {
 	public GetOnlineAccountsV2Message(List<OnlineAccountData> onlineAccounts) {
 		super(MessageType.GET_ONLINE_ACCOUNTS_V2);
 
+		// If we don't have ANY online accounts then it's an easier construction...
+		if (onlineAccounts.isEmpty()) {
+			// Always supply a number of accounts
+			this.dataBytes = Ints.toByteArray(0);
+			this.checksumBytes = Message.generateChecksum(this.dataBytes);
+			return;
+		}
+
 		// How many of each timestamp
 		Map<Long, Integer> countByTimestamp = new HashMap<>();
 
