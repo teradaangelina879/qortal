@@ -413,6 +413,8 @@ public class Peer {
             this.isLocal = isAddressLocal(this.resolvedAddress.getAddress());
 
             this.socketChannel = SocketChannel.open();
+            InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
+            this.socketChannel.socket().bind(new InetSocketAddress(bindAddr, 0));
             this.socketChannel.socket().connect(resolvedAddress, CONNECT_TIMEOUT);
         } catch (SocketTimeoutException e) {
             LOGGER.trace("[{}] Connection timed out to peer {}", this.peerConnectionId, this);
