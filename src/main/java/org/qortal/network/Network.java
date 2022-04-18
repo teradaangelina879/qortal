@@ -590,32 +590,41 @@ public class Network {
 
                 SelectableChannel socketChannel = nextSelectionKey.channel();
 
-                if (nextSelectionKey.isReadable()) {
-                    clearInterestOps(nextSelectionKey, SelectionKey.OP_READ);
-                    Peer peer = getPeerFromChannel((SocketChannel) socketChannel);
-                    if (peer == null)
-                        return null;
+                try {
+                    if (nextSelectionKey.isReadable()) {
+                        clearInterestOps(nextSelectionKey, SelectionKey.OP_READ);
+                        Peer peer = getPeerFromChannel((SocketChannel) socketChannel);
+                        if (peer == null)
+                            return null;
 
-                    return new ChannelReadTask((SocketChannel) socketChannel, peer);
-                }
+                        return new ChannelReadTask((SocketChannel) socketChannel, peer);
+                    }
 
-                if (nextSelectionKey.isWritable()) {
-                    clearInterestOps(nextSelectionKey, SelectionKey.OP_WRITE);
-                    Peer peer = getPeerFromChannel((SocketChannel) socketChannel);
-                    if (peer == null)
-                        return null;
+                    if (nextSelectionKey.isWritable()) {
+                        clearInterestOps(nextSelectionKey, SelectionKey.OP_WRITE);
+                        Peer peer = getPeerFromChannel((SocketChannel) socketChannel);
+                        if (peer == null)
+                            return null;
 
-                    // Any thread that queues a message to send can set OP_WRITE,
-                    // but we only allow one pending/active ChannelWriteTask per Peer
-                    if (!channelsPendingWrite.add(socketChannel))
-                        return null;
+                        // Any thread that queues a message to send can set OP_WRITE,
+                        // but we only allow one pending/active ChannelWriteTask per Peer
+                        if (!channelsPendingWrite.add(socketChannel))
+                            return null;
 
-                    return new ChannelWriteTask((SocketChannel) socketChannel, peer);
-                }
+                        return new ChannelWriteTask((SocketChannel) socketChannel, peer);
+                    }
 
-                if (nextSelectionKey.isAcceptable()) {
-                    clearInterestOps(nextSelectionKey, SelectionKey.OP_ACCEPT);
-                    return new ChannelAcceptTask((ServerSocketChannel) socketChannel);
+                    if (nextSelectionKey.isAcceptable()) {
+                        clearInterestOps(nextSelectionKey, SelectionKey.OP_ACCEPT);
+                        return new ChannelAcceptTask((ServerSocketChannel) socketChannel);
+                    }
+                } catch (CancelledKeyException e) {
+                    /*
+                     * Sometimes nextSelectionKey is cancelled / becomes invalid between the isValid() test at line 586
+                     * and later calls to isReadable() / isWritable() / isAcceptable() which themselves call isValid()!
+                     * Those isXXXable() calls could throw CancelledKeyException, so we catch it here and return null.
+                     */
+                    return null;
                 }
             }
 
