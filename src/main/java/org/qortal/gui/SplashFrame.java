@@ -1,6 +1,7 @@
 package org.qortal.gui;
 
 import java.awt.*;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.awt.image.BufferedImage;
@@ -29,17 +30,22 @@ public class SplashFrame {
 		private JLabel statusLabel;
 
 		public SplashPanel() {
-			image = Gui.loadImage(defaultSplash);
+			try {
+				image = Gui.loadImage(defaultSplash);
+
+				// Add logo
+				JLabel imageLabel = new JLabel(new ImageIcon(image));
+				imageLabel.setSize(new Dimension(300, 300));
+				add(imageLabel);
+			}
+			catch (IOException e) {
+				LOGGER.warn("Unable to load splash panel image");
+			}
 
 			setOpaque(true);
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			setBorder(new EmptyBorder(10, 10, 10, 10));
 			setBackground(Color.BLACK);
-
-			// Add logo
-			JLabel imageLabel = new JLabel(new ImageIcon(image));
-			imageLabel.setSize(new Dimension(300, 300));
-			add(imageLabel);
 
 			// Add spacing
 			add(Box.createRigidArea(new Dimension(0, 16)));
@@ -75,15 +81,20 @@ public class SplashFrame {
 
 		this.splashDialog = new JFrame();
 
-		List<Image> icons = new ArrayList<>();
-		icons.add(Gui.loadImage("icons/icon16.png"));
-		icons.add(Gui.loadImage("icons/qortal_ui_tray_synced.png"));
-		icons.add(Gui.loadImage("icons/qortal_ui_tray_syncing_time-alt.png"));
-		icons.add(Gui.loadImage("icons/qortal_ui_tray_minting.png"));
-		icons.add(Gui.loadImage("icons/qortal_ui_tray_syncing.png"));
-		icons.add(Gui.loadImage("icons/icon64.png"));
-		icons.add(Gui.loadImage("icons/Qlogo_128.png"));
-		this.splashDialog.setIconImages(icons);
+		try {
+			List<Image> icons = new ArrayList<>();
+			icons.add(Gui.loadImage("icons/icon16.png"));
+			icons.add(Gui.loadImage("icons/qortal_ui_tray_synced.png"));
+			icons.add(Gui.loadImage("icons/qortal_ui_tray_syncing_time-alt.png"));
+			icons.add(Gui.loadImage("icons/qortal_ui_tray_minting.png"));
+			icons.add(Gui.loadImage("icons/qortal_ui_tray_syncing.png"));
+			icons.add(Gui.loadImage("icons/icon64.png"));
+			icons.add(Gui.loadImage("icons/Qlogo_128.png"));
+			this.splashDialog.setIconImages(icons);
+		}
+		catch (IOException e) {
+			LOGGER.warn("Unable to load splash frame icons");
+		}
 
 		this.splashPanel = new SplashPanel();
 		this.splashDialog.getContentPane().add(this.splashPanel);
