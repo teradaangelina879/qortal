@@ -18,10 +18,9 @@ public class AtTestTransaction extends TestTransaction {
 		String recipient = account.getAddress();
 		long amount = 123L * Amounts.MULTIPLIER;
 		final long assetId = Asset.QORT;
-		byte[] message = new byte[32];
-		random.nextBytes(message);
 
-		return new ATTransactionData(generateBase(account), atAddress, recipient, amount, assetId, message);
+		// Use PAYMENT-type - i.e. a null message
+		return new ATTransactionData(generateBase(account), atAddress, recipient, amount, assetId, null);
 	}
 
 }
