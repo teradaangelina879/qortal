@@ -8,9 +8,9 @@ import java.util.Map;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.params.MainNetParams;
 import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.params.TestNet3Params;
+import org.libdohj.params.DigibyteMainNetParams;
 import org.qortal.crosschain.ElectrumX.Server;
 import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
 import org.qortal.settings.Settings;
@@ -37,7 +37,7 @@ public class Digibyte extends Bitcoiny {
 		MAIN {
 			@Override
 			public NetworkParameters getParams() {
-				return MainNetParams.get();
+				return DigibyteMainNetParams.get();
 			}
 
 			@Override
