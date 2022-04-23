@@ -67,9 +67,14 @@ public class OnlineAccountsManager extends Thread {
     Deque<List<OnlineAccountData>> latestBlocksOnlineAccounts = new ArrayDeque<>(MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS);
 
     public OnlineAccountsManager() {
-
+        // TODO: make private, add these tasks to scheduled executor:
+        // send our online accounts every 10s
+        // expireOnlineAccounts every ONLINE_ACCOUNTS_CHECK_INTERVAL
+        // broadcastOnlineAccountsQuery every ONLINE_ACCOUNTS_BROADCAST_INTERVAL
+        // processOnlineAccountsImportQueue every 100ms?
     }
 
+    // TODO: convert to SingletonContainer a-la Network
     public static synchronized OnlineAccountsManager getInstance() {
         if (instance == null) {
             instance = new OnlineAccountsManager();
@@ -78,6 +83,7 @@ public class OnlineAccountsManager extends Thread {
         return instance;
     }
 
+    // TODO: see constructor for more info
     public void run() {
 
         // Start separate thread to prepare our online accounts
@@ -113,6 +119,7 @@ public class OnlineAccountsManager extends Thread {
 
     public void shutdown() {
         isStopping = true;
+        // TODO: convert interrrupt to executor.shutdownNow();
         this.interrupt();
     }
 
@@ -151,11 +158,14 @@ public class OnlineAccountsManager extends Thread {
 
     // Utilities
 
+    // TODO: split this into validateAccount() and addAccount()
     private void verifyAndAddAccount(Repository repository, OnlineAccountData onlineAccountData) throws DataException {
         final Long now = NTP.getTime();
         if (now == null)
             return;
 
+        // TODO: don't create otherAccount, instead:
+        // byte[] rewardSharePublicKey = onlineAccountData.getPublicKey();
         PublicKeyAccount otherAccount = new PublicKeyAccount(repository, onlineAccountData.getPublicKey());
 
         // Check timestamp is 'recent' here
@@ -166,12 +176,14 @@ public class OnlineAccountsManager extends Thread {
 
         // Verify
         byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
+        // TODO: use Crypto.verify() static method directly
         if (!otherAccount.verify(onlineAccountData.getSignature(), data)) {
             LOGGER.trace(() -> String.format("Rejecting invalid online account %s", otherAccount.getAddress()));
             return;
         }
 
         // Qortal: check online account is actually reward-share
+        // TODO: use "rewardSharePublicKey" from above TODO
         RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(onlineAccountData.getPublicKey());
         if (rewardShareData == null) {
             // Reward-share doesn't even exist - probably not a good sign
@@ -186,6 +198,7 @@ public class OnlineAccountsManager extends Thread {
             return;
         }
 
+        // TODO: change this.onlineAccounts to a ConcurrentMap? Keyed by timestamp?
         synchronized (this.onlineAccounts) {
             OnlineAccountData existingAccountData = this.onlineAccounts.stream().filter(account -> Arrays.equals(account.getPublicKey(), onlineAccountData.getPublicKey())).findFirst().orElse(null);
 
@@ -193,17 +206,21 @@ public class OnlineAccountsManager extends Thread {
                 if (existingAccountData.getTimestamp() < onlineAccountData.getTimestamp()) {
                     this.onlineAccounts.remove(existingAccountData);
 
+                    // TODO: change otherAccount.getAddress() to rewardSharePublicKey in Base58?
                     LOGGER.trace(() -> String.format("Updated online account %s with timestamp %d (was %d)", otherAccount.getAddress(), onlineAccountData.getTimestamp(), existingAccountData.getTimestamp()));
                 } else {
+                    // TODO: change otherAccount.getAddress() to rewardSharePublicKey in Base58?
                     LOGGER.trace(() -> String.format("Not updating existing online account %s", otherAccount.getAddress()));
 
                     return;
                 }
             } else {
+                // TODO: change otherAccount.getAddress() to rewardSharePublicKey in Base58?
                 LOGGER.trace(() -> String.format("Added online account %s with timestamp %d", otherAccount.getAddress(), onlineAccountData.getTimestamp()));
             }
 
             this.onlineAccounts.add(onlineAccountData);
+            // TODO: if we actually added a new account, then we need to rebuild our hashes-by-timestamp-then-byte for rewardSharePublicKey's leading byte also
         }
     }
 
@@ -220,6 +237,7 @@ public class OnlineAccountsManager extends Thread {
         final long onlineAccountsTimestamp = toOnlineAccountTimestamp(now);
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
 
+        // TODO: use new addAccount() method
         synchronized (this.onlineAccounts) {
             this.onlineAccounts.clear();
 
