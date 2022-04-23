@@ -219,7 +219,7 @@ public class BlockMinter extends Thread {
 					// The last iteration found a higher weight block in the network, so sleep for a while
 					// to allow is to sync the higher weight chain. We are sleeping here rather than when
 					// detected as we don't want to hold the blockchain lock open.
-					LOGGER.info("Sleeping for 10 seconds...");
+					LOGGER.debug("Sleeping for 10 seconds...");
 					Thread.sleep(10 * 1000L);
 				}
 
@@ -328,13 +328,13 @@ public class BlockMinter extends Thread {
 							// If less than 30 seconds has passed since first detection the higher weight chain,
 							// we should skip our block submission to give us the opportunity to sync to the better chain
 							if (NTP.getTime() - timeOfLastLowWeightBlock < 30*1000L) {
-								LOGGER.info("Higher weight chain found in peers, so not signing a block this round");
-								LOGGER.info("Time since detected: {}", NTP.getTime() - timeOfLastLowWeightBlock);
+								LOGGER.debug("Higher weight chain found in peers, so not signing a block this round");
+								LOGGER.debug("Time since detected: {}ms", NTP.getTime() - timeOfLastLowWeightBlock);
 								continue;
 							}
 							else {
 								// More than 30 seconds have passed, so we should submit our block candidate anyway.
-								LOGGER.info("More than 30 seconds passed, so proceeding to submit block candidate...");
+								LOGGER.debug("More than 30 seconds passed, so proceeding to submit block candidate...");
 							}
 						}
 						else {
