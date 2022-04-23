@@ -573,15 +573,20 @@ public class Controller extends Thread {
 								MessageType.INFO);
 
 					LOGGER.info("Starting scheduled repository maintenance. This can take a while...");
-					try (final Repository repository = RepositoryManager.getRepository()) {
+					int attempts = 0;
+					while (attempts <= 5) {
+						try (final Repository repository = RepositoryManager.getRepository()) {
+							attempts++;
 
-						// Timeout if the database isn't ready for maintenance after 60 seconds
-						long timeout = 60 * 1000L;
-						repository.performPeriodicMaintenance(timeout);
+							// Timeout if the database isn't ready for maintenance after 60 seconds
+							long timeout = 60 * 1000L;
+							repository.performPeriodicMaintenance(timeout);
 
-						LOGGER.info("Scheduled repository maintenance completed");
-					} catch (DataException | TimeoutException e) {
-						LOGGER.error("Scheduled repository maintenance failed", e);
+							LOGGER.info("Scheduled repository maintenance completed");
+							break;
+						} catch (DataException | TimeoutException e) {
+							LOGGER.info("Scheduled repository maintenance failed. Retrying up to 5 times...", e);
+						}
 					}
 
 					// Get a new random interval
