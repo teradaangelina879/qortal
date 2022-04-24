@@ -47,12 +47,12 @@ public class Gui {
 		this.splashFrame = SplashFrame.getInstance();
 	}
 
-	protected static BufferedImage loadImage(String resourceName) throws IOException {
+	protected static BufferedImage loadImage(String resourceName) {
 		try (InputStream in = Gui.class.getResourceAsStream("/images/" + resourceName)) {
 			return ImageIO.read(in);
 		} catch (IllegalArgumentException | IOException | ServiceConfigurationError e) {
 			LOGGER.warn(String.format("Couldn't locate image resource \"images/%s\"", resourceName));
-			throw new IOException(String.format("Couldn't locate image resource \"images/%s\"", resourceName));
+			return null;
 		}
 	}
 
