@@ -5,7 +5,8 @@
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.001",
 	"nameRegistrationUnitFees": [
-		{ "timestamp": 1645372800000, "fee": "5" }
+		{ "timestamp": 1645372800000, "fee": "5" },
+		{ "timestamp": 1651420800000, "fee": "1.25" }
 	],
 	"useBrokenMD160ForAddresses": false,
 	"requireGroupForApproval": false,
