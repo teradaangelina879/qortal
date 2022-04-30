@@ -356,8 +356,15 @@ public class MiscTests extends Common {
 			UnitFeesByTimestamp pastFeeIncrease = new UnitFeesByTimestamp();
 			pastFeeIncrease.timestamp = now - 1000L; // 1 second ago
 			pastFeeIncrease.fee = new AmountTypeAdapter().unmarshal("3");
-			FieldUtils.writeField(BlockChain.getInstance(), "nameRegistrationUnitFees", Arrays.asList(pastFeeIncrease), true);
+
+			// Set another increase in the future
+			futureFeeIncrease = new UnitFeesByTimestamp();
+			futureFeeIncrease.timestamp = now + (60 * 60 * 1000L); // 1 hour in the future
+			futureFeeIncrease.fee = new AmountTypeAdapter().unmarshal("10");
+
+			FieldUtils.writeField(BlockChain.getInstance(), "nameRegistrationUnitFees", Arrays.asList(pastFeeIncrease, futureFeeIncrease), true);
 			assertEquals(pastFeeIncrease.fee, BlockChain.getInstance().getNameRegistrationUnitFeeAtTimestamp(pastFeeIncrease.timestamp));
+			assertEquals(futureFeeIncrease.fee, BlockChain.getInstance().getNameRegistrationUnitFeeAtTimestamp(futureFeeIncrease.timestamp));
 
 			// Register a different name
 			// First try with the default unit fee

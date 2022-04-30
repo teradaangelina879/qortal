@@ -139,7 +139,7 @@ public class ArbitraryDataFileManager extends Thread {
                     Long startTime = NTP.getTime();
                     ArbitraryDataFileMessage receivedArbitraryDataFileMessage = fetchArbitraryDataFile(peer, null, signature, hash, null);
                     Long endTime = NTP.getTime();
-                    if (receivedArbitraryDataFileMessage != null) {
+                    if (receivedArbitraryDataFileMessage != null && receivedArbitraryDataFileMessage.getArbitraryDataFile() != null) {
                         LOGGER.debug("Received data file {} from peer {}. Time taken: {} ms", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer, (endTime-startTime));
                         receivedAtLeastOneFile = true;
 
