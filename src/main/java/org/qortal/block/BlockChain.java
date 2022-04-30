@@ -430,9 +430,8 @@ public class BlockChain {
 	}
 
 	public long getNameRegistrationUnitFeeAtTimestamp(long ourTimestamp) {
-		// Scan through for reward at our height
-		for (int i = 0; i < nameRegistrationUnitFees.size(); ++i)
-			if (ourTimestamp >= nameRegistrationUnitFees.get(i).timestamp)
+		for (int i = nameRegistrationUnitFees.size() - 1; i >= 0; --i)
+			if (nameRegistrationUnitFees.get(i).timestamp <= ourTimestamp)
 				return nameRegistrationUnitFees.get(i).fee;
 
 		// Default to system-wide unit fee

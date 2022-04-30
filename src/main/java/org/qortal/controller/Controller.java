@@ -628,15 +628,20 @@ public class Controller extends Thread {
 								MessageType.INFO);
 
 					LOGGER.info("Starting scheduled repository maintenance. This can take a while...");
-					try (final Repository repository = RepositoryManager.getRepository()) {
+					int attempts = 0;
+					while (attempts <= 5) {
+						try (final Repository repository = RepositoryManager.getRepository()) {
+							attempts++;
 
-						// Timeout if the database isn't ready for maintenance after 60 seconds
-						long timeout = 60 * 1000L;
-						repository.performPeriodicMaintenance(timeout);
+							// Timeout if the database isn't ready for maintenance after 60 seconds
+							long timeout = 60 * 1000L;
+							repository.performPeriodicMaintenance(timeout);
 
-						LOGGER.info("Scheduled repository maintenance completed");
-					} catch (DataException | TimeoutException e) {
-						LOGGER.error("Scheduled repository maintenance failed", e);
+							LOGGER.info("Scheduled repository maintenance completed");
+							break;
+						} catch (DataException | TimeoutException e) {
+							LOGGER.info("Scheduled repository maintenance failed. Retrying up to 5 times...", e);
+						}
 					}
 
 					// Get a new random interval
@@ -708,29 +713,6 @@ public class Controller extends Thread {
 	public static final Predicate<Peer> hasMisbehaved = peer -> {
 		final Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
 		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
-	};
-
-	/** True if peer has unknown height, lower height or same height and same block signature (unless we don't have their block signature). */
-	public static Predicate<Peer> hasShorterBlockchain = peer -> {
-		BlockData highestBlockData = getInstance().getChainTip();
-		int ourHeight = highestBlockData.getHeight();
-		final PeerChainTipData peerChainTipData = peer.getChainTipData();
-
-		// Ensure we have chain tip data for this peer
-		if (peerChainTipData == null)
-			return true;
-
-		// Remove if peer is at a lower height than us
-		Integer peerHeight = peerChainTipData.getLastHeight();
-		if (peerHeight == null || peerHeight < ourHeight)
-			return true;
-
-		// Don't remove if peer is on a greater height chain than us, or if we don't have their block signature
-		if (peerHeight > ourHeight || peerChainTipData.getLastBlockSignature() == null)
-			return false;
-
-		// Remove if signatures match
-		return Arrays.equals(peerChainTipData.getLastBlockSignature(), highestBlockData.getSignature());
 	};
 
 	public static final Predicate<Peer> hasNoRecentBlock = peer -> {
