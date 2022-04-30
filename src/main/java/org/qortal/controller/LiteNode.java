@@ -172,7 +172,12 @@ public class LiteNode {
             return null;
         }
 
-        if (responseMessage == null || responseMessage.getType() != expectedResponseMessageType) {
+        if (responseMessage == null) {
+            LOGGER.info("Peer didn't respond to {} message", peer, message.getType());
+            return null;
+        }
+        else if (responseMessage.getType() != expectedResponseMessageType) {
+            LOGGER.info("Peer responded with unexpected message type {} (should be {})", peer, responseMessage.getType(), expectedResponseMessageType);
             return null;
         }
 
