@@ -7,7 +7,6 @@ import org.qortal.utils.Base58;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 public class AccountMessage extends Message {
@@ -16,12 +15,38 @@ public class AccountMessage extends Message {
 	private static final int REFERENCE_LENGTH = Transformer.SIGNATURE_LENGTH;
 	private static final int PUBLIC_KEY_LENGTH = Transformer.PUBLIC_KEY_LENGTH;
 
-	private final AccountData accountData;
+	private AccountData accountData;
 
 	public AccountMessage(AccountData accountData) {
 		super(MessageType.ACCOUNT);
 
-		this.accountData = accountData;
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			// Send raw address instead of base58 encoded
+			byte[] address = Base58.decode(accountData.getAddress());
+			bytes.write(address);
+
+			bytes.write(accountData.getReference());
+
+			bytes.write(accountData.getPublicKey());
+
+			bytes.write(Ints.toByteArray(accountData.getDefaultGroupId()));
+
+			bytes.write(Ints.toByteArray(accountData.getFlags()));
+
+			bytes.write(Ints.toByteArray(accountData.getLevel()));
+
+			bytes.write(Ints.toByteArray(accountData.getBlocksMinted()));
+
+			bytes.write(Ints.toByteArray(accountData.getBlocksMintedAdjustment()));
+
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	public AccountMessage(int id, AccountData accountData) {
@@ -34,7 +59,7 @@ public class AccountMessage extends Message {
 		return this.accountData;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) {
 		byte[] addressBytes = new byte[ADDRESS_LENGTH];
 		byteBuffer.get(addressBytes);
 		String address = Base58.encode(addressBytes);
@@ -57,39 +82,6 @@ public class AccountMessage extends Message {
 
 		AccountData accountData = new AccountData(address, reference, publicKey, defaultGroupId, flags, level, blocksMinted, blocksMintedAdjustment);
 		return new AccountMessage(id, accountData);
-	}
-
-	@Override
-	protected byte[] toData() {
-		if (this.accountData == null) {
-			return null;
-		}
-
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			// Send raw address instead of base58 encoded
-			byte[] address = Base58.decode(accountData.getAddress());
-			bytes.write(address);
-
-			bytes.write(accountData.getReference());
-
-			bytes.write(accountData.getPublicKey());
-
-			bytes.write(Ints.toByteArray(accountData.getDefaultGroupId()));
-
-			bytes.write(Ints.toByteArray(accountData.getFlags()));
-
-			bytes.write(Ints.toByteArray(accountData.getLevel()));
-
-			bytes.write(Ints.toByteArray(accountData.getBlocksMinted()));
-
-			bytes.write(Ints.toByteArray(accountData.getBlocksMintedAdjustment()));
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
 	}
 
 	public AccountMessage cloneWithNewId(int newId) {

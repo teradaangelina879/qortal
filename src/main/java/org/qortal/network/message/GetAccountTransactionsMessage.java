@@ -6,7 +6,6 @@ import org.qortal.utils.Base58;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 public class GetAccountTransactionsMessage extends Message {
@@ -18,7 +17,25 @@ public class GetAccountTransactionsMessage extends Message {
 	private int offset;
 
 	public GetAccountTransactionsMessage(String address, int limit, int offset) {
-		this(-1, address, limit, offset);
+		super(MessageType.GET_ACCOUNT_TRANSACTIONS);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			// Send raw address instead of base58 encoded
+			byte[] addressBytes = Base58.decode(address);
+			bytes.write(addressBytes);
+
+			bytes.write(Ints.toByteArray(limit));
+
+			bytes.write(Ints.toByteArray(offset));
+
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetAccountTransactionsMessage(int id, String address, int limit, int offset) {
@@ -37,7 +54,7 @@ public class GetAccountTransactionsMessage extends Message {
 
 	public int getOffset() { return this.offset; }
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		byte[] addressBytes = new byte[ADDRESS_LENGTH];
 		bytes.get(addressBytes);
 		String address = Base58.encode(addressBytes);
@@ -47,25 +64,6 @@ public class GetAccountTransactionsMessage extends Message {
 		int offset = bytes.getInt();
 
 		return new GetAccountTransactionsMessage(id, address, limit, offset);
-	}
-
-	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			// Send raw address instead of base58 encoded
-			byte[] address = Base58.decode(this.address);
-			bytes.write(address);
-
-			bytes.write(Ints.toByteArray(this.limit));
-
-			bytes.write(Ints.toByteArray(this.offset));
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
 	}
 
 }

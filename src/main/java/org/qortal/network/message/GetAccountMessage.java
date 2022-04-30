@@ -5,7 +5,7 @@ import org.qortal.utils.Base58;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 
 public class GetAccountMessage extends Message {
@@ -15,7 +15,21 @@ public class GetAccountMessage extends Message {
 	private String address;
 
 	public GetAccountMessage(String address) {
-		this(-1, address);
+		super(MessageType.GET_ACCOUNT);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			// Send raw address instead of base58 encoded
+			byte[] addressBytes = Base58.decode(address);
+			bytes.write(addressBytes);
+
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetAccountMessage(int id, String address) {
@@ -28,30 +42,15 @@ public class GetAccountMessage extends Message {
 		return this.address;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		if (bytes.remaining() != ADDRESS_LENGTH)
-			return null;
+			throw new BufferUnderflowException();
 
 		byte[] addressBytes = new byte[ADDRESS_LENGTH];
 		bytes.get(addressBytes);
 		String address = Base58.encode(addressBytes);
 
 		return new GetAccountMessage(id, address);
-	}
-
-	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			// Send raw address instead of base58 encoded
-			byte[] address = Base58.decode(this.address);
-			bytes.write(address);
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
 	}
 
 }

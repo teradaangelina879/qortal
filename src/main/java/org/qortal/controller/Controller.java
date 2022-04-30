@@ -1666,7 +1666,9 @@ public class Controller extends Thread {
 			}
 
 		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while send transactions for account %s %d to peer %s", address, peer), e);
+			LOGGER.error(String.format("Repository issue while sending transactions for account %s %d to peer %s", address, peer), e);
+		} catch (MessageException e) {
+			LOGGER.error(String.format("Message serialization issue while sending transactions for account %s %d to peer %s", address, peer), e);
 		}
 	}
 

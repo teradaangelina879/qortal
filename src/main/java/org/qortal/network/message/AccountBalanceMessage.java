@@ -7,19 +7,34 @@ import org.qortal.utils.Base58;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 
 public class AccountBalanceMessage extends Message {
 
 	private static final int ADDRESS_LENGTH = Transformer.ADDRESS_LENGTH;
 
-	private final AccountBalanceData accountBalanceData;
+	private AccountBalanceData accountBalanceData;
 
 	public AccountBalanceMessage(AccountBalanceData accountBalanceData) {
 		super(MessageType.ACCOUNT_BALANCE);
 
-		this.accountBalanceData = accountBalanceData;
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			// Send raw address instead of base58 encoded
+			byte[] address = Base58.decode(accountBalanceData.getAddress());
+			bytes.write(address);
+
+			bytes.write(Longs.toByteArray(accountBalanceData.getAssetId()));
+
+			bytes.write(Longs.toByteArray(accountBalanceData.getBalance()));
+
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	public AccountBalanceMessage(int id, AccountBalanceData accountBalanceData) {
@@ -33,7 +48,7 @@ public class AccountBalanceMessage extends Message {
 	}
 
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) {
 		byte[] addressBytes = new byte[ADDRESS_LENGTH];
 		byteBuffer.get(addressBytes);
 		String address = Base58.encode(addressBytes);
@@ -44,29 +59,6 @@ public class AccountBalanceMessage extends Message {
 
 		AccountBalanceData accountBalanceData = new AccountBalanceData(address, assetId, balance);
 		return new AccountBalanceMessage(id, accountBalanceData);
-	}
-
-	@Override
-	protected byte[] toData() {
-		if (this.accountBalanceData == null) {
-			return null;
-		}
-
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			// Send raw address instead of base58 encoded
-			byte[] address = Base58.decode(this.accountBalanceData.getAddress());
-			bytes.write(address);
-
-			bytes.write(Longs.toByteArray(this.accountBalanceData.getAssetId()));
-
-			bytes.write(Longs.toByteArray(this.accountBalanceData.getBalance()));
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
 	}
 
 	public AccountBalanceMessage cloneWithNewId(int newId) {

@@ -7,7 +7,7 @@ import org.qortal.transform.transaction.TransactionTransformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +16,29 @@ public class TransactionsMessage extends Message {
 
 	private List<TransactionData> transactions;
 
-	public TransactionsMessage(List<TransactionData> transactions) {
-		this(-1, transactions);
+	public TransactionsMessage(List<TransactionData> transactions) throws MessageException {
+		super(MessageType.TRANSACTIONS);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(Ints.toByteArray(transactions.size()));
+
+			for (int i = 0; i < transactions.size(); ++i) {
+				TransactionData transactionData = transactions.get(i);
+
+				byte[] serializedTransactionData = TransactionTransformer.toBytes(transactionData);
+				bytes.write(serializedTransactionData);
+			}
+
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		} catch (TransformationException e) {
+			throw new MessageException(e.getMessage(), e);
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private TransactionsMessage(int id, List<TransactionData> transactions) {
@@ -30,7 +51,7 @@ public class TransactionsMessage extends Message {
 		return this.transactions;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
 		try {
 			final int transactionCount = byteBuffer.getInt();
 
@@ -42,35 +63,13 @@ public class TransactionsMessage extends Message {
 			}
 
 			if (byteBuffer.hasRemaining()) {
-				return null;
+				throw new BufferUnderflowException();
 			}
 
 			return new TransactionsMessage(id, transactions);
+
 		} catch (TransformationException e) {
-			return null;
-		}
-	}
-
-	@Override
-	protected byte[] toData() {
-		if (this.transactions == null)
-			return null;
-
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			bytes.write(Ints.toByteArray(this.transactions.size()));
-
-			for (int i = 0; i < this.transactions.size(); ++i) {
-				TransactionData transactionData = this.transactions.get(i);
-
-				byte[] serializedTransactionData = TransactionTransformer.toBytes(transactionData);
-				bytes.write(serializedTransactionData);
-			}
-
-			return bytes.toByteArray();
-		} catch (TransformationException | IOException e) {
-			return null;
+			throw new MessageException(e.getMessage(), e);
 		}
 	}
 

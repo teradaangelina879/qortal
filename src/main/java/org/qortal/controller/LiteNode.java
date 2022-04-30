@@ -13,8 +13,7 @@ import org.qortal.network.message.*;
 import java.security.SecureRandom;
 import java.util.*;
 
-import static org.qortal.network.message.Message.MessageType;
-import static org.qortal.network.message.Message.MessageType.*;
+import static org.qortal.network.message.MessageType.*;
 
 public class LiteNode {
 
