@@ -1023,8 +1023,8 @@ public class Block {
 		// If this block is much older than current online timestamp, then there's no point checking current online accounts
 		List<OnlineAccountData> currentOnlineAccounts = onlineTimestamp < NTP.getTime() - OnlineAccountsManager.ONLINE_TIMESTAMP_MODULUS
 				? null
-				: OnlineAccountsManager.getInstance().getOnlineAccounts();
-		List<OnlineAccountData> latestBlocksOnlineAccounts = OnlineAccountsManager.getInstance().getLatestBlocksOnlineAccounts();
+				: OnlineAccountsManager.getInstance().getOnlineAccounts(onlineTimestamp);
+		List<OnlineAccountData> latestBlocksOnlineAccounts = OnlineAccountsManager.getInstance().getLatestBlocksOnlineAccounts(onlineTimestamp);
 
 		// Extract online accounts' timestamp signatures from block data
 		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());

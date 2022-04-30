@@ -1,17 +1,14 @@
 package org.qortal.test.network;
 
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.qortal.controller.OnlineAccountsManager;
 import org.qortal.data.network.OnlineAccountData;
 import org.qortal.network.message.*;
 import org.qortal.transform.Transformer;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.Security;
 import java.util.*;
@@ -74,22 +71,10 @@ public class OnlineAccountsV3Tests {
 
             hashesByTimestampThenByte
                     .computeIfAbsent(timestamp, k -> new HashMap<>())
-                    .compute(leadingByte, (k, v) -> xorByteArrayInPlace(v, onlineAccountData.getPublicKey()));
+                    .compute(leadingByte, (k, v) -> OnlineAccountsManager.xorByteArrayInPlace(v, onlineAccountData.getPublicKey()));
         }
 
         return hashesByTimestampThenByte;
-    }
-
-    // TODO: This needs to be moved - probably to be OnlineAccountsManager
-    private static byte[] xorByteArrayInPlace(byte[] inplaceArray, byte[] otherArray) {
-        if (inplaceArray == null)
-            return Arrays.copyOf(otherArray, otherArray.length);
-
-        // Start from index 1 to enforce static leading byte
-        for (int i = 1; i < otherArray.length; i++)
-            inplaceArray[i] ^= otherArray[otherArray.length - i - 1];
-
-        return inplaceArray;
     }
 
     @Test

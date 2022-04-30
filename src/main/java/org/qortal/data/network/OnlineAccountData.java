@@ -5,6 +5,7 @@ import java.util.Arrays;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlTransient;
 
 import org.qortal.account.PublicKeyAccount;
 
@@ -15,6 +16,9 @@ public class OnlineAccountData {
 	protected long timestamp;
 	protected byte[] signature;
 	protected byte[] publicKey;
+
+	@XmlTransient
+	private int hash;
 
 	// Constructors
 
@@ -74,8 +78,13 @@ public class OnlineAccountData {
 
 	@Override
 	public int hashCode() {
-		// Pretty lazy implementation
-		return (int) this.timestamp;
+		int h = this.hash;
+		if (h == 0) {
+			this.hash = h = Long.hashCode(this.timestamp)
+					^ Arrays.hashCode(this.publicKey)
+					^ Arrays.hashCode(this.signature);
+		}
+		return h;
 	}
 
 }
