@@ -427,7 +427,7 @@ public class AdminResource {
 
 			limit = Math.min(limit, logLines.size());
 
-			logLines.subList(limit - 1, logLines.size()).clear();
+			logLines.subList(limit, logLines.size()).clear();
 
 			return String.join("\n", logLines);
 		} catch (IOException e) {
