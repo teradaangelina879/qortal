@@ -62,6 +62,7 @@ import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.transform.TransformationException;
 import org.qortal.utils.*;
 
 public class Controller extends Thread {
@@ -1323,7 +1324,7 @@ public class Controller extends Thread {
 			this.stats.getBlockMessageStats.cacheHits.incrementAndGet();
 
 			// We need to duplicate it to prevent multiple threads setting ID on the same message
-			CachedBlockMessage clonedBlockMessage = cachedBlockMessage.cloneWithNewId(message.getId());
+			CachedBlockMessage clonedBlockMessage = Message.cloneWithNewId(cachedBlockMessage, message.getId());
 
 			if (!peer.sendMessage(clonedBlockMessage))
 				peer.disconnect("failed to send block");
@@ -1382,7 +1383,6 @@ public class Controller extends Thread {
 			CachedBlockMessage blockMessage = new CachedBlockMessage(block);
 			blockMessage.setId(message.getId());
 
-			// This call also causes the other needed data to be pulled in from repository
 			if (!peer.sendMessage(blockMessage)) {
 				peer.disconnect("failed to send block");
 				// Don't fall-through to caching because failure to send might be from failure to build message
@@ -1396,7 +1396,9 @@ public class Controller extends Thread {
 				this.blockMessageCache.put(ByteArray.wrap(blockData.getSignature()), blockMessage);
 			}
 		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);
+			LOGGER.error(String.format("Repository issue while sending block %s to peer %s", Base58.encode(signature), peer), e);
+		} catch (TransformationException e) {
+			LOGGER.error(String.format("Serialization issue while sending block %s to peer %s", Base58.encode(signature), peer), e);
 		}
 	}
 
