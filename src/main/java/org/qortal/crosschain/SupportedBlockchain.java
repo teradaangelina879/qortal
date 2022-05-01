@@ -73,6 +73,20 @@ public enum SupportedBlockchain {
 		}
 	};
 
+	RAVENCOIN(Arrays.asList(
+			Triple.valueOf(RavencoinACCTv3.NAME, RavencoinACCTv3.CODE_BYTES_HASH, RavencoinACCTv3::getInstance)
+		)) {
+		@Override
+		public ForeignBlockchain getInstance() {
+			return Ravencoin.getInstance();
+		}
+
+		@Override
+		public ACCT getLatestAcct() {
+			return RavencoinACCTv3.getInstance();
+		}
+	};
+
 	private static final Map<ByteArray, Supplier<ACCT>> supportedAcctsByCodeHash = Arrays.stream(SupportedBlockchain.values())
 			.map(supportedBlockchain -> supportedBlockchain.supportedAccts)
 			.flatMap(List::stream)
