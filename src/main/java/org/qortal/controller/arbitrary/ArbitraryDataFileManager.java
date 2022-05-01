@@ -1,5 +1,6 @@
 package org.qortal.controller.arbitrary;
 
+import com.google.common.net.InetAddresses;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
@@ -20,7 +21,6 @@ import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
-import java.net.InetSocketAddress;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -518,12 +518,21 @@ public class ArbitraryDataFileManager extends Thread {
         }
 
         // Make sure to remove the port, since it isn't guaranteed to match next time
-        InetSocketAddress address = Peer.parsePeerAddress(peerAddress);
-        this.recentDataRequests.put(address.getHostString(), now);
+        String[] parts = peerAddress.split(":");
+        if (parts.length == 0) {
+            return;
+        }
+        String host = parts[0];
+        if (!InetAddresses.isInetAddress(host)) {
+            // Invalid host
+            return;
+        }
+
+        this.recentDataRequests.put(host, now);
     }
 
     public boolean isPeerRequestingData(String peerAddressWithoutPort) {
-        return this.recentDataRequests.containsValue(peerAddressWithoutPort);
+        return this.recentDataRequests.containsKey(peerAddressWithoutPort);
     }
 
     public boolean hasPendingDataRequest() {

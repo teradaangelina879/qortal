@@ -121,6 +121,7 @@ public class ChannelAcceptTask implements Task {
 
             newPeer = new Peer(socketChannel);
             if (isDataPeer) {
+                newPeer.setIsDataPeer(true);
                 newPeer.setMaxConnectionAge(Settings.getInstance().getMaxDataPeerConnectionTime() * 1000L);
             }
             network.addConnectedPeer(newPeer);
