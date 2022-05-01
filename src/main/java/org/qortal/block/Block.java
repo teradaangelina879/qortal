@@ -221,11 +221,10 @@ public class Block {
 			return accountAmount;
 		}
 	}
+
 	/** Always use getExpandedAccounts() to access this, as it's lazy-instantiated. */
 	private List<ExpandedAccount> cachedExpandedAccounts = null;
 
-	/** Opportunistic cache of this block's valid online accounts. Only created by call to isValid(). */
-	private List<OnlineAccountData> cachedValidOnlineAccounts = null;
 	/** Opportunistic cache of this block's valid online reward-shares. Only created by call to isValid(). */
 	private List<RewardShareData> cachedOnlineRewardShares = null;
 
@@ -1020,42 +1019,31 @@ public class Block {
 		long onlineTimestamp = this.blockData.getOnlineAccountsTimestamp();
 		byte[] onlineTimestampBytes = Longs.toByteArray(onlineTimestamp);
 
-		// If this block is much older than current online timestamp, then there's no point checking current online accounts
-		List<OnlineAccountData> currentOnlineAccounts = onlineTimestamp < NTP.getTime() - OnlineAccountsManager.ONLINE_TIMESTAMP_MODULUS
-				? null
-				: OnlineAccountsManager.getInstance().getOnlineAccounts(onlineTimestamp);
-		List<OnlineAccountData> latestBlocksOnlineAccounts = OnlineAccountsManager.getInstance().getLatestBlocksOnlineAccounts(onlineTimestamp);
-
 		// Extract online accounts' timestamp signatures from block data
 		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
 
-		// We'll build up a list of online accounts to hand over to Controller if block is added to chain
-		// and this will become latestBlocksOnlineAccounts (above) to reduce CPU load when we process next block...
-		List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
-
+		// Convert
+		Set<OnlineAccountData> onlineAccounts = new HashSet<>();
 		for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
 			byte[] signature = onlineAccountsSignatures.get(i);
 			byte[] publicKey = onlineRewardShares.get(i).getRewardSharePublicKey();
 
 			OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, signature, publicKey);
-			ourOnlineAccounts.add(onlineAccountData);
-
-			// If signature is still current then no need to perform Ed25519 verify
-			if (currentOnlineAccounts != null && currentOnlineAccounts.remove(onlineAccountData))
-				// remove() returned true, so online account still current
-				// and one less entry in currentOnlineAccounts to check next time
-				continue;
-
-			// If signature was okay in latest block then no need to perform Ed25519 verify
-			if (latestBlocksOnlineAccounts != null && latestBlocksOnlineAccounts.contains(onlineAccountData))
-				continue;
-
-			if (!Crypto.verify(publicKey, signature, onlineTimestampBytes))
-				return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
+			onlineAccounts.add(onlineAccountData);
 		}
 
+		// Remove those already validated & cached by online accounts manager - no need to re-validate them
+		OnlineAccountsManager.getInstance().removeKnown(onlineAccounts, onlineTimestamp);
+
+		// Validate the rest
+		for (OnlineAccountData onlineAccount : onlineAccounts)
+			if (!Crypto.verify(onlineAccount.getPublicKey(), onlineAccount.getSignature(), onlineTimestampBytes))
+				return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
+
+		// We've validated these, so allow online accounts manager to cache
+		OnlineAccountsManager.getInstance().addBlocksOnlineAccounts(onlineAccounts, onlineTimestamp);
+
 		// All online accounts valid, so save our list of online accounts for potential later use
-		this.cachedValidOnlineAccounts = ourOnlineAccounts;
 		this.cachedOnlineRewardShares = onlineRewardShares;
 
 		return ValidationResult.OK;
@@ -1426,9 +1414,6 @@ public class Block {
 
 		postBlockTidy();
 
-		// Give Controller our cached, valid online accounts data (if any) to help reduce CPU load for next block
-		OnlineAccountsManager.getInstance().pushLatestBlocksOnlineAccounts(this.cachedValidOnlineAccounts);
-
 		// Log some debugging info relating to the block weight calculation
 		this.logDebugInfo();
 	}
@@ -1644,9 +1629,6 @@ public class Block {
 		this.blockData.setHeight(null);
 
 		postBlockTidy();
-
-		// Remove any cached, valid online accounts data from Controller
-		OnlineAccountsManager.getInstance().popLatestBlocksOnlineAccounts();
 	}
 
 	protected void orphanTransactionsFromBlock() throws DataException {

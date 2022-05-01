@@ -1,6 +1,5 @@
 package org.qortal.network.message;
 
-import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import org.qortal.transform.Transformer;
 
@@ -11,11 +10,15 @@ import java.util.*;
 
 /**
  * For requesting online accounts info from remote peer, given our list of online accounts.
- *
- * Different format to V1 and V2:
- * V1 is: number of entries, then timestamp + pubkey for each entry
- * V2 is: groups of: number of entries, timestamp, then pubkey for each entry
- * V3 is: groups of: timestamp, number of entries (one per leading byte), then hash(pubkeys) for each entry
+ * <p></p>
+ * Different format to V1 and V2:<br>
+ * <ul>
+ * 	<li>V1 is: number of entries, then timestamp + pubkey for each entry</li>
+ * 	<li>V2 is: groups of: number of entries, timestamp, then pubkey for each entry</li>
+ * 	<li>V3 is: groups of: timestamp, number of entries (one per leading byte), then hash(pubkeys) for each entry</li>
+ * </ul>
+ * <p></p>
+ * End
  */
 public class GetOnlineAccountsV3Message extends Message {
 
@@ -32,8 +35,7 @@ public class GetOnlineAccountsV3Message extends Message {
 		}
 
 		// We should know exactly how many bytes to allocate now
-		int byteSize = hashesByTimestampThenByte.size() * (Transformer.TIMESTAMP_LENGTH + Transformer.INT_LENGTH)
-				+ Transformer.TIMESTAMP_LENGTH /* trailing zero entry indicates end of entries */;
+		int byteSize = hashesByTimestampThenByte.size() * (Transformer.TIMESTAMP_LENGTH + Transformer.BYTE_LENGTH);
 
 		byteSize += hashesByTimestampThenByte.values()
 				.stream()
@@ -50,15 +52,13 @@ public class GetOnlineAccountsV3Message extends Message {
 
 				var innerMap = outerMapEntry.getValue();
 
-				bytes.write(Ints.toByteArray(innerMap.size()));
+				// Number of entries: 1 - 256, where 256 is represented by 0
+				bytes.write(innerMap.size() & 0xFF);
 
 				for (byte[] hashBytes : innerMap.values()) {
 					bytes.write(hashBytes);
 				}
 			}
-
-			// end of records
-			bytes.write(Longs.toByteArray(0L));
 		} catch (IOException e) {
 			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
 		}
@@ -85,13 +85,15 @@ public class GetOnlineAccountsV3Message extends Message {
 
 		Map<Long, Map<Byte, byte[]>> hashesByTimestampThenByte = new HashMap<>();
 
-		while (true) {
+		while (bytes.hasRemaining()) {
 			long timestamp = bytes.getLong();
-			if (timestamp == 0)
-				// Zero timestamp indicates end of records
-				break;
 
-			int hashCount = bytes.getInt();
+			int hashCount = bytes.get();
+			if (hashCount <= 0)
+				// 256 is represented by 0.
+				// Also converts negative signed value (e.g. -1) to proper positive unsigned value (255)
+				hashCount += 256;
+
 			Map<Byte, byte[]> hashesByByte = new HashMap<>();
 
 			for (int i = 0; i < hashCount; ++i) {

@@ -6,6 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.MintingAccountData;
@@ -49,7 +50,7 @@ public class OnlineAccountsManager {
     private static final long ONLINE_ACCOUNTS_QUEUE_INTERVAL = 100L; //ms
     private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
     private static final long ONLINE_ACCOUNTS_LEGACY_BROADCAST_INTERVAL = 60 * 1000L; // ms
-    private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 10 * 1000L; // ms
+    private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 15 * 1000L; // ms
 
     private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L; // v3.2.0
     private static final long ONLINE_ACCOUNTS_V3_PEER_VERSION = 0x03000200cbL; // v3.2.203
@@ -65,17 +66,14 @@ public class OnlineAccountsManager {
     private final Map<Long, Set<OnlineAccountData>> currentOnlineAccounts = new ConcurrentHashMap<>();
     /**
      * Cache of hash-summary of 'current' online accounts, keyed by timestamp, then leading byte of public key.
-     * <p>
-     * Inner map is also sorted using {@code Byte::compareUnsigned} as a comparator.
-     * This is critical for proper function of GET_ONLINE_ACCOUNTS_V3 protocol.
      */
     private final Map<Long, Map<Byte, byte[]>> currentOnlineAccountsHashes = new ConcurrentHashMap<>();
 
     /**
      * Cache of online accounts for latest blocks - not necessarily 'current' / now.
-     * Probably only accessed / modified by a single Synchronizer thread.
+     * <i>Probably</i> only accessed / modified by a single Synchronizer thread.
      */
-    private final Map<Long, Set<OnlineAccountData>> latestBlocksOnlineAccounts = new ConcurrentHashMap<>();
+    private final SortedMap<Long, Set<OnlineAccountData>> latestBlocksOnlineAccounts = new ConcurrentSkipListMap<>();
 
     public static long toOnlineAccountTimestamp(long timestamp) {
         return (timestamp / ONLINE_TIMESTAMP_MODULUS) * ONLINE_TIMESTAMP_MODULUS;
@@ -157,7 +155,7 @@ public class OnlineAccountsManager {
                 if (isStopping)
                     return;
 
-                boolean isValid = this.validateAccount(repository, onlineAccountData);
+                boolean isValid = this.isValidCurrentAccount(repository, onlineAccountData);
                 if (isValid)
                     onlineAccountsToAdd.add(onlineAccountData);
 
@@ -170,7 +168,7 @@ public class OnlineAccountsManager {
             LOGGER.error("Repository issue while verifying online accounts", e);
         }
 
-        LOGGER.debug("Adding {} validated online accounts from import queue", onlineAccountsToAdd.size());
+        LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
         addAccounts(onlineAccountsToAdd);
     }
 
@@ -182,13 +180,12 @@ public class OnlineAccountsManager {
 
         // Start from index 1 to enforce static leading byte
         for (int i = 1; i < otherArray.length; i++)
-            // inplaceArray[i] ^= otherArray[otherArray.length - i - 1];
             inplaceArray[i] ^= otherArray[i];
 
         return inplaceArray;
     }
 
-    private boolean validateAccount(Repository repository, OnlineAccountData onlineAccountData) throws DataException {
+    private static boolean isValidCurrentAccount(Repository repository, OnlineAccountData onlineAccountData) throws DataException {
         final Long now = NTP.getTime();
         if (now == null)
             return false;
@@ -202,7 +199,7 @@ public class OnlineAccountsManager {
             return false;
         }
 
-        // Verify
+        // Verify signature
         byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
         if (!Crypto.verify(rewardSharePublicKey, onlineAccountData.getSignature(), data)) {
             LOGGER.trace(() -> String.format("Rejecting invalid online account %s", Base58.encode(rewardSharePublicKey)));
@@ -241,7 +238,7 @@ public class OnlineAccountsManager {
         for (var entry : hashesToRebuild.entrySet()) {
             Long timestamp = entry.getKey();
 
-            LOGGER.debug(String.format("Rehashing for timestamp %d and leading bytes %s",
+            LOGGER.debug(() -> String.format("Rehashing for timestamp %d and leading bytes %s",
                             timestamp,
                             entry.getValue().stream().sorted(Byte::compareUnsigned).map(leadingByte -> String.format("%02x", leadingByte)).collect(Collectors.joining(", "))
                     )
@@ -253,7 +250,7 @@ public class OnlineAccountsManager {
                         .filter(publicKey -> leadingByte == publicKey[0])
                         .reduce(null, OnlineAccountsManager::xorByteArrayInPlace);
 
-                currentOnlineAccountsHashes.computeIfAbsent(timestamp, k -> new ConcurrentSkipListMap<>(Byte::compareUnsigned)).put(leadingByte, pubkeyHash);
+                currentOnlineAccountsHashes.computeIfAbsent(timestamp, k -> new ConcurrentHashMap<>()).put(leadingByte, pubkeyHash);
 
                 LOGGER.trace(() -> String.format("Rebuilt hash %s for timestamp %d and leading byte %02x using %d public keys",
                         HashCode.fromBytes(pubkeyHash),
@@ -447,44 +444,53 @@ public class OnlineAccountsManager {
         return getOnlineAccounts(onlineTimestamp);
     }
 
-    /**
-     * Returns cached, unmodifiable list of latest block's online accounts.
-     */
-    // TODO: this needs tidying up - do we change method to only return latest timestamp's set?
-    // Block::areOnlineAccountsValid() - only wants online accounts with timestamp that matches latest / previous block's timestamp to avoid re-verifying sigs
-    public List<OnlineAccountData> getLatestBlocksOnlineAccounts(long blockOnlineTimestamp) {
-        Set<OnlineAccountData> onlineAccounts = this.latestBlocksOnlineAccounts.getOrDefault(blockOnlineTimestamp, Collections.emptySet());
+    // Block processing
 
-        return List.copyOf(onlineAccounts);
+    /**
+     * Removes previously validated entries from block's online accounts.
+     * <p>
+     * Checks both 'current' and block caches.
+     * <p>
+     * Typically called by {@link Block#areOnlineAccountsValid()}
+     */
+    public void removeKnown(Set<OnlineAccountData> blocksOnlineAccounts, Long timestamp) {
+        Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.get(timestamp);
+
+        // If not 'current' timestamp - try block cache instead
+        if (onlineAccounts == null)
+            onlineAccounts = this.latestBlocksOnlineAccounts.get(timestamp);
+
+        if (onlineAccounts != null)
+            blocksOnlineAccounts.removeAll(onlineAccounts);
     }
 
     /**
-     * Caches list of latest block's online accounts. Typically called by Block.process()
+     * Adds block's online accounts to one of OnlineAccountManager's caches.
+     * <p>
+     * It is assumed that the online accounts have been verified.
+     * <p>
+     * Typically called by {@link Block#areOnlineAccountsValid()}
      */
-    // TODO: is this simply a bulk add, like the import queue but blocking? Used by Synchronizer but could be for blocks that are quite historic?
-    // Block::process() - basically for adding latest block's online accounts to cache to avoid re-verifying when processing another block in the future
-    public void pushLatestBlocksOnlineAccounts(List<OnlineAccountData> latestBlocksOnlineAccounts) {
-        if (latestBlocksOnlineAccounts == null || latestBlocksOnlineAccounts.isEmpty())
+    public void addBlocksOnlineAccounts(Set<OnlineAccountData> blocksOnlineAccounts, Long timestamp) {
+        // We want to add to 'current' in preference if possible
+        if (this.currentOnlineAccounts.containsKey(timestamp)) {
+            addAccounts(blocksOnlineAccounts);
             return;
+        }
 
-        long timestamp = latestBlocksOnlineAccounts.get(0).getTimestamp();
+        // Add to block cache instead
+        this.latestBlocksOnlineAccounts.computeIfAbsent(timestamp, k -> ConcurrentHashMap.newKeySet())
+                .addAll(blocksOnlineAccounts);
 
-        this.latestBlocksOnlineAccounts.computeIfAbsent(timestamp, k -> ConcurrentHashMap.newKeySet()).addAll(latestBlocksOnlineAccounts);
-
-        if (this.latestBlocksOnlineAccounts.size() > MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS)
-            this.latestBlocksOnlineAccounts.keySet().stream()
-                    .sorted()
-                    .findFirst()
-                    .ifPresent(this.latestBlocksOnlineAccounts::remove);
-    }
-
-    /**
-     * Reverts list of latest block's online accounts. Typically called by Block.orphan()
-     */
-    // TODO: see above
-    // Block::orphan() - for removing latest block's online accounts from cache
-    public void popLatestBlocksOnlineAccounts() {
-        // NO-OP
+        // If block cache has grown too large then we need to trim.
+        if (this.latestBlocksOnlineAccounts.size() > MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS) {
+            // However, be careful to trim the opposite end to the entry we just added!
+            Long firstKey = this.latestBlocksOnlineAccounts.firstKey();
+            if (!firstKey.equals(timestamp))
+                this.latestBlocksOnlineAccounts.remove(firstKey);
+            else
+                this.latestBlocksOnlineAccounts.remove(this.latestBlocksOnlineAccounts.lastKey());
+        }
     }
 
 
