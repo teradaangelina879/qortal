@@ -701,8 +701,8 @@ public class Network {
     }
 
     public boolean connectPeer(Peer newPeer) throws InterruptedException {
-        // NOT CORRECT:
-        if (getImmutableConnectedPeers().size() >= minOutboundPeers)
+        // Also checked before creating PeerConnectTask
+        if (getImmutableOutboundHandshakedPeers().size() >= minOutboundPeers)
             return false;
 
         SocketChannel socketChannel = newPeer.connect();
