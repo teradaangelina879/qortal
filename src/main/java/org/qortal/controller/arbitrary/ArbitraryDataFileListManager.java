@@ -283,8 +283,8 @@ public class ArbitraryDataFileListManager {
 
         LOGGER.debug(String.format("Sending data file list request for signature %s with %d hashes to %d peers...", signature58, hashCount, handshakedPeers.size()));
 
-        // FUTURE: send our address as requestingPeer once enough peers have switched to the new protocol
-        String requestingPeer = null; // Network.getInstance().getOurExternalIpAddressAndPort();
+        // Send our address as requestingPeer, to allow for potential direct connections with seeds/peers
+        String requestingPeer = Network.getInstance().getOurExternalIpAddressAndPort();
 
         // Build request
         Message getArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, missingHashes, now, 0, requestingPeer);
