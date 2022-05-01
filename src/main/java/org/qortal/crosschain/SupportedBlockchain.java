@@ -60,8 +60,6 @@ public enum SupportedBlockchain {
 	},
 
 	DIGIBYTE(Arrays.asList(
-			Triple.valueOf(DigibyteACCTv1.NAME, DigibyteACCTv1.CODE_BYTES_HASH, DigibyteACCTv1::getInstance),
-			Triple.valueOf(DigibyteACCTv2.NAME, DigibyteACCTv2.CODE_BYTES_HASH, DigibyteACCTv2::getInstance),
 			Triple.valueOf(DigibyteACCTv3.NAME, DigibyteACCTv3.CODE_BYTES_HASH, DigibyteACCTv3::getInstance)
 		)) {
 		@Override
