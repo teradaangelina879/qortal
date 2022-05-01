@@ -188,7 +188,7 @@ public class Settings {
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 16;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 32;
+	private int maxPeers = 36;
 	/** Number of slots to reserve for short-lived QDN data transfers */
 	private int maxDataPeers = 4;
 	/** Maximum number of threads for network engine. */
