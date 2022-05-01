@@ -60,7 +60,6 @@ public enum SupportedBlockchain {
 	},
 
 	RAVENCOIN(Arrays.asList(
-			Triple.valueOf(RavencoinACCTv1.NAME, RavencoinACCTv1.CODE_BYTES_HASH, RavencoinACCTv1::getInstance),
 			Triple.valueOf(RavencoinACCTv3.NAME, RavencoinACCTv3.CODE_BYTES_HASH, RavencoinACCTv3::getInstance)
 		)) {
 		@Override
