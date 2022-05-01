@@ -636,6 +636,9 @@ public class ArbitraryDataFileListManager {
         // We should only respond if we have at least one hash
         if (hashes.size() > 0) {
 
+            // Firstly we should keep track of the requesting peer, to allow for potential direct connections later
+            ArbitraryDataFileManager.getInstance().addRecentDataRequest(requestingPeer);
+
             // We have all the chunks, so update requests map to reflect that we've sent it
             // There is no need to keep track of the request, as we can serve all the chunks
             if (allChunksExist) {
