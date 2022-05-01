@@ -209,6 +209,8 @@ public class Settings {
 	private int minPeerConnectionTime = 5 * 60; // seconds
 	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
 	private int maxPeerConnectionTime = 60 * 60; // seconds
+	/** Maximum time (in seconds) that a peer should remain connected when requesting QDN data */
+	private int maxDataPeerConnectionTime = 2 * 60; // seconds
 
 	/** Whether to sync multiple blocks at once in normal operation */
 	private boolean fastSyncEnabled = true;
@@ -669,6 +671,10 @@ public class Settings {
 	public int getMinPeerConnectionTime() { return this.minPeerConnectionTime; }
 
 	public int getMaxPeerConnectionTime() { return this.maxPeerConnectionTime; }
+
+	public int getMaxDataPeerConnectionTime() {
+		return this.maxDataPeerConnectionTime;
+	}
 
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;
