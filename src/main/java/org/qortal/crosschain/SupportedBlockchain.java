@@ -71,7 +71,7 @@ public enum SupportedBlockchain {
 		public ACCT getLatestAcct() {
 			return DigibyteACCTv3.getInstance();
 		}
-	};
+	},
 
 	RAVENCOIN(Arrays.asList(
 			Triple.valueOf(RavencoinACCTv3.NAME, RavencoinACCTv3.CODE_BYTES_HASH, RavencoinACCTv3::getInstance)
