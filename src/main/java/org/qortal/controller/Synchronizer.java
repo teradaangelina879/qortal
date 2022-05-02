@@ -33,7 +33,7 @@ import org.qortal.network.message.GetBlockSummariesMessage;
 import org.qortal.network.message.GetSignaturesV2Message;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.SignaturesMessage;
-import org.qortal.network.message.Message.MessageType;
+import org.qortal.network.message.MessageType;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;

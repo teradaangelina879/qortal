@@ -511,18 +511,23 @@ public class ArbitraryDataFileListManager {
 
                     // Bump requestHops if it exists
                     if (requestHops != null) {
-                        arbitraryDataFileListMessage.setRequestHops(++requestHops);
+                        requestHops++;
                     }
+
+                    ArbitraryDataFileListMessage forwardArbitraryDataFileListMessage;
 
                     // Remove optional parameters if the requesting peer doesn't support it yet
                     // A message with less statistical data is better than no message at all
                     if (!requestingPeer.isAtLeastVersion(MIN_PEER_VERSION_FOR_FILE_LIST_STATS)) {
-                        arbitraryDataFileListMessage.removeOptionalStats();
+                        forwardArbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes);
+                    } else {
+                        forwardArbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes, requestTime, requestHops,
+                                arbitraryDataFileListMessage.getPeerAddress(), arbitraryDataFileListMessage.isRelayPossible());
                     }
 
                     // Forward to requesting peer
                     LOGGER.debug("Forwarding file list with {} hashes to requesting peer: {}", hashes.size(), requestingPeer);
-                    if (!requestingPeer.sendMessage(arbitraryDataFileListMessage)) {
+                    if (!requestingPeer.sendMessage(forwardArbitraryDataFileListMessage)) {
                         requestingPeer.disconnect("failed to forward arbitrary data file list");
                     }
                 }
@@ -639,15 +644,18 @@ public class ArbitraryDataFileListManager {
             }
 
             String ourAddress = Network.getInstance().getOurExternalIpAddressAndPort();
-            ArbitraryDataFileListMessage arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature,
-                    hashes, NTP.getTime(), 0, ourAddress, true);
-            arbitraryDataFileListMessage.setId(message.getId());
+            ArbitraryDataFileListMessage arbitraryDataFileListMessage;
 
             // Remove optional parameters if the requesting peer doesn't support it yet
             // A message with less statistical data is better than no message at all
             if (!peer.isAtLeastVersion(MIN_PEER_VERSION_FOR_FILE_LIST_STATS)) {
-                arbitraryDataFileListMessage.removeOptionalStats();
+                arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes);
+            } else {
+                arbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature,
+                        hashes, NTP.getTime(), 0, ourAddress, true);
             }
+
+            arbitraryDataFileListMessage.setId(message.getId());
 
             if (!peer.sendMessage(arbitraryDataFileListMessage)) {
                 LOGGER.debug("Couldn't send list of hashes");
@@ -670,8 +678,7 @@ public class ArbitraryDataFileListManager {
             // In relay mode - so ask our other peers if they have it
 
             long requestTime = getArbitraryDataFileListMessage.getRequestTime();
-            int requestHops = getArbitraryDataFileListMessage.getRequestHops();
-            getArbitraryDataFileListMessage.setRequestHops(++requestHops);
+            int requestHops = getArbitraryDataFileListMessage.getRequestHops() + 1;
             long totalRequestTime = now - requestTime;
 
             if (totalRequestTime < RELAY_REQUEST_MAX_DURATION) {
@@ -679,11 +686,13 @@ public class ArbitraryDataFileListManager {
                 if (requestHops < RELAY_REQUEST_MAX_HOPS) {
                     // Relay request hasn't reached the maximum number of hops yet, so can be rebroadcast
 
+                    Message relayGetArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, hashes, requestTime, requestHops, requestingPeer);
+
                     LOGGER.debug("Rebroadcasting hash list request from peer {} for signature {} to our other peers... totalRequestTime: {}, requestHops: {}", peer, Base58.encode(signature), totalRequestTime, requestHops);
                     Network.getInstance().broadcast(
                             broadcastPeer -> broadcastPeer == peer ||
                                     Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
-                                    ? null : getArbitraryDataFileListMessage);
+                                    ? null : relayGetArbitraryDataFileListMessage);
 
                 }
                 else {

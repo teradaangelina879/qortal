@@ -2,7 +2,6 @@ package org.qortal.network.message;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +19,26 @@ public class OnlineAccountsMessage extends Message {
 	private List<OnlineAccountData> onlineAccounts;
 
 	public OnlineAccountsMessage(List<OnlineAccountData> onlineAccounts) {
-		this(-1, onlineAccounts);
+		super(MessageType.ONLINE_ACCOUNTS);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(Ints.toByteArray(onlineAccounts.size()));
+
+			for (OnlineAccountData onlineAccountData : onlineAccounts) {
+				bytes.write(Longs.toByteArray(onlineAccountData.getTimestamp()));
+
+				bytes.write(onlineAccountData.getSignature());
+
+				bytes.write(onlineAccountData.getPublicKey());
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private OnlineAccountsMessage(int id, List<OnlineAccountData> onlineAccounts) {
@@ -33,7 +51,7 @@ public class OnlineAccountsMessage extends Message {
 		return this.onlineAccounts;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		final int accountCount = bytes.getInt();
 
 		List<OnlineAccountData> onlineAccounts = new ArrayList<>(accountCount);
@@ -52,29 +70,6 @@ public class OnlineAccountsMessage extends Message {
 		}
 
 		return new OnlineAccountsMessage(id, onlineAccounts);
-	}
-
-	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			bytes.write(Ints.toByteArray(this.onlineAccounts.size()));
-
-			for (int i = 0; i < this.onlineAccounts.size(); ++i) {
-				OnlineAccountData onlineAccountData = this.onlineAccounts.get(i);
-
-				bytes.write(Longs.toByteArray(onlineAccountData.getTimestamp()));
-
-				bytes.write(onlineAccountData.getSignature());
-
-				bytes.write(onlineAccountData.getPublicKey());
-			}
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
 	}
 
 }

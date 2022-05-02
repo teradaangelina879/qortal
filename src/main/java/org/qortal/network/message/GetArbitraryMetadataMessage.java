@@ -6,22 +6,31 @@ import org.qortal.transform.Transformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
-
-import static org.qortal.transform.Transformer.INT_LENGTH;
-import static org.qortal.transform.Transformer.LONG_LENGTH;
 
 public class GetArbitraryMetadataMessage extends Message {
 
-	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
-
-	private final byte[] signature;
-	private final long requestTime;
+	private byte[] signature;
+	private long requestTime;
 	private int requestHops;
 
 	public GetArbitraryMetadataMessage(byte[] signature, long requestTime, int requestHops) {
-		this(-1, signature, requestTime, requestHops);
+		super(MessageType.GET_ARBITRARY_METADATA);
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(signature);
+
+			bytes.write(Longs.toByteArray(requestTime));
+
+			bytes.write(Ints.toByteArray(requestHops));
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetArbitraryMetadataMessage(int id, byte[] signature, long requestTime, int requestHops) {
@@ -36,38 +45,6 @@ public class GetArbitraryMetadataMessage extends Message {
 		return this.signature;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
-		if (bytes.remaining() != SIGNATURE_LENGTH + LONG_LENGTH + INT_LENGTH)
-			return null;
-
-		byte[] signature = new byte[SIGNATURE_LENGTH];
-
-		bytes.get(signature);
-
-		long requestTime = bytes.getLong();
-
-		int requestHops = bytes.getInt();
-
-		return new GetArbitraryMetadataMessage(id, signature, requestTime, requestHops);
-	}
-
-	@Override
-	protected byte[] toData() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			bytes.write(this.signature);
-
-			bytes.write(Longs.toByteArray(this.requestTime));
-
-			bytes.write(Ints.toByteArray(this.requestHops));
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
-	}
-
 	public long getRequestTime() {
 		return this.requestTime;
 	}
@@ -76,8 +53,15 @@ public class GetArbitraryMetadataMessage extends Message {
 		return this.requestHops;
 	}
 
-	public void setRequestHops(int requestHops) {
-		this.requestHops = requestHops;
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
+		byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
+		bytes.get(signature);
+
+		long requestTime = bytes.getLong();
+
+		int requestHops = bytes.getInt();
+
+		return new GetArbitraryMetadataMessage(id, signature, requestTime, requestHops);
 	}
 
 }

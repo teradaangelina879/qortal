@@ -7,7 +7,6 @@ import org.qortal.transform.Transformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,11 +23,51 @@ import java.util.Map;
  * Also V2 only builds online accounts message once!
  */
 public class GetOnlineAccountsV2Message extends Message {
+
 	private List<OnlineAccountData> onlineAccounts;
-	private byte[] cachedData;
 
 	public GetOnlineAccountsV2Message(List<OnlineAccountData> onlineAccounts) {
-		this(-1, onlineAccounts);
+		super(MessageType.GET_ONLINE_ACCOUNTS_V2);
+
+		// If we don't have ANY online accounts then it's an easier construction...
+		if (onlineAccounts.isEmpty()) {
+			// Always supply a number of accounts
+			this.dataBytes = Ints.toByteArray(0);
+			this.checksumBytes = Message.generateChecksum(this.dataBytes);
+			return;
+		}
+
+		// How many of each timestamp
+		Map<Long, Integer> countByTimestamp = new HashMap<>();
+
+		for (OnlineAccountData onlineAccountData : onlineAccounts) {
+			Long timestamp = onlineAccountData.getTimestamp();
+			countByTimestamp.compute(timestamp, (k, v) -> v == null ? 1 : ++v);
+		}
+
+		// We should know exactly how many bytes to allocate now
+		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
+				+ onlineAccounts.size() * Transformer.PUBLIC_KEY_LENGTH;
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
+
+		try {
+			for (long timestamp : countByTimestamp.keySet()) {
+				bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
+
+				bytes.write(Longs.toByteArray(timestamp));
+
+				for (OnlineAccountData onlineAccountData : onlineAccounts) {
+					if (onlineAccountData.getTimestamp() == timestamp)
+						bytes.write(onlineAccountData.getPublicKey());
+				}
+			}
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
 	private GetOnlineAccountsV2Message(int id, List<OnlineAccountData> onlineAccounts) {
@@ -41,7 +80,7 @@ public class GetOnlineAccountsV2Message extends Message {
 		return this.onlineAccounts;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer bytes) throws UnsupportedEncodingException {
+	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
 		int accountCount = bytes.getInt();
 
 		List<OnlineAccountData> onlineAccounts = new ArrayList<>(accountCount);
@@ -65,53 +104,6 @@ public class GetOnlineAccountsV2Message extends Message {
 		}
 
 		return new GetOnlineAccountsV2Message(id, onlineAccounts);
-	}
-
-	@Override
-	protected synchronized byte[] toData() {
-		if (this.cachedData != null)
-			return this.cachedData;
-
-		// Shortcut in case we have no online accounts
-		if (this.onlineAccounts.isEmpty()) {
-			this.cachedData = Ints.toByteArray(0);
-			return this.cachedData;
-		}
-
-		// How many of each timestamp
-		Map<Long, Integer> countByTimestamp = new HashMap<>();
-
-		for (int i = 0; i < this.onlineAccounts.size(); ++i) {
-			OnlineAccountData onlineAccountData = this.onlineAccounts.get(i);
-			Long timestamp = onlineAccountData.getTimestamp();
-			countByTimestamp.compute(timestamp, (k, v) -> v == null ? 1 : ++v);
-		}
-
-		// We should know exactly how many bytes to allocate now
-		int byteSize = countByTimestamp.size() * (Transformer.INT_LENGTH + Transformer.TIMESTAMP_LENGTH)
-				+ this.onlineAccounts.size() * Transformer.PUBLIC_KEY_LENGTH;
-
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(byteSize);
-
-			for (long timestamp : countByTimestamp.keySet()) {
-				bytes.write(Ints.toByteArray(countByTimestamp.get(timestamp)));
-
-				bytes.write(Longs.toByteArray(timestamp));
-
-				for (int i = 0; i < this.onlineAccounts.size(); ++i) {
-					OnlineAccountData onlineAccountData = this.onlineAccounts.get(i);
-
-					if (onlineAccountData.getTimestamp() == timestamp)
-						bytes.write(onlineAccountData.getPublicKey());
-				}
-			}
-
-			this.cachedData = bytes.toByteArray();
-			return this.cachedData;
-		} catch (IOException e) {
-			return null;
-		}
 	}
 
 }

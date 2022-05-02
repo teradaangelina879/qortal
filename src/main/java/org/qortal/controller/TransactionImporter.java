@@ -12,6 +12,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.Transaction;
+import org.qortal.transform.TransformationException;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
@@ -289,7 +290,9 @@ public class TransactionImporter extends Thread {
             if (!peer.sendMessage(transactionMessage))
                 peer.disconnect("failed to send transaction");
         } catch (DataException e) {
-            LOGGER.error(String.format("Repository issue while send transaction %s to peer %s", Base58.encode(signature), peer), e);
+            LOGGER.error(String.format("Repository issue while sending transaction %s to peer %s", Base58.encode(signature), peer), e);
+        } catch (TransformationException e) {
+            LOGGER.error(String.format("Serialization issue while sending transaction %s to peer %s", Base58.encode(signature), peer), e);
         }
     }
 
