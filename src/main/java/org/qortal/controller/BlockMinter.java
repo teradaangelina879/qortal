@@ -114,8 +114,8 @@ public class BlockMinter extends Thread {
 				if (minLatestBlockTimestamp == null)
 					continue;
 
-				// No online accounts? (e.g. during startup)
-				if (OnlineAccountsManager.getInstance().getOnlineAccounts().isEmpty())
+				// No online accounts for current timestamp? (e.g. during startup)
+				if (!OnlineAccountsManager.getInstance().hasOnlineAccounts())
 					continue;
 
 				List<MintingAccountData> mintingAccountsData = repository.getAccountRepository().getMintingAccounts();

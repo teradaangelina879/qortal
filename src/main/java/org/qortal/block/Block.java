@@ -346,18 +346,22 @@ public class Block {
 		int version = parentBlock.getNextBlockVersion();
 		byte[] reference = parentBlockData.getSignature();
 
-		// Fetch our list of online accounts
-		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts();
-		if (onlineAccounts.isEmpty()) {
-			LOGGER.error("No online accounts - not even our own?");
+		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
+		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
+		if (minterLevel == 0) {
+			LOGGER.error("Minter effective level returned zero?");
 			return null;
 		}
 
-		// Find newest online accounts timestamp
-		long onlineAccountsTimestamp = 0;
-		for (OnlineAccountData onlineAccountData : onlineAccounts) {
-			if (onlineAccountData.getTimestamp() > onlineAccountsTimestamp)
-				onlineAccountsTimestamp = onlineAccountData.getTimestamp();
+		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
+
+		long onlineAccountsTimestamp = OnlineAccountsManager.toOnlineAccountTimestamp(timestamp);
+
+		// Fetch our list of online accounts
+		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
+		if (onlineAccounts.isEmpty()) {
+			LOGGER.error("No online accounts - not even our own?");
+			return null;
 		}
 
 		// Load sorted list of reward share public keys into memory, so that the indexes can be obtained.
@@ -368,10 +372,6 @@ public class Block {
 		// Map using index into sorted list of reward-shares as key
 		Map<Integer, OnlineAccountData> indexedOnlineAccounts = new HashMap<>();
 		for (OnlineAccountData onlineAccountData : onlineAccounts) {
-			// Disregard online accounts with different timestamps
-			if (onlineAccountData.getTimestamp() != onlineAccountsTimestamp)
-				continue;
-
 			Integer accountIndex = getRewardShareIndex(onlineAccountData.getPublicKey(), allRewardSharePublicKeys);
 			if (accountIndex == null)
 				// Online account (reward-share) with current timestamp but reward-share cancelled
@@ -398,15 +398,6 @@ public class Block {
 
 		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData,
 				minter.getPublicKey(), encodedOnlineAccounts));
-
-		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
-		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
-		if (minterLevel == 0) {
-			LOGGER.error("Minter effective level returned zero?");
-			return null;
-		}
-
-		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;

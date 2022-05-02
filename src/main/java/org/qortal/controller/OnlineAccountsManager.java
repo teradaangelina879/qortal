@@ -421,6 +421,20 @@ public class OnlineAccountsManager {
     }
 
     /**
+     * Returns whether online accounts manager has any online accounts with timestamp recent enough to be considered currently online.
+     */
+    // BlockMinter: only calls this to check whether returned list is empty or not, to determine whether minting is even possible or not
+    public boolean hasOnlineAccounts() {
+        final Long now = NTP.getTime();
+        if (now == null)
+            return false;
+
+        final long onlineTimestamp = toOnlineAccountTimestamp(now);
+
+        return this.currentOnlineAccounts.containsKey(onlineTimestamp);
+    }
+
+    /**
      * Returns list of online accounts matching given timestamp.
      */
     // Block::mint() - only wants online accounts with timestamp that matches block's timestamp so they can be added to new block
@@ -433,7 +447,6 @@ public class OnlineAccountsManager {
      * Returns list of online accounts with timestamp recent enough to be considered currently online.
      */
     // API: calls this to return list of online accounts - probably expects ALL timestamps - but going to get 'current' from now on
-    // BlockMinter: only calls this to check whether returned list is empty or not, to determine whether minting is even possible or not
     public List<OnlineAccountData> getOnlineAccounts() {
         final Long now = NTP.getTime();
         if (now == null)
