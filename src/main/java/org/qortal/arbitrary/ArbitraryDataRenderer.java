@@ -120,7 +120,7 @@ public class ArbitraryDataRenderer {
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
                 HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data);
                 htmlParser.addAdditionalHeaderTags();
-                response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' blob:");
+                response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' blob:; img-src 'self' data: blob:;");
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(htmlParser.getData().length);
                 response.getOutputStream().write(htmlParser.getData());
