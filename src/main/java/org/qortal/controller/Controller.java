@@ -441,6 +441,9 @@ public class Controller extends Thread {
 			AutoUpdate.getInstance().start();
 		}
 
+		LOGGER.info("Starting wallets");
+		PirateChainWalletController.getInstance().start();
+
 		LOGGER.info(String.format("Starting API on port %d", Settings.getInstance().getApiPort()));
 		try {
 			ApiService apiService = ApiService.getInstance();
@@ -809,6 +812,9 @@ public class Controller extends Thread {
 
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();
+
+				LOGGER.info("Shutting down wallets");
+				PirateChainWalletController.getInstance().shutdown();
 
 				if (Settings.getInstance().isAutoUpdateEnabled()) {
 					LOGGER.info("Shutting down auto-update");

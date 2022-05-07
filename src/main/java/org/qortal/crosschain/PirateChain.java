@@ -1,16 +1,21 @@
 package org.qortal.crosschain;
 
 import cash.z.wallet.sdk.rpc.CompactFormats;
+import com.rust.litewalletjni.LiteWalletJni;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.NetworkParameters;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.libdohj.params.LitecoinMainNetParams;
 import org.libdohj.params.LitecoinRegTestParams;
 import org.libdohj.params.LitecoinTestNet3Params;
+import org.qortal.api.model.crosschain.PirateChainSendRequest;
+import org.qortal.controller.PirateChainWalletController;
 import org.qortal.crosschain.PirateLightClient.Server;
 import org.qortal.crosschain.PirateLightClient.Server.ConnectionType;
 import org.qortal.settings.Settings;
-
 import java.util.*;
 
 public class PirateChain extends Bitcoiny {
@@ -204,6 +209,138 @@ public class PirateChain extends Bitcoiny {
 	 */
 	public List<CompactFormats.CompactBlock> getCompactBlocks(int startHeight, int count) throws ForeignBlockchainException {
 		return this.blockchainProvider.getCompactBlocks(startHeight, count);
+	}
+
+	public Long getWalletBalance(String entropy58) throws ForeignBlockchainException {
+		synchronized (this) {
+			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+			walletController.initWithEntropy58(entropy58);
+			walletController.ensureInitialized();
+			walletController.ensureSynchronized();
+
+			// Get balance
+			String response = LiteWalletJni.execute("balance", "");
+			JSONObject json = new JSONObject(response);
+			if (json.has("zbalance")) {
+				return json.getLong("zbalance");
+			}
+
+			throw new ForeignBlockchainException("Unable to determine balance");
+		}
+	}
+
+	public List<SimpleTransaction> getWalletTransactions(String entropy58) throws ForeignBlockchainException {
+		synchronized (this) {
+			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+			walletController.initWithEntropy58(entropy58);
+			walletController.ensureInitialized();
+			walletController.ensureSynchronized();
+
+			List<SimpleTransaction> transactions = new ArrayList<>();
+
+			// Get transactions list
+			String response = LiteWalletJni.execute("list", "");
+			JSONArray transactionsJson = new JSONArray(response);
+			if (transactionsJson != null) {
+				for (int i = 0; i < transactionsJson.length(); i++) {
+					JSONObject transactionJson = transactionsJson.getJSONObject(i);
+
+					if (transactionJson.has("txid")) {
+						String txId = transactionJson.getString("txid");
+						Long timestamp = transactionJson.getLong("datetime");
+						Long amount = transactionJson.getLong("amount");
+						Long fee = transactionJson.getLong("fee");
+
+						if (transactionJson.has("incoming_metadata")) {
+							JSONArray incomingMetadatas = transactionJson.getJSONArray("incoming_metadata");
+							if (incomingMetadatas != null) {
+								for (int j = 0; j < incomingMetadatas.length(); j++) {
+									JSONObject incomingMetadata = incomingMetadatas.getJSONObject(i);
+									if (incomingMetadata.has("value")) {
+										//String address = incomingMetadata.getString("address");
+										Long value = incomingMetadata.getLong("value");
+										//String memo = incomingMetadata.getString("memo");
+
+										amount = value; // TODO: figure out how to parse transactions with multiple incomingMetadata entries
+									}
+								}
+							}
+						}
+
+						// TODO: JSONArray outgoingMetadatas = transactionJson.getJSONArray("outgoing_metadata");
+
+						SimpleTransaction transaction = new SimpleTransaction(txId, Math.toIntExact(timestamp), amount, fee, null, null);
+						transactions.add(transaction);
+					}
+				}
+			}
+
+			return transactions;
+		}
+	}
+
+	public String getWalletAddress(String entropy58) throws ForeignBlockchainException {
+		synchronized (this) {
+			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+			walletController.initWithEntropy58(entropy58);
+			walletController.ensureInitialized();
+			walletController.ensureSynchronized();
+
+			return walletController.getCurrentWallet().getWalletAddress();
+		}
+	}
+
+	public String sendCoins(PirateChainSendRequest pirateChainSendRequest) throws ForeignBlockchainException {
+		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+		walletController.initWithEntropy58(pirateChainSendRequest.entropy58);
+		walletController.ensureInitialized();
+		walletController.ensureSynchronized();
+
+		// Unlock wallet
+		walletController.getCurrentWallet().unlock();
+
+		// Build spend
+		JSONObject txn = new JSONObject();
+		txn.put("input", walletController.getCurrentWallet().getWalletAddress());
+		//txn.put("fee", pirateChainSendRequest.feePerByte); // We likely need to specify total fee, instead of per byte
+
+		JSONObject output = new JSONObject();
+		output.put("address", pirateChainSendRequest.receivingAddress);
+		output.put("amount", pirateChainSendRequest.arrrAmount);
+		output.put("memo", pirateChainSendRequest.memo);
+
+		JSONArray outputs = new JSONArray();
+		outputs.put(output);
+		txn.put("output", outputs);
+
+		String txnString = txn.toString();
+
+		// Send the coins
+		String response = LiteWalletJni.execute("send", txnString);
+		JSONObject json = new JSONObject(response);
+		try {
+			if (json.has("txid")) { // Success
+				return json.getString("txid");
+			}
+			else if (json.has("error")) {
+				String error = json.getString("error");
+				throw new ForeignBlockchainException(error);
+			}
+
+		} catch (JSONException e) {
+			throw new ForeignBlockchainException(e.getMessage());
+		}
+
+		throw new ForeignBlockchainException("Something went wrong");
+	}
+
+	public String getSyncStatus(String entropy58) throws ForeignBlockchainException {
+		synchronized (this) {
+			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+			walletController.initWithEntropy58(entropy58);
+
+			return walletController.getSyncStatus();
+		}
 	}
 
 }
