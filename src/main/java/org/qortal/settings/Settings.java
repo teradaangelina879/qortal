@@ -232,6 +232,9 @@ public class Settings {
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
 
+	/** Wallets path - used for storing enrppted wallet caches for coins that require them */
+	private String walletsPath = "wallets";
+
 	// Repository related
 	/** Queries that take longer than this are logged. (milliseconds) */
 	private Long slowQueryThreshold = null;
@@ -696,6 +699,10 @@ public class Settings {
 
 	public PirateChainNet getPirateChainNet() {
 		return this.pirateChainNet;
+	}
+
+	public String getWalletsPath() {
+		return this.walletsPath;
 	}
 
 	public boolean isTradebotSystrayEnabled() {

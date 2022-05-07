@@ -10,6 +10,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.qortal.crypto.Crypto;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 
 import java.io.ByteArrayOutputStream;
@@ -233,7 +234,7 @@ public class PirateWallet {
     private Path getCurrentWalletPath() {
         String entropyHash58 = this.getEntropyHash58();
         String filename = String.format("wallet-%s.dat", entropyHash58);
-        return Paths.get("wallets", "PirateChain", filename);
+        return Paths.get(Settings.getInstance().getWalletsPath(), "PirateChain", filename);
     }
 
     public boolean isInitialized() {
