@@ -39,12 +39,12 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	private static final int IDENTIFIER_SIZE_LENGTH = INT_LENGTH;
 	private static final int COMPRESSION_LENGTH = INT_LENGTH;
 	private static final int METHOD_LENGTH = INT_LENGTH;
-	private static final int SECRET_LENGTH = INT_LENGTH; // TODO: wtf?
+	private static final int SECRET_SIZE_LENGTH = INT_LENGTH;
 
 	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + DATA_TYPE_LENGTH + DATA_SIZE_LENGTH;
 
 	private static final int EXTRAS_V5_LENGTH = NONCE_LENGTH + NAME_SIZE_LENGTH + IDENTIFIER_SIZE_LENGTH +
-			METHOD_LENGTH + SECRET_LENGTH + COMPRESSION_LENGTH + RAW_DATA_SIZE_LENGTH + METADATA_HASH_SIZE_LENGTH;
+			METHOD_LENGTH + SECRET_SIZE_LENGTH + COMPRESSION_LENGTH + RAW_DATA_SIZE_LENGTH + METADATA_HASH_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 

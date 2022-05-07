@@ -93,10 +93,12 @@ public class ArbitraryDataFile {
         File outputFile = outputFilePath.toFile();
         try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
             outputStream.write(fileContent);
+            outputStream.close();
             this.filePath = outputFilePath;
             // Verify hash
-            if (!this.hash58.equals(this.digest58())) {
-                LOGGER.error("Hash {} does not match file digest {}", this.hash58, this.digest58());
+            String digest58 = this.digest58();
+            if (!this.hash58.equals(digest58)) {
+                LOGGER.error("Hash {} does not match file digest {} for signature: {}", this.hash58, digest58, Base58.encode(signature));
                 this.delete();
                 throw new DataException("Data file digest validation failed");
             }
@@ -478,6 +480,14 @@ public class ArbitraryDataFile {
 
             // Read the metadata
             List<byte[]> chunks = metadata.getChunks();
+
+            // If the chunks array is empty, then this resource has no chunks,
+            // so we must return false to avoid confusing the caller.
+            if (chunks.isEmpty()) {
+                return false;
+            }
+
+            // Otherwise, we need to check each chunk individually
             for (byte[] chunkHash : chunks) {
                 ArbitraryDataFileChunk chunk = ArbitraryDataFileChunk.fromHash(chunkHash, this.signature);
                 if (!chunk.exists()) {

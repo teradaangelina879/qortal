@@ -57,12 +57,40 @@ public enum SupportedBlockchain {
 		public ACCT getLatestAcct() {
 			return DogecoinACCTv3.getInstance();
 		}
+	},
+
+	DIGIBYTE(Arrays.asList(
+			Triple.valueOf(DigibyteACCTv3.NAME, DigibyteACCTv3.CODE_BYTES_HASH, DigibyteACCTv3::getInstance)
+		)) {
+		@Override
+		public ForeignBlockchain getInstance() {
+			return Digibyte.getInstance();
+		}
+
+		@Override
+		public ACCT getLatestAcct() {
+			return DigibyteACCTv3.getInstance();
+		}
+	},
+
+	RAVENCOIN(Arrays.asList(
+			Triple.valueOf(RavencoinACCTv3.NAME, RavencoinACCTv3.CODE_BYTES_HASH, RavencoinACCTv3::getInstance)
+		)) {
+		@Override
+		public ForeignBlockchain getInstance() {
+			return Ravencoin.getInstance();
+		}
+
+		@Override
+		public ACCT getLatestAcct() {
+			return RavencoinACCTv3.getInstance();
+		}
 	};
 
 	private static final Map<ByteArray, Supplier<ACCT>> supportedAcctsByCodeHash = Arrays.stream(SupportedBlockchain.values())
 			.map(supportedBlockchain -> supportedBlockchain.supportedAccts)
 			.flatMap(List::stream)
-			.collect(Collectors.toUnmodifiableMap(triple -> new ByteArray(triple.getB()), Triple::getC));
+			.collect(Collectors.toUnmodifiableMap(triple -> ByteArray.wrap(triple.getB()), Triple::getC));
 
 	private static final Map<String, Supplier<ACCT>> supportedAcctsByName = Arrays.stream(SupportedBlockchain.values())
 			.map(supportedBlockchain -> supportedBlockchain.supportedAccts)
@@ -94,7 +122,7 @@ public enum SupportedBlockchain {
 			return getAcctMap();
 
 		return blockchain.supportedAccts.stream()
-				.collect(Collectors.toUnmodifiableMap(triple -> new ByteArray(triple.getB()), Triple::getC));
+				.collect(Collectors.toUnmodifiableMap(triple -> ByteArray.wrap(triple.getB()), Triple::getC));
 	}
 
 	public static Map<ByteArray, Supplier<ACCT>> getFilteredAcctMap(String specificBlockchain) {
@@ -109,7 +137,7 @@ public enum SupportedBlockchain {
 	}
 
 	public static ACCT getAcctByCodeHash(byte[] codeHash) {
-		ByteArray wrappedCodeHash = new ByteArray(codeHash);
+		ByteArray wrappedCodeHash = ByteArray.wrap(codeHash);
 
 		Supplier<ACCT> acctInstanceSupplier = supportedAcctsByCodeHash.get(wrappedCodeHash);
 

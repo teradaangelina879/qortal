@@ -7,28 +7,40 @@ import org.qortal.transform.Transformer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 
 public class ArbitraryMetadataMessage extends Message {
 
-	private static final int SIGNATURE_LENGTH = Transformer.SIGNATURE_LENGTH;
+	private byte[] signature;
+	private ArbitraryDataFile arbitraryMetadataFile;
 
-	private final byte[] signature;
-	private final ArbitraryDataFile arbitraryMetadataFile;
-
-	public ArbitraryMetadataMessage(byte[] signature, ArbitraryDataFile arbitraryDataFile) {
+	public ArbitraryMetadataMessage(byte[] signature, ArbitraryDataFile arbitraryMetadataFile) {
 		super(MessageType.ARBITRARY_METADATA);
 
-		this.signature = signature;
-		this.arbitraryMetadataFile = arbitraryDataFile;
+		byte[] data = arbitraryMetadataFile.getBytes();
+
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+		try {
+			bytes.write(signature);
+
+			bytes.write(Ints.toByteArray(data.length));
+
+			bytes.write(data);
+		} catch (IOException e) {
+			throw new AssertionError("IOException shouldn't occur with ByteArrayOutputStream");
+		}
+
+		this.dataBytes = bytes.toByteArray();
+		this.checksumBytes = Message.generateChecksum(this.dataBytes);
 	}
 
-	public ArbitraryMetadataMessage(int id, byte[] signature, ArbitraryDataFile arbitraryDataFile) {
+	private ArbitraryMetadataMessage(int id, byte[] signature, ArbitraryDataFile arbitraryMetadataFile) {
 		super(id, MessageType.ARBITRARY_METADATA);
 
 		this.signature = signature;
-		this.arbitraryMetadataFile = arbitraryDataFile;
+		this.arbitraryMetadataFile = arbitraryMetadataFile;
 	}
 
 	public byte[] getSignature() {
@@ -39,14 +51,14 @@ public class ArbitraryMetadataMessage extends Message {
 		return this.arbitraryMetadataFile;
 	}
 
-	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
-		byte[] signature = new byte[SIGNATURE_LENGTH];
+	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
+		byte[] signature = new byte[Transformer.SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
 		int dataLength = byteBuffer.getInt();
 
-		if (byteBuffer.remaining() != dataLength)
-			return null;
+		if (byteBuffer.remaining() < dataLength)
+			throw new BufferUnderflowException();
 
 		byte[] data = new byte[dataLength];
 		byteBuffer.get(data);
@@ -54,42 +66,9 @@ public class ArbitraryMetadataMessage extends Message {
 		try {
 			ArbitraryDataFile arbitraryMetadataFile = new ArbitraryDataFile(data, signature);
 			return new ArbitraryMetadataMessage(id, signature, arbitraryMetadataFile);
+		} catch (DataException e) {
+			throw new MessageException("Unable to process arbitrary metadata message: " + e.getMessage(), e);
 		}
-		catch (DataException e) {
-			return null;
-		}
-	}
-
-	@Override
-	protected byte[] toData() {
-		if (this.arbitraryMetadataFile == null) {
-			return null;
-		}
-
-		byte[] data = this.arbitraryMetadataFile.getBytes();
-		if (data == null) {
-			return null;
-		}
-
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-
-			bytes.write(signature);
-
-			bytes.write(Ints.toByteArray(data.length));
-
-			bytes.write(data);
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			return null;
-		}
-	}
-
-	public ArbitraryMetadataMessage cloneWithNewId(int newId) {
-		ArbitraryMetadataMessage clone = new ArbitraryMetadataMessage(this.signature, this.arbitraryMetadataFile);
-		clone.setId(newId);
-		return clone;
 	}
 
 }

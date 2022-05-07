@@ -33,7 +33,7 @@ import org.qortal.network.message.GetBlockSummariesMessage;
 import org.qortal.network.message.GetSignaturesV2Message;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.SignaturesMessage;
-import org.qortal.network.message.Message.MessageType;
+import org.qortal.network.message.MessageType;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -314,7 +314,7 @@ public class Synchronizer extends Thread {
 
 				case INFERIOR_CHAIN: {
 					// Update our list of inferior chain tips
-					ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
+					ByteArray inferiorChainSignature = ByteArray.wrap(peer.getChainTipData().getLastBlockSignature());
 					if (!inferiorChainSignatures.contains(inferiorChainSignature))
 						inferiorChainSignatures.add(inferiorChainSignature);
 
@@ -343,7 +343,7 @@ public class Synchronizer extends Thread {
 					// fall-through...
 				case NOTHING_TO_DO: {
 					// Update our list of inferior chain tips
-					ByteArray inferiorChainSignature = new ByteArray(peer.getChainTipData().getLastBlockSignature());
+					ByteArray inferiorChainSignature = ByteArray.wrap(peer.getChainTipData().getLastBlockSignature());
 					if (!inferiorChainSignatures.contains(inferiorChainSignature))
 						inferiorChainSignatures.add(inferiorChainSignature);
 
@@ -419,7 +419,7 @@ public class Synchronizer extends Thread {
 
 	public void addInferiorChainSignature(byte[] inferiorSignature) {
 		// Update our list of inferior chain tips
-		ByteArray inferiorChainSignature = new ByteArray(inferiorSignature);
+		ByteArray inferiorChainSignature = ByteArray.wrap(inferiorSignature);
 		if (!inferiorChainSignatures.contains(inferiorChainSignature))
 			inferiorChainSignatures.add(inferiorChainSignature);
 	}

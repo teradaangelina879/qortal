@@ -23,6 +23,7 @@ public class GroupData {
 	private ApprovalThreshold approvalThreshold;
 	private int minimumBlockDelay;
 	private int maximumBlockDelay;
+	public int memberCount;
 
 	/** Reference to CREATE_GROUP or UPDATE_GROUP transaction, used to rebuild group during orphaning. */
 	// No need to ever expose this via API

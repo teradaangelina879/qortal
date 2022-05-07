@@ -58,6 +58,7 @@ import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
+import org.qortal.transform.TransformationException;
 import org.qortal.utils.*;
 
 public class Controller extends Thread {
@@ -576,15 +577,20 @@ public class Controller extends Thread {
 								MessageType.INFO);
 
 					LOGGER.info("Starting scheduled repository maintenance. This can take a while...");
-					try (final Repository repository = RepositoryManager.getRepository()) {
+					int attempts = 0;
+					while (attempts <= 5) {
+						try (final Repository repository = RepositoryManager.getRepository()) {
+							attempts++;
 
-						// Timeout if the database isn't ready for maintenance after 60 seconds
-						long timeout = 60 * 1000L;
-						repository.performPeriodicMaintenance(timeout);
+							// Timeout if the database isn't ready for maintenance after 60 seconds
+							long timeout = 60 * 1000L;
+							repository.performPeriodicMaintenance(timeout);
 
-						LOGGER.info("Scheduled repository maintenance completed");
-					} catch (DataException | TimeoutException e) {
-						LOGGER.error("Scheduled repository maintenance failed", e);
+							LOGGER.info("Scheduled repository maintenance completed");
+							break;
+						} catch (DataException | TimeoutException e) {
+							LOGGER.info("Scheduled repository maintenance failed. Retrying up to 5 times...", e);
+						}
 					}
 
 					// Get a new random interval
@@ -678,7 +684,7 @@ public class Controller extends Thread {
 	public static final Predicate<Peer> hasInferiorChainTip = peer -> {
 		final PeerChainTipData peerChainTipData = peer.getChainTipData();
 		final List<ByteArray> inferiorChainTips = Synchronizer.getInstance().inferiorChainSignatures;
-		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || inferiorChainTips.contains(new ByteArray(peerChainTipData.getLastBlockSignature()));
+		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || inferiorChainTips.contains(ByteArray.wrap(peerChainTipData.getLastBlockSignature()));
 	};
 
 	public static final Predicate<Peer> hasOldVersion = peer -> {
@@ -1209,7 +1215,7 @@ public class Controller extends Thread {
 		byte[] signature = getBlockMessage.getSignature();
 		this.stats.getBlockMessageStats.requests.incrementAndGet();
 
-		ByteArray signatureAsByteArray = new ByteArray(signature);
+		ByteArray signatureAsByteArray = ByteArray.wrap(signature);
 
 		CachedBlockMessage cachedBlockMessage = this.blockMessageCache.get(signatureAsByteArray);
 		int blockCacheSize = Settings.getInstance().getBlockCacheSize();
@@ -1219,7 +1225,7 @@ public class Controller extends Thread {
 			this.stats.getBlockMessageStats.cacheHits.incrementAndGet();
 
 			// We need to duplicate it to prevent multiple threads setting ID on the same message
-			CachedBlockMessage clonedBlockMessage = cachedBlockMessage.cloneWithNewId(message.getId());
+			CachedBlockMessage clonedBlockMessage = Message.cloneWithNewId(cachedBlockMessage, message.getId());
 
 			if (!peer.sendMessage(clonedBlockMessage))
 				peer.disconnect("failed to send block");
@@ -1278,7 +1284,6 @@ public class Controller extends Thread {
 			CachedBlockMessage blockMessage = new CachedBlockMessage(block);
 			blockMessage.setId(message.getId());
 
-			// This call also causes the other needed data to be pulled in from repository
 			if (!peer.sendMessage(blockMessage)) {
 				peer.disconnect("failed to send block");
 				// Don't fall-through to caching because failure to send might be from failure to build message
@@ -1289,10 +1294,12 @@ public class Controller extends Thread {
 			if (getChainHeight() - blockData.getHeight() <= blockCacheSize) {
 				this.stats.getBlockMessageStats.cacheFills.incrementAndGet();
 
-				this.blockMessageCache.put(new ByteArray(blockData.getSignature()), blockMessage);
+				this.blockMessageCache.put(ByteArray.wrap(blockData.getSignature()), blockMessage);
 			}
 		} catch (DataException e) {
-			LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);
+			LOGGER.error(String.format("Repository issue while sending block %s to peer %s", Base58.encode(signature), peer), e);
+		} catch (TransformationException e) {
+			LOGGER.error(String.format("Serialization issue while sending block %s to peer %s", Base58.encode(signature), peer), e);
 		}
 	}
 

@@ -338,9 +338,11 @@ public class ArbitraryMetadataManager {
                 Peer requestingPeer = request.getB();
                 if (requestingPeer != null) {
 
+                    ArbitraryMetadataMessage forwardArbitraryMetadataMessage = new ArbitraryMetadataMessage(signature, arbitraryMetadataMessage.getArbitraryMetadataFile());
+
                     // Forward to requesting peer
                     LOGGER.debug("Forwarding metadata to requesting peer: {}", requestingPeer);
-                    if (!requestingPeer.sendMessage(arbitraryMetadataMessage)) {
+                    if (!requestingPeer.sendMessage(forwardArbitraryMetadataMessage)) {
                         requestingPeer.disconnect("failed to forward arbitrary metadata");
                     }
                 }
@@ -423,8 +425,7 @@ public class ArbitraryMetadataManager {
             // In relay mode - so ask our other peers if they have it
 
             long requestTime = getArbitraryMetadataMessage.getRequestTime();
-            int requestHops = getArbitraryMetadataMessage.getRequestHops();
-            getArbitraryMetadataMessage.setRequestHops(++requestHops);
+            int requestHops = getArbitraryMetadataMessage.getRequestHops() + 1;
             long totalRequestTime = now - requestTime;
 
             if (totalRequestTime < RELAY_REQUEST_MAX_DURATION) {
@@ -432,11 +433,13 @@ public class ArbitraryMetadataManager {
                 if (requestHops < RELAY_REQUEST_MAX_HOPS) {
                     // Relay request hasn't reached the maximum number of hops yet, so can be rebroadcast
 
+                    Message relayGetArbitraryMetadataMessage = new GetArbitraryMetadataMessage(signature, requestTime, requestHops);
+
                     LOGGER.debug("Rebroadcasting metadata request from peer {} for signature {} to our other peers... totalRequestTime: {}, requestHops: {}", peer, Base58.encode(signature), totalRequestTime, requestHops);
                     Network.getInstance().broadcast(
                             broadcastPeer -> broadcastPeer == peer ||
                                     Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
-                                    ? null : getArbitraryMetadataMessage);
+                                    ? null : relayGetArbitraryMetadataMessage);
 
                 }
                 else {

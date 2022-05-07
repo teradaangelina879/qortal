@@ -7,7 +7,6 @@ import org.qortal.controller.Controller;
 import org.qortal.data.arbitrary.ArbitraryDirectConnectionInfo;
 import org.qortal.data.arbitrary.ArbitraryFileListResponseInfo;
 import org.qortal.data.arbitrary.ArbitraryRelayInfo;
-import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.network.Network;
@@ -140,7 +139,7 @@ public class ArbitraryDataFileManager extends Thread {
                     Long startTime = NTP.getTime();
                     ArbitraryDataFileMessage receivedArbitraryDataFileMessage = fetchArbitraryDataFile(peer, null, signature, hash, null);
                     Long endTime = NTP.getTime();
-                    if (receivedArbitraryDataFileMessage != null) {
+                    if (receivedArbitraryDataFileMessage != null && receivedArbitraryDataFileMessage.getArbitraryDataFile() != null) {
                         LOGGER.debug("Received data file {} from peer {}. Time taken: {} ms", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer, (endTime-startTime));
                         receivedAtLeastOneFile = true;
 
@@ -187,7 +186,7 @@ public class ArbitraryDataFileManager extends Thread {
         ArbitraryDataFile existingFile = ArbitraryDataFile.fromHash(hash, signature);
         boolean fileAlreadyExists = existingFile.exists();
         String hash58 = Base58.encode(hash);
-        Message message = null;
+        ArbitraryDataFileMessage arbitraryDataFileMessage;
 
         // Fetch the file if it doesn't exist locally
         if (!fileAlreadyExists) {
@@ -195,10 +194,11 @@ public class ArbitraryDataFileManager extends Thread {
             arbitraryDataFileRequests.put(hash58, NTP.getTime());
             Message getArbitraryDataFileMessage = new GetArbitraryDataFileMessage(signature, hash);
 
+            Message response = null;
             try {
-                message = peer.getResponseWithTimeout(getArbitraryDataFileMessage, (int) ArbitraryDataManager.ARBITRARY_REQUEST_TIMEOUT);
+                response = peer.getResponseWithTimeout(getArbitraryDataFileMessage, (int) ArbitraryDataManager.ARBITRARY_REQUEST_TIMEOUT);
             } catch (InterruptedException e) {
-                // Will return below due to null message
+                // Will return below due to null response
             }
             arbitraryDataFileRequests.remove(hash58);
             LOGGER.trace(String.format("Removed hash %.8s from arbitraryDataFileRequests", hash58));
@@ -206,22 +206,24 @@ public class ArbitraryDataFileManager extends Thread {
             // We may need to remove the file list request, if we have all the files for this transaction
             this.handleFileListRequests(signature);
 
-            if (message == null) {
-                LOGGER.debug("Received null message from peer {}", peer);
+            if (response == null) {
+                LOGGER.debug("Received null response from peer {}", peer);
                 return null;
             }
-            if (message.getType() != Message.MessageType.ARBITRARY_DATA_FILE) {
-                LOGGER.debug("Received message with invalid type: {} from peer {}", message.getType(), peer);
+            if (response.getType() != MessageType.ARBITRARY_DATA_FILE) {
+                LOGGER.debug("Received response with invalid type: {} from peer {}", response.getType(), peer);
                 return null;
             }
-        }
-        else {
+
+            ArbitraryDataFileMessage peersArbitraryDataFileMessage = (ArbitraryDataFileMessage) response;
+            arbitraryDataFileMessage = new ArbitraryDataFileMessage(signature, peersArbitraryDataFileMessage.getArbitraryDataFile());
+        } else {
             LOGGER.debug(String.format("File hash %s already exists, so skipping the request", hash58));
+            arbitraryDataFileMessage = new ArbitraryDataFileMessage(signature, existingFile);
         }
-        ArbitraryDataFileMessage arbitraryDataFileMessage = (ArbitraryDataFileMessage) message;
 
         // We might want to forward the request to the peer that originally requested it
-        this.handleArbitraryDataFileForwarding(requestingPeer, message, originalMessage);
+        this.handleArbitraryDataFileForwarding(requestingPeer, arbitraryDataFileMessage, originalMessage);
 
         boolean isRelayRequest = (requestingPeer != null);
         if (isRelayRequest) {

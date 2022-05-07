@@ -195,7 +195,7 @@ public class Name {
 		this.repository.getNameRepository().save(this.nameData);
 	}
 
-	public void buy(BuyNameTransactionData buyNameTransactionData) throws DataException {
+	public void buy(BuyNameTransactionData buyNameTransactionData, boolean modifyBalances) throws DataException {
 		// Save previous name-changing reference in this transaction's data
 		// Caller is expected to save
 		buyNameTransactionData.setNameReference(this.nameData.getReference());
@@ -203,15 +203,20 @@ public class Name {
 		// Mark not for-sale but leave price in case we want to orphan
 		this.nameData.setIsForSale(false);
 
-		// Update seller's balance
-		Account seller = new Account(this.repository, this.nameData.getOwner());
-		seller.modifyAssetBalance(Asset.QORT, buyNameTransactionData.getAmount());
+		if (modifyBalances) {
+			// Update seller's balance
+			Account seller = new Account(this.repository, this.nameData.getOwner());
+			seller.modifyAssetBalance(Asset.QORT, buyNameTransactionData.getAmount());
+		}
 
 		// Set new owner
 		Account buyer = new PublicKeyAccount(this.repository, buyNameTransactionData.getBuyerPublicKey());
 		this.nameData.setOwner(buyer.getAddress());
-		// Update buyer's balance
-		buyer.modifyAssetBalance(Asset.QORT, - buyNameTransactionData.getAmount());
+
+		if (modifyBalances) {
+			// Update buyer's balance
+			buyer.modifyAssetBalance(Asset.QORT, -buyNameTransactionData.getAmount());
+		}
 
 		// Set name-changing reference to this transaction
 		this.nameData.setReference(buyNameTransactionData.getSignature());

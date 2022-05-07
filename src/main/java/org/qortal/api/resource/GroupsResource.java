@@ -98,7 +98,15 @@ public class GroupsResource {
 		ref = "reverse"
 	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getGroupRepository().getAllGroups(limit, offset, reverse);
+			List<GroupData> allGroupData = repository.getGroupRepository().getAllGroups(limit, offset, reverse);
+			allGroupData.forEach(groupData -> {
+				try {
+					groupData.memberCount = repository.getGroupRepository().countGroupMembers(groupData.getGroupId());
+				} catch (DataException e) {
+					// Exclude memberCount for this group
+				}
+			});
+			return allGroupData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -150,7 +158,15 @@ public class GroupsResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getGroupRepository().getGroupsWithMember(member);
+			List<GroupData> allGroupData = repository.getGroupRepository().getGroupsWithMember(member);
+			allGroupData.forEach(groupData -> {
+				try {
+					groupData.memberCount = repository.getGroupRepository().countGroupMembers(groupData.getGroupId());
+				} catch (DataException e) {
+					// Exclude memberCount for this group
+				}
+			});
+			return allGroupData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -177,6 +193,7 @@ public class GroupsResource {
 			if (groupData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.GROUP_UNKNOWN);
 
+			groupData.memberCount = repository.getGroupRepository().countGroupMembers(groupId);
 			return groupData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
