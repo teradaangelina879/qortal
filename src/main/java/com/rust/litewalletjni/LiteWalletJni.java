@@ -53,7 +53,7 @@ public class LiteWalletJni
 
     public static native String execute(final String cmd, final String args);
     public static native String getseedphrase();
-    public static native String getseedphrasefromentropyb64(final String entropby64);
+    public static native String getseedphrasefromentropyb64(final String entropy64);
     public static native String checkseedphrase(final String input);
 
 
