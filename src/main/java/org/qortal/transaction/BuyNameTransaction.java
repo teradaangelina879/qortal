@@ -114,7 +114,7 @@ public class BuyNameTransaction extends Transaction {
 	public void process() throws DataException {
 		// Buy Name
 		Name name = new Name(this.repository, this.buyNameTransactionData.getName());
-		name.buy(this.buyNameTransactionData);
+		name.buy(this.buyNameTransactionData, true);
 
 		// Save transaction with updated "name reference" pointing to previous transaction that changed name
 		this.repository.getTransactionRepository().save(this.buyNameTransactionData);

@@ -107,7 +107,7 @@ public class NamesDatabaseIntegrityCheck {
                     BuyNameTransactionData buyNameTransactionData = (BuyNameTransactionData) currentTransaction;
                     Name nameObj = new Name(repository, buyNameTransactionData.getName());
                     if (nameObj != null && nameObj.getNameData() != null) {
-                        nameObj.buy(buyNameTransactionData);
+                        nameObj.buy(buyNameTransactionData, false);
                         modificationCount++;
                         LOGGER.trace("Processed BUY_NAME transaction for name {}", name);
                     }
