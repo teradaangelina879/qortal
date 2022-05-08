@@ -270,10 +270,10 @@ public abstract class Crypto {
 	}
 
 	public static byte[] getSharedSecret(byte[] privateKey, byte[] publicKey) {
-		byte[] x25519PrivateKey = BouncyCastle25519.toX25519PrivateKey(privateKey);
+		byte[] x25519PrivateKey = Qortal25519Extras.toX25519PrivateKey(privateKey);
 		X25519PrivateKeyParameters xPrivateKeyParams = new X25519PrivateKeyParameters(x25519PrivateKey, 0);
 
-		byte[] x25519PublicKey = BouncyCastle25519.toX25519PublicKey(publicKey);
+		byte[] x25519PublicKey = Qortal25519Extras.toX25519PublicKey(publicKey);
 		X25519PublicKeyParameters xPublicKeyParams = new X25519PublicKeyParameters(x25519PublicKey, 0);
 
 		byte[] sharedSecret = new byte[SHARED_SECRET_LENGTH];
