@@ -284,7 +284,6 @@ public class PirateChain extends Bitcoiny {
 			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
 			walletController.initWithEntropy58(entropy58);
 			walletController.ensureInitialized();
-			walletController.ensureSynchronized();
 
 			return walletController.getCurrentWallet().getWalletAddress();
 		}
