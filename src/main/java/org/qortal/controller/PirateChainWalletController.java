@@ -106,6 +106,9 @@ public class PirateChainWalletController extends Thread {
 
         try {
             this.currentWallet = new PirateWallet(entropyBytes);
+            if (!this.currentWallet.isReady()) {
+                this.currentWallet = null;
+            }
             return true;
         } catch (IOException e) {
             LOGGER.info("Unable to initialize wallet: {}", e.getMessage());

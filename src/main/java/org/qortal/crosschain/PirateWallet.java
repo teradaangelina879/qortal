@@ -78,8 +78,8 @@ public class PirateWallet {
                 String outputSeedResponse = LiteWalletJni.initfromseed(SERVER_URI, this.params, inputSeedPhrase, "1886500", this.saplingOutput64, this.saplingSpend64); // Thread-safe.
                 JSONObject outputSeedJson =  new JSONObject(outputSeedResponse);
                 String outputSeedPhrase = null;
-                if (outputSeedJson.has("seedPhrase")) {
-                    outputSeedJson.getString("seedPhrase");
+                if (outputSeedJson.has("seed")) {
+                    outputSeedPhrase = outputSeedJson.getString("seed");
                 }
 
                 // Ensure seed phrase in response matches supplied seed phrase
@@ -102,6 +102,10 @@ public class PirateWallet {
         }
 
         return false;
+    }
+
+    public boolean isReady() {
+        return this.ready;
     }
 
     public void setReady(boolean ready) {
