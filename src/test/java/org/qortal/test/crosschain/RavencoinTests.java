@@ -81,7 +81,7 @@ public class RavencoinTests extends Common {
 	}
 
 	@Test
-	public void testGetWalletBalance() {
+	public void testGetWalletBalance() throws ForeignBlockchainException {
 		String xprv58 = "xpub661MyMwAqRbcEt3Ge1wNmkagyb1J7yTQu4Kquvy77Ycg2iPoh7Urg8s9Jdwp7YmrqGkDKJpUVjsZXSSsQgmAVUC17ZVQQeoWMzm7vDTt1y7";
 
 		Long balance = ravencoin.getWalletBalance(xprv58);
