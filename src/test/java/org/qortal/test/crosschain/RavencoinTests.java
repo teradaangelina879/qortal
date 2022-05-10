@@ -81,8 +81,8 @@ public class RavencoinTests extends Common {
 	}
 
 	@Test
-	public void testGetWalletBalance() throws ForeignBlockchainException {
-		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+	public void testGetWalletBalance() {
+		String xprv58 = "xpub661MyMwAqRbcEt3Ge1wNmkagyb1J7yTQu4Kquvy77Ycg2iPoh7Urg8s9Jdwp7YmrqGkDKJpUVjsZXSSsQgmAVUC17ZVQQeoWMzm7vDTt1y7";
 
 		Long balance = ravencoin.getWalletBalance(xprv58);
 
@@ -103,7 +103,7 @@ public class RavencoinTests extends Common {
 
 	@Test
 	public void testGetUnusedReceiveAddress() throws ForeignBlockchainException {
-		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
+		String xprv58 = "xpub661MyMwAqRbcEt3Ge1wNmkagyb1J7yTQu4Kquvy77Ycg2iPoh7Urg8s9Jdwp7YmrqGkDKJpUVjsZXSSsQgmAVUC17ZVQQeoWMzm7vDTt1y7";
 
 		String address = ravencoin.getUnusedReceiveAddress(xprv58);
 
