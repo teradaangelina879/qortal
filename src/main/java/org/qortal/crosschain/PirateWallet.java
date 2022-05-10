@@ -97,7 +97,7 @@ public class PirateWallet {
             Integer ourHeight = this.getHeight();
             return (ourHeight != null && ourHeight > 0);
 
-        } catch (IOException | JSONException e) {
+        } catch (IOException | JSONException | UnsatisfiedLinkError e) {
             LOGGER.info("Unable to initialize Pirate Chain wallet: {}", e.getMessage());
         }
 
