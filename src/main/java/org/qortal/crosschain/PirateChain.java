@@ -11,6 +11,7 @@ import org.json.JSONObject;
 import org.libdohj.params.LitecoinMainNetParams;
 import org.libdohj.params.LitecoinRegTestParams;
 import org.libdohj.params.LitecoinTestNet3Params;
+import org.libdohj.params.PirateChainMainNetParams;
 import org.qortal.api.model.crosschain.PirateChainSendRequest;
 import org.qortal.controller.PirateChainWalletController;
 import org.qortal.crosschain.PirateLightClient.Server;
@@ -40,7 +41,7 @@ public class PirateChain extends Bitcoiny {
 		MAIN {
 			@Override
 			public NetworkParameters getParams() {
-				return LitecoinMainNetParams.get();
+				return PirateChainMainNetParams.get();
 			}
 
 			@Override
