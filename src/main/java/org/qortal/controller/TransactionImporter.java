@@ -213,7 +213,7 @@ public class TransactionImporter extends Thread {
         try {
             ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
             if (!blockchainLock.tryLock(2, TimeUnit.SECONDS)) {
-                LOGGER.debug("Too busy to process incoming transactions queue");
+                LOGGER.debug("Too busy to import incoming transactions queue");
                 return;
             }
         } catch (InterruptedException e) {
@@ -221,8 +221,9 @@ public class TransactionImporter extends Thread {
             return;
         }
 
-        LOGGER.debug("Processing incoming transactions queue (size {})...", sigValidTransactions.size());
+        LOGGER.debug("Importing incoming transactions queue (size {})...", sigValidTransactions.size());
 
+        int processedCount = 0;
         try (final Repository repository = RepositoryManager.getRepository()) {
 
             // Import transactions with valid signatures
@@ -233,7 +234,7 @@ public class TransactionImporter extends Thread {
                     }
 
                     if (Synchronizer.getInstance().isSyncRequestPending()) {
-                        LOGGER.debug("Breaking out of transaction processing with {} remaining, because a sync request is pending", sigValidTransactions.size() - i);
+                        LOGGER.debug("Breaking out of transaction importing with {} remaining, because a sync request is pending", sigValidTransactions.size() - i);
                         return;
                     }
 
@@ -241,6 +242,7 @@ public class TransactionImporter extends Thread {
                     Transaction transaction = Transaction.fromData(repository, transactionData);
 
                     Transaction.ValidationResult validationResult = transaction.importAsUnconfirmed();
+                    processedCount++;
 
                     switch (validationResult) {
                         case TRANSACTION_ALREADY_EXISTS: {
@@ -285,12 +287,12 @@ public class TransactionImporter extends Thread {
                     removeIncomingTransaction(transactionData.getSignature());
                 }
             } finally {
-                LOGGER.debug("Finished processing incoming transactions queue");
+                LOGGER.debug("Finished importing {} incoming transaction{}", processedCount, (processedCount == 1 ? "" : "s"));
                 ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
                 blockchainLock.unlock();
             }
         } catch (DataException e) {
-            LOGGER.error("Repository issue while processing incoming transactions", e);
+            LOGGER.error("Repository issue while importing incoming transactions", e);
         }
     }
 
