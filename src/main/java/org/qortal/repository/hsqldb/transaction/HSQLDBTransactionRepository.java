@@ -313,7 +313,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException {
-		String sql = "SELECT signature FROM TransactionRecipients WHERE participant = ?";
+		String sql = "SELECT signature FROM TransactionParticipants WHERE participant = ?";
 
 		List<byte[]> signatures = new ArrayList<>();
 
