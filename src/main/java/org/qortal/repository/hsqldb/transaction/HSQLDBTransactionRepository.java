@@ -1213,11 +1213,34 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<TransactionData> getUnconfirmedTransactions(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		StringBuilder sql = new StringBuilder(256);
-		sql.append("SELECT signature FROM UnconfirmedTransactions ");
+	public List<TransactionData> getUnconfirmedTransactions(byte[] creatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		List<String> whereClauses = new ArrayList<>();
+		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("ORDER BY created_when");
+		if (creatorPublicKey != null) {
+			whereClauses.add("creator = ?");
+			bindParams.add(creatorPublicKey);
+		}
+
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT signature FROM UnconfirmedTransactions");
+		if (creatorPublicKey != null) {
+			sql.append(" JOIN Transactions USING (signature) ");
+		}
+
+		if (!whereClauses.isEmpty()) {
+			sql.append(" WHERE ");
+
+			final int whereClausesSize = whereClauses.size();
+			for (int wci = 0; wci < whereClausesSize; ++wci) {
+				if (wci != 0)
+					sql.append(" AND ");
+
+				sql.append(whereClauses.get(wci));
+			}
+		}
+
+		sql.append(" ORDER BY created_when");
 		if (reverse != null && reverse)
 			sql.append(" DESC");
 
@@ -1230,7 +1253,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		List<TransactionData> transactions = new ArrayList<>();
 
 		// Find transactions with no corresponding row in BlockTransactions
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return transactions;
 
