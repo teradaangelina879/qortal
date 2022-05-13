@@ -155,14 +155,14 @@ public class TransactionImporter extends Thread {
                     if (!transaction.isSignatureValid()) {
                         String signature58 = Base58.encode(transactionData.getSignature());
 
-                        LOGGER.trace("Ignoring {} transaction {} with invalid signature", transactionData.getType().name(), signature58);
+                        LOGGER.debug("Ignoring {} transaction {} with invalid signature", transactionData.getType().name(), signature58);
                         removeIncomingTransaction(transactionData.getSignature());
 
                         // Also add to invalidIncomingTransactions map
                         Long now = NTP.getTime();
                         if (now != null) {
                             Long expiry = now + INVALID_TRANSACTION_RECHECK_INTERVAL;
-                            LOGGER.trace("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", signature58);
+                            LOGGER.trace("Adding invalid transaction {} to invalidUnconfirmedTransactions...", signature58);
                             // Add to invalidUnconfirmedTransactions so that we don't keep requesting it
                             invalidUnconfirmedTransactions.put(signature58, expiry);
                         }
@@ -264,7 +264,7 @@ public class TransactionImporter extends Thread {
                         // All other invalid cases:
                         default: {
                             final String signature58 = Base58.encode(transactionData.getSignature());
-                            LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), signature58));
+                            LOGGER.debug(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), signature58));
 
                             Long now = NTP.getTime();
                             if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
