@@ -253,6 +253,8 @@ public class TransactionsResource {
 		ApiError.REPOSITORY_ISSUE
 	})
 	public List<TransactionData> getUnconfirmedTransactions(@Parameter(
+			description = "A list of transaction types"
+	) @QueryParam("txType") List<TransactionType> txTypes, @Parameter(
 			description = "Transaction creator's base58 encoded public key"
 	) @QueryParam("creator") String creatorPublicKey58, @Parameter(
 		ref = "limit"
@@ -273,7 +275,7 @@ public class TransactionsResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getTransactionRepository().getUnconfirmedTransactions(creatorPublicKey, limit, offset, reverse);
+			return repository.getTransactionRepository().getUnconfirmedTransactions(txTypes, creatorPublicKey, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

@@ -1213,19 +1213,41 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<TransactionData> getUnconfirmedTransactions(byte[] creatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<TransactionData> getUnconfirmedTransactions(List<TransactionType> txTypes, byte[] creatorPublicKey,
+															Integer limit, Integer offset, Boolean reverse) throws DataException {
 		List<String> whereClauses = new ArrayList<>();
 		List<Object> bindParams = new ArrayList<>();
 
+		boolean hasCreatorPublicKey = creatorPublicKey != null;
+		boolean hasTxTypes = txTypes != null && !txTypes.isEmpty();
+
 		if (creatorPublicKey != null) {
-			whereClauses.add("creator = ?");
+			whereClauses.add("Transactions.creator = ?");
 			bindParams.add(creatorPublicKey);
 		}
 
 		StringBuilder sql = new StringBuilder(256);
 		sql.append("SELECT signature FROM UnconfirmedTransactions");
-		if (creatorPublicKey != null) {
+		if (hasCreatorPublicKey || hasTxTypes) {
 			sql.append(" JOIN Transactions USING (signature) ");
+		}
+
+		if (hasTxTypes) {
+			StringBuilder txTypesIn = new StringBuilder(256);
+			txTypesIn.append("Transactions.type IN (");
+
+			// ints are safe enough to use literally
+			final int txTypesSize = txTypes.size();
+			for (int tti = 0; tti < txTypesSize; ++tti) {
+				if (tti != 0)
+					txTypesIn.append(", ");
+
+				txTypesIn.append(txTypes.get(tti).value);
+			}
+
+			txTypesIn.append(")");
+
+			whereClauses.add(txTypesIn.toString());
 		}
 
 		if (!whereClauses.isEmpty()) {
