@@ -146,6 +146,8 @@ public class Settings {
 	 * This has a significant effect on execution time. */
 	private int onlineSignaturesTrimBatchSize = 100; // blocks
 
+	/** Lite nodes don't sync blocks, and instead request "derived data" from peers */
+	private boolean lite = false;
 
 	/** Whether we should prune old data to reduce database size
 	 * This prevents the node from being able to serve older blocks */
@@ -191,7 +193,9 @@ public class Settings {
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 16;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 32;
+	private int maxPeers = 36;
+	/** Number of slots to reserve for short-lived QDN data transfers */
+	private int maxDataPeers = 4;
 	/** Maximum number of threads for network engine. */
 	private int maxNetworkThreadPoolSize = 32;
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
@@ -210,6 +214,8 @@ public class Settings {
 	private int minPeerConnectionTime = 5 * 60; // seconds
 	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
 	private int maxPeerConnectionTime = 60 * 60; // seconds
+	/** Maximum time (in seconds) that a peer should remain connected when requesting QDN data */
+	private int maxDataPeerConnectionTime = 2 * 60; // seconds
 
 	/** Whether to sync multiple blocks at once in normal operation */
 	private boolean fastSyncEnabled = true;
@@ -655,6 +661,10 @@ public class Settings {
 		return this.maxPeers;
 	}
 
+	public int getMaxDataPeers() {
+		return this.maxDataPeers;
+	}
+
 	public int getMaxNetworkThreadPoolSize() {
 		return this.maxNetworkThreadPoolSize;
 	}
@@ -672,6 +682,10 @@ public class Settings {
 	public int getMinPeerConnectionTime() { return this.minPeerConnectionTime; }
 
 	public int getMaxPeerConnectionTime() { return this.maxPeerConnectionTime; }
+
+	public int getMaxDataPeerConnectionTime() {
+		return this.maxDataPeerConnectionTime;
+	}
 
 	public String getBlockchainConfig() {
 		return this.blockchainConfig;
@@ -819,6 +833,10 @@ public class Settings {
 
 	public int getOnlineSignaturesTrimBatchSize() {
 		return this.onlineSignaturesTrimBatchSize;
+	}
+
+	public boolean isLite() {
+		return this.lite;
 	}
 
 	public boolean isTopOnly() {
