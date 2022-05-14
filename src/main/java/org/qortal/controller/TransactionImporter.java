@@ -19,7 +19,6 @@ import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -62,7 +61,7 @@ public class TransactionImporter extends Thread {
 
         try {
             while (!Controller.isStopping()) {
-                Thread.sleep(1000L);
+                Thread.sleep(500L);
 
                 // Process incoming transactions queue
                 validateTransactionsInQueue();
@@ -226,14 +225,9 @@ public class TransactionImporter extends Thread {
             return;
         }
 
-        try {
-            ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-            if (!blockchainLock.tryLock(2, TimeUnit.SECONDS)) {
-                LOGGER.debug("Too busy to import incoming transactions queue");
-                return;
-            }
-        } catch (InterruptedException e) {
-            LOGGER.debug("Interrupted when trying to acquire blockchain lock");
+        ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+        if (!blockchainLock.tryLock()) {
+            LOGGER.debug("Too busy to import incoming transactions queue");
             return;
         }
 
@@ -304,7 +298,6 @@ public class TransactionImporter extends Thread {
                 }
             } finally {
                 LOGGER.debug("Finished importing {} incoming transaction{}", processedCount, (processedCount == 1 ? "" : "s"));
-                ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
                 blockchainLock.unlock();
             }
         } catch (DataException e) {
