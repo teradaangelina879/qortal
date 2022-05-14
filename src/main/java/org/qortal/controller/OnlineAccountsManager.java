@@ -652,7 +652,7 @@ public class OnlineAccountsManager {
                         .filter(account -> outgoingLeadingBytes.contains(account.getPublicKey()[0]))
                         .forEach(outgoingOnlineAccounts::add);
 
-                if (outgoingLeadingBytes.size() > beforeAddSize)
+                if (outgoingOnlineAccounts.size() > beforeAddSize)
                     LOGGER.debug(String.format("Going to send %d online accounts for timestamp %d and leading bytes %s",
                             outgoingOnlineAccounts.size() - beforeAddSize,
                             timestamp,
