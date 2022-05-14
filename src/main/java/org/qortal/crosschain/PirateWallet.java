@@ -29,6 +29,7 @@ public class PirateWallet {
     protected static final Logger LOGGER = LogManager.getLogger(PirateWallet.class);
 
     private byte[] entropyBytes;
+    private String seedPhrase;
     private boolean ready = false;
 
     private final String params;
@@ -59,20 +60,20 @@ public class PirateWallet {
         try {
             LiteWalletJni.initlogging();
 
+            // Pirate library uses base64 encoding
+            String entropy64 = Base64.toBase64String(this.entropyBytes);
+
+            // Derive seed phrase from entropy bytes
+            String inputSeedResponse = LiteWalletJni.getseedphrasefromentropyb64(entropy64);
+            JSONObject inputSeedJson =  new JSONObject(inputSeedResponse);
+            String inputSeedPhrase = null;
+            if (inputSeedJson.has("seedPhrase")) {
+                inputSeedPhrase = inputSeedJson.getString("seedPhrase");
+            }
+
             String wallet = this.load();
             if (wallet == null) {
                 // Wallet doesn't exist, so create a new one
-
-                // Pirate library uses base64 encoding
-                String entropy64 = Base64.toBase64String(this.entropyBytes);
-
-                // Derive seed phrase from entropy bytes
-                String inputSeedResponse = LiteWalletJni.getseedphrasefromentropyb64(entropy64);
-                JSONObject inputSeedJson =  new JSONObject(inputSeedResponse);
-                String inputSeedPhrase = null;
-                if (inputSeedJson.has("seedPhrase")) {
-                    inputSeedPhrase = inputSeedJson.getString("seedPhrase");
-                }
 
                 // Initialize new wallet
                 String outputSeedResponse = LiteWalletJni.initfromseed(SERVER_URI, this.params, inputSeedPhrase, "1886500", this.saplingOutput64, this.saplingSpend64); // Thread-safe.
@@ -88,9 +89,12 @@ public class PirateWallet {
                     return false;
                 }
 
+                this.seedPhrase = outputSeedPhrase;
+
             } else {
                 // Restore existing wallet
-                String walletSeed = LiteWalletJni.initfromb64(SERVER_URI, params, wallet, saplingOutput64, saplingSpend64);
+                LiteWalletJni.initfromb64(SERVER_URI, params, wallet, saplingOutput64, saplingSpend64);
+                this.seedPhrase = inputSeedPhrase;
             }
 
             // Check that we're able to communicate with the library
@@ -214,6 +218,10 @@ public class PirateWallet {
         return Base58.encode(entropyHash);
     }
 
+    public String getSeedPhrase() {
+        return this.seedPhrase;
+    }
+
     private String getEncryptionKey() {
         if (this.entropyBytes == null) {
             return null;
@@ -334,6 +342,22 @@ public class PirateWallet {
             }
         }
         return address;
+    }
+
+    public String getPrivateKey() {
+        String response = LiteWalletJni.execute("export", "");
+        JSONArray addressesJson = new JSONArray(response);
+        if (!addressesJson.isEmpty()) {
+            JSONObject addressJson = addressesJson.getJSONObject(0);
+            if (addressJson.has("private_key")) {
+                //String address = addressJson.getString("address");
+                String privateKey = addressJson.getString("private_key");
+                //String viewingKey = addressJson.getString("viewing_key");
+
+                return privateKey;
+            }
+        }
+        return null;
     }
 
 }
