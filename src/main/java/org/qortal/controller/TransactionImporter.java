@@ -3,6 +3,7 @@ package org.qortal.controller;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.GetTransactionMessage;
 import org.qortal.network.message.Message;
@@ -127,7 +128,11 @@ public class TransactionImporter extends Thread {
                 LOGGER.debug("Validating signatures in incoming transactions queue (size {})...", unvalidatedCount);
             }
 
+            // A list of all currently pending transactions that have valid signatures
             List<Transaction> sigValidTransactions = new ArrayList<>();
+
+            // A list of signatures that became valid in this round
+            List<byte[]> newlyValidSignatures = new ArrayList<>();
 
             boolean isLiteNode = Settings.getInstance().isLite();
 
@@ -147,6 +152,7 @@ public class TransactionImporter extends Thread {
                     if (isLiteNode) {
                         // Lite nodes can't easily validate transactions, so for now we will have to assume that everything is valid
                         sigValidTransactions.add(transaction);
+                        newlyValidSignatures.add(transactionData.getSignature());
                         // Add mark signature as valid if transaction still exists in import queue
                         incomingTransactions.computeIfPresent(transactionData, (k, v) -> Boolean.TRUE);
                         continue;
@@ -167,15 +173,19 @@ public class TransactionImporter extends Thread {
                             invalidUnconfirmedTransactions.put(signature58, expiry);
                         }
 
+                        // We're done with this transaction
                         continue;
                     }
-                    else {
-                        // Count the number that were validated in this round, for logging purposes
-                        validatedCount++;
-                    }
+
+                    // Count the number that were validated in this round, for logging purposes
+                    validatedCount++;
 
                     // Add mark signature as valid if transaction still exists in import queue
                     incomingTransactions.computeIfPresent(transactionData, (k, v) -> Boolean.TRUE);
+
+                    // Signature validated in this round
+                    newlyValidSignatures.add(transactionData.getSignature());
+
                 } else {
                     LOGGER.trace(() -> String.format("Transaction %s known to have valid signature", Base58.encode(transactionData.getSignature())));
                 }
@@ -186,6 +196,12 @@ public class TransactionImporter extends Thread {
 
             if (unvalidatedCount > 0) {
                 LOGGER.debug("Finished validating signatures in incoming transactions queue (valid this round: {}, total pending import: {})...", validatedCount, sigValidTransactions.size());
+            }
+
+            if (!newlyValidSignatures.isEmpty()) {
+                LOGGER.debug("Broadcasting {} newly valid signatures ahead of import", newlyValidSignatures.size());
+                Message newTransactionSignatureMessage = new TransactionSignaturesMessage(newlyValidSignatures);
+                Network.getInstance().broadcast(broadcastPeer -> newTransactionSignatureMessage);
             }
 
         } catch (DataException e) {
@@ -325,8 +341,18 @@ public class TransactionImporter extends Thread {
         byte[] signature = getTransactionMessage.getSignature();
 
         try (final Repository repository = RepositoryManager.getRepository()) {
-            TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+            // Firstly check the sig-valid transactions that are currently queued for import
+            TransactionData transactionData = this.getCachedSigValidTransactions().stream()
+                    .filter(t -> Arrays.equals(signature, t.getSignature()))
+                    .findFirst().orElse(null);
+
             if (transactionData == null) {
+                // Not found in import queue, so try the database
+                transactionData = repository.getTransactionRepository().fromSignature(signature);
+            }
+
+            if (transactionData == null) {
+                // Still not found - so we don't have this transaction
                 LOGGER.debug(() -> String.format("Ignoring GET_TRANSACTION request from peer %s for unknown transaction %s", peer, Base58.encode(signature)));
                 // Send no response at all???
                 return;
