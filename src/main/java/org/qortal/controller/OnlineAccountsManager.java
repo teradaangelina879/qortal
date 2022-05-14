@@ -9,6 +9,7 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
+import org.qortal.crypto.Qortal25519Extras;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.network.OnlineAccountData;
@@ -204,7 +205,10 @@ public class OnlineAccountsManager {
 
         // Verify signature
         byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
-        if (!Crypto.verify(rewardSharePublicKey, onlineAccountData.getSignature(), data)) {
+        boolean isSignatureValid = onlineAccountTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp()
+                ? Qortal25519Extras.verifyAggregated(rewardSharePublicKey, onlineAccountData.getSignature(), data)
+                : Crypto.verify(rewardSharePublicKey, onlineAccountData.getSignature(), data);
+        if (!isSignatureValid) {
             LOGGER.trace(() -> String.format("Rejecting invalid online account %s", Base58.encode(rewardSharePublicKey)));
             return false;
         }
@@ -387,14 +391,18 @@ public class OnlineAccountsManager {
             return;
         }
 
+        final boolean useAggregateCompatibleSignature = onlineAccountsTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp();
+
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
         List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
 
         for (MintingAccountData mintingAccountData : mintingAccounts) {
-            PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, mintingAccountData.getPrivateKey());
+            byte[] privateKey = mintingAccountData.getPrivateKey();
+            byte[] publicKey = Crypto.toPublicKey(privateKey);
 
-            byte[] signature = mintingAccount.sign(timestampBytes);
-            byte[] publicKey = mintingAccount.getPublicKey();
+            byte[] signature = useAggregateCompatibleSignature
+                    ? Qortal25519Extras.signForAggregation(privateKey, timestampBytes)
+                    : Crypto.sign(privateKey, timestampBytes);
 
             // Our account is online
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
