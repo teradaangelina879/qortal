@@ -10,6 +10,7 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
+import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -355,7 +356,6 @@ public class Block {
 		}
 
 		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
-
 		long onlineAccountsTimestamp = OnlineAccountsManager.getCurrentOnlineAccountTimestamp();
 
 		// Fetch our list of online accounts
