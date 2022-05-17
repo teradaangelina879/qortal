@@ -128,12 +128,15 @@ public class OnlineAccountsManager {
             return;
 
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
+        final boolean useAggregateCompatibleSignature = onlineAccountsTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp();
 
         Set<OnlineAccountData> replacementAccounts = new HashSet<>();
         for (PrivateKeyAccount onlineAccount : onlineAccounts) {
             // Check mintingAccount is actually reward-share?
 
-            byte[] signature = onlineAccount.sign(timestampBytes);
+            byte[] signature = useAggregateCompatibleSignature
+                    ? Qortal25519Extras.signForAggregation(onlineAccount.getPrivateKey(), timestampBytes)
+                    : onlineAccount.sign(timestampBytes);
             byte[] publicKey = onlineAccount.getPublicKey();
 
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
@@ -274,6 +277,8 @@ public class OnlineAccountsManager {
                 ));
             }
         }
+
+        LOGGER.info(String.format("we have online accounts for timestamps: %s", String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
 
         return true;
     }
@@ -446,6 +451,8 @@ public class OnlineAccountsManager {
      */
     // Block::mint() - only wants online accounts with (online) timestamp that matches block's (online) timestamp so they can be added to new block
     public List<OnlineAccountData> getOnlineAccounts(long onlineTimestamp) {
+        LOGGER.info(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
+
         return new ArrayList<>(Set.copyOf(this.currentOnlineAccounts.getOrDefault(onlineTimestamp, Collections.emptySet())));
     }
 
