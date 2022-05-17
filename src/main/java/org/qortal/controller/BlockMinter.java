@@ -221,8 +221,8 @@ public class BlockMinter extends Thread {
 					List<PrivateKeyAccount> newBlocksMintingAccounts = mintingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getPrivateKey())).collect(Collectors.toList());
 
 					// We might need to sit the next block out, if one of our minting accounts signed the previous one
-					final byte[] previousBlockMinter = previousBlockData.getMinterPublicKey();
-					final boolean mintedLastBlock = mintingAccountsData.stream().anyMatch(mintingAccount -> Arrays.equals(mintingAccount.getPublicKey(), previousBlockMinter));
+					byte[] previousBlockMinter = previousBlockData.getMinterPublicKey();
+					boolean mintedLastBlock = mintingAccountsData.stream().anyMatch(mintingAccount -> Arrays.equals(mintingAccount.getPublicKey(), previousBlockMinter));
 					if (mintedLastBlock) {
 						LOGGER.trace(String.format("One of our keys signed the last block, so we won't sign the next one"));
 						continue;
