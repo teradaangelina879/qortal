@@ -66,12 +66,10 @@ public class OnlineAccountData {
 		if (otherOnlineAccountData.timestamp != this.timestamp)
 			return false;
 
-		// Signature more likely to be unique than public key
-		if (!Arrays.equals(otherOnlineAccountData.signature, this.signature))
-			return false;
-
 		if (!Arrays.equals(otherOnlineAccountData.publicKey, this.publicKey))
 			return false;
+
+		// We don't compare signature because it's not our remit to verify and newer aggregate signatures use random nonces
 
 		return true;
 	}
@@ -81,8 +79,8 @@ public class OnlineAccountData {
 		int h = this.hash;
 		if (h == 0) {
 			this.hash = h = Long.hashCode(this.timestamp)
-					^ Arrays.hashCode(this.publicKey)
-					^ Arrays.hashCode(this.signature);
+					^ Arrays.hashCode(this.publicKey);
+			// We don't use signature because newer aggregate signatures use random nonces
 		}
 		return h;
 	}
