@@ -340,6 +340,157 @@ public class PirateChain extends Bitcoiny {
 		throw new ForeignBlockchainException("Something went wrong");
 	}
 
+	public String fundP2SH(String entropy58, String receivingAddress, long amount,
+						   String redeemScript58) throws ForeignBlockchainException {
+
+		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+		walletController.initWithEntropy58(entropy58);
+		walletController.ensureInitialized();
+		walletController.ensureSynchronized();
+
+		// Unlock wallet
+		walletController.getCurrentWallet().unlock();
+
+		// Build spend
+		JSONObject txn = new JSONObject();
+		txn.put("input", walletController.getCurrentWallet().getWalletAddress());
+		txn.put("fee", MAINNET_FEE);
+
+		JSONObject output = new JSONObject();
+		output.put("address", receivingAddress);
+		output.put("amount", amount);
+		//output.put("memo", memo);
+
+		JSONArray outputs = new JSONArray();
+		outputs.put(output);
+		txn.put("output", outputs);
+		txn.put("script", redeemScript58);
+
+		String txnString = txn.toString();
+
+		// Send the coins
+		String response = LiteWalletJni.execute("sendp2sh", txnString);
+		JSONObject json = new JSONObject(response);
+		try {
+			if (json.has("txid")) { // Success
+				return json.getString("txid");
+			}
+			else if (json.has("error")) {
+				String error = json.getString("error");
+				throw new ForeignBlockchainException(error);
+			}
+
+		} catch (JSONException e) {
+			throw new ForeignBlockchainException(e.getMessage());
+		}
+
+		throw new ForeignBlockchainException("Something went wrong");
+	}
+
+	public String redeemP2sh(String entropy58, String p2shAddress, String receivingAddress, long amount, String redeemScript58,
+							 String fundingTxid58, String secret58, String privateKey58) throws ForeignBlockchainException {
+
+		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+		walletController.initWithEntropy58(entropy58);
+		walletController.ensureInitialized();
+		walletController.ensureSynchronized();
+
+		// Unlock wallet
+		walletController.getCurrentWallet().unlock();
+
+		// Build spend
+		JSONObject txn = new JSONObject();
+		txn.put("input", p2shAddress);
+		txn.put("fee", MAINNET_FEE);
+
+		JSONObject output = new JSONObject();
+		output.put("address", receivingAddress);
+		output.put("amount", amount);
+		// output.put("memo", ""); // Maybe useful in future to include trade details?
+
+		JSONArray outputs = new JSONArray();
+		outputs.put(output);
+		txn.put("output", outputs);
+
+		txn.put("script", redeemScript58);
+		txn.put("txid", fundingTxid58);
+		txn.put("locktime", 0); // Must be 0 when redeeming
+		txn.put("secret", secret58);
+		txn.put("privkey", privateKey58);
+
+		String txnString = txn.toString();
+
+		// Redeem the P2SH
+		String response = LiteWalletJni.execute("redeemp2sh", txnString);
+		JSONObject json = new JSONObject(response);
+		try {
+			if (json.has("txid")) { // Success
+				return json.getString("txid");
+			}
+			else if (json.has("error")) {
+				String error = json.getString("error");
+				throw new ForeignBlockchainException(error);
+			}
+
+		} catch (JSONException e) {
+			throw new ForeignBlockchainException(e.getMessage());
+		}
+
+		throw new ForeignBlockchainException("Something went wrong");
+	}
+
+	public String refundP2sh(String entropy58, String p2shAddress, String receivingAddress, long amount, String redeemScript58,
+							 String fundingTxid58, int lockTime, String privateKey58) throws ForeignBlockchainException {
+
+		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+		walletController.initWithEntropy58(entropy58);
+		walletController.ensureInitialized();
+		walletController.ensureSynchronized();
+
+		// Unlock wallet
+		walletController.getCurrentWallet().unlock();
+
+		// Build spend
+		JSONObject txn = new JSONObject();
+		txn.put("input", p2shAddress);
+		txn.put("fee", MAINNET_FEE);
+
+		JSONObject output = new JSONObject();
+		output.put("address", receivingAddress);
+		output.put("amount", amount);
+		// output.put("memo", ""); // Maybe useful in future to include trade details?
+
+		JSONArray outputs = new JSONArray();
+		outputs.put(output);
+		txn.put("output", outputs);
+
+		txn.put("script", redeemScript58);
+		txn.put("txid", fundingTxid58);
+		txn.put("locktime", lockTime);
+		txn.put("secret", ""); // Must be blank when refunding
+		txn.put("privkey", privateKey58);
+
+		String txnString = txn.toString();
+
+		// Redeem the P2SH
+		String response = LiteWalletJni.execute("redeemp2sh", txnString);
+		JSONObject json = new JSONObject(response);
+		try {
+			if (json.has("txid")) { // Success
+				return json.getString("txid");
+			}
+			else if (json.has("error")) {
+				String error = json.getString("error");
+				throw new ForeignBlockchainException(error);
+			}
+
+		} catch (JSONException e) {
+			throw new ForeignBlockchainException(e.getMessage());
+		}
+
+		throw new ForeignBlockchainException("Something went wrong");
+	}
+
 	public String getSyncStatus(String entropy58) throws ForeignBlockchainException {
 		synchronized (this) {
 			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
