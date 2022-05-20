@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.*;
+import static org.qortal.crosschain.PirateChainHTLC.Status.*;
 
 public class PirateChainTests extends Common {
 
@@ -71,6 +72,44 @@ public class PirateChainTests extends Common {
 		assertEquals(count, compactBlocks.size());
 	}
 
+	@Test
+	public void testGetRawTransaction() throws ForeignBlockchainException {
+		String txHashLE = "fea4b0c1abcf8f0f3ddc2fa2f9438501ee102aad62a9ff18a5ce7d08774755c0";
+		byte[] txBytes = HashCode.fromString(txHashLE).asBytes();
+		// Pirate protocol expects txids in big-endian form, but block explorers use txids in little-endian form
+		Bytes.reverse(txBytes);
+		String txHashBE = HashCode.fromBytes(txBytes).toString();
+
+		byte[] rawTransaction = pirateChain.getBlockchainProvider().getRawTransaction(txHashBE);
+		assertNotNull(rawTransaction);
+	}
+
+	@Test
+	public void testHTLCStatusFunded() throws ForeignBlockchainException {
+		String p2shAddress = "ba6Q5HWrWtmfU2WZqQbrFdRYsafA45cUAt";
+		long p2shFee = 10000;
+		final long minimumAmount = 10000 + p2shFee;
+		PirateChainHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
+		assertEquals(FUNDED, htlcStatus);
+	}
+
+	@Test
+	public void testHTLCStatusRedeemed() throws ForeignBlockchainException {
+		String p2shAddress = "bYZrzSSgGp8aEGvihukoMGU8sXYrx19Wka";
+		long p2shFee = 10000;
+		final long minimumAmount = 10000 + p2shFee;
+		PirateChainHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
+		assertEquals(REDEEMED, htlcStatus);
+	}
+
+	@Test
+	public void testHTLCStatusRefunded() throws ForeignBlockchainException {
+		String p2shAddress = "bE49izfVxz8odhu8c2BcUaVFUnt7NLFRgv";
+		long p2shFee = 10000;
+		final long minimumAmount = 10000 + p2shFee;
+		PirateChainHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
+		assertEquals(REFUNDED, htlcStatus);
+	}
 
 	@Test
 	public void testGetTransactionsForAddress() throws ForeignBlockchainException {
