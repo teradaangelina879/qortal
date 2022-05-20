@@ -308,7 +308,7 @@ public class PirateChain extends Bitcoiny {
 		// Build spend
 		JSONObject txn = new JSONObject();
 		txn.put("input", walletController.getCurrentWallet().getWalletAddress());
-		//txn.put("fee", pirateChainSendRequest.feePerByte); // We likely need to specify total fee, instead of per byte
+		txn.put("fee", MAINNET_FEE);
 
 		JSONObject output = new JSONObject();
 		output.put("address", pirateChainSendRequest.receivingAddress);
