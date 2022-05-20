@@ -1,5 +1,6 @@
 package org.qortal.crosschain;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -10,7 +11,12 @@ import javax.xml.bind.annotation.XmlTransient;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class BitcoinyTransaction {
 
+	public static final Comparator<BitcoinyTransaction> CONFIRMED_FIRST = (a, b) -> Boolean.compare(a.height != 0, b.height != 0);
+
 	public final String txHash;
+
+	@XmlTransient
+	public Integer height;
 
 	@XmlTransient
 	public final int size;
@@ -111,6 +117,10 @@ public class BitcoinyTransaction {
 		this.outputs = outputs;
 
 		this.totalAmount = outputs.stream().map(output -> output.value).reduce(0L, Long::sum);
+	}
+
+	public int getHeight() {
+		return this.height;
 	}
 
 	public String toString() {

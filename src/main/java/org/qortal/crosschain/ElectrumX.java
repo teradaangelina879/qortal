@@ -533,6 +533,12 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		return transactionHashes;
 	}
 
+	@Override
+	public List<BitcoinyTransaction> getAddressBitcoinyTransactions(String address, boolean includeUnconfirmed) throws ForeignBlockchainException {
+		// FUTURE: implement this if needed. For now we use getAddressTransactions() + getTransaction()
+		throw new ForeignBlockchainException("getAddressBitcoinyTransactions not yet implemented for ElectrumX");
+	}
+
 	/**
 	 * Broadcasts raw transaction to network.
 	 * <p>

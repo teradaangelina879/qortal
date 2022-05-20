@@ -2,6 +2,7 @@ package org.qortal.crosschain;
 
 import cash.z.wallet.sdk.rpc.CompactFormats.*;
 import cash.z.wallet.sdk.rpc.CompactTxStreamerGrpc;
+import cash.z.wallet.sdk.rpc.Service;
 import cash.z.wallet.sdk.rpc.Service.*;
 import com.google.common.hash.HashCode;
 import com.google.protobuf.ByteString;
@@ -13,10 +14,13 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.qortal.transform.TransformationException;
 
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.regex.Pattern;
+
+import static org.qortal.crosschain.PirateChain.DEFAULT_BIRTHDAY;
 
 /** Pirate Chain network support for querying Bitcoiny-related info like block headers, transaction outputs, etc. */
 public class PirateLightClient extends BitcoinyBlockchainProvider {
@@ -467,6 +471,47 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 	public List<TransactionHash> getAddressTransactions(byte[] script, boolean includeUnconfirmed) throws ForeignBlockchainException {
 		// FUTURE: implement this if needed. Probably not very useful for private blockchains.
 		throw new ForeignBlockchainException("getAddressTransactions not yet implemented for Pirate Chain");
+	}
+
+	@Override
+	public List<BitcoinyTransaction> getAddressBitcoinyTransactions(String address, boolean includeUnconfirmed) throws ForeignBlockchainException {
+		try {
+			// Firstly we need to get the latest block
+			BlockID endBlock = this.getCompactTxStreamerStub().getLatestBlock(null);
+			BlockID startBlock = BlockID.newBuilder().setHeight(DEFAULT_BIRTHDAY).build();
+			BlockRange blockRange = BlockRange.newBuilder().setStart(startBlock).setEnd(endBlock).build();
+
+			TransparentAddressBlockFilter blockFilter = TransparentAddressBlockFilter.newBuilder()
+					.setAddress(address)
+					.setRange(blockRange)
+					.build();
+			Iterator<Service.RawTransaction> transactionIterator = this.getCompactTxStreamerStub().getTaddressTxids(blockFilter);
+
+			// Map from Iterator to List
+			List<RawTransaction> rawTransactions = new ArrayList<>();
+			transactionIterator.forEachRemaining(rawTransactions::add);
+
+			List<BitcoinyTransaction> transactions = new ArrayList<>();
+
+			for (RawTransaction rawTransaction : rawTransactions) {
+
+				Long height = rawTransaction.getHeight();
+				if (!includeUnconfirmed && (height == null || height == 0))
+					// We only want confirmed transactions
+					continue;
+
+				byte[] transactionData = rawTransaction.getData().toByteArray();
+				String transactionDataHex = HashCode.fromBytes(transactionData).toString();
+				BitcoinyTransaction bitcoinyTransaction = PirateChain.deserializeRawTransaction(transactionDataHex);
+				bitcoinyTransaction.height = height.intValue();
+				transactions.add(bitcoinyTransaction);
+			}
+
+			return transactions;
+		}
+		catch (RuntimeException | TransformationException e) {
+			throw new ForeignBlockchainException(String.format("Unable to get transactions for address %s: %s", address, e.getMessage()));
+		}
 	}
 
 	/**

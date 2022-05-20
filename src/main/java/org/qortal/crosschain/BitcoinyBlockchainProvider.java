@@ -47,7 +47,10 @@ public abstract class BitcoinyBlockchainProvider {
 	/** Returns list of transaction hashes (and heights) for address represented by <tt>scriptPubKey</tt>, optionally including unconfirmed transactions. */
 	public abstract List<TransactionHash> getAddressTransactions(byte[] scriptPubKey, boolean includeUnconfirmed) throws ForeignBlockchainException;
 
-	/** Returns list of unspent transaction outputs for address, optionally including unconfirmed transactions. */
+	/** Returns list of BitcoinyTransaction objects for <tt>address</tt>, optionally including unconfirmed transactions. */
+	public abstract List<BitcoinyTransaction> getAddressBitcoinyTransactions(String address, boolean includeUnconfirmed) throws ForeignBlockchainException;
+
+		/** Returns list of unspent transaction outputs for <tt>address</tt>, optionally including unconfirmed transactions. */
 	public abstract List<UnspentOutput> getUnspentOutputs(String address, boolean includeUnconfirmed) throws ForeignBlockchainException;
 
 	/** Returns list of unspent transaction outputs for address represented by <tt>scriptPubKey</tt>, optionally including unconfirmed transactions. */
