@@ -256,7 +256,7 @@ public class PirateChain extends Bitcoiny {
 							JSONArray incomingMetadatas = transactionJson.getJSONArray("incoming_metadata");
 							if (incomingMetadatas != null) {
 								for (int j = 0; j < incomingMetadatas.length(); j++) {
-									JSONObject incomingMetadata = incomingMetadatas.getJSONObject(i);
+									JSONObject incomingMetadata = incomingMetadatas.getJSONObject(j);
 									if (incomingMetadata.has("value")) {
 										//String address = incomingMetadata.getString("address");
 										Long value = incomingMetadata.getLong("value");
