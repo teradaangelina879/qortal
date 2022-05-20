@@ -3,9 +3,7 @@ package org.qortal.crosschain;
 import cash.z.wallet.sdk.rpc.CompactFormats;
 import com.google.common.hash.HashCode;
 import com.rust.litewalletjni.LiteWalletJni;
-import org.bitcoinj.core.Coin;
-import org.bitcoinj.core.Context;
-import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.*;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -16,6 +14,7 @@ import org.qortal.api.model.crosschain.PirateChainSendRequest;
 import org.qortal.controller.PirateChainWalletController;
 import org.qortal.crosschain.PirateLightClient.Server;
 import org.qortal.crosschain.PirateLightClient.Server.ConnectionType;
+import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.BitTwiddling;
@@ -216,6 +215,14 @@ public class PirateChain extends Bitcoiny {
 	 */
 	public List<CompactFormats.CompactBlock> getCompactBlocks(int startHeight, int count) throws ForeignBlockchainException {
 		return this.blockchainProvider.getCompactBlocks(startHeight, count);
+	}
+
+
+	/** Returns P2SH address using passed redeem script. */
+	public String deriveP2shAddress(byte[] redeemScriptBytes) {
+		Context.propagate(bitcoinjContext);
+		byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
+		return LegacyZcashAddress.fromScriptHash(this.params, redeemScriptHash).toString();
 	}
 
 	public Long getWalletBalance(String entropy58) throws ForeignBlockchainException {
