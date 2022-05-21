@@ -218,6 +218,24 @@ public class PirateChain extends Bitcoiny {
 	}
 
 
+	@Override
+	public boolean isValidAddress(String address) {
+		// Start with some simple checks
+		if (address == null || !address.toLowerCase().startsWith("zs") || address.length() != 78) {
+			return false;
+		}
+
+		// Now try Bech32 decoding the address (which includes checksum verification)
+		try {
+			Bech32.Bech32Data decoded = Bech32.decode(address);
+			return (decoded != null && Objects.equals("zs", decoded.hrp));
+		}
+		catch (AddressFormatException e) {
+			// Invalid address, checksum failed, etc
+			return false;
+		}
+	}
+
 	/** Returns P2SH address using passed redeem script. */
 	public String deriveP2shAddress(byte[] redeemScriptBytes) {
 		Context.propagate(bitcoinjContext);
