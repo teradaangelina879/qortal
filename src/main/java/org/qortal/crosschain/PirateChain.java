@@ -30,7 +30,7 @@ public class PirateChain extends Bitcoiny {
 
 	private static final Coin DEFAULT_FEE_PER_KB = Coin.valueOf(10000); // 0.0001 ARRR per 1000 bytes
 
-	private static final long MINIMUM_ORDER_AMOUNT = 50000000; // 0.5 ARRR minimum order, to avoid dust errors // TODO: may need calibration
+	private static final long MINIMUM_ORDER_AMOUNT = 10000; // 0.0001 ARRR minimum order, to avoid dust errors // TODO: increase this
 
 	// Temporary values until a dynamic fee system is written.
 	private static final long MAINNET_FEE = 10000L; // 0.0001 ARRR
