@@ -186,7 +186,7 @@ public class PirateChainWalletController extends Thread {
             return "Synchronized";
         }
 
-        return "Not synchronized yet";
+        return "Initializing wallet...";
     }
 
 }
