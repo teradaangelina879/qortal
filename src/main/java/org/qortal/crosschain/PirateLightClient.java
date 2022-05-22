@@ -293,8 +293,10 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 			byte[] txHash = unspent.getTxid().toByteArray();
 			int outputIndex = unspent.getIndex();
 			long value = unspent.getValueZat();
+			byte[] script = unspent.getScript().toByteArray();
+			String addressRes = unspent.getAddress();
 
-			unspentOutputs.add(new UnspentOutput(txHash, outputIndex, height, value));
+			unspentOutputs.add(new UnspentOutput(txHash, outputIndex, height, value, script, addressRes));
 		}
 
 		return unspentOutputs;
