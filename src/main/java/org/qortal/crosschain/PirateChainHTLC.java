@@ -174,6 +174,69 @@ public class PirateChainHTLC {
 	}
 
 	/**
+	 * Returns a string containing the txid of the transaction that funded supplied <tt>p2shAddress</tt>
+	 * We have to do this in a bit of a roundabout way due to the Pirate Light Client server omitting
+	 * transaction hashes from the raw transaction data.
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	public static String getFundingTxid(BitcoinyBlockchainProvider blockchain, String p2shAddress) throws ForeignBlockchainException {
+		byte[] ourScriptPubKey = addressToScriptPubKey(p2shAddress);
+		// HASH160(redeem script) for this p2shAddress
+		byte[] ourRedeemScriptHash = addressToRedeemScriptHash(p2shAddress);
+
+
+		// Firstly look for an unspent output
+
+		// Note: we can't include unconfirmed transactions here because the Pirate light wallet server requires a block range
+		List<UnspentOutput> unspentOutputs = blockchain.getUnspentOutputs(p2shAddress, false);
+		for (UnspentOutput unspentOutput : unspentOutputs) {
+
+			if (!Arrays.equals(ourScriptPubKey, unspentOutput.script)) {
+				continue;
+			}
+
+			return HashCode.fromBytes(unspentOutput.hash).toString();
+		}
+
+
+		// No valid unspent outputs, so must be already spent...
+
+		// Note: we can't include unconfirmed transactions here because the Pirate light wallet server requires a block range
+		List<BitcoinyTransaction> transactions = blockchain.getAddressBitcoinyTransactions(p2shAddress, BitcoinyBlockchainProvider.EXCLUDE_UNCONFIRMED);
+
+		// Sort by confirmed first, followed by ascending height
+		transactions.sort(BitcoinyTransaction.CONFIRMED_FIRST.thenComparing(BitcoinyTransaction::getHeight));
+
+		for (BitcoinyTransaction bitcoinyTransaction : transactions) {
+
+			// Acceptable funding is one transaction output, so we're expecting only one input
+			if (bitcoinyTransaction.inputs.size() != 1)
+				// Wrong number of inputs
+				continue;
+
+			String scriptSig = bitcoinyTransaction.inputs.get(0).scriptSig;
+
+			List<byte[]> scriptSigChunks = extractScriptSigChunks(HashCode.fromString(scriptSig).asBytes());
+			if (scriptSigChunks.size() < 3 || scriptSigChunks.size() > 4)
+				// Not valid chunks for our form of HTLC
+				continue;
+
+			// Last chunk is redeem script
+			byte[] redeemScriptBytes = scriptSigChunks.get(scriptSigChunks.size() - 1);
+			byte[] redeemScriptHash = Crypto.hash160(redeemScriptBytes);
+			if (!Arrays.equals(redeemScriptHash, ourRedeemScriptHash))
+				// Not spending our specific HTLC redeem script
+				continue;
+
+			return bitcoinyTransaction.inputs.get(0).outputTxHash;
+
+		}
+
+		return null;
+	}
+
+	/**
 	 * Returns HTLC status, given P2SH address and expected redeem/refund amount
 	 * <p>
 	 * @throws ForeignBlockchainException if error occurs
