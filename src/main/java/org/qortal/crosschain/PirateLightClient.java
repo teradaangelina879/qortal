@@ -18,7 +18,6 @@ import org.qortal.transform.TransformationException;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.regex.Pattern;
 
 import static org.qortal.crosschain.PirateChain.DEFAULT_BIRTHDAY;
 
@@ -27,15 +26,6 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 
 	private static final Logger LOGGER = LogManager.getLogger(PirateLightClient.class);
 	private static final Random RANDOM = new Random();
-
-	private static final double MIN_PROTOCOL_VERSION = 1.2;
-	private static final int BLOCK_HEADER_LENGTH = 80;
-
-	// "message": "daemon error: DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})"
-	private static final Pattern DAEMON_ERROR_REGEX = Pattern.compile("DaemonError\\(\\{.*'code': ?(-?[0-9]+).*\\}\\)\\z"); // Capture 'code' inside curly-brace content
-
-	/** Error message sent by some ElectrumX servers when they don't support returning verbose transactions. */
-	private static final String VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE = "verbose transactions are currently unsupported";
 
 	private static final int RESPONSE_TIME_READINGS = 5;
 	private static final long MAX_AVG_RESPONSE_TIME = 500L; // ms
