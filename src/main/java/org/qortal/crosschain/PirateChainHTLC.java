@@ -237,6 +237,37 @@ public class PirateChainHTLC {
 	}
 
 	/**
+	 * Returns a string containing the unspent txid of the transaction that funded supplied <tt>p2shAddress</tt>
+	 * and is at least the value specified in <tt>minimumAmount</tt>
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	public static String getUnspentFundingTxid(BitcoinyBlockchainProvider blockchain, String p2shAddress, long minimumAmount) throws ForeignBlockchainException {
+		byte[] ourScriptPubKey = addressToScriptPubKey(p2shAddress);
+
+		// Note: we can't include unconfirmed transactions here because the Pirate light wallet server requires a block range
+		List<UnspentOutput> unspentOutputs = blockchain.getUnspentOutputs(p2shAddress, false);
+		for (UnspentOutput unspentOutput : unspentOutputs) {
+
+			if (!Arrays.equals(ourScriptPubKey, unspentOutput.script)) {
+				// Not funding our specific HTLC script hash
+				continue;
+			}
+
+			if (unspentOutput.value < minimumAmount) {
+				// Not funding the required amount
+				continue;
+			}
+
+			return HashCode.fromBytes(unspentOutput.hash).toString();
+		}
+
+
+		// No valid unspent outputs, so must be already spent
+		return null;
+	}
+
+	/**
 	 * Returns HTLC status, given P2SH address and expected redeem/refund amount
 	 * <p>
 	 * @throws ForeignBlockchainException if error occurs

@@ -125,6 +125,21 @@ public class PirateChainTests extends Common {
 	}
 
 	@Test
+	public void testGetTxidForUnspentAddressWithMinimumAmount() throws ForeignBlockchainException {
+		String p2shAddress = "ba6Q5HWrWtmfU2WZqQbrFdRYsafA45cUAt";
+		long p2shFee = 10000;
+		final long minimumAmount = 10000 + p2shFee;
+		String txid = PirateChainHTLC.getUnspentFundingTxid(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
+
+		// Reverse the byte order of the txid used by block explorers, to get to big-endian form
+		byte[] expectedTxidLE = HashCode.fromString("fea4b0c1abcf8f0f3ddc2fa2f9438501ee102aad62a9ff18a5ce7d08774755c0").asBytes();
+		Bytes.reverse(expectedTxidLE);
+		String expectedTxidBE = HashCode.fromBytes(expectedTxidLE).toString();
+
+		assertEquals(expectedTxidBE, txid);
+	}
+
+	@Test
 	public void testGetTxidForSpentAddress() throws ForeignBlockchainException {
 		String p2shAddress = "bE49izfVxz8odhu8c2BcUaVFUnt7NLFRgv"; //"t3KtVxeEb8srJofo6atMEpMpEP6TjEi8VqA";
 		String txid = PirateChainHTLC.getFundingTxid(pirateChain.getBlockchainProvider(), p2shAddress);
