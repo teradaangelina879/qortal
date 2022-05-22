@@ -85,6 +85,20 @@ public enum SupportedBlockchain {
 		public ACCT getLatestAcct() {
 			return RavencoinACCTv3.getInstance();
 		}
+	},
+
+	PIRATECHAIN(Arrays.asList(
+			Triple.valueOf(PirateChainACCTv3.NAME, PirateChainACCTv3.CODE_BYTES_HASH, PirateChainACCTv3::getInstance)
+	)) {
+		@Override
+		public ForeignBlockchain getInstance() {
+			return PirateChain.getInstance();
+		}
+
+		@Override
+		public ACCT getLatestAcct() {
+			return PirateChainACCTv3.getInstance();
+		}
 	};
 
 	private static final Map<ByteArray, Supplier<ACCT>> supportedAcctsByCodeHash = Arrays.stream(SupportedBlockchain.values())
