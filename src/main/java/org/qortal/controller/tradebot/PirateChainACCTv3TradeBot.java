@@ -293,13 +293,13 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 
 		// P2SH-A to be funded
 		byte[] redeemScriptBytes = PirateChainHTLC.buildScript(tradeForeignPublicKey, lockTimeA, crossChainTradeData.creatorForeignPKH, hashOfSecretA);
-		String p2shAddress = PirateChain.getInstance().deriveP2shAddress(redeemScriptBytes);
+		String p2shAddressT3 = PirateChain.getInstance().deriveP2shAddress(redeemScriptBytes); // Use t3 prefix when funding
 		byte[] redeemScriptWithPrefixBytes = PirateChainHTLC.buildScriptWithPrefix(tradeForeignPublicKey, lockTimeA, crossChainTradeData.creatorForeignPKH, hashOfSecretA);
 		String redeemScriptWithPrefix58 = Base58.encode(redeemScriptWithPrefixBytes);
 
 		// Send to P2SH address
 		try {
-			String txid = PirateChain.getInstance().fundP2SH(seed58, p2shAddress, amountA, redeemScriptWithPrefix58);
+			String txid = PirateChain.getInstance().fundP2SH(seed58, p2shAddressT3, amountA, redeemScriptWithPrefix58);
 			LOGGER.info("fundingTxidHex: {}", txid);
 
 		} catch (ForeignBlockchainException e) {
@@ -329,7 +329,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 			}
 		}
 
-		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Funding P2SH-A %s. Messaged Bob. Waiting for AT-lock", p2shAddress));
+		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Funding P2SH-A %s. Messaged Bob. Waiting for AT-lock", p2shAddressT3));
 
 		return ResponseResult.OK;
 	}
@@ -510,13 +510,13 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 
 			// Determine P2SH-A address and confirm funded
 			byte[] redeemScriptA = PirateChainHTLC.buildScript(aliceForeignPublicKey, lockTimeA, tradeBotData.getTradeForeignPublicKey(), hashOfSecretA);
-			String p2shAddressA = pirateChain.deriveP2shAddress(redeemScriptA);
+			String p2shAddress = pirateChain.deriveP2shAddressBPrefix(redeemScriptA); // Use 'b' prefix when checking status
 
 			long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
 			long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 			final long minimumAmountA = tradeBotData.getForeignAmount() + p2shFee;
 
-			PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+			PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -528,7 +528,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 				case REDEEMED:
 					// We've already redeemed this?
 					TradeBot.updateTradeBotState(repository, tradeBotData, State.BOB_DONE,
-							() -> String.format("P2SH-A %s already spent? Assuming trade complete", p2shAddressA));
+							() -> String.format("P2SH-A %s already spent? Assuming trade complete", p2shAddress));
 					return;
 
 				case REFUND_IN_PROGRESS:
@@ -600,13 +600,13 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 		// Refund P2SH-A if we've passed lockTime-A
 		if (NTP.getTime() >= lockTimeA * 1000L) {
 			byte[] redeemScriptA = PirateChainHTLC.buildScript(tradeBotData.getTradeForeignPublicKey(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
-			String p2shAddressA = pirateChain.deriveP2shAddress(redeemScriptA);
+			String p2shAddress = pirateChain.deriveP2shAddressBPrefix(redeemScriptA); // Use 'b' prefix when checking status
 
 			long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
 			long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 			long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
 
-			PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+			PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -618,21 +618,21 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 				case REDEEMED:
 					// Already redeemed?
 					TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_DONE,
-							() -> String.format("P2SH-A %s already spent? Assuming trade completed", p2shAddressA));
+							() -> String.format("P2SH-A %s already spent? Assuming trade completed", p2shAddress));
 					return;
 
 				case REFUND_IN_PROGRESS:
 				case REFUNDED:
 					TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_REFUNDED,
-							() -> String.format("P2SH-A %s already refunded. Trade aborted", p2shAddressA));
+							() -> String.format("P2SH-A %s already refunded. Trade aborted", p2shAddress));
 					return;
 
 			}
 
 			TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_REFUNDING_A,
 					() -> atData.getIsFinished()
-					? String.format("AT %s cancelled. Refunding P2SH-A %s - aborting trade", tradeBotData.getAtAddress(), p2shAddressA)
-					: String.format("LockTime-A reached, refunding P2SH-A %s - aborting trade", p2shAddressA));
+					? String.format("AT %s cancelled. Refunding P2SH-A %s - aborting trade", tradeBotData.getAtAddress(), p2shAddress)
+					: String.format("LockTime-A reached, refunding P2SH-A %s - aborting trade", p2shAddress));
 
 			return;
 		}
@@ -735,7 +735,8 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 		byte[] receivingAccountInfo = tradeBotData.getReceivingAccountInfo();
 		int lockTimeA = crossChainTradeData.lockTimeA;
 		byte[] redeemScriptA = PirateChainHTLC.buildScript(crossChainTradeData.partnerForeignPKH, lockTimeA, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretA);
-		String p2shAddressA = pirateChain.deriveP2shAddress(redeemScriptA);
+		String p2shAddress = pirateChain.deriveP2shAddressBPrefix(redeemScriptA); // Use 'b' prefix when checking status
+		String p2shAddressT3 = pirateChain.deriveP2shAddress(redeemScriptA); // Use 't3' prefix when refunding
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
@@ -743,7 +744,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
 		String receivingAddress = Bech32.encode("zs", receivingAccountInfo);
 
-		PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+		PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 		switch (htlcStatusA) {
 			case UNFUNDED:
@@ -763,7 +764,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 
 			case FUNDED: {
 				// Get funding txid
-				String fundingTxidHex = PirateChainHTLC.getUnspentFundingTxid(pirateChain.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+				String fundingTxidHex = PirateChainHTLC.getUnspentFundingTxid(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 				if (fundingTxidHex == null) {
 					throw new ForeignBlockchainException("Missing funding txid when redeeming P2SH");
 				}
@@ -776,7 +777,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 				String privateKey58 = Base58.encode(privateKey);
 				String redeemScript58 = Base58.encode(redeemScriptA);
 
-				String txid = PirateChain.getInstance().redeemP2sh(tradeBotData.getForeignKey(), p2shAddressA,
+				String txid = PirateChain.getInstance().redeemP2sh(tradeBotData.getForeignKey(), p2shAddressT3,
 						receivingAddress, redeemAmount.value, redeemScript58, fundingTxid58, secret58, privateKey58);
 				LOGGER.info("Redeem txid: {}", txid);
 				break;
@@ -807,13 +808,14 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 			return;
 
 		byte[] redeemScriptA = PirateChainHTLC.buildScript(tradeBotData.getTradeForeignPublicKey(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
-		String p2shAddressA = pirateChain.deriveP2shAddress(redeemScriptA);
+		String p2shAddress = pirateChain.deriveP2shAddressBPrefix(redeemScriptA); // Use 'b' prefix when checking status
+		String p2shAddressT3 = pirateChain.deriveP2shAddress(redeemScriptA); // Use 't3' prefix when refunding
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
 		long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
-		PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+		PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 		switch (htlcStatusA) {
 			case UNFUNDED:
@@ -825,7 +827,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 			case REDEEMED:
 				// Too late!
 				TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_DONE,
-						() -> String.format("P2SH-A %s already spent!", p2shAddressA));
+						() -> String.format("P2SH-A %s already spent!", p2shAddress));
 				return;
 
 			case REFUND_IN_PROGRESS:
@@ -834,7 +836,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 
 			case FUNDED:{
 				// Get funding txid
-				String fundingTxidHex = PirateChainHTLC.getUnspentFundingTxid(pirateChain.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+				String fundingTxidHex = PirateChainHTLC.getUnspentFundingTxid(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 				if (fundingTxidHex == null) {
 					throw new ForeignBlockchainException("Missing funding txid when refunding P2SH");
 				}
@@ -846,7 +848,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 				String redeemScript58 = Base58.encode(redeemScriptA);
 				String receivingAddress = pirateChain.getWalletAddress(tradeBotData.getForeignKey());
 
-				String txid = PirateChain.getInstance().refundP2sh(tradeBotData.getForeignKey(), p2shAddressA,
+				String txid = PirateChain.getInstance().refundP2sh(tradeBotData.getForeignKey(), p2shAddressT3,
 						receivingAddress, refundAmount.value, redeemScript58, fundingTxid58, lockTimeA, privateKey58);
 				LOGGER.info("Refund txid: {}", txid);
 				break;
@@ -854,7 +856,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 		}
 
 		TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_REFUNDED,
-				() -> String.format("LockTime-A reached. Refunded P2SH-A %s. Trade aborted", p2shAddressA));
+				() -> String.format("LockTime-A reached. Refunded P2SH-A %s. Trade aborted", p2shAddress));
 	}
 
 	/**

@@ -9,7 +9,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crosschain.*;
+import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 import org.qortal.transform.TransformationException;
@@ -82,6 +84,36 @@ public class PirateChainTests extends Common {
 
 		byte[] rawTransaction = pirateChain.getBlockchainProvider().getRawTransaction(txHashBE);
 		assertNotNull(rawTransaction);
+	}
+
+	@Test
+	public void testDeriveP2SHAddressWithT3Prefix() {
+		byte[] creatorTradePrivateKey = TradeBot.generateTradePrivateKey();
+		byte[] creatorTradeForeignPublicKey = TradeBot.deriveTradeForeignPublicKey(creatorTradePrivateKey);
+		byte[] tradePrivateKey = TradeBot.generateTradePrivateKey();
+		byte[] tradeForeignPublicKey = TradeBot.deriveTradeForeignPublicKey(tradePrivateKey);
+		byte[] secretA = TradeBot.generateSecret();
+		byte[] hashOfSecretA = Crypto.hash160(secretA);
+		int lockTime = 1653233550;
+
+		byte[] redeemScriptBytes = PirateChainHTLC.buildScript(tradeForeignPublicKey, lockTime, creatorTradeForeignPublicKey, hashOfSecretA);
+		String p2shAddress = PirateChain.getInstance().deriveP2shAddress(redeemScriptBytes);
+		assertTrue(p2shAddress.startsWith("t3"));
+	}
+
+	@Test
+	public void testDeriveP2SHAddressWithBPrefix() {
+		byte[] creatorTradePrivateKey = TradeBot.generateTradePrivateKey();
+		byte[] creatorTradeForeignPublicKey = TradeBot.deriveTradeForeignPublicKey(creatorTradePrivateKey);
+		byte[] tradePrivateKey = TradeBot.generateTradePrivateKey();
+		byte[] tradeForeignPublicKey = TradeBot.deriveTradeForeignPublicKey(tradePrivateKey);
+		byte[] secretA = TradeBot.generateSecret();
+		byte[] hashOfSecretA = Crypto.hash160(secretA);
+		int lockTime = 1653233550;
+
+		byte[] redeemScriptBytes = PirateChainHTLC.buildScript(tradeForeignPublicKey, lockTime, creatorTradeForeignPublicKey, hashOfSecretA);
+		String p2shAddress = PirateChain.getInstance().deriveP2shAddressBPrefix(redeemScriptBytes);
+		assertTrue(p2shAddress.startsWith("b"));
 	}
 
 	@Test

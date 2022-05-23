@@ -299,7 +299,7 @@ public class TradeBot implements Listener {
 		return ECKey.fromPrivate(privateKey).getPubKey();
 	}
 
-	/*package*/ static byte[] generateSecret() {
+	/*package*/ public static byte[] generateSecret() {
 		byte[] secret = new byte[32];
 		RANDOM.nextBytes(secret);
 		return secret;
