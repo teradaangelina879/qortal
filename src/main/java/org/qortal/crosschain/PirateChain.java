@@ -236,6 +236,13 @@ public class PirateChain extends Bitcoiny {
 		}
 	}
 
+	@Override
+	public boolean isValidWalletKey(String walletKey) {
+		// For Pirate Chain, we only care that the key is a random string
+		// 32 characters in length, as it is used as entropy for the seed.
+		return walletKey != null && Base58.decode(walletKey).length == 32;
+	}
+
 	/** Returns P2SH address using passed redeem script. */
 	public String deriveP2shAddress(byte[] redeemScriptBytes) {
 		Context.propagate(bitcoinjContext);
