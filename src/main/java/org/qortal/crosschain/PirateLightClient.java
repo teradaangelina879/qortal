@@ -591,7 +591,7 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 				LOGGER.debug(() -> String.format("Connected to %s", server));
 				this.currentServer = server;
 				return true;
-			} catch (RuntimeException e) {
+			} catch (Exception e) {
 				// Didn't work, try another server...
 				closeServer();
 			}
