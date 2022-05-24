@@ -18,6 +18,7 @@ import org.qortal.transform.TransformationException;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import static org.qortal.crosschain.PirateChain.DEFAULT_BIRTHDAY;
 
@@ -563,7 +564,7 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 
 	/** Returns true if we have, or create, a connection to an ElectrumX server. */
 	private boolean haveConnection() throws ForeignBlockchainException {
-		if (this.currentServer != null)
+		if (this.currentServer != null && this.channel != null && !this.channel.isShutdown())
 			return true;
 
 		while (!this.remainingServers.isEmpty()) {
@@ -605,11 +606,33 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 	 */
 	private void closeServer(Server server) {
 		synchronized (this.serverLock) {
-			if (this.currentServer == null || !this.currentServer.equals(server))
+			if (this.currentServer == null || !this.currentServer.equals(server) || this.channel == null) {
 				return;
+			}
 
-			if (this.channel != null && !this.channel.isShutdown())
-				this.channel.shutdown();
+			// Close the gRPC managed-channel if not shut down already.
+			if (!this.channel.isShutdown()) {
+				try {
+					this.channel.shutdown();
+					if (!this.channel.awaitTermination(10, TimeUnit.SECONDS)) {
+						LOGGER.warn("Timed out gracefully shutting down connection: {}. ", this.channel);
+					}
+				} catch (Exception e) {
+					LOGGER.error("Unexpected exception while waiting for channel termination", e);
+				}
+			}
+
+			// Forceful shut down if still not terminated.
+			if (!this.channel.isTerminated()) {
+				try {
+					this.channel.shutdownNow();
+					if (!this.channel.awaitTermination(15, TimeUnit.SECONDS)) {
+						LOGGER.warn("Timed out forcefully shutting down connection: {}. ", this.channel);
+					}
+				} catch (Exception e) {
+					LOGGER.error("Unexpected exception while waiting for channel termination", e);
+				}
+			}
 
 			this.channel = null;
 			this.currentServer = null;
