@@ -1,4 +1,4 @@
-npackage org.qortal.controller.tradebot;
+package org.qortal.controller.tradebot;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
