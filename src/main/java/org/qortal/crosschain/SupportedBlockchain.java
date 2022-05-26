@@ -13,8 +13,8 @@ import org.qortal.utils.Triple;
 public enum SupportedBlockchain {
 
 	BITCOIN(Arrays.asList(
-				Triple.valueOf(BitcoinACCTv1.NAME, BitcoinACCTv1.CODE_BYTES_HASH, BitcoinACCTv1::getInstance)
-				// Could add improved BitcoinACCTv2 here in the future
+				Triple.valueOf(BitcoinACCTv1.NAME, BitcoinACCTv1.CODE_BYTES_HASH, BitcoinACCTv1::getInstance),
+				Triple.valueOf(BitcoinACCTv3.NAME, BitcoinACCTv3.CODE_BYTES_HASH, BitcoinACCTv3::getInstance)
 			)) {
 		@Override
 		public ForeignBlockchain getInstance() {
@@ -23,7 +23,7 @@ public enum SupportedBlockchain {
 
 		@Override
 		public ACCT getLatestAcct() {
-			return BitcoinACCTv1.getInstance();
+			return BitcoinACCTv3.getInstance();
 		}
 	},
 
