@@ -739,6 +739,10 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		} catch (IOException | NoSuchElementException e) {
 			// Unable to send, or receive -- try another server?
 			return null;
+		} catch (NoSuchMethodError e) {
+			// Likely an SSL dependency issue - retries are unlikely to succeed
+			LOGGER.error("ElectrumX output stream error", e);
+			return null;
 		}
 
 		long endTime = System.currentTimeMillis();
