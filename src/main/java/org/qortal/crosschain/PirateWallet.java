@@ -24,11 +24,14 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Objects;
 
+import static org.qortal.crosschain.PirateChain.DEFAULT_BIRTHDAY;
+
 public class PirateWallet {
 
     protected static final Logger LOGGER = LogManager.getLogger(PirateWallet.class);
 
     private byte[] entropyBytes;
+    private final boolean isDisposable;
     private String seedPhrase;
     private boolean ready = false;
 
@@ -36,13 +39,14 @@ public class PirateWallet {
     private final String saplingOutput64;
     private final String saplingSpend64;
 
-    private static String SERVER_URI = "https://lightd.pirate.black:443/";
-    private static String COIN_PARAMS_RESOURCE = "piratechain/coinparams.json";
-    private static String SAPLING_OUTPUT_RESOURCE = "piratechain/saplingoutput_base64";
-    private static String SAPLING_SPEND_RESOURCE = "piratechain/saplingspend_base64";
+    private final static String SERVER_URI = "https://lightd.pirate.black:443/";
+    private final static String COIN_PARAMS_RESOURCE = "piratechain/coinparams.json";
+    private final static String SAPLING_OUTPUT_RESOURCE = "piratechain/saplingoutput_base64";
+    private final static String SAPLING_SPEND_RESOURCE = "piratechain/saplingspend_base64";
 
-    public PirateWallet(byte[] entropyBytes) throws IOException {
+    public PirateWallet(byte[] entropyBytes, boolean isDisposable) throws IOException {
         this.entropyBytes = entropyBytes;
+        this.isDisposable = isDisposable;
 
         final URL paramsUrl = Resources.getResource(COIN_PARAMS_RESOURCE);
         this.params = Resources.toString(paramsUrl, StandardCharsets.UTF_8);
@@ -60,6 +64,17 @@ public class PirateWallet {
         try {
             LiteWalletJni.initlogging();
 
+            if (this.entropyBytes == null) {
+                if (this.isDisposable) {
+                    // Generate disposable wallet
+                    this.entropyBytes = new byte[32];
+                }
+                else {
+                    // Need entropy bytes for a non disposable wallet
+                    return false;
+                }
+            }
+
             // Pirate library uses base64 encoding
             String entropy64 = Base64.toBase64String(this.entropyBytes);
 
@@ -75,8 +90,20 @@ public class PirateWallet {
             if (wallet == null) {
                 // Wallet doesn't exist, so create a new one
 
+                int birthday = DEFAULT_BIRTHDAY;
+                if (this.isDisposable) {
+                    try {
+                        // Attempt to set birthday to the current block for disposable wallets
+                        birthday = PirateChain.getInstance().blockchainProvider.getCurrentHeight();
+                    }
+                    catch (ForeignBlockchainException e) {
+                        // Use the default height
+                    }
+                }
+
                 // Initialize new wallet
-                String outputSeedResponse = LiteWalletJni.initfromseed(SERVER_URI, this.params, inputSeedPhrase, "1886500", this.saplingOutput64, this.saplingSpend64); // Thread-safe.
+                String birthdayString = String.format("%d", birthday);
+                String outputSeedResponse = LiteWalletJni.initfromseed(SERVER_URI, this.params, inputSeedPhrase, birthdayString, this.saplingOutput64, this.saplingSpend64); // Thread-safe.
                 JSONObject outputSeedJson =  new JSONObject(outputSeedResponse);
                 String outputSeedPhrase = null;
                 if (outputSeedJson.has("seed")) {
@@ -170,6 +197,10 @@ public class PirateWallet {
             LOGGER.info("Error: can't save wallet, because no wallet it initialized");
             return false;
         }
+        if (this.isDisposable) {
+            LOGGER.info("Error: can't save disposable wallet");
+            return false;
+        }
 
         // Encrypt first (will do nothing if already encrypted)
         this.encrypt();
@@ -198,6 +229,10 @@ public class PirateWallet {
     }
 
     public String load() throws IOException {
+        if (this.isDisposable) {
+            // Can't load disposable wallets
+            return null;
+        }
         Path walletPath = this.getCurrentWalletPath();
         if (!Files.exists(walletPath)) {
             return null;
@@ -284,6 +319,10 @@ public class PirateWallet {
             return json.getInt("latest_block_height");
         }
         return null;
+    }
+
+    public boolean isDisposable() {
+        return this.isDisposable;
     }
 
     public Boolean isEncrypted() {

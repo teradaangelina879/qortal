@@ -105,8 +105,9 @@ public class PirateChainWalletController extends Thread {
         }
 
         try {
-            this.currentWallet = new PirateWallet(entropyBytes);
-            if (!this.currentWallet.isReady()) {
+            this.currentWallet = new PirateWallet(entropyBytes, false);
+            if (!this.currentWallet.isReady() || this.currentWallet.isDisposable()) {
+                // Don't persist wallets that aren't ready or are disposable
                 this.currentWallet = null;
             }
             return true;
@@ -115,6 +116,16 @@ public class PirateChainWalletController extends Thread {
         }
 
         return false;
+    }
+
+    public PirateWallet switchToDisposableWallet() {
+        try {
+            this.currentWallet = null;
+            return new PirateWallet(null, true);
+
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     private void saveCurrentWallet() {
@@ -146,6 +157,13 @@ public class PirateChainWalletController extends Thread {
     public void ensureInitialized() throws ForeignBlockchainException {
         if (this.currentWallet == null || !this.currentWallet.isInitialized()) {
             throw new ForeignBlockchainException("Unable to initialize Pirate wallet");
+        }
+    }
+
+    public void ensureNotDisposable() throws ForeignBlockchainException {
+        // Safety check to make sure funds aren't sent to a disposable wallet
+        if (this.currentWallet == null || this.currentWallet.isDisposable()) {
+            throw new ForeignBlockchainException("Invalid wallet");
         }
     }
 

@@ -263,6 +263,7 @@ public class PirateChain extends Bitcoiny {
 			walletController.initWithEntropy58(entropy58);
 			walletController.ensureInitialized();
 			walletController.ensureSynchronized();
+			walletController.ensureNotDisposable();
 
 			// Get balance
 			String response = LiteWalletJni.execute("balance", "");
@@ -281,6 +282,7 @@ public class PirateChain extends Bitcoiny {
 			walletController.initWithEntropy58(entropy58);
 			walletController.ensureInitialized();
 			walletController.ensureSynchronized();
+			walletController.ensureNotDisposable();
 
 			List<SimpleTransaction> transactions = new ArrayList<>();
 
@@ -330,6 +332,7 @@ public class PirateChain extends Bitcoiny {
 			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
 			walletController.initWithEntropy58(entropy58);
 			walletController.ensureInitialized();
+			walletController.ensureNotDisposable();
 
 			return walletController.getCurrentWallet().getWalletAddress();
 		}
@@ -340,6 +343,7 @@ public class PirateChain extends Bitcoiny {
 		walletController.initWithEntropy58(pirateChainSendRequest.entropy58);
 		walletController.ensureInitialized();
 		walletController.ensureSynchronized();
+		walletController.ensureNotDisposable();
 
 		// Unlock wallet
 		walletController.getCurrentWallet().unlock();
@@ -386,6 +390,7 @@ public class PirateChain extends Bitcoiny {
 		walletController.initWithEntropy58(entropy58);
 		walletController.ensureInitialized();
 		walletController.ensureSynchronized();
+		walletController.ensureNotDisposable();
 
 		// Unlock wallet
 		walletController.getCurrentWallet().unlock();
@@ -426,16 +431,13 @@ public class PirateChain extends Bitcoiny {
 		throw new ForeignBlockchainException("Something went wrong");
 	}
 
-	public String redeemP2sh(String entropy58, String p2shAddress, String receivingAddress, long amount, String redeemScript58,
+	public String redeemP2sh(String p2shAddress, String receivingAddress, long amount, String redeemScript58,
 							 String fundingTxid58, String secret58, String privateKey58) throws ForeignBlockchainException {
 
-		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
-		walletController.initWithEntropy58(entropy58);
-		walletController.ensureInitialized();
-		walletController.ensureSynchronized();
-
-		// Unlock wallet
-		walletController.getCurrentWallet().unlock();
+		PirateWallet wallet = PirateChainWalletController.getInstance().switchToDisposableWallet();
+		if (wallet == null) {
+			throw new ForeignBlockchainException("Unable to initialize disposable Pirate Chain wallet");
+		}
 
 		// Build spend
 		JSONObject txn = new JSONObject();
@@ -478,16 +480,13 @@ public class PirateChain extends Bitcoiny {
 		throw new ForeignBlockchainException("Something went wrong");
 	}
 
-	public String refundP2sh(String entropy58, String p2shAddress, String receivingAddress, long amount, String redeemScript58,
+	public String refundP2sh(String p2shAddress, String receivingAddress, long amount, String redeemScript58,
 							 String fundingTxid58, int lockTime, String privateKey58) throws ForeignBlockchainException {
 
-		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
-		walletController.initWithEntropy58(entropy58);
-		walletController.ensureInitialized();
-		walletController.ensureSynchronized();
-
-		// Unlock wallet
-		walletController.getCurrentWallet().unlock();
+		PirateWallet wallet = PirateChainWalletController.getInstance().switchToDisposableWallet();
+		if (wallet == null) {
+			throw new ForeignBlockchainException("Unable to initialize disposable Pirate Chain wallet");
+		}
 
 		// Build spend
 		JSONObject txn = new JSONObject();

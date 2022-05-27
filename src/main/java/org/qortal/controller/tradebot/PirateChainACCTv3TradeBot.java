@@ -777,8 +777,8 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 				String privateKey58 = Base58.encode(privateKey);
 				String redeemScript58 = Base58.encode(redeemScriptA);
 
-				String txid = PirateChain.getInstance().redeemP2sh(tradeBotData.getForeignKey(), p2shAddressT3,
-						receivingAddress, redeemAmount.value, redeemScript58, fundingTxid58, secret58, privateKey58);
+				String txid = PirateChain.getInstance().redeemP2sh(p2shAddressT3, receivingAddress, redeemAmount.value,
+						redeemScript58, fundingTxid58, secret58, privateKey58);
 				LOGGER.info("Redeem txid: {}", txid);
 				break;
 			}
@@ -848,7 +848,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 				String redeemScript58 = Base58.encode(redeemScriptA);
 				String receivingAddress = pirateChain.getWalletAddress(tradeBotData.getForeignKey());
 
-				String txid = PirateChain.getInstance().refundP2sh(tradeBotData.getForeignKey(), p2shAddressT3,
+				String txid = PirateChain.getInstance().refundP2sh(p2shAddressT3,
 						receivingAddress, refundAmount.value, redeemScript58, fundingTxid58, lockTimeA, privateKey58);
 				LOGGER.info("Refund txid: {}", txid);
 				break;
