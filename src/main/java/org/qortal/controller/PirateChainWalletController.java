@@ -40,6 +40,8 @@ public class PirateChainWalletController extends Thread {
     public void run() {
         Thread.currentThread().setName("Pirate Chain Wallet Controller");
 
+        LiteWalletJni.loadLibrary();
+
         try {
             while (running && !Controller.isStopping()) {
                 Thread.sleep(1000);
@@ -155,8 +157,8 @@ public class PirateChainWalletController extends Thread {
     }
 
     public void ensureInitialized() throws ForeignBlockchainException {
-        if (this.currentWallet == null || !this.currentWallet.isInitialized()) {
-            throw new ForeignBlockchainException("Unable to initialize Pirate wallet");
+        if (!LiteWalletJni.isLoaded() || this.currentWallet == null || !this.currentWallet.isInitialized()) {
+            throw new ForeignBlockchainException("Pirate wallet isn't initialized yet");
         }
     }
 

@@ -42,8 +42,12 @@
 
 package com.rust.litewalletjni;
 
-public class LiteWalletJni
-{
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+public class LiteWalletJni {
+
+    protected static final Logger LOGGER = LogManager.getLogger(LiteWalletJni.class);
 
     public static native String initlogging();
     public static native String initnew(final String serveruri, final String params, final String saplingOutputb64, final String saplingSpendb64);
@@ -57,8 +61,42 @@ public class LiteWalletJni
     public static native String checkseedphrase(final String input);
 
 
-    static {
-        System.loadLibrary("litewallet-jni");
+    private static boolean loaded = false;
+
+    public static void loadLibrary() {
+        if (loaded) {
+            return;
+        }
+        String osName = System.getProperty("os.name");
+        String osArchitecture = System.getProperty("os.arch");
+
+        LOGGER.info("OS Name: {}", osName);
+        LOGGER.info("OS Architecture: {}", osArchitecture);
+
+        try {
+            String libPath;
+
+            if (osName.equals("Mac OS X") && osArchitecture.equals("x86_64")) {
+                libPath = "librust.dylib";
+            }
+            else if (osName.equals("Linux") && osArchitecture.equals("arm")) {
+                libPath = "/home/pi/librust.so";
+            }
+            else {
+                LOGGER.info("Library not found for OS: {}, arch: {}", osName, osArchitecture);
+                return;
+            }
+
+            System.load(libPath);
+            loaded = true;
+        }
+        catch (UnsatisfiedLinkError e) {
+            LOGGER.info("Unable to load library");
+        }
+    }
+
+    public static boolean isLoaded() {
+        return loaded;
     }
 
 }
