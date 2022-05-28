@@ -106,8 +106,8 @@ public class PirateChainWalletController extends Thread {
 
         try {
             this.currentWallet = new PirateWallet(entropyBytes, false);
-            if (!this.currentWallet.isReady() || this.currentWallet.isDisposable()) {
-                // Don't persist wallets that aren't ready or are disposable
+            if (!this.currentWallet.isReady() || this.currentWallet.hasNullSeed()) {
+                // Don't persist wallets that aren't ready or are null seed
                 this.currentWallet = null;
             }
             return true;
@@ -118,7 +118,7 @@ public class PirateChainWalletController extends Thread {
         return false;
     }
 
-    public PirateWallet switchToDisposableWallet() {
+    public PirateWallet switchToNullWallet() {
         try {
             this.currentWallet = null;
             return new PirateWallet(null, true);
@@ -160,9 +160,9 @@ public class PirateChainWalletController extends Thread {
         }
     }
 
-    public void ensureNotDisposable() throws ForeignBlockchainException {
-        // Safety check to make sure funds aren't sent to a disposable wallet
-        if (this.currentWallet == null || this.currentWallet.isDisposable()) {
+    public void ensureNotNullSeed() throws ForeignBlockchainException {
+        // Safety check to make sure funds aren't sent to a null seed wallet
+        if (this.currentWallet == null || this.currentWallet.hasNullSeed()) {
             throw new ForeignBlockchainException("Invalid wallet");
         }
     }

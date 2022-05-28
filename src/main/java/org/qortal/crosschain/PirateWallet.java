@@ -31,7 +31,7 @@ public class PirateWallet {
     protected static final Logger LOGGER = LogManager.getLogger(PirateWallet.class);
 
     private byte[] entropyBytes;
-    private final boolean isDisposable;
+    private final boolean isNullSeedWallet;
     private String seedPhrase;
     private boolean ready = false;
 
@@ -44,9 +44,9 @@ public class PirateWallet {
     private final static String SAPLING_OUTPUT_RESOURCE = "piratechain/saplingoutput_base64";
     private final static String SAPLING_SPEND_RESOURCE = "piratechain/saplingspend_base64";
 
-    public PirateWallet(byte[] entropyBytes, boolean isDisposable) throws IOException {
+    public PirateWallet(byte[] entropyBytes, boolean isNullSeedWallet) throws IOException {
         this.entropyBytes = entropyBytes;
-        this.isDisposable = isDisposable;
+        this.isNullSeedWallet = isNullSeedWallet;
 
         final URL paramsUrl = Resources.getResource(COIN_PARAMS_RESOURCE);
         this.params = Resources.toString(paramsUrl, StandardCharsets.UTF_8);
@@ -65,12 +65,12 @@ public class PirateWallet {
             LiteWalletJni.initlogging();
 
             if (this.entropyBytes == null) {
-                if (this.isDisposable) {
-                    // Generate disposable wallet
+                if (this.isNullSeedWallet) {
+                    // Use null seed
                     this.entropyBytes = new byte[32];
                 }
                 else {
-                    // Need entropy bytes for a non disposable wallet
+                    // Need entropy bytes for a non-null seed wallet
                     return false;
                 }
             }
@@ -91,9 +91,9 @@ public class PirateWallet {
                 // Wallet doesn't exist, so create a new one
 
                 int birthday = DEFAULT_BIRTHDAY;
-                if (this.isDisposable) {
+                if (this.isNullSeedWallet) {
                     try {
-                        // Attempt to set birthday to the current block for disposable wallets
+                        // Attempt to set birthday to the current block for null wallets
                         birthday = PirateChain.getInstance().blockchainProvider.getCurrentHeight();
                     }
                     catch (ForeignBlockchainException e) {
@@ -197,8 +197,8 @@ public class PirateWallet {
             LOGGER.info("Error: can't save wallet, because no wallet it initialized");
             return false;
         }
-        if (this.isDisposable) {
-            LOGGER.info("Error: can't save disposable wallet");
+        if (this.isNullSeedWallet) {
+            LOGGER.info("Error: can't save null wallet");
             return false;
         }
 
@@ -229,8 +229,8 @@ public class PirateWallet {
     }
 
     public String load() throws IOException {
-        if (this.isDisposable) {
-            // Can't load disposable wallets
+        if (this.isNullSeedWallet) {
+            // Can't load null seed wallets
             return null;
         }
         Path walletPath = this.getCurrentWalletPath();
@@ -321,8 +321,8 @@ public class PirateWallet {
         return null;
     }
 
-    public boolean isDisposable() {
-        return this.isDisposable;
+    public boolean hasNullSeed() {
+        return this.isNullSeedWallet;
     }
 
     public Boolean isEncrypted() {
