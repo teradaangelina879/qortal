@@ -80,4 +80,30 @@ public class TransactionReferenceTests extends Common {
         }
     }
 
+    @Test
+    public void testNullReferenceAfterFeatureTrigger() throws DataException {
+        Common.useSettings("test-settings-v2-disable-reference.json");
+        Random random = new Random();
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+
+            byte[] randomPrivateKey = new byte[32];
+            random.nextBytes(randomPrivateKey);
+            PrivateKeyAccount recipient = new PrivateKeyAccount(repository, randomPrivateKey);
+
+            // Create payment transaction data
+            TransactionData paymentTransactionData = new PaymentTransactionData(TestTransaction.generateBase(alice), recipient.getAddress(), 100000L);
+
+            // Set null reference
+            paymentTransactionData.setReference(null);
+
+            Transaction paymentTransaction = Transaction.fromData(repository, paymentTransactionData);
+
+            // Transaction should be invalid, as we require a non-null reference
+            Transaction.ValidationResult validationResult = paymentTransaction.isValidUnconfirmed();
+            assertEquals(Transaction.ValidationResult.INVALID_REFERENCE, validationResult);
+        }
+    }
+
 }

@@ -90,7 +90,8 @@ public class ArbitraryTransaction extends Transaction {
 
 		// Disable reference checking after feature trigger timestamp
 		if (this.arbitraryTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
-			return true;
+			// Allow any non-null value
+			return this.arbitraryTransactionData.getReference() != null;
 		}
 
 		if (this.arbitraryTransactionData.getReference() == null) {

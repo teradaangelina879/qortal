@@ -78,7 +78,8 @@ public class AtTransaction extends Transaction {
 	public boolean hasValidReference() throws DataException {
 		// Disable reference checking after feature trigger timestamp
 		if (this.atTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
-			return true;
+			// Allow any non-null value
+			return this.atTransactionData.getReference() != null;
 		}
 
 		// Check reference is correct, using AT account, not transaction creator which is null account

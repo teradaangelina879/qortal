@@ -167,7 +167,8 @@ public class MessageTransaction extends Transaction {
 
 		// Disable reference checking after feature trigger timestamp
 		if (this.messageTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
-			return true;
+			// Allow any non-null value
+			return this.messageTransactionData.getReference() != null;
 		}
 
 		if (this.messageTransactionData.getReference() == null)
