@@ -122,16 +122,43 @@ public class TransactionReferenceTests extends Common {
             TransactionData paymentTransactionData = new PaymentTransactionData(TestTransaction.generateBase(alice), recipient.getAddress(), 100000L);
 
             // Set a 1-byte reference
-            byte[] randomByte = new byte[1];
+            byte[] randomByte = new byte[63];
             random.nextBytes(randomByte);
             paymentTransactionData.setReference(randomByte);
 
             Transaction paymentTransaction = Transaction.fromData(repository, paymentTransactionData);
 
-            // Transaction should be valid, as any non-null value is allowed
+            // Transaction should be invalid, as reference isn't long enough
             Transaction.ValidationResult validationResult = paymentTransaction.isValidUnconfirmed();
-            assertEquals(Transaction.ValidationResult.OK, validationResult);
-            TransactionUtils.signAndImportValid(repository, paymentTransactionData, alice);
+            assertEquals(Transaction.ValidationResult.INVALID_REFERENCE, validationResult);
+        }
+    }
+
+    @Test
+    public void testLongReferenceAfterFeatureTrigger() throws DataException {
+        Common.useSettings("test-settings-v2-disable-reference.json");
+        Random random = new Random();
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+
+            byte[] randomPrivateKey = new byte[32];
+            random.nextBytes(randomPrivateKey);
+            PrivateKeyAccount recipient = new PrivateKeyAccount(repository, randomPrivateKey);
+
+            // Create payment transaction data
+            TransactionData paymentTransactionData = new PaymentTransactionData(TestTransaction.generateBase(alice), recipient.getAddress(), 100000L);
+
+            // Set a 1-byte reference
+            byte[] randomByte = new byte[65];
+            random.nextBytes(randomByte);
+            paymentTransactionData.setReference(randomByte);
+
+            Transaction paymentTransaction = Transaction.fromData(repository, paymentTransactionData);
+
+            // Transaction should be invalid, as reference is too long
+            Transaction.ValidationResult validationResult = paymentTransaction.isValidUnconfirmed();
+            assertEquals(Transaction.ValidationResult.INVALID_REFERENCE, validationResult);
         }
     }
 

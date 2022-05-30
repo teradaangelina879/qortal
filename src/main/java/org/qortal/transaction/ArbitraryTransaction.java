@@ -20,6 +20,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.transform.TransformationException;
+import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.ArbitraryTransactionUtils;
@@ -90,8 +91,9 @@ public class ArbitraryTransaction extends Transaction {
 
 		// Disable reference checking after feature trigger timestamp
 		if (this.arbitraryTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
-			// Allow any non-null value
-			return this.arbitraryTransactionData.getReference() != null;
+			// Allow any value as long as it is the correct length
+			return this.arbitraryTransactionData.getReference() != null &&
+					this.arbitraryTransactionData.getReference().length == Transformer.SIGNATURE_LENGTH;
 		}
 
 		if (this.arbitraryTransactionData.getReference() == null) {

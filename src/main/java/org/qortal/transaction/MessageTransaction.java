@@ -21,6 +21,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
 import org.qortal.transform.TransformationException;
+import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.MessageTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
@@ -167,8 +168,9 @@ public class MessageTransaction extends Transaction {
 
 		// Disable reference checking after feature trigger timestamp
 		if (this.messageTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
-			// Allow any non-null value
-			return this.messageTransactionData.getReference() != null;
+			// Allow any value as long as it is the correct length
+			return this.messageTransactionData.getReference() != null &&
+					this.messageTransactionData.getReference().length == Transformer.SIGNATURE_LENGTH;
 		}
 
 		if (this.messageTransactionData.getReference() == null)

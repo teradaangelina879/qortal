@@ -13,6 +13,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transform.TransformationException;
+import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.AtTransactionTransformer;
 import org.qortal.utils.Amounts;
 
@@ -78,8 +79,9 @@ public class AtTransaction extends Transaction {
 	public boolean hasValidReference() throws DataException {
 		// Disable reference checking after feature trigger timestamp
 		if (this.atTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
-			// Allow any non-null value
-			return this.atTransactionData.getReference() != null;
+			// Allow any value as long as it is the correct length
+			return this.atTransactionData.getReference() != null &&
+					this.atTransactionData.getReference().length == Transformer.SIGNATURE_LENGTH;
 		}
 
 		// Check reference is correct, using AT account, not transaction creator which is null account
