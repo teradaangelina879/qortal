@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.qortal.account.Account;
+import org.qortal.block.BlockChain;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.crypto.Crypto;
@@ -86,6 +87,12 @@ public class ArbitraryTransaction extends Transaction {
 	@Override
 	public boolean hasValidReference() throws DataException {
 		// We shouldn't really get this far, but just in case:
+
+		// Disable reference checking after feature trigger timestamp
+		if (this.arbitraryTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
+			return true;
+		}
+
 		if (this.arbitraryTransactionData.getReference() == null) {
 			return false;
 		}

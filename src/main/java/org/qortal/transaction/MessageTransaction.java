@@ -8,6 +8,7 @@ import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
@@ -163,6 +164,12 @@ public class MessageTransaction extends Transaction {
 	@Override
 	public boolean hasValidReference() throws DataException {
 		// We shouldn't really get this far, but just in case:
+
+		// Disable reference checking after feature trigger timestamp
+		if (this.messageTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
+			return true;
+		}
+
 		if (this.messageTransactionData.getReference() == null)
 			return false;
 

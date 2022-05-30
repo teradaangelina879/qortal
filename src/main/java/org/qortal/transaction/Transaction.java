@@ -905,6 +905,11 @@ public abstract class Transaction {
 	 * @throws DataException
 	 */
 	public boolean hasValidReference() throws DataException {
+		// Disable reference checking after feature trigger timestamp
+		if (this.transactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
+			return true;
+		}
+
 		Account creator = getCreator();
 
 		return Arrays.equals(transactionData.getReference(), creator.getLastReference());

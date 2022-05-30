@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
+import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.asset.AssetData;
 import org.qortal.data.transaction.ATTransactionData;
@@ -75,6 +76,11 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public boolean hasValidReference() throws DataException {
+		// Disable reference checking after feature trigger timestamp
+		if (this.atTransactionData.getTimestamp() >= BlockChain.getInstance().getDisableReferenceTimestamp()) {
+			return true;
+		}
+
 		// Check reference is correct, using AT account, not transaction creator which is null account
 		Account atAccount = getATAccount();
 		return Arrays.equals(atAccount.getLastReference(), atTransactionData.getReference());
