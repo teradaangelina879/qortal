@@ -8,6 +8,9 @@ import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
 public enum MessageType {
+    // Pseudo-message, not sent over the wire
+    UNSUPPORTED(-1, UnsupportedMessage::fromByteBuffer),
+
     // Handshaking
     HELLO(0, HelloMessage::fromByteBuffer),
     GOODBYE(1, GoodbyeMessage::fromByteBuffer),
