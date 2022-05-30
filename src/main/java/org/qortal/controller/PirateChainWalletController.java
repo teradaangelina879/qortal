@@ -170,6 +170,10 @@ public class PirateChainWalletController extends Thread {
     }
 
     public void ensureSynchronized() throws ForeignBlockchainException {
+        if (this.currentWallet == null || !this.currentWallet.isSynchronized()) {
+            throw new ForeignBlockchainException("Wallet isn't synchronized yet");
+        }
+
         String response = LiteWalletJni.execute("syncStatus", "");
         JSONObject json = new JSONObject(response);
         if (json.has("syncing")) {
