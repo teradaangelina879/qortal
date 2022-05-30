@@ -65,14 +65,7 @@ public class PirateWallet {
             LiteWalletJni.initlogging();
 
             if (this.entropyBytes == null) {
-                if (this.isNullSeedWallet) {
-                    // Use null seed
-                    this.entropyBytes = new byte[32];
-                }
-                else {
-                    // Need entropy bytes for a non-null seed wallet
-                    return false;
-                }
+                return false;
             }
 
             // Pirate library uses base64 encoding
@@ -93,7 +86,7 @@ public class PirateWallet {
                 int birthday = DEFAULT_BIRTHDAY;
                 if (this.isNullSeedWallet) {
                     try {
-                        // Attempt to set birthday to the current block for null wallets
+                        // Attempt to set birthday to the current block for null seed wallets
                         birthday = PirateChain.getInstance().blockchainProvider.getCurrentHeight();
                     }
                     catch (ForeignBlockchainException e) {
@@ -197,10 +190,6 @@ public class PirateWallet {
             LOGGER.info("Error: can't save wallet, because no wallet it initialized");
             return false;
         }
-        if (this.isNullSeedWallet) {
-            LOGGER.info("Error: can't save null wallet");
-            return false;
-        }
 
         // Encrypt first (will do nothing if already encrypted)
         this.encrypt();
@@ -229,10 +218,6 @@ public class PirateWallet {
     }
 
     public String load() throws IOException {
-        if (this.isNullSeedWallet) {
-            // Can't load null seed wallets
-            return null;
-        }
         Path walletPath = this.getCurrentWalletPath();
         if (!Files.exists(walletPath)) {
             return null;
@@ -321,7 +306,7 @@ public class PirateWallet {
         return null;
     }
 
-    public boolean hasNullSeed() {
+    public boolean isNullSeedWallet() {
         return this.isNullSeedWallet;
     }
 

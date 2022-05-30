@@ -434,10 +434,13 @@ public class PirateChain extends Bitcoiny {
 	public String redeemP2sh(String p2shAddress, String receivingAddress, long amount, String redeemScript58,
 							 String fundingTxid58, String secret58, String privateKey58) throws ForeignBlockchainException {
 
-		PirateWallet wallet = PirateChainWalletController.getInstance().switchToNullWallet();
-		if (wallet == null) {
-			throw new ForeignBlockchainException("Unable to initialize null seed Pirate Chain wallet");
-		}
+		// Use null seed wallet since we may not have the entropy bytes for a real wallet's seed
+		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+		walletController.initNullSeedWallet();
+		walletController.ensureInitialized();
+		walletController.ensureSynchronized();
+
+		walletController.getCurrentWallet().unlock();
 
 		// Build spend
 		JSONObject txn = new JSONObject();
@@ -483,10 +486,13 @@ public class PirateChain extends Bitcoiny {
 	public String refundP2sh(String p2shAddress, String receivingAddress, long amount, String redeemScript58,
 							 String fundingTxid58, int lockTime, String privateKey58) throws ForeignBlockchainException {
 
-		PirateWallet wallet = PirateChainWalletController.getInstance().switchToNullWallet();
-		if (wallet == null) {
-			throw new ForeignBlockchainException("Unable to initialize null seed Pirate Chain wallet");
-		}
+		// Use null seed wallet since we may not have the entropy bytes for a real wallet's seed
+		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+		walletController.initNullSeedWallet();
+		walletController.ensureInitialized();
+		walletController.ensureSynchronized();
+
+		walletController.getCurrentWallet().unlock();
 
 		// Build spend
 		JSONObject txn = new JSONObject();

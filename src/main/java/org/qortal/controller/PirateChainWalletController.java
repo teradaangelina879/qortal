@@ -87,7 +87,15 @@ public class PirateChainWalletController extends Thread {
     }
 
 
-    public boolean initWithEntropy58(String entropy58) throws ForeignBlockchainException {
+    public boolean initWithEntropy58(String entropy58) {
+        return this.initWithEntropy58(entropy58, false);
+    }
+
+    public boolean initNullSeedWallet() {
+        return this.initWithEntropy58(Base58.encode(new byte[32]), true);
+    }
+
+    private boolean initWithEntropy58(String entropy58, boolean isNullSeedWallet) {
         byte[] entropyBytes = Base58.decode(entropy58);
 
         if (entropyBytes == null || entropyBytes.length != 32) {
@@ -107,9 +115,9 @@ public class PirateChainWalletController extends Thread {
         }
 
         try {
-            this.currentWallet = new PirateWallet(entropyBytes, false);
-            if (!this.currentWallet.isReady() || this.currentWallet.hasNullSeed()) {
-                // Don't persist wallets that aren't ready or are null seed
+            this.currentWallet = new PirateWallet(entropyBytes, isNullSeedWallet);
+            if (!this.currentWallet.isReady()) {
+                // Don't persist wallets that aren't ready
                 this.currentWallet = null;
             }
             return true;
@@ -118,16 +126,6 @@ public class PirateChainWalletController extends Thread {
         }
 
         return false;
-    }
-
-    public PirateWallet switchToNullWallet() {
-        try {
-            this.currentWallet = null;
-            return new PirateWallet(null, true);
-
-        } catch (IOException e) {
-            return null;
-        }
     }
 
     private void saveCurrentWallet() {
@@ -164,7 +162,7 @@ public class PirateChainWalletController extends Thread {
 
     public void ensureNotNullSeed() throws ForeignBlockchainException {
         // Safety check to make sure funds aren't sent to a null seed wallet
-        if (this.currentWallet == null || this.currentWallet.hasNullSeed()) {
+        if (this.currentWallet == null || this.currentWallet.isNullSeedWallet()) {
             throw new ForeignBlockchainException("Invalid wallet");
         }
     }
