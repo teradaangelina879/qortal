@@ -12,6 +12,7 @@ import org.qortal.data.network.PeerData;
 import org.qortal.network.message.ChallengeMessage;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.MessageException;
+import org.qortal.network.message.UnsupportedMessageException;
 import org.qortal.network.task.MessageTask;
 import org.qortal.network.task.PingTask;
 import org.qortal.settings.Settings;
@@ -510,8 +511,13 @@ public class Peer {
                     ByteBuffer readOnlyBuffer = this.byteBuffer.asReadOnlyBuffer().flip();
                     try {
                         message = Message.fromByteBuffer(readOnlyBuffer);
+                    } catch (UnsupportedMessageException e) {
+                        // Unsupported message - discard it without disconnecting
+                        LOGGER.debug("[{}] {}, from peer {} - discarding...", this.peerConnectionId, e.getMessage(), this);
+                        return;
                     } catch (MessageException e) {
-                        LOGGER.debug("[{}] {}, from peer {}", this.peerConnectionId, e.getMessage(), this);
+                        // Any other message exception - disconnect the peer
+                        LOGGER.debug("[{}] {}, from peer {} - forcing disconnection...", this.peerConnectionId, e.getMessage(), this);
                         this.disconnect(e.getMessage());
                         return;
                     }

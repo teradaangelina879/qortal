@@ -104,7 +104,7 @@ public abstract class Message {
 			MessageType messageType = MessageType.valueOf(typeValue);
 			if (messageType == null)
 				// Unrecognised message type
-				throw new MessageException(String.format("Received unknown message type [%d]", typeValue));
+				throw new UnsupportedMessageException(String.format("Received unknown message type [%d]", typeValue));
 
 			// Optional message ID
 			byte hasId = readOnlyBuffer.get();
