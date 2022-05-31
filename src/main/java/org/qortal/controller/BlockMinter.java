@@ -26,6 +26,9 @@ import org.qortal.data.block.CommonBlockData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
+import org.qortal.network.message.BlockSummariesV2Message;
+import org.qortal.network.message.HeightV2Message;
+import org.qortal.network.message.Message;
 import org.qortal.repository.BlockRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -431,16 +434,9 @@ public class BlockMinter extends Thread {
 						blockchainLock.unlock();
 					}
 
-					if (newBlockMinted) {
-						// Broadcast our new chain to network
-						BlockData newBlockData = newBlock.getBlockData();
-
-						Network network = Network.getInstance();
-						network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newBlockData));
-					}
-				} catch (InterruptedException e) {
-					// We've been interrupted - time to exit
-					return;
+				if (newBlockMinted) {
+					// Broadcast our new chain to network
+					Network.getInstance().broadcastOurChain();
 				}
 			}
 		} catch (DataException e) {

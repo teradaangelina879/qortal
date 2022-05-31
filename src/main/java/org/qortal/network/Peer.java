@@ -6,8 +6,8 @@ import com.google.common.net.InetAddresses;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
+import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.CommonBlockData;
-import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
 import org.qortal.network.message.ChallengeMessage;
 import org.qortal.network.message.Message;
@@ -148,7 +148,7 @@ public class Peer {
     /**
      * Latest block info as reported by peer.
      */
-    private PeerChainTipData peersChainTipData;
+    private List<BlockSummaryData> peersChainTipData = Collections.emptyList();
 
     /**
      * Our common block with this peer
@@ -353,28 +353,34 @@ public class Peer {
         }
     }
 
-    public PeerChainTipData getChainTipData() {
-        synchronized (this.peerInfoLock) {
-            return this.peersChainTipData;
-        }
+    public BlockSummaryData getChainTipData() {
+        List<BlockSummaryData> chainTipSummaries = this.peersChainTipData;
+
+        if (chainTipSummaries.isEmpty())
+            return null;
+
+        // Return last entry, which should have greatest height
+        return chainTipSummaries.get(chainTipSummaries.size() - 1);
     }
 
-    public void setChainTipData(PeerChainTipData chainTipData) {
-        synchronized (this.peerInfoLock) {
-            this.peersChainTipData = chainTipData;
-        }
+    public void setChainTipData(BlockSummaryData chainTipData) {
+        this.peersChainTipData = Collections.singletonList(chainTipData);
+    }
+
+    public List<BlockSummaryData> getChainTipSummaries() {
+        return this.peersChainTipData;
+    }
+
+    public void setChainTipSummaries(List<BlockSummaryData> chainTipSummaries) {
+        this.peersChainTipData = List.copyOf(chainTipSummaries);
     }
 
     public CommonBlockData getCommonBlockData() {
-        synchronized (this.peerInfoLock) {
-            return this.commonBlockData;
-        }
+        return this.commonBlockData;
     }
 
     public void setCommonBlockData(CommonBlockData commonBlockData) {
-        synchronized (this.peerInfoLock) {
-            this.commonBlockData = commonBlockData;
-        }
+        this.commonBlockData = commonBlockData;
     }
 
     public boolean isSyncInProgress() {
@@ -904,20 +910,22 @@ public class Peer {
     // Common block data
 
     public boolean canUseCachedCommonBlockData() {
-        PeerChainTipData peerChainTipData = this.getChainTipData();
-        CommonBlockData commonBlockData = this.getCommonBlockData();
+        BlockSummaryData peerChainTipData = this.getChainTipData();
+        if (peerChainTipData == null || peerChainTipData.getSignature() == null)
+            return false;
 
-        if (peerChainTipData != null && commonBlockData != null) {
-            PeerChainTipData commonBlockChainTipData = commonBlockData.getChainTipData();
-            if (peerChainTipData.getLastBlockSignature() != null && commonBlockChainTipData != null
-                    && commonBlockChainTipData.getLastBlockSignature() != null) {
-                if (Arrays.equals(peerChainTipData.getLastBlockSignature(),
-                        commonBlockChainTipData.getLastBlockSignature())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        CommonBlockData commonBlockData = this.getCommonBlockData();
+        if (commonBlockData == null)
+            return false;
+
+        BlockSummaryData commonBlockChainTipData = commonBlockData.getChainTipData();
+        if (commonBlockChainTipData == null || commonBlockChainTipData.getSignature() == null)
+            return false;
+
+        if (!Arrays.equals(peerChainTipData.getSignature(), commonBlockChainTipData.getSignature()))
+            return false;
+
+        return true;
     }
 
 
