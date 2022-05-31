@@ -65,7 +65,7 @@ public class PirateChainWalletController extends Thread {
                 }
 
                 // Rate limit sync attempts
-                Thread.sleep(60000);
+                Thread.sleep(30000);
 
                 // Save wallet if needed
                 Long now = NTP.getTime();
