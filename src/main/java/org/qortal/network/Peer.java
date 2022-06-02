@@ -12,6 +12,7 @@ import org.qortal.data.network.PeerData;
 import org.qortal.network.message.ChallengeMessage;
 import org.qortal.network.message.Message;
 import org.qortal.network.message.MessageException;
+import org.qortal.network.message.MessageType;
 import org.qortal.network.task.MessageTask;
 import org.qortal.network.task.PingTask;
 import org.qortal.settings.Settings;
@@ -63,6 +64,11 @@ public class Peer {
      * True if remote address is loopback/link-local/site-local, false otherwise.
      */
     private boolean isLocal;
+
+    /**
+     * True if connected for the purposes of transfering specific QDN data
+     */
+    private boolean isDataPeer;
 
     private final UUID peerConnectionId = UUID.randomUUID();
     private final Object byteBufferLock = new Object();
@@ -194,6 +200,14 @@ public class Peer {
         return this.isOutbound;
     }
 
+    public boolean isDataPeer() {
+        return isDataPeer;
+    }
+
+    public void setIsDataPeer(boolean isDataPeer) {
+        this.isDataPeer = isDataPeer;
+    }
+
     public Handshake getHandshakeStatus() {
         synchronized (this.handshakingLock) {
             return this.handshakeStatus;
@@ -211,6 +225,11 @@ public class Peer {
     }
 
     private void generateRandomMaxConnectionAge() {
+        if (this.maxConnectionAge > 0L) {
+            // Already generated, so we don't want to overwrite the existing value
+            return;
+        }
+
         // Retrieve the min and max connection time from the settings, and calculate the range
         final int minPeerConnectionTime = Settings.getInstance().getMinPeerConnectionTime();
         final int maxPeerConnectionTime = Settings.getInstance().getMaxPeerConnectionTime();
@@ -527,6 +546,10 @@ public class Peer {
                     // Copy bytes after read message to front of buffer,
                     // adjusting position accordingly, reset limit to capacity
                     this.byteBuffer.compact();
+
+                    // Unsupported message type? Discard with no further processing
+                    if (message.getType() == MessageType.UNSUPPORTED)
+                        continue;
 
                     BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
                     if (queue != null) {
@@ -891,6 +914,10 @@ public class Peer {
 
     public long getMaxConnectionAge() {
         return maxConnectionAge;
+    }
+
+    public void setMaxConnectionAge(long maxConnectionAge) {
+        this.maxConnectionAge = maxConnectionAge;
     }
 
     public boolean hasReachedMaxConnectionAge() {

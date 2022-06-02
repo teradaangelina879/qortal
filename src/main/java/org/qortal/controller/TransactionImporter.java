@@ -2,7 +2,9 @@ package org.qortal.controller;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.data.block.BlockData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.network.message.GetTransactionMessage;
 import org.qortal.network.message.Message;
@@ -11,14 +13,15 @@ import org.qortal.network.message.TransactionSignaturesMessage;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 public class TransactionImporter extends Thread {
 
@@ -55,12 +58,16 @@ public class TransactionImporter extends Thread {
 
     @Override
     public void run() {
+        Thread.currentThread().setName("Transaction Importer");
+
         try {
             while (!Controller.isStopping()) {
-                Thread.sleep(1000L);
+                Thread.sleep(500L);
 
                 // Process incoming transactions queue
-                processIncomingTransactionsQueue();
+                validateTransactionsInQueue();
+                importTransactionsInQueue();
+
                 // Clean up invalid incoming transactions list
                 cleanupInvalidTransactionsList(NTP.getTime());
             }
@@ -87,7 +94,26 @@ public class TransactionImporter extends Thread {
         incomingTransactions.keySet().removeIf(t -> Arrays.equals(t.getSignature(), signature));
     }
 
-    private void processIncomingTransactionsQueue() {
+    /**
+     * Retrieve all pending unconfirmed transactions that have had their signatures validated.
+     * @return a list of TransactionData objects, with valid signatures.
+     */
+    private List<TransactionData> getCachedSigValidTransactions() {
+        synchronized (this.incomingTransactions) {
+            return this.incomingTransactions.entrySet().stream()
+                    .filter(t -> Boolean.TRUE.equals(t.getValue()))
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toList());
+        }
+    }
+
+    /**
+     * Validate the signatures of any transactions pending import, then update their
+     * entries in the queue to mark them as valid/invalid.
+     *
+     * No database lock is required.
+     */
+    private void validateTransactionsInQueue() {
         if (this.incomingTransactions.isEmpty()) {
             // Nothing to do?
             return;
@@ -104,7 +130,16 @@ public class TransactionImporter extends Thread {
                 LOGGER.debug("Validating signatures in incoming transactions queue (size {})...", unvalidatedCount);
             }
 
+            // A list of all currently pending transactions that have valid signatures
             List<Transaction> sigValidTransactions = new ArrayList<>();
+
+            // A list of signatures that became valid in this round
+            List<byte[]> newlyValidSignatures = new ArrayList<>();
+
+            boolean isLiteNode = Settings.getInstance().isLite();
+
+            // We need the latest block in order to check for expired transactions
+            BlockData latestBlock = Controller.getInstance().getChainTip();
 
             // Signature validation round - does not require blockchain lock
             for (Map.Entry<TransactionData, Boolean> transactionEntry : incomingTransactionsCopy.entrySet()) {
@@ -115,34 +150,59 @@ public class TransactionImporter extends Thread {
 
                 TransactionData transactionData = transactionEntry.getKey();
                 Transaction transaction = Transaction.fromData(repository, transactionData);
+                String signature58 = Base58.encode(transactionData.getSignature());
+
+                Long now = NTP.getTime();
+                if (now == null) {
+                    return;
+                }
+
+                // Drop expired transactions before they are considered "sig valid"
+                if (latestBlock != null && transaction.getDeadline() <= latestBlock.getTimestamp()) {
+                    LOGGER.debug("Removing expired {} transaction {} from import queue", transactionData.getType().name(), signature58);
+                    removeIncomingTransaction(transactionData.getSignature());
+                    invalidUnconfirmedTransactions.put(signature58, (now + EXPIRED_TRANSACTION_RECHECK_INTERVAL));
+                    continue;
+                }
 
                 // Only validate signature if we haven't already done so
                 Boolean isSigValid = transactionEntry.getValue();
                 if (!Boolean.TRUE.equals(isSigValid)) {
-                    if (!transaction.isSignatureValid()) {
-                        String signature58 = Base58.encode(transactionData.getSignature());
+                    if (isLiteNode) {
+                        // Lite nodes can't easily validate transactions, so for now we will have to assume that everything is valid
+                        sigValidTransactions.add(transaction);
+                        newlyValidSignatures.add(transactionData.getSignature());
+                        // Add mark signature as valid if transaction still exists in import queue
+                        incomingTransactions.computeIfPresent(transactionData, (k, v) -> Boolean.TRUE);
+                        continue;
+                    }
 
-                        LOGGER.trace("Ignoring {} transaction {} with invalid signature", transactionData.getType().name(), signature58);
+                    if (!transaction.isSignatureValid()) {
+                        LOGGER.debug("Ignoring {} transaction {} with invalid signature", transactionData.getType().name(), signature58);
                         removeIncomingTransaction(transactionData.getSignature());
 
                         // Also add to invalidIncomingTransactions map
-                        Long now = NTP.getTime();
+                        now = NTP.getTime();
                         if (now != null) {
                             Long expiry = now + INVALID_TRANSACTION_RECHECK_INTERVAL;
-                            LOGGER.trace("Adding stale invalid transaction {} to invalidUnconfirmedTransactions...", signature58);
+                            LOGGER.trace("Adding invalid transaction {} to invalidUnconfirmedTransactions...", signature58);
                             // Add to invalidUnconfirmedTransactions so that we don't keep requesting it
                             invalidUnconfirmedTransactions.put(signature58, expiry);
                         }
 
+                        // We're done with this transaction
                         continue;
                     }
-                    else {
-                        // Count the number that were validated in this round, for logging purposes
-                        validatedCount++;
-                    }
+
+                    // Count the number that were validated in this round, for logging purposes
+                    validatedCount++;
 
                     // Add mark signature as valid if transaction still exists in import queue
                     incomingTransactions.computeIfPresent(transactionData, (k, v) -> Boolean.TRUE);
+
+                    // Signature validated in this round
+                    newlyValidSignatures.add(transactionData.getSignature());
+
                 } else {
                     LOGGER.trace(() -> String.format("Transaction %s known to have valid signature", Base58.encode(transactionData.getSignature())));
                 }
@@ -155,30 +215,44 @@ public class TransactionImporter extends Thread {
                 LOGGER.debug("Finished validating signatures in incoming transactions queue (valid this round: {}, total pending import: {})...", validatedCount, sigValidTransactions.size());
             }
 
-            if (sigValidTransactions.isEmpty()) {
-                // Don't bother locking if there are no new transactions to process
-                return;
+            if (!newlyValidSignatures.isEmpty()) {
+                LOGGER.debug("Broadcasting {} newly valid signatures ahead of import", newlyValidSignatures.size());
+                Message newTransactionSignatureMessage = new TransactionSignaturesMessage(newlyValidSignatures);
+                Network.getInstance().broadcast(broadcastPeer -> newTransactionSignatureMessage);
             }
 
-            if (Synchronizer.getInstance().isSyncRequested() || Synchronizer.getInstance().isSynchronizing()) {
-                // Prioritize syncing, and don't attempt to lock
-                // Signature validity is retained in the incomingTransactions map, to avoid the above work being wasted
-                return;
-            }
+        } catch (DataException e) {
+            LOGGER.error("Repository issue while processing incoming transactions", e);
+        }
+    }
 
-            try {
-                ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-                if (!blockchainLock.tryLock(2, TimeUnit.SECONDS)) {
-                    // Signature validity is retained in the incomingTransactions map, to avoid the above work being wasted
-                    LOGGER.debug("Too busy to process incoming transactions queue");
-                    return;
-                }
-            } catch (InterruptedException e) {
-                LOGGER.debug("Interrupted when trying to acquire blockchain lock");
-                return;
-            }
+    /**
+     * Import any transactions in the queue that have valid signatures.
+     *
+     * A database lock is required.
+     */
+    private void importTransactionsInQueue() {
+        List<TransactionData> sigValidTransactions = this.getCachedSigValidTransactions();
+        if (sigValidTransactions.isEmpty()) {
+            // Don't bother locking if there are no new transactions to process
+            return;
+        }
 
-            LOGGER.debug("Processing incoming transactions queue (size {})...", sigValidTransactions.size());
+        if (Synchronizer.getInstance().isSyncRequested() || Synchronizer.getInstance().isSynchronizing()) {
+            // Prioritize syncing, and don't attempt to lock
+            return;
+        }
+
+        ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+        if (!blockchainLock.tryLock()) {
+            LOGGER.debug("Too busy to import incoming transactions queue");
+            return;
+        }
+
+        LOGGER.debug("Importing incoming transactions queue (size {})...", sigValidTransactions.size());
+
+        int processedCount = 0;
+        try (final Repository repository = RepositoryManager.getRepository()) {
 
             // Import transactions with valid signatures
             try {
@@ -188,14 +262,15 @@ public class TransactionImporter extends Thread {
                     }
 
                     if (Synchronizer.getInstance().isSyncRequestPending()) {
-                        LOGGER.debug("Breaking out of transaction processing with {} remaining, because a sync request is pending", sigValidTransactions.size() - i);
+                        LOGGER.debug("Breaking out of transaction importing with {} remaining, because a sync request is pending", sigValidTransactions.size() - i);
                         return;
                     }
 
-                    Transaction transaction = sigValidTransactions.get(i);
-                    TransactionData transactionData = transaction.getTransactionData();
+                    TransactionData transactionData = sigValidTransactions.get(i);
+                    Transaction transaction = Transaction.fromData(repository, transactionData);
 
                     Transaction.ValidationResult validationResult = transaction.importAsUnconfirmed();
+                    processedCount++;
 
                     switch (validationResult) {
                         case TRANSACTION_ALREADY_EXISTS: {
@@ -217,7 +292,7 @@ public class TransactionImporter extends Thread {
                         // All other invalid cases:
                         default: {
                             final String signature58 = Base58.encode(transactionData.getSignature());
-                            LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), signature58));
+                            LOGGER.debug(() -> String.format("Ignoring invalid (%s) %s transaction %s", validationResult.name(), transactionData.getType().name(), signature58));
 
                             Long now = NTP.getTime();
                             if (now != null && now - transactionData.getTimestamp() > INVALID_TRANSACTION_STALE_TIMEOUT) {
@@ -240,12 +315,11 @@ public class TransactionImporter extends Thread {
                     removeIncomingTransaction(transactionData.getSignature());
                 }
             } finally {
-                LOGGER.debug("Finished processing incoming transactions queue");
-                ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+                LOGGER.debug("Finished importing {} incoming transaction{}", processedCount, (processedCount == 1 ? "" : "s"));
                 blockchainLock.unlock();
             }
         } catch (DataException e) {
-            LOGGER.error("Repository issue while processing incoming transactions", e);
+            LOGGER.error("Repository issue while importing incoming transactions", e);
         }
     }
 
@@ -278,8 +352,18 @@ public class TransactionImporter extends Thread {
         byte[] signature = getTransactionMessage.getSignature();
 
         try (final Repository repository = RepositoryManager.getRepository()) {
-            TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+            // Firstly check the sig-valid transactions that are currently queued for import
+            TransactionData transactionData = this.getCachedSigValidTransactions().stream()
+                    .filter(t -> Arrays.equals(signature, t.getSignature()))
+                    .findFirst().orElse(null);
+
             if (transactionData == null) {
+                // Not found in import queue, so try the database
+                transactionData = repository.getTransactionRepository().fromSignature(signature);
+            }
+
+            if (transactionData == null) {
+                // Still not found - so we don't have this transaction
                 LOGGER.debug(() -> String.format("Ignoring GET_TRANSACTION request from peer %s for unknown transaction %s", peer, Base58.encode(signature)));
                 // Send no response at all???
                 return;
