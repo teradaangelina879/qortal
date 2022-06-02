@@ -117,7 +117,8 @@ public class OnlineAccountsManager extends Thread {
     }
 
     public static long getOnlineTimestampModulus() {
-        if (NTP.getTime() >= BlockChain.getInstance().getOnlineAccountsModulusV2Timestamp()) {
+        Long now = NTP.getTime();
+        if (now != null && now >= BlockChain.getInstance().getOnlineAccountsModulusV2Timestamp()) {
             return ONLINE_TIMESTAMP_MODULUS_V2;
         }
         return ONLINE_TIMESTAMP_MODULUS_V1;
