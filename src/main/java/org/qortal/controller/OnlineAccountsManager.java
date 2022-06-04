@@ -53,7 +53,7 @@ public class OnlineAccountsManager {
     private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 15 * 1000L; // ms
 
     private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L; // v3.2.0
-    private static final long ONLINE_ACCOUNTS_V3_PEER_VERSION = 0x03000200cbL; // v3.2.203
+    private static final long ONLINE_ACCOUNTS_V3_PEER_VERSION = 0x03000300cbL; // v3.3.203
 
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
@@ -75,8 +75,12 @@ public class OnlineAccountsManager {
      */
     private final SortedMap<Long, Set<OnlineAccountData>> latestBlocksOnlineAccounts = new ConcurrentSkipListMap<>();
 
-    public static long toOnlineAccountTimestamp(long timestamp) {
-        return (timestamp / ONLINE_TIMESTAMP_MODULUS) * ONLINE_TIMESTAMP_MODULUS;
+    public static Long getCurrentOnlineAccountTimestamp() {
+        Long now = NTP.getTime();
+        if (now == null)
+            return null;
+
+        return (now / ONLINE_TIMESTAMP_MODULUS) * ONLINE_TIMESTAMP_MODULUS;
     }
 
     private OnlineAccountsManager() {
@@ -118,11 +122,10 @@ public class OnlineAccountsManager {
             return;
         }
 
-        final Long now = NTP.getTime();
-        if (now == null)
+        final Long onlineAccountsTimestamp = getCurrentOnlineAccountTimestamp();
+        if (onlineAccountsTimestamp == null)
             return;
 
-        final long onlineAccountsTimestamp = toOnlineAccountTimestamp(now);
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
 
         Set<OnlineAccountData> replacementAccounts = new HashSet<>();
@@ -162,14 +165,14 @@ public class OnlineAccountsManager {
                 // Remove from queue
                 onlineAccountsImportQueue.remove(onlineAccountData);
             }
-
-            LOGGER.debug("Finished validating online accounts import queue");
         } catch (DataException e) {
             LOGGER.error("Repository issue while verifying online accounts", e);
         }
 
-        LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
-        addAccounts(onlineAccountsToAdd);
+        if (!onlineAccountsToAdd.isEmpty()) {
+            LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
+            addAccounts(onlineAccountsToAdd);
+        }
     }
 
     // Utilities
@@ -224,7 +227,8 @@ public class OnlineAccountsManager {
         return true;
     }
 
-    private void addAccounts(Set<OnlineAccountData> onlineAccountsToAdd) {
+    /** Adds accounts, maybe rebuilds hashes, returns whether any new accounts were added / hashes rebuilt. */
+    private boolean addAccounts(Collection<OnlineAccountData> onlineAccountsToAdd) {
         // For keeping track of which hashes to rebuild
         Map<Long, Set<Byte>> hashesToRebuild = new HashMap<>();
 
@@ -234,6 +238,9 @@ public class OnlineAccountsManager {
             if (isNewEntry)
                 hashesToRebuild.computeIfAbsent(onlineAccountData.getTimestamp(), k -> new HashSet<>()).add(onlineAccountData.getPublicKey()[0]);
         }
+
+        if (hashesToRebuild.isEmpty())
+            return false;
 
         for (var entry : hashesToRebuild.entrySet()) {
             Long timestamp = entry.getKey();
@@ -263,6 +270,8 @@ public class OnlineAccountsManager {
                 ));
             }
         }
+
+        return true;
     }
 
     private boolean addAccount(OnlineAccountData onlineAccountData) {
@@ -341,10 +350,10 @@ public class OnlineAccountsManager {
      * Send online accounts that are minting on this node.
      */
     private void sendOurOnlineAccountsInfo() {
-        final Long now = NTP.getTime();
-        if (now == null) {
+        // 'current' timestamp
+        final Long onlineAccountsTimestamp = getCurrentOnlineAccountTimestamp();
+        if (onlineAccountsTimestamp == null)
             return;
-        }
 
         List<MintingAccountData> mintingAccounts;
         try (final Repository repository = RepositoryManager.getRepository()) {
@@ -378,10 +387,6 @@ public class OnlineAccountsManager {
             return;
         }
 
-        // 'current' timestamp
-        final long onlineAccountsTimestamp = toOnlineAccountTimestamp(now);
-        boolean hasInfoChanged = false;
-
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
         List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
 
@@ -393,15 +398,10 @@ public class OnlineAccountsManager {
 
             // Our account is online
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
-
-            boolean isNewEntry = addAccount(ourOnlineAccountData);
-            if (isNewEntry) {
-                LOGGER.trace(() -> String.format("Added our online account %s with timestamp %d", Base58.encode(mintingAccount.getPublicKey()), onlineAccountsTimestamp));
-                ourOnlineAccounts.add(ourOnlineAccountData);
-                hasInfoChanged = true;
-            }
+            ourOnlineAccounts.add(ourOnlineAccountData);
         }
 
+        boolean hasInfoChanged = addAccounts(ourOnlineAccounts);
         if (!hasInfoChanged)
             return;
 
@@ -425,20 +425,18 @@ public class OnlineAccountsManager {
      */
     // BlockMinter: only calls this to check whether returned list is empty or not, to determine whether minting is even possible or not
     public boolean hasOnlineAccounts() {
-        final Long now = NTP.getTime();
-        if (now == null)
+        // 'current' timestamp
+        final Long onlineAccountsTimestamp = getCurrentOnlineAccountTimestamp();
+        if (onlineAccountsTimestamp == null)
             return false;
 
-        final long onlineTimestamp = toOnlineAccountTimestamp(now);
-
-        return this.currentOnlineAccounts.containsKey(onlineTimestamp);
+        return this.currentOnlineAccounts.containsKey(onlineAccountsTimestamp);
     }
 
     /**
      * Returns list of online accounts matching given timestamp.
      */
-    // Block::mint() - only wants online accounts with timestamp that matches block's timestamp so they can be added to new block
-    // Block::areOnlineAccountsValid() - only wants online accounts with timestamp that matches block's timestamp to avoid re-verifying sigs
+    // Block::mint() - only wants online accounts with (online) timestamp that matches block's (online) timestamp so they can be added to new block
     public List<OnlineAccountData> getOnlineAccounts(long onlineTimestamp) {
         return new ArrayList<>(Set.copyOf(this.currentOnlineAccounts.getOrDefault(onlineTimestamp, Collections.emptySet())));
     }
@@ -448,13 +446,12 @@ public class OnlineAccountsManager {
      */
     // API: calls this to return list of online accounts - probably expects ALL timestamps - but going to get 'current' from now on
     public List<OnlineAccountData> getOnlineAccounts() {
-        final Long now = NTP.getTime();
-        if (now == null)
+        // 'current' timestamp
+        final Long onlineAccountsTimestamp = getCurrentOnlineAccountTimestamp();
+        if (onlineAccountsTimestamp == null)
             return Collections.emptyList();
 
-        final long onlineTimestamp = toOnlineAccountTimestamp(now);
-
-        return getOnlineAccounts(onlineTimestamp);
+        return getOnlineAccounts(onlineAccountsTimestamp);
     }
 
     // Block processing

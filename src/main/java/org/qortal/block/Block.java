@@ -355,7 +355,7 @@ public class Block {
 
 		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 
-		long onlineAccountsTimestamp = OnlineAccountsManager.toOnlineAccountTimestamp(timestamp);
+		long onlineAccountsTimestamp = OnlineAccountsManager.getCurrentOnlineAccountTimestamp();
 
 		// Fetch our list of online accounts
 		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
