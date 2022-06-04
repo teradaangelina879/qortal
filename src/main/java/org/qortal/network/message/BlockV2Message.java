@@ -18,7 +18,7 @@ import java.util.List;
 public class BlockV2Message extends Message {
 
 	private static final Logger LOGGER = LogManager.getLogger(BlockV2Message.class);
-	public static final long MIN_PEER_VERSION = 0x3000300cbL; // 3.3.203
+	public static final long MIN_PEER_VERSION = 0x300030003L; // 3.3.3
 
 	private BlockData blockData;
 	private List<TransactionData> transactions;
