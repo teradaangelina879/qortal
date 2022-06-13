@@ -393,6 +393,10 @@ public class Block {
 		byte[] encodedOnlineAccounts = BlockTransformer.encodeOnlineAccounts(onlineAccountsSet);
 		int onlineAccountsCount = onlineAccountsSet.size();
 
+		if (encodedOnlineAccounts.length > 1024)
+			// Safety check - to be removed along with above temporary limitation
+			return null;
+
 		// Concatenate online account timestamp signatures (in correct order)
 		byte[] onlineAccountsSignatures = new byte[onlineAccountsCount * Transformer.SIGNATURE_LENGTH];
 		for (int i = 0; i < onlineAccountsCount; ++i) {
