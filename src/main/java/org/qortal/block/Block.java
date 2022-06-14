@@ -378,10 +378,6 @@ public class Block {
 				// Online account (reward-share) with current timestamp but reward-share cancelled
 				continue;
 
-			if (accountIndex >= 7850)
-				// Temporary limitation as first stage of multipart minting fix
-				continue;
-
 			indexedOnlineAccounts.put(accountIndex, onlineAccountData);
 		}
 		List<Integer> accountIndexes = new ArrayList<>(indexedOnlineAccounts.keySet());
