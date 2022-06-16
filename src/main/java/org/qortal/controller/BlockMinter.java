@@ -284,7 +284,12 @@ public class BlockMinter extends Thread {
 							continue;
 
 						List<Block> goodBlocks = new ArrayList<>();
-						for (Block testBlock : newBlocks) {
+						boolean wasInvalidBlockDiscarded = false;
+						Iterator<Block> newBlocksIterator = newBlocks.iterator();
+
+						while (newBlocksIterator.hasNext()) {
+							Block testBlock = newBlocksIterator.next();
+
 							// Is new block's timestamp valid yet?
 							// We do a separate check as some timestamp checks are skipped for testchains
 							if (testBlock.isTimestampValid() != ValidationResult.OK)
@@ -297,13 +302,21 @@ public class BlockMinter extends Thread {
 							if (result != ValidationResult.OK) {
 								moderatedLog(() -> LOGGER.error(String.format("To-be-minted block invalid '%s' before adding transactions?", result.name())));
 
-								continue;
+								newBlocksIterator.remove();
+								wasInvalidBlockDiscarded = true;
+								/*
+								 * Bail out fast so that we loop around from the top again.
+								 * This gives BlockMinter the possibility to remint this candidate block using another block from newBlocks,
+								 * via the Blocks.remint() method, which avoids having to re-process Block ATs all over again.
+								 * Particularly useful if some aspect of Blocks changes due a timestamp-based feature-trigger (see BlockChain class).
+								 */
+								break;
 							}
 
 							goodBlocks.add(testBlock);
 						}
 
-						if (goodBlocks.isEmpty())
+						if (wasInvalidBlockDiscarded || goodBlocks.isEmpty())
 							continue;
 
 						// Pick best block
