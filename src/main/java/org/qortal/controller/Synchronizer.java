@@ -241,12 +241,12 @@ public class Synchronizer extends Thread {
 
 		final int peersBeforeComparison = peers.size();
 
-		if (isNewConsensusActive) {
+		if (!isNewConsensusActive) {
 			// Request recent block summaries from the remaining peers, and locate our common block with each
-			// Synchronizer.getInstance().findCommonBlocksWithPeers(peers);
+			Synchronizer.getInstance().findCommonBlocksWithPeers(peers);
 
 			// Compare the peers against each other, and against our chain, which will return an updated list excluding those without common blocks
-			// peers = Synchronizer.getInstance().comparePeers(peers);
+			peers = Synchronizer.getInstance().comparePeers(peers);
 		}
 
 		// We may have added more inferior chain tips when comparing peers, so remove any peers that are currently on those chains
