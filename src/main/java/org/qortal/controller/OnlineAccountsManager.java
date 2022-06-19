@@ -280,6 +280,12 @@ public class OnlineAccountsManager extends Thread {
             return;
         }
 
+        // Don't submit if we're more than 2 hours out of sync
+        final Long minLatestBlockTimestamp = now - (2 * 60 * 60 * 1000L);
+        if (!Controller.getInstance().isUpToDate(minLatestBlockTimestamp)) {
+            return;
+        }
+
         List<MintingAccountData> mintingAccounts;
         try (final Repository repository = RepositoryManager.getRepository()) {
             mintingAccounts = repository.getAccountRepository().getMintingAccounts();
