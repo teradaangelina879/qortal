@@ -787,8 +787,8 @@ public class Controller extends Thread {
 		String actionText;
 
 		// Use a more tolerant latest block timestamp in the isUpToDate() calls below to reduce misleading statuses.
-		// Any block in the last 30 minutes is considered "up to date" for the purposes of displaying statuses.
-		final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
+		// Any block in the last 60 minutes is considered "up to date" for the purposes of displaying statuses.
+		final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
 
 		synchronized (Synchronizer.getInstance().syncLock) {
 			if (Settings.getInstance().isLite()) {
