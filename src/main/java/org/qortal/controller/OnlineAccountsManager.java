@@ -286,9 +286,9 @@ public class OnlineAccountsManager extends Thread {
             return;
         }
 
-        // Don't submit if we're more than 2 hours out of sync
+        // Don't submit if we're more than 2 hours out of sync (unless we're in recovery mode)
         final Long minLatestBlockTimestamp = now - (2 * 60 * 60 * 1000L);
-        if (!Controller.getInstance().isUpToDate(minLatestBlockTimestamp)) {
+        if (!Controller.getInstance().isUpToDate(minLatestBlockTimestamp) && !Synchronizer.getInstance().getRecoveryMode()) {
             return;
         }
 
