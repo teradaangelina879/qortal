@@ -469,6 +469,8 @@ public class Network {
 
     class NetworkProcessor extends ExecuteProduceConsume {
 
+        private final Logger LOGGER = LogManager.getLogger(NetworkProcessor.class);
+
         private final AtomicLong nextConnectTaskTimestamp = new AtomicLong(0L); // ms - try first connect once NTP syncs
         private final AtomicLong nextBroadcastTimestamp = new AtomicLong(0L); // ms - try first broadcast once NTP syncs
 
