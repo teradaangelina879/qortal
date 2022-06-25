@@ -81,7 +81,7 @@ public class Synchronizer extends Thread {
 	private boolean syncRequestPending = false;
 
 	// Keep track of invalid blocks so that we don't keep trying to sync them
-	private Map<String, Long> invalidBlockSignatures = Collections.synchronizedMap(new HashMap<>());
+	private Map<ByteArray, Long> invalidBlockSignatures = Collections.synchronizedMap(new HashMap<>());
 	public Long timeValidBlockLastReceived = null;
 	public Long timeInvalidBlockLastReceived = null;
 
@@ -844,7 +844,7 @@ public class Synchronizer extends Thread {
 
 	/* Invalid block signature tracking */
 
-	public Map<String, Long> getInvalidBlockSignatures() {
+	public Map<ByteArray, Long> getInvalidBlockSignatures() {
 		return this.invalidBlockSignatures;
 	}
 
@@ -855,8 +855,7 @@ public class Synchronizer extends Thread {
 		}
 
 		// Add or update existing entry
-		String sig58 = Base58.encode(signature);
-		invalidBlockSignatures.put(sig58, now);
+		invalidBlockSignatures.put(ByteArray.wrap(signature), now);
 	}
 	private void deleteOlderInvalidSignatures(Long now) {
 		if (now == null) {
@@ -881,11 +880,10 @@ public class Synchronizer extends Thread {
 		}
 
 		// Loop through our known invalid blocks and check each one against supplied block summaries
-		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
-			byte[] invalidSignature = Base58.decode(invalidSignature58);
+		for (ByteArray invalidSignature : invalidBlockSignatures.keySet()) {
 			for (BlockSummaryData blockSummary : blockSummaries) {
 				byte[] signature = blockSummary.getSignature();
-				if (Arrays.equals(signature, invalidSignature)) {
+				if (Arrays.equals(signature, invalidSignature.value)) {
 					return true;
 				}
 			}
@@ -898,10 +896,9 @@ public class Synchronizer extends Thread {
 		}
 
 		// Loop through our known invalid blocks and check each one against supplied block signatures
-		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
-			byte[] invalidSignature = Base58.decode(invalidSignature58);
+		for (ByteArray invalidSignature : invalidBlockSignatures.keySet()) {
 			for (byte[] signature : blockSignatures) {
-				if (Arrays.equals(signature, invalidSignature)) {
+				if (Arrays.equals(signature, invalidSignature.value)) {
 					return true;
 				}
 			}

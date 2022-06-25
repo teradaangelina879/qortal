@@ -724,7 +724,7 @@ public class Controller extends Thread {
 
 	public static final Predicate<Peer> hasInvalidBlock = peer -> {
 		final PeerChainTipData peerChainTipData = peer.getChainTipData();
-		Map<String, Long> invalidBlockSignatures = Synchronizer.getInstance().getInvalidBlockSignatures();
+		Map<ByteArray, Long> invalidBlockSignatures = Synchronizer.getInstance().getInvalidBlockSignatures();
 		List<byte[]> peerSignatures = new ArrayList<>();
 
 		// Add peer's latest block signature
@@ -748,10 +748,9 @@ public class Controller extends Thread {
 		}
 
 		// Loop through our known invalid blocks and check each one against supplied block summaries
-		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
-			byte[] invalidSignature = Base58.decode(invalidSignature58);
+		for (ByteArray invalidSignature : invalidBlockSignatures.keySet()) {
 			for (byte[] peerSignature : peerSignatures) {
-				if (Arrays.equals(peerSignature, invalidSignature)) {
+				if (Arrays.equals(peerSignature, invalidSignature.value)) {
 					return true;
 				}
 			}
