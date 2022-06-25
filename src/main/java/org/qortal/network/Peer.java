@@ -121,7 +121,7 @@ public class Peer {
 
     // Peer info
 
-    private final Object peerInfoLock = new Object();
+    public final Object peerInfoLock = new Object();
 
     private String peersNodeId;
     private byte[] peersPublicKey;
