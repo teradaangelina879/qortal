@@ -632,7 +632,9 @@ public class Synchronizer extends Thread {
 					int minChainLength = this.calculateMinChainLengthOfPeers(peersSharingCommonBlock, commonBlockSummary);
 
 					// Fetch block summaries from each peer
-					for (Peer peer : peersSharingCommonBlock) {
+					Iterator peersSharingCommonBlockIterator = peersSharingCommonBlock.iterator();
+					while (peersSharingCommonBlockIterator.hasNext()) {
+						Peer peer = (Peer) peersSharingCommonBlockIterator.next();
 
 						// If we're shutting down, just return the latest peer list
 						if (Controller.isStopping())
@@ -689,6 +691,8 @@ public class Synchronizer extends Thread {
 						if (this.containsInvalidBlockSummary(peer.getCommonBlockData().getBlockSummariesAfterCommonBlock())) {
 							LOGGER.debug("Ignoring peer %s because it holds an invalid block", peer);
 							peers.remove(peer);
+							peersSharingCommonBlockIterator.remove();
+							continue;
 						}
 
 						// Reduce minChainLength if needed. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength

@@ -571,6 +571,7 @@ public class BlockMinter extends Thread {
 
 		List<Peer> peers = Network.getInstance().getImmutableHandshakedPeers();
 		// Loop through handshaked peers and check for any new block candidates
+		// TODO: filter out peers with invalid blocks
 		for (Peer peer : peers) {
 			if (peer.getCommonBlockData() != null && peer.getCommonBlockData().getCommonBlockSummary() != null) {
 				// This peer has common block data
