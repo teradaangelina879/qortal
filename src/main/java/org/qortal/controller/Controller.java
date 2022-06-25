@@ -733,7 +733,7 @@ public class Controller extends Thread {
 		}
 
 		// Add peer's blocks since common block
-		if (peer.getCommonBlockData() == null) {
+		if (peer.getCommonBlockData() != null) {
 			List<BlockSummaryData> peerSummaries = peer.getCommonBlockData().getBlockSummariesAfterCommonBlock();
 			if (peerSummaries != null) {
 				for (BlockSummaryData blockSummaryData : peerSummaries) {
