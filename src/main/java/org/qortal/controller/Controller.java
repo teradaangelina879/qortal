@@ -722,44 +722,6 @@ public class Controller extends Thread {
 		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
 	};
 
-	public static final Predicate<Peer> hasInvalidBlock = peer -> {
-		synchronized (peer.peerInfoLock) {
-			final PeerChainTipData peerChainTipData = peer.getChainTipData();
-			Map<ByteArray, Long> invalidBlockSignatures = Synchronizer.getInstance().getInvalidBlockSignatures();
-			List<byte[]> peerSignatures = new ArrayList<>();
-
-			// Add peer's latest block signature
-			if (peerChainTipData != null) {
-				peerSignatures.add(peerChainTipData.getLastBlockSignature());
-			}
-
-			// Add peer's blocks since common block
-			if (peer.getCommonBlockData() != null) {
-				List<BlockSummaryData> peerSummaries = peer.getCommonBlockData().getBlockSummariesAfterCommonBlock();
-				if (peerSummaries != null) {
-					for (BlockSummaryData blockSummaryData : peerSummaries) {
-						peerSignatures.add(blockSummaryData.getSignature());
-					}
-				}
-			}
-
-			// Shortcut if no data
-			if (peerSignatures.isEmpty() || invalidBlockSignatures == null || invalidBlockSignatures.isEmpty()) {
-				return false;
-			}
-
-			// Loop through our known invalid blocks and check each one against supplied block summaries
-			for (ByteArray invalidSignature : invalidBlockSignatures.keySet()) {
-				for (byte[] peerSignature : peerSignatures) {
-					if (Arrays.equals(peerSignature, invalidSignature.value)) {
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-	};
-
 	public static final Predicate<Peer> hasNoRecentBlock = peer -> {
 		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
 		final PeerChainTipData peerChainTipData = peer.getChainTipData();
