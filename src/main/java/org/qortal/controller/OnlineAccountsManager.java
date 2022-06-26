@@ -280,7 +280,7 @@ public class OnlineAccountsManager {
             }
         }
 
-        LOGGER.info(String.format("we have online accounts for timestamps: %s", String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
+        LOGGER.debug(String.format("we have online accounts for timestamps: %s", String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
 
         return true;
     }
