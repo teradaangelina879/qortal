@@ -617,7 +617,7 @@ public class Synchronizer extends Thread {
 							// We have already determined that the correct chain diverged from a lower height. We are safe to skip these peers.
 							for (Peer peer : peersSharingCommonBlock) {
 								LOGGER.debug(String.format("Peer %s has common block at height %d but the superior chain is at height %d. Removing it from this round.", peer, commonBlockSummary.getHeight(), dropPeersAfterCommonBlockHeight));
-								this.addInferiorChainSignature(peer.getChainTipData().getLastBlockSignature());
+								//this.addInferiorChainSignature(peer.getChainTipData().getLastBlockSignature());
 							}
 							continue;
 						}
