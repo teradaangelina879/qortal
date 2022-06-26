@@ -874,7 +874,7 @@ public class Synchronizer extends Thread {
 			}
 		}
 	}
-	private boolean containsInvalidBlockSummary(List<BlockSummaryData> blockSummaries) {
+	public boolean containsInvalidBlockSummary(List<BlockSummaryData> blockSummaries) {
 		if (blockSummaries == null || invalidBlockSignatures == null) {
 			return false;
 		}

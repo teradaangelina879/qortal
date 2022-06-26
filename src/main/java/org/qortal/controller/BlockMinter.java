@@ -571,24 +571,28 @@ public class BlockMinter extends Thread {
 
 		List<Peer> peers = Network.getInstance().getImmutableHandshakedPeers();
 		// Loop through handshaked peers and check for any new block candidates
-		// TODO: filter out peers with invalid blocks
 		for (Peer peer : peers) {
 			if (peer.getCommonBlockData() != null && peer.getCommonBlockData().getCommonBlockSummary() != null) {
 				// This peer has common block data
 				CommonBlockData commonBlockData = peer.getCommonBlockData();
 				BlockSummaryData commonBlockSummaryData = commonBlockData.getCommonBlockSummary();
-				if (commonBlockData.getChainWeight() != null) {
+				if (commonBlockData.getChainWeight() != null && peer.getCommonBlockData().getBlockSummariesAfterCommonBlock() != null) {
 					// The synchronizer has calculated this peer's chain weight
-					BigInteger ourChainWeightSinceCommonBlock = this.getOurChainWeightSinceBlock(repository, commonBlockSummaryData, commonBlockData.getBlockSummariesAfterCommonBlock());
-					BigInteger ourChainWeight = ourChainWeightSinceCommonBlock.add(blockCandidateWeight);
-					BigInteger peerChainWeight = commonBlockData.getChainWeight();
-					if (peerChainWeight.compareTo(ourChainWeight) >= 0) {
-						// This peer has a higher weight chain than ours
-						LOGGER.debug("Peer {} is on a higher weight chain ({}) than ours ({})", peer, formatter.format(peerChainWeight), formatter.format(ourChainWeight));
-						return true;
+					if (!Synchronizer.getInstance().containsInvalidBlockSummary(peer.getCommonBlockData().getBlockSummariesAfterCommonBlock())) {
+						// .. and it doesn't hold any invalid blocks
+						BigInteger ourChainWeightSinceCommonBlock = this.getOurChainWeightSinceBlock(repository, commonBlockSummaryData, commonBlockData.getBlockSummariesAfterCommonBlock());
+						BigInteger ourChainWeight = ourChainWeightSinceCommonBlock.add(blockCandidateWeight);
+						BigInteger peerChainWeight = commonBlockData.getChainWeight();
+						if (peerChainWeight.compareTo(ourChainWeight) >= 0) {
+							// This peer has a higher weight chain than ours
+							LOGGER.info("Peer {} is on a higher weight chain ({}) than ours ({})", peer, formatter.format(peerChainWeight), formatter.format(ourChainWeight));
+							return true;
 
+						} else {
+							LOGGER.debug("Peer {} is on a lower weight chain ({}) than ours ({})", peer, formatter.format(peerChainWeight), formatter.format(ourChainWeight));
+						}
 					} else {
-						LOGGER.debug("Peer {} is on a lower weight chain ({}) than ours ({})", peer, formatter.format(peerChainWeight), formatter.format(ourChainWeight));
+						LOGGER.debug("Peer {} has an invalid block", peer);
 					}
 				} else {
 					LOGGER.debug("Peer {} has no chain weight", peer);
