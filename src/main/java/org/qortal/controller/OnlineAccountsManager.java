@@ -54,7 +54,7 @@ public class OnlineAccountsManager {
     private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 15 * 1000L; // ms
 
     private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L; // v3.2.0
-    private static final long ONLINE_ACCOUNTS_V3_PEER_VERSION = 0x03000300cbL; // v3.3.203
+    private static final long ONLINE_ACCOUNTS_V3_PEER_VERSION = 0x0300040000L; // v3.4.0
 
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
