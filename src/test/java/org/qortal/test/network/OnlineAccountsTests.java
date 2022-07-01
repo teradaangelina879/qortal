@@ -43,7 +43,7 @@ public class OnlineAccountsTests extends Common {
 
     @Before
     public void beforeTest() throws DataException, IOException {
-        Common.useSettingsAndDb(Common.testSettingsFilename, false);
+        Common.useSettingsAndDb("test-settings-v2-no-sig-agg.json", false);
         NTP.setFixedOffset(Settings.getInstance().getTestNtpOffset());
     }
 
