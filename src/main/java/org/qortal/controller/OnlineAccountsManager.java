@@ -445,10 +445,10 @@ public class OnlineAccountsManager {
 
         Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
         Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
-        Message messageV3 = new OnlineAccountsV2Message(ourOnlineAccounts); // TODO: V3 message
+        Message messageV3 = new OnlineAccountsV3Message(ourOnlineAccounts);
 
         Network.getInstance().broadcast(peer ->
-                peer.getPeersVersion() >= ONLINE_ACCOUNTS_V3_PEER_VERSION
+                peer.getPeersVersion() >= OnlineAccountsV3Message.MIN_PEER_VERSION
                         ? messageV3
                         : peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION
                         ? messageV2
@@ -715,9 +715,32 @@ public class OnlineAccountsManager {
             }
         }
 
-        Message onlineAccountsMessage = new OnlineAccountsV2Message(outgoingOnlineAccounts); // TODO: V3 message
-        peer.sendMessage(onlineAccountsMessage);
+        peer.sendMessage(
+                peer.getPeersVersion() >= OnlineAccountsV3Message.MIN_PEER_VERSION ?
+                        new OnlineAccountsV3Message(outgoingOnlineAccounts) :
+                        new OnlineAccountsV2Message(outgoingOnlineAccounts)
+        );
 
         LOGGER.debug("Sent {} online accounts to {}", outgoingOnlineAccounts.size(), peer);
+    }
+
+    public void onNetworkOnlineAccountsV3Message(Peer peer, Message message) {
+        OnlineAccountsV3Message onlineAccountsMessage = (OnlineAccountsV3Message) message;
+
+        List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
+        LOGGER.debug("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
+
+        int importCount = 0;
+
+        // Add any online accounts to the queue that aren't already present
+        for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
+            boolean isNewEntry = onlineAccountsImportQueue.add(onlineAccountData);
+
+            if (isNewEntry)
+                importCount++;
+        }
+
+        if (importCount > 0)
+            LOGGER.debug("Added {} online accounts to queue", importCount);
     }
 }

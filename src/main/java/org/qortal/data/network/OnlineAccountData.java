@@ -16,6 +16,7 @@ public class OnlineAccountData {
 	protected long timestamp;
 	protected byte[] signature;
 	protected byte[] publicKey;
+	protected Integer nonce;
 
 	@XmlTransient
 	private int hash;
@@ -26,10 +27,15 @@ public class OnlineAccountData {
 	protected OnlineAccountData() {
 	}
 
-	public OnlineAccountData(long timestamp, byte[] signature, byte[] publicKey) {
+	public OnlineAccountData(long timestamp, byte[] signature, byte[] publicKey, Integer nonce) {
 		this.timestamp = timestamp;
 		this.signature = signature;
 		this.publicKey = publicKey;
+		this.nonce = nonce;
+	}
+
+	public OnlineAccountData(long timestamp, byte[] signature, byte[] publicKey) {
+		this(timestamp, signature, publicKey, null);
 	}
 
 	public long getTimestamp() {
@@ -42,6 +48,10 @@ public class OnlineAccountData {
 
 	public byte[] getPublicKey() {
 		return this.publicKey;
+	}
+
+	public Integer getNonce() {
+		return this.nonce;
 	}
 
 	// For JAXB
