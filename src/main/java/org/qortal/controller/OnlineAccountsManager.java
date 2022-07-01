@@ -462,6 +462,18 @@ public class OnlineAccountsManager {
         return this.currentOnlineAccounts.containsKey(onlineAccountsTimestamp);
     }
 
+    /**
+     * Whether we have submitted - or attempted to submit - our online account
+     * signature(s) to the network.
+     * @return true if our signature(s) have been submitted recently.
+     */
+    public boolean hasActiveOnlineAccountSignatures() {
+        final Long minLatestBlockTimestamp = NTP.getTime() - (2 * 60 * 60 * 1000L);
+        boolean isUpToDate = Controller.getInstance().isUpToDate(minLatestBlockTimestamp);
+
+        return isUpToDate && hasOnlineAccounts();
+    }
+
     public boolean hasOurOnlineAccounts() {
         return this.hasOurOnlineAccounts;
     }
