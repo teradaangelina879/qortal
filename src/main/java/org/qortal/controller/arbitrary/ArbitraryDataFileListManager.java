@@ -67,6 +67,9 @@ public class ArbitraryDataFileListManager {
     /** Maximum number of hops that a file list relay request is allowed to make */
     public static int RELAY_REQUEST_MAX_HOPS = 4;
 
+    /** Minimum peer version to use relay */
+    public static String RELAY_MIN_PEER_VERSION = "3.4.0";
+
 
     private ArbitraryDataFileListManager() {
     }
@@ -524,6 +527,7 @@ public class ArbitraryDataFileListManager {
                         forwardArbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes, requestTime, requestHops,
                                 arbitraryDataFileListMessage.getPeerAddress(), arbitraryDataFileListMessage.isRelayPossible());
                     }
+                    forwardArbitraryDataFileListMessage.setId(message.getId());
 
                     // Forward to requesting peer
                     LOGGER.debug("Forwarding file list with {} hashes to requesting peer: {}", hashes.size(), requestingPeer);
@@ -690,12 +694,14 @@ public class ArbitraryDataFileListManager {
                     // Relay request hasn't reached the maximum number of hops yet, so can be rebroadcast
 
                     Message relayGetArbitraryDataFileListMessage = new GetArbitraryDataFileListMessage(signature, hashes, requestTime, requestHops, requestingPeer);
+                    relayGetArbitraryDataFileListMessage.setId(message.getId());
 
                     LOGGER.debug("Rebroadcasting hash list request from peer {} for signature {} to our other peers... totalRequestTime: {}, requestHops: {}", peer, Base58.encode(signature), totalRequestTime, requestHops);
                     Network.getInstance().broadcast(
-                            broadcastPeer -> broadcastPeer == peer ||
-                                    Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
-                                    ? null : relayGetArbitraryDataFileListMessage);
+                            broadcastPeer ->
+                                    !broadcastPeer.isAtLeastVersion(RELAY_MIN_PEER_VERSION) ? null :
+                                    broadcastPeer == peer || Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost()) ? null : relayGetArbitraryDataFileListMessage
+                    );
 
                 }
                 else {

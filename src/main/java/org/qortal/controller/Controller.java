@@ -113,6 +113,7 @@ public class Controller extends Thread {
 	private long repositoryBackupTimestamp = startTime; // ms
 	private long repositoryMaintenanceTimestamp = startTime; // ms
 	private long repositoryCheckpointTimestamp = startTime; // ms
+	private long prunePeersTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
 
@@ -552,6 +553,7 @@ public class Controller extends Thread {
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
 		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
 		long repositoryMaintenanceInterval = getRandomRepositoryMaintenanceInterval();
+		final long prunePeersInterval = 5 * 60 * 1000L; // Every 5 minutes
 
 		// Start executor service for trimming or pruning
 		PruneManager.getInstance().start();
@@ -649,10 +651,15 @@ public class Controller extends Thread {
 				}
 
 				// Prune stuck/slow/old peers
-				try {
-					Network.getInstance().prunePeers();
-				} catch (DataException e) {
-					LOGGER.warn(String.format("Repository issue when trying to prune peers: %s", e.getMessage()));
+				if (now >= prunePeersTimestamp + prunePeersInterval) {
+					prunePeersTimestamp = now + prunePeersInterval;
+
+					try {
+						LOGGER.debug("Pruning peers...");
+						Network.getInstance().prunePeers();
+					} catch (DataException e) {
+						LOGGER.warn(String.format("Repository issue when trying to prune peers: %s", e.getMessage()));
+					}
 				}
 
 				// Delete expired transactions
@@ -787,29 +794,34 @@ public class Controller extends Thread {
 		String actionText;
 
 		// Use a more tolerant latest block timestamp in the isUpToDate() calls below to reduce misleading statuses.
-		// Any block in the last 30 minutes is considered "up to date" for the purposes of displaying statuses.
-		final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
+		// Any block in the last 2 hours is considered "up to date" for the purposes of displaying statuses.
+		// This also aligns with the time interval required for continued online account submission.
+		final Long minLatestBlockTimestamp = NTP.getTime() - (2 * 60 * 60 * 1000L);
+
+		// Only show sync percent if it's less than 100, to avoid confusion
+		final Integer syncPercent = Synchronizer.getInstance().getSyncPercent();
+		final boolean isSyncing = (syncPercent != null && syncPercent < 100);
 
 		synchronized (Synchronizer.getInstance().syncLock) {
 			if (Settings.getInstance().isLite()) {
 				actionText = Translator.INSTANCE.translate("SysTray", "LITE_NODE");
 				SysTray.getInstance().setTrayIcon(4);
 			}
-			else if (this.isMintingPossible) {
-				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
-				SysTray.getInstance().setTrayIcon(2);
-			}
 			else if (numberOfPeers < Settings.getInstance().getMinBlockchainPeers()) {
 				actionText = Translator.INSTANCE.translate("SysTray", "CONNECTING");
 				SysTray.getInstance().setTrayIcon(3);
 			}
-			else if (!this.isUpToDate(minLatestBlockTimestamp) && Synchronizer.getInstance().isSynchronizing()) {
+			else if (!this.isUpToDate(minLatestBlockTimestamp) && isSyncing) {
 				actionText = String.format("%s - %d%%", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"), Synchronizer.getInstance().getSyncPercent());
 				SysTray.getInstance().setTrayIcon(3);
 			}
 			else if (!this.isUpToDate(minLatestBlockTimestamp)) {
 				actionText = String.format("%s", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"));
 				SysTray.getInstance().setTrayIcon(3);
+			}
+			else if (OnlineAccountsManager.getInstance().hasOnlineAccounts()) {
+				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
+				SysTray.getInstance().setTrayIcon(2);
 			}
 			else {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_DISABLED");
@@ -1229,6 +1241,10 @@ public class Controller extends Thread {
 				OnlineAccountsManager.getInstance().onNetworkOnlineAccountsV2Message(peer, message);
 				break;
 
+			case GET_ONLINE_ACCOUNTS_V3:
+				OnlineAccountsManager.getInstance().onNetworkGetOnlineAccountsV3Message(peer, message);
+				break;
+
 			case GET_ARBITRARY_DATA:
 				// Not currently supported
 				break;
@@ -1361,6 +1377,18 @@ public class Controller extends Thread {
 			}
 
 			Block block = new Block(repository, blockData);
+
+			// V2 support
+			if (peer.getPeersVersion() >= BlockV2Message.MIN_PEER_VERSION) {
+				Message blockMessage = new BlockV2Message(block);
+				blockMessage.setId(message.getId());
+				if (!peer.sendMessage(blockMessage)) {
+					peer.disconnect("failed to send block");
+					// Don't fall-through to caching because failure to send might be from failure to build message
+					return;
+				}
+				return;
+			}
 
 			CachedBlockMessage blockMessage = new CachedBlockMessage(block);
 			blockMessage.setId(message.getId());
