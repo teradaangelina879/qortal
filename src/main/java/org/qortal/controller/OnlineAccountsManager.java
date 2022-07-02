@@ -584,10 +584,10 @@ public class OnlineAccountsManager {
 
     private boolean isMemoryPoWActive() {
         Long now = NTP.getTime();
-        if (now < BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp() || Settings.getInstance().isOnlineAccountsMemPoWEnabled()) {
-            return false;
+        if (now >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp() || Settings.getInstance().isOnlineAccountsMemPoWEnabled()) {
+            return true;
         }
-        return true;
+        return false;
     }
     private byte[] getMemoryPoWBytes(byte[] publicKey, long onlineAccountsTimestamp) throws IOException {
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
