@@ -9,6 +9,7 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
+import org.qortal.crypto.MemoryPoW;
 import org.qortal.crypto.Qortal25519Extras;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
@@ -19,10 +20,13 @@ import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 import org.qortal.utils.NamedThreadFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -52,10 +56,14 @@ public class OnlineAccountsManager {
     private static final long ONLINE_ACCOUNTS_QUEUE_INTERVAL = 100L; //ms
     private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
     private static final long ONLINE_ACCOUNTS_LEGACY_BROADCAST_INTERVAL = 60 * 1000L; // ms
-    private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 15 * 1000L; // ms
+    private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 5 * 1000L; // ms
 
     private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L; // v3.2.0
     private static final long ONLINE_ACCOUNTS_V3_PEER_VERSION = 0x0300040000L; // v3.4.0
+
+    // MemoryPoW
+    public final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
+    public int POW_DIFFICULTY = 18; // leading zero bits
 
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
@@ -93,6 +101,10 @@ public class OnlineAccountsManager {
 
         long onlineTimestampModulus = getOnlineTimestampModulus();
         return (now / onlineTimestampModulus) * onlineTimestampModulus;
+    }
+
+    public static long toOnlineAccountTimestamp(long timestamp) {
+        return (timestamp / getOnlineTimestampModulus()) * getOnlineTimestampModulus();
     }
 
     private OnlineAccountsManager() {
@@ -190,6 +202,52 @@ public class OnlineAccountsManager {
         }
     }
 
+    /**
+     * Check if supplied onlineAccountData is superior (i.e. has a nonce value) than existing record.
+     * Two entries are considered equal even if the nonce differs, to prevent multiple variations
+     * co-existing. For this reason, we need to be able to check if a new OnlineAccountData entry should
+     * replace the existing one, which may be missing the nonce.
+     * @param onlineAccountData
+     * @return true if supplied data is superior to existing entry
+     */
+    private boolean isOnlineAccountsDataSuperior(OnlineAccountData onlineAccountData) {
+        if (onlineAccountData.getNonce() == null || onlineAccountData.getNonce() < 0) {
+            // New online account data has no usable nonce value, so it won't be better than anything we already have
+            return false;
+        }
+
+        // New online account data has a nonce value, so check if there is any existing data to compare against
+        Set<OnlineAccountData> existingOnlineAccountsForTimestamp = this.currentOnlineAccounts.get(onlineAccountData.getTimestamp());
+        if (existingOnlineAccountsForTimestamp == null) {
+            // No existing online accounts data with this timestamp yet
+            return false;
+        }
+
+        // Check if a duplicate entry exists
+        OnlineAccountData existingOnlineAccountData = null;
+        for (OnlineAccountData existingAccount : existingOnlineAccountsForTimestamp) {
+            if (existingAccount.equals(onlineAccountData)) {
+                // Found existing online account data
+                existingOnlineAccountData = existingAccount;
+                break;
+            }
+        }
+
+        if (existingOnlineAccountData == null) {
+            // No existing online accounts data, so nothing to compare
+            return false;
+        }
+
+        if (existingOnlineAccountData.getNonce() == null || existingOnlineAccountData.getNonce() < 0) {
+            // Existing data has no usable nonce value(s) so we want to replace it with the new one
+            return true;
+        }
+
+        // Both new and old data have nonce values so the new data isn't considered superior
+        return false;
+    }
+
+
     // Utilities
 
     public static byte[] xorByteArrayInPlace(byte[] inplaceArray, byte[] otherArray) {
@@ -240,6 +298,14 @@ public class OnlineAccountsManager {
             // Minting-account component of reward-share can no longer mint - disregard
             LOGGER.trace(() -> String.format("Rejecting online reward-share with non-minting account %s", mintingAccount.getAddress()));
             return false;
+        }
+
+        // Validate mempow if feature trigger is active
+        if (now >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+            if (!getInstance().verifyMemoryPoW(onlineAccountData)) {
+                LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
+                return false;
+            }
         }
 
         return true;
@@ -299,6 +365,12 @@ public class OnlineAccountsManager {
         long onlineAccountTimestamp = onlineAccountData.getTimestamp();
 
         Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountTimestamp, k -> ConcurrentHashMap.newKeySet());
+
+        boolean isSuperiorEntry = isOnlineAccountsDataSuperior(onlineAccountData);
+        if (isSuperiorEntry)
+            // Remove existing inferior entry so it can be re-added below (it's likely the existing copy is missing a nonce value)
+            onlineAccounts.remove(onlineAccountData);
+
         boolean isNewEntry = onlineAccounts.add(onlineAccountData);
 
         if (isNewEntry)
@@ -386,13 +458,26 @@ public class OnlineAccountsManager {
             return;
         }
 
+        // 'next' timestamp (prioritize this as it's the most important)
+        final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(now) + getOnlineTimestampModulus();
+        boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
+        if (!success) {
+            // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
+            return;
+        }
+
+        // 'current' timestamp
+        computeOurAccountsForTimestamp(onlineAccountsTimestamp);
+    }
+
+    private boolean computeOurAccountsForTimestamp(long onlineAccountsTimestamp) {
         List<MintingAccountData> mintingAccounts;
         try (final Repository repository = RepositoryManager.getRepository()) {
             mintingAccounts = repository.getAccountRepository().getMintingAccounts();
 
             // We have no accounts to send
             if (mintingAccounts.isEmpty())
-                return;
+                return false;
 
             // Only active reward-shares allowed
             Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
@@ -415,7 +500,7 @@ public class OnlineAccountsManager {
             }
         } catch (DataException e) {
             LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
-            return;
+            return false;
         }
 
         final boolean useAggregateCompatibleSignature = onlineAccountsTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp();
@@ -427,13 +512,46 @@ public class OnlineAccountsManager {
             byte[] privateKey = mintingAccountData.getPrivateKey();
             byte[] publicKey = Crypto.toPublicKey(privateKey);
 
+            // Generate bytes for mempow
+            byte[] mempowBytes;
+            try {
+                mempowBytes = this.getMemoryPoWBytes(publicKey, onlineAccountsTimestamp);
+            }
+            catch (IOException e) {
+                LOGGER.info("Unable to create bytes for MemoryPoW. Moving on to next account...");
+                continue;
+            }
+
+            // Compute nonce
+            Integer nonce;
+            if (isMemoryPoWActive()) {
+                try {
+                    nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
+                    if (nonce == null) {
+                        // A nonce is required
+                        return false;
+                    }
+                } catch (TimeoutException e) {
+                    LOGGER.info(String.format("Timed out computing nonce for account %.8s", Base58.encode(publicKey)));
+                    return false;
+                }
+            }
+            else {
+                // Send -1 if we haven't computed a nonce due to feature trigger timestamp
+                nonce = -1;
+            }
+
             byte[] signature = useAggregateCompatibleSignature
                     ? Qortal25519Extras.signForAggregation(privateKey, timestampBytes)
                     : Crypto.sign(privateKey, timestampBytes);
 
             // Our account is online
-            OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
-            ourOnlineAccounts.add(ourOnlineAccountData);
+            OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
+
+            // Make sure to verify before adding
+            if (verifyMemoryPoW(ourOnlineAccountData)) {
+                ourOnlineAccounts.add(ourOnlineAccountData);
+            }
         }
 
         this.hasOurOnlineAccounts = !ourOnlineAccounts.isEmpty();
@@ -441,7 +559,7 @@ public class OnlineAccountsManager {
         boolean hasInfoChanged = addAccounts(ourOnlineAccounts);
 
         if (!hasInfoChanged)
-            return;
+            return false;
 
         Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
         Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
@@ -456,7 +574,77 @@ public class OnlineAccountsManager {
         );
 
         LOGGER.debug("Broadcasted {} online account{} with timestamp {}", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp);
+
+        return true;
     }
+
+
+
+    // MemoryPoW
+
+    private boolean isMemoryPoWActive() {
+        Long now = NTP.getTime();
+        if (now < BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp() || Settings.getInstance().isOnlineAccountsMemPoWEnabled()) {
+            return false;
+        }
+        return true;
+    }
+    private byte[] getMemoryPoWBytes(byte[] publicKey, long onlineAccountsTimestamp) throws IOException {
+        byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        outputStream.write(publicKey);
+        outputStream.write(timestampBytes);
+
+        return outputStream.toByteArray();
+    }
+
+    private Integer computeMemoryPoW(byte[] bytes, byte[] publicKey, long onlineAccountsTimestamp) throws TimeoutException {
+        if (!isMemoryPoWActive()) {
+            LOGGER.info("Mempow start timestamp not yet reached, and onlineAccountsMemPoWEnabled not enabled in settings");
+            return null;
+        }
+
+        LOGGER.info(String.format("Computing nonce for account %.8s and timestamp %d...", Base58.encode(publicKey), onlineAccountsTimestamp));
+
+        // Calculate the time until the next online timestamp and use it as a timeout when computing the nonce
+        Long startTime = NTP.getTime();
+        final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(startTime) + getOnlineTimestampModulus();
+        long timeUntilNextTimestamp = nextOnlineAccountsTimestamp - startTime;
+
+        Integer nonce = MemoryPoW.compute2(bytes, POW_BUFFER_SIZE, POW_DIFFICULTY, timeUntilNextTimestamp);
+
+        double totalSeconds = (NTP.getTime() - startTime) / 1000.0f;
+        int minutes = (int) ((totalSeconds % 3600) / 60);
+        int seconds = (int) (totalSeconds % 60);
+        double hashRate = nonce / totalSeconds;
+
+        LOGGER.info(String.format("Computed nonce for timestamp %d and account %.8s: %d. Buffer size: %d. Difficulty: %d. " +
+                        "Time taken: %02d:%02d. Hashrate: %f", onlineAccountsTimestamp, Base58.encode(publicKey),
+                nonce, POW_BUFFER_SIZE, POW_DIFFICULTY, minutes, seconds, hashRate));
+
+        return nonce;
+    }
+
+    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData) {
+        if (!isMemoryPoWActive()) {
+            // Not active yet, so treat it as valid
+            return true;
+        }
+
+        int nonce = onlineAccountData.getNonce();
+
+        byte[] mempowBytes;
+        try {
+            mempowBytes = this.getMemoryPoWBytes(onlineAccountData.getPublicKey(), onlineAccountData.getTimestamp());
+        } catch (IOException e) {
+            return false;
+        }
+
+        // Verify the nonce
+        return MemoryPoW.verify2(mempowBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+    }
+
 
     /**
      * Returns whether online accounts manager has any online accounts with timestamp recent enough to be considered currently online.
