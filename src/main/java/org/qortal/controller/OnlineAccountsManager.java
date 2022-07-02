@@ -152,6 +152,7 @@ public class OnlineAccountsManager {
 
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
         final boolean useAggregateCompatibleSignature = onlineAccountsTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp();
+        final boolean mempowActive = onlineAccountsTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
 
         Set<OnlineAccountData> replacementAccounts = new HashSet<>();
         for (PrivateKeyAccount onlineAccount : onlineAccounts) {
@@ -162,7 +163,9 @@ public class OnlineAccountsManager {
                     : onlineAccount.sign(timestampBytes);
             byte[] publicKey = onlineAccount.getPublicKey();
 
-            OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey);
+            Integer nonce = mempowActive ? new Random().nextInt(500000) : null;
+
+            OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
             replacementAccounts.add(ourOnlineAccountData);
         }
 
