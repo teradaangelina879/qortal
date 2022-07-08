@@ -1975,7 +1975,7 @@ public class Block {
 		// Fetch list of legacy QORA holders who haven't reached their cap of QORT reward.
 		List<EligibleQoraHolderData> qoraHolders = this.repository.getAccountRepository().getEligibleLegacyQoraHolders(isProcessingNotOrphaning ? null : this.blockData.getHeight());
 		final boolean haveQoraHolders = !qoraHolders.isEmpty();
-		final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+		final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShareAtHeight(this.blockData.getHeight());
 
 		// Perform account-level-based reward scaling if appropriate
 		if (!haveFounders) {
