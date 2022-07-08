@@ -45,7 +45,10 @@
 		{ "levels": [ 7, 8 ], "share": 0.20 },
 		{ "levels": [ 9, 10 ], "share": 0.25 }
 	],
-	"qoraHoldersShare": 0.20,
+	"qoraHoldersShareByHeight": [
+		{ "height": 1, "share": 0.20 },
+		{ "height": 9999999, "share": 0.01 }
+	],
 	"qoraPerQortReward": 250,
 	"blocksNeededByLevel": [ 7200, 64800, 129600, 172800, 244000, 345600, 518400, 691200, 864000, 1036800 ],
 	"blockTimingsByHeight": [

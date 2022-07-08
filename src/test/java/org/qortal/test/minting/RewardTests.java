@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +15,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.RewardByHeight;
 import org.qortal.controller.BlockMinter;
@@ -109,7 +111,7 @@ public class RewardTests extends Common {
 	public void testLegacyQoraReward() throws DataException {
 		Common.useSettings("test-settings-v2-qora-holder-extremes.json");
 
-		long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+		long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShareAtHeight(1);
 		BigInteger qoraHoldersShareBI = BigInteger.valueOf(qoraHoldersShare);
 
 		long qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
@@ -187,6 +189,47 @@ public class RewardTests extends Common {
 			long expectedBalance = Amounts.scaledDivide(initialBalances.get("dilbert").get(Asset.LEGACY_QORA), qoraPerQort);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, initialBalances.get("dilbert").get(Asset.QORT) + expectedBalance);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT_FROM_QORA, initialBalances.get("dilbert").get(Asset.QORT_FROM_QORA) + expectedBalance);
+		}
+	}
+
+	@Test
+	public void testLegacyQoraRewardReduction() throws DataException {
+		Common.useSettings("test-settings-v2-qora-holder-extremes.json");
+
+		// Make sure that the QORA share reduces between blocks 4 and 5
+		assertTrue(BlockChain.getInstance().getQoraHoldersShareAtHeight(5) < BlockChain.getInstance().getQoraHoldersShareAtHeight(4));
+
+		// Keep track of balance deltas at each height
+		Map<Integer, Long> chloeQortBalanceDeltaAtEachHeight = new HashMap<>();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			long chloeLastQortBalance = initialBalances.get("chloe").get(Asset.QORT);
+
+			for (int i=2; i<=10; i++) {
+
+				Block block = BlockUtils.mintBlock(repository);
+
+				// Add to map of balance deltas at each height
+				long chloeNewQortBalance = AccountUtils.getBalance(repository, "chloe", Asset.QORT);
+				chloeQortBalanceDeltaAtEachHeight.put(block.getBlockData().getHeight(), chloeNewQortBalance - chloeLastQortBalance);
+				chloeLastQortBalance = chloeNewQortBalance;
+			}
+
+			// Ensure blocks 2-4 paid out the same rewards to Chloe
+			assertEquals(chloeQortBalanceDeltaAtEachHeight.get(2), chloeQortBalanceDeltaAtEachHeight.get(4));
+
+			// Ensure block 5 paid a lower reward
+			assertTrue(chloeQortBalanceDeltaAtEachHeight.get(5) < chloeQortBalanceDeltaAtEachHeight.get(4));
+
+			// Check that the reward was 20x lower
+			assertTrue(chloeQortBalanceDeltaAtEachHeight.get(5) == chloeQortBalanceDeltaAtEachHeight.get(4) / 20);
+
+			// Orphan to block 4 and ensure that Chloe's balance hasn't been incorrectly affected by the reward reduction
+			BlockUtils.orphanToBlock(repository, 4);
+			long expectedChloeQortBalance = initialBalances.get("chloe").get(Asset.QORT) + chloeQortBalanceDeltaAtEachHeight.get(2) +
+					chloeQortBalanceDeltaAtEachHeight.get(3) + chloeQortBalanceDeltaAtEachHeight.get(4);
+			assertEquals(expectedChloeQortBalance, AccountUtils.getBalance(repository, "chloe", Asset.QORT));
 		}
 	}
 
@@ -295,7 +338,7 @@ public class RewardTests extends Common {
 			 * So Dilbert should receive 100% - legacy QORA holder's share.
 			 */
 
-			final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+			final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShareAtHeight(1);
 			final long remainingShare = 1_00000000 - qoraHoldersShare;
 
 			long dilbertExpectedBalance = initialBalances.get("dilbert").get(Asset.QORT);
