@@ -8,6 +8,7 @@ import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.Test;
 import org.qortal.crypto.Qortal25519Extras;
 import org.qortal.data.network.OnlineAccountData;
+import org.qortal.test.common.AccountUtils;
 import org.qortal.transform.Transformer;
 
 import java.math.BigInteger;
@@ -27,8 +28,6 @@ public class SchnorrTests extends Qortal25519Extras {
         Security.insertProviderAt(new BouncyCastleProvider(), 0);
         Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
     }
-
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Test
     public void testConversion() {
@@ -130,7 +129,7 @@ public class SchnorrTests extends Qortal25519Extras {
 
     @Test
     public void testSimpleAggregate() {
-        List<OnlineAccountData> onlineAccounts = generateOnlineAccounts(1);
+        List<OnlineAccountData> onlineAccounts = AccountUtils.generateOnlineAccounts(1);
 
         byte[] aggregatePublicKey = aggregatePublicKeys(onlineAccounts.stream().map(OnlineAccountData::getPublicKey).collect(Collectors.toUnmodifiableList()));
         System.out.printf("Aggregate public key: %s%n", HashCode.fromBytes(aggregatePublicKey));
@@ -151,7 +150,7 @@ public class SchnorrTests extends Qortal25519Extras {
 
     @Test
     public void testMultipleAggregate() {
-        List<OnlineAccountData> onlineAccounts = generateOnlineAccounts(5000);
+        List<OnlineAccountData> onlineAccounts = AccountUtils.generateOnlineAccounts(5000);
 
         byte[] aggregatePublicKey = aggregatePublicKeys(onlineAccounts.stream().map(OnlineAccountData::getPublicKey).collect(Collectors.toUnmodifiableList()));
         System.out.printf("Aggregate public key: %s%n", HashCode.fromBytes(aggregatePublicKey));
@@ -165,26 +164,5 @@ public class SchnorrTests extends Qortal25519Extras {
         long timestamp = onlineAccount.getTimestamp();
         byte[] timestampBytes = Longs.toByteArray(timestamp);
         assertTrue(verifyAggregated(aggregatePublicKey, aggregateSignature, timestampBytes));
-    }
-
-    private List<OnlineAccountData> generateOnlineAccounts(int numAccounts) {
-        List<OnlineAccountData> onlineAccounts = new ArrayList<>();
-
-        long timestamp = System.currentTimeMillis();
-        byte[] timestampBytes = Longs.toByteArray(timestamp);
-
-        for (int a = 0; a < numAccounts; ++a) {
-            byte[] privateKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
-            SECURE_RANDOM.nextBytes(privateKey);
-
-            byte[] publicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
-            Qortal25519Extras.generatePublicKey(privateKey, 0, publicKey, 0);
-
-            byte[] signature = signForAggregation(privateKey, timestampBytes);
-
-            onlineAccounts.add(new OnlineAccountData(timestamp, signature, publicKey));
-        }
-
-        return onlineAccounts;
     }
 }

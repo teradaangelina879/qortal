@@ -1,26 +1,29 @@
 package org.qortal.test.network;
 
+import com.google.common.primitives.Ints;
+import io.druid.extendedset.intset.ConciseSet;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
-import org.qortal.account.PrivateKeyAccount;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.BlockMinter;
-import org.qortal.controller.OnlineAccountsManager;
 import org.qortal.data.network.OnlineAccountData;
 import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.test.common.AccountUtils;
 import org.qortal.test.common.Common;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.Security;
@@ -201,5 +204,32 @@ public class OnlineAccountsTests extends Common {
             System.out.println(String.format("onlineAccountSignatures count: %d", onlineAccountSignatures.size()));
             assertTrue(onlineAccountSignatures.size() >= 1 && onlineAccountSignatures.size() <= 3);
         }
+    }
+
+    @Test
+    @Ignore(value = "For informational use")
+    public void testOnlineAccountNonceCompression() throws IOException {
+        List<OnlineAccountData> onlineAccounts = AccountUtils.generateOnlineAccounts(5000);
+
+        // Build array of nonce values
+        List<Integer> accountNonces = new ArrayList<>();
+        for (OnlineAccountData onlineAccountData : onlineAccounts) {
+            accountNonces.add(onlineAccountData.getNonce());
+        }
+
+        // Write nonces into ConciseSet
+        ConciseSet nonceSet = new ConciseSet();
+        nonceSet = nonceSet.convert(accountNonces);
+        byte[] conciseEncodedNonces = nonceSet.toByteBuffer().array();
+
+        // Also write to regular byte array of ints, for comparison
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        for (Integer nonce : accountNonces) {
+            bytes.write(Ints.toByteArray(nonce));
+        }
+        byte[] standardEncodedNonces = bytes.toByteArray();
+
+        System.out.println(String.format("Standard: %d", standardEncodedNonces.length));
+        System.out.println(String.format("Concise: %d", conciseEncodedNonces.length));
     }
 }
