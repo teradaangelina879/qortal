@@ -317,7 +317,8 @@ public class PirateChain extends Bitcoiny {
 
 						// TODO: JSONArray outgoingMetadatas = transactionJson.getJSONArray("outgoing_metadata");
 
-						SimpleTransaction transaction = new SimpleTransaction(txId, Math.toIntExact(timestamp), amount, fee, null, null);
+						long timestampMillis = Math.toIntExact(timestamp) * 1000L;
+						SimpleTransaction transaction = new SimpleTransaction(txId, timestampMillis, amount, fee, null, null);
 						transactions.add(transaction);
 					}
 				}
