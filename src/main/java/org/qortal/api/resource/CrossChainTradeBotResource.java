@@ -138,7 +138,7 @@ public class CrossChainTradeBotResource {
 		if (tradeBotCreateRequest.qortAmount <= 0 || tradeBotCreateRequest.fundingQortAmount <= 0)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_SIZE_TOO_SMALL);
 
-		final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
+		final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
 		if (!Controller.getInstance().isUpToDate(minLatestBlockTimestamp))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCKCHAIN_NEEDS_SYNC);
 
@@ -200,7 +200,7 @@ public class CrossChainTradeBotResource {
 		if (tradeBotRespondRequest.receivingAddress == null || !Crypto.isValidAddress(tradeBotRespondRequest.receivingAddress))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
-		final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
+		final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
 		if (!Controller.getInstance().isUpToDate(minLatestBlockTimestamp))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCKCHAIN_NEEDS_SYNC);
 

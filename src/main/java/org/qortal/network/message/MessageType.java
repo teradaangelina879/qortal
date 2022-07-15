@@ -8,6 +8,9 @@ import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
 public enum MessageType {
+    // Pseudo-message, not sent over the wire
+    UNSUPPORTED(-1, UnsupportedMessage::fromByteBuffer),
+
     // Handshaking
     HELLO(0, HelloMessage::fromByteBuffer),
     GOODBYE(1, GoodbyeMessage::fromByteBuffer),
@@ -31,6 +34,7 @@ public enum MessageType {
 
     BLOCK(50, BlockMessage::fromByteBuffer),
     GET_BLOCK(51, GetBlockMessage::fromByteBuffer),
+    BLOCK_V2(52, BlockV2Message::fromByteBuffer),
 
     SIGNATURES(60, SignaturesMessage::fromByteBuffer),
     GET_SIGNATURES_V2(61, GetSignaturesV2Message::fromByteBuffer),
@@ -42,6 +46,8 @@ public enum MessageType {
     GET_ONLINE_ACCOUNTS(81, GetOnlineAccountsMessage::fromByteBuffer),
     ONLINE_ACCOUNTS_V2(82, OnlineAccountsV2Message::fromByteBuffer),
     GET_ONLINE_ACCOUNTS_V2(83, GetOnlineAccountsV2Message::fromByteBuffer),
+    // ONLINE_ACCOUNTS_V3(84, OnlineAccountsV3Message::fromByteBuffer),
+    GET_ONLINE_ACCOUNTS_V3(85, GetOnlineAccountsV3Message::fromByteBuffer),
 
     ARBITRARY_DATA(90, ArbitraryDataMessage::fromByteBuffer),
     GET_ARBITRARY_DATA(91, GetArbitraryDataMessage::fromByteBuffer),

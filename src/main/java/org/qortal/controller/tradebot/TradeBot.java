@@ -243,8 +243,8 @@ public class TradeBot implements Listener {
 		if (!(event instanceof Synchronizer.NewChainTipEvent))
 			return;
 
-		// Don't process trade bots or broadcast presence timestamps if our chain is more than 30 minutes old
-		final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
+		// Don't process trade bots or broadcast presence timestamps if our chain is more than 60 minutes old
+		final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
 		if (!Controller.getInstance().isUpToDate(minLatestBlockTimestamp))
 			return;
 
@@ -293,7 +293,7 @@ public class TradeBot implements Listener {
 	}
 
 	public static byte[] deriveTradeNativePublicKey(byte[] privateKey) {
-		return PrivateKeyAccount.toPublicKey(privateKey);
+		return Crypto.toPublicKey(privateKey);
 	}
 
 	public static byte[] deriveTradeForeignPublicKey(byte[] privateKey) {

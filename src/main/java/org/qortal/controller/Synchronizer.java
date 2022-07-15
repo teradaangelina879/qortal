@@ -26,14 +26,7 @@ import org.qortal.event.Event;
 import org.qortal.event.EventBus;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
-import org.qortal.network.message.BlockMessage;
-import org.qortal.network.message.BlockSummariesMessage;
-import org.qortal.network.message.GetBlockMessage;
-import org.qortal.network.message.GetBlockSummariesMessage;
-import org.qortal.network.message.GetSignaturesV2Message;
-import org.qortal.network.message.Message;
-import org.qortal.network.message.SignaturesMessage;
-import org.qortal.network.message.MessageType;
+import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -88,7 +81,7 @@ public class Synchronizer extends Thread {
 	private boolean syncRequestPending = false;
 
 	// Keep track of invalid blocks so that we don't keep trying to sync them
-	private Map<String, Long> invalidBlockSignatures = Collections.synchronizedMap(new HashMap<>());
+	private Map<ByteArray, Long> invalidBlockSignatures = Collections.synchronizedMap(new HashMap<>());
 	public Long timeValidBlockLastReceived = null;
 	public Long timeInvalidBlockLastReceived = null;
 
@@ -178,8 +171,8 @@ public class Synchronizer extends Thread {
 
 	public Integer getSyncPercent() {
 		synchronized (this.syncLock) {
-			// Report as 100% synced if the latest block is within the last 30 mins
-			final Long minLatestBlockTimestamp = NTP.getTime() - (30 * 60 * 1000L);
+			// Report as 100% synced if the latest block is within the last 60 mins
+			final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
 			if (Controller.getInstance().isUpToDate(minLatestBlockTimestamp)) {
 				return 100;
 			}
@@ -624,7 +617,7 @@ public class Synchronizer extends Thread {
 							// We have already determined that the correct chain diverged from a lower height. We are safe to skip these peers.
 							for (Peer peer : peersSharingCommonBlock) {
 								LOGGER.debug(String.format("Peer %s has common block at height %d but the superior chain is at height %d. Removing it from this round.", peer, commonBlockSummary.getHeight(), dropPeersAfterCommonBlockHeight));
-								this.addInferiorChainSignature(peer.getChainTipData().getLastBlockSignature());
+								//this.addInferiorChainSignature(peer.getChainTipData().getLastBlockSignature());
 							}
 							continue;
 						}
@@ -635,7 +628,9 @@ public class Synchronizer extends Thread {
 					int minChainLength = this.calculateMinChainLengthOfPeers(peersSharingCommonBlock, commonBlockSummary);
 
 					// Fetch block summaries from each peer
-					for (Peer peer : peersSharingCommonBlock) {
+					Iterator peersSharingCommonBlockIterator = peersSharingCommonBlock.iterator();
+					while (peersSharingCommonBlockIterator.hasNext()) {
+						Peer peer = (Peer) peersSharingCommonBlockIterator.next();
 
 						// If we're shutting down, just return the latest peer list
 						if (Controller.isStopping())
@@ -692,6 +687,8 @@ public class Synchronizer extends Thread {
 						if (this.containsInvalidBlockSummary(peer.getCommonBlockData().getBlockSummariesAfterCommonBlock())) {
 							LOGGER.debug("Ignoring peer %s because it holds an invalid block", peer);
 							peers.remove(peer);
+							peersSharingCommonBlockIterator.remove();
+							continue;
 						}
 
 						// Reduce minChainLength if needed. If we don't have any blocks, this peer will be excluded from chain weight comparisons later in the process, so we shouldn't update minChainLength
@@ -847,6 +844,10 @@ public class Synchronizer extends Thread {
 
 	/* Invalid block signature tracking */
 
+	public Map<ByteArray, Long> getInvalidBlockSignatures() {
+		return this.invalidBlockSignatures;
+	}
+
 	private void addInvalidBlockSignature(byte[] signature) {
 		Long now = NTP.getTime();
 		if (now == null) {
@@ -854,8 +855,7 @@ public class Synchronizer extends Thread {
 		}
 
 		// Add or update existing entry
-		String sig58 = Base58.encode(signature);
-		invalidBlockSignatures.put(sig58, now);
+		invalidBlockSignatures.put(ByteArray.wrap(signature), now);
 	}
 	private void deleteOlderInvalidSignatures(Long now) {
 		if (now == null) {
@@ -874,17 +874,16 @@ public class Synchronizer extends Thread {
 			}
 		}
 	}
-	private boolean containsInvalidBlockSummary(List<BlockSummaryData> blockSummaries) {
+	public boolean containsInvalidBlockSummary(List<BlockSummaryData> blockSummaries) {
 		if (blockSummaries == null || invalidBlockSignatures == null) {
 			return false;
 		}
 
 		// Loop through our known invalid blocks and check each one against supplied block summaries
-		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
-			byte[] invalidSignature = Base58.decode(invalidSignature58);
+		for (ByteArray invalidSignature : invalidBlockSignatures.keySet()) {
 			for (BlockSummaryData blockSummary : blockSummaries) {
 				byte[] signature = blockSummary.getSignature();
-				if (Arrays.equals(signature, invalidSignature)) {
+				if (Arrays.equals(signature, invalidSignature.value)) {
 					return true;
 				}
 			}
@@ -897,10 +896,9 @@ public class Synchronizer extends Thread {
 		}
 
 		// Loop through our known invalid blocks and check each one against supplied block signatures
-		for (String invalidSignature58 : invalidBlockSignatures.keySet()) {
-			byte[] invalidSignature = Base58.decode(invalidSignature58);
+		for (ByteArray invalidSignature : invalidBlockSignatures.keySet()) {
 			for (byte[] signature : blockSignatures) {
-				if (Arrays.equals(signature, invalidSignature)) {
+				if (Arrays.equals(signature, invalidSignature.value)) {
 					return true;
 				}
 			}
@@ -1579,12 +1577,23 @@ public class Synchronizer extends Thread {
 		Message getBlockMessage = new GetBlockMessage(signature);
 
 		Message message = peer.getResponse(getBlockMessage);
-		if (message == null || message.getType() != MessageType.BLOCK)
+		if (message == null)
 			return null;
 
-		BlockMessage blockMessage = (BlockMessage) message;
+		switch (message.getType()) {
+			case BLOCK: {
+				BlockMessage blockMessage = (BlockMessage) message;
+				return new Block(repository, blockMessage.getBlockData(), blockMessage.getTransactions(), blockMessage.getAtStates());
+			}
 
-		return new Block(repository, blockMessage.getBlockData(), blockMessage.getTransactions(), blockMessage.getAtStates());
+			case BLOCK_V2: {
+				BlockV2Message blockMessage = (BlockV2Message) message;
+				return new Block(repository, blockMessage.getBlockData(), blockMessage.getTransactions(), blockMessage.getAtStatesHash());
+			}
+
+			default:
+				return null;
+		}
 	}
 
 	public void populateBlockSummariesMinterLevels(Repository repository, List<BlockSummaryData> blockSummaries) throws DataException {

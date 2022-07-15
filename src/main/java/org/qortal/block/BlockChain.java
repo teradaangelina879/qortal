@@ -68,9 +68,12 @@ public class BlockChain {
 		atFindNextTransactionFix,
 		newBlockSigHeight,
 		shareBinFix,
+		rewardShareLimitTimestamp,
 		calcChainWeightTimestamp,
 		transactionV5Timestamp,
-		transactionV6Timestamp;
+		transactionV6Timestamp,
+		disableReferenceTimestamp,
+		aggregateSignatureTimestamp;
 	}
 
 	// Custom transaction fees
@@ -155,13 +158,20 @@ public class BlockChain {
 	private int minAccountLevelToMint;
 	private int minAccountLevelForBlockSubmissions;
 	private int minAccountLevelToRewardShare;
-	private int maxRewardSharesPerMintingAccount;
+	private int maxRewardSharesPerFounderMintingAccount;
 	private int founderEffectiveMintingLevel;
 
 	/** Minimum time to retain online account signatures (ms) for block validity checks. */
 	private long onlineAccountSignaturesMinLifetime;
 	/** Maximum time to retain online account signatures (ms) for block validity checks, to allow for clock variance. */
 	private long onlineAccountSignaturesMaxLifetime;
+
+	/** Max reward shares by block height */
+	public static class MaxRewardSharesByTimestamp {
+		public long timestamp;
+		public int maxShares;
+	}
+	private List<MaxRewardSharesByTimestamp> maxRewardSharesByTimestamp;
 
 	/** Settings relating to CIYAM AT feature. */
 	public static class CiyamAtSettings {
@@ -364,8 +374,8 @@ public class BlockChain {
 		return this.minAccountLevelToRewardShare;
 	}
 
-	public int getMaxRewardSharesPerMintingAccount() {
-		return this.maxRewardSharesPerMintingAccount;
+	public int getMaxRewardSharesPerFounderMintingAccount() {
+		return this.maxRewardSharesPerFounderMintingAccount;
 	}
 
 	public int getFounderEffectiveMintingLevel() {
@@ -398,6 +408,10 @@ public class BlockChain {
 		return this.featureTriggers.get(FeatureTrigger.shareBinFix.name()).intValue();
 	}
 
+	public long getRewardShareLimitTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.rewardShareLimitTimestamp.name()).longValue();
+	}
+
 	public long getCalcChainWeightTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.calcChainWeightTimestamp.name()).longValue();
 	}
@@ -408,6 +422,14 @@ public class BlockChain {
 
 	public long getTransactionV6Timestamp() {
 		return this.featureTriggers.get(FeatureTrigger.transactionV6Timestamp.name()).longValue();
+	}
+
+	public long getDisableReferenceTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.disableReferenceTimestamp.name()).longValue();
+	}
+
+	public long getAggregateSignatureTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.aggregateSignatureTimestamp.name()).longValue();
 	}
 
 	// More complex getters for aspects that change by height or timestamp
@@ -436,6 +458,14 @@ public class BlockChain {
 
 		// Default to system-wide unit fee
 		return this.getUnitFee();
+	}
+
+	public int getMaxRewardSharesAtTimestamp(long ourTimestamp) {
+		for (int i = maxRewardSharesByTimestamp.size() - 1; i >= 0; --i)
+			if (maxRewardSharesByTimestamp.get(i).timestamp <= ourTimestamp)
+				return maxRewardSharesByTimestamp.get(i).maxShares;
+
+		return 0;
 	}
 
 	/** Validate blockchain config read from JSON */

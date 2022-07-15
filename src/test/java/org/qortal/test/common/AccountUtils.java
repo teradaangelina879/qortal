@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.PaymentTransactionData;
 import org.qortal.data.transaction.RewardShareTransactionData;
@@ -40,12 +41,15 @@ public class AccountUtils {
 	public static TransactionData createRewardShare(Repository repository, String minter, String recipient, int sharePercent) throws DataException {
 		PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, minter);
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
+		return createRewardShare(repository, mintingAccount, recipientAccount, sharePercent);
+	}
 
+	public static TransactionData createRewardShare(Repository repository, PrivateKeyAccount mintingAccount, PrivateKeyAccount recipientAccount, int sharePercent) throws DataException {
 		byte[] reference = mintingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
 		byte[] rewardSharePrivateKey = mintingAccount.getRewardSharePrivateKey(recipientAccount.getPublicKey());
-		byte[] rewardSharePublicKey = PrivateKeyAccount.toPublicKey(rewardSharePrivateKey);
+		byte[] rewardSharePublicKey = Crypto.toPublicKey(rewardSharePrivateKey);
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, mintingAccount.getPublicKey(), fee, null);
 		TransactionData transactionData = new RewardShareTransactionData(baseTransactionData, recipientAccount.getAddress(), rewardSharePublicKey, sharePercent);
@@ -61,6 +65,15 @@ public class AccountUtils {
 
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
 		byte[] rewardSharePrivateKey = rewardShareAccount.getRewardSharePrivateKey(recipientAccount.getPublicKey());
+
+		return rewardSharePrivateKey;
+	}
+
+	public static byte[] rewardShare(Repository repository, PrivateKeyAccount minterAccount, PrivateKeyAccount recipientAccount, int sharePercent) throws DataException {
+		TransactionData transactionData = createRewardShare(repository, minterAccount, recipientAccount, sharePercent);
+
+		TransactionUtils.signAndMint(repository, transactionData, minterAccount);
+		byte[] rewardSharePrivateKey = minterAccount.getRewardSharePrivateKey(recipientAccount.getPublicKey());
 
 		return rewardSharePrivateKey;
 	}
