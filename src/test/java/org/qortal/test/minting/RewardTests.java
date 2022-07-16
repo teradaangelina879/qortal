@@ -743,6 +743,15 @@ public class RewardTests extends Common {
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel7And8Reward);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel7And8Reward);
 
+			// Orphan and ensure balances return to their previous values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
 		}
 	}
 
@@ -828,6 +837,15 @@ public class RewardTests extends Common {
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel9And10Reward);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel9And10Reward);
 
+			// Orphan and ensure balances return to their previous values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
 		}
 	}
 
@@ -902,11 +920,20 @@ public class RewardTests extends Common {
 			final long expectedLevel5To8Reward = level5To8ShareAmount / 2; // The reward is split between Chloe and Dilbert
 			final long expectedFounderReward = blockReward - level5To8ShareAmount; // Alice should receive the remainder
 
-			// Validate the balances to ensure that the correct post-shareBinFix distribution is being applied
+			// Validate the balances
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance+expectedFounderReward);
 			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel5To8Reward);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel5To8Reward);
+
+			// Orphan and ensure balances return to their previous values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
 
 		}
 	}
@@ -991,11 +1018,20 @@ public class RewardTests extends Common {
 			final long expectedLevel5To10Reward = level5To10ShareAmount / 2; // The reward is split between Chloe and Dilbert
 			final long expectedFounderReward = blockReward - level1And2ShareAmount - level5To10ShareAmount; // Alice should receive the remainder
 
-			// Validate the balances to ensure that the correct post-shareBinFix distribution is being applied
+			// Validate the balances
 			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance+expectedFounderReward);
 			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance+expectedLevel1And2Reward);
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel5To10Reward);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel5To10Reward);
+
+			// Orphan and ensure balances return to their previous values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
 
 		}
 	}
