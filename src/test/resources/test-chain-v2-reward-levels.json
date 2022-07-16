@@ -30,10 +30,7 @@
 		{ "id": 4, "levels": [ 7, 8 ], "share": 0.20 },
 		{ "id": 5, "levels": [ 9, 10 ], "share": 0.25 }
 	],
-	"qoraHoldersShareByHeight": [
-		{ "height": 1, "share": 0.20 },
-		{ "height": 1000000, "share": 0.01 }
-	],
+	"qoraHoldersShare": 0.20,
 	"qoraPerQortReward": 250,
 	"minAccountsToActivateShareBin": 1,
 	"shareBinActivationMinLevel": 7,
