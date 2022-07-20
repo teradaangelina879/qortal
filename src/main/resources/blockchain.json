@@ -72,7 +72,7 @@
 	},
 	"genesisInfo": {
 		"version": 4,
-		"timestamp": "1593450000000",
+		"timestamp": "1656777099000",
 		"transactions": [
 			{ "type": "ISSUE_ASSET", "assetName": "QORT", "description": "QORTAL coin", "quantity": 0, "isDivisible": true, "data": "{}" },
 			{ "type": "ISSUE_ASSET", "assetName": "Legacy-QORA", "description": "Representative legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },

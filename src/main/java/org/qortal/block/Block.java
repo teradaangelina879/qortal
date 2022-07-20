@@ -10,7 +10,6 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
-import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -90,7 +89,8 @@ public class Block {
 		ONLINE_ACCOUNT_UNKNOWN(71),
 		ONLINE_ACCOUNT_SIGNATURES_MISSING(72),
 		ONLINE_ACCOUNT_SIGNATURES_MALFORMED(73),
-		ONLINE_ACCOUNT_SIGNATURE_INCORRECT(74);
+		ONLINE_ACCOUNT_SIGNATURE_INCORRECT(74),
+		ONLINE_ACCOUNT_NONCE_INCORRECT(75);
 
 		public final int value;
 
@@ -406,6 +406,31 @@ public class Block {
 				Integer accountIndex = accountIndexes.get(i);
 				OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
 				System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
+			}
+		}
+
+		// Add nonces to the end of the online accounts signatures if mempow is active
+		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			try {
+				// Create ordered list of nonce values
+				List<Integer> nonces = new ArrayList<>();
+				for (int i = 0; i < onlineAccountsCount; ++i) {
+					Integer accountIndex = accountIndexes.get(i);
+					OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
+					nonces.add(onlineAccountData.getNonce());
+				}
+
+				// Encode the nonces to a byte array
+				byte[] encodedNonces = BlockTransformer.encodeOnlineAccountNonces(nonces);
+
+				// Append the encoded nonces to the encoded online account signatures
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+				outputStream.write(onlineAccountsSignatures);
+				outputStream.write(encodedNonces);
+				onlineAccountsSignatures = outputStream.toByteArray();
+			}
+			catch (TransformationException | IOException e) {
+				return null;
 			}
 		}
 
@@ -1016,12 +1041,15 @@ public class Block {
 		if (this.blockData.getOnlineAccountsSignatures() == null || this.blockData.getOnlineAccountsSignatures().length == 0)
 			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MISSING;
 
-		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getAggregateSignatureTimestamp()) {
-			// We expect just the one, aggregated signature
-			if (this.blockData.getOnlineAccountsSignatures().length != Transformer.SIGNATURE_LENGTH)
+		final int signaturesLength = (this.blockData.getTimestamp() >= BlockChain.getInstance().getAggregateSignatureTimestamp()) ? Transformer.SIGNATURE_LENGTH : onlineRewardShares.size() * Transformer.SIGNATURE_LENGTH;
+		final int noncesLength = onlineRewardShares.size() * Transformer.INT_LENGTH;
+
+		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			// We expect nonces to be appended to the online accounts signatures
+			if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength + noncesLength)
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 		} else {
-			if (this.blockData.getOnlineAccountsSignatures().length != onlineRewardShares.size() * Transformer.SIGNATURE_LENGTH)
+			if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength)
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 		}
 
@@ -1029,8 +1057,37 @@ public class Block {
 		long onlineTimestamp = this.blockData.getOnlineAccountsTimestamp();
 		byte[] onlineTimestampBytes = Longs.toByteArray(onlineTimestamp);
 
+		byte[] encodedOnlineAccountSignatures = this.blockData.getOnlineAccountsSignatures();
+
+		// Split online account signatures into signature(s) + nonces, then validate the nonces
+		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			byte[] extractedSignatures = BlockTransformer.extract(encodedOnlineAccountSignatures, 0, signaturesLength);
+			byte[] extractedNonces = BlockTransformer.extract(encodedOnlineAccountSignatures, signaturesLength, onlineRewardShares.size() * Transformer.INT_LENGTH);
+			encodedOnlineAccountSignatures = extractedSignatures;
+
+			List<Integer> nonces = BlockTransformer.decodeOnlineAccountNonces(extractedNonces);
+
+			// Build block's view of online accounts (without signatures, as we don't need them here)
+			Set<OnlineAccountData> onlineAccounts = new HashSet<>();
+			for (int i = 0; i < onlineRewardShares.size(); ++i) {
+				Integer nonce = nonces.get(i);
+				byte[] publicKey = onlineRewardShares.get(i).getRewardSharePublicKey();
+
+				OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, null, publicKey, nonce);
+				onlineAccounts.add(onlineAccountData);
+			}
+
+			// Remove those already validated & cached by online accounts manager - no need to re-validate them
+			OnlineAccountsManager.getInstance().removeKnown(onlineAccounts, onlineTimestamp);
+
+			// Validate the rest
+			for (OnlineAccountData onlineAccount : onlineAccounts)
+				if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount, this.blockData.getTimestamp()))
+					return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
+		}
+
 		// Extract online accounts' timestamp signatures from block data. Only one signature if aggregated.
-		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
+		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(encodedOnlineAccountSignatures);
 
 		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getAggregateSignatureTimestamp()) {
 			// Aggregate all public keys
