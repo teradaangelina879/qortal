@@ -389,25 +389,14 @@ public class Block {
 		byte[] encodedOnlineAccounts = BlockTransformer.encodeOnlineAccounts(onlineAccountsSet);
 		int onlineAccountsCount = onlineAccountsSet.size();
 
-		byte[] onlineAccountsSignatures;
-		if (timestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp()) {
-			// Collate all signatures
-			Collection<byte[]> signaturesToAggregate = indexedOnlineAccounts.values()
-					.stream()
-					.map(OnlineAccountData::getSignature)
-					.collect(Collectors.toList());
+		// Collate all signatures
+		Collection<byte[]> signaturesToAggregate = indexedOnlineAccounts.values()
+				.stream()
+				.map(OnlineAccountData::getSignature)
+				.collect(Collectors.toList());
 
-			// Aggregated, single signature
-			onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
-		} else {
-			// Concatenate online account timestamp signatures (in correct order)
-			onlineAccountsSignatures = new byte[onlineAccountsCount * Transformer.SIGNATURE_LENGTH];
-			for (int i = 0; i < onlineAccountsCount; ++i) {
-				Integer accountIndex = accountIndexes.get(i);
-				OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
-				System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
-			}
-		}
+		// Aggregated, single signature
+		byte[] onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
 
 		// Add nonces to the end of the online accounts signatures if mempow is active
 		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
@@ -1041,7 +1030,7 @@ public class Block {
 		if (this.blockData.getOnlineAccountsSignatures() == null || this.blockData.getOnlineAccountsSignatures().length == 0)
 			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MISSING;
 
-		final int signaturesLength = (this.blockData.getTimestamp() >= BlockChain.getInstance().getAggregateSignatureTimestamp()) ? Transformer.SIGNATURE_LENGTH : onlineRewardShares.size() * Transformer.SIGNATURE_LENGTH;
+		final int signaturesLength = Transformer.SIGNATURE_LENGTH;
 		final int noncesLength = onlineRewardShares.size() * Transformer.INT_LENGTH;
 
 		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
@@ -1089,41 +1078,18 @@ public class Block {
 		// Extract online accounts' timestamp signatures from block data. Only one signature if aggregated.
 		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(encodedOnlineAccountSignatures);
 
-		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getAggregateSignatureTimestamp()) {
-			// Aggregate all public keys
-			Collection<byte[]> publicKeys = onlineRewardShares.stream()
-					.map(RewardShareData::getRewardSharePublicKey)
-					.collect(Collectors.toList());
+		// Aggregate all public keys
+		Collection<byte[]> publicKeys = onlineRewardShares.stream()
+				.map(RewardShareData::getRewardSharePublicKey)
+				.collect(Collectors.toList());
 
-			byte[] aggregatePublicKey = Qortal25519Extras.aggregatePublicKeys(publicKeys);
+		byte[] aggregatePublicKey = Qortal25519Extras.aggregatePublicKeys(publicKeys);
 
-			byte[] aggregateSignature = onlineAccountsSignatures.get(0);
+		byte[] aggregateSignature = onlineAccountsSignatures.get(0);
 
-			// One-step verification of aggregate signature using aggregate public key
-			if (!Qortal25519Extras.verifyAggregated(aggregatePublicKey, aggregateSignature, onlineTimestampBytes))
-				return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
-		} else {
-			// Build block's view of online accounts
-			Set<OnlineAccountData> onlineAccounts = new HashSet<>();
-			for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
-				byte[] signature = onlineAccountsSignatures.get(i);
-				byte[] publicKey = onlineRewardShares.get(i).getRewardSharePublicKey();
-
-				OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, signature, publicKey);
-				onlineAccounts.add(onlineAccountData);
-			}
-
-			// Remove those already validated & cached by online accounts manager - no need to re-validate them
-			OnlineAccountsManager.getInstance().removeKnown(onlineAccounts, onlineTimestamp);
-
-			// Validate the rest
-			for (OnlineAccountData onlineAccount : onlineAccounts)
-				if (!Crypto.verify(onlineAccount.getPublicKey(), onlineAccount.getSignature(), onlineTimestampBytes))
-					return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
-
-			// We've validated these, so allow online accounts manager to cache
-			OnlineAccountsManager.getInstance().addBlocksOnlineAccounts(onlineAccounts, onlineTimestamp);
-		}
+		// One-step verification of aggregate signature using aggregate public key
+		if (!Qortal25519Extras.verifyAggregated(aggregatePublicKey, aggregateSignature, onlineTimestampBytes))
+			return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
 
 		// All online accounts valid, so save our list of online accounts for potential later use
 		this.cachedOnlineRewardShares = onlineRewardShares;

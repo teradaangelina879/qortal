@@ -151,16 +151,13 @@ public class OnlineAccountsManager {
             return;
 
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-        final boolean useAggregateCompatibleSignature = onlineAccountsTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp();
         final boolean mempowActive = onlineAccountsTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
 
         Set<OnlineAccountData> replacementAccounts = new HashSet<>();
         for (PrivateKeyAccount onlineAccount : onlineAccounts) {
             // Check mintingAccount is actually reward-share?
 
-            byte[] signature = useAggregateCompatibleSignature
-                    ? Qortal25519Extras.signForAggregation(onlineAccount.getPrivateKey(), timestampBytes)
-                    : onlineAccount.sign(timestampBytes);
+            byte[] signature = Qortal25519Extras.signForAggregation(onlineAccount.getPrivateKey(), timestampBytes);
             byte[] publicKey = onlineAccount.getPublicKey();
 
             Integer nonce = mempowActive ? new Random().nextInt(500000) : null;
@@ -280,9 +277,7 @@ public class OnlineAccountsManager {
 
         // Verify signature
         byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
-        boolean isSignatureValid = onlineAccountTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp()
-                ? Qortal25519Extras.verifyAggregated(rewardSharePublicKey, onlineAccountData.getSignature(), data)
-                : Crypto.verify(rewardSharePublicKey, onlineAccountData.getSignature(), data);
+        boolean isSignatureValid = Qortal25519Extras.verifyAggregated(rewardSharePublicKey, onlineAccountData.getSignature(), data);
         if (!isSignatureValid) {
             LOGGER.trace(() -> String.format("Rejecting invalid online account %s", Base58.encode(rewardSharePublicKey)));
             return false;
@@ -506,8 +501,6 @@ public class OnlineAccountsManager {
             return false;
         }
 
-        final boolean useAggregateCompatibleSignature = onlineAccountsTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp();
-
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
         List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
 
@@ -544,9 +537,7 @@ public class OnlineAccountsManager {
                 nonce = -1;
             }
 
-            byte[] signature = useAggregateCompatibleSignature
-                    ? Qortal25519Extras.signForAggregation(privateKey, timestampBytes)
-                    : Crypto.sign(privateKey, timestampBytes);
+            byte[] signature = Qortal25519Extras.signForAggregation(privateKey, timestampBytes);
 
             // Our account is online
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
