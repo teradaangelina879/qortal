@@ -219,6 +219,7 @@ public class OnlineAccountsManager {
 
         // Check timestamp is a multiple of online timestamp modulus
         if (onlineAccountTimestamp % getOnlineTimestampModulus() != 0) {
+            LOGGER.trace(() -> String.format("Rejecting online account %s with invalid timestamp %d", Base58.encode(rewardSharePublicKey), onlineAccountTimestamp));
             return false;
         }
 
