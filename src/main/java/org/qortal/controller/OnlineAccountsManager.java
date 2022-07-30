@@ -217,6 +217,11 @@ public class OnlineAccountsManager {
             return false;
         }
 
+        // Check timestamp is a multiple of online timestamp modulus
+        if (onlineAccountTimestamp % getOnlineTimestampModulus() != 0) {
+            return false;
+        }
+
         // Verify signature
         byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
         boolean isSignatureValid = onlineAccountTimestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp()
