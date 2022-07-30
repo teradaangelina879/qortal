@@ -10,7 +10,11 @@
 	],
 	"requireGroupForApproval": false,
 	"minAccountLevelToRewardShare": 5,
-	"maxRewardSharesPerMintingAccount": 20,
+	"maxRewardSharesPerFounderMintingAccount": 6,
+	"maxRewardSharesByTimestamp": [
+		{ "timestamp": 0, "maxShares": 20 },
+		{ "timestamp": 9999999999999, "maxShares": 3 }
+	],
 	"founderEffectiveMintingLevel": 10,
 	"onlineAccountSignaturesMinLifetime": 3600000,
 	"onlineAccountSignaturesMaxLifetime": 86400000,
@@ -21,14 +25,16 @@
 		{ "height": 21, "reward": 1 }
 	],
 	"sharesByLevel": [
-		{ "levels": [ 1, 2 ], "share": 0.05 },
-		{ "levels": [ 3, 4 ], "share": 0.10 },
-		{ "levels": [ 5, 6 ], "share": 0.15 },
-		{ "levels": [ 7, 8 ], "share": 0.20 },
-		{ "levels": [ 9, 10 ], "share": 0.25 }
+		{ "id": 1, "levels": [ 1, 2 ], "share": 0.05 },
+		{ "id": 2, "levels": [ 3, 4 ], "share": 0.10 },
+		{ "id": 3, "levels": [ 5, 6 ], "share": 0.15 },
+		{ "id": 4, "levels": [ 7, 8 ], "share": 0.20 },
+		{ "id": 5, "levels": [ 9, 10 ], "share": 0.25 }
 	],
 	"qoraHoldersShare": 0.20,
 	"qoraPerQortReward": 250,
+	"minAccountsToActivateShareBin": 30,
+	"shareBinActivationMinLevel": 7,
 	"blocksNeededByLevel": [ 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 ],
 	"blockTimingsByHeight": [
 		{ "height": 1, "target": 60000, "deviation": 30000, "power": 0.2 }
@@ -52,6 +58,7 @@
 		"atFindNextTransactionFix": 0,
 		"newBlockSigHeight": 999999,
 		"shareBinFix": 999999,
+		"rewardShareLimitTimestamp": 9999999999999,
 		"calcChainWeightTimestamp": 0,
 		"transactionV5Timestamp": 0,
 		"transactionV6Timestamp": 0,

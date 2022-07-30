@@ -199,6 +199,11 @@ public class Block {
 
 		}
 
+		public boolean hasShareBin(AccountLevelShareBin shareBin, int blockHeight) {
+			AccountLevelShareBin ourShareBin = this.getShareBin(blockHeight);
+			return ourShareBin != null && shareBin.id == ourShareBin.id;
+		}
+
 		public long distribute(long accountAmount, Map<String, Long> balanceChanges) {
 			if (this.isRecipientAlsoMinter) {
 				// minter & recipient the same - simpler case
@@ -1891,12 +1896,67 @@ public class Block {
 		final boolean haveFounders = !onlineFounderAccounts.isEmpty();
 
 		// Determine reward candidates based on account level
-		List<AccountLevelShareBin> accountLevelShareBins = BlockChain.getInstance().getAccountLevelShareBins();
-		for (int binIndex = 0; binIndex < accountLevelShareBins.size(); ++binIndex) {
-			// Find all accounts in share bin. getShareBin() returns null for minter accounts that are also founders, so they are effectively filtered out.
+		// This needs a deep copy, so the shares can be modified when tiers aren't activated yet
+		List<AccountLevelShareBin> accountLevelShareBins = new ArrayList<>();
+		for (AccountLevelShareBin accountLevelShareBin : BlockChain.getInstance().getAccountLevelShareBins()) {
+			accountLevelShareBins.add((AccountLevelShareBin) accountLevelShareBin.clone());
+		}
+
+		Map<Integer, List<ExpandedAccount>> accountsForShareBin = new HashMap<>();
+
+		// We might need to combine some share bins if they haven't reached the minimum number of minters yet
+		for (int binIndex = accountLevelShareBins.size()-1; binIndex >= 0; --binIndex) {
 			AccountLevelShareBin accountLevelShareBin = accountLevelShareBins.get(binIndex);
-			// Object reference compare is OK as all references are read-only from blockchain config.
-			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.getShareBin(this.blockData.getHeight()) == accountLevelShareBin).collect(Collectors.toList());
+
+			// Find all accounts in share bin. getShareBin() returns null for minter accounts that are also founders, so they are effectively filtered out.
+			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.hasShareBin(accountLevelShareBin, this.blockData.getHeight())).collect(Collectors.toList());
+			// Add any accounts that have been moved down from a higher tier
+			List<ExpandedAccount> existingBinnedAccounts = accountsForShareBin.get(binIndex);
+			if (existingBinnedAccounts != null)
+				binnedAccounts.addAll(existingBinnedAccounts);
+
+			// Logic below may only apply to higher levels, and only for share bins with a specific range of online accounts
+			if (accountLevelShareBin.levels.get(0) < BlockChain.getInstance().getShareBinActivationMinLevel() ||
+					binnedAccounts.isEmpty() || binnedAccounts.size() >= BlockChain.getInstance().getMinAccountsToActivateShareBin()) {
+				// Add all accounts for this share bin to the accountsForShareBin list
+				accountsForShareBin.put(binIndex, binnedAccounts);
+				continue;
+			}
+
+			// Share bin contains more than one, but less than the minimum number of minters. We treat this share bin
+			// as not activated yet. In these cases, the rewards and minters are combined and paid out to the previous
+			// share bin, to prevent a single or handful of accounts receiving the entire rewards for a share bin.
+			//
+			// Example:
+			//
+			// - Share bin for levels 5 and 6 has 100 minters
+			// - Share bin for levels 7 and 8 has 10 minters
+			//
+			// This is below the minimum of 30, so share bins are reconstructed as follows:
+			//
+			// - Share bin for levels 5 and 6 now contains 110 minters
+			// - Share bin for levels 7 and 8 now contains 0 minters
+			// - Share bin for levels 5 and 6 now pays out rewards for levels 5, 6, 7, and 8
+			// - Share bin for levels 7 and 8 pays zero rewards
+			//
+			// This process is iterative, so will combine several tiers if needed.
+
+			// Designate this share bin as empty
+			accountsForShareBin.put(binIndex, new ArrayList<>());
+
+			// Move the accounts originally intended for this share bin to the previous one
+			accountsForShareBin.put(binIndex - 1, binnedAccounts);
+
+			// Move the block reward from this share bin to the previous one
+			AccountLevelShareBin previousShareBin = accountLevelShareBins.get(binIndex - 1);
+			previousShareBin.share += accountLevelShareBin.share;
+			accountLevelShareBin.share = 0L;
+		}
+
+		// Now loop through (potentially modified) share bins and determine the reward candidates
+		for (int binIndex = 0; binIndex < accountLevelShareBins.size(); ++binIndex) {
+			AccountLevelShareBin accountLevelShareBin = accountLevelShareBins.get(binIndex);
+			List<ExpandedAccount> binnedAccounts = accountsForShareBin.get(binIndex);
 
 			// No online accounts in this bin? Skip to next one
 			if (binnedAccounts.isEmpty())

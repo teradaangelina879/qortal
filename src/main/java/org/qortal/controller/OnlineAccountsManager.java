@@ -480,7 +480,7 @@ public class OnlineAccountsManager {
         final Long minLatestBlockTimestamp = NTP.getTime() - (2 * 60 * 60 * 1000L);
         boolean isUpToDate = Controller.getInstance().isUpToDate(minLatestBlockTimestamp);
 
-        return isUpToDate && hasOnlineAccounts();
+        return isUpToDate && hasOurOnlineAccounts();
     }
 
     public boolean hasOurOnlineAccounts() {

@@ -68,6 +68,7 @@ public class BlockChain {
 		atFindNextTransactionFix,
 		newBlockSigHeight,
 		shareBinFix,
+		rewardShareLimitTimestamp,
 		calcChainWeightTimestamp,
 		transactionV5Timestamp,
 		transactionV6Timestamp,
@@ -103,10 +104,23 @@ public class BlockChain {
 	private List<RewardByHeight> rewardsByHeight;
 
 	/** Share of block reward/fees by account level */
-	public static class AccountLevelShareBin {
+	public static class AccountLevelShareBin implements Cloneable {
+		public int id;
 		public List<Integer> levels;
 		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 		public long share;
+
+		public Object clone() {
+			AccountLevelShareBin shareBinCopy = new AccountLevelShareBin();
+			List<Integer> levelsCopy = new ArrayList<>();
+			for (Integer level : this.levels) {
+				levelsCopy.add(level);
+			}
+			shareBinCopy.id = this.id;
+			shareBinCopy.levels = levelsCopy;
+			shareBinCopy.share = this.share;
+			return shareBinCopy;
+		}
 	}
 	private List<AccountLevelShareBin> sharesByLevel;
 	/** Generated lookup of share-bin by account level */
@@ -119,6 +133,12 @@ public class BlockChain {
 	/** How many legacy QORA per 1 QORT of block reward. */
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private Long qoraPerQortReward;
+
+	/** Minimum number of accounts before a share bin is considered activated */
+	private int minAccountsToActivateShareBin;
+
+	/** Min level at which share bin activation takes place; lower levels allow less than minAccountsPerShareBin */
+	private int shareBinActivationMinLevel;
 
 	/**
 	 * Number of minted blocks required to reach next level from previous.
@@ -157,7 +177,7 @@ public class BlockChain {
 	private int minAccountLevelToMint;
 	private int minAccountLevelForBlockSubmissions;
 	private int minAccountLevelToRewardShare;
-	private int maxRewardSharesPerMintingAccount;
+	private int maxRewardSharesPerFounderMintingAccount;
 	private int founderEffectiveMintingLevel;
 
 	/** Minimum time to retain online account signatures (ms) for block validity checks. */
@@ -168,6 +188,13 @@ public class BlockChain {
 	/** Feature trigger timestamp for ONLINE_ACCOUNTS_MODULUS time interval increase. Can't use
 	 * featureTriggers because unit tests need to set this value via Reflection. */
 	private long onlineAccountsModulusV2Timestamp;
+
+	/** Max reward shares by block height */
+	public static class MaxRewardSharesByTimestamp {
+		public long timestamp;
+		public int maxShares;
+	}
+	private List<MaxRewardSharesByTimestamp> maxRewardSharesByTimestamp;
 
 	/** Settings relating to CIYAM AT feature. */
 	public static class CiyamAtSettings {
@@ -363,6 +390,14 @@ public class BlockChain {
 		return this.qoraPerQortReward;
 	}
 
+	public int getMinAccountsToActivateShareBin() {
+		return this.minAccountsToActivateShareBin;
+	}
+
+	public int getShareBinActivationMinLevel() {
+		return this.shareBinActivationMinLevel;
+	}
+
 	public int getMinAccountLevelToMint() {
 		return this.minAccountLevelToMint;
 	}
@@ -375,8 +410,8 @@ public class BlockChain {
 		return this.minAccountLevelToRewardShare;
 	}
 
-	public int getMaxRewardSharesPerMintingAccount() {
-		return this.maxRewardSharesPerMintingAccount;
+	public int getMaxRewardSharesPerFounderMintingAccount() {
+		return this.maxRewardSharesPerFounderMintingAccount;
 	}
 
 	public int getFounderEffectiveMintingLevel() {
@@ -407,6 +442,10 @@ public class BlockChain {
 
 	public int getShareBinFixHeight() {
 		return this.featureTriggers.get(FeatureTrigger.shareBinFix.name()).intValue();
+	}
+
+	public long getRewardShareLimitTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.rewardShareLimitTimestamp.name()).longValue();
 	}
 
 	public long getCalcChainWeightTimestamp() {
@@ -455,6 +494,14 @@ public class BlockChain {
 
 		// Default to system-wide unit fee
 		return this.getUnitFee();
+	}
+
+	public int getMaxRewardSharesAtTimestamp(long ourTimestamp) {
+		for (int i = maxRewardSharesByTimestamp.size() - 1; i >= 0; --i)
+			if (maxRewardSharesByTimestamp.get(i).timestamp <= ourTimestamp)
+				return maxRewardSharesByTimestamp.get(i).maxShares;
+
+		return 0;
 	}
 
 	/** Validate blockchain config read from JSON */
