@@ -286,8 +286,11 @@ public class Settings {
 
 	/* Foreign chains */
 
-	/** Set the number of consecutive empty addresses required before treating a wallet's transaction set as complete */
+	/** The number of consecutive empty addresses required before treating a wallet's transaction set as complete */
 	private int gapLimit = 24;
+
+	/** How many wallet keys to generate when using bitcoinj as the blockchain interface (e.g. when sending coins) */
+	private int bitcoinjLookaheadSize = 50;
 
 
 
@@ -881,6 +884,10 @@ public class Settings {
 
 	public int getGapLimit() {
 		return this.gapLimit;
+	}
+
+	public int getBitcoinjLookaheadSize() {
+		return bitcoinjLookaheadSize;
 	}
 
 

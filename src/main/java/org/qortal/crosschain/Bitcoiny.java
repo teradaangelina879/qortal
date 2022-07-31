@@ -62,11 +62,6 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	/** How many wallet keys to generate in each batch. */
 	private static final int WALLET_KEY_LOOKAHEAD_INCREMENT = 3;
 
-	/** How many wallet keys to generate when using bitcoinj as the data provider.
-	 * We must use a higher value here since we are unable to request multiple batches of keys.
-	 * Without this, the bitcoinj state can be missing transactions, causing errors such as "insufficient balance". */
-	private static final int WALLET_KEY_LOOKAHEAD_INCREMENT_BITCOINJ = 50;
-
 	/** Byte offset into raw block headers to block timestamp. */
 	private static final int TIMESTAMP_OFFSET = 4 + 32 + 32;
 
@@ -628,7 +623,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			this.keyChain = this.wallet.getActiveKeyChain();
 
 			// Set up wallet's key chain
-			this.keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT_BITCOINJ);
+			this.keyChain.setLookaheadSize(Settings.getInstance().getBitcoinjLookaheadSize());
 			this.keyChain.maybeLookAhead();
 		}
 
