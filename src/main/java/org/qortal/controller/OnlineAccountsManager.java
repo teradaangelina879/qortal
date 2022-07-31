@@ -36,7 +36,8 @@ public class OnlineAccountsManager {
     /**
      * How long online accounts signatures last before they expire.
      */
-    public static final long ONLINE_TIMESTAMP_MODULUS = 5 * 60 * 1000L;
+    private static final long ONLINE_TIMESTAMP_MODULUS_V1 = 5 * 60 * 1000L;
+    private static final long ONLINE_TIMESTAMP_MODULUS_V2 = 30 * 60 * 1000L;
 
     /**
      * How many 'current' timestamp-sets of online accounts we cache.
@@ -78,12 +79,20 @@ public class OnlineAccountsManager {
 
     private boolean hasOurOnlineAccounts = false;
 
+    public static long getOnlineTimestampModulus() {
+        Long now = NTP.getTime();
+        if (now != null && now >= BlockChain.getInstance().getOnlineAccountsModulusV2Timestamp()) {
+            return ONLINE_TIMESTAMP_MODULUS_V2;
+        }
+        return ONLINE_TIMESTAMP_MODULUS_V1;
+    }
     public static Long getCurrentOnlineAccountTimestamp() {
         Long now = NTP.getTime();
         if (now == null)
             return null;
 
-        return (now / ONLINE_TIMESTAMP_MODULUS) * ONLINE_TIMESTAMP_MODULUS;
+        long onlineTimestampModulus = getOnlineTimestampModulus();
+        return (now / onlineTimestampModulus) * onlineTimestampModulus;
     }
 
     private OnlineAccountsManager() {
@@ -203,8 +212,14 @@ public class OnlineAccountsManager {
         long onlineAccountTimestamp = onlineAccountData.getTimestamp();
 
         // Check timestamp is 'recent' here
-        if (Math.abs(onlineAccountTimestamp - now) > ONLINE_TIMESTAMP_MODULUS * 2) {
+        if (Math.abs(onlineAccountTimestamp - now) > getOnlineTimestampModulus() * 2) {
             LOGGER.trace(() -> String.format("Rejecting online account %s with out of range timestamp %d", Base58.encode(rewardSharePublicKey), onlineAccountTimestamp));
+            return false;
+        }
+
+        // Check timestamp is a multiple of online timestamp modulus
+        if (onlineAccountTimestamp % getOnlineTimestampModulus() != 0) {
+            LOGGER.trace(() -> String.format("Rejecting online account %s with invalid timestamp %d", Base58.encode(rewardSharePublicKey), onlineAccountTimestamp));
             return false;
         }
 
@@ -308,7 +323,7 @@ public class OnlineAccountsManager {
         if (now == null)
             return;
 
-        final long cutoffThreshold = now - MAX_CACHED_TIMESTAMP_SETS * ONLINE_TIMESTAMP_MODULUS;
+        final long cutoffThreshold = now - MAX_CACHED_TIMESTAMP_SETS * getOnlineTimestampModulus();
         this.currentOnlineAccounts.keySet().removeIf(timestamp -> timestamp < cutoffThreshold);
         this.currentOnlineAccountsHashes.keySet().removeIf(timestamp -> timestamp < cutoffThreshold);
     }

@@ -289,6 +289,16 @@ public class Settings {
 	private Long testNtpOffset = null;
 
 
+	/* Foreign chains */
+
+	/** The number of consecutive empty addresses required before treating a wallet's transaction set as complete */
+	private int gapLimit = 24;
+
+	/** How many wallet keys to generate when using bitcoinj as the blockchain interface (e.g. when sending coins) */
+	private int bitcoinjLookaheadSize = 50;
+
+
+
 	// Data storage (QDN)
 
 	/** Data storage enabled/disabled*/
@@ -882,6 +892,15 @@ public class Settings {
 
 	public boolean getBootstrap() {
 		return this.bootstrap;
+	}
+
+
+	public int getGapLimit() {
+		return this.gapLimit;
+	}
+
+	public int getBitcoinjLookaheadSize() {
+		return bitcoinjLookaheadSize;
 	}
 
 

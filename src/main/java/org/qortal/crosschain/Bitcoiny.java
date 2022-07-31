@@ -29,6 +29,7 @@ import org.bitcoinj.wallet.SendRequest;
 import org.bitcoinj.wallet.Wallet;
 import org.qortal.api.model.SimpleForeignTransaction;
 import org.qortal.crypto.Crypto;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.BitTwiddling;
 
@@ -60,11 +61,6 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	/** How many wallet keys to generate in each batch. */
 	private static final int WALLET_KEY_LOOKAHEAD_INCREMENT = 3;
-
-	/** How many wallet keys to generate when using bitcoinj as the data provider.
-	 * We must use a higher value here since we are unable to request multiple batches of keys.
-	 * Without this, the bitcoinj state can be missing transactions, causing errors such as "insufficient balance". */
-	private static final int WALLET_KEY_LOOKAHEAD_INCREMENT_BITCOINJ = 50;
 
 	/** Byte offset into raw block headers to block timestamp. */
 	private static final int TIMESTAMP_OFFSET = 4 + 32 + 32;
@@ -412,9 +408,6 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
 			Set<String> keySet = new HashSet<>();
 
-			// Set the number of consecutive empty batches required before giving up
-			final int numberOfAdditionalBatchesToSearch = 7;
-
 			int unusedCounter = 0;
 			int ki = 0;
 			do {
@@ -441,12 +434,12 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 				if (areAllKeysUnused) {
 					// No transactions
-					if (unusedCounter >= numberOfAdditionalBatchesToSearch) {
+					if (unusedCounter >= Settings.getInstance().getGapLimit()) {
 						// ... and we've hit our search limit
 						break;
 					}
 					// We haven't hit our search limit yet so increment the counter and keep looking
-					unusedCounter++;
+					unusedCounter += WALLET_KEY_LOOKAHEAD_INCREMENT;
 				} else {
 					// Some keys in this batch were used, so reset the counter
 					unusedCounter = 0;
@@ -633,7 +626,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			this.keyChain = this.wallet.getActiveKeyChain();
 
 			// Set up wallet's key chain
-			this.keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT_BITCOINJ);
+			this.keyChain.setLookaheadSize(Settings.getInstance().getBitcoinjLookaheadSize());
 			this.keyChain.maybeLookAhead();
 		}
 

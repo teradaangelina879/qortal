@@ -3,10 +3,9 @@ package org.qortal.test.minting;
 import static org.junit.Assert.*;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.After;
@@ -702,6 +701,15 @@ public class RewardTests extends Common {
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel7And8Reward);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel7And8Reward);
 
+			// Orphan and ensure balances return to their previous values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
 		}
 	}
 
@@ -786,6 +794,348 @@ public class RewardTests extends Common {
 			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance+expectedLevel1And2Reward);
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel9And10Reward);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel9And10Reward);
+
+			// Orphan and ensure balances return to their previous values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
+		}
+	}
+
+	/** Test rewards for level 7 and 8 accounts, when the tier doesn't yet have enough minters in it */
+	@Test
+	public void testLevel7And8RewardsPreActivation() throws DataException, IllegalAccessException {
+		Common.useSettings("test-settings-v2-reward-levels.json");
+
+		// Set minAccountsToActivateShareBin to 3 so that share bins 7-8 and 9-10 are considered inactive
+		FieldUtils.writeField(BlockChain.getInstance(), "minAccountsToActivateShareBin", 3, true);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
+
+			// Alice self share online
+			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
+			mintingAndOnlineAccounts.add(aliceSelfShare);
+
+			// Bob self-share NOT online
+
+			// Chloe self share online
+			byte[] chloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "chloe", "chloe", 0);
+			PrivateKeyAccount chloeRewardShareAccount = new PrivateKeyAccount(repository, chloeRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(chloeRewardShareAccount);
+
+			// Dilbert self share online
+			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", 0);
+			PrivateKeyAccount dilbertRewardShareAccount = new PrivateKeyAccount(repository, dilbertRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(dilbertRewardShareAccount);
+
+			// Mint enough blocks to bump testAccount levels to 7 and 8
+			final int minterBlocksNeeded = cumulativeBlocksByLevel.get(8) - 20; // 20 blocks before level 8, so that the test accounts reach the correct levels
+			for (int bc = 0; bc < minterBlocksNeeded; ++bc)
+				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure that the levels are as we expect
+			assertEquals(7, (int) Common.getTestAccount(repository, "alice").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "bob").getLevel());
+			assertEquals(7, (int) Common.getTestAccount(repository, "chloe").getLevel());
+			assertEquals(8, (int) Common.getTestAccount(repository, "dilbert").getLevel());
+
+			// Now that everyone is at level 7 or 8 (except Bob who has only just started minting, so is at level 1), we can capture initial balances
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			final long aliceInitialBalance = initialBalances.get("alice").get(Asset.QORT);
+			final long bobInitialBalance = initialBalances.get("bob").get(Asset.QORT);
+			final long chloeInitialBalance = initialBalances.get("chloe").get(Asset.QORT);
+			final long dilbertInitialBalance = initialBalances.get("dilbert").get(Asset.QORT);
+
+			// Mint a block
+			final long blockReward = BlockUtils.getNextBlockReward(repository);
+			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure we are using the correct block reward value
+			assertEquals(100000000L, blockReward);
+
+			/*
+			 * Alice, Chloe, and Dilbert are 'online'.
+			 * Chloe is level 7; Dilbert is level 8.
+			 * One founder online (Alice, who is also level 7).
+			 * No legacy QORA holders.
+			 *
+			 * Level 7 and 8 is not yet activated, so its rewards are added to the level 5 and 6 share bin.
+			 * There are no level 5 and 6 online.
+			 * Chloe and Dilbert should receive equal shares of the 35% block reward for levels 5 to 8.
+			 * Alice should receive the remainder (65%).
+			 */
+
+			final int level5To8SharePercent = 35_00; // 35% (combined 15% and 20%)
+			final long level5To8ShareAmount = (blockReward * level5To8SharePercent) / 100L / 100L;
+			final long expectedLevel5To8Reward = level5To8ShareAmount / 2; // The reward is split between Chloe and Dilbert
+			final long expectedFounderReward = blockReward - level5To8ShareAmount; // Alice should receive the remainder
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance+expectedFounderReward);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel5To8Reward);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel5To8Reward);
+
+			// Orphan and ensure balances return to their previous values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
+		}
+	}
+
+	/** Test rewards for level 9 and 10 accounts, when the tier doesn't yet have enough minters in it.
+	 * Tier 7-8 isn't activated either, so the rewards and minters are all moved to tier 5-6. */
+	@Test
+	public void testLevel9And10RewardsPreActivation() throws DataException, IllegalAccessException {
+		Common.useSettings("test-settings-v2-reward-levels.json");
+
+		// Set minAccountsToActivateShareBin to 3 so that share bins 7-8 and 9-10 are considered inactive
+		FieldUtils.writeField(BlockChain.getInstance(), "minAccountsToActivateShareBin", 3, true);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
+
+			// Alice self share online
+			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
+			mintingAndOnlineAccounts.add(aliceSelfShare);
+
+			// Bob self-share not initially online
+
+			// Chloe self share online
+			byte[] chloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "chloe", "chloe", 0);
+			PrivateKeyAccount chloeRewardShareAccount = new PrivateKeyAccount(repository, chloeRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(chloeRewardShareAccount);
+
+			// Dilbert self share online
+			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", 0);
+			PrivateKeyAccount dilbertRewardShareAccount = new PrivateKeyAccount(repository, dilbertRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(dilbertRewardShareAccount);
+
+			// Mint enough blocks to bump testAccount levels to 9 and 10
+			final int minterBlocksNeeded = cumulativeBlocksByLevel.get(10) - 20; // 20 blocks before level 10, so that the test accounts reach the correct levels
+			for (int bc = 0; bc < minterBlocksNeeded; ++bc)
+				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Bob self-share now comes online
+			byte[] bobRewardSharePrivateKey = AccountUtils.rewardShare(repository, "bob", "bob", 0);
+			PrivateKeyAccount bobRewardShareAccount = new PrivateKeyAccount(repository, bobRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(bobRewardShareAccount);
+
+			// Ensure that the levels are as we expect
+			assertEquals(9, (int) Common.getTestAccount(repository, "alice").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "bob").getLevel());
+			assertEquals(9, (int) Common.getTestAccount(repository, "chloe").getLevel());
+			assertEquals(10, (int) Common.getTestAccount(repository, "dilbert").getLevel());
+
+			// Now that everyone is at level 7 or 8 (except Bob who has only just started minting, so is at level 1), we can capture initial balances
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			final long aliceInitialBalance = initialBalances.get("alice").get(Asset.QORT);
+			final long bobInitialBalance = initialBalances.get("bob").get(Asset.QORT);
+			final long chloeInitialBalance = initialBalances.get("chloe").get(Asset.QORT);
+			final long dilbertInitialBalance = initialBalances.get("dilbert").get(Asset.QORT);
+
+			// Mint a block
+			final long blockReward = BlockUtils.getNextBlockReward(repository);
+			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure we are using the correct block reward value
+			assertEquals(100000000L, blockReward);
+
+			/*
+			 * Alice, Bob, Chloe, and Dilbert are 'online'.
+			 * Bob is level 1; Chloe is level 9; Dilbert is level 10.
+			 * One founder online (Alice, who is also level 9).
+			 * No legacy QORA holders.
+			 *
+			 * Levels 7+8, and 9+10 are not yet activated, so their rewards are added to the level 5 and 6 share bin.
+			 * There are no levels 5-8 online.
+			 * Chloe and Dilbert should receive equal shares of the 60% block reward for levels 5 to 10.
+			 * Alice should receive the remainder (40%).
+			 */
+
+			final int level1And2SharePercent = 5_00; // 5%
+			final int level5To10SharePercent = 60_00; // 60% (combined 15%, 20%, and 25%)
+			final long level1And2ShareAmount = (blockReward * level1And2SharePercent) / 100L / 100L;
+			final long level5To10ShareAmount = (blockReward * level5To10SharePercent) / 100L / 100L;
+			final long expectedLevel1And2Reward = level1And2ShareAmount; // The reward is given entirely to Bob
+			final long expectedLevel5To10Reward = level5To10ShareAmount / 2; // The reward is split between Chloe and Dilbert
+			final long expectedFounderReward = blockReward - level1And2ShareAmount - level5To10ShareAmount; // Alice should receive the remainder
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance+expectedFounderReward);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance+expectedLevel1And2Reward);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel5To10Reward);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel5To10Reward);
+
+			// Orphan and ensure balances return to their previous values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
+		}
+	}
+
+	/** Test rewards for level 7 and 8 accounts, when the tier reaches the minimum number of accounts */
+	@Test
+	public void testLevel7And8RewardsPreAndPostActivation() throws DataException, IllegalAccessException {
+		Common.useSettings("test-settings-v2-reward-levels.json");
+
+		// Set minAccountsToActivateShareBin to 2 so that share bins 7-8 and 9-10 are considered inactive at first
+		FieldUtils.writeField(BlockChain.getInstance(), "minAccountsToActivateShareBin", 2, true);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<Integer> cumulativeBlocksByLevel = BlockChain.getInstance().getCumulativeBlocksByLevel();
+			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
+
+			// Alice self share online
+			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
+			mintingAndOnlineAccounts.add(aliceSelfShare);
+
+			// Bob self-share NOT online
+
+			// Chloe self share online
+			byte[] chloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "chloe", "chloe", 0);
+			PrivateKeyAccount chloeRewardShareAccount = new PrivateKeyAccount(repository, chloeRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(chloeRewardShareAccount);
+
+			// Dilbert self share online
+			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", 0);
+			PrivateKeyAccount dilbertRewardShareAccount = new PrivateKeyAccount(repository, dilbertRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(dilbertRewardShareAccount);
+
+			// Mint enough blocks to bump two of the testAccount levels to 7
+			final int minterBlocksNeeded = cumulativeBlocksByLevel.get(7) - 12; // 12 blocks before level 7, so that dilbert and alice have reached level 7, but chloe will reach it in the next 2 blocks
+			for (int bc = 0; bc < minterBlocksNeeded; ++bc)
+				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure that the levels are as we expect
+			assertEquals(7, (int) Common.getTestAccount(repository, "alice").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "bob").getLevel());
+			assertEquals(6, (int) Common.getTestAccount(repository, "chloe").getLevel());
+			assertEquals(7, (int) Common.getTestAccount(repository, "dilbert").getLevel());
+
+			// Now that dilbert has reached level 7, we can capture initial balances
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			final long aliceInitialBalance = initialBalances.get("alice").get(Asset.QORT);
+			final long bobInitialBalance = initialBalances.get("bob").get(Asset.QORT);
+			final long chloeInitialBalance = initialBalances.get("chloe").get(Asset.QORT);
+			final long dilbertInitialBalance = initialBalances.get("dilbert").get(Asset.QORT);
+
+			// Mint a block
+			long blockReward = BlockUtils.getNextBlockReward(repository);
+			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure we are using the correct block reward value
+			assertEquals(100000000L, blockReward);
+
+			/*
+			 * Alice, Chloe, and Dilbert are 'online'.
+			 * Chloe is level 6; Dilbert is level 7.
+			 * One founder online (Alice, who is also level 7).
+			 * No legacy QORA holders.
+			 *
+			 * Level 7 and 8 is not yet activated, so its rewards are added to the level 5 and 6 share bin.
+			 * There are no level 5 and 6 online.
+			 * Chloe and Dilbert should receive equal shares of the 35% block reward for levels 5 to 8.
+			 * Alice should receive the remainder (65%).
+			 */
+
+			final int level5To8SharePercent = 35_00; // 35% (combined 15% and 20%)
+			final long level5To8ShareAmount = (blockReward * level5To8SharePercent) / 100L / 100L;
+			final long expectedLevel5To8Reward = level5To8ShareAmount / 2; // The reward is split between Chloe and Dilbert
+			final long expectedFounderReward = blockReward - level5To8ShareAmount; // Alice should receive the remainder
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance+expectedFounderReward);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel5To8Reward);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel5To8Reward);
+
+			// Ensure that the levels are as we expect
+			assertEquals(7, (int) Common.getTestAccount(repository, "alice").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "bob").getLevel());
+			assertEquals(6, (int) Common.getTestAccount(repository, "chloe").getLevel());
+			assertEquals(7, (int) Common.getTestAccount(repository, "dilbert").getLevel());
+
+			// Capture pre-activation balances
+			Map<String, Map<Long, Long>> preActivationBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			final long alicePreActivationBalance = preActivationBalances.get("alice").get(Asset.QORT);
+			final long bobPreActivationBalance = preActivationBalances.get("bob").get(Asset.QORT);
+			final long chloePreActivationBalance = preActivationBalances.get("chloe").get(Asset.QORT);
+			final long dilbertPreActivationBalance = preActivationBalances.get("dilbert").get(Asset.QORT);
+
+			// Mint another block
+			blockReward = BlockUtils.getNextBlockReward(repository);
+			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure that the levels are as we expect (chloe has now increased to level 7; level 7-8 is now activated)
+			assertEquals(7, (int) Common.getTestAccount(repository, "alice").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "bob").getLevel());
+			assertEquals(7, (int) Common.getTestAccount(repository, "chloe").getLevel());
+			assertEquals(7, (int) Common.getTestAccount(repository, "dilbert").getLevel());
+
+			/*
+			 * Alice, Chloe, and Dilbert are 'online'.
+			 * Chloe and Dilbert are level 7.
+			 * One founder online (Alice, who is also level 7).
+			 * No legacy QORA holders.
+			 *
+			 * Level 7 and 8 is now activated, so its rewards are paid out in the normal way.
+			 * There are no level 5 and 6 online.
+			 * Chloe and Dilbert should receive equal shares of the 20% block reward for levels 7 to 8.
+			 * Alice should receive the remainder (80%).
+			 */
+
+			final int level7To8SharePercent = 20_00; // 20%
+			final long level7To8ShareAmount = (blockReward * level7To8SharePercent) / 100L / 100L;
+			final long expectedLevel7To8Reward = level7To8ShareAmount / 2; // The reward is split between Chloe and Dilbert
+			final long newExpectedFounderReward = blockReward - level7To8ShareAmount; // Alice should receive the remainder
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, alicePreActivationBalance+newExpectedFounderReward);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobPreActivationBalance); // Bob not online so his balance remains the same
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloePreActivationBalance+expectedLevel7To8Reward);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertPreActivationBalance+expectedLevel7To8Reward);
+
+
+			// Orphan and ensure balances return to their pre-activation values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, alicePreActivationBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobPreActivationBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloePreActivationBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertPreActivationBalance);
+
+
+			// Orphan again and ensure balances return to their initial values
+			BlockUtils.orphanBlocks(repository, 1);
+
+			// Validate the balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
 
 		}
 	}

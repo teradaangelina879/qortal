@@ -90,37 +90,40 @@ public class BlockMinter extends Thread {
 
 		List<Block> newBlocks = new ArrayList<>();
 
-		// Flags for tracking change in whether minting is possible,
-		// so we can notify Controller, and further update SysTray, etc.
-		boolean isMintingPossible = false;
-		boolean wasMintingPossible = isMintingPossible;
-		while (running) {
-			if (isMintingPossible != wasMintingPossible)
-				Controller.getInstance().onMintingPossibleChange(isMintingPossible);
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Going to need this a lot...
+			BlockRepository blockRepository = repository.getBlockRepository();
 
-			wasMintingPossible = isMintingPossible;
+			// Flags for tracking change in whether minting is possible,
+			// so we can notify Controller, and further update SysTray, etc.
+			boolean isMintingPossible = false;
+			boolean wasMintingPossible = isMintingPossible;
+			while (running) {
+				if (isMintingPossible != wasMintingPossible)
+					Controller.getInstance().onMintingPossibleChange(isMintingPossible);
 
-			try {
-				// Sleep for a while
-				Thread.sleep(1000);
+				wasMintingPossible = isMintingPossible;
 
-				isMintingPossible = false;
+				try {
+					// Free up any repository locks
+					repository.discardChanges();
 
-				final Long now = NTP.getTime();
-				if (now == null)
-					continue;
+					// Sleep for a while
+					Thread.sleep(1000);
 
-				final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
-				if (minLatestBlockTimestamp == null)
-					continue;
+					isMintingPossible = false;
 
-				// No online accounts for current timestamp? (e.g. during startup)
-				if (!OnlineAccountsManager.getInstance().hasOnlineAccounts())
-					continue;
+					final Long now = NTP.getTime();
+					if (now == null)
+						continue;
 
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					// Going to need this a lot...
-					BlockRepository blockRepository = repository.getBlockRepository();
+					final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+					if (minLatestBlockTimestamp == null)
+						continue;
+
+					// No online accounts for current timestamp? (e.g. during startup)
+					if (!OnlineAccountsManager.getInstance().hasOnlineAccounts())
+						continue;
 
 					List<MintingAccountData> mintingAccountsData = repository.getAccountRepository().getMintingAccounts();
 					// No minting accounts?
@@ -197,10 +200,6 @@ public class BlockMinter extends Thread {
 					// There are enough peers with a recent block and our latest block is recent
 					// so go ahead and mint a block if possible.
 					isMintingPossible = true;
-
-					// Reattach newBlocks to new repository handle
-					for (Block newBlock : newBlocks)
-						newBlock.setRepository(repository);
 
 					// Check blockchain hasn't changed
 					if (previousBlockData == null || !Arrays.equals(previousBlockData.getSignature(), lastBlockData.getSignature())) {
@@ -439,13 +438,13 @@ public class BlockMinter extends Thread {
 						Network network = Network.getInstance();
 						network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newBlockData));
 					}
-				} catch (DataException e) {
-					LOGGER.warn("Repository issue while running block minter", e);
+				} catch (InterruptedException e) {
+					// We've been interrupted - time to exit
+					return;
 				}
-			} catch (InterruptedException e) {
-				// We've been interrupted - time to exit
-				return;
 			}
+		} catch (DataException e) {
+			LOGGER.warn("Repository issue while running block minter - NO LONGER MINTING", e);
 		}
 	}
 

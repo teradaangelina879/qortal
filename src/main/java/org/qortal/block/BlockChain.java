@@ -104,10 +104,23 @@ public class BlockChain {
 	private List<RewardByHeight> rewardsByHeight;
 
 	/** Share of block reward/fees by account level */
-	public static class AccountLevelShareBin {
+	public static class AccountLevelShareBin implements Cloneable {
+		public int id;
 		public List<Integer> levels;
 		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 		public long share;
+
+		public Object clone() {
+			AccountLevelShareBin shareBinCopy = new AccountLevelShareBin();
+			List<Integer> levelsCopy = new ArrayList<>();
+			for (Integer level : this.levels) {
+				levelsCopy.add(level);
+			}
+			shareBinCopy.id = this.id;
+			shareBinCopy.levels = levelsCopy;
+			shareBinCopy.share = this.share;
+			return shareBinCopy;
+		}
 	}
 	private List<AccountLevelShareBin> sharesByLevel;
 	/** Generated lookup of share-bin by account level */
@@ -120,6 +133,12 @@ public class BlockChain {
 	/** How many legacy QORA per 1 QORT of block reward. */
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private Long qoraPerQortReward;
+
+	/** Minimum number of accounts before a share bin is considered activated */
+	private int minAccountsToActivateShareBin;
+
+	/** Min level at which share bin activation takes place; lower levels allow less than minAccountsPerShareBin */
+	private int shareBinActivationMinLevel;
 
 	/**
 	 * Number of minted blocks required to reach next level from previous.
@@ -165,6 +184,10 @@ public class BlockChain {
 	private long onlineAccountSignaturesMinLifetime;
 	/** Maximum time to retain online account signatures (ms) for block validity checks, to allow for clock variance. */
 	private long onlineAccountSignaturesMaxLifetime;
+
+	/** Feature trigger timestamp for ONLINE_ACCOUNTS_MODULUS time interval increase. Can't use
+	 * featureTriggers because unit tests need to set this value via Reflection. */
+	private long onlineAccountsModulusV2Timestamp;
 
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
@@ -321,6 +344,11 @@ public class BlockChain {
 		return this.maxBlockSize;
 	}
 
+	// Online accounts
+	public long getOnlineAccountsModulusV2Timestamp() {
+		return this.onlineAccountsModulusV2Timestamp;
+	}
+
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
 	public boolean getRequireGroupForApproval() {
 		return this.requireGroupForApproval;
@@ -360,6 +388,14 @@ public class BlockChain {
 
 	public long getQoraPerQortReward() {
 		return this.qoraPerQortReward;
+	}
+
+	public int getMinAccountsToActivateShareBin() {
+		return this.minAccountsToActivateShareBin;
+	}
+
+	public int getShareBinActivationMinLevel() {
+		return this.shareBinActivationMinLevel;
 	}
 
 	public int getMinAccountLevelToMint() {
