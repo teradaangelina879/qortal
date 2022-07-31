@@ -29,6 +29,7 @@ import org.bitcoinj.wallet.SendRequest;
 import org.bitcoinj.wallet.Wallet;
 import org.qortal.api.model.SimpleForeignTransaction;
 import org.qortal.crypto.Crypto;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.BitTwiddling;
 
@@ -409,9 +410,6 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			Set<BitcoinyTransaction> walletTransactions = new HashSet<>();
 			Set<String> keySet = new HashSet<>();
 
-			// Set the number of consecutive empty batches required before giving up
-			final int numberOfAdditionalBatchesToSearch = 7;
-
 			int unusedCounter = 0;
 			int ki = 0;
 			do {
@@ -438,12 +436,12 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 				if (areAllKeysUnused) {
 					// No transactions
-					if (unusedCounter >= numberOfAdditionalBatchesToSearch) {
+					if (unusedCounter >= Settings.getInstance().getGapLimit()) {
 						// ... and we've hit our search limit
 						break;
 					}
 					// We haven't hit our search limit yet so increment the counter and keep looking
-					unusedCounter++;
+					unusedCounter += WALLET_KEY_LOOKAHEAD_INCREMENT;
 				} else {
 					// Some keys in this batch were used, so reset the counter
 					unusedCounter = 0;

@@ -284,6 +284,13 @@ public class Settings {
 	private Long testNtpOffset = null;
 
 
+	/* Foreign chains */
+
+	/** Set the number of consecutive empty addresses required before treating a wallet's transaction set as complete */
+	private int gapLimit = 24;
+
+
+
 	// Data storage (QDN)
 
 	/** Data storage enabled/disabled*/
@@ -869,6 +876,11 @@ public class Settings {
 
 	public boolean getBootstrap() {
 		return this.bootstrap;
+	}
+
+
+	public int getGapLimit() {
+		return this.gapLimit;
 	}
 
 
