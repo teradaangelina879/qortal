@@ -79,7 +79,7 @@ public class LiteWalletJni {
             if (osName.equals("Mac OS X") && osArchitecture.equals("x86_64")) {
                 libPath = "librust.dylib";
             }
-            else if (osName.equals("Linux") && osArchitecture.equals("arm")) {
+            else if (osName.equals("Linux") && osArchitecture.equals("aarch64")) {
                 libPath = "/home/pi/librust.so";
             }
             else {
