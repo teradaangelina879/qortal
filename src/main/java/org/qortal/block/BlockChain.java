@@ -185,6 +185,10 @@ public class BlockChain {
 	/** Maximum time to retain online account signatures (ms) for block validity checks, to allow for clock variance. */
 	private long onlineAccountSignaturesMaxLifetime;
 
+	/** Feature trigger timestamp for ONLINE_ACCOUNTS_MODULUS time interval increase. Can't use
+	 * featureTriggers because unit tests need to set this value via Reflection. */
+	private long onlineAccountsModulusV2Timestamp;
+
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
 		public long timestamp;
@@ -338,6 +342,11 @@ public class BlockChain {
 
 	public int getMaxBlockSize() {
 		return this.maxBlockSize;
+	}
+
+	// Online accounts
+	public long getOnlineAccountsModulusV2Timestamp() {
+		return this.onlineAccountsModulusV2Timestamp;
 	}
 
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
