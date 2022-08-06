@@ -1,6 +1,7 @@
 package org.qortal.controller.tradebot;
 
 import com.google.common.hash.HashCode;
+import com.rust.litewalletjni.LiteWalletJni;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.*;
@@ -150,6 +151,12 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 
 		byte[] tradeForeignPublicKey = TradeBot.deriveTradeForeignPublicKey(tradePrivateKey);
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
+
+		// ARRR wallet must be loaded before a trade can be created
+		// This is to stop trades from nodes on unsupported architectures (e.g. 32bit)
+		if (!LiteWalletJni.isLoaded()) {
+			throw new DataException("Pirate wallet not found. Check wallets screen for details.");
+		}
 
 		if (!PirateChain.getInstance().isValidAddress(tradeBotCreateRequest.receivingAddress)) {
 			throw new DataException("Unsupported Pirate Chain receiving address: " + tradeBotCreateRequest.receivingAddress);
