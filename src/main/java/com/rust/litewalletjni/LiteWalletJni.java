@@ -82,6 +82,9 @@ public class LiteWalletJni {
             else if (osName.equals("Linux") && osArchitecture.equals("aarch64")) {
                 libPath = "/home/pi/librust.so";
             }
+            else if (osName.equals("Linux") && osArchitecture.equals("amd64")) {
+                libPath = "/etc/qortal/librust.so";
+            }
             else {
                 LOGGER.info("Library not found for OS: {}, arch: {}", osName, osArchitecture);
                 return;
