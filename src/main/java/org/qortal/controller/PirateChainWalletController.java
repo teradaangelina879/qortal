@@ -50,6 +50,10 @@ public class PirateChainWalletController extends Thread {
                     // Nothing to do yet
                     continue;
                 }
+                if (this.currentWallet.isNullSeedWallet()) {
+                    // Don't sync the null seed wallet
+                    continue;
+                }
 
                 LOGGER.debug("Syncing Pirate Chain wallet...");
                 String response = LiteWalletJni.execute("sync", "");

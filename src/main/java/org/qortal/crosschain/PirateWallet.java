@@ -190,6 +190,10 @@ public class PirateWallet {
             LOGGER.info("Error: can't save wallet, because no wallet it initialized");
             return false;
         }
+        if (this.isNullSeedWallet()) {
+            // Don't save wallets that have a null seed
+            return false;
+        }
 
         // Encrypt first (will do nothing if already encrypted)
         this.encrypt();
@@ -218,6 +222,10 @@ public class PirateWallet {
     }
 
     public String load() throws IOException {
+        if (this.isNullSeedWallet()) {
+            // Don't load wallets that have a null seed
+            return null;
+        }
         Path walletPath = this.getCurrentWalletPath();
         if (!Files.exists(walletPath)) {
             return null;

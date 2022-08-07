@@ -439,7 +439,6 @@ public class PirateChain extends Bitcoiny {
 		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
 		walletController.initNullSeedWallet();
 		walletController.ensureInitialized();
-		walletController.ensureSynchronized();
 
 		walletController.getCurrentWallet().unlock();
 
@@ -491,7 +490,6 @@ public class PirateChain extends Bitcoiny {
 		PirateChainWalletController walletController = PirateChainWalletController.getInstance();
 		walletController.initNullSeedWallet();
 		walletController.ensureInitialized();
-		walletController.ensureSynchronized();
 
 		walletController.getCurrentWallet().unlock();
 
