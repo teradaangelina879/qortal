@@ -85,6 +85,9 @@ public class LiteWalletJni {
             else if (osName.equals("Linux") && osArchitecture.equals("amd64")) {
                 libPath = "/etc/qortal/librust.so";
             }
+            else if (osName.contains("Windows") && osArchitecture.equals("amd64")) {
+                libPath = "C:\\Users\\User\\Repositories\\pirate-litewalletjni\\src\\target\\release\\rust.dll";
+            }
             else {
                 LOGGER.info("Library not found for OS: {}, arch: {}", osName, osArchitecture);
                 return;
