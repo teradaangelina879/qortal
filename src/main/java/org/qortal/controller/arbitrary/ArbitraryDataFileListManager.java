@@ -123,12 +123,22 @@ public class ArbitraryDataFileListManager {
             }
         }
 
-        // Then allow another 5 attempts, each 5 minutes apart
+        // Then allow another 3 attempts, each 5 minutes apart
         if (timeSinceLastAttempt > 5 * 60 * 1000L) {
             // We haven't tried for at least 5 minutes
 
-            if (networkBroadcastCount < 5) {
-                // We've made less than 5 total attempts
+            if (networkBroadcastCount < 6) {
+                // We've made less than 6 total attempts
+                return true;
+            }
+        }
+
+        // Then allow another 4 attempts, each 30 minutes apart
+        if (timeSinceLastAttempt > 30 * 60 * 1000L) {
+            // We haven't tried for at least 5 minutes
+
+            if (networkBroadcastCount < 10) {
+                // We've made less than 10 total attempts
                 return true;
             }
         }
