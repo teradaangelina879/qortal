@@ -12,7 +12,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -56,6 +55,7 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 import org.qortal.utils.ZipUtils;
@@ -254,7 +254,7 @@ public class ArbitraryResource {
 															@QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, null);
-		return this.getStatus(service, name, null, build);
+		return ArbitraryTransactionUtils.getStatus(service, name, null, build);
 	}
 
 	@GET
@@ -276,7 +276,7 @@ public class ArbitraryResource {
 													 @QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier);
-		return this.getStatus(service, name, identifier, build);
+		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build);
 	}
 
 
@@ -1246,24 +1246,6 @@ public class ArbitraryResource {
 		}
 	}
 
-
-	private ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build) {
-
-		// If "build=true" has been specified in the query string, build the resource before returning its status
-		if (build != null && build == true) {
-			ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
-			try {
-				if (!reader.isBuilding()) {
-					reader.loadSynchronously(false);
-				}
-			} catch (Exception e) {
-				// No need to handle exception, as it will be reflected in the status
-			}
-		}
-
-		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.getStatus(false);
-	}
 
 	private List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
 		// Determine and add the status of each resource

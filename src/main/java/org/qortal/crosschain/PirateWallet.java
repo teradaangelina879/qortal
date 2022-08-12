@@ -1,6 +1,5 @@
 package org.qortal.crosschain;
 
-import com.google.common.io.Resources;
 import com.rust.litewalletjni.LiteWalletJni;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -9,13 +8,13 @@ import org.bouncycastle.util.encoders.DecoderException;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.qortal.controller.PirateChainWalletController;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,27 +36,26 @@ public class PirateWallet {
     private String seedPhrase;
     private boolean ready = false;
 
-    private final String params;
-    private final String saplingOutput64;
-    private final String saplingSpend64;
+    private String params;
+    private String saplingOutput64;
+    private String saplingSpend64;
 
-    private final static String SERVER_URI = "https://lightd.pirate.black:443/";
-    private final static String COIN_PARAMS_RESOURCE = "piratechain/coinparams.json";
-    private final static String SAPLING_OUTPUT_RESOURCE = "piratechain/saplingoutput_base64";
-    private final static String SAPLING_SPEND_RESOURCE = "piratechain/saplingspend_base64";
+    private final static String COIN_PARAMS_FILENAME = "coinparams.json";
+    private final static String SAPLING_OUTPUT_FILENAME = "saplingoutput_base64";
+    private final static String SAPLING_SPEND_FILENAME = "saplingspend_base64";
 
     public PirateWallet(byte[] entropyBytes, boolean isNullSeedWallet) throws IOException {
         this.entropyBytes = entropyBytes;
         this.isNullSeedWallet = isNullSeedWallet;
 
-        final URL paramsUrl = Resources.getResource(COIN_PARAMS_RESOURCE);
-        this.params = Resources.toString(paramsUrl, StandardCharsets.UTF_8);
+        Path libDirectory = PirateChainWalletController.getRustLibOuterDirectory();
+        if (!Files.exists(Paths.get(libDirectory.toString(), COIN_PARAMS_FILENAME))) {
+            return;
+        }
 
-        final URL saplingOutput64Url = Resources.getResource(SAPLING_OUTPUT_RESOURCE);
-        this.saplingOutput64 = Resources.toString(saplingOutput64Url, StandardCharsets.ISO_8859_1);
-
-        final URL saplingSpend64Url = Resources.getResource(SAPLING_SPEND_RESOURCE);
-        this.saplingSpend64 = Resources.toString(saplingSpend64Url, StandardCharsets.ISO_8859_1);
+        this.params = Files.readString(Paths.get(libDirectory.toString(), COIN_PARAMS_FILENAME));
+        this.saplingOutput64 = Files.readString(Paths.get(libDirectory.toString(), SAPLING_OUTPUT_FILENAME));
+        this.saplingSpend64 = Files.readString(Paths.get(libDirectory.toString(), SAPLING_SPEND_FILENAME));
 
         this.ready = this.initialize();
     }

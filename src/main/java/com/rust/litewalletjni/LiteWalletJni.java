@@ -44,6 +44,10 @@ package com.rust.litewalletjni;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.controller.PirateChainWalletController;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class LiteWalletJni {
 
@@ -74,26 +78,14 @@ public class LiteWalletJni {
         LOGGER.info("OS Architecture: {}", osArchitecture);
 
         try {
-            String libPath;
-
-            if (osName.equals("Mac OS X") && osArchitecture.equals("x86_64")) {
-                libPath = "librust.dylib";
-            }
-            else if (osName.equals("Linux") && osArchitecture.equals("aarch64")) {
-                libPath = "/home/pi/librust.so";
-            }
-            else if (osName.equals("Linux") && osArchitecture.equals("amd64")) {
-                libPath = "/etc/qortal/librust.so";
-            }
-            else if (osName.contains("Windows") && osArchitecture.equals("amd64")) {
-                libPath = "C:\\Users\\User\\Repositories\\pirate-litewalletjni\\src\\target\\release\\rust.dll";
-            }
-            else {
+            String libFileName = PirateChainWalletController.getRustLibFilename();
+            if (libFileName == null) {
                 LOGGER.info("Library not found for OS: {}, arch: {}", osName, osArchitecture);
                 return;
             }
 
-            System.load(libPath);
+            Path libPath = Paths.get(PirateChainWalletController.getRustLibOuterDirectory().toString(), libFileName);
+            System.load(libPath.toAbsolutePath().toString());
             loaded = true;
         }
         catch (UnsatisfiedLinkError e) {

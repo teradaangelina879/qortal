@@ -1,15 +1,36 @@
 package org.qortal.controller;
 
 import com.rust.litewalletjni.LiteWalletJni;
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONObject;
+import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.arbitrary.ArbitraryDataReader;
+import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.PirateWallet;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
+import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.TransactionData;
+import org.qortal.network.Network;
+import org.qortal.network.Peer;
+import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
+import org.qortal.transaction.ArbitraryTransaction;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
+import org.qortal.utils.FilesystemUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.Objects;
 
 public class PirateChainWalletController extends Thread {
@@ -23,6 +44,10 @@ public class PirateChainWalletController extends Thread {
 
     private boolean running;
     private PirateWallet currentWallet = null;
+    private boolean shouldLoadWallet = false;
+    private String loadStatus = null;
+
+    private static String qdnWalletSignature = "EsfUw54perxkEtfoUoL7Z97XPrNsZRZXePVZPz3cwRm9qyEPSofD5KmgVpDqVitQp7LhnZRmL6z2V9hEe1YS45T";
 
 
     private PirateChainWalletController() {
@@ -40,11 +65,27 @@ public class PirateChainWalletController extends Thread {
     public void run() {
         Thread.currentThread().setName("Pirate Chain Wallet Controller");
 
-        LiteWalletJni.loadLibrary();
-
         try {
             while (running && !Controller.isStopping()) {
                 Thread.sleep(1000);
+
+                // Wait until we have a request to load the wallet
+                if (!shouldLoadWallet) {
+                    continue;
+                }
+
+                if (!LiteWalletJni.isLoaded()) {
+                    this.loadLibrary();
+
+                    // If still not loaded, sleep to prevent too many requests
+                    if (!LiteWalletJni.isLoaded()) {
+                        Thread.sleep(5 * 1000);
+                        continue;
+                    }
+                }
+
+                // Wallet is downloaded, so clear the status
+                this.loadStatus = null;
 
                 if (this.currentWallet == null) {
                     // Nothing to do yet
@@ -91,6 +132,137 @@ public class PirateChainWalletController extends Thread {
     }
 
 
+    // QDN & wallet libraries
+
+    private void loadLibrary() throws InterruptedException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+
+            // Check if architecture is supported
+            String libFileName = PirateChainWalletController.getRustLibFilename();
+            if (libFileName == null) {
+                String osName = System.getProperty("os.name");
+                String osArchitecture = System.getProperty("os.arch");
+                this.loadStatus = String.format("Unsupported architecture (%s %s)", osName, osArchitecture);
+                return;
+            }
+
+            // Check if the library exists in the wallets folder
+            Path libDirectory = PirateChainWalletController.getRustLibOuterDirectory();
+            Path libPath = Paths.get(libDirectory.toString(), libFileName);
+            if (Files.exists(libPath)) {
+                // Already downloaded; we can load the library right away
+                LiteWalletJni.loadLibrary();
+                return;
+            }
+
+            // Library not found, so check if we've fetched the resource from QDN
+            ArbitraryTransactionData t = this.getTransactionData(repository);
+            if (t == null) {
+                // Can't find the transaction - maybe on a different chain?
+                return;
+            }
+
+            // Wait until we have a sufficient number of peers to attempt QDN downloads
+            List<Peer> handshakedPeers = Network.getInstance().getImmutableHandshakedPeers();
+            if (handshakedPeers.size() < Settings.getInstance().getMinBlockchainPeers()) {
+                // Wait for more peers
+                this.loadStatus = String.format("Searching for peers...");
+                return;
+            }
+
+            // Build resource
+            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(t.getName(),
+                    ArbitraryDataFile.ResourceIdType.NAME, t.getService(), t.getIdentifier());
+            try {
+                arbitraryDataReader.loadSynchronously(false);
+            } catch (MissingDataException e) {
+                LOGGER.info("Missing data when loading Pirate Chain library");
+            }
+
+            // Check its status
+            ArbitraryResourceStatus status = ArbitraryTransactionUtils.getStatus(
+                    t.getService(), t.getName(), t.getIdentifier(), false);
+
+            if (status.getStatus() != ArbitraryResourceStatus.Status.READY) {
+                LOGGER.info("Not ready yet: {}", status.getTitle());
+                this.loadStatus = String.format("Downloading wallet files... (%d / %d)", status.getLocalChunkCount(), status.getTotalChunkCount());
+                return;
+            }
+
+            // Files are downloaded, so copy the necessary files to the wallets folder
+            // Delete the wallets/*/lib directory first, in case earlier versions of the wallet are present
+            Path walletsLibDirectory = PirateChainWalletController.getWalletsLibDirectory();
+            if (Files.exists(walletsLibDirectory)) {
+                FilesystemUtils.safeDeleteDirectory(walletsLibDirectory, false);
+            }
+            Files.createDirectories(libDirectory);
+            FileUtils.copyDirectory(arbitraryDataReader.getFilePath().toFile(), libDirectory.toFile());
+
+            // Clear reader cache so only one copy exists
+            ArbitraryDataResource resource = new ArbitraryDataResource(t.getName(),
+                    ArbitraryDataFile.ResourceIdType.NAME, t.getService(), t.getIdentifier());
+            resource.deleteCache();
+
+            // Finally, load the library
+            LiteWalletJni.loadLibrary();
+
+        } catch (DataException e) {
+            LOGGER.error("Repository issue when loading Pirate Chain library", e);
+        } catch (IOException e) {
+            LOGGER.error("Error when loading Pirate Chain library: {}", e.getMessage());
+        }
+    }
+
+    private ArbitraryTransactionData getTransactionData(Repository repository) {
+        try {
+            byte[] signature = Base58.decode(qdnWalletSignature);
+            TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+            if (!(transactionData instanceof ArbitraryTransactionData))
+                return null;
+
+            ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, transactionData);
+            if (arbitraryTransaction != null) {
+                return (ArbitraryTransactionData) arbitraryTransaction.getTransactionData();
+            }
+
+            return null;
+        } catch (DataException e) {
+            return null;
+        }
+    }
+
+    public static String getRustLibFilename() {
+        String osName = System.getProperty("os.name");
+        String osArchitecture = System.getProperty("os.arch");
+
+        if (osName.equals("Mac OS X") && osArchitecture.equals("x86_64")) {
+            return "librust-macos-x86_64.dylib";
+        }
+        else if (osName.equals("Linux") && osArchitecture.equals("aarch64")) {
+            return "librust-linux-aarch64.so";
+        }
+        else if (osName.equals("Linux") && osArchitecture.equals("amd64")) {
+            return "librust-linux-x86_64.so";
+        }
+        else if (osName.contains("Windows") && osArchitecture.equals("amd64")) {
+            return "librust-windows-x86_64.dll";
+        }
+
+        return null;
+    }
+
+    public static Path getWalletsLibDirectory() {
+        return Paths.get(Settings.getInstance().getWalletsPath(), "PirateChain", "lib");
+    }
+
+    public static Path getRustLibOuterDirectory() {
+        String sigPrefix = qdnWalletSignature.substring(0, 8);
+        return Paths.get(Settings.getInstance().getWalletsPath(), "PirateChain", "lib", sigPrefix);
+    }
+
+
+    // Wallet functions
+
     public boolean initWithEntropy58(String entropy58) {
         return this.initWithEntropy58(entropy58, false);
     }
@@ -100,6 +272,12 @@ public class PirateChainWalletController extends Thread {
     }
 
     private boolean initWithEntropy58(String entropy58, boolean isNullSeedWallet) {
+        // If the JNI library isn't loaded yet then we can't proceed
+        if (!LiteWalletJni.isLoaded()) {
+            shouldLoadWallet = true;
+            return false;
+        }
+
         byte[] entropyBytes = Base58.decode(entropy58);
 
         if (entropyBytes == null || entropyBytes.length != 32) {
@@ -190,9 +368,11 @@ public class PirateChainWalletController extends Thread {
     }
 
     public String getSyncStatus() {
-        // TODO: check library exists, and show status of download if not
-
         if (this.currentWallet == null || !this.currentWallet.isInitialized()) {
+            if (this.loadStatus != null) {
+                return this.loadStatus;
+            }
+
             return "Not initialized yet";
         }
 
