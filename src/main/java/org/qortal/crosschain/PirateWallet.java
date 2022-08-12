@@ -22,7 +22,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
+import java.util.Random;
 
 import static org.qortal.crosschain.PirateChain.DEFAULT_BIRTHDAY;
 
@@ -68,6 +70,10 @@ public class PirateWallet {
                 return false;
             }
 
+            // Pick a random server
+            PirateLightClient.Server server = this.getRandomServer();
+            String serverUri = String.format("https://%s:%d/", server.hostname, server.port);
+
             // Pirate library uses base64 encoding
             String entropy64 = Base64.toBase64String(this.entropyBytes);
 
@@ -96,7 +102,7 @@ public class PirateWallet {
 
                 // Initialize new wallet
                 String birthdayString = String.format("%d", birthday);
-                String outputSeedResponse = LiteWalletJni.initfromseed(SERVER_URI, this.params, inputSeedPhrase, birthdayString, this.saplingOutput64, this.saplingSpend64); // Thread-safe.
+                String outputSeedResponse = LiteWalletJni.initfromseed(serverUri, this.params, inputSeedPhrase, birthdayString, this.saplingOutput64, this.saplingSpend64); // Thread-safe.
                 JSONObject outputSeedJson =  new JSONObject(outputSeedResponse);
                 String outputSeedPhrase = null;
                 if (outputSeedJson.has("seed")) {
@@ -113,7 +119,7 @@ public class PirateWallet {
 
             } else {
                 // Restore existing wallet
-                LiteWalletJni.initfromb64(SERVER_URI, params, wallet, saplingOutput64, saplingSpend64);
+                LiteWalletJni.initfromb64(serverUri, params, wallet, saplingOutput64, saplingSpend64);
                 this.seedPhrase = inputSeedPhrase;
             }
 
@@ -390,6 +396,14 @@ public class PirateWallet {
             }
         }
         return null;
+    }
+
+    public PirateLightClient.Server getRandomServer() {
+        PirateChain.PirateChainNet pirateChainNet = Settings.getInstance().getPirateChainNet();
+        Collection<PirateLightClient.Server> servers = pirateChainNet.getServers();
+        Random random = new Random();
+        int index = random.nextInt(servers.size());
+        return (PirateLightClient.Server) servers.toArray()[index];
     }
 
 }
