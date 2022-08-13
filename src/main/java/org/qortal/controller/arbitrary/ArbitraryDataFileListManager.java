@@ -197,8 +197,8 @@ public class ArbitraryDataFileListManager {
             }
         }
 
-        if (timeSinceLastAttempt > 24 * 60 * 60 * 1000L) {
-            // We haven't tried for at least 24 hours
+        if (timeSinceLastAttempt > 60 * 60 * 1000L) {
+            // We haven't tried for at least 1 hour
             return true;
         }
 
