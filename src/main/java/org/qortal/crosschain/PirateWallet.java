@@ -25,8 +25,6 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Random;
 
-import static org.qortal.crosschain.PirateChain.DEFAULT_BIRTHDAY;
-
 public class PirateWallet {
 
     protected static final Logger LOGGER = LogManager.getLogger(PirateWallet.class);
@@ -87,7 +85,7 @@ public class PirateWallet {
             if (wallet == null) {
                 // Wallet doesn't exist, so create a new one
 
-                int birthday = DEFAULT_BIRTHDAY;
+                int birthday = Settings.getInstance().getArrrDefaultBirthday();
                 if (this.isNullSeedWallet) {
                     try {
                         // Attempt to set birthday to the current block for null seed wallets

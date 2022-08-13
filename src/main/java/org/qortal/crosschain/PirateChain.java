@@ -26,8 +26,6 @@ public class PirateChain extends Bitcoiny {
 
 	public static final String CURRENCY_CODE = "ARRR";
 
-	public static final int DEFAULT_BIRTHDAY = 2000000;
-
 	private static final Coin DEFAULT_FEE_PER_KB = Coin.valueOf(10000); // 0.0001 ARRR per 1000 bytes
 
 	private static final long MINIMUM_ORDER_AMOUNT = 10000; // 0.0001 ARRR minimum order, to avoid dust errors // TODO: increase this

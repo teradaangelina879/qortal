@@ -14,13 +14,12 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.qortal.settings.Settings;
 import org.qortal.transform.TransformationException;
 
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-
-import static org.qortal.crosschain.PirateChain.DEFAULT_BIRTHDAY;
 
 /** Pirate Chain network support for querying Bitcoiny-related info like block headers, transaction outputs, etc. */
 public class PirateLightClient extends BitcoinyBlockchainProvider {
@@ -470,8 +469,9 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 	public List<BitcoinyTransaction> getAddressBitcoinyTransactions(String address, boolean includeUnconfirmed) throws ForeignBlockchainException {
 		try {
 			// Firstly we need to get the latest block
+			int defaultBirthday = Settings.getInstance().getArrrDefaultBirthday();
 			BlockID endBlock = this.getCompactTxStreamerStub().getLatestBlock(null);
-			BlockID startBlock = BlockID.newBuilder().setHeight(DEFAULT_BIRTHDAY).build();
+			BlockID startBlock = BlockID.newBuilder().setHeight(defaultBirthday).build();
 			BlockRange blockRange = BlockRange.newBuilder().setStart(startBlock).setEnd(endBlock).build();
 
 			TransparentAddressBlockFilter blockFilter = TransparentAddressBlockFilter.newBuilder()

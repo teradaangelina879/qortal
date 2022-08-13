@@ -28,7 +28,7 @@ public class PirateChainTests extends Common {
 
 	@Before
 	public void beforeTest() throws DataException {
-		Common.useDefaultSettings(); // TestNet3
+		Common.useDefaultSettings();
 		pirateChain = PirateChain.getInstance();
 	}
 

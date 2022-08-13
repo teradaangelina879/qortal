@@ -238,8 +238,10 @@ public class Settings {
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
 
-	/** Wallets path - used for storing enrppted wallet caches for coins that require them */
+	/** Wallets path - used for storing encrypted wallet caches for coins that require them */
 	private String walletsPath = "wallets";
+
+	private int arrrDefaultBirthday = 2000000;
 
 	// Repository related
 	/** Queries that take longer than this are logged. (milliseconds) */
@@ -727,6 +729,10 @@ public class Settings {
 
 	public String getWalletsPath() {
 		return this.walletsPath;
+	}
+
+	public int getArrrDefaultBirthday() {
+		return this.arrrDefaultBirthday;
 	}
 
 	public boolean isTradebotSystrayEnabled() {
