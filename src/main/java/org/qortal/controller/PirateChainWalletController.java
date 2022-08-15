@@ -185,7 +185,7 @@ public class PirateChainWalletController extends Thread {
 
             if (status.getStatus() != ArbitraryResourceStatus.Status.READY) {
                 LOGGER.info("Not ready yet: {}", status.getTitle());
-                this.loadStatus = String.format("Downloading wallet files... (%d / %d)", status.getLocalChunkCount(), status.getTotalChunkCount());
+                this.loadStatus = String.format("Downloading files from QDN... (%d / %d)", status.getLocalChunkCount(), status.getTotalChunkCount());
                 return;
             }
 
