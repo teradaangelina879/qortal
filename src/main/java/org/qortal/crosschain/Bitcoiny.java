@@ -534,7 +534,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			amount = 0;
 		}
 		long timestampMillis = t.timestamp * 1000L;
-		return new SimpleTransaction(t.txHash, timestampMillis, amount, fee, inputs, outputs);
+		return new SimpleTransaction(t.txHash, timestampMillis, amount, fee, inputs, outputs, null);
 	}
 
 	/**

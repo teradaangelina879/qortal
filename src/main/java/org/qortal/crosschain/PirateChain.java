@@ -296,6 +296,7 @@ public class PirateChain extends Bitcoiny {
 						Long timestamp = transactionJson.getLong("datetime");
 						Long amount = transactionJson.getLong("amount");
 						Long fee = transactionJson.getLong("fee");
+						String memo = null;
 
 						if (transactionJson.has("incoming_metadata")) {
 							JSONArray incomingMetadatas = transactionJson.getJSONArray("incoming_metadata");
@@ -305,9 +306,11 @@ public class PirateChain extends Bitcoiny {
 									if (incomingMetadata.has("value")) {
 										//String address = incomingMetadata.getString("address");
 										Long value = incomingMetadata.getLong("value");
-										//String memo = incomingMetadata.getString("memo");
-
 										amount = value; // TODO: figure out how to parse transactions with multiple incomingMetadata entries
+									}
+
+									if (incomingMetadata.has("memo") && !incomingMetadata.isNull("memo")) {
+										memo = incomingMetadata.getString("memo");
 									}
 								}
 							}
@@ -316,7 +319,7 @@ public class PirateChain extends Bitcoiny {
 						// TODO: JSONArray outgoingMetadatas = transactionJson.getJSONArray("outgoing_metadata");
 
 						long timestampMillis = Math.toIntExact(timestamp) * 1000L;
-						SimpleTransaction transaction = new SimpleTransaction(txId, timestampMillis, amount, fee, null, null);
+						SimpleTransaction transaction = new SimpleTransaction(txId, timestampMillis, amount, fee, null, null, memo);
 						transactions.add(transaction);
 					}
 				}

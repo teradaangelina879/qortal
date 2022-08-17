@@ -12,6 +12,7 @@ public class SimpleTransaction {
     private long feeAmount;
     private List<Input> inputs;
     private List<Output> outputs;
+    private String memo;
 
 
     @XmlAccessorType(XmlAccessType.FIELD)
@@ -74,13 +75,14 @@ public class SimpleTransaction {
     public SimpleTransaction() {
     }
 
-    public SimpleTransaction(String txHash, Long timestamp, long totalAmount, long feeAmount, List<Input> inputs, List<Output> outputs) {
+    public SimpleTransaction(String txHash, Long timestamp, long totalAmount, long feeAmount, List<Input> inputs, List<Output> outputs, String memo) {
         this.txHash = txHash;
         this.timestamp = timestamp;
         this.totalAmount = totalAmount;
         this.feeAmount = feeAmount;
         this.inputs = inputs;
         this.outputs = outputs;
+        this.memo = memo;
     }
 
     public String getTxHash() {
