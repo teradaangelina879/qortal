@@ -115,7 +115,11 @@ public class PirateWallet {
 
             } else {
                 // Restore existing wallet
-                LiteWalletJni.initfromb64(serverUri, params, wallet, saplingOutput64, saplingSpend64);
+                String response = LiteWalletJni.initfromb64(serverUri, params, wallet, saplingOutput64, saplingSpend64);
+                if (response != null && !response.contains("\"initalized\":true")) {
+                    LOGGER.info("Unable to initialize Pirate Chain wallet: {}", response);
+                    return false;
+                }
                 this.seedPhrase = inputSeedPhrase;
             }
 
