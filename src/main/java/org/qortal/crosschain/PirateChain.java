@@ -319,7 +319,16 @@ public class PirateChain extends Bitcoiny {
 							}
 						}
 
-						// TODO: JSONArray outgoingMetadatas = transactionJson.getJSONArray("outgoing_metadata");
+						if (transactionJson.has("outgoing_metadata")) {
+							JSONArray outgoingMetadatas = transactionJson.getJSONArray("outgoing_metadata");
+							for (int j = 0; j < outgoingMetadatas.length(); j++) {
+								JSONObject outgoingMetadata = outgoingMetadatas.getJSONObject(j);
+
+								if (outgoingMetadata.has("memo") && !outgoingMetadata.isNull("memo")) {
+									memo = outgoingMetadata.getString("memo");
+								}
+							}
+						}
 
 						long timestampMillis = Math.toIntExact(timestamp) * 1000L;
 						SimpleTransaction transaction = new SimpleTransaction(txId, timestampMillis, amount, fee, null, null, memo);
