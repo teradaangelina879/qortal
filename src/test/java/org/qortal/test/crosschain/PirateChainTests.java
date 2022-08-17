@@ -52,7 +52,7 @@ public class PirateChainTests extends Common {
 
 		System.out.println(String.format("1st call: %d ms, 2nd call: %d ms", firstPeriod, secondPeriod));
 
-		assertTrue("2nd call should be quicker than 1st", secondPeriod < firstPeriod);
+		assertTrue("1st call should take less than 5 seconds", firstPeriod < 5000L);
 		assertTrue("2nd call should take less than 5 seconds", secondPeriod < 5000L);
 	}
 
