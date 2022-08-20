@@ -170,6 +170,7 @@ public class ArbitraryDataReader {
             this.validate();
 
         } catch (DataException e) {
+            LOGGER.info("DataException when trying to load QDN resource", e);
             this.deleteWorkingDirectory();
             throw new DataException(e.getMessage());
 
