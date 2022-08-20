@@ -477,7 +477,12 @@ public class ArbitraryDataReader {
         // Delete original compressed file
         if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
             if (Files.exists(this.filePath)) {
-                Files.delete(this.filePath);
+                try {
+                    Files.delete(this.filePath);
+                } catch (IOException e) {
+                    // Ignore failures as this isn't an essential step
+                    LOGGER.info("Unable to delete file at path {}", this.filePath);
+                }
             }
         }
 
