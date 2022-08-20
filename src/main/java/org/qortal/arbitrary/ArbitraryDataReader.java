@@ -209,7 +209,7 @@ public class ArbitraryDataReader {
      * serve a cached version of the resource for subsequent requests.
      * @throws IOException
      */
-    private void deleteWorkingDirectory() throws IOException {
+    private void deleteWorkingDirectory() {
         try {
             FilesystemUtils.safeDeleteDirectory(this.workingPath, true);
         } catch (IOException e) {
