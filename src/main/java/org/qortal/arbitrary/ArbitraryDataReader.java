@@ -429,7 +429,7 @@ public class ArbitraryDataReader {
             try {
                 LOGGER.info("Decrypting using algorithm {}...", algorithm);
                 Path unencryptedPath = Paths.get(this.workingPath.toString(), "zipped.zip");
-                SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, algorithm);
+                SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
                 AES.decryptFile(algorithm, aesKey, this.filePath.toString(), unencryptedPath.toString());
 
                 // Replace filePath pointer with the encrypted file path
