@@ -437,7 +437,8 @@ public class ArbitraryDataReader {
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-                throw new DataException(String.format("Unable to decrypt file at path %s: %s", this.filePath, e.getMessage()));
+                LOGGER.info(String.format("Exception when decrypting using algorithm %s", algorithm), e);
+                throw new DataException(String.format("Unable to decrypt file at path %s using algorithm %s: %s", this.filePath, algorithm, e.getMessage()));
             }
         } else {
             // Assume it is unencrypted. This will be the case when we have built a custom path by combining
