@@ -427,6 +427,7 @@ public class ArbitraryDataReader {
         byte[] secret = this.secret58 != null ? Base58.decode(this.secret58) : null;
         if (secret != null && secret.length == Transformer.AES256_LENGTH) {
             try {
+                LOGGER.info("Decrypting using algorithm {}...", algorithm);
                 Path unencryptedPath = Paths.get(this.workingPath.toString(), "zipped.zip");
                 SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, algorithm);
                 AES.decryptFile(algorithm, aesKey, this.filePath.toString(), unencryptedPath.toString());
