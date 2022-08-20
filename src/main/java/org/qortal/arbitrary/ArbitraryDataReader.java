@@ -414,6 +414,7 @@ public class ArbitraryDataReader {
             this.decryptUsingAlgo("AES/CBC/PKCS5Padding");
 
         } catch (DataException e) {
+            LOGGER.info("Unable to decrypt using specific parameters: {}", e.getMessage());
             // Something went wrong, so fall back to default AES params (necessary for legacy resource support)
             this.decryptUsingAlgo("AES");
 
