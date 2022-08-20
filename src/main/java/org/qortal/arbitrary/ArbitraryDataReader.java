@@ -209,7 +209,12 @@ public class ArbitraryDataReader {
      * @throws IOException
      */
     private void deleteWorkingDirectory() throws IOException {
-        FilesystemUtils.safeDeleteDirectory(this.workingPath, true);
+        try {
+            FilesystemUtils.safeDeleteDirectory(this.workingPath, true);
+        } catch (IOException e) {
+            // Ignore failures as this isn't an essential step
+            LOGGER.info("Unable to delete working path {}: {}", this.workingPath, e.getMessage());
+        }
     }
 
     private void createUncompressedDirectory() throws DataException {
