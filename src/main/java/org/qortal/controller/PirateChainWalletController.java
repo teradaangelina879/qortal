@@ -209,7 +209,7 @@ public class PirateChainWalletController extends Thread {
         } catch (DataException e) {
             LOGGER.error("Repository issue when loading Pirate Chain library", e);
         } catch (IOException e) {
-            LOGGER.error("Error when loading Pirate Chain library: {}", e.getMessage());
+            LOGGER.error("Error when loading Pirate Chain library", e);
         }
     }
 
