@@ -210,9 +210,9 @@ public class Settings {
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
 	/** Minimum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int minPeerConnectionTime = 5 * 60; // seconds
+	private int minPeerConnectionTime = 60 * 60; // seconds
 	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int maxPeerConnectionTime = 60 * 60; // seconds
+	private int maxPeerConnectionTime = 4 * 60 * 60; // seconds
 	/** Maximum time (in seconds) that a peer should remain connected when requesting QDN data */
 	private int maxDataPeerConnectionTime = 2 * 60; // seconds
 
