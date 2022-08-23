@@ -1375,26 +1375,17 @@ public class Network {
                 // We attempted to connect within the last day
                 // but we last managed to connect over a week ago.
                 Predicate<PeerData> isNotOldPeer = peerData -> {
-
-                    // First check if there was a connection attempt within the last day
-                    if (peerData.getLastAttempted() != null
-                            && peerData.getLastAttempted() > now - OLD_PEER_ATTEMPTED_PERIOD) {
-
-                        // There was, so now check if we had a successful connection in the last 7 days
-                        if (peerData.getLastConnected() != null
-                                && peerData.getLastConnected() > now - OLD_PEER_CONNECTION_PERIOD) {
-
-                            // We did, so this is NOT an 'old' peer
-                            return true;
-                        }
-
-                        // Last successful connection was more than 1 week ago - this is an 'old' peer
-                        return false;
-                    }
-                    else {
-                        // Best to wait until we have a connection attempt - assume not an 'old' peer until then
+                    if (peerData.getLastAttempted() == null
+                            || peerData.getLastAttempted() < now - OLD_PEER_ATTEMPTED_PERIOD) {
                         return true;
                     }
+
+                    if (peerData.getLastConnected() == null
+                            || peerData.getLastConnected() > now - OLD_PEER_CONNECTION_PERIOD) {
+                        return true;
+                    }
+
+                    return false;
                 };
 
                 // Disregard peers that are NOT 'old'

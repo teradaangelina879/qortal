@@ -1220,6 +1220,7 @@ public class Block {
 				}
 			}
 		} catch (DataException e) {
+			LOGGER.info("DataException during transaction validation", e);
 			return ValidationResult.TRANSACTION_INVALID;
 		} finally {
 			// Rollback repository changes made by test-processing transactions above
