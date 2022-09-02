@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
@@ -284,6 +285,12 @@ public class CrossChainHtlcResource {
 					continue;
 				}
 
+				Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
+				if (Objects.equals(bitcoiny.getCurrencyCode(), "ARRR")) {
+					LOGGER.info("Skipping AT {} because ARRR is currently unsupported", atAddress);
+					continue;
+				}
+
 				CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
 				if (crossChainTradeData == null) {
 					LOGGER.info("Couldn't find crosschain trade data for AT {}", atAddress);
@@ -532,6 +539,11 @@ public class CrossChainHtlcResource {
 				try {
 					// Determine foreign blockchain receive address for refund
 					Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
+					if (Objects.equals(bitcoiny.getCurrencyCode(), "ARRR")) {
+						LOGGER.info("Skipping AT {} because ARRR is currently unsupported", atAddress);
+						continue;
+					}
+
 					String receivingAddress = bitcoiny.getUnusedReceiveAddress(tradeBotData.getForeignKey());
 
 					LOGGER.info("Attempting to refund P2SH balance associated with AT {}...", atAddress);
