@@ -10,7 +10,6 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
-import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -185,8 +184,11 @@ public class Block {
 			if (accountLevel <= 0)
 				return null; // level 0 isn't included in any share bins
 
+			// Select the correct set of share bins based on block height
 			final BlockChain blockChain = BlockChain.getInstance();
-			final AccountLevelShareBin[] shareBinsByLevel = blockChain.getShareBinsByAccountLevel();
+			final AccountLevelShareBin[] shareBinsByLevel = (blockHeight >= blockChain.getSharesByLevelV2Height()) ?
+					blockChain.getShareBinsByAccountLevelV2() : blockChain.getShareBinsByAccountLevelV1();
+
 			if (accountLevel > shareBinsByLevel.length)
 				return null;
 
@@ -1896,10 +1898,14 @@ public class Block {
 		final List<ExpandedAccount> onlineFounderAccounts = expandedAccounts.stream().filter(expandedAccount -> expandedAccount.isMinterFounder).collect(Collectors.toList());
 		final boolean haveFounders = !onlineFounderAccounts.isEmpty();
 
+		// Select the correct set of share bins based on block height
+		List<AccountLevelShareBin> accountLevelShareBinsForBlock = (this.blockData.getHeight() >= BlockChain.getInstance().getSharesByLevelV2Height()) ?
+				BlockChain.getInstance().getAccountLevelShareBinsV2() : BlockChain.getInstance().getAccountLevelShareBinsV1();
+
 		// Determine reward candidates based on account level
 		// This needs a deep copy, so the shares can be modified when tiers aren't activated yet
 		List<AccountLevelShareBin> accountLevelShareBins = new ArrayList<>();
-		for (AccountLevelShareBin accountLevelShareBin : BlockChain.getInstance().getAccountLevelShareBins()) {
+		for (AccountLevelShareBin accountLevelShareBin : accountLevelShareBinsForBlock) {
 			accountLevelShareBins.add((AccountLevelShareBin) accountLevelShareBin.clone());
 		}
 

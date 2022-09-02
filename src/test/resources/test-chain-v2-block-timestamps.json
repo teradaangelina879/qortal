@@ -19,12 +19,19 @@
 		{ "height": 11, "reward": 10 },
 		{ "height": 21, "reward": 1 }
 	],
-	"sharesByLevel": [
+	"sharesByLevelV1": [
 		{ "id": 1, "levels": [ 1, 2 ], "share": 0.05 },
 		{ "id": 2, "levels": [ 3, 4 ], "share": 0.10 },
 		{ "id": 3, "levels": [ 5, 6 ], "share": 0.15 },
 		{ "id": 4, "levels": [ 7, 8 ], "share": 0.20 },
 		{ "id": 5, "levels": [ 9, 10 ], "share": 0.25 }
+	],
+	"sharesByLevelV2": [
+		{ "id": 1, "levels": [ 1, 2 ], "share": 0.06 },
+		{ "id": 2, "levels": [ 3, 4 ], "share": 0.13 },
+		{ "id": 3, "levels": [ 5, 6 ], "share": 0.19 },
+		{ "id": 4, "levels": [ 7, 8 ], "share": 0.26 },
+		{ "id": 5, "levels": [ 9, 10 ], "share": 0.32 }
 	],
 	"qoraHoldersShareByHeight": [
 		{ "height": 1, "share": 0.20 },
@@ -57,6 +64,7 @@
 		"atFindNextTransactionFix": 0,
 		"newBlockSigHeight": 999999,
 		"shareBinFix": 999999,
+		"sharesByLevelV2Height": 999999,
 		"rewardShareLimitTimestamp": 9999999999999,
 		"calcChainWeightTimestamp": 0,
 		"transactionV5Timestamp": 0,
