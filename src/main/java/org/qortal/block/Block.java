@@ -404,7 +404,7 @@ public class Block {
 		byte[] onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
 
 		// Add nonces to the end of the online accounts signatures if mempow is active
-		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+		if (onlineAccountsTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
 			try {
 				// Create ordered list of nonce values
 				List<Integer> nonces = new ArrayList<>();
@@ -1038,7 +1038,7 @@ public class Block {
 		final int signaturesLength = Transformer.SIGNATURE_LENGTH;
 		final int noncesLength = onlineRewardShares.size() * Transformer.INT_LENGTH;
 
-		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+		if (this.blockData.getOnlineAccountsTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
 			// We expect nonces to be appended to the online accounts signatures
 			if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength + noncesLength)
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
@@ -1054,7 +1054,7 @@ public class Block {
 		byte[] encodedOnlineAccountSignatures = this.blockData.getOnlineAccountsSignatures();
 
 		// Split online account signatures into signature(s) + nonces, then validate the nonces
-		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+		if (this.blockData.getOnlineAccountsTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
 			byte[] extractedSignatures = BlockTransformer.extract(encodedOnlineAccountSignatures, 0, signaturesLength);
 			byte[] extractedNonces = BlockTransformer.extract(encodedOnlineAccountSignatures, signaturesLength, onlineRewardShares.size() * Transformer.INT_LENGTH);
 			encodedOnlineAccountSignatures = extractedSignatures;
