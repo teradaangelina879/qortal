@@ -28,6 +28,7 @@ import org.qortal.crosschain.Litecoin.LitecoinNet;
 import org.qortal.crosschain.Dogecoin.DogecoinNet;
 import org.qortal.crosschain.Digibyte.DigibyteNet;
 import org.qortal.crosschain.Ravencoin.RavencoinNet;
+import org.qortal.crosschain.PirateChain.PirateChainNet;
 import org.qortal.utils.EnumUtils;
 
 // All properties to be converted to JSON via JAXB
@@ -210,9 +211,9 @@ public class Settings {
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
 	/** Minimum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int minPeerConnectionTime = 5 * 60; // seconds
+	private int minPeerConnectionTime = 60 * 60; // seconds
 	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int maxPeerConnectionTime = 60 * 60; // seconds
+	private int maxPeerConnectionTime = 4 * 60 * 60; // seconds
 	/** Maximum time (in seconds) that a peer should remain connected when requesting QDN data */
 	private int maxDataPeerConnectionTime = 2 * 60; // seconds
 
@@ -232,9 +233,15 @@ public class Settings {
 	private DogecoinNet dogecoinNet = DogecoinNet.MAIN;
 	private DigibyteNet digibyteNet = DigibyteNet.MAIN;
 	private RavencoinNet ravencoinNet = RavencoinNet.MAIN;
+	private PirateChainNet pirateChainNet = PirateChainNet.MAIN;
 	// Also crosschain-related:
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
+
+	/** Wallets path - used for storing encrypted wallet caches for coins that require them */
+	private String walletsPath = "wallets";
+
+	private int arrrDefaultBirthday = 2000000;
 
 	// Repository related
 	/** Queries that take longer than this are logged. (milliseconds) */
@@ -287,6 +294,16 @@ public class Settings {
 
 	/** Whether to opt-in to mempow computations for online accounts, ahead of general release */
 	private boolean onlineAccountsMemPoWEnabled = false;
+
+
+	/* Foreign chains */
+
+	/** The number of consecutive empty addresses required before treating a wallet's transaction set as complete */
+	private int gapLimit = 24;
+
+	/** How many wallet keys to generate when using bitcoinj as the blockchain interface (e.g. when sending coins) */
+	private int bitcoinjLookaheadSize = 50;
+
 
 
 	// Data storage (QDN)
@@ -711,6 +728,18 @@ public class Settings {
 		return this.ravencoinNet;
 	}
 
+	public PirateChainNet getPirateChainNet() {
+		return this.pirateChainNet;
+	}
+
+	public String getWalletsPath() {
+		return this.walletsPath;
+	}
+
+	public int getArrrDefaultBirthday() {
+		return this.arrrDefaultBirthday;
+	}
+
 	public boolean isTradebotSystrayEnabled() {
 		return this.tradebotSystrayEnabled;
 	}
@@ -878,6 +907,15 @@ public class Settings {
 
 	public boolean getBootstrap() {
 		return this.bootstrap;
+	}
+
+
+	public int getGapLimit() {
+		return this.gapLimit;
+	}
+
+	public int getBitcoinjLookaheadSize() {
+		return bitcoinjLookaheadSize;
 	}
 
 

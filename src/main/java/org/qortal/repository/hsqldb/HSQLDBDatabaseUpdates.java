@@ -969,6 +969,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE Blocks ALTER COLUMN online_accounts SET DATA TYPE VARBINARY(10240)");
 					break;
 
+				case 43:
+					// Pirate Chain requires storing addresses that are 78 bytes long (69 bytes when decoded), so increase
+					// from 32 to 128 to give some padding for potentially even larger addresses in the future
+					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN receiving_account_info SET DATA TYPE VARBINARY(128)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

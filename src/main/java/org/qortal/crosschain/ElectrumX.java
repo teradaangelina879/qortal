@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 
 import javax.net.ssl.SSLSocketFactory;
 
+import cash.z.wallet.sdk.rpc.CompactFormats.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONArray;
@@ -107,6 +108,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private final String netId;
 	private final String expectedGenesisHash;
 	private final Map<Server.ConnectionType, Integer> defaultPorts = new EnumMap<>(Server.ConnectionType.class);
+	private Bitcoiny blockchain;
 
 	private final Object serverLock = new Object();
 	private Server currentServer;
@@ -136,6 +138,11 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	// Methods for use by other classes
 
 	@Override
+	public void setBlockchain(Bitcoiny blockchain) {
+		this.blockchain = blockchain;
+	}
+
+	@Override
 	public String getNetId() {
 		return this.netId;
 	}
@@ -159,6 +166,16 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			throw new ForeignBlockchainException.NetworkException("Missing/invalid 'height' in JSON from ElectrumX blockchain.headers.subscribe RPC");
 
 		return ((Long) heightObj).intValue();
+	}
+
+	/**
+	 * Returns list of raw blocks, starting from <tt>startHeight</tt> inclusive.
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	@Override
+	public List<CompactBlock> getCompactBlocks(int startHeight, int count) throws ForeignBlockchainException {
+		throw new ForeignBlockchainException("getCompactBlocks not implemented for ElectrumX due to being specific to zcash");
 	}
 
 	/**
@@ -223,6 +240,17 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	}
 
 	/**
+	 * Returns list of raw block timestamps, starting from <tt>startHeight</tt> inclusive.
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	@Override
+	public List<Long> getBlockTimestamps(int startHeight, int count) throws ForeignBlockchainException {
+		// FUTURE: implement this if needed. For now we use getRawBlockHeaders directly
+		throw new ForeignBlockchainException("getBlockTimestamps not yet implemented for ElectrumX");
+	}
+
+	/**
 	 * Returns confirmed balance, based on passed payment script.
 	 * <p>
 	 * @return confirmed balance, or zero if script unknown
@@ -245,6 +273,29 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			throw new ForeignBlockchainException.NetworkException("Missing confirmed balance from ElectrumX blockchain.scripthash.get_balance RPC");
 
 		return (Long) balanceJson.get("confirmed");
+	}
+
+	/**
+	 * Returns confirmed balance, based on passed base58 encoded address.
+	 * <p>
+	 * @return confirmed balance, or zero if address unknown
+	 * @throws ForeignBlockchainException if there was an error
+	 */
+	@Override
+	public long getConfirmedAddressBalance(String base58Address) throws ForeignBlockchainException {
+		throw new ForeignBlockchainException("getConfirmedAddressBalance not yet implemented for ElectrumX");
+	}
+
+	/**
+	 * Returns list of unspent outputs pertaining to passed address.
+	 * <p>
+	 * @return list of unspent outputs, or empty list if address unknown
+	 * @throws ForeignBlockchainException if there was an error.
+	 */
+	@Override
+	public List<UnspentOutput> getUnspentOutputs(String address, boolean includeUnconfirmed) throws ForeignBlockchainException {
+		byte[] script = this.blockchain.addressToScriptPubKey(address);
+		return this.getUnspentOutputs(script, includeUnconfirmed);
 	}
 
 	/**
@@ -482,6 +533,12 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		return transactionHashes;
 	}
 
+	@Override
+	public List<BitcoinyTransaction> getAddressBitcoinyTransactions(String address, boolean includeUnconfirmed) throws ForeignBlockchainException {
+		// FUTURE: implement this if needed. For now we use getAddressTransactions() + getTransaction()
+		throw new ForeignBlockchainException("getAddressBitcoinyTransactions not yet implemented for ElectrumX");
+	}
+
 	/**
 	 * Broadcasts raw transaction to network.
 	 * <p>
@@ -681,6 +738,10 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			response = scanner.next();
 		} catch (IOException | NoSuchElementException e) {
 			// Unable to send, or receive -- try another server?
+			return null;
+		} catch (NoSuchMethodError e) {
+			// Likely an SSL dependency issue - retries are unlikely to succeed
+			LOGGER.error("ElectrumX output stream error", e);
 			return null;
 		}
 

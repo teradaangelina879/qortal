@@ -81,7 +81,7 @@ public class BitcoinTests extends Common {
 	}
 
 	@Test
-	public void testGetWalletBalance() {
+	public void testGetWalletBalance() throws ForeignBlockchainException {
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
 		Long balance = bitcoin.getWalletBalance(xprv58);

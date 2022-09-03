@@ -103,6 +103,7 @@ public class TradeBot implements Listener {
 		acctTradeBotSuppliers.put(DogecoinACCTv3.class, DogecoinACCTv3TradeBot::getInstance);
 		acctTradeBotSuppliers.put(DigibyteACCTv3.class, DigibyteACCTv3TradeBot::getInstance);
 		acctTradeBotSuppliers.put(RavencoinACCTv3.class, RavencoinACCTv3TradeBot::getInstance);
+		acctTradeBotSuppliers.put(PirateChainACCTv3.class, PirateChainACCTv3TradeBot::getInstance);
 	}
 
 	private static TradeBot instance;
@@ -299,7 +300,7 @@ public class TradeBot implements Listener {
 		return ECKey.fromPrivate(privateKey).getPubKey();
 	}
 
-	/*package*/ static byte[] generateSecret() {
+	/*package*/ public static byte[] generateSecret() {
 		byte[] secret = new byte[32];
 		RANDOM.nextBytes(secret);
 		return secret;

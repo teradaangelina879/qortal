@@ -170,6 +170,7 @@ public class ArbitraryDataReader {
             this.validate();
 
         } catch (DataException e) {
+            LOGGER.info("DataException when trying to load QDN resource", e);
             this.deleteWorkingDirectory();
             throw new DataException(e.getMessage());
 
@@ -208,8 +209,13 @@ public class ArbitraryDataReader {
      * serve a cached version of the resource for subsequent requests.
      * @throws IOException
      */
-    private void deleteWorkingDirectory() throws IOException {
-        FilesystemUtils.safeDeleteDirectory(this.workingPath, true);
+    private void deleteWorkingDirectory() {
+        try {
+            FilesystemUtils.safeDeleteDirectory(this.workingPath, true);
+        } catch (IOException e) {
+            // Ignore failures as this isn't an essential step
+            LOGGER.info("Unable to delete working path {}: {}", this.workingPath, e.getMessage());
+        }
     }
 
     private void createUncompressedDirectory() throws DataException {
@@ -408,6 +414,7 @@ public class ArbitraryDataReader {
             this.decryptUsingAlgo("AES/CBC/PKCS5Padding");
 
         } catch (DataException e) {
+            LOGGER.info("Unable to decrypt using specific parameters: {}", e.getMessage());
             // Something went wrong, so fall back to default AES params (necessary for legacy resource support)
             this.decryptUsingAlgo("AES");
 
@@ -420,8 +427,9 @@ public class ArbitraryDataReader {
         byte[] secret = this.secret58 != null ? Base58.decode(this.secret58) : null;
         if (secret != null && secret.length == Transformer.AES256_LENGTH) {
             try {
+                LOGGER.info("Decrypting using algorithm {}...", algorithm);
                 Path unencryptedPath = Paths.get(this.workingPath.toString(), "zipped.zip");
-                SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, algorithm);
+                SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
                 AES.decryptFile(algorithm, aesKey, this.filePath.toString(), unencryptedPath.toString());
 
                 // Replace filePath pointer with the encrypted file path
@@ -430,7 +438,8 @@ public class ArbitraryDataReader {
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-                throw new DataException(String.format("Unable to decrypt file at path %s: %s", this.filePath, e.getMessage()));
+                LOGGER.info(String.format("Exception when decrypting using algorithm %s", algorithm), e);
+                throw new DataException(String.format("Unable to decrypt file at path %s using algorithm %s: %s", this.filePath, algorithm, e.getMessage()));
             }
         } else {
             // Assume it is unencrypted. This will be the case when we have built a custom path by combining
@@ -477,7 +486,12 @@ public class ArbitraryDataReader {
         // Delete original compressed file
         if (FilesystemUtils.pathInsideDataOrTempPath(this.filePath)) {
             if (Files.exists(this.filePath)) {
-                Files.delete(this.filePath);
+                try {
+                    Files.delete(this.filePath);
+                } catch (IOException e) {
+                    // Ignore failures as this isn't an essential step
+                    LOGGER.info("Unable to delete file at path {}", this.filePath);
+                }
             }
         }
 

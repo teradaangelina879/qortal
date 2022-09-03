@@ -81,7 +81,7 @@ public class DigibyteTests extends Common {
 	}
 
 	@Test
-	public void testGetWalletBalance() {
+	public void testGetWalletBalance() throws ForeignBlockchainException {
 		String xprv58 = "xpub661MyMwAqRbcEnabTLX5uebYcsE3uG5y7ve9jn1VK8iY1MaU3YLoLJEe8sTu2YVav5Zka5qf2dmMssfxmXJTqZnazZL2kL7M2tNKwEoC34R";
 
 		Long balance = digibyte.getWalletBalance(xprv58);

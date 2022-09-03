@@ -5,7 +5,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFileChunk;
+import org.qortal.arbitrary.ArbitraryDataReader;
+import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.misc.Service;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
@@ -408,6 +411,33 @@ public class ArbitraryTransactionUtils {
             return transactions.stream().skip(offset).collect(Collectors.toList());
         }
         return transactions.stream().skip(offset).limit(limit).collect(Collectors.toList());
+    }
+
+
+    /**
+     * Lookup status of resource
+     * @param service
+     * @param name
+     * @param identifier
+     * @param build
+     * @return
+     */
+    public static ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build) {
+
+        // If "build" has been specified, build the resource before returning its status
+        if (build != null && build == true) {
+            ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
+            try {
+                if (!reader.isBuilding()) {
+                    reader.loadSynchronously(false);
+                }
+            } catch (Exception e) {
+                // No need to handle exception, as it will be reflected in the status
+            }
+        }
+
+        ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+        return resource.getStatus(false);
     }
 
 }

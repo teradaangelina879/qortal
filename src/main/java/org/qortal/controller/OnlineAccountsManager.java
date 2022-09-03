@@ -275,6 +275,12 @@ public class OnlineAccountsManager {
             return false;
         }
 
+        // Check timestamp is a multiple of online timestamp modulus
+        if (onlineAccountTimestamp % getOnlineTimestampModulus() != 0) {
+            LOGGER.trace(() -> String.format("Rejecting online account %s with invalid timestamp %d", Base58.encode(rewardSharePublicKey), onlineAccountTimestamp));
+            return false;
+        }
+
         // Verify signature
         byte[] data = Longs.toByteArray(onlineAccountData.getTimestamp());
         boolean isSignatureValid = Qortal25519Extras.verifyAggregated(rewardSharePublicKey, onlineAccountData.getSignature(), data);
