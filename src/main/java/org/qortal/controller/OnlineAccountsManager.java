@@ -510,9 +510,25 @@ public class OnlineAccountsManager {
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
         List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
 
+        int remaining = mintingAccounts.size();
         for (MintingAccountData mintingAccountData : mintingAccounts) {
+            remaining--;
             byte[] privateKey = mintingAccountData.getPrivateKey();
             byte[] publicKey = Crypto.toPublicKey(privateKey);
+
+            // We don't want to compute the online account nonce and signature again if it already exists
+            Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountsTimestamp, k -> ConcurrentHashMap.newKeySet());
+            boolean alreadyExists = onlineAccounts.stream().anyMatch(a -> Arrays.equals(a.getPublicKey(), publicKey));
+            if (alreadyExists) {
+                if (remaining > 0) {
+                    // Move on to next account
+                    continue;
+                }
+                else {
+                    // Everything exists, so return true
+                    return true;
+                }
+            }
 
             // Generate bytes for mempow
             byte[] mempowBytes;
