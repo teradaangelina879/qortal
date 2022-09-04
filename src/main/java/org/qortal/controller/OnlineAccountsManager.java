@@ -305,8 +305,8 @@ public class OnlineAccountsManager {
         }
 
         // Validate mempow if feature trigger is active
-        if (now >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-            if (!getInstance().verifyMemoryPoW(onlineAccountData, now)) {
+        if (onlineAccountTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+            if (!getInstance().verifyMemoryPoW(onlineAccountData)) {
                 LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
                 return false;
             }
@@ -542,7 +542,7 @@ public class OnlineAccountsManager {
 
             // Compute nonce
             Integer nonce;
-            if (isMemoryPoWActive(NTP.getTime())) {
+            if (isMemoryPoWActive(onlineAccountsTimestamp)) {
                 try {
                     nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
                     if (nonce == null) {
@@ -565,7 +565,7 @@ public class OnlineAccountsManager {
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
 
             // Make sure to verify before adding
-            if (verifyMemoryPoW(ourOnlineAccountData, NTP.getTime())) {
+            if (verifyMemoryPoW(ourOnlineAccountData)) {
                 ourOnlineAccounts.add(ourOnlineAccountData);
             }
         }
@@ -615,7 +615,7 @@ public class OnlineAccountsManager {
     }
 
     private Integer computeMemoryPoW(byte[] bytes, byte[] publicKey, long onlineAccountsTimestamp) throws TimeoutException {
-        if (!isMemoryPoWActive(NTP.getTime())) {
+        if (!isMemoryPoWActive(onlineAccountsTimestamp)) {
             LOGGER.info("Mempow start timestamp not yet reached, and onlineAccountsMemPoWEnabled not enabled in settings");
             return null;
         }
@@ -641,8 +641,8 @@ public class OnlineAccountsManager {
         return nonce;
     }
 
-    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, Long timestamp) {
-        if (!isMemoryPoWActive(timestamp)) {
+    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData) {
+        if (!isMemoryPoWActive(onlineAccountData.getTimestamp())) {
             // Not active yet, so treat it as valid
             return true;
         }
