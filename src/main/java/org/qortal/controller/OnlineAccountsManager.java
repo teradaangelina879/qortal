@@ -462,12 +462,14 @@ public class OnlineAccountsManager {
             return;
         }
 
-        // 'next' timestamp (prioritize this as it's the most important)
+        // 'next' timestamp (prioritize this as it's the most important, if mempow active)
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(now) + getOnlineTimestampModulus();
-        boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
-        if (!success) {
-            // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
-            return;
+        if (nextOnlineAccountsTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+            boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
+            if (!success) {
+                // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
+                return;
+            }
         }
 
         // 'current' timestamp
