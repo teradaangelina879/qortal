@@ -2,10 +2,7 @@ package org.qortal.api.websocket;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.eclipse.jetty.websocket.api.Session;
@@ -85,6 +82,7 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 	@Override
 	public void onWebSocketConnect(Session session) {
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		final boolean excludeInitialData = queryParams.get("excludeInitialData") != null;
 
 		List<String> foreignBlockchains = queryParams.get("foreignBlockchain");
 		final String foreignBlockchain = foreignBlockchains == null ? null : foreignBlockchains.get(0);
@@ -98,15 +96,22 @@ public class TradeBotWebSocket extends ApiWebSocket implements Listener {
 		// save session's preferred blockchain (if any)
 		sessionBlockchain.put(session, foreignBlockchain);
 
-		// Send all known trade-bot entries
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<TradeBotData> tradeBotEntries = repository.getCrossChainRepository().getAllTradeBotData();
 
-			// Optional filtering
-			if (foreignBlockchain != null)
-				tradeBotEntries = tradeBotEntries.stream()
-						.filter(tradeBotData -> tradeBotData.getForeignBlockchain().equals(foreignBlockchain))
-						.collect(Collectors.toList());
+
+		// Maybe send all known trade-bot entries
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<TradeBotData> tradeBotEntries = new ArrayList<>();
+
+			// We might need to exclude the initial data from the response
+			if (!excludeInitialData) {
+				tradeBotEntries = repository.getCrossChainRepository().getAllTradeBotData();
+
+				// Optional filtering
+				if (foreignBlockchain != null)
+					tradeBotEntries = tradeBotEntries.stream()
+							.filter(tradeBotData -> tradeBotData.getForeignBlockchain().equals(foreignBlockchain))
+							.collect(Collectors.toList());
+			}
 
 			if (!sendEntries(session, tradeBotEntries)) {
 				session.close(4002, "websocket issue");
