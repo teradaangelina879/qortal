@@ -45,7 +45,6 @@ public enum SupportedBlockchain {
 
 	DOGECOIN(Arrays.asList(
 			Triple.valueOf(DogecoinACCTv1.NAME, DogecoinACCTv1.CODE_BYTES_HASH, DogecoinACCTv1::getInstance),
-			Triple.valueOf(DogecoinACCTv2.NAME, DogecoinACCTv2.CODE_BYTES_HASH, DogecoinACCTv2::getInstance),
 			Triple.valueOf(DogecoinACCTv3.NAME, DogecoinACCTv3.CODE_BYTES_HASH, DogecoinACCTv3::getInstance)
 		)) {
 		@Override
