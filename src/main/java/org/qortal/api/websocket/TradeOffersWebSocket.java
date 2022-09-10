@@ -173,6 +173,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 	public void onWebSocketConnect(Session session) {
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
 		final boolean includeHistoric = queryParams.get("includeHistoric") != null;
+		final boolean excludeInitialData = queryParams.get("excludeInitialData") != null;
 
 		List<String> foreignBlockchains = queryParams.get("foreignBlockchain");
 		final String foreignBlockchain = foreignBlockchains == null ? null : foreignBlockchains.get(0);
@@ -189,20 +190,23 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 
 		List<CrossChainOfferSummary> crossChainOfferSummaries = new ArrayList<>();
 
-		synchronized (cachedInfoByBlockchain) {
-			Collection<CachedOfferInfo> cachedInfos;
+		// We might need to exclude the initial data from the response
+		if (!excludeInitialData) {
+			synchronized (cachedInfoByBlockchain) {
+				Collection<CachedOfferInfo> cachedInfos;
 
-			if (foreignBlockchain == null)
-				// No preferred blockchain, so iterate through all of them
-				cachedInfos = cachedInfoByBlockchain.values();
-			else
-				cachedInfos = Collections.singleton(cachedInfoByBlockchain.computeIfAbsent(foreignBlockchain, k -> new CachedOfferInfo()));
+				if (foreignBlockchain == null)
+					// No preferred blockchain, so iterate through all of them
+					cachedInfos = cachedInfoByBlockchain.values();
+				else
+					cachedInfos = Collections.singleton(cachedInfoByBlockchain.computeIfAbsent(foreignBlockchain, k -> new CachedOfferInfo()));
 
-			for (CachedOfferInfo cachedInfo : cachedInfos) {
-				crossChainOfferSummaries.addAll(cachedInfo.currentSummaries.values());
+				for (CachedOfferInfo cachedInfo : cachedInfos) {
+					crossChainOfferSummaries.addAll(cachedInfo.currentSummaries.values());
 
-				if (includeHistoric)
-					crossChainOfferSummaries.addAll(cachedInfo.historicSummaries.values());
+					if (includeHistoric)
+						crossChainOfferSummaries.addAll(cachedInfo.historicSummaries.values());
+				}
 			}
 		}
 
