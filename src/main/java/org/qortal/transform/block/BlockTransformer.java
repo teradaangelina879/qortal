@@ -235,7 +235,7 @@ public class BlockTransformer extends Transformer {
 			// Online accounts timestamp is only present if there are also signatures
 			onlineAccountsTimestamp = byteBuffer.getLong();
 
-			final int signaturesByteLength = onlineAccountsSignaturesCount * Transformer.SIGNATURE_LENGTH;
+			final int signaturesByteLength = getOnlineAccountSignaturesLength(onlineAccountsSignaturesCount, onlineAccountsCount, timestamp);
 			if (signaturesByteLength > BlockChain.getInstance().getMaxBlockSize())
 				throw new TransformationException("Byte data too long for online accounts signatures");
 
@@ -371,7 +371,7 @@ public class BlockTransformer extends Transformer {
 
 			if (onlineAccountsSignatures != null && onlineAccountsSignatures.length > 0) {
 				// Note: we write the number of signatures, not the number of bytes
-				bytes.write(Ints.toByteArray(onlineAccountsSignatures.length / Transformer.SIGNATURE_LENGTH));
+				bytes.write(Ints.toByteArray(blockData.getOnlineAccountsSignaturesCount()));
 
 				// We only write online accounts timestamp if we have signatures
 				bytes.write(Longs.toByteArray(blockData.getOnlineAccountsTimestamp()));
@@ -510,6 +510,16 @@ public class BlockTransformer extends Transformer {
 		}
 
 		return nonces;
+	}
+	public static int getOnlineAccountSignaturesLength(int onlineAccountsSignaturesCount, int onlineAccountCount, long blockTimestamp) {
+		if (blockTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			// Once mempow is active, we expect the online account signatures to be appended with the nonce values
+			return (onlineAccountsSignaturesCount * Transformer.SIGNATURE_LENGTH) + (onlineAccountCount * INT_LENGTH);
+		}
+		else {
+			// Before mempow, only the online account signatures were included (which will likely be a single signature)
+			return onlineAccountsSignaturesCount * Transformer.SIGNATURE_LENGTH;
+		}
 	}
 
 	public static byte[] extract(byte[] input, int pos, int length) {

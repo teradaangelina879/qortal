@@ -211,6 +211,14 @@ public class BlockData implements Serializable {
 		this.onlineAccountsSignatures = onlineAccountsSignatures;
 	}
 
+	public int getOnlineAccountsSignaturesCount() {
+		if (this.onlineAccountsSignatures != null && this.onlineAccountsSignatures.length > 0) {
+			// Blocks use a single online accounts signature, so there is no need for this to be dynamic
+			return 1;
+		}
+		return 0;
+	}
+
 	public boolean isTrimmed() {
 		long onlineAccountSignaturesTrimmedTimestamp = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMaxLifetime();
 		long currentTrimmableTimestamp = NTP.getTime() - Settings.getInstance().getAtStatesMaxLifetime();
