@@ -1079,7 +1079,7 @@ public class Block {
 
 			// Validate the rest
 			for (OnlineAccountData onlineAccount : onlineAccounts)
-				if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount))
+				if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount, this.blockData.getTimestamp()))
 					return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
 		}
 
