@@ -373,6 +373,11 @@ public class Block {
 			return null;
 		}
 
+		// If mempow is active, remove any legacy accounts that are missing a nonce
+		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			onlineAccounts.removeIf(a -> a.getNonce() < 0);
+		}
+
 		// Load sorted list of reward share public keys into memory, so that the indexes can be obtained.
 		// This is up to 100x faster than querying each index separately. For 4150 reward share keys, it
 		// was taking around 5000ms to query individually, vs 50ms using this approach.
