@@ -375,7 +375,7 @@ public class Block {
 
 		// If mempow is active, remove any legacy accounts that are missing a nonce
 		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-			onlineAccounts.removeIf(a -> a.getNonce() < 0);
+			onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
 		}
 
 		// Load sorted list of reward share public keys into memory, so that the indexes can be obtained.
