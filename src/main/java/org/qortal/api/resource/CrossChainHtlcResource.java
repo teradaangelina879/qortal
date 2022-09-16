@@ -373,10 +373,6 @@ public class CrossChainHtlcResource {
 			// Use secret-A to redeem P2SH-A
 
 			Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
-			if (bitcoiny.getClass() == Bitcoin.class) {
-				LOGGER.info("Redeeming a Bitcoin HTLC is not yet supported");
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-			}
 
 			int lockTime = crossChainTradeData.lockTimeA;
 			byte[] redeemScriptA = BitcoinyHTLC.buildScript(crossChainTradeData.partnerForeignPKH, lockTime, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretA);
@@ -599,11 +595,6 @@ public class CrossChainHtlcResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
-			if (bitcoiny.getClass() == Bitcoin.class) {
-				LOGGER.info("Refunding a Bitcoin HTLC is not yet supported");
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-			}
-
 			int lockTime = tradeBotData.getLockTimeA();
 
 			// We can't refund P2SH-A until lockTime-A has passed
