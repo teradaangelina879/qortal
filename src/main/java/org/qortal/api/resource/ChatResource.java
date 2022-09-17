@@ -100,6 +100,38 @@ public class ChatResource {
 	}
 
 	@GET
+	@Path("/message/{signature}")
+	@Operation(
+			summary = "Find chat message by signature",
+			responses = {
+					@ApiResponse(
+							description = "CHAT message",
+							content = @Content(
+										schema = @Schema(
+												implementation = ChatMessage.class
+										)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public ChatMessage getMessageBySignature(@QueryParam("signature") String signature58) {
+		byte[] signature = Base58.decode(signature58);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			ChatTransactionData chatTransactionData = (ChatTransactionData) repository.getTransactionRepository().fromSignature(signature);
+			if (chatTransactionData == null) {
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Message not found");
+			}
+
+			return repository.getChatRepository().toChatMessage(chatTransactionData);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
 	@Path("/active/{address}")
 	@Operation(
 		summary = "Find active chats (group/direct) involving address",
