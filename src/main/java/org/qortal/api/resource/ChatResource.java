@@ -115,7 +115,7 @@ public class ChatResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public ChatMessage getMessageBySignature(@QueryParam("signature") String signature58) {
+	public ChatMessage getMessageBySignature(@PathParam("signature") String signature58) {
 		byte[] signature = Base58.decode(signature58);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
