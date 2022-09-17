@@ -523,7 +523,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 			long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 			final long minimumAmountA = tradeBotData.getForeignAmount() + p2shFee;
 
-			PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
+			BitcoinyHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -613,7 +613,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 			long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 			long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
 
-			PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
+			BitcoinyHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -751,7 +751,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
 		String receivingAddress = Bech32.encode("zs", receivingAccountInfo);
 
-		PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
+		BitcoinyHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 		switch (htlcStatusA) {
 			case UNFUNDED:
@@ -822,7 +822,7 @@ public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 		long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
 		long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
-		PirateChainHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
+		BitcoinyHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 		switch (htlcStatusA) {
 			case UNFUNDED:

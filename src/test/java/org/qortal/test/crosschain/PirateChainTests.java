@@ -20,7 +20,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.Assert.*;
-import static org.qortal.crosschain.PirateChainHTLC.Status.*;
+import static org.qortal.crosschain.BitcoinyHTLC.Status.*;
 
 public class PirateChainTests extends Common {
 
@@ -121,7 +121,7 @@ public class PirateChainTests extends Common {
 		String p2shAddress = "ba6Q5HWrWtmfU2WZqQbrFdRYsafA45cUAt";
 		long p2shFee = 10000;
 		final long minimumAmount = 10000 + p2shFee;
-		PirateChainHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
+		BitcoinyHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
 		assertEquals(FUNDED, htlcStatus);
 	}
 
@@ -130,7 +130,7 @@ public class PirateChainTests extends Common {
 		String p2shAddress = "bYZrzSSgGp8aEGvihukoMGU8sXYrx19Wka";
 		long p2shFee = 10000;
 		final long minimumAmount = 10000 + p2shFee;
-		PirateChainHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
+		BitcoinyHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
 		assertEquals(REDEEMED, htlcStatus);
 	}
 
@@ -139,7 +139,7 @@ public class PirateChainTests extends Common {
 		String p2shAddress = "bE49izfVxz8odhu8c2BcUaVFUnt7NLFRgv";
 		long p2shFee = 10000;
 		final long minimumAmount = 10000 + p2shFee;
-		PirateChainHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
+		BitcoinyHTLC.Status htlcStatus = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmount);
 		assertEquals(REFUNDED, htlcStatus);
 	}
 

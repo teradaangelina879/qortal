@@ -4,6 +4,12 @@ import cash.z.wallet.sdk.rpc.CompactFormats;
 import com.google.common.hash.HashCode;
 import com.rust.litewalletjni.LiteWalletJni;
 import org.bitcoinj.core.*;
+import org.bitcoinj.crypto.ChildNumber;
+import org.bitcoinj.crypto.DeterministicKey;
+import org.bitcoinj.script.Script;
+import org.bitcoinj.script.ScriptBuilder;
+import org.bitcoinj.wallet.DeterministicKeyChain;
+import org.bitcoinj.wallet.Wallet;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -350,6 +356,12 @@ public class PirateChain extends Bitcoiny {
 
 			return walletController.getCurrentWallet().getWalletAddress();
 		}
+	}
+
+	public String getUnusedReceiveAddress(String key58) throws ForeignBlockchainException {
+		// For now, return the main wallet address
+		// FUTURE: generate an unused one
+		return this.getWalletAddress(key58);
 	}
 
 	public String sendCoins(PirateChainSendRequest pirateChainSendRequest) throws ForeignBlockchainException {
