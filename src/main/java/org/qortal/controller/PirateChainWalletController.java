@@ -238,10 +238,10 @@ public class PirateChainWalletController extends Thread {
         if (osName.equals("Mac OS X") && osArchitecture.equals("x86_64")) {
             return "librust-macos-x86_64.dylib";
         }
-        else if (osName.equals("Linux") && osArchitecture.equals("aarch64")) {
+        else if ((osName.equals("Linux") || osName.equals("FreeBSD")) && osArchitecture.equals("aarch64")) {
             return "librust-linux-aarch64.so";
         }
-        else if (osName.equals("Linux") && osArchitecture.equals("amd64")) {
+        else if ((osName.equals("Linux") || osName.equals("FreeBSD")) && osArchitecture.equals("amd64")) {
             return "librust-linux-x86_64.so";
         }
         else if (osName.contains("Windows") && osArchitecture.equals("amd64")) {
