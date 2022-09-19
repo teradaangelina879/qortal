@@ -2,6 +2,7 @@ package org.qortal.transaction;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
@@ -65,9 +66,15 @@ public class RemoveGroupAdminTransaction extends Transaction {
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account owner = getOwner();
+		String groupOwner = this.repository.getGroupRepository().getOwner(groupId);
+		boolean groupOwnedByNullAccount = Objects.equals(groupOwner, Group.NULL_OWNER_ADDRESS);
 
-		// Check transaction's public key matches group's current owner
-		if (!owner.getAddress().equals(groupData.getOwner()))
+		// Require approval if transaction relates to a group owned by the null account
+		if (groupOwnedByNullAccount && !this.needsGroupApproval())
+			return ValidationResult.GROUP_APPROVAL_REQUIRED;
+
+		// Check transaction's public key matches group's current owner (except for groups owned by the null account)
+		if (!groupOwnedByNullAccount && !owner.getAddress().equals(groupOwner))
 			return ValidationResult.INVALID_GROUP_OWNER;
 
 		Account admin = getAdmin();
