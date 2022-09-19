@@ -79,6 +79,10 @@ public class AddGroupAdminTransaction extends Transaction {
 		if (!this.repository.getGroupRepository().memberExists(groupId, memberAddress))
 			return ValidationResult.NOT_GROUP_MEMBER;
 
+		// Check transaction creator is a group member
+		if (!this.repository.getGroupRepository().memberExists(groupId, this.getCreator().getAddress()))
+			return ValidationResult.NOT_GROUP_MEMBER;
+
 		// Check group member is not already an admin
 		if (this.repository.getGroupRepository().adminExists(groupId, memberAddress))
 			return ValidationResult.ALREADY_GROUP_ADMIN;
