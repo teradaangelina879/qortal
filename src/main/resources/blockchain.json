@@ -56,7 +56,7 @@
 	],
 	"qoraHoldersShareByHeight": [
 		{ "height": 1, "share": 0.20 },
-		{ "height": 9999999, "share": 0.01 }
+		{ "height": 1010000, "share": 0.01 }
 	],
 	"qoraPerQortReward": 250,
 	"minAccountsToActivateShareBin": 30,
@@ -75,7 +75,7 @@
 		"atFindNextTransactionFix": 275000,
 		"newBlockSigHeight": 320000,
 		"shareBinFix": 399000,
-		"sharesByLevelV2Height": 9999999,
+		"sharesByLevelV2Height": 1010000,
 		"rewardShareLimitTimestamp": 1657382400000,
 		"calcChainWeightTimestamp": 1620579600000,
 		"transactionV5Timestamp": 1642176000000,
