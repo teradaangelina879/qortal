@@ -368,14 +368,15 @@ public class Block {
 
 		// Fetch our list of online accounts
 		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
-		if (onlineAccounts.isEmpty()) {
-			LOGGER.error("No online accounts - not even our own?");
-			return null;
-		}
 
 		// If mempow is active, remove any legacy accounts that are missing a nonce
 		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
 			onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
+		}
+
+		if (onlineAccounts.isEmpty()) {
+			LOGGER.error("No online accounts - not even our own?");
+			return null;
 		}
 
 		// Load sorted list of reward share public keys into memory, so that the indexes can be obtained.
