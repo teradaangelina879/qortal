@@ -55,11 +55,7 @@ public class OnlineAccountsManager {
 
     private static final long ONLINE_ACCOUNTS_QUEUE_INTERVAL = 100L; //ms
     private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
-    private static final long ONLINE_ACCOUNTS_LEGACY_BROADCAST_INTERVAL = 60 * 1000L; // ms
     private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 5 * 1000L; // ms
-
-    private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L; // v3.2.0
-    private static final long ONLINE_ACCOUNTS_V3_PEER_VERSION = 0x0300040000L; // v3.4.0
 
     // MemoryPoW
     public final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
@@ -125,9 +121,7 @@ public class OnlineAccountsManager {
         // Send our online accounts
         executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
 
-        // Request online accounts from peers (legacy)
-        executor.scheduleAtFixedRate(this::requestLegacyRemoteOnlineAccounts, ONLINE_ACCOUNTS_LEGACY_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_LEGACY_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
-        // Request online accounts from peers (V3+)
+        // Request online accounts from peers
         executor.scheduleAtFixedRate(this::requestRemoteOnlineAccounts, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
 
         // Process import queue
@@ -399,30 +393,7 @@ public class OnlineAccountsManager {
     }
 
     /**
-     * Request data from other peers. (Pre-V3)
-     */
-    private void requestLegacyRemoteOnlineAccounts() {
-        final Long now = NTP.getTime();
-        if (now == null)
-            return;
-
-        // Don't bother if we're not up to date
-        if (!Controller.getInstance().isUpToDate())
-            return;
-
-        List<OnlineAccountData> mergedOnlineAccounts = Set.copyOf(this.currentOnlineAccounts.values()).stream().flatMap(Set::stream).collect(Collectors.toList());
-
-        Message messageV2 = new GetOnlineAccountsV2Message(mergedOnlineAccounts);
-
-        Network.getInstance().broadcast(peer ->
-                peer.getPeersVersion() < ONLINE_ACCOUNTS_V3_PEER_VERSION
-                        ? messageV2
-                        : null
-        );
-    }
-
-    /**
-     * Request data from other peers. V3+
+     * Request data from other peers
      */
     private void requestRemoteOnlineAccounts() {
         final Long now = NTP.getTime();
@@ -435,11 +406,7 @@ public class OnlineAccountsManager {
 
         Message messageV3 = new GetOnlineAccountsV3Message(currentOnlineAccountsHashes);
 
-        Network.getInstance().broadcast(peer ->
-                peer.getPeersVersion() >= ONLINE_ACCOUNTS_V3_PEER_VERSION
-                        ? messageV3
-                        : null
-        );
+        Network.getInstance().broadcast(peer -> messageV3);
     }
 
     /**
@@ -579,17 +546,7 @@ public class OnlineAccountsManager {
         if (!hasInfoChanged)
             return false;
 
-        Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
-        Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
-        Message messageV3 = new OnlineAccountsV3Message(ourOnlineAccounts);
-
-        Network.getInstance().broadcast(peer ->
-                peer.getPeersVersion() >= OnlineAccountsV3Message.MIN_PEER_VERSION
-                        ? messageV3
-                        : peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION
-                        ? messageV2
-                        : messageV1
-        );
+        Network.getInstance().broadcast(peer -> new OnlineAccountsV3Message(ourOnlineAccounts));
 
         LOGGER.debug("Broadcasted {} online account{} with timestamp {}", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp);
 
@@ -767,106 +724,6 @@ public class OnlineAccountsManager {
 
     // Network handlers
 
-    public void onNetworkGetOnlineAccountsMessage(Peer peer, Message message) {
-        GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
-
-        List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
-
-        // Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-        List<OnlineAccountData> accountsToSend = Set.copyOf(this.currentOnlineAccounts.values()).stream().flatMap(Set::stream).collect(Collectors.toList());
-        int prefilterSize = accountsToSend.size();
-
-        Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
-        while (iterator.hasNext()) {
-            OnlineAccountData onlineAccountData = iterator.next();
-
-            for (OnlineAccountData excludeAccountData : excludeAccounts) {
-                if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
-                    iterator.remove();
-                    break;
-                }
-            }
-        }
-
-        if (accountsToSend.isEmpty())
-            return;
-
-        Message onlineAccountsMessage = new OnlineAccountsMessage(accountsToSend);
-        peer.sendMessage(onlineAccountsMessage);
-
-        LOGGER.debug("Sent {} of our {} online accounts to {}", accountsToSend.size(), prefilterSize, peer);
-    }
-
-    public void onNetworkOnlineAccountsMessage(Peer peer, Message message) {
-        OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
-
-        List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-        LOGGER.debug("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
-
-        int importCount = 0;
-
-        // Add any online accounts to the queue that aren't already present
-        for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
-            boolean isNewEntry = onlineAccountsImportQueue.add(onlineAccountData);
-
-            if (isNewEntry)
-                importCount++;
-        }
-
-        if (importCount > 0)
-            LOGGER.debug("Added {} online accounts to queue", importCount);
-    }
-
-    public void onNetworkGetOnlineAccountsV2Message(Peer peer, Message message) {
-        GetOnlineAccountsV2Message getOnlineAccountsMessage = (GetOnlineAccountsV2Message) message;
-
-        List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
-
-        // Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-        List<OnlineAccountData> accountsToSend = Set.copyOf(this.currentOnlineAccounts.values()).stream().flatMap(Set::stream).collect(Collectors.toList());
-        int prefilterSize = accountsToSend.size();
-
-        Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
-        while (iterator.hasNext()) {
-            OnlineAccountData onlineAccountData = iterator.next();
-
-            for (OnlineAccountData excludeAccountData : excludeAccounts) {
-                if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
-                    iterator.remove();
-                    break;
-                }
-            }
-        }
-
-        if (accountsToSend.isEmpty())
-            return;
-
-        Message onlineAccountsMessage = new OnlineAccountsV2Message(accountsToSend);
-        peer.sendMessage(onlineAccountsMessage);
-
-        LOGGER.debug("Sent {} of our {} online accounts to {}", accountsToSend.size(), prefilterSize, peer);
-    }
-
-    public void onNetworkOnlineAccountsV2Message(Peer peer, Message message) {
-        OnlineAccountsV2Message onlineAccountsMessage = (OnlineAccountsV2Message) message;
-
-        List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-        LOGGER.debug("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
-
-        int importCount = 0;
-
-        // Add any online accounts to the queue that aren't already present
-        for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
-            boolean isNewEntry = onlineAccountsImportQueue.add(onlineAccountData);
-
-            if (isNewEntry)
-                importCount++;
-        }
-
-        if (importCount > 0)
-            LOGGER.debug("Added {} online accounts to queue", importCount);
-    }
-
     public void onNetworkGetOnlineAccountsV3Message(Peer peer, Message message) {
         GetOnlineAccountsV3Message getOnlineAccountsMessage = (GetOnlineAccountsV3Message) message;
 
@@ -920,11 +777,7 @@ public class OnlineAccountsManager {
             }
         }
 
-        peer.sendMessage(
-                peer.getPeersVersion() >= OnlineAccountsV3Message.MIN_PEER_VERSION ?
-                        new OnlineAccountsV3Message(outgoingOnlineAccounts) :
-                        new OnlineAccountsV2Message(outgoingOnlineAccounts)
-        );
+        peer.sendMessage(new OnlineAccountsV3Message(outgoingOnlineAccounts));
 
         LOGGER.debug("Sent {} online accounts to {}", outgoingOnlineAccounts.size(), peer);
     }
