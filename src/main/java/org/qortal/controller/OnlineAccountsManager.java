@@ -325,8 +325,9 @@ public class OnlineAccountsManager {
             return false;
         }
 
-        // Validate mempow if feature trigger is active
-        if (now >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+        // Validate mempow if feature trigger is active (or if online account's timestamp is past the trigger timestamp)
+        long memoryPoWStartTimestamp = BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
+        if (now >= memoryPoWStartTimestamp || onlineAccountTimestamp >= memoryPoWStartTimestamp) {
             if (!getInstance().verifyMemoryPoW(onlineAccountData, now)) {
                 LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
                 return false;
@@ -628,7 +629,8 @@ public class OnlineAccountsManager {
     }
 
     public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, Long timestamp) {
-        if (!isMemoryPoWActive(timestamp)) {
+        long memoryPoWStartTimestamp = BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
+        if (timestamp < memoryPoWStartTimestamp && onlineAccountData.getTimestamp() < memoryPoWStartTimestamp) {
             // Not active yet, so treat it as valid
             return true;
         }
