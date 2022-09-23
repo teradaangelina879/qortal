@@ -57,6 +57,8 @@ public class OnlineAccountsManager {
     private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
     private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 5 * 1000L; // ms
 
+    private static final long INITIAL_SLEEP_INTERVAL = 30 * 1000L;
+
     // MemoryPoW
     public final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
     public int POW_DIFFICULTY = 18; // leading zero bits
@@ -118,14 +120,23 @@ public class OnlineAccountsManager {
         // Expire old online accounts signatures
         executor.scheduleAtFixedRate(this::expireOldOnlineAccounts, ONLINE_ACCOUNTS_TASKS_INTERVAL, ONLINE_ACCOUNTS_TASKS_INTERVAL, TimeUnit.MILLISECONDS);
 
-        // Send our online accounts
-        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
-
         // Request online accounts from peers
         executor.scheduleAtFixedRate(this::requestRemoteOnlineAccounts, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
 
         // Process import queue
         executor.scheduleWithFixedDelay(this::processOnlineAccountsImportQueue, ONLINE_ACCOUNTS_QUEUE_INTERVAL, ONLINE_ACCOUNTS_QUEUE_INTERVAL, TimeUnit.MILLISECONDS);
+
+        // Sleep for some time before scheduling sendOurOnlineAccountsInfo()
+        // This allows some time for initial online account lists to be retrieved, and
+        // reduces the chances of the same nonce being computed twice
+        try {
+            Thread.sleep(INITIAL_SLEEP_INTERVAL);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        // Send our online accounts
+        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public void shutdown() {
