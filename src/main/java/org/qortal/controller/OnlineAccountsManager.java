@@ -792,6 +792,12 @@ public class OnlineAccountsManager {
 
         // Add any online accounts to the queue that aren't already present
         for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
+
+            Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountData.getTimestamp(), k -> ConcurrentHashMap.newKeySet());
+            if (onlineAccounts.contains(onlineAccountData))
+                // We have already validated this online account
+                continue;
+
             boolean isNewEntry = onlineAccountsImportQueue.add(onlineAccountData);
 
             if (isNewEntry)
