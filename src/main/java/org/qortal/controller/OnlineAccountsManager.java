@@ -365,7 +365,7 @@ public class OnlineAccountsManager {
         for (var entry : hashesToRebuild.entrySet()) {
             Long timestamp = entry.getKey();
 
-            LOGGER.debug(() -> String.format("Rehashing for timestamp %d and leading bytes %s",
+            LOGGER.trace(() -> String.format("Rehashing for timestamp %d and leading bytes %s",
                             timestamp,
                             entry.getValue().stream().sorted(Byte::compareUnsigned).map(leadingByte -> String.format("%02x", leadingByte)).collect(Collectors.joining(", "))
                     )
@@ -456,7 +456,7 @@ public class OnlineAccountsManager {
             }
         }
 
-        LOGGER.info("Requesting online accounts via broadcast...");
+        LOGGER.debug("Requesting online accounts via broadcast...");
 
         lastOnlineAccountsRequest = now;
         Message messageV3 = new GetOnlineAccountsV3Message(currentOnlineAccountsHashes);
@@ -801,7 +801,7 @@ public class OnlineAccountsManager {
                 Set<OnlineAccountData> timestampsOnlineAccounts = this.currentOnlineAccounts.getOrDefault(timestamp, Collections.emptySet());
                 outgoingOnlineAccounts.addAll(timestampsOnlineAccounts);
 
-                LOGGER.debug(() -> String.format("Going to send all %d online accounts for timestamp %d", timestampsOnlineAccounts.size(), timestamp));
+                LOGGER.trace(() -> String.format("Going to send all %d online accounts for timestamp %d", timestampsOnlineAccounts.size(), timestamp));
             } else {
                 // Quick cache of which leading bytes to send so we only have to filter once
                 Set<Byte> outgoingLeadingBytes = new HashSet<>();
@@ -825,7 +825,7 @@ public class OnlineAccountsManager {
                         .forEach(outgoingOnlineAccounts::add);
 
                 if (outgoingOnlineAccounts.size() > beforeAddSize)
-                    LOGGER.debug(String.format("Going to send %d online accounts for timestamp %d and leading bytes %s",
+                    LOGGER.trace(String.format("Going to send %d online accounts for timestamp %d and leading bytes %s",
                             outgoingOnlineAccounts.size() - beforeAddSize,
                             timestamp,
                             outgoingLeadingBytes.stream().sorted(Byte::compareUnsigned).map(leadingByte -> String.format("%02x", leadingByte)).collect(Collectors.joining(", "))
@@ -836,14 +836,14 @@ public class OnlineAccountsManager {
 
         peer.sendMessage(new OnlineAccountsV3Message(outgoingOnlineAccounts));
 
-        LOGGER.debug("Sent {} online accounts to {}", outgoingOnlineAccounts.size(), peer);
+        LOGGER.trace("Sent {} online accounts to {}", outgoingOnlineAccounts.size(), peer);
     }
 
     public void onNetworkOnlineAccountsV3Message(Peer peer, Message message) {
         OnlineAccountsV3Message onlineAccountsMessage = (OnlineAccountsV3Message) message;
 
         List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-        LOGGER.debug("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
+        LOGGER.trace("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
 
         int importCount = 0;
 
