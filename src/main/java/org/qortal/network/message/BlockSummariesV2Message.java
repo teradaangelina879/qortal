@@ -15,7 +15,7 @@ import java.util.List;
 
 public class BlockSummariesV2Message extends Message {
 
-	public static final long MINIMUM_PEER_VERSION = 0x03000400cbL;
+	public static final long MINIMUM_PEER_VERSION = 0x0300060001L;
 
 	private static final int BLOCK_SUMMARY_V2_LENGTH = BlockTransformer.BLOCK_SIGNATURE_LENGTH /* block signature */
 			+ Transformer.PUBLIC_KEY_LENGTH /* minter public key */
