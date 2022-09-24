@@ -517,6 +517,8 @@ public class OnlineAccountsManager {
             Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountsTimestamp, k -> ConcurrentHashMap.newKeySet());
             boolean alreadyExists = onlineAccounts.stream().anyMatch(a -> Arrays.equals(a.getPublicKey(), publicKey));
             if (alreadyExists) {
+                this.hasOurOnlineAccounts = true;
+
                 if (remaining > 0) {
                     // Move on to next account
                     continue;
