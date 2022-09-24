@@ -634,7 +634,7 @@ public class TradeBot implements Listener {
 		}
 
 		if (newCount > 0) {
-			LOGGER.debug("New trade presences: {}", newCount);
+			LOGGER.debug("New trade presences: {}, all trade presences: {}", newCount, allTradePresencesByPubkey.size());
 			rebuildSafeAllTradePresences();
 		}
 	}
