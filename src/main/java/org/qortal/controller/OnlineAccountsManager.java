@@ -55,7 +55,12 @@ public class OnlineAccountsManager {
 
     private static final long ONLINE_ACCOUNTS_QUEUE_INTERVAL = 100L; //ms
     private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
-    private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 5 * 1000L; // ms
+    private static final long ONLINE_ACCOUNTS_COMPUTE_INTERVAL = 5 * 1000L; // ms
+    private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 60 * 1000L; // ms
+    // After switching to a new online timestamp, we "burst" the online accounts requests
+    // at an increased interval for a specified amount of time
+    private static final long ONLINE_ACCOUNTS_BROADCAST_BURST_INTERVAL = 5 * 1000L; // ms
+    private static final long ONLINE_ACCOUNTS_BROADCAST_BURST_LENGTH = 5 * 60 * 1000L; // ms
 
     private static final long INITIAL_SLEEP_INTERVAL = 30 * 1000L;
 
@@ -82,6 +87,8 @@ public class OnlineAccountsManager {
      * <i>Probably</i> only accessed / modified by a single Synchronizer thread.
      */
     private final SortedMap<Long, Set<OnlineAccountData>> latestBlocksOnlineAccounts = new ConcurrentSkipListMap<>();
+
+    private long lastOnlineAccountsRequest = 0;
 
     private boolean hasOurOnlineAccounts = false;
 
@@ -121,7 +128,7 @@ public class OnlineAccountsManager {
         executor.scheduleAtFixedRate(this::expireOldOnlineAccounts, ONLINE_ACCOUNTS_TASKS_INTERVAL, ONLINE_ACCOUNTS_TASKS_INTERVAL, TimeUnit.MILLISECONDS);
 
         // Request online accounts from peers
-        executor.scheduleAtFixedRate(this::requestRemoteOnlineAccounts, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
+        executor.scheduleAtFixedRate(this::requestRemoteOnlineAccounts, ONLINE_ACCOUNTS_BROADCAST_BURST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_BURST_INTERVAL, TimeUnit.MILLISECONDS);
 
         // Process import queue
         executor.scheduleWithFixedDelay(this::processOnlineAccountsImportQueue, ONLINE_ACCOUNTS_QUEUE_INTERVAL, ONLINE_ACCOUNTS_QUEUE_INTERVAL, TimeUnit.MILLISECONDS);
@@ -136,7 +143,7 @@ public class OnlineAccountsManager {
         }
 
         // Send our online accounts
-        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
+        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_COMPUTE_INTERVAL, ONLINE_ACCOUNTS_COMPUTE_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public void shutdown() {
@@ -435,8 +442,24 @@ public class OnlineAccountsManager {
         if (!Controller.getInstance().isUpToDate())
             return;
 
-        Message messageV3 = new GetOnlineAccountsV3Message(currentOnlineAccountsHashes);
+        long onlineAccountsTimestamp = getCurrentOnlineAccountTimestamp();
+        if (now - onlineAccountsTimestamp >= ONLINE_ACCOUNTS_BROADCAST_BURST_LENGTH) {
+            // New online timestamp started more than 5 mins ago - we probably don't need to request so frequently
 
+            if (Controller.uptime() < ONLINE_ACCOUNTS_BROADCAST_BURST_LENGTH) {
+                // The node recently started up, so we should request at the burst interval
+                // This could allow accounts to move around the network more easily when an auto update is occurring
+            }
+            else if (now - lastOnlineAccountsRequest < ONLINE_ACCOUNTS_BROADCAST_INTERVAL) {
+                // We already requested online accounts in the last minute, so no need to request again
+                return;
+            }
+        }
+
+        LOGGER.info("Requesting online accounts via broadcast...");
+
+        lastOnlineAccountsRequest = now;
+        Message messageV3 = new GetOnlineAccountsV3Message(currentOnlineAccountsHashes);
         Network.getInstance().broadcast(peer -> messageV3);
     }
 

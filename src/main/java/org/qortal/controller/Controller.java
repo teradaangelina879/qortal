@@ -317,6 +317,10 @@ public class Controller extends Thread {
 		}
 	}
 
+	public static long uptime() {
+		return System.currentTimeMillis() - Controller.startTime;
+	}
+
 	/** Returns highest block, or null if it's not available. */
 	public BlockData getChainTip() {
 		synchronized (this.latestBlocks) {
