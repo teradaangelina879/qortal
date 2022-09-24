@@ -375,7 +375,7 @@ public class Block {
 		}
 
 		if (onlineAccounts.isEmpty()) {
-			LOGGER.error("No online accounts - not even our own?");
+			LOGGER.debug("No online accounts - not even our own?");
 			return null;
 		}
 
