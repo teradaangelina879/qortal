@@ -193,20 +193,23 @@ public class OnlineAccountsManager {
                 if (isStopping)
                     return;
 
+                // Skip this account if it's already validated
+                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountData.getTimestamp(), k -> ConcurrentHashMap.newKeySet());
+                if (onlineAccounts.contains(onlineAccountData)) {
+                    // We have already validated this online account
+                    onlineAccountsImportQueue.remove(onlineAccountData);
+                    continue;
+                }
+
                 boolean isValid = this.isValidCurrentAccount(repository, onlineAccountData);
                 if (isValid)
-                    onlineAccountsToAdd.add(onlineAccountData);
+                    addAccounts(Arrays.asList(onlineAccountData));
 
                 // Remove from queue
                 onlineAccountsImportQueue.remove(onlineAccountData);
             }
         } catch (DataException e) {
             LOGGER.error("Repository issue while verifying online accounts", e);
-        }
-
-        if (!onlineAccountsToAdd.isEmpty()) {
-            LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
-            addAccounts(onlineAccountsToAdd);
         }
     }
 
@@ -381,7 +384,7 @@ public class OnlineAccountsManager {
             }
         }
 
-        LOGGER.debug(String.format("we have online accounts for timestamps: %s", String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
+        LOGGER.trace(String.format("we have online accounts for timestamps: %s", String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
 
         return true;
     }
