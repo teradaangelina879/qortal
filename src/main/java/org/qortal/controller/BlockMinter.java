@@ -434,9 +434,14 @@ public class BlockMinter extends Thread {
 						blockchainLock.unlock();
 					}
 
-				if (newBlockMinted) {
-					// Broadcast our new chain to network
-					Network.getInstance().broadcastOurChain();
+					if (newBlockMinted) {
+						// Broadcast our new chain to network
+						Network.getInstance().broadcastOurChain();
+					}
+
+				} catch (InterruptedException e) {
+					// We've been interrupted - time to exit
+					return;
 				}
 			}
 		} catch (DataException e) {
