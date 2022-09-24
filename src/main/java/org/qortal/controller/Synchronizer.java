@@ -1553,12 +1553,19 @@ public class Synchronizer extends Thread {
 		Message getBlockSummariesMessage = new GetBlockSummariesMessage(parentSignature, numberRequested);
 
 		Message message = peer.getResponse(getBlockSummariesMessage);
-		if (message == null || message.getType() != MessageType.BLOCK_SUMMARIES)
+		if (message == null)
 			return null;
 
-		BlockSummariesMessage blockSummariesMessage = (BlockSummariesMessage) message;
+		if (message.getType() == MessageType.BLOCK_SUMMARIES) {
+			BlockSummariesMessage blockSummariesMessage = (BlockSummariesMessage) message;
+			return blockSummariesMessage.getBlockSummaries();
+		}
+		else if (message.getType() == MessageType.BLOCK_SUMMARIES_V2) {
+			BlockSummariesV2Message blockSummariesMessage = (BlockSummariesV2Message) message;
+			return blockSummariesMessage.getBlockSummaries();
+		}
 
-		return blockSummariesMessage.getBlockSummaries();
+		return null;
 	}
 
 	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
