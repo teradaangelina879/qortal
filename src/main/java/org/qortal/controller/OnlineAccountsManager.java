@@ -133,17 +133,10 @@ public class OnlineAccountsManager {
         // Process import queue
         executor.scheduleWithFixedDelay(this::processOnlineAccountsImportQueue, ONLINE_ACCOUNTS_QUEUE_INTERVAL, ONLINE_ACCOUNTS_QUEUE_INTERVAL, TimeUnit.MILLISECONDS);
 
-        // Sleep for some time before scheduling sendOurOnlineAccountsInfo()
+        // Send our online accounts (using increased initial delay)
         // This allows some time for initial online account lists to be retrieved, and
         // reduces the chances of the same nonce being computed twice
-        try {
-            Thread.sleep(INITIAL_SLEEP_INTERVAL);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        // Send our online accounts
-        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_COMPUTE_INTERVAL, ONLINE_ACCOUNTS_COMPUTE_INTERVAL, TimeUnit.MILLISECONDS);
+        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, INITIAL_SLEEP_INTERVAL, ONLINE_ACCOUNTS_COMPUTE_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public void shutdown() {
