@@ -71,7 +71,7 @@ public class OnlineAccountsManager {
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
 
-    private final List<OnlineAccountData> onlineAccountsImportQueue = Collections.synchronizedList(new ArrayList<>());
+    private final Set<OnlineAccountData> onlineAccountsImportQueue = ConcurrentHashMap.newKeySet();
 
     /**
      * Cache of 'current' online accounts, keyed by timestamp
@@ -191,12 +191,9 @@ public class OnlineAccountsManager {
 
         LOGGER.debug("Processing online accounts import queue (size: {})", this.onlineAccountsImportQueue.size());
 
-        // Take a copy of onlineAccountsImportQueue so we can safely remove whilst iterating
-        List<OnlineAccountData> onlineAccountsImportQueueCopy = new ArrayList<>(this.onlineAccountsImportQueue);
-
         Set<OnlineAccountData> onlineAccountsToAdd = new HashSet<>();
         try (final Repository repository = RepositoryManager.getRepository()) {
-            for (OnlineAccountData onlineAccountData : onlineAccountsImportQueueCopy) {
+            for (OnlineAccountData onlineAccountData : this.onlineAccountsImportQueue) {
                 if (isStopping)
                     return;
 
@@ -217,19 +214,6 @@ public class OnlineAccountsManager {
             }
         } catch (DataException e) {
             LOGGER.error("Repository issue while verifying online accounts", e);
-        }
-    }
-
-    private boolean importQueueContainsExactMatch(OnlineAccountData acc) {
-        // Check if an item exists where all properties match exactly
-        // This is needed because signature and nonce are not compared in OnlineAccountData.equals()
-        synchronized (onlineAccountsImportQueue) {
-            return onlineAccountsImportQueue.stream().anyMatch(otherAcc ->
-                    acc.getTimestamp() == otherAcc.getTimestamp() &&
-                            Arrays.equals(acc.getPublicKey(), otherAcc.getPublicKey()) &&
-                            acc.getNonce() == otherAcc.getNonce() &&
-                            Arrays.equals(acc.getSignature(), otherAcc.getSignature())
-            );
         }
     }
 
@@ -853,10 +837,6 @@ public class OnlineAccountsManager {
             Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountData.getTimestamp(), k -> ConcurrentHashMap.newKeySet());
             if (onlineAccounts.contains(onlineAccountData))
                 // We have already validated this online account
-                continue;
-
-            if (this.importQueueContainsExactMatch(onlineAccountData))
-                // Identical online account data already present in queue
                 continue;
 
             boolean isNewEntry = onlineAccountsImportQueue.add(onlineAccountData);
