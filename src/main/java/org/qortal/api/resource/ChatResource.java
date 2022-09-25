@@ -69,6 +69,7 @@ public class ChatResource {
 	public List<ChatMessage> searchChat(@QueryParam("before") Long before, @QueryParam("after") Long after,
 			@QueryParam("txGroupId") Integer txGroupId,
 			@QueryParam("involving") List<String> involvingAddresses,
+			@QueryParam("reference") String reference,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -87,11 +88,16 @@ public class ChatResource {
 		if (after != null && after < 1500000000000L)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
+		byte[] referenceBytes = null;
+		if (reference != null)
+			referenceBytes = Base58.decode(reference);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getChatRepository().getMessagesMatchingCriteria(
 					before,
 					after,
 					txGroupId,
+					referenceBytes,
 					involvingAddresses,
 					limit, offset, reverse);
 		} catch (DataException e) {
