@@ -53,7 +53,7 @@ public class OnlineAccountsManager {
      */
     private static final int MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS = 3;
 
-    private static final long ONLINE_ACCOUNTS_QUEUE_INTERVAL = 100L; //ms
+    private static final long ONLINE_ACCOUNTS_QUEUE_INTERVAL = 100L; // ms
     private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
     private static final long ONLINE_ACCOUNTS_COMPUTE_INTERVAL = 5 * 1000L; // ms
     private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 60 * 1000L; // ms
@@ -62,7 +62,7 @@ public class OnlineAccountsManager {
     private static final long ONLINE_ACCOUNTS_BROADCAST_BURST_INTERVAL = 5 * 1000L; // ms
     private static final long ONLINE_ACCOUNTS_BROADCAST_BURST_LENGTH = 5 * 60 * 1000L; // ms
 
-    private static final long INITIAL_SLEEP_INTERVAL = 30 * 1000L;
+    private static final long ONLINE_ACCOUNTS_COMPUTE_INITIAL_SLEEP_INTERVAL = 30 * 1000L; // ms
 
     // MemoryPoW
     public final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
@@ -136,7 +136,7 @@ public class OnlineAccountsManager {
         // Send our online accounts (using increased initial delay)
         // This allows some time for initial online account lists to be retrieved, and
         // reduces the chances of the same nonce being computed twice
-        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, INITIAL_SLEEP_INTERVAL, ONLINE_ACCOUNTS_COMPUTE_INTERVAL, TimeUnit.MILLISECONDS);
+        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_COMPUTE_INITIAL_SLEEP_INTERVAL, ONLINE_ACCOUNTS_COMPUTE_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public void shutdown() {
