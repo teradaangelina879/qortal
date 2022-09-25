@@ -192,6 +192,7 @@ public class OnlineAccountsManager {
         LOGGER.debug("Processing online accounts import queue (size: {})", this.onlineAccountsImportQueue.size());
 
         Set<OnlineAccountData> onlineAccountsToAdd = new HashSet<>();
+        Set<OnlineAccountData> onlineAccountsToRemove = new HashSet<>();
         try (final Repository repository = RepositoryManager.getRepository()) {
             for (OnlineAccountData onlineAccountData : this.onlineAccountsImportQueue) {
                 if (isStopping)
@@ -211,6 +212,7 @@ public class OnlineAccountsManager {
 
                 // Don't remove from the queue yet - we'll do this at the end of the process
                 // This prevents duplicates being added to the queue whilst it's being processed
+                onlineAccountsToRemove.add(onlineAccountData);
             }
         } catch (DataException e) {
             LOGGER.error("Repository issue while verifying online accounts", e);
@@ -219,7 +221,7 @@ public class OnlineAccountsManager {
             if (!onlineAccountsToAdd.isEmpty()) {
                 LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
                 addAccounts(onlineAccountsToAdd);
-                onlineAccountsImportQueue.removeAll(onlineAccountsToAdd);
+                onlineAccountsImportQueue.removeAll(onlineAccountsToRemove);
             }
         }
     }
