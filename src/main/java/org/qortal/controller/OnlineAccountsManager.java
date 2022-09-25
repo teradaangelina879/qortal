@@ -207,13 +207,20 @@ public class OnlineAccountsManager {
 
                 boolean isValid = this.isValidCurrentAccount(repository, onlineAccountData);
                 if (isValid)
-                    addAccounts(Arrays.asList(onlineAccountData));
+                    onlineAccountsToAdd.add(onlineAccountData);
 
-                // Remove from queue
-                onlineAccountsImportQueue.remove(onlineAccountData);
+                // Don't remove from the queue yet - we'll do this at the end of the process
+                // This prevents duplicates being added to the queue whilst it's being processed
             }
         } catch (DataException e) {
             LOGGER.error("Repository issue while verifying online accounts", e);
+
+        } finally {
+            if (!onlineAccountsToAdd.isEmpty()) {
+                LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
+                addAccounts(onlineAccountsToAdd);
+                onlineAccountsImportQueue.removeAll(onlineAccountsToAdd);
+            }
         }
     }
 
