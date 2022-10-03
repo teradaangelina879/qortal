@@ -205,6 +205,10 @@ public class AddressesResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<OnlineAccountLevel> onlineAccountLevels = new ArrayList<>();
 
+			// Prepopulate all levels
+			for (int i=0; i<=10; i++)
+				onlineAccountLevels.add(new OnlineAccountLevel(i, 0));
+
 			for (OnlineAccountData onlineAccountData : onlineAccounts) {
 				try {
 					final int minterLevel = Account.getRewardShareEffectiveMintingLevelIncludingLevelZero(repository, onlineAccountData.getPublicKey());
