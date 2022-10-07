@@ -1246,7 +1246,14 @@ public class Synchronizer extends Thread {
 		int numberSignaturesRequired = additionalPeerBlocksAfterCommonBlock - peerBlockSignatures.size();
 
 		int retryCount = 0;
-		while (height < peerHeight) {
+
+		// Keep fetching blocks from peer until we reach their tip, or reach a count of MAXIMUM_COMMON_DELTA blocks.
+		// We need to limit the total number, otherwise too much can be loaded into memory, causing an
+		// OutOfMemoryException. This is common when syncing from 1000+ blocks behind the chain tip, after starting
+		// from a small fork that didn't become part of the main chain. This causes the entire sync process to
+		// use syncToPeerChain(), resulting in potentially thousands of blocks being held in memory if the limit
+		// below isn't applied.
+		while (height < peerHeight && peerBlocks.size() <= MAXIMUM_COMMON_DELTA) {
 			if (Controller.isStopping())
 				return SynchronizationResult.SHUTTING_DOWN;
 
