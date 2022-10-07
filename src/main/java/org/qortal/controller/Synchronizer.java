@@ -8,6 +8,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -1556,7 +1557,41 @@ public class Synchronizer extends Thread {
 		return SynchronizationResult.OK;
 	}
 
+	private List<BlockSummaryData> getBlockSummariesFromCache(Peer peer, byte[] parentSignature, int numberRequested) {
+		List<BlockSummaryData> peerSummaries = peer.getChainTipSummaries();
+		if (peerSummaries == null)
+			return null;
+
+		// Check if the requested parent block exists in peer's summaries cache
+		int parentIndex = IntStream.range(0, peerSummaries.size()).filter(i -> Arrays.equals(peerSummaries.get(i).getSignature(), parentSignature)).findFirst().orElse(-1);
+		if (parentIndex < 0)
+			return null;
+
+		// Peer's summaries contains the requested parent, so return summaries after that
+		// Make sure we have at least one block after the parent block
+		int summariesAvailable = peerSummaries.size() - parentIndex - 1;
+		if (summariesAvailable <= 0)
+			return null;
+
+		// Don't try and return more summaries than we have, or more than were requested
+		int summariesToReturn = Math.min(numberRequested, summariesAvailable);
+		int startIndex = parentIndex + 1;
+		int endIndex = startIndex + summariesToReturn - 1;
+		if (endIndex > peerSummaries.size() - 1)
+			return null;
+
+		LOGGER.trace("Serving {} block summaries from cache", summariesToReturn);
+		return peerSummaries.subList(startIndex, endIndex);
+	}
+
 	private List<BlockSummaryData> getBlockSummaries(Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
+		// We might be able to shortcut the response if we already have the summaries in the peer's chain tip data
+		List<BlockSummaryData> cachedSummaries = this.getBlockSummariesFromCache(peer, parentSignature, numberRequested);
+		if (cachedSummaries != null && !cachedSummaries.isEmpty())
+			return cachedSummaries;
+
+		LOGGER.trace("Requesting {} block summaries from peer {}", numberRequested, peer);
+
 		Message getBlockSummariesMessage = new GetBlockSummariesMessage(parentSignature, numberRequested);
 
 		Message message = peer.getResponse(getBlockSummariesMessage);
