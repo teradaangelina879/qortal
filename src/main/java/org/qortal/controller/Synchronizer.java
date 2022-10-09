@@ -43,7 +43,7 @@ public class Synchronizer extends Thread {
 	private static final int SYNC_BATCH_SIZE = 1000; // XXX move to Settings?
 
 	/** Initial jump back of block height when searching for common block with peer */
-	private static final int INITIAL_BLOCK_STEP = 7;
+	private static final int INITIAL_BLOCK_STEP = 8;
 	/** Maximum jump back of block height when searching for common block with peer */
 	private static final int MAXIMUM_BLOCK_STEP = 128;
 
