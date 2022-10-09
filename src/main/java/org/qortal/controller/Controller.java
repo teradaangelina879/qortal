@@ -1430,9 +1430,7 @@ public class Controller extends Thread {
 		// then we have no blocks after that and can short-circuit with an empty response
 		BlockData chainTip = getChainTip();
 		if (chainTip != null && Arrays.equals(parentSignature, chainTip.getSignature())) {
-			Message blockSummariesMessage = peer.getPeersVersion() >= BlockSummariesV2Message.MINIMUM_PEER_VERSION
-					? new BlockSummariesV2Message(Collections.emptyList())
-					: new BlockSummariesMessage(Collections.emptyList());
+			Message blockSummariesMessage = new BlockSummariesMessage(Collections.emptyList());
 
 			blockSummariesMessage.setId(message.getId());
 
@@ -1491,9 +1489,7 @@ public class Controller extends Thread {
 				this.stats.getBlockSummariesStats.fullyFromCache.incrementAndGet();
 		}
 
-		Message blockSummariesMessage = peer.getPeersVersion() >= BlockSummariesV2Message.MINIMUM_PEER_VERSION
-				? new BlockSummariesV2Message(blockSummaries)
-				: new BlockSummariesMessage(blockSummaries);
+		Message blockSummariesMessage = new BlockSummariesMessage(blockSummaries);
 		blockSummariesMessage.setId(message.getId());
 		if (!peer.sendMessage(blockSummariesMessage))
 			peer.disconnect("failed to send block summaries");
