@@ -1599,6 +1599,17 @@ public class Controller extends Thread {
 			}
 		}
 
+		if (message.hasId()) {
+			/*
+			 * Experimental proof-of-concept: discard messages with ID
+			 * These are 'late' reply messages received after timeout has expired,
+			 * having been passed upwards from Peer to Network to Controller.
+			 * Hence, these are NOT simple "here's my chain tip" broadcasts from other peers.
+			 */
+			LOGGER.info("Discarding late {} message with ID {} from {}", message.getType().name(), message.getId(), peer);
+			return;
+		}
+
 		// Update peer chain tip data
 		peer.setChainTipSummaries(blockSummariesV2Message.getBlockSummaries());
 
