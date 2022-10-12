@@ -68,13 +68,18 @@ public class BlockSummariesV2Message extends Message {
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer bytes) {
+		List<BlockSummaryData> blockSummaries = new ArrayList<>();
+
+		// If there are no bytes remaining then we can treat this as an empty array of summaries
+		if (bytes.remaining() == 0)
+			return new BlockSummariesV2Message(id, blockSummaries);
+
 		int height = bytes.getInt();
 
 		// Expecting bytes remaining to be exact multiples of BLOCK_SUMMARY_V2_LENGTH
 		if (bytes.remaining() % BLOCK_SUMMARY_V2_LENGTH != 0)
 			throw new BufferUnderflowException();
 
-		List<BlockSummaryData> blockSummaries = new ArrayList<>();
 		while (bytes.hasRemaining()) {
 			byte[] signature = new byte[BlockTransformer.BLOCK_SIGNATURE_LENGTH];
 			bytes.get(signature);
