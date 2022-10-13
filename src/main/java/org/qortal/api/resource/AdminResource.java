@@ -728,6 +728,49 @@ public class AdminResource {
 		}
 	}
 
+	@POST
+	@Path("/repository/importarchivedtrades")
+	@Operation(
+			summary = "Imports archived trades from TradeBotStatesArchive.json",
+			description = "This can be used to recover trades that exist in the archive only, which may be needed if a<br />" +
+					"problem occurred during the proof-of-work computation stage of a buy request.",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public boolean importArchivedTrades(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				repository.importDataFromFile("qortal-backup/TradeBotStatesArchive.json");
+				repository.saveChanges();
+
+				return true;
+
+			} catch (IOException e) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
+
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform import
+			return false;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+
 
 	@POST
 	@Path("/apikey/generate")

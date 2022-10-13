@@ -1,12 +1,17 @@
 package org.qortal.test.common;
 
 import static org.junit.Assert.assertEquals;
+import static org.qortal.crypto.Qortal25519Extras.signForAggregation;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.security.SecureRandom;
+import java.util.*;
 
+import com.google.common.primitives.Longs;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
+import org.qortal.crypto.Qortal25519Extras;
+import org.qortal.data.network.OnlineAccountData;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.PaymentTransactionData;
 import org.qortal.data.transaction.RewardShareTransactionData;
@@ -14,12 +19,15 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.transform.Transformer;
 import org.qortal.utils.Amounts;
 
 public class AccountUtils {
 
 	public static final int txGroupId = Group.NO_GROUP;
 	public static final long fee = 1L * Amounts.MULTIPLIER;
+
+	private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
 	public static void pay(Repository repository, String testSenderName, String testRecipientName, long amount) throws DataException {
 		PrivateKeyAccount sendingAccount = Common.getTestAccount(repository, testSenderName);
@@ -107,6 +115,32 @@ public class AccountUtils {
 		String assetName = repository.getAssetRepository().fromAssetId(assetId).getName();
 
 		assertEquals(String.format("%s's %s [%d] balance incorrect", accountName, assetName, assetId), expectedBalance, actualBalance);
+	}
+
+
+	public static List<OnlineAccountData> generateOnlineAccounts(int numAccounts) {
+		List<OnlineAccountData> onlineAccounts = new ArrayList<>();
+
+		long timestamp = System.currentTimeMillis();
+		byte[] timestampBytes = Longs.toByteArray(timestamp);
+
+		final boolean mempowActive = timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
+
+		for (int a = 0; a < numAccounts; ++a) {
+			byte[] privateKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+			SECURE_RANDOM.nextBytes(privateKey);
+
+			byte[] publicKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
+			Qortal25519Extras.generatePublicKey(privateKey, 0, publicKey, 0);
+
+			byte[] signature = signForAggregation(privateKey, timestampBytes);
+
+			Integer nonce = mempowActive ? new Random().nextInt(500000) : null;
+
+			onlineAccounts.add(new OnlineAccountData(timestamp, signature, publicKey, nonce));
+		}
+
+		return onlineAccounts;
 	}
 
 }

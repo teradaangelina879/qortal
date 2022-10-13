@@ -58,6 +58,9 @@ git show HEAD:log4j2.properties > ${build_dir}/log4j2.properties
 git show HEAD:start.sh > ${build_dir}/start.sh
 git show HEAD:stop.sh > ${build_dir}/stop.sh
 
+chmod +x ${build_dir}/start.sh
+chmod +x ${build_dir}/stop.sh
+
 printf "{\n}\n" > ${build_dir}/settings.json
 
 gtouch -d ${commit_ts%%+??:??} ${build_dir} ${build_dir}/*

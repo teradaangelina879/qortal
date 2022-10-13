@@ -361,7 +361,7 @@ public class BlockArchiveTests extends Common {
 			assertEquals(0, repository.getBlockArchiveRepository().getBlockArchiveHeight());
 
 			// Write blocks 2-900 to the archive (using bulk method)
-			int fileSizeTarget = 425000; // Pre-calculated size of 900 blocks
+			int fileSizeTarget = 428600; // Pre-calculated size of 900 blocks
 			assertTrue(HSQLDBDatabaseArchiving.buildBlockArchive(repository, fileSizeTarget));
 
 			// Ensure the block archive height has increased
@@ -455,7 +455,7 @@ public class BlockArchiveTests extends Common {
 			assertEquals(0, repository.getBlockArchiveRepository().getBlockArchiveHeight());
 
 			// Write blocks 2-900 to the archive (using bulk method)
-			int fileSizeTarget = 42000; // Pre-calculated size of approx 90 blocks
+			int fileSizeTarget = 42360; // Pre-calculated size of approx 90 blocks
 			assertTrue(HSQLDBDatabaseArchiving.buildBlockArchive(repository, fileSizeTarget));
 
 			// Ensure 10 archive files have been created

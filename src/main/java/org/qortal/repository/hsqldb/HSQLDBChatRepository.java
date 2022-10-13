@@ -23,7 +23,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 	}
 
 	@Override
-	public List<ChatMessage> getMessagesMatchingCriteria(Long before, Long after, Integer txGroupId,
+	public List<ChatMessage> getMessagesMatchingCriteria(Long before, Long after, Integer txGroupId, byte[] referenceBytes,
 			List<String> involving, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
 		// Check args meet expectations
@@ -55,6 +55,11 @@ public class HSQLDBChatRepository implements ChatRepository {
 		if (after != null) {
 			whereClauses.add("created_when > ?");
 			bindParams.add(after);
+		}
+
+		if (referenceBytes != null) {
+			whereClauses.add("reference = ?");
+			bindParams.add(referenceBytes);
 		}
 
 		if (txGroupId != null) {

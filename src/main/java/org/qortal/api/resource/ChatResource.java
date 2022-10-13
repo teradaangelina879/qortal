@@ -69,6 +69,7 @@ public class ChatResource {
 	public List<ChatMessage> searchChat(@QueryParam("before") Long before, @QueryParam("after") Long after,
 			@QueryParam("txGroupId") Integer txGroupId,
 			@QueryParam("involving") List<String> involvingAddresses,
+			@QueryParam("reference") String reference,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -87,13 +88,50 @@ public class ChatResource {
 		if (after != null && after < 1500000000000L)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
+		byte[] referenceBytes = null;
+		if (reference != null)
+			referenceBytes = Base58.decode(reference);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getChatRepository().getMessagesMatchingCriteria(
 					before,
 					after,
 					txGroupId,
+					referenceBytes,
 					involvingAddresses,
 					limit, offset, reverse);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/message/{signature}")
+	@Operation(
+			summary = "Find chat message by signature",
+			responses = {
+					@ApiResponse(
+							description = "CHAT message",
+							content = @Content(
+										schema = @Schema(
+												implementation = ChatMessage.class
+										)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public ChatMessage getMessageBySignature(@PathParam("signature") String signature58) {
+		byte[] signature = Base58.decode(signature58);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			ChatTransactionData chatTransactionData = (ChatTransactionData) repository.getTransactionRepository().fromSignature(signature);
+			if (chatTransactionData == null) {
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Message not found");
+			}
+
+			return repository.getChatRepository().toChatMessage(chatTransactionData);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

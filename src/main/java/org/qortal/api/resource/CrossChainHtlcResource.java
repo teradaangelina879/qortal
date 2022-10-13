@@ -1,5 +1,6 @@
 package org.qortal.api.resource;
 
+import com.google.common.hash.HashCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -7,8 +8,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
@@ -21,6 +25,7 @@ import org.bitcoinj.core.*;
 import org.bitcoinj.script.Script;
 import org.qortal.api.*;
 import org.qortal.api.model.CrossChainBitcoinyHTLCStatus;
+import org.qortal.controller.Controller;
 import org.qortal.crosschain.*;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
@@ -284,6 +289,12 @@ public class CrossChainHtlcResource {
 					continue;
 				}
 
+				Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
+				if (Objects.equals(bitcoiny.getCurrencyCode(), "ARRR")) {
+					LOGGER.info("Skipping AT {} because ARRR is currently unsupported", atAddress);
+					continue;
+				}
+
 				CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
 				if (crossChainTradeData == null) {
 					LOGGER.info("Couldn't find crosschain trade data for AT {}", atAddress);
@@ -363,10 +374,6 @@ public class CrossChainHtlcResource {
 			// Use secret-A to redeem P2SH-A
 
 			Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
-			if (bitcoiny.getClass() == Bitcoin.class) {
-				LOGGER.info("Redeeming a Bitcoin HTLC is not yet supported");
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-			}
 
 			int lockTime = crossChainTradeData.lockTimeA;
 			byte[] redeemScriptA = BitcoinyHTLC.buildScript(crossChainTradeData.partnerForeignPKH, lockTime, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretA);
@@ -574,7 +581,7 @@ public class CrossChainHtlcResource {
 			// If the AT is "finished" then it will have a zero balance
 			// In these cases we should avoid HTLC refunds if tbe QORT haven't been returned to the seller
 			if (atData.getIsFinished() && crossChainTradeData.mode != AcctMode.REFUNDED && crossChainTradeData.mode != AcctMode.CANCELLED) {
-				LOGGER.info(String.format("Skipping AT %s because the QORT has already been redemed", atAddress));
+				LOGGER.info(String.format("Skipping AT %s because the QORT has already been redeemed by the buyer", atAddress));
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 			}
 
@@ -584,11 +591,6 @@ public class CrossChainHtlcResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 			Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
-			if (bitcoiny.getClass() == Bitcoin.class) {
-				LOGGER.info("Refunding a Bitcoin HTLC is not yet supported");
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-			}
-
 			int lockTime = tradeBotData.getLockTimeA();
 
 			// We can't refund P2SH-A until lockTime-A has passed
@@ -600,15 +602,26 @@ public class CrossChainHtlcResource {
 			if (medianBlockTime <= lockTime)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_TOO_SOON);
 
-			byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTime, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
-			String p2shAddressA = bitcoiny.deriveP2shAddress(redeemScriptA);
-			LOGGER.info(String.format("Refunding P2SH address: %s", p2shAddressA));
-
 			// Fee for redeem/refund is subtracted from P2SH-A balance.
 			long feeTimestamp = calcFeeTimestamp(lockTime, crossChainTradeData.tradeTimeout);
 			long p2shFee = bitcoiny.getP2shFee(feeTimestamp);
 			long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
-			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(bitcoiny.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+
+			// Create redeem script based on destination chain
+			byte[] redeemScriptA;
+			String p2shAddressA;
+			BitcoinyHTLC.Status htlcStatusA;
+			if (Objects.equals(bitcoiny.getCurrencyCode(), "ARRR")) {
+				redeemScriptA = PirateChainHTLC.buildScript(tradeBotData.getTradeForeignPublicKey(), lockTime, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
+				p2shAddressA = PirateChain.getInstance().deriveP2shAddressBPrefix(redeemScriptA);
+				htlcStatusA = PirateChainHTLC.determineHtlcStatus(bitcoiny.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+			}
+			else {
+				redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTime, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
+				p2shAddressA = bitcoiny.deriveP2shAddress(redeemScriptA);
+				htlcStatusA = BitcoinyHTLC.determineHtlcStatus(bitcoiny.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+			}
+			LOGGER.info(String.format("Refunding P2SH address: %s", p2shAddressA));
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -625,18 +638,45 @@ public class CrossChainHtlcResource {
 
 				case FUNDED:{
 					Coin refundAmount = Coin.valueOf(crossChainTradeData.expectedForeignAmount);
-					ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-					List<TransactionOutput> fundingOutputs = bitcoiny.getUnspentOutputs(p2shAddressA);
 
-					// Validate the destination foreign blockchain address
-					Address receiving = Address.fromString(bitcoiny.getNetworkParameters(), receiveAddress);
-					if (receiving.getOutputScriptType() != Script.ScriptType.P2PKH)
-						throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+					if (Objects.equals(bitcoiny.getCurrencyCode(), "ARRR")) {
+						// Pirate Chain custom integration
 
-					Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(bitcoiny.getNetworkParameters(), refundAmount, refundKey,
-							fundingOutputs, redeemScriptA, lockTime, receiving.getHash());
+						PirateChain pirateChain = PirateChain.getInstance();
+						String p2shAddressT3 = pirateChain.deriveP2shAddress(redeemScriptA);
 
-					bitcoiny.broadcastTransaction(p2shRefundTransaction);
+						// Get funding txid
+						String fundingTxidHex = PirateChainHTLC.getUnspentFundingTxid(pirateChain.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+						if (fundingTxidHex == null) {
+							throw new ForeignBlockchainException("Missing funding txid when refunding P2SH");
+						}
+						String fundingTxid58 = Base58.encode(HashCode.fromString(fundingTxidHex).asBytes());
+
+						byte[] privateKey = tradeBotData.getTradePrivateKey();
+						String privateKey58 = Base58.encode(privateKey);
+						String redeemScript58 = Base58.encode(redeemScriptA);
+
+						String txid = PirateChain.getInstance().refundP2sh(p2shAddressT3,
+								receiveAddress, refundAmount.value, redeemScript58, fundingTxid58, lockTime, privateKey58);
+						LOGGER.info("Refund txid: {}", txid);
+					}
+					else {
+						// ElectrumX coins
+
+						ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
+						List<TransactionOutput> fundingOutputs = bitcoiny.getUnspentOutputs(p2shAddressA);
+
+						// Validate the destination foreign blockchain address
+						Address receiving = Address.fromString(bitcoiny.getNetworkParameters(), receiveAddress);
+						if (receiving.getOutputScriptType() != Script.ScriptType.P2PKH)
+							throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+						Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(bitcoiny.getNetworkParameters(), refundAmount, refundKey,
+								fundingOutputs, redeemScriptA, lockTime, receiving.getHash());
+
+						bitcoiny.broadcastTransaction(p2shRefundTransaction);
+					}
+
 					return true;
 				}
 			}

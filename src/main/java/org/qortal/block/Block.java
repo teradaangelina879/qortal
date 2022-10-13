@@ -10,7 +10,6 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
-import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -90,7 +89,8 @@ public class Block {
 		ONLINE_ACCOUNT_UNKNOWN(71),
 		ONLINE_ACCOUNT_SIGNATURES_MISSING(72),
 		ONLINE_ACCOUNT_SIGNATURES_MALFORMED(73),
-		ONLINE_ACCOUNT_SIGNATURE_INCORRECT(74);
+		ONLINE_ACCOUNT_SIGNATURE_INCORRECT(74),
+		ONLINE_ACCOUNT_NONCE_INCORRECT(75);
 
 		public final int value;
 
@@ -185,8 +185,11 @@ public class Block {
 			if (accountLevel <= 0)
 				return null; // level 0 isn't included in any share bins
 
+			// Select the correct set of share bins based on block height
 			final BlockChain blockChain = BlockChain.getInstance();
-			final AccountLevelShareBin[] shareBinsByLevel = blockChain.getShareBinsByAccountLevel();
+			final AccountLevelShareBin[] shareBinsByLevel = (blockHeight >= blockChain.getSharesByLevelV2Height()) ?
+					blockChain.getShareBinsByAccountLevelV2() : blockChain.getShareBinsByAccountLevelV1();
+
 			if (accountLevel > shareBinsByLevel.length)
 				return null;
 
@@ -365,8 +368,14 @@ public class Block {
 
 		// Fetch our list of online accounts
 		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
+
+		// If mempow is active, remove any legacy accounts that are missing a nonce
+		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
+		}
+
 		if (onlineAccounts.isEmpty()) {
-			LOGGER.error("No online accounts - not even our own?");
+			LOGGER.debug("No online accounts - not even our own?");
 			return null;
 		}
 
@@ -394,23 +403,37 @@ public class Block {
 		byte[] encodedOnlineAccounts = BlockTransformer.encodeOnlineAccounts(onlineAccountsSet);
 		int onlineAccountsCount = onlineAccountsSet.size();
 
-		byte[] onlineAccountsSignatures;
-		if (timestamp >= BlockChain.getInstance().getAggregateSignatureTimestamp()) {
-			// Collate all signatures
-			Collection<byte[]> signaturesToAggregate = indexedOnlineAccounts.values()
-					.stream()
-					.map(OnlineAccountData::getSignature)
-					.collect(Collectors.toList());
+		// Collate all signatures
+		Collection<byte[]> signaturesToAggregate = indexedOnlineAccounts.values()
+				.stream()
+				.map(OnlineAccountData::getSignature)
+				.collect(Collectors.toList());
 
-			// Aggregated, single signature
-			onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
-		} else {
-			// Concatenate online account timestamp signatures (in correct order)
-			onlineAccountsSignatures = new byte[onlineAccountsCount * Transformer.SIGNATURE_LENGTH];
-			for (int i = 0; i < onlineAccountsCount; ++i) {
-				Integer accountIndex = accountIndexes.get(i);
-				OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
-				System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
+		// Aggregated, single signature
+		byte[] onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
+
+		// Add nonces to the end of the online accounts signatures if mempow is active
+		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			try {
+				// Create ordered list of nonce values
+				List<Integer> nonces = new ArrayList<>();
+				for (int i = 0; i < onlineAccountsCount; ++i) {
+					Integer accountIndex = accountIndexes.get(i);
+					OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
+					nonces.add(onlineAccountData.getNonce());
+				}
+
+				// Encode the nonces to a byte array
+				byte[] encodedNonces = BlockTransformer.encodeOnlineAccountNonces(nonces);
+
+				// Append the encoded nonces to the encoded online account signatures
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+				outputStream.write(onlineAccountsSignatures);
+				outputStream.write(encodedNonces);
+				onlineAccountsSignatures = outputStream.toByteArray();
+			}
+			catch (TransformationException | IOException e) {
+				return null;
 			}
 		}
 
@@ -1021,12 +1044,15 @@ public class Block {
 		if (this.blockData.getOnlineAccountsSignatures() == null || this.blockData.getOnlineAccountsSignatures().length == 0)
 			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MISSING;
 
-		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getAggregateSignatureTimestamp()) {
-			// We expect just the one, aggregated signature
-			if (this.blockData.getOnlineAccountsSignatures().length != Transformer.SIGNATURE_LENGTH)
+		final int signaturesLength = Transformer.SIGNATURE_LENGTH;
+		final int noncesLength = onlineRewardShares.size() * Transformer.INT_LENGTH;
+
+		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			// We expect nonces to be appended to the online accounts signatures
+			if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength + noncesLength)
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 		} else {
-			if (this.blockData.getOnlineAccountsSignatures().length != onlineRewardShares.size() * Transformer.SIGNATURE_LENGTH)
+			if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength)
 				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 		}
 
@@ -1034,30 +1060,23 @@ public class Block {
 		long onlineTimestamp = this.blockData.getOnlineAccountsTimestamp();
 		byte[] onlineTimestampBytes = Longs.toByteArray(onlineTimestamp);
 
-		// Extract online accounts' timestamp signatures from block data. Only one signature if aggregated.
-		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
+		byte[] encodedOnlineAccountSignatures = this.blockData.getOnlineAccountsSignatures();
 
-		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getAggregateSignatureTimestamp()) {
-			// Aggregate all public keys
-			Collection<byte[]> publicKeys = onlineRewardShares.stream()
-					.map(RewardShareData::getRewardSharePublicKey)
-					.collect(Collectors.toList());
+		// Split online account signatures into signature(s) + nonces, then validate the nonces
+		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
+			byte[] extractedSignatures = BlockTransformer.extract(encodedOnlineAccountSignatures, 0, signaturesLength);
+			byte[] extractedNonces = BlockTransformer.extract(encodedOnlineAccountSignatures, signaturesLength, onlineRewardShares.size() * Transformer.INT_LENGTH);
+			encodedOnlineAccountSignatures = extractedSignatures;
 
-			byte[] aggregatePublicKey = Qortal25519Extras.aggregatePublicKeys(publicKeys);
+			List<Integer> nonces = BlockTransformer.decodeOnlineAccountNonces(extractedNonces);
 
-			byte[] aggregateSignature = onlineAccountsSignatures.get(0);
-
-			// One-step verification of aggregate signature using aggregate public key
-			if (!Qortal25519Extras.verifyAggregated(aggregatePublicKey, aggregateSignature, onlineTimestampBytes))
-				return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
-		} else {
-			// Build block's view of online accounts
+			// Build block's view of online accounts (without signatures, as we don't need them here)
 			Set<OnlineAccountData> onlineAccounts = new HashSet<>();
-			for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
-				byte[] signature = onlineAccountsSignatures.get(i);
+			for (int i = 0; i < onlineRewardShares.size(); ++i) {
+				Integer nonce = nonces.get(i);
 				byte[] publicKey = onlineRewardShares.get(i).getRewardSharePublicKey();
 
-				OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, signature, publicKey);
+				OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, null, publicKey, nonce);
 				onlineAccounts.add(onlineAccountData);
 			}
 
@@ -1066,12 +1085,25 @@ public class Block {
 
 			// Validate the rest
 			for (OnlineAccountData onlineAccount : onlineAccounts)
-				if (!Crypto.verify(onlineAccount.getPublicKey(), onlineAccount.getSignature(), onlineTimestampBytes))
-					return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
-
-			// We've validated these, so allow online accounts manager to cache
-			OnlineAccountsManager.getInstance().addBlocksOnlineAccounts(onlineAccounts, onlineTimestamp);
+				if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount, this.blockData.getTimestamp()))
+					return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
 		}
+
+		// Extract online accounts' timestamp signatures from block data. Only one signature if aggregated.
+		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(encodedOnlineAccountSignatures);
+
+		// Aggregate all public keys
+		Collection<byte[]> publicKeys = onlineRewardShares.stream()
+				.map(RewardShareData::getRewardSharePublicKey)
+				.collect(Collectors.toList());
+
+		byte[] aggregatePublicKey = Qortal25519Extras.aggregatePublicKeys(publicKeys);
+
+		byte[] aggregateSignature = onlineAccountsSignatures.get(0);
+
+		// One-step verification of aggregate signature using aggregate public key
+		if (!Qortal25519Extras.verifyAggregated(aggregatePublicKey, aggregateSignature, onlineTimestampBytes))
+			return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
 
 		// All online accounts valid, so save our list of online accounts for potential later use
 		this.cachedOnlineRewardShares = onlineRewardShares;
@@ -1896,10 +1928,14 @@ public class Block {
 		final List<ExpandedAccount> onlineFounderAccounts = expandedAccounts.stream().filter(expandedAccount -> expandedAccount.isMinterFounder).collect(Collectors.toList());
 		final boolean haveFounders = !onlineFounderAccounts.isEmpty();
 
+		// Select the correct set of share bins based on block height
+		List<AccountLevelShareBin> accountLevelShareBinsForBlock = (this.blockData.getHeight() >= BlockChain.getInstance().getSharesByLevelV2Height()) ?
+				BlockChain.getInstance().getAccountLevelShareBinsV2() : BlockChain.getInstance().getAccountLevelShareBinsV1();
+
 		// Determine reward candidates based on account level
 		// This needs a deep copy, so the shares can be modified when tiers aren't activated yet
 		List<AccountLevelShareBin> accountLevelShareBins = new ArrayList<>();
-		for (AccountLevelShareBin accountLevelShareBin : BlockChain.getInstance().getAccountLevelShareBins()) {
+		for (AccountLevelShareBin accountLevelShareBin : accountLevelShareBinsForBlock) {
 			accountLevelShareBins.add((AccountLevelShareBin) accountLevelShareBin.clone());
 		}
 
@@ -1975,7 +2011,7 @@ public class Block {
 		// Fetch list of legacy QORA holders who haven't reached their cap of QORT reward.
 		List<EligibleQoraHolderData> qoraHolders = this.repository.getAccountRepository().getEligibleLegacyQoraHolders(isProcessingNotOrphaning ? null : this.blockData.getHeight());
 		final boolean haveQoraHolders = !qoraHolders.isEmpty();
-		final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+		final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShareAtHeight(this.blockData.getHeight());
 
 		// Perform account-level-based reward scaling if appropriate
 		if (!haveFounders) {

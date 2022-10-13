@@ -11,6 +11,7 @@ import org.qortal.controller.arbitrary.ArbitraryDataFileListManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
+import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.message.*;
@@ -89,6 +90,8 @@ public class Network {
     public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
 
     private static final long DISCONNECTION_CHECK_INTERVAL = 10 * 1000L; // milliseconds
+
+    private static final int BROADCAST_CHAIN_TIP_DEPTH = 7; // Just enough to fill a SINGLE TCP packet (~1440 bytes)
 
     // Generate our node keys / ID
     private final Ed25519PrivateKeyParameters edPrivateKeyParams = new Ed25519PrivateKeyParameters(new SecureRandom());
@@ -1087,10 +1090,16 @@ public class Network {
 
         if (peer.isOutbound()) {
             if (!Settings.getInstance().isLite()) {
-                // Send our height
-                Message heightMessage = buildHeightMessage(peer, Controller.getInstance().getChainTip());
-                if (!peer.sendMessage(heightMessage)) {
-                    peer.disconnect("failed to send height/info");
+                // Send our height / chain tip info
+                Message message = this.buildHeightOrChainTipInfo(peer);
+
+                if (message == null) {
+                    peer.disconnect("Couldn't build our chain tip info");
+                    return;
+                }
+
+                if (!peer.sendMessage(message)) {
+                    peer.disconnect("failed to send height / chain tip info");
                     return;
                 }
             }
@@ -1164,10 +1173,47 @@ public class Network {
         return new PeersV2Message(peerAddresses);
     }
 
-    public Message buildHeightMessage(Peer peer, BlockData blockData) {
-        // HEIGHT_V2 contains way more useful info
-        return new HeightV2Message(blockData.getHeight(), blockData.getSignature(),
-                blockData.getTimestamp(), blockData.getMinterPublicKey());
+    /** Builds either (legacy) HeightV2Message or (newer) BlockSummariesV2Message, depending on peer version.
+     *
+     *  @return Message, or null if DataException was thrown.
+     */
+    public Message buildHeightOrChainTipInfo(Peer peer) {
+        if (peer.getPeersVersion() >= BlockSummariesV2Message.MINIMUM_PEER_VERSION) {
+            int latestHeight = Controller.getInstance().getChainHeight();
+
+            try (final Repository repository = RepositoryManager.getRepository()) {
+                List<BlockSummaryData> latestBlockSummaries = repository.getBlockRepository().getBlockSummaries(latestHeight - BROADCAST_CHAIN_TIP_DEPTH, latestHeight);
+                return new BlockSummariesV2Message(latestBlockSummaries);
+            } catch (DataException e) {
+                return null;
+            }
+        } else {
+            // For older peers
+            BlockData latestBlockData = Controller.getInstance().getChainTip();
+            return new HeightV2Message(latestBlockData.getHeight(), latestBlockData.getSignature(),
+                    latestBlockData.getTimestamp(), latestBlockData.getMinterPublicKey());
+        }
+    }
+
+    public void broadcastOurChain() {
+        BlockData latestBlockData = Controller.getInstance().getChainTip();
+        int latestHeight = latestBlockData.getHeight();
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            List<BlockSummaryData> latestBlockSummaries = repository.getBlockRepository().getBlockSummaries(latestHeight - BROADCAST_CHAIN_TIP_DEPTH, latestHeight);
+            Message latestBlockSummariesMessage = new BlockSummariesV2Message(latestBlockSummaries);
+
+            // For older peers
+            Message heightMessage = new HeightV2Message(latestBlockData.getHeight(), latestBlockData.getSignature(),
+                    latestBlockData.getTimestamp(), latestBlockData.getMinterPublicKey());
+
+            Network.getInstance().broadcast(broadcastPeer -> broadcastPeer.getPeersVersion() >= BlockSummariesV2Message.MINIMUM_PEER_VERSION
+                    ? latestBlockSummariesMessage
+                    : heightMessage
+            );
+        } catch (DataException e) {
+            LOGGER.warn("Couldn't broadcast our chain tip info", e);
+        }
     }
 
     public Message buildNewTransactionMessage(Peer peer, TransactionData transactionData) {

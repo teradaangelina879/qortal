@@ -16,7 +16,7 @@ public class BlockArchiver implements Runnable {
 
 	private static final Logger LOGGER = LogManager.getLogger(BlockArchiver.class);
 
-	private static final long INITIAL_SLEEP_PERIOD = 0L; // TODO: 5 * 60 * 1000L + 1234L; // ms
+	private static final long INITIAL_SLEEP_PERIOD = 5 * 60 * 1000L + 1234L; // ms
 
 	public void run() {
 		Thread.currentThread().setName("Block archiver");

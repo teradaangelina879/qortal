@@ -3,24 +3,16 @@ package org.qortal.crosschain;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import org.bitcoinj.core.*;
-import org.bitcoinj.core.Transaction.SigHash;
-import org.bitcoinj.crypto.TransactionSignature;
 import org.bitcoinj.script.Script;
-import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.script.ScriptChunk;
-import org.bitcoinj.script.ScriptOpCodes;
 import org.qortal.crypto.Crypto;
 import org.qortal.utils.Base58;
 import org.qortal.utils.BitTwiddling;
 
 import java.util.*;
-import java.util.function.Function;
+import static org.qortal.crosschain.BitcoinyHTLC.Status;
 
 public class PirateChainHTLC {
-
-	public enum Status {
-		UNFUNDED, FUNDING_IN_PROGRESS, FUNDED, REDEEM_IN_PROGRESS, REDEEMED, REFUND_IN_PROGRESS, REFUNDED
-	}
 
 	public static final int SECRET_LENGTH = 32;
 	public static final int MIN_LOCKTIME = 1500000000;

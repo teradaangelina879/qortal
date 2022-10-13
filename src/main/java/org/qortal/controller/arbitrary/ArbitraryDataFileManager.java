@@ -595,9 +595,10 @@ public class ArbitraryDataFileManager extends Thread {
                 // Send valid, yet unexpected message type in response, so peer's synchronizer doesn't have to wait for timeout
                 LOGGER.debug(String.format("Sending 'file unknown' response to peer %s for GET_FILE request for unknown file %s", peer, arbitraryDataFile));
 
-                // We'll send empty block summaries message as it's very short
-                // TODO: use a different message type here
-                Message fileUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+                // Send generic 'unknown' message as it's very short
+                Message fileUnknownMessage = peer.getPeersVersion() >= GenericUnknownMessage.MINIMUM_PEER_VERSION
+                        ? new GenericUnknownMessage()
+                        : new BlockSummariesMessage(Collections.emptyList());
                 fileUnknownMessage.setId(message.getId());
                 if (!peer.sendMessage(fileUnknownMessage)) {
                     LOGGER.debug("Couldn't sent file-unknown response");

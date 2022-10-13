@@ -301,7 +301,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, String name,
+	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, List<String> names,
 															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
@@ -325,9 +325,16 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			bindParams.add(identifier);
 		}
 
-		if (name != null) {
-			sql.append(" AND name = ?");
-			bindParams.add(name);
+		if (names != null && !names.isEmpty()) {
+			sql.append(" AND name IN (?");
+			bindParams.add(names.get(0));
+
+			for (int i = 1; i < names.size(); ++i) {
+				sql.append(", ?");
+				bindParams.add(names.get(i));
+			}
+
+			sql.append(")");
 		}
 
 		sql.append(" GROUP BY name, service, identifier ORDER BY name COLLATE SQL_TEXT_UCC_NO_PAD");

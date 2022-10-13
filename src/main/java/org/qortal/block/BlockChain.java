@@ -68,12 +68,12 @@ public class BlockChain {
 		atFindNextTransactionFix,
 		newBlockSigHeight,
 		shareBinFix,
+		sharesByLevelV2Height,
 		rewardShareLimitTimestamp,
 		calcChainWeightTimestamp,
 		transactionV5Timestamp,
 		transactionV6Timestamp,
-		disableReferenceTimestamp,
-		aggregateSignatureTimestamp;
+		disableReferenceTimestamp;
 	}
 
 	// Custom transaction fees
@@ -122,13 +122,19 @@ public class BlockChain {
 			return shareBinCopy;
 		}
 	}
-	private List<AccountLevelShareBin> sharesByLevel;
+	private List<AccountLevelShareBin> sharesByLevelV1;
+	private List<AccountLevelShareBin> sharesByLevelV2;
 	/** Generated lookup of share-bin by account level */
-	private AccountLevelShareBin[] shareBinsByLevel;
+	private AccountLevelShareBin[] shareBinsByLevelV1;
+	private AccountLevelShareBin[] shareBinsByLevelV2;
 
-	/** Share of block reward/fees to legacy QORA coin holders */
-	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	private Long qoraHoldersShare;
+	/** Share of block reward/fees to legacy QORA coin holders, by block height */
+	public static class ShareByHeight {
+		public int height;
+		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+		public long share;
+	}
+	private List<ShareByHeight> qoraHoldersShareByHeight;
 
 	/** How many legacy QORA per 1 QORT of block reward. */
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
@@ -188,6 +194,10 @@ public class BlockChain {
 	/** Feature trigger timestamp for ONLINE_ACCOUNTS_MODULUS time interval increase. Can't use
 	 * featureTriggers because unit tests need to set this value via Reflection. */
 	private long onlineAccountsModulusV2Timestamp;
+
+	/** Feature trigger timestamp for online accounts mempow verification. Can't use featureTriggers
+	 * because unit tests need to set this value via Reflection. */
+	private long onlineAccountsMemoryPoWTimestamp;
 
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
@@ -349,6 +359,10 @@ public class BlockChain {
 		return this.onlineAccountsModulusV2Timestamp;
 	}
 
+	public long getOnlineAccountsMemoryPoWTimestamp() {
+		return this.onlineAccountsMemoryPoWTimestamp;
+	}
+
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
 	public boolean getRequireGroupForApproval() {
 		return this.requireGroupForApproval;
@@ -366,12 +380,20 @@ public class BlockChain {
 		return this.rewardsByHeight;
 	}
 
-	public List<AccountLevelShareBin> getAccountLevelShareBins() {
-		return this.sharesByLevel;
+	public List<AccountLevelShareBin> getAccountLevelShareBinsV1() {
+		return this.sharesByLevelV1;
 	}
 
-	public AccountLevelShareBin[] getShareBinsByAccountLevel() {
-		return this.shareBinsByLevel;
+	public List<AccountLevelShareBin> getAccountLevelShareBinsV2() {
+		return this.sharesByLevelV2;
+	}
+
+	public AccountLevelShareBin[] getShareBinsByAccountLevelV1() {
+		return this.shareBinsByLevelV1;
+	}
+
+	public AccountLevelShareBin[] getShareBinsByAccountLevelV2() {
+		return this.shareBinsByLevelV2;
 	}
 
 	public List<Integer> getBlocksNeededByLevel() {
@@ -380,10 +402,6 @@ public class BlockChain {
 
 	public List<Integer> getCumulativeBlocksByLevel() {
 		return this.cumulativeBlocksByLevel;
-	}
-
-	public long getQoraHoldersShare() {
-		return this.qoraHoldersShare;
 	}
 
 	public long getQoraPerQortReward() {
@@ -444,6 +462,10 @@ public class BlockChain {
 		return this.featureTriggers.get(FeatureTrigger.shareBinFix.name()).intValue();
 	}
 
+	public int getSharesByLevelV2Height() {
+		return this.featureTriggers.get(FeatureTrigger.sharesByLevelV2Height.name()).intValue();
+	}
+
 	public long getRewardShareLimitTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.rewardShareLimitTimestamp.name()).longValue();
 	}
@@ -464,9 +486,6 @@ public class BlockChain {
 		return this.featureTriggers.get(FeatureTrigger.disableReferenceTimestamp.name()).longValue();
 	}
 
-	public long getAggregateSignatureTimestamp() {
-		return this.featureTriggers.get(FeatureTrigger.aggregateSignatureTimestamp.name()).longValue();
-	}
 
 	// More complex getters for aspects that change by height or timestamp
 
@@ -504,6 +523,15 @@ public class BlockChain {
 		return 0;
 	}
 
+	public long getQoraHoldersShareAtHeight(int ourHeight) {
+		// Scan through for QORA share at our height
+		for (int i = qoraHoldersShareByHeight.size() - 1; i >= 0; --i)
+			if (qoraHoldersShareByHeight.get(i).height <= ourHeight)
+				return qoraHoldersShareByHeight.get(i).share;
+
+		return 0;
+	}
+
 	/** Validate blockchain config read from JSON */
 	private void validateConfig() {
 		if (this.genesisInfo == null)
@@ -512,11 +540,14 @@ public class BlockChain {
 		if (this.rewardsByHeight == null)
 			Settings.throwValidationError("No \"rewardsByHeight\" entry found in blockchain config");
 
-		if (this.sharesByLevel == null)
-			Settings.throwValidationError("No \"sharesByLevel\" entry found in blockchain config");
+		if (this.sharesByLevelV1 == null)
+			Settings.throwValidationError("No \"sharesByLevelV1\" entry found in blockchain config");
 
-		if (this.qoraHoldersShare == null)
-			Settings.throwValidationError("No \"qoraHoldersShare\" entry found in blockchain config");
+		if (this.sharesByLevelV2 == null)
+			Settings.throwValidationError("No \"sharesByLevelV2\" entry found in blockchain config");
+
+		if (this.qoraHoldersShareByHeight == null)
+			Settings.throwValidationError("No \"qoraHoldersShareByHeight\" entry found in blockchain config");
 
 		if (this.qoraPerQortReward == null)
 			Settings.throwValidationError("No \"qoraPerQortReward\" entry found in blockchain config");
@@ -553,13 +584,22 @@ public class BlockChain {
 			if (!this.featureTriggers.containsKey(featureTrigger.name()))
 				Settings.throwValidationError(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
 
-		// Check block reward share bounds
-		long totalShare = this.qoraHoldersShare;
+		// Check block reward share bounds (V1)
+		long totalShareV1 = this.qoraHoldersShareByHeight.get(0).share;
 		// Add share percents for account-level-based rewards
-		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevel)
-			totalShare += accountLevelShareBin.share;
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevelV1)
+			totalShareV1 += accountLevelShareBin.share;
 
-		if (totalShare < 0 || totalShare > 1_00000000L)
+		if (totalShareV1 < 0 || totalShareV1 > 1_00000000L)
+			Settings.throwValidationError("Total non-founder share out of bounds (0<x<1e8)");
+
+		// Check block reward share bounds (V2)
+		long totalShareV2 = this.qoraHoldersShareByHeight.get(1).share;
+		// Add share percents for account-level-based rewards
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevelV2)
+			totalShareV2 += accountLevelShareBin.share;
+
+		if (totalShareV2 < 0 || totalShareV2 > 1_00000000L)
 			Settings.throwValidationError("Total non-founder share out of bounds (0<x<1e8)");
 	}
 
@@ -575,23 +615,34 @@ public class BlockChain {
 				cumulativeBlocks += this.blocksNeededByLevel.get(level);
 		}
 
-		// Generate lookup-array for account-level share bins
-		AccountLevelShareBin lastAccountLevelShareBin = this.sharesByLevel.get(this.sharesByLevel.size() - 1);
-		final int lastLevel = lastAccountLevelShareBin.levels.get(lastAccountLevelShareBin.levels.size() - 1);
-		this.shareBinsByLevel = new AccountLevelShareBin[lastLevel];
-
-		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevel)
+		// Generate lookup-array for account-level share bins (V1)
+		AccountLevelShareBin lastAccountLevelShareBinV1 = this.sharesByLevelV1.get(this.sharesByLevelV1.size() - 1);
+		final int lastLevelV1 = lastAccountLevelShareBinV1.levels.get(lastAccountLevelShareBinV1.levels.size() - 1);
+		this.shareBinsByLevelV1 = new AccountLevelShareBin[lastLevelV1];
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevelV1)
 			for (int level : accountLevelShareBin.levels)
 				// level 1 stored at index 0, level 2 stored at index 1, etc.
 				// level 0 not allowed
-				this.shareBinsByLevel[level - 1] = accountLevelShareBin;
+				this.shareBinsByLevelV1[level - 1] = accountLevelShareBin;
+
+		// Generate lookup-array for account-level share bins (V2)
+		AccountLevelShareBin lastAccountLevelShareBinV2 = this.sharesByLevelV2.get(this.sharesByLevelV2.size() - 1);
+		final int lastLevelV2 = lastAccountLevelShareBinV2.levels.get(lastAccountLevelShareBinV2.levels.size() - 1);
+		this.shareBinsByLevelV2 = new AccountLevelShareBin[lastLevelV2];
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevelV2)
+			for (int level : accountLevelShareBin.levels)
+				// level 1 stored at index 0, level 2 stored at index 1, etc.
+				// level 0 not allowed
+				this.shareBinsByLevelV2[level - 1] = accountLevelShareBin;
 
 		// Convert collections to unmodifiable form
 		this.rewardsByHeight = Collections.unmodifiableList(this.rewardsByHeight);
-		this.sharesByLevel = Collections.unmodifiableList(this.sharesByLevel);
+		this.sharesByLevelV1 = Collections.unmodifiableList(this.sharesByLevelV1);
+		this.sharesByLevelV2 = Collections.unmodifiableList(this.sharesByLevelV2);
 		this.blocksNeededByLevel = Collections.unmodifiableList(this.blocksNeededByLevel);
 		this.cumulativeBlocksByLevel = Collections.unmodifiableList(this.cumulativeBlocksByLevel);
 		this.blockTimingsByHeight = Collections.unmodifiableList(this.blockTimingsByHeight);
+		this.qoraHoldersShareByHeight = Collections.unmodifiableList(this.qoraHoldersShareByHeight);
 	}
 
 	/**

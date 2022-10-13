@@ -13,6 +13,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.RewardByHeight;
 import org.qortal.controller.BlockMinter;
@@ -108,7 +109,7 @@ public class RewardTests extends Common {
 	public void testLegacyQoraReward() throws DataException {
 		Common.useSettings("test-settings-v2-qora-holder-extremes.json");
 
-		long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+		long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShareAtHeight(1);
 		BigInteger qoraHoldersShareBI = BigInteger.valueOf(qoraHoldersShare);
 
 		long qoraPerQort = BlockChain.getInstance().getQoraPerQortReward();
@@ -186,6 +187,47 @@ public class RewardTests extends Common {
 			long expectedBalance = Amounts.scaledDivide(initialBalances.get("dilbert").get(Asset.LEGACY_QORA), qoraPerQort);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, initialBalances.get("dilbert").get(Asset.QORT) + expectedBalance);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT_FROM_QORA, initialBalances.get("dilbert").get(Asset.QORT_FROM_QORA) + expectedBalance);
+		}
+	}
+
+	@Test
+	public void testLegacyQoraRewardReduction() throws DataException {
+		Common.useSettings("test-settings-v2-qora-holder-reduction.json");
+
+		// Make sure that the QORA share reduces between blocks 4 and 5
+		assertTrue(BlockChain.getInstance().getQoraHoldersShareAtHeight(5) < BlockChain.getInstance().getQoraHoldersShareAtHeight(4));
+
+		// Keep track of balance deltas at each height
+		Map<Integer, Long> chloeQortBalanceDeltaAtEachHeight = new HashMap<>();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			long chloeLastQortBalance = initialBalances.get("chloe").get(Asset.QORT);
+
+			for (int i=2; i<=10; i++) {
+
+				Block block = BlockUtils.mintBlock(repository);
+
+				// Add to map of balance deltas at each height
+				long chloeNewQortBalance = AccountUtils.getBalance(repository, "chloe", Asset.QORT);
+				chloeQortBalanceDeltaAtEachHeight.put(block.getBlockData().getHeight(), chloeNewQortBalance - chloeLastQortBalance);
+				chloeLastQortBalance = chloeNewQortBalance;
+			}
+
+			// Ensure blocks 2-4 paid out the same rewards to Chloe
+			assertEquals(chloeQortBalanceDeltaAtEachHeight.get(2), chloeQortBalanceDeltaAtEachHeight.get(4));
+
+			// Ensure block 5 paid a lower reward
+			assertTrue(chloeQortBalanceDeltaAtEachHeight.get(5) < chloeQortBalanceDeltaAtEachHeight.get(4));
+
+			// Check that the reward was 20x lower
+			assertTrue(chloeQortBalanceDeltaAtEachHeight.get(5) == chloeQortBalanceDeltaAtEachHeight.get(4) / 20);
+
+			// Orphan to block 4 and ensure that Chloe's balance hasn't been incorrectly affected by the reward reduction
+			BlockUtils.orphanToBlock(repository, 4);
+			long expectedChloeQortBalance = initialBalances.get("chloe").get(Asset.QORT) + chloeQortBalanceDeltaAtEachHeight.get(2) +
+					chloeQortBalanceDeltaAtEachHeight.get(3) + chloeQortBalanceDeltaAtEachHeight.get(4);
+			assertEquals(expectedChloeQortBalance, AccountUtils.getBalance(repository, "chloe", Asset.QORT));
 		}
 	}
 
@@ -294,7 +336,7 @@ public class RewardTests extends Common {
 			 * So Dilbert should receive 100% - legacy QORA holder's share.
 			 */
 
-			final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+			final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShareAtHeight(1);
 			final long remainingShare = 1_00000000 - qoraHoldersShare;
 
 			long dilbertExpectedBalance = initialBalances.get("dilbert").get(Asset.QORT);
@@ -1136,6 +1178,250 @@ public class RewardTests extends Common {
 			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance);
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
+		}
+	}
+
+	/** Test rewards for level 1 and 2 accounts with V2 share-bin layout (post QORA reduction) */
+	@Test
+	public void testLevel1And2RewardsShareBinsV2() throws DataException {
+		Common.useSettings("test-settings-v2-reward-levels.json");
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
+
+			// Alice self share online
+			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
+			mintingAndOnlineAccounts.add(aliceSelfShare);
+			byte[] chloeRewardSharePrivateKey;
+			// Bob self-share NOT online
+
+			// Mint some blocks, to get us close to the V2 activation, but with some room for Chloe and Dilbert to start minting some blocks
+			for (int i=0; i<990; i++)
+				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Chloe self share comes online
+			try {
+				chloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "chloe", "chloe", 0);
+			} catch (IllegalArgumentException ex) {
+				LOGGER.error("FAILED {}", ex.getLocalizedMessage(), ex);
+				throw ex;
+			}
+			PrivateKeyAccount chloeRewardShareAccount = new PrivateKeyAccount(repository, chloeRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(chloeRewardShareAccount);
+
+			// Dilbert self share comes online
+			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", 0);
+			PrivateKeyAccount dilbertRewardShareAccount = new PrivateKeyAccount(repository, dilbertRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(dilbertRewardShareAccount);
+
+			// Mint 6 more blocks, so that V2 share bins are nearly activated
+			for (int i=0; i<6; i++)
+				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure that the levels are as we expect
+			assertEquals(10, (int) Common.getTestAccount(repository, "alice").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "bob").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "chloe").getLevel());
+			assertEquals(2, (int) Common.getTestAccount(repository, "dilbert").getLevel());
+
+			// Ensure that only Alice is a founder
+			assertEquals(1, getFlags(repository, "alice"));
+			assertEquals(0, getFlags(repository, "bob"));
+			assertEquals(0, getFlags(repository, "chloe"));
+			assertEquals(0, getFlags(repository, "dilbert"));
+
+			// Now that everyone is at level 1 or 2, we can capture initial balances
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			final long aliceInitialBalance = initialBalances.get("alice").get(Asset.QORT);
+			final long bobInitialBalance = initialBalances.get("bob").get(Asset.QORT);
+			final long chloeInitialBalance = initialBalances.get("chloe").get(Asset.QORT);
+			final long dilbertInitialBalance = initialBalances.get("dilbert").get(Asset.QORT);
+
+			// Mint a block
+			final long blockReward = BlockUtils.getNextBlockReward(repository);
+			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure we are at the correct height and block reward value
+			assertEquals(1000, (int) repository.getBlockRepository().getLastBlock().getHeight());
+			assertEquals(100000000L, blockReward);
+
+			// We are past the sharesByLevelV2Height feature trigger, so we expect level 1 and 2 to share the increased reward (6%)
+			final int level1And2SharePercent = 6_00; // 6%
+			final long level1And2ShareAmount = (blockReward * level1And2SharePercent) / 100L / 100L;
+			final long expectedLevel1And2RewardV2 = level1And2ShareAmount / 2; // The reward is split between Chloe and Dilbert
+			final long expectedFounderRewardV2 = blockReward - level1And2ShareAmount; // Alice should receive the remainder
+
+			// Validate the balances
+			assertEquals(6000000, level1And2ShareAmount);
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance+expectedFounderRewardV2);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance+expectedLevel1And2RewardV2);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel1And2RewardV2);
+
+			// Now orphan the latest block. This brings us to the threshold of the sharesByLevelV2Height feature trigger
+			BlockUtils.orphanBlocks(repository, 1);
+			assertEquals(999, (int) repository.getBlockRepository().getLastBlock().getHeight());
+
+			// Ensure the latest block rewards have been subtracted and they have returned to their initial values
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
+			// Orphan another block. This time, the block that was orphaned was prior to the sharesByLevelV2Height feature trigger.
+			BlockUtils.orphanBlocks(repository, 1);
+			assertEquals(998, (int) repository.getBlockRepository().getLastBlock().getHeight());
+
+			// In V1 of share-bins, level 1-2 pays out 5% instead of 6%
+			final int level1And2SharePercentV1 = 5_00; // 5%
+			final long level1And2ShareAmountV1 = (blockReward * level1And2SharePercentV1) / 100L / 100L;
+			final long expectedLevel1And2RewardV1 = level1And2ShareAmountV1 / 2; // The reward is split between Chloe and Dilbert
+			final long expectedFounderRewardV1 = blockReward - level1And2ShareAmountV1; // Alice should receive the remainder
+
+			// Validate the share amounts and balances
+			assertEquals(5000000, level1And2ShareAmountV1);
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance-expectedFounderRewardV1);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance-expectedLevel1And2RewardV1);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance-expectedLevel1And2RewardV1);
+
+			// Orphan the latest block one last time
+			BlockUtils.orphanBlocks(repository, 1);
+			assertEquals(997, (int) repository.getBlockRepository().getLastBlock().getHeight());
+
+			// Validate balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance-(expectedFounderRewardV1*2));
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance-(expectedLevel1And2RewardV1*2));
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance-(expectedLevel1And2RewardV1*2));
+
+		}
+	}
+
+	/** Test rewards for level 1 and 2 accounts with V2 share-bin layout (post QORA reduction)
+	 * plus some legacy QORA holders */
+	@Test
+	public void testLevel1And2RewardsShareBinsV2WithQoraHolders() throws DataException {
+		Common.useSettings("test-settings-v2-qora-holder-extremes.json");
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<PrivateKeyAccount> mintingAndOnlineAccounts = new ArrayList<>();
+
+			// Some legacy QORA holders exist (Bob and Chloe)
+
+			// Alice self share online
+			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
+			mintingAndOnlineAccounts.add(aliceSelfShare);
+			byte[] chloeRewardSharePrivateKey;
+			// Bob self-share NOT online
+
+			// Mint some blocks, to get us close to the V2 activation, but with some room for Chloe and Dilbert to start minting some blocks
+			for (int i=0; i<990; i++)
+				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Chloe self share comes online
+			try {
+				chloeRewardSharePrivateKey = AccountUtils.rewardShare(repository, "chloe", "chloe", 0);
+			} catch (IllegalArgumentException ex) {
+				LOGGER.error("FAILED {}", ex.getLocalizedMessage(), ex);
+				throw ex;
+			}
+			PrivateKeyAccount chloeRewardShareAccount = new PrivateKeyAccount(repository, chloeRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(chloeRewardShareAccount);
+
+			// Dilbert self share comes online
+			byte[] dilbertRewardSharePrivateKey = AccountUtils.rewardShare(repository, "dilbert", "dilbert", 0);
+			PrivateKeyAccount dilbertRewardShareAccount = new PrivateKeyAccount(repository, dilbertRewardSharePrivateKey);
+			mintingAndOnlineAccounts.add(dilbertRewardShareAccount);
+
+			// Mint 6 more blocks, so that V2 share bins are nearly activated
+			for (int i=0; i<6; i++)
+				BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure that the levels are as we expect
+			assertEquals(10, (int) Common.getTestAccount(repository, "alice").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "bob").getLevel());
+			assertEquals(1, (int) Common.getTestAccount(repository, "chloe").getLevel());
+			assertEquals(2, (int) Common.getTestAccount(repository, "dilbert").getLevel());
+
+			// Ensure that only Alice is a founder
+			assertEquals(1, getFlags(repository, "alice"));
+			assertEquals(0, getFlags(repository, "bob"));
+			assertEquals(0, getFlags(repository, "chloe"));
+			assertEquals(0, getFlags(repository, "dilbert"));
+
+			// Now that everyone is at level 1 or 2, we can capture initial balances
+			Map<String, Map<Long, Long>> initialBalances = AccountUtils.getBalances(repository, Asset.QORT, Asset.LEGACY_QORA, Asset.QORT_FROM_QORA);
+			final long aliceInitialBalance = initialBalances.get("alice").get(Asset.QORT);
+			final long bobInitialBalance = initialBalances.get("bob").get(Asset.QORT);
+			final long chloeInitialBalance = initialBalances.get("chloe").get(Asset.QORT);
+			final long dilbertInitialBalance = initialBalances.get("dilbert").get(Asset.QORT);
+
+			// Mint a block
+			final long blockReward = BlockUtils.getNextBlockReward(repository);
+			BlockMinter.mintTestingBlock(repository, mintingAndOnlineAccounts.toArray(new PrivateKeyAccount[0]));
+
+			// Ensure we are at the correct height and block reward value
+			assertEquals(1000, (int) repository.getBlockRepository().getLastBlock().getHeight());
+			assertEquals(100000000L, blockReward);
+
+			// We are past the sharesByLevelV2Height feature trigger, so we expect level 1 and 2 to share the increased reward (6%)
+			// and the QORA share will be 1%
+			final int level1And2SharePercent = 6_00; // 6%
+			final int qoraSharePercentV2 = 1_00; // 1%
+			final long qoraShareAmountV2 = (blockReward * qoraSharePercentV2) / 100L / 100L;
+			final long level1And2ShareAmount = (blockReward * level1And2SharePercent) / 100L / 100L;
+			final long expectedLevel1And2RewardV2 = level1And2ShareAmount / 2; // The reward is split between Chloe and Dilbert
+			final long expectedFounderRewardV2 = blockReward - level1And2ShareAmount - qoraShareAmountV2; // Alice should receive the remainder
+
+			// Validate the balances
+			assertEquals(6000000, level1And2ShareAmount);
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance+expectedFounderRewardV2);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			// Chloe is a QORA holder and will receive additional QORT, so it's not easy to pre-calculate her balance
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance+expectedLevel1And2RewardV2);
+
+			// Now orphan the latest block. This brings us to the threshold of the sharesByLevelV2Height feature trigger
+			BlockUtils.orphanBlocks(repository, 1);
+			assertEquals(999, (int) repository.getBlockRepository().getLastBlock().getHeight());
+
+			// Ensure the latest block rewards have been subtracted and they have returned to their initial values
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			AccountUtils.assertBalance(repository, "chloe", Asset.QORT, chloeInitialBalance);
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance);
+
+			// Orphan another block. This time, the block that was orphaned was prior to the sharesByLevelV2Height feature trigger.
+			BlockUtils.orphanBlocks(repository, 1);
+			assertEquals(998, (int) repository.getBlockRepository().getLastBlock().getHeight());
+
+			// In V1 of share-bins, level 1-2 pays out 5% instead of 6%, and the QORA share is higher at 20%
+			final int level1And2SharePercentV1 = 5_00; // 5%
+			final int qoraSharePercentV1 = 20_00; // 20%
+			final long qoraShareAmountV1 = (blockReward * qoraSharePercentV1) / 100L / 100L;
+			final long level1And2ShareAmountV1 = (blockReward * level1And2SharePercentV1) / 100L / 100L;
+			final long expectedLevel1And2RewardV1 = level1And2ShareAmountV1 / 2; // The reward is split between Chloe and Dilbert
+			final long expectedFounderRewardV1 = blockReward - level1And2ShareAmountV1 - qoraShareAmountV1; // Alice should receive the remainder
+
+			// Validate the share amounts and balances
+			assertEquals(5000000, level1And2ShareAmountV1);
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance-expectedFounderRewardV1);
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			// Chloe is a QORA holder and will receive additional QORT, so it's not easy to pre-calculate her balance
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance-expectedLevel1And2RewardV1);
+
+			// Orphan the latest block one last time
+			BlockUtils.orphanBlocks(repository, 1);
+			assertEquals(997, (int) repository.getBlockRepository().getLastBlock().getHeight());
+
+			// Validate balances
+			AccountUtils.assertBalance(repository, "alice", Asset.QORT, aliceInitialBalance-(expectedFounderRewardV1*2));
+			AccountUtils.assertBalance(repository, "bob", Asset.QORT, bobInitialBalance); // Bob not online so his balance remains the same
+			// Chloe is a QORA holder and will receive additional QORT, so it's not easy to pre-calculate her balance
+			AccountUtils.assertBalance(repository, "dilbert", Asset.QORT, dilbertInitialBalance-(expectedLevel1And2RewardV1*2));
 
 		}
 	}

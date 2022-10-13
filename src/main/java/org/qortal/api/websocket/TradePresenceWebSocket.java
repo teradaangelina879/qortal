@@ -65,11 +65,15 @@ public class TradePresenceWebSocket extends ApiWebSocket implements Listener {
 	@Override
 	public void onWebSocketConnect(Session session) {
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		final boolean excludeInitialData = queryParams.get("excludeInitialData") != null;
 
-		List<TradePresenceData> tradePresences;
+		List<TradePresenceData> tradePresences = new ArrayList<>();
 
-		synchronized (currentEntries) {
-			tradePresences = List.copyOf(currentEntries.values());
+		// We might need to exclude the initial data from the response
+		if (!excludeInitialData) {
+			synchronized (currentEntries) {
+				tradePresences = List.copyOf(currentEntries.values());
+			}
 		}
 
 		if (!sendTradePresences(session, tradePresences)) {
