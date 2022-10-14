@@ -649,6 +649,11 @@ public class OnlineAccountsManager {
             return true;
         }
 
+        // Require a valid nonce value
+        if (onlineAccountData.getNonce() == null || onlineAccountData.getNonce() < 0) {
+            return false;
+        }
+
         int nonce = onlineAccountData.getNonce();
 
         byte[] mempowBytes;
