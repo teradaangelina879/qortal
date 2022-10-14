@@ -53,6 +53,9 @@ public class Synchronizer extends Thread {
 	/** Maximum number of block signatures we ask from peer in one go */
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
 
+	/** Maximum number of consecutive failed sync attempts before marking peer as misbehaved */
+	private static final int MAX_CONSECUTIVE_FAILED_SYNC_ATTEMPTS = 3;
+
 	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000L; // ms
 
 
@@ -1591,8 +1594,20 @@ public class Synchronizer extends Thread {
 		Message getBlockMessage = new GetBlockMessage(signature);
 
 		Message message = peer.getResponse(getBlockMessage);
-		if (message == null)
+		if (message == null) {
+			peer.getPeerData().incrementFailedSyncCount();
+			if (peer.getPeerData().getFailedSyncCount() >= MAX_CONSECUTIVE_FAILED_SYNC_ATTEMPTS) {
+				// Several failed attempts, so mark peer as misbehaved
+				LOGGER.info("Marking peer {} as misbehaved due to {} failed sync attempts", peer, peer.getPeerData().getFailedSyncCount());
+				Network.getInstance().peerMisbehaved(peer);
+			}
 			return null;
+		}
+
+		// Reset failed sync count now that we have a block response
+		// FUTURE: we could move this to the end of the sync process, but to reduce risk this can be done
+		// at a later stage. For now we are only defending against serialization errors or no responses.
+		peer.getPeerData().setFailedSyncCount(0);
 
 		switch (message.getType()) {
 			case BLOCK: {
