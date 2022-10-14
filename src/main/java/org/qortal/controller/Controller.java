@@ -1610,7 +1610,7 @@ public class Controller extends Thread {
 			 * having been passed upwards from Peer to Network to Controller.
 			 * Hence, these are NOT simple "here's my chain tip" broadcasts from other peers.
 			 */
-			LOGGER.info("Discarding late {} message with ID {} from {}", message.getType().name(), message.getId(), peer);
+			LOGGER.debug("Discarding late {} message with ID {} from {}", message.getType().name(), message.getId(), peer);
 			return;
 		}
 
