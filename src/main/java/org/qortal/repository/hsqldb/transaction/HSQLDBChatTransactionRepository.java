@@ -17,7 +17,7 @@ public class HSQLDBChatTransactionRepository extends HSQLDBTransactionRepository
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		String sql = "SELECT sender, nonce, recipient, is_text, is_encrypted, data FROM ChatTransactions WHERE signature = ?";
+		String sql = "SELECT sender, nonce, recipient, is_text, is_encrypted, data, chat_reference FROM ChatTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
@@ -29,8 +29,9 @@ public class HSQLDBChatTransactionRepository extends HSQLDBTransactionRepository
 			boolean isText = resultSet.getBoolean(4);
 			boolean isEncrypted = resultSet.getBoolean(5);
 			byte[] data = resultSet.getBytes(6);
+			byte[] chatReference = resultSet.getBytes(7);
 
-			return new ChatTransactionData(baseTransactionData, sender, nonce, recipient, data, isText, isEncrypted);
+			return new ChatTransactionData(baseTransactionData, sender, nonce, recipient, chatReference, data, isText, isEncrypted);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch chat transaction from repository", e);
 		}

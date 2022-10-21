@@ -975,6 +975,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN receiving_account_info SET DATA TYPE VARBINARY(128)");
 					break;
 
+				case 44:
+					// Add a chat reference, to allow one message to reference another, and for this to be easily
+					// searchable. Null values are allowed as most transactions won't have a reference.
+					stmt.execute("ALTER TABLE ChatTransactions ADD chat_reference Signature");
+					break;
+
 				default:
 					// nothing to do
 					return false;

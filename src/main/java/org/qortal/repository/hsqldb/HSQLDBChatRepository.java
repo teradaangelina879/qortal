@@ -24,7 +24,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 	@Override
 	public List<ChatMessage> getMessagesMatchingCriteria(Long before, Long after, Integer txGroupId, byte[] referenceBytes,
-			List<String> involving, Integer limit, Integer offset, Boolean reverse)
+			byte[] chatReferenceBytes, List<String> involving, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
 		// Check args meet expectations
 		if ((txGroupId != null && involving != null && !involving.isEmpty())
@@ -60,6 +60,11 @@ public class HSQLDBChatRepository implements ChatRepository {
 		if (referenceBytes != null) {
 			whereClauses.add("reference = ?");
 			bindParams.add(referenceBytes);
+		}
+
+		if (chatReferenceBytes != null) {
+			whereClauses.add("chat_reference = ?");
+			bindParams.add(chatReferenceBytes);
 		}
 
 		if (txGroupId != null) {
