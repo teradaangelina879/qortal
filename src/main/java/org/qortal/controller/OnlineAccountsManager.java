@@ -702,7 +702,7 @@ public class OnlineAccountsManager {
      */
     // Block::mint() - only wants online accounts with (online) timestamp that matches block's (online) timestamp so they can be added to new block
     public List<OnlineAccountData> getOnlineAccounts(long onlineTimestamp) {
-        LOGGER.info(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
+        LOGGER.debug(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
 
         return new ArrayList<>(Set.copyOf(this.currentOnlineAccounts.getOrDefault(onlineTimestamp, Collections.emptySet())));
     }

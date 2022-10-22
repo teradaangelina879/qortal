@@ -244,7 +244,7 @@ public class BlockMinter extends Thread {
 							Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
 							if (newBlock == null) {
 								// For some reason we can't mint right now
-								moderatedLog(() -> LOGGER.error("Couldn't build a to-be-minted block"));
+								moderatedLog(() -> LOGGER.info("Couldn't build a to-be-minted block"));
 								continue;
 							}
 
