@@ -600,7 +600,7 @@ public class OnlineAccountsManager {
     // MemoryPoW
 
     private boolean isMemoryPoWActive(Long timestamp) {
-        if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp() || Settings.getInstance().isOnlineAccountsMemPoWEnabled()) {
+        if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
             return true;
         }
         return false;
@@ -617,7 +617,7 @@ public class OnlineAccountsManager {
 
     private Integer computeMemoryPoW(byte[] bytes, byte[] publicKey, long onlineAccountsTimestamp) throws TimeoutException {
         if (!isMemoryPoWActive(NTP.getTime())) {
-            LOGGER.info("Mempow start timestamp not yet reached, and onlineAccountsMemPoWEnabled not enabled in settings");
+            LOGGER.info("Mempow start timestamp not yet reached");
             return null;
         }
 

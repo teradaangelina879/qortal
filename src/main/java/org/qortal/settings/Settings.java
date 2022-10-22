@@ -290,10 +290,6 @@ public class Settings {
 	/** Additional offset added to values returned by NTP.getTime() */
 	private Long testNtpOffset = null;
 
-	// Online accounts
-
-	/** Whether to opt-in to mempow computations for online accounts, ahead of general release */
-	private boolean onlineAccountsMemPoWEnabled = false;
 
 
 	/* Foreign chains */
@@ -798,10 +794,6 @@ public class Settings {
 
 	public Long getTestNtpOffset() {
 		return this.testNtpOffset;
-	}
-
-	public boolean isOnlineAccountsMemPoWEnabled() {
-		return this.onlineAccountsMemPoWEnabled;
 	}
 
 	public long getRepositoryBackupInterval() {
