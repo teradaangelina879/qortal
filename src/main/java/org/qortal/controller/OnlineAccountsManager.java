@@ -192,8 +192,8 @@ public class OnlineAccountsManager {
                     return;
 
                 // Skip this account if it's already validated
-                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountData.getTimestamp(), k -> ConcurrentHashMap.newKeySet());
-                if (onlineAccounts.contains(onlineAccountData)) {
+                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.get(onlineAccountData.getTimestamp());
+                if (onlineAccounts != null && onlineAccounts.contains(onlineAccountData)) {
                     // We have already validated this online account
                     onlineAccountsImportQueue.remove(onlineAccountData);
                     continue;
