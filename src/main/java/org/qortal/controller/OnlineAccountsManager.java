@@ -214,8 +214,8 @@ public class OnlineAccountsManager {
             if (!onlineAccountsToAdd.isEmpty()) {
                 LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
                 addAccounts(onlineAccountsToAdd);
-                onlineAccountsImportQueue.removeAll(onlineAccountsToRemove);
             }
+            onlineAccountsImportQueue.removeAll(onlineAccountsToRemove);
         }
     }
 
