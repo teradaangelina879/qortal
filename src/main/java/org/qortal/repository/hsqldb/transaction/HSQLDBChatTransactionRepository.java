@@ -46,7 +46,7 @@ public class HSQLDBChatTransactionRepository extends HSQLDBTransactionRepository
 		saveHelper.bind("signature", chatTransactionData.getSignature()).bind("nonce", chatTransactionData.getNonce())
 				.bind("sender", chatTransactionData.getSender()).bind("recipient", chatTransactionData.getRecipient())
 				.bind("is_text", chatTransactionData.getIsText()).bind("is_encrypted", chatTransactionData.getIsEncrypted())
-				.bind("data", chatTransactionData.getData());
+				.bind("data", chatTransactionData.getData()).bind("chat_reference", chatTransactionData.getChatReference());
 
 		try {
 			saveHelper.execute(this.repository);
