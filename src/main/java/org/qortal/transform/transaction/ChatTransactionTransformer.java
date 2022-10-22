@@ -29,7 +29,7 @@ public class ChatTransactionTransformer extends TransactionTransformer {
 	private static final int IS_TEXT_LENGTH = BOOLEAN_LENGTH;
 	private static final int IS_ENCRYPTED_LENGTH = BOOLEAN_LENGTH;
 
-	private static final int EXTRAS_LENGTH = NONCE_LENGTH + HAS_RECIPIENT_LENGTH + HAS_CHAT_REFERENCE_LENGTH + DATA_SIZE_LENGTH + IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH;
+	private static final int EXTRAS_LENGTH = NONCE_LENGTH + HAS_RECIPIENT_LENGTH + DATA_SIZE_LENGTH + IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH + HAS_CHAT_REFERENCE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -66,17 +66,6 @@ public class ChatTransactionTransformer extends TransactionTransformer {
 		boolean hasRecipient = byteBuffer.get() != 0;
 		String recipient = hasRecipient ? Serialization.deserializeAddress(byteBuffer) : null;
 
-		byte[] chatReference = null;
-
-		if (timestamp >= BlockChain.getInstance().getChatReferenceTimestamp()) {
-			boolean hasChatReference = byteBuffer.get() != 0;
-
-			if (hasChatReference) {
-				chatReference = new byte[CHAT_REFERENCE_LENGTH];
-				byteBuffer.get(chatReference);
-			}
-		}
-
 		int dataSize = byteBuffer.getInt();
 		// Don't allow invalid dataSize here to avoid run-time issues
 		if (dataSize > ChatTransaction.MAX_DATA_SIZE)
@@ -90,6 +79,17 @@ public class ChatTransactionTransformer extends TransactionTransformer {
 		boolean isText = byteBuffer.get() != 0;
 
 		long fee = byteBuffer.getLong();
+
+		byte[] chatReference = null;
+
+		if (timestamp >= BlockChain.getInstance().getChatReferenceTimestamp()) {
+			boolean hasChatReference = byteBuffer.get() != 0;
+
+			if (hasChatReference) {
+				chatReference = new byte[CHAT_REFERENCE_LENGTH];
+				byteBuffer.get(chatReference);
+			}
+		}
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
@@ -131,16 +131,6 @@ public class ChatTransactionTransformer extends TransactionTransformer {
 				bytes.write((byte) 0);
 			}
 
-			if (transactionData.getTimestamp() >= BlockChain.getInstance().getChatReferenceTimestamp()) {
-				// Include chat reference if it's not null
-				if (chatTransactionData.getChatReference() != null) {
-					bytes.write((byte) 1);
-					bytes.write(chatTransactionData.getChatReference());
-				} else {
-					bytes.write((byte) 0);
-				}
-			}
-
 			bytes.write(Ints.toByteArray(chatTransactionData.getData().length));
 
 			bytes.write(chatTransactionData.getData());
@@ -150,6 +140,16 @@ public class ChatTransactionTransformer extends TransactionTransformer {
 			bytes.write((byte) (chatTransactionData.getIsText() ? 1 : 0));
 
 			bytes.write(Longs.toByteArray(chatTransactionData.getFee()));
+
+			if (transactionData.getTimestamp() >= BlockChain.getInstance().getChatReferenceTimestamp()) {
+				// Include chat reference if it's not null
+				if (chatTransactionData.getChatReference() != null) {
+					bytes.write((byte) 1);
+					bytes.write(chatTransactionData.getChatReference());
+				} else {
+					bytes.write((byte) 0);
+				}
+			}
 
 			if (chatTransactionData.getSignature() != null)
 				bytes.write(chatTransactionData.getSignature());
