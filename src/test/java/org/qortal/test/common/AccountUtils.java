@@ -124,8 +124,6 @@ public class AccountUtils {
 		long timestamp = System.currentTimeMillis();
 		byte[] timestampBytes = Longs.toByteArray(timestamp);
 
-		final boolean mempowActive = timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
-
 		for (int a = 0; a < numAccounts; ++a) {
 			byte[] privateKey = new byte[Transformer.PUBLIC_KEY_LENGTH];
 			SECURE_RANDOM.nextBytes(privateKey);
@@ -135,7 +133,7 @@ public class AccountUtils {
 
 			byte[] signature = signForAggregation(privateKey, timestampBytes);
 
-			Integer nonce = mempowActive ? new Random().nextInt(500000) : null;
+			Integer nonce = new Random().nextInt(500000);
 
 			onlineAccounts.add(new OnlineAccountData(timestamp, signature, publicKey, nonce));
 		}

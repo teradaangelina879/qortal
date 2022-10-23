@@ -195,10 +195,6 @@ public class BlockChain {
 	 * featureTriggers because unit tests need to set this value via Reflection. */
 	private long onlineAccountsModulusV2Timestamp;
 
-	/** Feature trigger timestamp for online accounts mempow verification. Can't use featureTriggers
-	 * because unit tests need to set this value via Reflection. */
-	private long onlineAccountsMemoryPoWTimestamp;
-
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
 		public long timestamp;
@@ -357,10 +353,6 @@ public class BlockChain {
 	// Online accounts
 	public long getOnlineAccountsModulusV2Timestamp() {
 		return this.onlineAccountsModulusV2Timestamp;
-	}
-
-	public long getOnlineAccountsMemoryPoWTimestamp() {
-		return this.onlineAccountsMemoryPoWTimestamp;
 	}
 
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */

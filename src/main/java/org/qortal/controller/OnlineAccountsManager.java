@@ -20,7 +20,6 @@ import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 import org.qortal.utils.NamedThreadFactory;
@@ -156,7 +155,6 @@ public class OnlineAccountsManager {
             return;
 
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-        final boolean mempowActive = onlineAccountsTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
 
         Set<OnlineAccountData> replacementAccounts = new HashSet<>();
         for (PrivateKeyAccount onlineAccount : onlineAccounts) {
@@ -165,7 +163,7 @@ public class OnlineAccountsManager {
             byte[] signature = Qortal25519Extras.signForAggregation(onlineAccount.getPrivateKey(), timestampBytes);
             byte[] publicKey = onlineAccount.getPublicKey();
 
-            Integer nonce = mempowActive ? new Random().nextInt(500000) : null;
+            Integer nonce = new Random().nextInt(500000);
 
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
             replacementAccounts.add(ourOnlineAccountData);
@@ -321,13 +319,10 @@ public class OnlineAccountsManager {
             return false;
         }
 
-        // Validate mempow if feature trigger is active (or if online account's timestamp is past the trigger timestamp)
-        long memoryPoWStartTimestamp = BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
-        if (now >= memoryPoWStartTimestamp || onlineAccountTimestamp >= memoryPoWStartTimestamp) {
-            if (!getInstance().verifyMemoryPoW(onlineAccountData, now)) {
-                LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
-                return false;
-            }
+        // Validate mempow
+        if (!getInstance().verifyMemoryPoW(onlineAccountData, now)) {
+            LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
+            return false;
         }
 
         return true;
@@ -471,12 +466,10 @@ public class OnlineAccountsManager {
 
         // 'next' timestamp (prioritize this as it's the most important, if mempow active)
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(now) + getOnlineTimestampModulus();
-        if (isMemoryPoWActive(now)) {
-            boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
-            if (!success) {
-                // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
-                return;
-            }
+        boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
+        if (!success) {
+            // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
+            return;
         }
 
         // 'current' timestamp
@@ -553,21 +546,15 @@ public class OnlineAccountsManager {
 
             // Compute nonce
             Integer nonce;
-            if (isMemoryPoWActive(NTP.getTime())) {
-                try {
-                    nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
-                    if (nonce == null) {
-                        // A nonce is required
-                        return false;
-                    }
-                } catch (TimeoutException e) {
-                    LOGGER.info(String.format("Timed out computing nonce for account %.8s", Base58.encode(publicKey)));
+            try {
+                nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
+                if (nonce == null) {
+                    // A nonce is required
                     return false;
                 }
-            }
-            else {
-                // Send -1 if we haven't computed a nonce due to feature trigger timestamp
-                nonce = -1;
+            } catch (TimeoutException e) {
+                LOGGER.info(String.format("Timed out computing nonce for account %.8s", Base58.encode(publicKey)));
+                return false;
             }
 
             byte[] signature = Qortal25519Extras.signForAggregation(privateKey, timestampBytes);
@@ -599,12 +586,6 @@ public class OnlineAccountsManager {
 
     // MemoryPoW
 
-    private boolean isMemoryPoWActive(Long timestamp) {
-        if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-            return true;
-        }
-        return false;
-    }
     private byte[] getMemoryPoWBytes(byte[] publicKey, long onlineAccountsTimestamp) throws IOException {
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
 
@@ -616,11 +597,6 @@ public class OnlineAccountsManager {
     }
 
     private Integer computeMemoryPoW(byte[] bytes, byte[] publicKey, long onlineAccountsTimestamp) throws TimeoutException {
-        if (!isMemoryPoWActive(NTP.getTime())) {
-            LOGGER.info("Mempow start timestamp not yet reached");
-            return null;
-        }
-
         LOGGER.info(String.format("Computing nonce for account %.8s and timestamp %d...", Base58.encode(publicKey), onlineAccountsTimestamp));
 
         // Calculate the time until the next online timestamp and use it as a timeout when computing the nonce
@@ -643,12 +619,6 @@ public class OnlineAccountsManager {
     }
 
     public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, Long timestamp) {
-        long memoryPoWStartTimestamp = BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
-        if (timestamp < memoryPoWStartTimestamp && onlineAccountData.getTimestamp() < memoryPoWStartTimestamp) {
-            // Not active yet, so treat it as valid
-            return true;
-        }
-
         // Require a valid nonce value
         if (onlineAccountData.getNonce() == null || onlineAccountData.getNonce() < 0) {
             return false;
