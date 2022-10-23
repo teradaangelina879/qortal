@@ -192,8 +192,8 @@ public class OnlineAccountsManager {
                     return;
 
                 // Skip this account if it's already validated
-                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountData.getTimestamp(), k -> ConcurrentHashMap.newKeySet());
-                if (onlineAccounts.contains(onlineAccountData)) {
+                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.get(onlineAccountData.getTimestamp());
+                if (onlineAccounts != null && onlineAccounts.contains(onlineAccountData)) {
                     // We have already validated this online account
                     onlineAccountsImportQueue.remove(onlineAccountData);
                     continue;
@@ -214,8 +214,8 @@ public class OnlineAccountsManager {
             if (!onlineAccountsToAdd.isEmpty()) {
                 LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
                 addAccounts(onlineAccountsToAdd);
-                onlineAccountsImportQueue.removeAll(onlineAccountsToRemove);
             }
+            onlineAccountsImportQueue.removeAll(onlineAccountsToRemove);
         }
     }
 
@@ -600,7 +600,7 @@ public class OnlineAccountsManager {
     // MemoryPoW
 
     private boolean isMemoryPoWActive(Long timestamp) {
-        if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp() || Settings.getInstance().isOnlineAccountsMemPoWEnabled()) {
+        if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
             return true;
         }
         return false;
@@ -617,7 +617,7 @@ public class OnlineAccountsManager {
 
     private Integer computeMemoryPoW(byte[] bytes, byte[] publicKey, long onlineAccountsTimestamp) throws TimeoutException {
         if (!isMemoryPoWActive(NTP.getTime())) {
-            LOGGER.info("Mempow start timestamp not yet reached, and onlineAccountsMemPoWEnabled not enabled in settings");
+            LOGGER.info("Mempow start timestamp not yet reached");
             return null;
         }
 
@@ -702,7 +702,7 @@ public class OnlineAccountsManager {
      */
     // Block::mint() - only wants online accounts with (online) timestamp that matches block's (online) timestamp so they can be added to new block
     public List<OnlineAccountData> getOnlineAccounts(long onlineTimestamp) {
-        LOGGER.info(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
+        LOGGER.debug(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
 
         return new ArrayList<>(Set.copyOf(this.currentOnlineAccounts.getOrDefault(onlineTimestamp, Collections.emptySet())));
     }

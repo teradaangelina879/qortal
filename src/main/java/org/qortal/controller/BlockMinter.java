@@ -93,6 +93,8 @@ public class BlockMinter extends Thread {
 
 		List<Block> newBlocks = new ArrayList<>();
 
+		final boolean isSingleNodeTestnet = Settings.getInstance().isSingleNodeTestnet();
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Going to need this a lot...
 			BlockRepository blockRepository = repository.getBlockRepository();
@@ -111,8 +113,9 @@ public class BlockMinter extends Thread {
 					// Free up any repository locks
 					repository.discardChanges();
 
-					// Sleep for a while
-					Thread.sleep(1000);
+					// Sleep for a while.
+					// It's faster on single node testnets, to allow lots of blocks to be minted quickly.
+					Thread.sleep(isSingleNodeTestnet ? 50 : 1000);
 
 					isMintingPossible = false;
 
@@ -223,9 +226,10 @@ public class BlockMinter extends Thread {
 					List<PrivateKeyAccount> newBlocksMintingAccounts = mintingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getPrivateKey())).collect(Collectors.toList());
 
 					// We might need to sit the next block out, if one of our minting accounts signed the previous one
+					// Skip this check for single node testnets, since they definitely need to mint every block
 					byte[] previousBlockMinter = previousBlockData.getMinterPublicKey();
 					boolean mintedLastBlock = mintingAccountsData.stream().anyMatch(mintingAccount -> Arrays.equals(mintingAccount.getPublicKey(), previousBlockMinter));
-					if (mintedLastBlock) {
+					if (mintedLastBlock && !isSingleNodeTestnet) {
 						LOGGER.trace(String.format("One of our keys signed the last block, so we won't sign the next one"));
 						continue;
 					}
@@ -244,7 +248,7 @@ public class BlockMinter extends Thread {
 							Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
 							if (newBlock == null) {
 								// For some reason we can't mint right now
-								moderatedLog(() -> LOGGER.error("Couldn't build a to-be-minted block"));
+								moderatedLog(() -> LOGGER.info("Couldn't build a to-be-minted block"));
 								continue;
 							}
 

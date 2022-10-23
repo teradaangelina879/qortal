@@ -184,6 +184,8 @@ public class Settings {
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
+	/** Single node testnet mode */
+	private boolean singleNodeTestnet = false;
 	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
 	/** Whether to attempt to open the listen port via UPnP */
@@ -202,6 +204,9 @@ public class Settings {
 	private int networkPoWComputePoolSize = 2;
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
 	private int maxRetries = 2;
+
+	/** The number of seconds of no activity before recovery mode begins */
+	public long recoveryModeTimeout = 10 * 60 * 1000L;
 
 	/** Minimum peer version number required in order to sync with them */
 	private String minPeerVersion = "3.6.3";
@@ -290,10 +295,6 @@ public class Settings {
 	/** Additional offset added to values returned by NTP.getTime() */
 	private Long testNtpOffset = null;
 
-	// Online accounts
-
-	/** Whether to opt-in to mempow computations for online accounts, ahead of general release */
-	private boolean onlineAccountsMemPoWEnabled = false;
 
 
 	/* Foreign chains */
@@ -490,7 +491,7 @@ public class Settings {
 
 	private void validate() {
 		// Validation goes here
-		if (this.minBlockchainPeers < 1)
+		if (this.minBlockchainPeers < 1 && !singleNodeTestnet)
 			throwValidationError("minBlockchainPeers must be at least 1");
 
 		if (this.apiKey != null && this.apiKey.trim().length() < 8)
@@ -647,6 +648,10 @@ public class Settings {
 		return this.isTestNet;
 	}
 
+	public boolean isSingleNodeTestnet() {
+		return this.singleNodeTestnet;
+	}
+
 	public int getListenPort() {
 		if (this.listenPort != null)
 			return this.listenPort;
@@ -667,6 +672,9 @@ public class Settings {
 	}
 
 	public int getMinBlockchainPeers() {
+		if (singleNodeTestnet)
+			return 0;
+
 		return this.minBlockchainPeers;
 	}
 
@@ -691,6 +699,10 @@ public class Settings {
 	}
 
 	public int getMaxRetries() { return this.maxRetries; }
+
+	public long getRecoveryModeTimeout() {
+		return recoveryModeTimeout;
+	}
 
 	public String getMinPeerVersion() { return this.minPeerVersion; }
 
@@ -798,10 +810,6 @@ public class Settings {
 
 	public Long getTestNtpOffset() {
 		return this.testNtpOffset;
-	}
-
-	public boolean isOnlineAccountsMemPoWEnabled() {
-		return this.onlineAccountsMemPoWEnabled;
 	}
 
 	public long getRepositoryBackupInterval() {

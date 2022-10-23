@@ -1872,6 +1872,10 @@ public class Controller extends Thread {
 		if (latestBlockData == null || latestBlockData.getTimestamp() < minLatestBlockTimestamp)
 			return false;
 
+		if (Settings.getInstance().isSingleNodeTestnet())
+			// Single node testnets won't have peers, so we can assume up to date from this point
+			return true;
+
 		// Needs a mutable copy of the unmodifiableList
 		List<Peer> peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());
 		if (peers == null)
