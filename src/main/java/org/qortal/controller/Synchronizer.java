@@ -56,8 +56,6 @@ public class Synchronizer extends Thread {
 	/** Maximum number of consecutive failed sync attempts before marking peer as misbehaved */
 	private static final int MAX_CONSECUTIVE_FAILED_SYNC_ATTEMPTS = 3;
 
-	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000L; // ms
-
 
 	private boolean running;
 
@@ -399,9 +397,10 @@ public class Synchronizer extends Thread {
 					timePeersLastAvailable = NTP.getTime();
 
 				// If enough time has passed, enter recovery mode, which lifts some restrictions on who we can sync with and when we can mint
-				if (NTP.getTime() - timePeersLastAvailable > RECOVERY_MODE_TIMEOUT) {
+				long recoveryModeTimeout = Settings.getInstance().getRecoveryModeTimeout();
+				if (NTP.getTime() - timePeersLastAvailable > recoveryModeTimeout) {
 					if (recoveryMode == false) {
-						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", RECOVERY_MODE_TIMEOUT/60/1000));
+						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", recoveryModeTimeout/60/1000));
 						recoveryMode = true;
 					}
 				}
