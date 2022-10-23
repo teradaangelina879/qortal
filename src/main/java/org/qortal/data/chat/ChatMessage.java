@@ -27,6 +27,8 @@ public class ChatMessage {
 
 	private String recipientName;
 
+	private byte[] chatReference;
+
 	private byte[] data;
 
 	private boolean isText;
@@ -42,8 +44,8 @@ public class ChatMessage {
 
 	// For repository use
 	public ChatMessage(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String sender,
-			String senderName, String recipient, String recipientName, byte[] data, boolean isText,
-			boolean isEncrypted, byte[] signature) {
+			String senderName, String recipient, String recipientName, byte[] chatReference, byte[] data,
+			boolean isText, boolean isEncrypted, byte[] signature) {
 		this.timestamp = timestamp;
 		this.txGroupId = txGroupId;
 		this.reference = reference;
@@ -52,6 +54,7 @@ public class ChatMessage {
 		this.senderName = senderName;
 		this.recipient = recipient;
 		this.recipientName = recipientName;
+		this.chatReference = chatReference;
 		this.data = data;
 		this.isText = isText;
 		this.isEncrypted = isEncrypted;
@@ -88,6 +91,10 @@ public class ChatMessage {
 
 	public String getRecipientName() {
 		return this.recipientName;
+	}
+
+	public byte[] getChatReference() {
+		return this.chatReference;
 	}
 
 	public byte[] getData() {

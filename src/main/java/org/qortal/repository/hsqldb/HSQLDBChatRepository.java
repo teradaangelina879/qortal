@@ -35,7 +35,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 		sql.append("SELECT created_when, tx_group_id, Transactions.reference, creator, "
 				+ "sender, SenderNames.name, recipient, RecipientNames.name, "
-				+ "data, is_text, is_encrypted, signature "
+				+ "chat_reference, data, is_text, is_encrypted, signature "
 				+ "FROM ChatTransactions "
 				+ "JOIN Transactions USING (signature) "
 				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
@@ -108,13 +108,14 @@ public class HSQLDBChatRepository implements ChatRepository {
 				String senderName = resultSet.getString(6);
 				String recipient = resultSet.getString(7);
 				String recipientName = resultSet.getString(8);
-				byte[] data = resultSet.getBytes(9);
-				boolean isText = resultSet.getBoolean(10);
-				boolean isEncrypted = resultSet.getBoolean(11);
-				byte[] signature = resultSet.getBytes(12);
+				byte[] chatReference = resultSet.getBytes(9);
+				byte[] data = resultSet.getBytes(10);
+				boolean isText = resultSet.getBoolean(11);
+				boolean isEncrypted = resultSet.getBoolean(12);
+				byte[] signature = resultSet.getBytes(13);
 
 				ChatMessage chatMessage = new ChatMessage(timestamp, groupId, reference, senderPublicKey, sender,
-						senderName, recipient, recipientName, data, isText, isEncrypted, signature);
+						senderName, recipient, recipientName, chatReference, data, isText, isEncrypted, signature);
 
 				chatMessages.add(chatMessage);
 			} while (resultSet.next());
@@ -146,13 +147,14 @@ public class HSQLDBChatRepository implements ChatRepository {
 			byte[] senderPublicKey = chatTransactionData.getSenderPublicKey();
 			String sender = chatTransactionData.getSender();
 			String recipient = chatTransactionData.getRecipient();
+			byte[] chatReference = chatTransactionData.getChatReference();
 			byte[] data = chatTransactionData.getData();
 			boolean isText = chatTransactionData.getIsText();
 			boolean isEncrypted = chatTransactionData.getIsEncrypted();
 			byte[] signature = chatTransactionData.getSignature();
 
 			return new ChatMessage(timestamp, groupId, reference, senderPublicKey, sender,
-					senderName, recipient, recipientName, data, isText, isEncrypted, signature);
+					senderName, recipient, recipientName, chatReference, data, isText, isEncrypted, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch convert chat transaction from repository", e);
 		}
