@@ -20,6 +20,7 @@ import org.qortal.network.message.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 import org.qortal.utils.NamedThreadFactory;
@@ -63,9 +64,13 @@ public class OnlineAccountsManager {
 
     private static final long ONLINE_ACCOUNTS_COMPUTE_INITIAL_SLEEP_INTERVAL = 30 * 1000L; // ms
 
-    // MemoryPoW
-    public final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
-    public int POW_DIFFICULTY = 18; // leading zero bits
+    // MemoryPoW - mainnet
+    public static final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
+    public static final int POW_DIFFICULTY = 18; // leading zero bits
+
+    // MemoryPoW - testnet
+    public static final int POW_BUFFER_SIZE_TESTNET = 1 * 1024 * 1024; // bytes
+    public static final int POW_DIFFICULTY_TESTNET = 5; // leading zero bits
 
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
@@ -109,6 +114,20 @@ public class OnlineAccountsManager {
 
     public static long toOnlineAccountTimestamp(long timestamp) {
         return (timestamp / getOnlineTimestampModulus()) * getOnlineTimestampModulus();
+    }
+
+    private static int getPoWBufferSize() {
+        if (Settings.getInstance().isTestNet())
+            return POW_BUFFER_SIZE_TESTNET;
+
+        return POW_BUFFER_SIZE;
+    }
+
+    private static int getPoWDifficulty() {
+        if (Settings.getInstance().isTestNet())
+            return POW_DIFFICULTY_TESTNET;
+
+        return POW_DIFFICULTY;
     }
 
     private OnlineAccountsManager() {
@@ -604,7 +623,7 @@ public class OnlineAccountsManager {
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(startTime) + getOnlineTimestampModulus();
         long timeUntilNextTimestamp = nextOnlineAccountsTimestamp - startTime;
 
-        Integer nonce = MemoryPoW.compute2(bytes, POW_BUFFER_SIZE, POW_DIFFICULTY, timeUntilNextTimestamp);
+        Integer nonce = MemoryPoW.compute2(bytes, getPoWBufferSize(), getPoWDifficulty(), timeUntilNextTimestamp);
 
         double totalSeconds = (NTP.getTime() - startTime) / 1000.0f;
         int minutes = (int) ((totalSeconds % 3600) / 60);
@@ -613,7 +632,7 @@ public class OnlineAccountsManager {
 
         LOGGER.info(String.format("Computed nonce for timestamp %d and account %.8s: %d. Buffer size: %d. Difficulty: %d. " +
                         "Time taken: %02d:%02d. Hashrate: %f", onlineAccountsTimestamp, Base58.encode(publicKey),
-                nonce, POW_BUFFER_SIZE, POW_DIFFICULTY, minutes, seconds, hashRate));
+                nonce, getPoWBufferSize(), getPoWDifficulty(), minutes, seconds, hashRate));
 
         return nonce;
     }
@@ -634,7 +653,7 @@ public class OnlineAccountsManager {
         }
 
         // Verify the nonce
-        return MemoryPoW.verify2(mempowBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+        return MemoryPoW.verify2(mempowBytes, getPoWBufferSize(), getPoWDifficulty(), nonce);
     }
 
 
