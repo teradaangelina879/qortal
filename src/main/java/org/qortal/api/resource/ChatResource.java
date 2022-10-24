@@ -71,6 +71,7 @@ public class ChatResource {
 			@QueryParam("involving") List<String> involvingAddresses,
 			@QueryParam("reference") String reference,
 			@QueryParam("chatreference") String chatReference,
+			@QueryParam("haschatreference") Boolean hasChatReference,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -104,6 +105,7 @@ public class ChatResource {
 					txGroupId,
 					referenceBytes,
 					chatReferenceBytes,
+					hasChatReference,
 					involvingAddresses,
 					limit, offset, reverse);
 		} catch (DataException e) {
