@@ -72,6 +72,11 @@ public class OnlineAccountsManager {
     public static final int POW_BUFFER_SIZE_TESTNET = 1 * 1024 * 1024; // bytes
     public static final int POW_DIFFICULTY_TESTNET = 5; // leading zero bits
 
+    // IMPORTANT: if we ever need to dynamically modify the buffer size using a feature trigger, the
+    // pre-allocated buffer below will NOT work, and we should instead use a dynamically allocated
+    // one for the transition period.
+    private static long[] POW_VERIFY_WORK_BUFFER = new long[getPoWBufferSize() / 8];
+
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
 
@@ -339,7 +344,7 @@ public class OnlineAccountsManager {
         }
 
         // Validate mempow
-        if (!getInstance().verifyMemoryPoW(onlineAccountData)) {
+        if (!getInstance().verifyMemoryPoW(onlineAccountData, POW_VERIFY_WORK_BUFFER)) {
             LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
             return false;
         }
@@ -582,7 +587,7 @@ public class OnlineAccountsManager {
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
 
             // Make sure to verify before adding
-            if (verifyMemoryPoW(ourOnlineAccountData)) {
+            if (verifyMemoryPoW(ourOnlineAccountData, null)) {
                 ourOnlineAccounts.add(ourOnlineAccountData);
             }
         }
@@ -637,7 +642,7 @@ public class OnlineAccountsManager {
         return nonce;
     }
 
-    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData) {
+    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, long[] workBuffer) {
         // Require a valid nonce value
         if (onlineAccountData.getNonce() == null || onlineAccountData.getNonce() < 0) {
             return false;
@@ -653,7 +658,7 @@ public class OnlineAccountsManager {
         }
 
         // Verify the nonce
-        return MemoryPoW.verify2(mempowBytes, getPoWBufferSize(), getPoWDifficulty(), nonce);
+        return MemoryPoW.verify2(mempowBytes, workBuffer, getPoWBufferSize(), getPoWDifficulty(), nonce);
     }
 
 

@@ -1072,7 +1072,7 @@ public class Block {
 
 		// Validate the rest
 		for (OnlineAccountData onlineAccount : onlineAccounts)
-			if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount))
+			if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount, null))
 				return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
 
 		// Cache the valid online accounts as they will likely be needed for the next block
