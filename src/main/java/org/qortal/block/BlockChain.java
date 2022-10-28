@@ -73,7 +73,8 @@ public class BlockChain {
 		calcChainWeightTimestamp,
 		transactionV5Timestamp,
 		transactionV6Timestamp,
-		disableReferenceTimestamp;
+		disableReferenceTimestamp,
+		increaseOnlineAccountsDifficultyTimestamp;
 	}
 
 	// Custom transaction fees
@@ -476,6 +477,10 @@ public class BlockChain {
 
 	public long getDisableReferenceTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.disableReferenceTimestamp.name()).longValue();
+	}
+
+	public long getIncreaseOnlineAccountsDifficultyTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.increaseOnlineAccountsDifficultyTimestamp.name()).longValue();
 	}
 
 

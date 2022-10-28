@@ -66,7 +66,8 @@ public class OnlineAccountsManager {
 
     // MemoryPoW - mainnet
     public static final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
-    public static final int POW_DIFFICULTY = 18; // leading zero bits
+    public static final int POW_DIFFICULTY_V1 = 18; // leading zero bits
+    public static final int POW_DIFFICULTY_V2 = 19; // leading zero bits
 
     // MemoryPoW - testnet
     public static final int POW_BUFFER_SIZE_TESTNET = 1 * 1024 * 1024; // bytes
@@ -128,11 +129,14 @@ public class OnlineAccountsManager {
         return POW_BUFFER_SIZE;
     }
 
-    private static int getPoWDifficulty() {
+    private static int getPoWDifficulty(long timestamp) {
         if (Settings.getInstance().isTestNet())
             return POW_DIFFICULTY_TESTNET;
 
-        return POW_DIFFICULTY;
+        if (timestamp >= BlockChain.getInstance().getIncreaseOnlineAccountsDifficultyTimestamp())
+            return POW_DIFFICULTY_V2;
+
+        return POW_DIFFICULTY_V1;
     }
 
     private OnlineAccountsManager() {
@@ -628,7 +632,8 @@ public class OnlineAccountsManager {
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(startTime) + getOnlineTimestampModulus();
         long timeUntilNextTimestamp = nextOnlineAccountsTimestamp - startTime;
 
-        Integer nonce = MemoryPoW.compute2(bytes, getPoWBufferSize(), getPoWDifficulty(), timeUntilNextTimestamp);
+        int difficulty = getPoWDifficulty(onlineAccountsTimestamp);
+        Integer nonce = MemoryPoW.compute2(bytes, getPoWBufferSize(), difficulty, timeUntilNextTimestamp);
 
         double totalSeconds = (NTP.getTime() - startTime) / 1000.0f;
         int minutes = (int) ((totalSeconds % 3600) / 60);
@@ -637,7 +642,7 @@ public class OnlineAccountsManager {
 
         LOGGER.info(String.format("Computed nonce for timestamp %d and account %.8s: %d. Buffer size: %d. Difficulty: %d. " +
                         "Time taken: %02d:%02d. Hashrate: %f", onlineAccountsTimestamp, Base58.encode(publicKey),
-                nonce, getPoWBufferSize(), getPoWDifficulty(), minutes, seconds, hashRate));
+                nonce, getPoWBufferSize(), difficulty, minutes, seconds, hashRate));
 
         return nonce;
     }
@@ -658,7 +663,7 @@ public class OnlineAccountsManager {
         }
 
         // Verify the nonce
-        return MemoryPoW.verify2(mempowBytes, workBuffer, getPoWBufferSize(), getPoWDifficulty(), nonce);
+        return MemoryPoW.verify2(mempowBytes, workBuffer, getPoWBufferSize(), getPoWDifficulty(onlineAccountData.getTimestamp()), nonce);
     }
 
 
