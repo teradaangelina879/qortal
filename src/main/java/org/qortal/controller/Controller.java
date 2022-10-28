@@ -838,6 +838,12 @@ public class Controller extends Thread {
 		String tooltip = String.format("%s - %d %s", actionText, numberOfPeers, connectionsText);
 		if (!Settings.getInstance().isLite()) {
 			tooltip = tooltip.concat(String.format(" - %s %d", heightText, height));
+
+			final Integer blocksRemaining = Synchronizer.getInstance().getBlocksRemaining();
+			if (blocksRemaining != null && blocksRemaining > 0) {
+				String blocksRemainingText = Translator.INSTANCE.translate("SysTray", "BLOCKS_REMAINING");
+				tooltip = tooltip.concat(String.format(" - %d %s", blocksRemaining, blocksRemainingText));
+			}
 		}
 		tooltip = tooltip.concat(String.format("\n%s: %s", Translator.INSTANCE.translate("SysTray", "BUILD_VERSION"), this.buildVersion));
 		SysTray.getInstance().setToolTipText(tooltip);
