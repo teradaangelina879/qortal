@@ -339,7 +339,7 @@ public class OnlineAccountsManager {
         }
 
         // Validate mempow
-        if (!getInstance().verifyMemoryPoW(onlineAccountData, now)) {
+        if (!getInstance().verifyMemoryPoW(onlineAccountData)) {
             LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
             return false;
         }
@@ -582,7 +582,7 @@ public class OnlineAccountsManager {
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
 
             // Make sure to verify before adding
-            if (verifyMemoryPoW(ourOnlineAccountData, NTP.getTime())) {
+            if (verifyMemoryPoW(ourOnlineAccountData)) {
                 ourOnlineAccounts.add(ourOnlineAccountData);
             }
         }
@@ -637,7 +637,7 @@ public class OnlineAccountsManager {
         return nonce;
     }
 
-    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, Long timestamp) {
+    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData) {
         // Require a valid nonce value
         if (onlineAccountData.getNonce() == null || onlineAccountData.getNonce() < 0) {
             return false;

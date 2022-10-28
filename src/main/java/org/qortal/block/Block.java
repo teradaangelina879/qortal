@@ -1072,7 +1072,7 @@ public class Block {
 
 		// Validate the rest
 		for (OnlineAccountData onlineAccount : onlineAccounts)
-			if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount, this.blockData.getTimestamp()))
+			if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount))
 				return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
 
 		// Extract online accounts' timestamp signatures from block data. Only one signature if aggregated.
