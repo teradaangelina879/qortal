@@ -737,11 +737,12 @@ public class OnlineAccountsManager {
      * Typically called by {@link Block#areOnlineAccountsValid()}
      */
     public void addBlocksOnlineAccounts(Set<OnlineAccountData> blocksOnlineAccounts, Long timestamp) {
-        // We want to add to 'current' in preference if possible
-        if (this.currentOnlineAccounts.containsKey(timestamp)) {
-            addAccounts(blocksOnlineAccounts);
+        // If these are current accounts, then there is no need to cache them, and should instead rely
+        // on the more complete entries we already have in self.currentOnlineAccounts.
+        // Note: since sig-agg, we no longer have individual signatures included in blocks, so we
+        // mustn't add anything to currentOnlineAccounts from here.
+        if (this.currentOnlineAccounts.containsKey(timestamp))
             return;
-        }
 
         // Add to block cache instead
         this.latestBlocksOnlineAccounts.computeIfAbsent(timestamp, k -> ConcurrentHashMap.newKeySet())

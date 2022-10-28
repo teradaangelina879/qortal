@@ -1075,6 +1075,9 @@ public class Block {
 			if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount))
 				return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
 
+		// Cache the valid online accounts as they will likely be needed for the next block
+		OnlineAccountsManager.getInstance().addBlocksOnlineAccounts(onlineAccounts, onlineTimestamp);
+
 		// Extract online accounts' timestamp signatures from block data. Only one signature if aggregated.
 		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(encodedOnlineAccountSignatures);
 
