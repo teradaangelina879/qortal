@@ -38,6 +38,7 @@ public enum Service {
     GIT_REPOSITORY(300, false, null, null),
     IMAGE(400, true, 10*1024*1024L, null),
     THUMBNAIL(410, true, 500*1024L, null),
+    QCHAT_IMAGE(420, true, 500*1024L, null),
     VIDEO(500, false, null, null),
     AUDIO(600, false, null, null),
     BLOG(700, false, null, null),
