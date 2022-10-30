@@ -101,4 +101,78 @@ public class ArbitraryServiceTests extends Common {
         assertEquals(ValidationResult.MISSING_INDEX_FILE, service.validate(path));
     }
 
+    @Test
+    public void testValidateGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateGifRepository");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image3.gif"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.GIF_REPOSITORY;
+        assertTrue(service.isValidationRequired());
+
+        // There is an index file in the root
+        assertEquals(ValidationResult.OK, service.validate(path));
+    }
+
+    @Test
+    public void testValidateMultiLayerGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateMultiLayerGifRepository");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
+
+        Path subdirectory = Paths.get(path.toString(), "subdirectory");
+        Files.createDirectories(subdirectory);
+        Files.write(Paths.get(subdirectory.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(subdirectory.toString(), "image3.gif"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.GIF_REPOSITORY;
+        assertTrue(service.isValidationRequired());
+
+        // There is an index file in the root
+        assertEquals(ValidationResult.DIRECTORIES_NOT_ALLOWED, service.validate(path));
+    }
+
+    @Test
+    public void testValidateEmptyGifRepository() throws IOException {
+        Path path = Files.createTempDirectory("testValidateEmptyGifRepository");
+
+        Service service = Service.GIF_REPOSITORY;
+        assertTrue(service.isValidationRequired());
+
+        // There is an index file in the root
+        assertEquals(ValidationResult.MISSING_DATA, service.validate(path));
+    }
+
+    @Test
+    public void testValidateInvalidGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateInvalidGifRepository");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image3.jpg"), data, StandardOpenOption.CREATE); // Invalid extension
+
+        Service service = Service.GIF_REPOSITORY;
+        assertTrue(service.isValidationRequired());
+
+        // There is an index file in the root
+        assertEquals(ValidationResult.INVALID_FILE_EXTENSION, service.validate(path));
+    }
+
 }
