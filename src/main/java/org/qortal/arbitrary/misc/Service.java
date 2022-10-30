@@ -47,8 +47,7 @@ public enum Service {
     LIST(900, true, null, null),
     PLAYLIST(910, true, null, null),
     APP(1000, false, null, null),
-    METADATA(1100, false, null, null),
-    QORTAL_METADATA(1111, true, 10*1024L, Arrays.asList("title", "description", "tags"));
+    METADATA(1100, false, null, null);
 
     public final int value;
     private final boolean requiresValidation;
