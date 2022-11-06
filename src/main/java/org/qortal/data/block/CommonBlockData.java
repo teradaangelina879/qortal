@@ -1,7 +1,5 @@
 package org.qortal.data.block;
 
-import org.qortal.data.network.PeerChainTipData;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import java.math.BigInteger;
@@ -14,14 +12,14 @@ public class CommonBlockData {
 	private BlockSummaryData commonBlockSummary = null;
 	private List<BlockSummaryData> blockSummariesAfterCommonBlock = null;
 	private BigInteger chainWeight = null;
-	private PeerChainTipData chainTipData = null;
+	private BlockSummaryData chainTipData = null;
 
 	// Constructors
 
 	protected CommonBlockData() {
 	}
 
-	public CommonBlockData(BlockSummaryData commonBlockSummary, PeerChainTipData chainTipData) {
+	public CommonBlockData(BlockSummaryData commonBlockSummary, BlockSummaryData chainTipData) {
 		this.commonBlockSummary = commonBlockSummary;
 		this.chainTipData = chainTipData;
 	}
@@ -49,7 +47,7 @@ public class CommonBlockData {
 		this.chainWeight = chainWeight;
 	}
 
-	public PeerChainTipData getChainTipData() {
+	public BlockSummaryData getChainTipData() {
 		return this.chainTipData;
 	}
 

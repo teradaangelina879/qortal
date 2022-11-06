@@ -52,14 +52,13 @@
 
 ## Single-node testnet
 
-A single-node testnet is possible with code modifications, for basic testing, or to more easily start a new testnet.
-To do so, follow these steps:
-- Comment out the `if (mintedLastBlock) { }` conditional in BlockMinter.java
-- Comment out the `minBlockchainPeers` validation in Settings.validate()
-- Set `minBlockchainPeers` to 0 in settings.json
-- Set `Synchronizer.RECOVERY_MODE_TIMEOUT` to `0`
-- All other steps should remain the same. Only a single reward share key is needed.
-- Remember to put these values back after introducing other nodes
+A single-node testnet is possible with an additional settings, or to more easily start a new testnet.
+Just add this setting:
+```
+"singleNodeTestnet": true
+```
+This will automatically allow multiple consecutive blocks to be minted, as well as setting minBlockchainPeers to 0.
+Remember to put these values back after introducing other nodes
 
 ## Fixed network
 
@@ -93,3 +92,32 @@ Your options are:
 - `qort` tool, but prepend with one-time shell variable: `BASE_URL=some-node-hostname-or-ip:port qort ......`
 - `peer-heights`, but use `-t` option, or `BASE_URL` shell variable as above
 
+## Example settings-test.json
+```
+{
+  "isTestNet": true,
+  "bitcoinNet": "TEST3",
+  "repositoryPath": "db-testnet",
+  "blockchainConfig": "testchain.json",
+  "minBlockchainPeers": 1,
+  "apiDocumentationEnabled": true,
+  "apiRestricted": false,
+  "bootstrap": false,
+  "maxPeerConnectionTime": 999999999,
+  "localAuthBypassEnabled": true,
+  "singleNodeTestnet": true,
+  "recoveryModeTimeout": 0
+}
+```
+
+## Quick start
+Here are some steps to quickly get a single node testnet up and running with a generic minting account:
+1. Start with template `settings-test.json`, and create a `testchain.json` based on mainnet's blockchain.json (or obtain one from Qortal developers). These should be in the same directory as the jar.
+2. Make sure feature triggers and other timestamp/height activations are correctly set. Generally these would be `0` so that they are enabled from the start.
+3. Set a recent genesis `timestamp` in testchain.json, and add this reward share entry:
+`{ "type": "REWARD_SHARE", "minterPublicKey": "DwcUnhxjamqppgfXCLgbYRx8H9XFPUc2qYRy3CEvQWEw", "recipient": "QbTDMss7NtRxxQaSqBZtSLSNdSYgvGaqFf", "rewardSharePublicKey": "CRvQXxFfUMfr4q3o1PcUZPA4aPCiubBsXkk47GzRo754", "sharePercent": 0 },`
+4. Start the node, passing in settings-test.json, e.g: `java -jar qortal.jar settings-test.json`
+5. Once started, add the corresponding minting key to the node:
+`curl -X POST "http://localhost:62391/admin/mintingaccounts" -d "F48mYJycFgRdqtc58kiovwbcJgVukjzRE4qRRtRsK9ix"`
+6. Alternatively you can use your own minting account instead of the generic one above.
+7. After a short while, blocks should be minted from the genesis timestamp until the current time.

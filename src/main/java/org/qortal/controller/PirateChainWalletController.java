@@ -4,6 +4,7 @@ import com.rust.litewalletjni.LiteWalletJni;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataReader;
@@ -99,14 +100,19 @@ public class PirateChainWalletController extends Thread {
                 LOGGER.debug("Syncing Pirate Chain wallet...");
                 String response = LiteWalletJni.execute("sync", "");
                 LOGGER.debug("sync response: {}", response);
-                JSONObject json = new JSONObject(response);
-                if (json.has("result")) {
-                    String result = json.getString("result");
 
-                    // We may have to set wallet to ready if this is the first ever successful sync
-                    if (Objects.equals(result, "success")) {
-                        this.currentWallet.setReady(true);
+                try {
+                    JSONObject json = new JSONObject(response);
+                    if (json.has("result")) {
+                        String result = json.getString("result");
+
+                        // We may have to set wallet to ready if this is the first ever successful sync
+                        if (Objects.equals(result, "success")) {
+                            this.currentWallet.setReady(true);
+                        }
                     }
+                } catch (JSONException e) {
+                    LOGGER.info("Unable to interpret JSON", e);
                 }
 
                 // Rate limit sync attempts

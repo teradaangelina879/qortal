@@ -53,17 +53,30 @@ public class OnlineAccountsManager {
      */
     private static final int MAX_BLOCKS_CACHED_ONLINE_ACCOUNTS = 3;
 
-    private static final long ONLINE_ACCOUNTS_QUEUE_INTERVAL = 100L; //ms
+    private static final long ONLINE_ACCOUNTS_QUEUE_INTERVAL = 100L; // ms
     private static final long ONLINE_ACCOUNTS_TASKS_INTERVAL = 10 * 1000L; // ms
-    private static final long ONLINE_ACCOUNTS_LEGACY_BROADCAST_INTERVAL = 60 * 1000L; // ms
-    private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 5 * 1000L; // ms
+    private static final long ONLINE_ACCOUNTS_COMPUTE_INTERVAL = 5 * 1000L; // ms
+    private static final long ONLINE_ACCOUNTS_BROADCAST_INTERVAL = 60 * 1000L; // ms
+    // After switching to a new online timestamp, we "burst" the online accounts requests
+    // at an increased interval for a specified amount of time
+    private static final long ONLINE_ACCOUNTS_BROADCAST_BURST_INTERVAL = 5 * 1000L; // ms
+    private static final long ONLINE_ACCOUNTS_BROADCAST_BURST_LENGTH = 5 * 60 * 1000L; // ms
 
-    private static final long ONLINE_ACCOUNTS_V2_PEER_VERSION = 0x0300020000L; // v3.2.0
-    private static final long ONLINE_ACCOUNTS_V3_PEER_VERSION = 0x0300040000L; // v3.4.0
+    private static final long ONLINE_ACCOUNTS_COMPUTE_INITIAL_SLEEP_INTERVAL = 30 * 1000L; // ms
 
-    // MemoryPoW
-    public final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
-    public int POW_DIFFICULTY = 18; // leading zero bits
+    // MemoryPoW - mainnet
+    public static final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
+    public static final int POW_DIFFICULTY_V1 = 18; // leading zero bits
+    public static final int POW_DIFFICULTY_V2 = 19; // leading zero bits
+
+    // MemoryPoW - testnet
+    public static final int POW_BUFFER_SIZE_TESTNET = 1 * 1024 * 1024; // bytes
+    public static final int POW_DIFFICULTY_TESTNET = 5; // leading zero bits
+
+    // IMPORTANT: if we ever need to dynamically modify the buffer size using a feature trigger, the
+    // pre-allocated buffer below will NOT work, and we should instead use a dynamically allocated
+    // one for the transition period.
+    private static long[] POW_VERIFY_WORK_BUFFER = new long[getPoWBufferSize() / 8];
 
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
@@ -84,6 +97,8 @@ public class OnlineAccountsManager {
      * <i>Probably</i> only accessed / modified by a single Synchronizer thread.
      */
     private final SortedMap<Long, Set<OnlineAccountData>> latestBlocksOnlineAccounts = new ConcurrentSkipListMap<>();
+
+    private long lastOnlineAccountsRequest = 0;
 
     private boolean hasOurOnlineAccounts = false;
 
@@ -107,6 +122,23 @@ public class OnlineAccountsManager {
         return (timestamp / getOnlineTimestampModulus()) * getOnlineTimestampModulus();
     }
 
+    private static int getPoWBufferSize() {
+        if (Settings.getInstance().isTestNet())
+            return POW_BUFFER_SIZE_TESTNET;
+
+        return POW_BUFFER_SIZE;
+    }
+
+    private static int getPoWDifficulty(long timestamp) {
+        if (Settings.getInstance().isTestNet())
+            return POW_DIFFICULTY_TESTNET;
+
+        if (timestamp >= BlockChain.getInstance().getIncreaseOnlineAccountsDifficultyTimestamp())
+            return POW_DIFFICULTY_V2;
+
+        return POW_DIFFICULTY_V1;
+    }
+
     private OnlineAccountsManager() {
     }
 
@@ -122,16 +154,16 @@ public class OnlineAccountsManager {
         // Expire old online accounts signatures
         executor.scheduleAtFixedRate(this::expireOldOnlineAccounts, ONLINE_ACCOUNTS_TASKS_INTERVAL, ONLINE_ACCOUNTS_TASKS_INTERVAL, TimeUnit.MILLISECONDS);
 
-        // Send our online accounts
-        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
-
-        // Request online accounts from peers (legacy)
-        executor.scheduleAtFixedRate(this::requestLegacyRemoteOnlineAccounts, ONLINE_ACCOUNTS_LEGACY_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_LEGACY_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
-        // Request online accounts from peers (V3+)
-        executor.scheduleAtFixedRate(this::requestRemoteOnlineAccounts, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_INTERVAL, TimeUnit.MILLISECONDS);
+        // Request online accounts from peers
+        executor.scheduleAtFixedRate(this::requestRemoteOnlineAccounts, ONLINE_ACCOUNTS_BROADCAST_BURST_INTERVAL, ONLINE_ACCOUNTS_BROADCAST_BURST_INTERVAL, TimeUnit.MILLISECONDS);
 
         // Process import queue
         executor.scheduleWithFixedDelay(this::processOnlineAccountsImportQueue, ONLINE_ACCOUNTS_QUEUE_INTERVAL, ONLINE_ACCOUNTS_QUEUE_INTERVAL, TimeUnit.MILLISECONDS);
+
+        // Send our online accounts (using increased initial delay)
+        // This allows some time for initial online account lists to be retrieved, and
+        // reduces the chances of the same nonce being computed twice
+        executor.scheduleAtFixedRate(this::sendOurOnlineAccountsInfo, ONLINE_ACCOUNTS_COMPUTE_INITIAL_SLEEP_INTERVAL, ONLINE_ACCOUNTS_COMPUTE_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
     public void shutdown() {
@@ -151,7 +183,6 @@ public class OnlineAccountsManager {
             return;
 
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-        final boolean mempowActive = onlineAccountsTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
 
         Set<OnlineAccountData> replacementAccounts = new HashSet<>();
         for (PrivateKeyAccount onlineAccount : onlineAccounts) {
@@ -160,7 +191,7 @@ public class OnlineAccountsManager {
             byte[] signature = Qortal25519Extras.signForAggregation(onlineAccount.getPrivateKey(), timestampBytes);
             byte[] publicKey = onlineAccount.getPublicKey();
 
-            Integer nonce = mempowActive ? new Random().nextInt(500000) : null;
+            Integer nonce = new Random().nextInt(500000);
 
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
             replacementAccounts.add(ourOnlineAccountData);
@@ -180,25 +211,37 @@ public class OnlineAccountsManager {
         LOGGER.debug("Processing online accounts import queue (size: {})", this.onlineAccountsImportQueue.size());
 
         Set<OnlineAccountData> onlineAccountsToAdd = new HashSet<>();
+        Set<OnlineAccountData> onlineAccountsToRemove = new HashSet<>();
         try (final Repository repository = RepositoryManager.getRepository()) {
             for (OnlineAccountData onlineAccountData : this.onlineAccountsImportQueue) {
                 if (isStopping)
                     return;
 
+                // Skip this account if it's already validated
+                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.get(onlineAccountData.getTimestamp());
+                if (onlineAccounts != null && onlineAccounts.contains(onlineAccountData)) {
+                    // We have already validated this online account
+                    onlineAccountsImportQueue.remove(onlineAccountData);
+                    continue;
+                }
+
                 boolean isValid = this.isValidCurrentAccount(repository, onlineAccountData);
                 if (isValid)
                     onlineAccountsToAdd.add(onlineAccountData);
 
-                // Remove from queue
-                onlineAccountsImportQueue.remove(onlineAccountData);
+                // Don't remove from the queue yet - we'll do this at the end of the process
+                // This prevents duplicates being added to the queue whilst it's being processed
+                onlineAccountsToRemove.add(onlineAccountData);
             }
         } catch (DataException e) {
             LOGGER.error("Repository issue while verifying online accounts", e);
-        }
 
-        if (!onlineAccountsToAdd.isEmpty()) {
-            LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
-            addAccounts(onlineAccountsToAdd);
+        } finally {
+            if (!onlineAccountsToAdd.isEmpty()) {
+                LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
+                addAccounts(onlineAccountsToAdd);
+            }
+            onlineAccountsImportQueue.removeAll(onlineAccountsToRemove);
         }
     }
 
@@ -304,12 +347,10 @@ public class OnlineAccountsManager {
             return false;
         }
 
-        // Validate mempow if feature trigger is active
-        if (now >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-            if (!getInstance().verifyMemoryPoW(onlineAccountData, now)) {
-                LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
-                return false;
-            }
+        // Validate mempow
+        if (!getInstance().verifyMemoryPoW(onlineAccountData, POW_VERIFY_WORK_BUFFER)) {
+            LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
+            return false;
         }
 
         return true;
@@ -333,7 +374,7 @@ public class OnlineAccountsManager {
         for (var entry : hashesToRebuild.entrySet()) {
             Long timestamp = entry.getKey();
 
-            LOGGER.debug(() -> String.format("Rehashing for timestamp %d and leading bytes %s",
+            LOGGER.trace(() -> String.format("Rehashing for timestamp %d and leading bytes %s",
                             timestamp,
                             entry.getValue().stream().sorted(Byte::compareUnsigned).map(leadingByte -> String.format("%02x", leadingByte)).collect(Collectors.joining(", "))
                     )
@@ -359,7 +400,7 @@ public class OnlineAccountsManager {
             }
         }
 
-        LOGGER.debug(String.format("we have online accounts for timestamps: %s", String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
+        LOGGER.trace(String.format("we have online accounts for timestamps: %s", String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
 
         return true;
     }
@@ -399,30 +440,7 @@ public class OnlineAccountsManager {
     }
 
     /**
-     * Request data from other peers. (Pre-V3)
-     */
-    private void requestLegacyRemoteOnlineAccounts() {
-        final Long now = NTP.getTime();
-        if (now == null)
-            return;
-
-        // Don't bother if we're not up to date
-        if (!Controller.getInstance().isUpToDate())
-            return;
-
-        List<OnlineAccountData> mergedOnlineAccounts = Set.copyOf(this.currentOnlineAccounts.values()).stream().flatMap(Set::stream).collect(Collectors.toList());
-
-        Message messageV2 = new GetOnlineAccountsV2Message(mergedOnlineAccounts);
-
-        Network.getInstance().broadcast(peer ->
-                peer.getPeersVersion() < ONLINE_ACCOUNTS_V3_PEER_VERSION
-                        ? messageV2
-                        : null
-        );
-    }
-
-    /**
-     * Request data from other peers. V3+
+     * Request data from other peers
      */
     private void requestRemoteOnlineAccounts() {
         final Long now = NTP.getTime();
@@ -433,13 +451,25 @@ public class OnlineAccountsManager {
         if (!Controller.getInstance().isUpToDate())
             return;
 
-        Message messageV3 = new GetOnlineAccountsV3Message(currentOnlineAccountsHashes);
+        long onlineAccountsTimestamp = getCurrentOnlineAccountTimestamp();
+        if (now - onlineAccountsTimestamp >= ONLINE_ACCOUNTS_BROADCAST_BURST_LENGTH) {
+            // New online timestamp started more than 5 mins ago - we probably don't need to request so frequently
 
-        Network.getInstance().broadcast(peer ->
-                peer.getPeersVersion() >= ONLINE_ACCOUNTS_V3_PEER_VERSION
-                        ? messageV3
-                        : null
-        );
+            if (Controller.uptime() < ONLINE_ACCOUNTS_BROADCAST_BURST_LENGTH) {
+                // The node recently started up, so we should request at the burst interval
+                // This could allow accounts to move around the network more easily when an auto update is occurring
+            }
+            else if (now - lastOnlineAccountsRequest < ONLINE_ACCOUNTS_BROADCAST_INTERVAL) {
+                // We already requested online accounts in the last minute, so no need to request again
+                return;
+            }
+        }
+
+        LOGGER.debug("Requesting online accounts via broadcast...");
+
+        lastOnlineAccountsRequest = now;
+        Message messageV3 = new GetOnlineAccountsV3Message(currentOnlineAccountsHashes);
+        Network.getInstance().broadcast(peer -> messageV3);
     }
 
     /**
@@ -464,12 +494,10 @@ public class OnlineAccountsManager {
 
         // 'next' timestamp (prioritize this as it's the most important, if mempow active)
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(now) + getOnlineTimestampModulus();
-        if (isMemoryPoWActive(now)) {
-            boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
-            if (!success) {
-                // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
-                return;
-            }
+        boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
+        if (!success) {
+            // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
+            return;
         }
 
         // 'current' timestamp
@@ -522,6 +550,8 @@ public class OnlineAccountsManager {
             Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountsTimestamp, k -> ConcurrentHashMap.newKeySet());
             boolean alreadyExists = onlineAccounts.stream().anyMatch(a -> Arrays.equals(a.getPublicKey(), publicKey));
             if (alreadyExists) {
+                this.hasOurOnlineAccounts = true;
+
                 if (remaining > 0) {
                     // Move on to next account
                     continue;
@@ -544,21 +574,15 @@ public class OnlineAccountsManager {
 
             // Compute nonce
             Integer nonce;
-            if (isMemoryPoWActive(NTP.getTime())) {
-                try {
-                    nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
-                    if (nonce == null) {
-                        // A nonce is required
-                        return false;
-                    }
-                } catch (TimeoutException e) {
-                    LOGGER.info(String.format("Timed out computing nonce for account %.8s", Base58.encode(publicKey)));
+            try {
+                nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
+                if (nonce == null) {
+                    // A nonce is required
                     return false;
                 }
-            }
-            else {
-                // Send -1 if we haven't computed a nonce due to feature trigger timestamp
-                nonce = -1;
+            } catch (TimeoutException e) {
+                LOGGER.info(String.format("Timed out computing nonce for account %.8s", Base58.encode(publicKey)));
+                return false;
             }
 
             byte[] signature = Qortal25519Extras.signForAggregation(privateKey, timestampBytes);
@@ -567,7 +591,7 @@ public class OnlineAccountsManager {
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
 
             // Make sure to verify before adding
-            if (verifyMemoryPoW(ourOnlineAccountData, NTP.getTime())) {
+            if (verifyMemoryPoW(ourOnlineAccountData, null)) {
                 ourOnlineAccounts.add(ourOnlineAccountData);
             }
         }
@@ -579,17 +603,7 @@ public class OnlineAccountsManager {
         if (!hasInfoChanged)
             return false;
 
-        Message messageV1 = new OnlineAccountsMessage(ourOnlineAccounts);
-        Message messageV2 = new OnlineAccountsV2Message(ourOnlineAccounts);
-        Message messageV3 = new OnlineAccountsV3Message(ourOnlineAccounts);
-
-        Network.getInstance().broadcast(peer ->
-                peer.getPeersVersion() >= OnlineAccountsV3Message.MIN_PEER_VERSION
-                        ? messageV3
-                        : peer.getPeersVersion() >= ONLINE_ACCOUNTS_V2_PEER_VERSION
-                        ? messageV2
-                        : messageV1
-        );
+        Network.getInstance().broadcast(peer -> new OnlineAccountsV3Message(ourOnlineAccounts));
 
         LOGGER.debug("Broadcasted {} online account{} with timestamp {}", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp);
 
@@ -600,12 +614,6 @@ public class OnlineAccountsManager {
 
     // MemoryPoW
 
-    private boolean isMemoryPoWActive(Long timestamp) {
-        if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp() || Settings.getInstance().isOnlineAccountsMemPoWEnabled()) {
-            return true;
-        }
-        return false;
-    }
     private byte[] getMemoryPoWBytes(byte[] publicKey, long onlineAccountsTimestamp) throws IOException {
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
 
@@ -617,11 +625,6 @@ public class OnlineAccountsManager {
     }
 
     private Integer computeMemoryPoW(byte[] bytes, byte[] publicKey, long onlineAccountsTimestamp) throws TimeoutException {
-        if (!isMemoryPoWActive(NTP.getTime())) {
-            LOGGER.info("Mempow start timestamp not yet reached, and onlineAccountsMemPoWEnabled not enabled in settings");
-            return null;
-        }
-
         LOGGER.info(String.format("Computing nonce for account %.8s and timestamp %d...", Base58.encode(publicKey), onlineAccountsTimestamp));
 
         // Calculate the time until the next online timestamp and use it as a timeout when computing the nonce
@@ -629,7 +632,8 @@ public class OnlineAccountsManager {
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(startTime) + getOnlineTimestampModulus();
         long timeUntilNextTimestamp = nextOnlineAccountsTimestamp - startTime;
 
-        Integer nonce = MemoryPoW.compute2(bytes, POW_BUFFER_SIZE, POW_DIFFICULTY, timeUntilNextTimestamp);
+        int difficulty = getPoWDifficulty(onlineAccountsTimestamp);
+        Integer nonce = MemoryPoW.compute2(bytes, getPoWBufferSize(), difficulty, timeUntilNextTimestamp);
 
         double totalSeconds = (NTP.getTime() - startTime) / 1000.0f;
         int minutes = (int) ((totalSeconds % 3600) / 60);
@@ -638,15 +642,15 @@ public class OnlineAccountsManager {
 
         LOGGER.info(String.format("Computed nonce for timestamp %d and account %.8s: %d. Buffer size: %d. Difficulty: %d. " +
                         "Time taken: %02d:%02d. Hashrate: %f", onlineAccountsTimestamp, Base58.encode(publicKey),
-                nonce, POW_BUFFER_SIZE, POW_DIFFICULTY, minutes, seconds, hashRate));
+                nonce, getPoWBufferSize(), difficulty, minutes, seconds, hashRate));
 
         return nonce;
     }
 
-    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, Long timestamp) {
-        if (!isMemoryPoWActive(timestamp)) {
-            // Not active yet, so treat it as valid
-            return true;
+    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, long[] workBuffer) {
+        // Require a valid nonce value
+        if (onlineAccountData.getNonce() == null || onlineAccountData.getNonce() < 0) {
+            return false;
         }
 
         int nonce = onlineAccountData.getNonce();
@@ -659,7 +663,7 @@ public class OnlineAccountsManager {
         }
 
         // Verify the nonce
-        return MemoryPoW.verify2(mempowBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+        return MemoryPoW.verify2(mempowBytes, workBuffer, getPoWBufferSize(), getPoWDifficulty(onlineAccountData.getTimestamp()), nonce);
     }
 
 
@@ -697,7 +701,7 @@ public class OnlineAccountsManager {
      */
     // Block::mint() - only wants online accounts with (online) timestamp that matches block's (online) timestamp so they can be added to new block
     public List<OnlineAccountData> getOnlineAccounts(long onlineTimestamp) {
-        LOGGER.info(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
+        LOGGER.debug(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
 
         return new ArrayList<>(Set.copyOf(this.currentOnlineAccounts.getOrDefault(onlineTimestamp, Collections.emptySet())));
     }
@@ -743,11 +747,12 @@ public class OnlineAccountsManager {
      * Typically called by {@link Block#areOnlineAccountsValid()}
      */
     public void addBlocksOnlineAccounts(Set<OnlineAccountData> blocksOnlineAccounts, Long timestamp) {
-        // We want to add to 'current' in preference if possible
-        if (this.currentOnlineAccounts.containsKey(timestamp)) {
-            addAccounts(blocksOnlineAccounts);
+        // If these are current accounts, then there is no need to cache them, and should instead rely
+        // on the more complete entries we already have in self.currentOnlineAccounts.
+        // Note: since sig-agg, we no longer have individual signatures included in blocks, so we
+        // mustn't add anything to currentOnlineAccounts from here.
+        if (this.currentOnlineAccounts.containsKey(timestamp))
             return;
-        }
 
         // Add to block cache instead
         this.latestBlocksOnlineAccounts.computeIfAbsent(timestamp, k -> ConcurrentHashMap.newKeySet())
@@ -766,106 +771,6 @@ public class OnlineAccountsManager {
 
 
     // Network handlers
-
-    public void onNetworkGetOnlineAccountsMessage(Peer peer, Message message) {
-        GetOnlineAccountsMessage getOnlineAccountsMessage = (GetOnlineAccountsMessage) message;
-
-        List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
-
-        // Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-        List<OnlineAccountData> accountsToSend = Set.copyOf(this.currentOnlineAccounts.values()).stream().flatMap(Set::stream).collect(Collectors.toList());
-        int prefilterSize = accountsToSend.size();
-
-        Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
-        while (iterator.hasNext()) {
-            OnlineAccountData onlineAccountData = iterator.next();
-
-            for (OnlineAccountData excludeAccountData : excludeAccounts) {
-                if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
-                    iterator.remove();
-                    break;
-                }
-            }
-        }
-
-        if (accountsToSend.isEmpty())
-            return;
-
-        Message onlineAccountsMessage = new OnlineAccountsMessage(accountsToSend);
-        peer.sendMessage(onlineAccountsMessage);
-
-        LOGGER.debug("Sent {} of our {} online accounts to {}", accountsToSend.size(), prefilterSize, peer);
-    }
-
-    public void onNetworkOnlineAccountsMessage(Peer peer, Message message) {
-        OnlineAccountsMessage onlineAccountsMessage = (OnlineAccountsMessage) message;
-
-        List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-        LOGGER.debug("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
-
-        int importCount = 0;
-
-        // Add any online accounts to the queue that aren't already present
-        for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
-            boolean isNewEntry = onlineAccountsImportQueue.add(onlineAccountData);
-
-            if (isNewEntry)
-                importCount++;
-        }
-
-        if (importCount > 0)
-            LOGGER.debug("Added {} online accounts to queue", importCount);
-    }
-
-    public void onNetworkGetOnlineAccountsV2Message(Peer peer, Message message) {
-        GetOnlineAccountsV2Message getOnlineAccountsMessage = (GetOnlineAccountsV2Message) message;
-
-        List<OnlineAccountData> excludeAccounts = getOnlineAccountsMessage.getOnlineAccounts();
-
-        // Send online accounts info, excluding entries with matching timestamp & public key from excludeAccounts
-        List<OnlineAccountData> accountsToSend = Set.copyOf(this.currentOnlineAccounts.values()).stream().flatMap(Set::stream).collect(Collectors.toList());
-        int prefilterSize = accountsToSend.size();
-
-        Iterator<OnlineAccountData> iterator = accountsToSend.iterator();
-        while (iterator.hasNext()) {
-            OnlineAccountData onlineAccountData = iterator.next();
-
-            for (OnlineAccountData excludeAccountData : excludeAccounts) {
-                if (onlineAccountData.getTimestamp() == excludeAccountData.getTimestamp() && Arrays.equals(onlineAccountData.getPublicKey(), excludeAccountData.getPublicKey())) {
-                    iterator.remove();
-                    break;
-                }
-            }
-        }
-
-        if (accountsToSend.isEmpty())
-            return;
-
-        Message onlineAccountsMessage = new OnlineAccountsV2Message(accountsToSend);
-        peer.sendMessage(onlineAccountsMessage);
-
-        LOGGER.debug("Sent {} of our {} online accounts to {}", accountsToSend.size(), prefilterSize, peer);
-    }
-
-    public void onNetworkOnlineAccountsV2Message(Peer peer, Message message) {
-        OnlineAccountsV2Message onlineAccountsMessage = (OnlineAccountsV2Message) message;
-
-        List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-        LOGGER.debug("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
-
-        int importCount = 0;
-
-        // Add any online accounts to the queue that aren't already present
-        for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
-            boolean isNewEntry = onlineAccountsImportQueue.add(onlineAccountData);
-
-            if (isNewEntry)
-                importCount++;
-        }
-
-        if (importCount > 0)
-            LOGGER.debug("Added {} online accounts to queue", importCount);
-    }
 
     public void onNetworkGetOnlineAccountsV3Message(Peer peer, Message message) {
         GetOnlineAccountsV3Message getOnlineAccountsMessage = (GetOnlineAccountsV3Message) message;
@@ -887,7 +792,7 @@ public class OnlineAccountsManager {
                 Set<OnlineAccountData> timestampsOnlineAccounts = this.currentOnlineAccounts.getOrDefault(timestamp, Collections.emptySet());
                 outgoingOnlineAccounts.addAll(timestampsOnlineAccounts);
 
-                LOGGER.debug(() -> String.format("Going to send all %d online accounts for timestamp %d", timestampsOnlineAccounts.size(), timestamp));
+                LOGGER.trace(() -> String.format("Going to send all %d online accounts for timestamp %d", timestampsOnlineAccounts.size(), timestamp));
             } else {
                 // Quick cache of which leading bytes to send so we only have to filter once
                 Set<Byte> outgoingLeadingBytes = new HashSet<>();
@@ -911,7 +816,7 @@ public class OnlineAccountsManager {
                         .forEach(outgoingOnlineAccounts::add);
 
                 if (outgoingOnlineAccounts.size() > beforeAddSize)
-                    LOGGER.debug(String.format("Going to send %d online accounts for timestamp %d and leading bytes %s",
+                    LOGGER.trace(String.format("Going to send %d online accounts for timestamp %d and leading bytes %s",
                             outgoingOnlineAccounts.size() - beforeAddSize,
                             timestamp,
                             outgoingLeadingBytes.stream().sorted(Byte::compareUnsigned).map(leadingByte -> String.format("%02x", leadingByte)).collect(Collectors.joining(", "))
@@ -920,25 +825,27 @@ public class OnlineAccountsManager {
             }
         }
 
-        peer.sendMessage(
-                peer.getPeersVersion() >= OnlineAccountsV3Message.MIN_PEER_VERSION ?
-                        new OnlineAccountsV3Message(outgoingOnlineAccounts) :
-                        new OnlineAccountsV2Message(outgoingOnlineAccounts)
-        );
+        peer.sendMessage(new OnlineAccountsV3Message(outgoingOnlineAccounts));
 
-        LOGGER.debug("Sent {} online accounts to {}", outgoingOnlineAccounts.size(), peer);
+        LOGGER.trace("Sent {} online accounts to {}", outgoingOnlineAccounts.size(), peer);
     }
 
     public void onNetworkOnlineAccountsV3Message(Peer peer, Message message) {
         OnlineAccountsV3Message onlineAccountsMessage = (OnlineAccountsV3Message) message;
 
         List<OnlineAccountData> peersOnlineAccounts = onlineAccountsMessage.getOnlineAccounts();
-        LOGGER.debug("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
+        LOGGER.trace("Received {} online accounts from {}", peersOnlineAccounts.size(), peer);
 
         int importCount = 0;
 
         // Add any online accounts to the queue that aren't already present
         for (OnlineAccountData onlineAccountData : peersOnlineAccounts) {
+
+            Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountData.getTimestamp(), k -> ConcurrentHashMap.newKeySet());
+            if (onlineAccounts.contains(onlineAccountData))
+                // We have already validated this online account
+                continue;
+
             boolean isNewEntry = onlineAccountsImportQueue.add(onlineAccountData);
 
             if (isNewEntry)

@@ -1,16 +1,18 @@
 package org.qortal.arbitrary.misc;
 
+import org.apache.commons.io.FilenameUtils;
 import org.json.JSONObject;
 import org.qortal.arbitrary.ArbitraryDataRenderer;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.FilesystemUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
@@ -38,6 +40,7 @@ public enum Service {
     GIT_REPOSITORY(300, false, null, null),
     IMAGE(400, true, 10*1024*1024L, null),
     THUMBNAIL(410, true, 500*1024L, null),
+    QCHAT_IMAGE(420, true, 500*1024L, null),
     VIDEO(500, false, null, null),
     AUDIO(600, false, null, null),
     BLOG(700, false, null, null),
@@ -48,7 +51,30 @@ public enum Service {
     PLAYLIST(910, true, null, null),
     APP(1000, false, null, null),
     METADATA(1100, false, null, null),
-    QORTAL_METADATA(1111, true, 10*1024L, Arrays.asList("title", "description", "tags"));
+    GIF_REPOSITORY(1200, true, 25*1024*1024L, null) {
+        @Override
+        public ValidationResult validate(Path path) {
+            // Custom validation function to require .gif files only, and at least 1
+            int gifCount = 0;
+            File[] files = path.toFile().listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isDirectory()) {
+                        return ValidationResult.DIRECTORIES_NOT_ALLOWED;
+                    }
+                    String extension = FilenameUtils.getExtension(file.getName()).toLowerCase();
+                    if (!Objects.equals(extension, "gif")) {
+                        return ValidationResult.INVALID_FILE_EXTENSION;
+                    }
+                    gifCount++;
+                }
+            }
+            if (gifCount == 0) {
+                return ValidationResult.MISSING_DATA;
+            }
+            return ValidationResult.OK;
+        }
+    };
 
     public final int value;
     private final boolean requiresValidation;
@@ -114,7 +140,10 @@ public enum Service {
         OK(1),
         MISSING_KEYS(2),
         EXCEEDS_SIZE_LIMIT(3),
-        MISSING_INDEX_FILE(4);
+        MISSING_INDEX_FILE(4),
+        DIRECTORIES_NOT_ALLOWED(5),
+        INVALID_FILE_EXTENSION(6),
+        MISSING_DATA(7);
 
         public final int value;
 

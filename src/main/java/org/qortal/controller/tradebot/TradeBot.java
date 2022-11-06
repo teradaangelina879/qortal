@@ -468,9 +468,6 @@ public class TradeBot implements Listener {
 
 		List<TradePresenceData> safeTradePresences = List.copyOf(this.safeAllTradePresencesByPubkey.values());
 
-		if (safeTradePresences.isEmpty())
-			return;
-
 		LOGGER.debug("Broadcasting all {} known trade presences. Next broadcast timestamp: {}",
 				safeTradePresences.size(), nextTradePresenceBroadcastTimestamp
 		);
@@ -637,7 +634,7 @@ public class TradeBot implements Listener {
 		}
 
 		if (newCount > 0) {
-			LOGGER.debug("New trade presences: {}", newCount);
+			LOGGER.debug("New trade presences: {}, all trade presences: {}", newCount, allTradePresencesByPubkey.size());
 			rebuildSafeAllTradePresences();
 		}
 	}

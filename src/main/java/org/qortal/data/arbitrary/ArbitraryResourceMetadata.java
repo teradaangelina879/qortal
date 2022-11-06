@@ -24,7 +24,10 @@ public class ArbitraryResourceMetadata {
         this.description = description;
         this.tags = tags;
         this.category = category;
-        this.categoryName = category.getName();
+
+        if (category != null) {
+            this.categoryName = category.getName();
+        }
     }
 
     public static ArbitraryResourceMetadata fromTransactionMetadata(ArbitraryDataTransactionMetadata transactionMetadata) {

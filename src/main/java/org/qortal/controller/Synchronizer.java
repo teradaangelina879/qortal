@@ -19,7 +19,6 @@ import org.qortal.block.BlockChain;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.CommonBlockData;
-import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.transaction.RewardShareTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.event.Event;
@@ -54,7 +53,8 @@ public class Synchronizer extends Thread {
 	/** Maximum number of block signatures we ask from peer in one go */
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
 
-	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000L; // ms
+	/** Maximum number of consecutive failed sync attempts before marking peer as misbehaved */
+	private static final int MAX_CONSECUTIVE_FAILED_SYNC_ATTEMPTS = 3;
 
 
 	private boolean running;
@@ -76,6 +76,8 @@ public class Synchronizer extends Thread {
 	private volatile boolean isSynchronizing = false;
 	/** Temporary estimate of synchronization progress for SysTray use. */
 	private volatile int syncPercent = 0;
+	/** Temporary estimate of blocks remaining for SysTray use. */
+	private volatile int blocksRemaining = 0;
 
 	private static volatile boolean requestSync = false;
 	private boolean syncRequestPending = false;
@@ -181,6 +183,18 @@ public class Synchronizer extends Thread {
 		}
 	}
 
+	public Integer getBlocksRemaining() {
+		synchronized (this.syncLock) {
+			// Report as 0 blocks remaining if the latest block is within the last 60 mins
+			final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
+			if (Controller.getInstance().isUpToDate(minLatestBlockTimestamp)) {
+				return 0;
+			}
+
+			return this.isSynchronizing ? this.blocksRemaining : null;
+		}
+	}
+
 	public void requestSync() {
 		requestSync = true;
 	}
@@ -282,7 +296,7 @@ public class Synchronizer extends Thread {
 		BlockData priorChainTip = Controller.getInstance().getChainTip();
 
 		synchronized (this.syncLock) {
-			this.syncPercent = (priorChainTip.getHeight() * 100) / peer.getChainTipData().getLastHeight();
+			this.syncPercent = (priorChainTip.getHeight() * 100) / peer.getChainTipData().getHeight();
 
 			// Only update SysTray if we're potentially changing height
 			if (this.syncPercent < 100) {
@@ -312,7 +326,7 @@ public class Synchronizer extends Thread {
 
 				case INFERIOR_CHAIN: {
 					// Update our list of inferior chain tips
-					ByteArray inferiorChainSignature = ByteArray.wrap(peer.getChainTipData().getLastBlockSignature());
+					ByteArray inferiorChainSignature = ByteArray.wrap(peer.getChainTipData().getSignature());
 					if (!inferiorChainSignatures.contains(inferiorChainSignature))
 						inferiorChainSignatures.add(inferiorChainSignature);
 
@@ -320,7 +334,8 @@ public class Synchronizer extends Thread {
 					LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
 
 					// Notify peer of our superior chain
-					if (!peer.sendMessage(Network.getInstance().buildHeightMessage(peer, priorChainTip)))
+					Message message = Network.getInstance().buildHeightOrChainTipInfo(peer);
+					if (message == null || !peer.sendMessage(message))
 						peer.disconnect("failed to notify peer of our superior chain");
 					break;
 				}
@@ -341,7 +356,7 @@ public class Synchronizer extends Thread {
 					// fall-through...
 				case NOTHING_TO_DO: {
 					// Update our list of inferior chain tips
-					ByteArray inferiorChainSignature = ByteArray.wrap(peer.getChainTipData().getLastBlockSignature());
+					ByteArray inferiorChainSignature = ByteArray.wrap(peer.getChainTipData().getSignature());
 					if (!inferiorChainSignatures.contains(inferiorChainSignature))
 						inferiorChainSignatures.add(inferiorChainSignature);
 
@@ -369,8 +384,7 @@ public class Synchronizer extends Thread {
 				// Reset our cache of inferior chains
 				inferiorChainSignatures.clear();
 
-				Network network = Network.getInstance();
-				network.broadcast(broadcastPeer -> network.buildHeightMessage(broadcastPeer, newChainTip));
+				Network.getInstance().broadcastOurChain();
 
 				EventBus.INSTANCE.notify(new NewChainTipEvent(priorChainTip, newChainTip));
 			}
@@ -397,9 +411,10 @@ public class Synchronizer extends Thread {
 					timePeersLastAvailable = NTP.getTime();
 
 				// If enough time has passed, enter recovery mode, which lifts some restrictions on who we can sync with and when we can mint
-				if (NTP.getTime() - timePeersLastAvailable > RECOVERY_MODE_TIMEOUT) {
+				long recoveryModeTimeout = Settings.getInstance().getRecoveryModeTimeout();
+				if (NTP.getTime() - timePeersLastAvailable > recoveryModeTimeout) {
 					if (recoveryMode == false) {
-						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", RECOVERY_MODE_TIMEOUT/60/1000));
+						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", recoveryModeTimeout/60/1000));
 						recoveryMode = true;
 					}
 				}
@@ -513,13 +528,13 @@ public class Synchronizer extends Thread {
 			final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
 			final int ourInitialHeight = ourLatestBlockData.getHeight();
 
-			PeerChainTipData peerChainTipData = peer.getChainTipData();
-			int peerHeight = peerChainTipData.getLastHeight();
-			byte[] peersLastBlockSignature = peerChainTipData.getLastBlockSignature();
+			BlockSummaryData peerChainTipData = peer.getChainTipData();
+			int peerHeight = peerChainTipData.getHeight();
+			byte[] peersLastBlockSignature = peerChainTipData.getSignature();
 
 			byte[] ourLastBlockSignature = ourLatestBlockData.getSignature();
 			LOGGER.debug(String.format("Fetching summaries from peer %s at height %d, sig %.8s, ts %d; our height %d, sig %.8s, ts %d", peer,
-					peerHeight, Base58.encode(peersLastBlockSignature), peer.getChainTipData().getLastBlockTimestamp(),
+					peerHeight, Base58.encode(peersLastBlockSignature), peerChainTipData.getTimestamp(),
 					ourInitialHeight, Base58.encode(ourLastBlockSignature), ourLatestBlockData.getTimestamp()));
 
 			List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
@@ -637,9 +652,9 @@ public class Synchronizer extends Thread {
 							return peers;
 
 						// Count the number of blocks this peer has beyond our common block
-						final PeerChainTipData peerChainTipData = peer.getChainTipData();
-						final int peerHeight = peerChainTipData.getLastHeight();
-						final byte[] peerLastBlockSignature = peerChainTipData.getLastBlockSignature();
+						final BlockSummaryData peerChainTipData = peer.getChainTipData();
+						final int peerHeight = peerChainTipData.getHeight();
+						final byte[] peerLastBlockSignature = peerChainTipData.getSignature();
 						final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
 						// Limit the number of blocks we are comparing. FUTURE: we could request more in batches, but there may not be a case when this is needed
 						int summariesRequired = Math.min(peerAdditionalBlocksAfterCommonBlock, MAXIMUM_REQUEST_SIZE);
@@ -727,8 +742,9 @@ public class Synchronizer extends Thread {
 
 					LOGGER.debug(String.format("Listing peers with common block %.8s...", Base58.encode(commonBlockSummary.getSignature())));
 					for (Peer peer : peersSharingCommonBlock) {
-						final int peerHeight = peer.getChainTipData().getLastHeight();
-						final Long peerLastBlockTimestamp = peer.getChainTipData().getLastBlockTimestamp();
+						BlockSummaryData peerChainTipData = peer.getChainTipData();
+						final int peerHeight = peerChainTipData.getHeight();
+						final Long peerLastBlockTimestamp = peerChainTipData.getTimestamp();
 						final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
 						final CommonBlockData peerCommonBlockData = peer.getCommonBlockData();
 
@@ -825,7 +841,7 @@ public class Synchronizer extends Thread {
 		// Calculate the length of the shortest peer chain sharing this common block
 		int minChainLength = 0;
 		for (Peer peer : peersSharingCommonBlock) {
-			final int peerHeight = peer.getChainTipData().getLastHeight();
+			final int peerHeight = peer.getChainTipData().getHeight();
 			final int peerAdditionalBlocksAfterCommonBlock = peerHeight - commonBlockSummary.getHeight();
 
 			if (peerAdditionalBlocksAfterCommonBlock < minChainLength || minChainLength == 0)
@@ -933,13 +949,13 @@ public class Synchronizer extends Thread {
 					final BlockData ourLatestBlockData = repository.getBlockRepository().getLastBlock();
 					final int ourInitialHeight = ourLatestBlockData.getHeight();
 
-					PeerChainTipData peerChainTipData = peer.getChainTipData();
-					int peerHeight = peerChainTipData.getLastHeight();
-					byte[] peersLastBlockSignature = peerChainTipData.getLastBlockSignature();
+					BlockSummaryData peerChainTipData = peer.getChainTipData();
+					int peerHeight = peerChainTipData.getHeight();
+					byte[] peersLastBlockSignature = peerChainTipData.getSignature();
 
 					byte[] ourLastBlockSignature = ourLatestBlockData.getSignature();
 					String syncString = String.format("Synchronizing with peer %s at height %d, sig %.8s, ts %d; our height %d, sig %.8s, ts %d", peer,
-							peerHeight, Base58.encode(peersLastBlockSignature), peer.getChainTipData().getLastBlockTimestamp(),
+							peerHeight, Base58.encode(peersLastBlockSignature), peerChainTipData.getTimestamp(),
 							ourInitialHeight, Base58.encode(ourLastBlockSignature), ourLatestBlockData.getTimestamp());
 					LOGGER.info(syncString);
 
@@ -1246,7 +1262,14 @@ public class Synchronizer extends Thread {
 		int numberSignaturesRequired = additionalPeerBlocksAfterCommonBlock - peerBlockSignatures.size();
 
 		int retryCount = 0;
-		while (height < peerHeight) {
+
+		// Keep fetching blocks from peer until we reach their tip, or reach a count of MAXIMUM_COMMON_DELTA blocks.
+		// We need to limit the total number, otherwise too much can be loaded into memory, causing an
+		// OutOfMemoryException. This is common when syncing from 1000+ blocks behind the chain tip, after starting
+		// from a small fork that didn't become part of the main chain. This causes the entire sync process to
+		// use syncToPeerChain(), resulting in potentially thousands of blocks being held in memory if the limit
+		// below isn't applied.
+		while (height < peerHeight && peerBlocks.size() <= MAXIMUM_COMMON_DELTA) {
 			if (Controller.isStopping())
 				return SynchronizationResult.SHUTTING_DOWN;
 
@@ -1313,7 +1336,7 @@ public class Synchronizer extends Thread {
 			// Final check to make sure the peer isn't out of date (except for when we're in recovery mode)
 			if (!recoveryMode && peer.getChainTipData() != null) {
 				final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
-				final Long peerLastBlockTimestamp = peer.getChainTipData().getLastBlockTimestamp();
+				final Long peerLastBlockTimestamp = peer.getChainTipData().getTimestamp();
 				if (peerLastBlockTimestamp == null || peerLastBlockTimestamp < minLatestBlockTimestamp) {
 					LOGGER.info(String.format("Peer %s is out of date, so abandoning sync attempt", peer));
 					return SynchronizationResult.CHAIN_TIP_TOO_OLD;
@@ -1448,6 +1471,12 @@ public class Synchronizer extends Thread {
 
 			repository.saveChanges();
 
+			synchronized (this.syncLock) {
+				if (peer.getChainTipData() != null) {
+					this.blocksRemaining = peer.getChainTipData().getHeight() - newBlock.getBlockData().getHeight();
+				}
+			}
+
 			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}
 
@@ -1543,6 +1572,12 @@ public class Synchronizer extends Thread {
 
 			repository.saveChanges();
 
+			synchronized (this.syncLock) {
+				if (peer.getChainTipData() != null) {
+					this.blocksRemaining = peer.getChainTipData().getHeight() - newBlock.getBlockData().getHeight();
+				}
+			}
+
 			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}
 
@@ -1553,12 +1588,19 @@ public class Synchronizer extends Thread {
 		Message getBlockSummariesMessage = new GetBlockSummariesMessage(parentSignature, numberRequested);
 
 		Message message = peer.getResponse(getBlockSummariesMessage);
-		if (message == null || message.getType() != MessageType.BLOCK_SUMMARIES)
+		if (message == null)
 			return null;
 
-		BlockSummariesMessage blockSummariesMessage = (BlockSummariesMessage) message;
+		if (message.getType() == MessageType.BLOCK_SUMMARIES) {
+			BlockSummariesMessage blockSummariesMessage = (BlockSummariesMessage) message;
+			return blockSummariesMessage.getBlockSummaries();
+		}
+		else if (message.getType() == MessageType.BLOCK_SUMMARIES_V2) {
+			BlockSummariesV2Message blockSummariesMessage = (BlockSummariesV2Message) message;
+			return blockSummariesMessage.getBlockSummaries();
+		}
 
-		return blockSummariesMessage.getBlockSummaries();
+		return null;
 	}
 
 	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
@@ -1577,8 +1619,20 @@ public class Synchronizer extends Thread {
 		Message getBlockMessage = new GetBlockMessage(signature);
 
 		Message message = peer.getResponse(getBlockMessage);
-		if (message == null)
+		if (message == null) {
+			peer.getPeerData().incrementFailedSyncCount();
+			if (peer.getPeerData().getFailedSyncCount() >= MAX_CONSECUTIVE_FAILED_SYNC_ATTEMPTS) {
+				// Several failed attempts, so mark peer as misbehaved
+				LOGGER.info("Marking peer {} as misbehaved due to {} failed sync attempts", peer, peer.getPeerData().getFailedSyncCount());
+				Network.getInstance().peerMisbehaved(peer);
+			}
 			return null;
+		}
+
+		// Reset failed sync count now that we have a block response
+		// FUTURE: we could move this to the end of the sync process, but to reduce risk this can be done
+		// at a later stage. For now we are only defending against serialization errors or no responses.
+		peer.getPeerData().setFailedSyncCount(0);
 
 		switch (message.getType()) {
 			case BLOCK: {

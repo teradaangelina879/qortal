@@ -297,7 +297,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	@Override
 	public List<BlockSummaryData> getBlockSummariesBySigner(byte[] signerPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
-		sql.append("SELECT signature, height, Blocks.minter, online_accounts_count FROM ");
+		sql.append("SELECT signature, height, Blocks.minter, online_accounts_count, minted_when, transaction_count, Blocks.reference FROM ");
 
 		// List of minter account's public key and reward-share public keys with minter's public key
 		sql.append("(SELECT * FROM (VALUES (CAST(? AS QortalPublicKey))) UNION (SELECT reward_share_public_key FROM RewardShares WHERE minter_public_key = ?)) AS PublicKeys (public_key) ");
@@ -322,8 +322,12 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				int height = resultSet.getInt(2);
 				byte[] blockMinterPublicKey = resultSet.getBytes(3);
 				int onlineAccountsCount = resultSet.getInt(4);
+				long timestamp = resultSet.getLong(5);
+				int transactionCount = resultSet.getInt(6);
+				byte[] reference = resultSet.getBytes(7);
 
-				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, blockMinterPublicKey, onlineAccountsCount);
+				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, blockMinterPublicKey, onlineAccountsCount,
+						timestamp, transactionCount, reference);
 				blockSummaries.add(blockSummary);
 			} while (resultSet.next());
 
@@ -355,7 +359,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException {
-		String sql = "SELECT signature, height, minter, online_accounts_count, minted_when, transaction_count "
+		String sql = "SELECT signature, height, minter, online_accounts_count, minted_when, transaction_count, reference "
 				+ "FROM Blocks WHERE height BETWEEN ? AND ?";
 
 		List<BlockSummaryData> blockSummaries = new ArrayList<>();
@@ -371,9 +375,10 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				int onlineAccountsCount = resultSet.getInt(4);
 				long timestamp = resultSet.getLong(5);
 				int transactionCount = resultSet.getInt(6);
+				byte[] reference = resultSet.getBytes(7);
 
 				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, minterPublicKey, onlineAccountsCount,
-						timestamp, transactionCount);
+						timestamp, transactionCount, reference);
 				blockSummaries.add(blockSummary);
 			} while (resultSet.next());
 

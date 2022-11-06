@@ -20,7 +20,7 @@ import java.util.Map;
  */
 public class OnlineAccountsV3Message extends Message {
 
-	public static final long MIN_PEER_VERSION = 0x300050001L; // 3.5.1
+	public static final long MIN_PEER_VERSION = 0x300060000L; // 3.6.0
 
 	private List<OnlineAccountData> onlineAccounts;
 

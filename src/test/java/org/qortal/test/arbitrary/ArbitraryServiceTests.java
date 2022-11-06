@@ -102,77 +102,77 @@ public class ArbitraryServiceTests extends Common {
     }
 
     @Test
-    public void testValidQortalMetadata() throws IOException {
-        // Metadata is to describe an arbitrary resource (title, description, tags, etc)
-        String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";
+    public void testValidateGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
 
-        // Write to temp path
-        Path path = Files.createTempFile("testValidQortalMetadata", null);
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateGifRepository");
         path.toFile().deleteOnExit();
-        Files.write(path, dataString.getBytes(), StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image3.gif"), data, StandardOpenOption.CREATE);
 
-        Service service = Service.QORTAL_METADATA;
+        Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
+
+        // There is an index file in the root
         assertEquals(ValidationResult.OK, service.validate(path));
     }
 
     @Test
-    public void testQortalMetadataMissingKeys() throws IOException {
-        // Metadata is to describe an arbitrary resource (title, description, tags, etc)
-        String dataString = "{\"description\":\"Test description\", \"tags\":[\"test\"]}";
+    public void testValidateMultiLayerGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
 
-        // Write to temp path
-        Path path = Files.createTempFile("testQortalMetadataMissingKeys", null);
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateMultiLayerGifRepository");
         path.toFile().deleteOnExit();
-        Files.write(path, dataString.getBytes(), StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
 
-        Service service = Service.QORTAL_METADATA;
+        Path subdirectory = Paths.get(path.toString(), "subdirectory");
+        Files.createDirectories(subdirectory);
+        Files.write(Paths.get(subdirectory.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(subdirectory.toString(), "image3.gif"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
-        assertEquals(ValidationResult.MISSING_KEYS, service.validate(path));
+
+        // There is an index file in the root
+        assertEquals(ValidationResult.DIRECTORIES_NOT_ALLOWED, service.validate(path));
     }
 
     @Test
-    public void testQortalMetadataTooLarge() throws IOException {
-        // Metadata is to describe an arbitrary resource (title, description, tags, etc)
-        String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";
+    public void testValidateEmptyGifRepository() throws IOException {
+        Path path = Files.createTempDirectory("testValidateEmptyGifRepository");
 
-        // Generate some large data to go along with it
-        int largeDataSize = 11*1024; // Larger than allowed 10kiB
-        byte[] largeData = new byte[largeDataSize];
-        new Random().nextBytes(largeData);
-
-        // Write to temp path
-        Path path = Files.createTempDirectory("testQortalMetadataTooLarge");
-        path.toFile().deleteOnExit();
-        Files.write(Paths.get(path.toString(), "data"), dataString.getBytes(), StandardOpenOption.CREATE);
-        Files.write(Paths.get(path.toString(), "large_data"), largeData, StandardOpenOption.CREATE);
-
-        Service service = Service.QORTAL_METADATA;
+        Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
-        assertEquals(ValidationResult.EXCEEDS_SIZE_LIMIT, service.validate(path));
+
+        // There is an index file in the root
+        assertEquals(ValidationResult.MISSING_DATA, service.validate(path));
     }
 
     @Test
-    public void testMultipleFileMetadata() throws IOException {
-        // Metadata is to describe an arbitrary resource (title, description, tags, etc)
-        String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";
+    public void testValidateInvalidGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
 
-        // Generate some large data to go along with it
-        int otherDataSize = 1024; // Smaller than 10kiB limit
-        byte[] otherData = new byte[otherDataSize];
-        new Random().nextBytes(otherData);
-
-        // Write to temp path
-        Path path = Files.createTempDirectory("testMultipleFileMetadata");
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateInvalidGifRepository");
         path.toFile().deleteOnExit();
-        Files.write(Paths.get(path.toString(), "data"), dataString.getBytes(), StandardOpenOption.CREATE);
-        Files.write(Paths.get(path.toString(), "other_data"), otherData, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image3.jpg"), data, StandardOpenOption.CREATE); // Invalid extension
 
-        Service service = Service.QORTAL_METADATA;
+        Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
 
-        // There are multiple files, so we don't know which one to parse as JSON
-        assertEquals(ValidationResult.MISSING_KEYS, service.validate(path));
+        // There is an index file in the root
+        assertEquals(ValidationResult.INVALID_FILE_EXTENSION, service.validate(path));
     }
 
 }

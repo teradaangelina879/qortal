@@ -143,13 +143,17 @@ public class HSQLDBBlockArchiveRepository implements BlockArchiveRepository {
                 byte[] blockMinterPublicKey = resultSet.getBytes(3);
 
                 // Fetch additional info from the archive itself
-                int onlineAccountsCount = 0;
+                Integer onlineAccountsCount = null;
+                Long timestamp = null;
+                Integer transactionCount = null;
+                byte[] reference = null;
+
                 BlockData blockData = this.fromSignature(signature);
                 if (blockData != null) {
                     onlineAccountsCount = blockData.getOnlineAccountsCount();
                 }
 
-                BlockSummaryData blockSummary = new BlockSummaryData(height, signature, blockMinterPublicKey, onlineAccountsCount);
+                BlockSummaryData blockSummary = new BlockSummaryData(height, signature, blockMinterPublicKey, onlineAccountsCount, timestamp, transactionCount, reference);
                 blockSummaries.add(blockSummary);
             } while (resultSet.next());
 

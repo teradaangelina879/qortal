@@ -11,11 +11,12 @@ public class BlockSummaryData {
 	private int height;
 	private byte[] signature;
 	private byte[] minterPublicKey;
-	private int onlineAccountsCount;
 
 	// Optional, set during construction
+	private Integer onlineAccountsCount;
 	private Long timestamp;
 	private Integer transactionCount;
+	private byte[] reference;
 
 	// Optional, set after construction
 	private Integer minterLevel;
@@ -25,6 +26,15 @@ public class BlockSummaryData {
 	protected BlockSummaryData() {
 	}
 
+	/** Constructor typically populated with fields from HeightV2Message */
+	public BlockSummaryData(int height, byte[] signature, byte[] minterPublicKey, long timestamp) {
+		this.height = height;
+		this.signature = signature;
+		this.minterPublicKey = minterPublicKey;
+		this.timestamp = timestamp;
+	}
+
+	/** Constructor typically populated with fields from BlockSummariesMessage */
 	public BlockSummaryData(int height, byte[] signature, byte[] minterPublicKey, int onlineAccountsCount) {
 		this.height = height;
 		this.signature = signature;
@@ -32,13 +42,16 @@ public class BlockSummaryData {
 		this.onlineAccountsCount = onlineAccountsCount;
 	}
 
-	public BlockSummaryData(int height, byte[] signature, byte[] minterPublicKey, int onlineAccountsCount, long timestamp, int transactionCount) {
+	/** Constructor typically populated with fields from BlockSummariesV2Message */
+	public BlockSummaryData(int height, byte[] signature, byte[] minterPublicKey, Integer onlineAccountsCount,
+							Long timestamp, Integer transactionCount, byte[] reference) {
 		this.height = height;
 		this.signature = signature;
 		this.minterPublicKey = minterPublicKey;
 		this.onlineAccountsCount = onlineAccountsCount;
 		this.timestamp = timestamp;
 		this.transactionCount = transactionCount;
+		this.reference = reference;
 	}
 
 	public BlockSummaryData(BlockData blockData) {
@@ -49,6 +62,7 @@ public class BlockSummaryData {
 
 		this.timestamp = blockData.getTimestamp();
 		this.transactionCount = blockData.getTransactionCount();
+		this.reference = blockData.getReference();
 	}
 
 	// Getters / setters
@@ -65,7 +79,7 @@ public class BlockSummaryData {
 		return this.minterPublicKey;
 	}
 
-	public int getOnlineAccountsCount() {
+	public Integer getOnlineAccountsCount() {
 		return this.onlineAccountsCount;
 	}
 
@@ -75,6 +89,10 @@ public class BlockSummaryData {
 
 	public Integer getTransactionCount() {
 		return this.transactionCount;
+	}
+
+	public byte[] getReference() {
+		return this.reference;
 	}
 
 	public Integer getMinterLevel() {
