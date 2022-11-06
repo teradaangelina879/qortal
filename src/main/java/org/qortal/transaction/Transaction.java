@@ -1,13 +1,7 @@
 package org.qortal.transaction;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.EnumSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
@@ -69,8 +63,8 @@ public abstract class Transaction {
 		AT(21, false),
 		CREATE_GROUP(22, true),
 		UPDATE_GROUP(23, true),
-		ADD_GROUP_ADMIN(24, false),
-		REMOVE_GROUP_ADMIN(25, false),
+		ADD_GROUP_ADMIN(24, true),
+		REMOVE_GROUP_ADMIN(25, true),
 		GROUP_BAN(26, false),
 		CANCEL_GROUP_BAN(27, false),
 		GROUP_KICK(28, false),
@@ -250,6 +244,7 @@ public abstract class Transaction {
 		INVALID_TIMESTAMP_SIGNATURE(95),
 		ADDRESS_BLOCKED(96),
 		NAME_BLOCKED(97),
+		GROUP_APPROVAL_REQUIRED(98),
 		INVALID_BUT_OK(999),
 		NOT_YET_RELEASED(1000);
 
@@ -760,9 +755,13 @@ public abstract class Transaction {
 			// Group no longer exists? Possibly due to blockchain orphaning undoing group creation?
 			return true; // stops tx being included in block but it will eventually expire
 
+		String groupOwner = this.repository.getGroupRepository().getOwner(txGroupId);
+		boolean groupOwnedByNullAccount = Objects.equals(groupOwner, Group.NULL_OWNER_ADDRESS);
+
 		// If transaction's creator is group admin (of group with ID txGroupId) then auto-approve
+		// This is disabled for null-owned groups, since these require approval from other admins
 		PublicKeyAccount creator = this.getCreator();
-		if (groupRepository.adminExists(txGroupId, creator.getAddress()))
+		if (!groupOwnedByNullAccount && groupRepository.adminExists(txGroupId, creator.getAddress()))
 			return false;
 
 		return true;
