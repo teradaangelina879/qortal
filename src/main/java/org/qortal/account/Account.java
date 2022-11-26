@@ -223,6 +223,11 @@ public class Account {
 		return this.repository.getAccountRepository().getMintedBlockCount(this.address);
 	}
 
+	/** Returns account's blockMintedPenalty or null if account not found in repository. */
+	public Integer getBlocksMintedPenalty() throws DataException {
+		return this.repository.getAccountRepository().getBlocksMintedPenaltyCount(this.address);
+	}
+
 
 	/** Returns whether account can build reward-shares.
 	 * <p>
