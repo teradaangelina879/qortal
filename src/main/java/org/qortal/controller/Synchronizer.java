@@ -247,6 +247,9 @@ public class Synchronizer extends Thread {
 		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
 		peers.removeIf(Controller.hasInferiorChainTip);
 
+		// Disregard peers that have a block with an invalid signer
+		peers.removeIf(Controller.hasInvalidSigner);
+
 		final int peersBeforeComparison = peers.size();
 
 		// Request recent block summaries from the remaining peers, and locate our common block with each

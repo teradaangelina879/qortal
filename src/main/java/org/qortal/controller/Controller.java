@@ -29,6 +29,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.account.Account;
 import org.qortal.api.ApiService;
 import org.qortal.api.DomainMapService;
 import org.qortal.api.GatewayService;
@@ -754,6 +755,27 @@ public class Controller extends Thread {
 	public static final Predicate<Peer> hasOldVersion = peer -> {
 		final String minPeerVersion = Settings.getInstance().getMinPeerVersion();
 		return peer.isAtLeastVersion(minPeerVersion) == false;
+	};
+
+	public static final Predicate<Peer> hasInvalidSigner = peer -> {
+		final List<BlockSummaryData> peerChainTipSummaries = peer.getChainTipSummaries();
+		if (peerChainTipSummaries == null) {
+			return true;
+		}
+
+		try (Repository repository = RepositoryManager.getRepository()) {
+			for (BlockSummaryData blockSummaryData : peerChainTipSummaries) {
+				if (Account.getRewardShareEffectiveMintingLevel(repository, blockSummaryData.getMinterPublicKey()) == 0) {
+					return true;
+				}
+			}
+		} catch (DataException e) {
+			return true;
+		}
+
+		// We got this far without encountering invalid or missing summaries, nor was an exception thrown,
+		// so it is safe to assume that all of this peer's recent blocks had a valid signer.
+		return false;
 	};
 
 	private long getRandomRepositoryMaintenanceInterval() {
