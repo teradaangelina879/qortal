@@ -7,11 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -966,6 +962,33 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return assetTransfers;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset-transfer transactions from repository", e);
+		}
+	}
+
+	public List<String> getConfirmedRewardShareCreatorsExcludingSelfShares() throws DataException {
+		List<String> rewardShareCreators = new ArrayList<>();
+
+		String sql = "SELECT account "
+				+ "FROM RewardShareTransactions "
+				+ "JOIN Accounts ON Accounts.public_key = RewardShareTransactions.minter_public_key "
+				+ "JOIN Transactions ON Transactions.signature = RewardShareTransactions.signature "
+				+ "WHERE block_height IS NOT NULL AND RewardShareTransactions.recipient != Accounts.account "
+				+ "GROUP BY account "
+				+ "ORDER BY account";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return rewardShareCreators;
+
+			do {
+				String address = resultSet.getString(1);
+
+				rewardShareCreators.add(address);
+			} while (resultSet.next());
+
+			return rewardShareCreators;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch reward share creators from repository", e);
 		}
 	}
 
