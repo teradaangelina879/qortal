@@ -74,7 +74,8 @@
 		"transactionV5Timestamp": 0,
 		"transactionV6Timestamp": 0,
 		"disableReferenceTimestamp": 9999999999999,
-		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999
+		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
+		"onlineAccountMinterLevelValidationHeight": 0,
 	},
 	"genesisInfo": {
 		"version": 4,
