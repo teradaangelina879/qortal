@@ -211,7 +211,8 @@ public class Account {
 		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToMint())
 			return true;
 
-		if (Account.isFounder(accountData.getFlags()))
+		// Founders can always mint, unless they have a penalty
+		if (Account.isFounder(accountData.getFlags()) && accountData.getBlocksMintedPenalty() == 0)
 			return true;
 
 		return false;
@@ -243,7 +244,7 @@ public class Account {
 		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToRewardShare())
 			return true;
 
-		if (Account.isFounder(accountData.getFlags()))
+		if (Account.isFounder(accountData.getFlags()) && accountData.getBlocksMintedPenalty() == 0)
 			return true;
 
 		return false;
@@ -271,7 +272,7 @@ public class Account {
 	/**
 	 * Returns 'effective' minting level, or zero if account does not exist/cannot mint.
 	 * <p>
-	 * For founder accounts, this returns "founderEffectiveMintingLevel" from blockchain config.
+	 * For founder accounts with no penalty, this returns "founderEffectiveMintingLevel" from blockchain config.
 	 * 
 	 * @return 0+
 	 * @throws DataException
@@ -281,7 +282,8 @@ public class Account {
 		if (accountData == null)
 			return 0;
 
-		if (Account.isFounder(accountData.getFlags()))
+		// Founders are assigned a different effective minting level, as long as they have no penalty
+		if (Account.isFounder(accountData.getFlags()) && accountData.getBlocksMintedPenalty() == 0)
 			return BlockChain.getInstance().getFounderEffectiveMintingLevel();
 
 		return accountData.getLevel();
