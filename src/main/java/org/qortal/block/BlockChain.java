@@ -76,6 +76,7 @@ public class BlockChain {
 		disableReferenceTimestamp,
 		increaseOnlineAccountsDifficultyTimestamp,
 		onlineAccountMinterLevelValidationHeight,
+		selfSponsorshipAlgoV1Height;
 	}
 
 	// Custom transaction fees
@@ -196,6 +197,9 @@ public class BlockChain {
 	/** Feature trigger timestamp for ONLINE_ACCOUNTS_MODULUS time interval increase. Can't use
 	 * featureTriggers because unit tests need to set this value via Reflection. */
 	private long onlineAccountsModulusV2Timestamp;
+
+	/** Snapshot timestamp for self sponsorship algo V1 */
+	private long selfSponsorshipAlgoV1SnapshotTimestamp;
 
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
@@ -357,6 +361,11 @@ public class BlockChain {
 		return this.onlineAccountsModulusV2Timestamp;
 	}
 
+	// Self sponsorship algo
+	public long getSelfSponsorshipAlgoV1SnapshotTimestamp() {
+		return this.selfSponsorshipAlgoV1SnapshotTimestamp;
+	}
+
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
 	public boolean getRequireGroupForApproval() {
 		return this.requireGroupForApproval;
@@ -482,6 +491,10 @@ public class BlockChain {
 
 	public long getIncreaseOnlineAccountsDifficultyTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.increaseOnlineAccountsDifficultyTimestamp.name()).longValue();
+	}
+
+	public int getSelfSponsorshipAlgoV1Height() {
+		return this.featureTriggers.get(FeatureTrigger.selfSponsorshipAlgoV1Height.name()).intValue();
 	}
 
 	public long getOnlineAccountMinterLevelValidationHeight() {
