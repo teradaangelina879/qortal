@@ -13,15 +13,15 @@ import java.util.List;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class AccountPenaltyStats {
 
-	public int totalPenalties;
-	public int maxPenalty;
-	public int minPenalty;
+	public Integer totalPenalties;
+	public Integer maxPenalty;
+	public Integer minPenalty;
 	public String penaltyHash;
 
 	protected AccountPenaltyStats() {
 	}
 
-	public AccountPenaltyStats(int totalPenalties, int maxPenalty, int minPenalty, String penaltyHash) {
+	public AccountPenaltyStats(Integer totalPenalties, Integer maxPenalty, Integer minPenalty, String penaltyHash) {
 		this.totalPenalties = totalPenalties;
 		this.maxPenalty = maxPenalty;
 		this.minPenalty = minPenalty;
