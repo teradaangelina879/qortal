@@ -370,12 +370,24 @@ public class Block {
 			return null;
 		}
 
+		int height = parentBlockData.getHeight() + 1;
 		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 		long onlineAccountsTimestamp = OnlineAccountsManager.getCurrentOnlineAccountTimestamp();
 
 		// Fetch our list of online accounts, removing any that are missing a nonce
 		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
 		onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
+
+		// Remove any online accounts that are level 0
+		onlineAccounts.removeIf(a -> {
+			try {
+				return Account.getRewardShareEffectiveMintingLevel(repository, a.getPublicKey()) == 0;
+			} catch (DataException e) {
+				// Something went wrong, so remove the account
+				return true;
+			}
+		});
+
 		if (onlineAccounts.isEmpty()) {
 			LOGGER.debug("No online accounts - not even our own?");
 			return null;
@@ -442,7 +454,6 @@ public class Block {
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
-		int height = parentBlockData.getHeight() + 1;
 
 		int atCount = 0;
 		long atFees = 0;
@@ -1035,6 +1046,15 @@ public class Block {
 		List<RewardShareData> onlineRewardShares = repository.getAccountRepository().getRewardSharesByIndexes(accountIndexes.toArray());
 		if (onlineRewardShares == null)
 			return ValidationResult.ONLINE_ACCOUNT_UNKNOWN;
+
+		// After feature trigger, require all online account minters to be greater than level 0
+		if (this.getBlockData().getHeight() >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+			List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
+			for (ExpandedAccount account : expandedAccounts) {
+				if (account.getMintingAccount().getEffectiveMintingLevel() == 0)
+					return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+		}
 
 		// If block is past a certain age then we simply assume the signatures were correct
 		long signatureRequirementThreshold = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMinLifetime();
