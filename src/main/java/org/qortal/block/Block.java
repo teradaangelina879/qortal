@@ -136,7 +136,7 @@ public class Block {
 	}
 
 	/** Lazy-instantiated expanded info on block's online accounts. */
-	private static class ExpandedAccount {
+	public static class ExpandedAccount {
 		private final RewardShareData rewardShareData;
 		private final int sharePercent;
 		private final boolean isRecipientAlsoMinter;
@@ -167,6 +167,13 @@ public class Block {
 				this.recipientAccount = new Account(repository, this.rewardShareData.getRecipient());
 				this.recipientAccountData = repository.getAccountRepository().getAccount(this.recipientAccount.getAddress());
 			}
+		}
+
+		public Account getMintingAccount() {
+			return this.mintingAccount;
+		}
+		public Account getRecipientAccount() {
+			return this.recipientAccount;
 		}
 
 		/**
