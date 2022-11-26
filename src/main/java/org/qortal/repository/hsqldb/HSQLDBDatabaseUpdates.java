@@ -975,6 +975,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN receiving_account_info SET DATA TYPE VARBINARY(128)");
 					break;
 
+				case 44:
+					// Add blocks minted penalty
+					stmt.execute("ALTER TABLE Accounts ADD blocks_minted_penalty INTEGER NOT NULL DEFAULT 0");
+					break;
+
 				default:
 					// nothing to do
 					return false;
