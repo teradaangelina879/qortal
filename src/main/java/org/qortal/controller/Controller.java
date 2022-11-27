@@ -758,24 +758,15 @@ public class Controller extends Thread {
 	};
 
 	public static final Predicate<Peer> hasInvalidSigner = peer -> {
-		final List<BlockSummaryData> peerChainTipSummaries = peer.getChainTipSummaries();
-		if (peerChainTipSummaries == null) {
+		final BlockSummaryData peerChainTipData = peer.getChainTipData();
+		if (peerChainTipData == null)
 			return true;
-		}
 
 		try (Repository repository = RepositoryManager.getRepository()) {
-			for (BlockSummaryData blockSummaryData : peerChainTipSummaries) {
-				if (Account.getRewardShareEffectiveMintingLevel(repository, blockSummaryData.getMinterPublicKey()) == 0) {
-					return true;
-				}
-			}
+			return Account.getRewardShareEffectiveMintingLevel(repository, peerChainTipData.getMinterPublicKey()) == 0;
 		} catch (DataException e) {
 			return true;
 		}
-
-		// We got this far without encountering invalid or missing summaries, nor was an exception thrown,
-		// so it is safe to assume that all of this peer's recent blocks had a valid signer.
-		return false;
 	};
 
 	private long getRandomRepositoryMaintenanceInterval() {
