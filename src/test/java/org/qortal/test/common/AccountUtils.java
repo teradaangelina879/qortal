@@ -49,10 +49,10 @@ public class AccountUtils {
 	public static TransactionData createRewardShare(Repository repository, String minter, String recipient, int sharePercent) throws DataException {
 		PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, minter);
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
-		return createRewardShare(repository, mintingAccount, recipientAccount, sharePercent);
+		return createRewardShare(repository, mintingAccount, recipientAccount, sharePercent, fee);
 	}
 
-	public static TransactionData createRewardShare(Repository repository, PrivateKeyAccount mintingAccount, PrivateKeyAccount recipientAccount, int sharePercent) throws DataException {
+	public static TransactionData createRewardShare(Repository repository, PrivateKeyAccount mintingAccount, PrivateKeyAccount recipientAccount, int sharePercent, long fee) throws DataException {
 		byte[] reference = mintingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
@@ -78,7 +78,7 @@ public class AccountUtils {
 	}
 
 	public static byte[] rewardShare(Repository repository, PrivateKeyAccount minterAccount, PrivateKeyAccount recipientAccount, int sharePercent) throws DataException {
-		TransactionData transactionData = createRewardShare(repository, minterAccount, recipientAccount, sharePercent);
+		TransactionData transactionData = createRewardShare(repository, minterAccount, recipientAccount, sharePercent, fee);
 
 		TransactionUtils.signAndMint(repository, transactionData, minterAccount);
 		byte[] rewardSharePrivateKey = minterAccount.getRewardSharePrivateKey(recipientAccount.getPublicKey());
