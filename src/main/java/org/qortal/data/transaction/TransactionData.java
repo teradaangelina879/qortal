@@ -128,6 +128,10 @@ public abstract class TransactionData {
 		return this.txGroupId;
 	}
 
+	public void setTxGroupId(int txGroupId) {
+		this.txGroupId = txGroupId;
+	}
+
 	public byte[] getReference() {
 		return this.reference;
 	}

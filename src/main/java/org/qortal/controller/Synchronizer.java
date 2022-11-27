@@ -76,6 +76,8 @@ public class Synchronizer extends Thread {
 	private volatile boolean isSynchronizing = false;
 	/** Temporary estimate of synchronization progress for SysTray use. */
 	private volatile int syncPercent = 0;
+	/** Temporary estimate of blocks remaining for SysTray use. */
+	private volatile int blocksRemaining = 0;
 
 	private static volatile boolean requestSync = false;
 	private boolean syncRequestPending = false;
@@ -178,6 +180,18 @@ public class Synchronizer extends Thread {
 			}
 
 			return this.isSynchronizing ? this.syncPercent : null;
+		}
+	}
+
+	public Integer getBlocksRemaining() {
+		synchronized (this.syncLock) {
+			// Report as 0 blocks remaining if the latest block is within the last 60 mins
+			final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
+			if (Controller.getInstance().isUpToDate(minLatestBlockTimestamp)) {
+				return 0;
+			}
+
+			return this.isSynchronizing ? this.blocksRemaining : null;
 		}
 	}
 
@@ -1457,6 +1471,12 @@ public class Synchronizer extends Thread {
 
 			repository.saveChanges();
 
+			synchronized (this.syncLock) {
+				if (peer.getChainTipData() != null) {
+					this.blocksRemaining = peer.getChainTipData().getHeight() - newBlock.getBlockData().getHeight();
+				}
+			}
+
 			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}
 
@@ -1551,6 +1571,12 @@ public class Synchronizer extends Thread {
 			LOGGER.trace(String.format("Processed block height %d, sig %.8s", newBlock.getBlockData().getHeight(), Base58.encode(newBlock.getBlockData().getSignature())));
 
 			repository.saveChanges();
+
+			synchronized (this.syncLock) {
+				if (peer.getChainTipData() != null) {
+					this.blocksRemaining = peer.getChainTipData().getHeight() - newBlock.getBlockData().getHeight();
+				}
+			}
 
 			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}

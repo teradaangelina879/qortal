@@ -64,9 +64,19 @@ public class OnlineAccountsManager {
 
     private static final long ONLINE_ACCOUNTS_COMPUTE_INITIAL_SLEEP_INTERVAL = 30 * 1000L; // ms
 
-    // MemoryPoW
-    public final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
-    public int POW_DIFFICULTY = 18; // leading zero bits
+    // MemoryPoW - mainnet
+    public static final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
+    public static final int POW_DIFFICULTY_V1 = 18; // leading zero bits
+    public static final int POW_DIFFICULTY_V2 = 19; // leading zero bits
+
+    // MemoryPoW - testnet
+    public static final int POW_BUFFER_SIZE_TESTNET = 1 * 1024 * 1024; // bytes
+    public static final int POW_DIFFICULTY_TESTNET = 5; // leading zero bits
+
+    // IMPORTANT: if we ever need to dynamically modify the buffer size using a feature trigger, the
+    // pre-allocated buffer below will NOT work, and we should instead use a dynamically allocated
+    // one for the transition period.
+    private static long[] POW_VERIFY_WORK_BUFFER = new long[getPoWBufferSize() / 8];
 
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
@@ -110,6 +120,23 @@ public class OnlineAccountsManager {
 
     public static long toOnlineAccountTimestamp(long timestamp) {
         return (timestamp / getOnlineTimestampModulus()) * getOnlineTimestampModulus();
+    }
+
+    private static int getPoWBufferSize() {
+        if (Settings.getInstance().isTestNet())
+            return POW_BUFFER_SIZE_TESTNET;
+
+        return POW_BUFFER_SIZE;
+    }
+
+    private static int getPoWDifficulty(long timestamp) {
+        if (Settings.getInstance().isTestNet())
+            return POW_DIFFICULTY_TESTNET;
+
+        if (timestamp >= BlockChain.getInstance().getIncreaseOnlineAccountsDifficultyTimestamp())
+            return POW_DIFFICULTY_V2;
+
+        return POW_DIFFICULTY_V1;
     }
 
     private OnlineAccountsManager() {
@@ -156,7 +183,6 @@ public class OnlineAccountsManager {
             return;
 
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-        final boolean mempowActive = onlineAccountsTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
 
         Set<OnlineAccountData> replacementAccounts = new HashSet<>();
         for (PrivateKeyAccount onlineAccount : onlineAccounts) {
@@ -165,7 +191,7 @@ public class OnlineAccountsManager {
             byte[] signature = Qortal25519Extras.signForAggregation(onlineAccount.getPrivateKey(), timestampBytes);
             byte[] publicKey = onlineAccount.getPublicKey();
 
-            Integer nonce = mempowActive ? new Random().nextInt(500000) : null;
+            Integer nonce = new Random().nextInt(500000);
 
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
             replacementAccounts.add(ourOnlineAccountData);
@@ -321,13 +347,10 @@ public class OnlineAccountsManager {
             return false;
         }
 
-        // Validate mempow if feature trigger is active (or if online account's timestamp is past the trigger timestamp)
-        long memoryPoWStartTimestamp = BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
-        if (now >= memoryPoWStartTimestamp || onlineAccountTimestamp >= memoryPoWStartTimestamp) {
-            if (!getInstance().verifyMemoryPoW(onlineAccountData, now)) {
-                LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
-                return false;
-            }
+        // Validate mempow
+        if (!getInstance().verifyMemoryPoW(onlineAccountData, POW_VERIFY_WORK_BUFFER)) {
+            LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
+            return false;
         }
 
         return true;
@@ -471,12 +494,10 @@ public class OnlineAccountsManager {
 
         // 'next' timestamp (prioritize this as it's the most important, if mempow active)
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(now) + getOnlineTimestampModulus();
-        if (isMemoryPoWActive(now)) {
-            boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
-            if (!success) {
-                // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
-                return;
-            }
+        boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
+        if (!success) {
+            // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
+            return;
         }
 
         // 'current' timestamp
@@ -553,21 +574,15 @@ public class OnlineAccountsManager {
 
             // Compute nonce
             Integer nonce;
-            if (isMemoryPoWActive(NTP.getTime())) {
-                try {
-                    nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
-                    if (nonce == null) {
-                        // A nonce is required
-                        return false;
-                    }
-                } catch (TimeoutException e) {
-                    LOGGER.info(String.format("Timed out computing nonce for account %.8s", Base58.encode(publicKey)));
+            try {
+                nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
+                if (nonce == null) {
+                    // A nonce is required
                     return false;
                 }
-            }
-            else {
-                // Send -1 if we haven't computed a nonce due to feature trigger timestamp
-                nonce = -1;
+            } catch (TimeoutException e) {
+                LOGGER.info(String.format("Timed out computing nonce for account %.8s", Base58.encode(publicKey)));
+                return false;
             }
 
             byte[] signature = Qortal25519Extras.signForAggregation(privateKey, timestampBytes);
@@ -576,7 +591,7 @@ public class OnlineAccountsManager {
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
 
             // Make sure to verify before adding
-            if (verifyMemoryPoW(ourOnlineAccountData, NTP.getTime())) {
+            if (verifyMemoryPoW(ourOnlineAccountData, null)) {
                 ourOnlineAccounts.add(ourOnlineAccountData);
             }
         }
@@ -599,12 +614,6 @@ public class OnlineAccountsManager {
 
     // MemoryPoW
 
-    private boolean isMemoryPoWActive(Long timestamp) {
-        if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-            return true;
-        }
-        return false;
-    }
     private byte[] getMemoryPoWBytes(byte[] publicKey, long onlineAccountsTimestamp) throws IOException {
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
 
@@ -616,11 +625,6 @@ public class OnlineAccountsManager {
     }
 
     private Integer computeMemoryPoW(byte[] bytes, byte[] publicKey, long onlineAccountsTimestamp) throws TimeoutException {
-        if (!isMemoryPoWActive(NTP.getTime())) {
-            LOGGER.info("Mempow start timestamp not yet reached");
-            return null;
-        }
-
         LOGGER.info(String.format("Computing nonce for account %.8s and timestamp %d...", Base58.encode(publicKey), onlineAccountsTimestamp));
 
         // Calculate the time until the next online timestamp and use it as a timeout when computing the nonce
@@ -628,7 +632,8 @@ public class OnlineAccountsManager {
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(startTime) + getOnlineTimestampModulus();
         long timeUntilNextTimestamp = nextOnlineAccountsTimestamp - startTime;
 
-        Integer nonce = MemoryPoW.compute2(bytes, POW_BUFFER_SIZE, POW_DIFFICULTY, timeUntilNextTimestamp);
+        int difficulty = getPoWDifficulty(onlineAccountsTimestamp);
+        Integer nonce = MemoryPoW.compute2(bytes, getPoWBufferSize(), difficulty, timeUntilNextTimestamp);
 
         double totalSeconds = (NTP.getTime() - startTime) / 1000.0f;
         int minutes = (int) ((totalSeconds % 3600) / 60);
@@ -637,18 +642,12 @@ public class OnlineAccountsManager {
 
         LOGGER.info(String.format("Computed nonce for timestamp %d and account %.8s: %d. Buffer size: %d. Difficulty: %d. " +
                         "Time taken: %02d:%02d. Hashrate: %f", onlineAccountsTimestamp, Base58.encode(publicKey),
-                nonce, POW_BUFFER_SIZE, POW_DIFFICULTY, minutes, seconds, hashRate));
+                nonce, getPoWBufferSize(), difficulty, minutes, seconds, hashRate));
 
         return nonce;
     }
 
-    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, Long timestamp) {
-        long memoryPoWStartTimestamp = BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
-        if (timestamp < memoryPoWStartTimestamp && onlineAccountData.getTimestamp() < memoryPoWStartTimestamp) {
-            // Not active yet, so treat it as valid
-            return true;
-        }
-
+    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, long[] workBuffer) {
         // Require a valid nonce value
         if (onlineAccountData.getNonce() == null || onlineAccountData.getNonce() < 0) {
             return false;
@@ -664,7 +663,7 @@ public class OnlineAccountsManager {
         }
 
         // Verify the nonce
-        return MemoryPoW.verify2(mempowBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+        return MemoryPoW.verify2(mempowBytes, workBuffer, getPoWBufferSize(), getPoWDifficulty(onlineAccountData.getTimestamp()), nonce);
     }
 
 
@@ -748,11 +747,12 @@ public class OnlineAccountsManager {
      * Typically called by {@link Block#areOnlineAccountsValid()}
      */
     public void addBlocksOnlineAccounts(Set<OnlineAccountData> blocksOnlineAccounts, Long timestamp) {
-        // We want to add to 'current' in preference if possible
-        if (this.currentOnlineAccounts.containsKey(timestamp)) {
-            addAccounts(blocksOnlineAccounts);
+        // If these are current accounts, then there is no need to cache them, and should instead rely
+        // on the more complete entries we already have in self.currentOnlineAccounts.
+        // Note: since sig-agg, we no longer have individual signatures included in blocks, so we
+        // mustn't add anything to currentOnlineAccounts from here.
+        if (this.currentOnlineAccounts.containsKey(timestamp))
             return;
-        }
 
         // Add to block cache instead
         this.latestBlocksOnlineAccounts.computeIfAbsent(timestamp, k -> ConcurrentHashMap.newKeySet())

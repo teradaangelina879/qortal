@@ -99,6 +99,10 @@ public class MemoryPoW {
 	}
 
 	public static boolean verify2(byte[] data, int workBufferLength, long difficulty, int nonce) {
+		return verify2(data, null, workBufferLength, difficulty, nonce);
+	}
+
+	public static boolean verify2(byte[] data, long[] workBuffer, int workBufferLength, long difficulty, int nonce) {
 		// Hash data with SHA256
 		byte[] hash = Crypto.digest(data);
 
@@ -111,7 +115,10 @@ public class MemoryPoW {
 		byteBuffer = null;
 
 		int longBufferLength = workBufferLength / 8;
-		long[] workBuffer = new long[longBufferLength];
+
+		if (workBuffer == null)
+			workBuffer = new long[longBufferLength];
+
 		long[] state = new long[4];
 
 		long seed = 8682522807148012L;

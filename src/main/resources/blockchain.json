@@ -24,7 +24,6 @@
 	"onlineAccountSignaturesMinLifetime": 43200000,
 	"onlineAccountSignaturesMaxLifetime": 86400000,
 	"onlineAccountsModulusV2Timestamp": 1659801600000,
-	"onlineAccountsMemoryPoWTimestamp": 1666454400000,
 	"rewardsByHeight": [
 		{ "height": 1, "reward": 5.00 },
 		{ "height": 259201, "reward": 4.75 },
@@ -81,6 +80,7 @@
 		"transactionV5Timestamp": 1642176000000,
 		"transactionV6Timestamp": 9999999999999,
 		"disableReferenceTimestamp": 1655222400000,
+		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
 		"chatReferenceTimestamp": 9999999999999
 	},
 	"genesisInfo": {

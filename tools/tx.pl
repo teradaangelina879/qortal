@@ -71,9 +71,14 @@ our %TRANSACTION_TYPES = (
 	},
 	add_group_admin => {
 		url => 'groups/addadmin',
-		required => [qw(groupId member)],
+		required => [qw(groupId txGroupId member)],
 		key_name => 'ownerPublicKey',
 	},
+	remove_group_admin => {
+        url => 'groups/removeadmin',
+        required => [qw(groupId txGroupId admin)],
+        key_name => 'ownerPublicKey',
+    },
 	group_approval => {
 		url => 'groups/approval',
 		required => [qw(pendingSignature approval)],
