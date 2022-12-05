@@ -378,15 +378,17 @@ public class Block {
 		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
 		onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
 
-		// Remove any online accounts that are level 0
-		onlineAccounts.removeIf(a -> {
-			try {
-				return Account.getRewardShareEffectiveMintingLevel(repository, a.getPublicKey()) == 0;
-			} catch (DataException e) {
-				// Something went wrong, so remove the account
-				return true;
-			}
-		});
+		// After feature trigger, remove any online accounts that are level 0
+		if (height >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+			onlineAccounts.removeIf(a -> {
+				try {
+					return Account.getRewardShareEffectiveMintingLevel(repository, a.getPublicKey()) == 0;
+				} catch (DataException e) {
+					// Something went wrong, so remove the account
+					return true;
+				}
+			});
+		}
 
 		if (onlineAccounts.isEmpty()) {
 			LOGGER.debug("No online accounts - not even our own?");
