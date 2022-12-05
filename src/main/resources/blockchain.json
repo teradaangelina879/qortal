@@ -82,7 +82,7 @@
 		"transactionV6Timestamp": 9999999999999,
 		"disableReferenceTimestamp": 1655222400000,
 		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
-		"onlineAccountMinterLevelValidationHeight": 999999999,
+		"onlineAccountMinterLevelValidationHeight": 1093400,
 		"selfSponsorshipAlgoV1Height": 1092400
 	},
 	"genesisInfo": {
