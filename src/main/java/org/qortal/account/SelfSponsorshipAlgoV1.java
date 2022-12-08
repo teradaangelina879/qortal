@@ -52,6 +52,11 @@ public class SelfSponsorshipAlgoV1 {
 
 
     public void run() throws DataException {
+        if (this.accountData == null) {
+            // Nothing to do
+            return;
+        }
+
         this.fetchSponsorshipRewardShares();
         if (this.sponsorshipRewardShares.isEmpty()) {
             // Nothing to do
