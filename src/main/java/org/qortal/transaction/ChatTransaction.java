@@ -19,6 +19,7 @@ import org.qortal.repository.Repository;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.NTP;
 
 public class ChatTransaction extends Transaction {
 
@@ -144,6 +145,11 @@ public class ChatTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Nonce checking is done via isSignatureValid() as that method is only called once per import
+
+		// Disregard messages with timestamp too far in the future (we have stricter limits for CHAT transactions)
+		if (this.chatTransactionData.getTimestamp() > NTP.getTime() + (5 * 60 * 1000L)) {
+			return ValidationResult.TIMESTAMP_TOO_NEW;
+		}
 
 		// Check for blocked author by address
 		ResourceListManager listManager = ResourceListManager.getInstance();
