@@ -110,7 +110,7 @@ public class Settings {
 	/** Maximum number of unconfirmed transactions allowed per account */
 	private int maxUnconfirmedPerAccount = 25;
 	/** Max milliseconds into future for accepting new, unconfirmed transactions */
-	private int maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
+	private int maxTransactionTimestampFuture = 30 * 60 * 1000; // milliseconds
 	/** Whether we check, fetch and install auto-updates */
 	private boolean autoUpdateEnabled = true;
 	/** How long between repository backups (ms), or 0 if disabled. */
