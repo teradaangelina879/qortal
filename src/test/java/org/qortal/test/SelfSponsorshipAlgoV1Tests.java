@@ -50,8 +50,8 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 
 			// Bob self sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -73,7 +73,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -139,18 +139,18 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount dilbertAccount = Common.getTestAccount(repository, "dilbert");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Chloe sponsors 10 accounts
-			List<PrivateKeyAccount> chloeSponsees = generateSponsorshipRewardShares(repository, chloeAccount, 10);
-			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = toRewardShares(repository, chloeAccount, chloeSponsees);
+			List<PrivateKeyAccount> chloeSponsees = AccountUtils.generateSponsorshipRewardShares(repository, chloeAccount, 10);
+			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, chloeAccount, chloeSponsees);
 			onlineAccounts.addAll(chloeSponseesOnlineAccounts);
 
 			// Dilbert sponsors 5 accounts
-			List<PrivateKeyAccount> dilbertSponsees = generateSponsorshipRewardShares(repository, dilbertAccount, 5);
-			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = toRewardShares(repository, dilbertAccount, dilbertSponsees);
+			List<PrivateKeyAccount> dilbertSponsees = AccountUtils.generateSponsorshipRewardShares(repository, dilbertAccount, 5);
+			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, dilbertAccount, dilbertSponsees);
 			onlineAccounts.addAll(dilbertSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -172,7 +172,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -270,20 +270,20 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount dilbertAccount = Common.getTestAccount(repository, "dilbert");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccountsAliceSigner.addAll(bobSponseesOnlineAccounts);
 			onlineAccountsBobSigner.addAll(bobSponseesOnlineAccounts);
 
 			// Chloe sponsors 10 accounts
-			List<PrivateKeyAccount> chloeSponsees = generateSponsorshipRewardShares(repository, chloeAccount, 10);
-			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = toRewardShares(repository, chloeAccount, chloeSponsees);
+			List<PrivateKeyAccount> chloeSponsees = AccountUtils.generateSponsorshipRewardShares(repository, chloeAccount, 10);
+			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, chloeAccount, chloeSponsees);
 			onlineAccountsAliceSigner.addAll(chloeSponseesOnlineAccounts);
 			onlineAccountsBobSigner.addAll(chloeSponseesOnlineAccounts);
 
 			// Dilbert sponsors 5 accounts
-			List<PrivateKeyAccount> dilbertSponsees = generateSponsorshipRewardShares(repository, dilbertAccount, 5);
-			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = toRewardShares(repository, dilbertAccount, dilbertSponsees);
+			List<PrivateKeyAccount> dilbertSponsees = AccountUtils.generateSponsorshipRewardShares(repository, dilbertAccount, 5);
+			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, dilbertAccount, dilbertSponsees);
 			onlineAccountsAliceSigner.addAll(dilbertSponseesOnlineAccounts);
 			onlineAccountsBobSigner.addAll(dilbertSponseesOnlineAccounts);
 
@@ -306,7 +306,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccountsAliceSigner.addAll(bobSponseeSelfShares);
 			onlineAccountsBobSigner.addAll(bobSponseeSelfShares);
 
@@ -382,14 +382,14 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 
 			// Alice sponsors 10 accounts
-			List<PrivateKeyAccount> aliceSponsees = generateSponsorshipRewardShares(repository, aliceAccount, 10);
-			List<PrivateKeyAccount> aliceSponseesOnlineAccounts = toRewardShares(repository, aliceAccount, aliceSponsees);
+			List<PrivateKeyAccount> aliceSponsees = AccountUtils.generateSponsorshipRewardShares(repository, aliceAccount, 10);
+			List<PrivateKeyAccount> aliceSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, aliceAccount, aliceSponsees);
 			onlineAccountsAliceSigner.addAll(aliceSponseesOnlineAccounts);
 			onlineAccountsBobSigner.addAll(aliceSponseesOnlineAccounts);
 
 			// Bob sponsors 9 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 9);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 9);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccountsAliceSigner.addAll(bobSponseesOnlineAccounts);
 			onlineAccountsBobSigner.addAll(bobSponseesOnlineAccounts);
 
@@ -412,7 +412,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, aliceSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> aliceSponseeSelfShares = generateSelfShares(repository, aliceSponsees);
+			List<PrivateKeyAccount> aliceSponseeSelfShares = AccountUtils.generateSelfShares(repository, aliceSponsees);
 			onlineAccountsAliceSigner.addAll(aliceSponseeSelfShares);
 			onlineAccountsBobSigner.addAll(aliceSponseeSelfShares);
 
@@ -483,18 +483,18 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount dilbertAccount = Common.getTestAccount(repository, "dilbert");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Chloe sponsors 10 accounts
-			List<PrivateKeyAccount> chloeSponsees = generateSponsorshipRewardShares(repository, chloeAccount, 10);
-			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = toRewardShares(repository, chloeAccount, chloeSponsees);
+			List<PrivateKeyAccount> chloeSponsees = AccountUtils.generateSponsorshipRewardShares(repository, chloeAccount, 10);
+			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, chloeAccount, chloeSponsees);
 			onlineAccounts.addAll(chloeSponseesOnlineAccounts);
 
 			// Dilbert sponsors 5 accounts
-			List<PrivateKeyAccount> dilbertSponsees = generateSponsorshipRewardShares(repository, dilbertAccount, 5);
-			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = toRewardShares(repository, dilbertAccount, dilbertSponsees);
+			List<PrivateKeyAccount> dilbertSponsees = AccountUtils.generateSponsorshipRewardShares(repository, dilbertAccount, 5);
+			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, dilbertAccount, dilbertSponsees);
 			onlineAccounts.addAll(dilbertSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -516,7 +516,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -597,14 +597,14 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 
 			// Alice sponsors 10 accounts
-			List<PrivateKeyAccount> aliceSponsees = generateSponsorshipRewardShares(repository, aliceAccount, 10);
-			List<PrivateKeyAccount> aliceSponseesOnlineAccounts = toRewardShares(repository, aliceAccount, aliceSponsees);
+			List<PrivateKeyAccount> aliceSponsees = AccountUtils.generateSponsorshipRewardShares(repository, aliceAccount, 10);
+			List<PrivateKeyAccount> aliceSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, aliceAccount, aliceSponsees);
 			onlineAccounts.addAll(aliceSponseesOnlineAccounts);
 			onlineAccounts.addAll(aliceSponseesOnlineAccounts);
 
 			// Bob sponsors 9 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 9);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 9);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
@@ -627,7 +627,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, aliceSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> aliceSponseeSelfShares = generateSelfShares(repository, aliceSponsees);
+			List<PrivateKeyAccount> aliceSponseeSelfShares = AccountUtils.generateSelfShares(repository, aliceSponsees);
 			onlineAccounts.addAll(aliceSponseeSelfShares);
 
 			// Mint blocks (Bob is the signer)
@@ -706,13 +706,13 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount chloeAccount = Common.getTestAccount(repository, "chloe");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Chloe sponsors 10 accounts
-			List<PrivateKeyAccount> chloeSponsees = generateSponsorshipRewardShares(repository, chloeAccount, 10);
-			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = toRewardShares(repository, chloeAccount, chloeSponsees);
+			List<PrivateKeyAccount> chloeSponsees = AccountUtils.generateSponsorshipRewardShares(repository, chloeAccount, 10);
+			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, chloeAccount, chloeSponsees);
 			onlineAccounts.addAll(chloeSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -728,7 +728,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				block = BlockMinter.mintTestingBlock(repository, onlineAccounts.toArray(new PrivateKeyAccount[0]));
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -744,22 +744,22 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			assertEquals(19, (int) block.getBlockData().getHeight());
 
 			// Bob creates a valid reward share transaction
-			assertEquals(Transaction.ValidationResult.OK, createRandomRewardShare(repository, bobAccount));
+			assertEquals(Transaction.ValidationResult.OK, AccountUtils.createRandomRewardShare(repository, bobAccount));
 
 			// Mint a block, so the algo runs
 			block = BlockMinter.mintTestingBlock(repository, onlineAccounts.toArray(new PrivateKeyAccount[0]));
 
 			// Bob can no longer create a reward share transaction
-			assertEquals(Transaction.ValidationResult.ACCOUNT_CANNOT_REWARD_SHARE, createRandomRewardShare(repository, bobAccount));
+			assertEquals(Transaction.ValidationResult.ACCOUNT_CANNOT_REWARD_SHARE, AccountUtils.createRandomRewardShare(repository, bobAccount));
 
 			// ... but Chloe still can
-			assertEquals(Transaction.ValidationResult.OK, createRandomRewardShare(repository, chloeAccount));
+			assertEquals(Transaction.ValidationResult.OK, AccountUtils.createRandomRewardShare(repository, chloeAccount));
 
 			// Orphan last block
 			BlockUtils.orphanLastBlock(repository);
 
 			// Bob creates another valid reward share transaction
-			assertEquals(Transaction.ValidationResult.OK, createRandomRewardShare(repository, bobAccount));
+			assertEquals(Transaction.ValidationResult.OK, AccountUtils.createRandomRewardShare(repository, bobAccount));
 
 			// Run orphan check - this can't be in afterTest() because some tests access the live db
 			Common.orphanCheck();
@@ -780,13 +780,13 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 
 			// Alice sponsors 10 accounts
-			List<PrivateKeyAccount> aliceSponsees = generateSponsorshipRewardShares(repository, aliceAccount, 10);
-			List<PrivateKeyAccount> aliceSponseesOnlineAccounts = toRewardShares(repository, aliceAccount, aliceSponsees);
+			List<PrivateKeyAccount> aliceSponsees = AccountUtils.generateSponsorshipRewardShares(repository, aliceAccount, 10);
+			List<PrivateKeyAccount> aliceSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, aliceAccount, aliceSponsees);
 			onlineAccounts.addAll(aliceSponseesOnlineAccounts);
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -802,7 +802,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				block = BlockMinter.mintTestingBlock(repository, onlineAccounts.toArray(new PrivateKeyAccount[0]));
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> aliceSponseeSelfShares = generateSelfShares(repository, aliceSponsees);
+			List<PrivateKeyAccount> aliceSponseeSelfShares = AccountUtils.generateSelfShares(repository, aliceSponsees);
 			onlineAccounts.addAll(aliceSponseeSelfShares);
 
 			// Mint blocks
@@ -818,7 +818,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			assertEquals(19, (int) block.getBlockData().getHeight());
 
 			// Alice creates a valid reward share transaction
-			assertEquals(Transaction.ValidationResult.OK, createRandomRewardShare(repository, aliceAccount));
+			assertEquals(Transaction.ValidationResult.OK, AccountUtils.createRandomRewardShare(repository, aliceAccount));
 
 			// Mint a block, so the algo runs
 			block = BlockMinter.mintTestingBlock(repository, onlineAccounts.toArray(new PrivateKeyAccount[0]));
@@ -830,16 +830,16 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			assertEquals(0, (int) new Account(repository, aliceAccount.getAddress()).getLevel());
 
 			// Alice can no longer create a reward share transaction
-			assertEquals(Transaction.ValidationResult.ACCOUNT_CANNOT_REWARD_SHARE, createRandomRewardShare(repository, aliceAccount));
+			assertEquals(Transaction.ValidationResult.ACCOUNT_CANNOT_REWARD_SHARE, AccountUtils.createRandomRewardShare(repository, aliceAccount));
 
 			// ... but Bob still can
-			assertEquals(Transaction.ValidationResult.OK, createRandomRewardShare(repository, bobAccount));
+			assertEquals(Transaction.ValidationResult.OK, AccountUtils.createRandomRewardShare(repository, bobAccount));
 
 			// Orphan last block
 			BlockUtils.orphanLastBlock(repository);
 
 			// Alice creates another valid reward share transaction
-			assertEquals(Transaction.ValidationResult.OK, createRandomRewardShare(repository, aliceAccount));
+			assertEquals(Transaction.ValidationResult.OK, AccountUtils.createRandomRewardShare(repository, aliceAccount));
 
 			// Run orphan check - this can't be in afterTest() because some tests access the live db
 			Common.orphanCheck();
@@ -867,8 +867,8 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount dilbertAccount = Common.getTestAccount(repository, "dilbert");
 
 			// Dilbert sponsors 10 accounts
-			List<PrivateKeyAccount> dilbertSponsees = generateSponsorshipRewardShares(repository, dilbertAccount, 10);
-			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = toRewardShares(repository, dilbertAccount, dilbertSponsees);
+			List<PrivateKeyAccount> dilbertSponsees = AccountUtils.generateSponsorshipRewardShares(repository, dilbertAccount, 10);
+			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, dilbertAccount, dilbertSponsees);
 			onlineAccounts.addAll(dilbertSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -921,8 +921,8 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount dilbertAccount = Common.getTestAccount(repository, "dilbert");
 
 			// Dilbert sponsors 10 accounts
-			List<PrivateKeyAccount> dilbertSponsees = generateSponsorshipRewardShares(repository, dilbertAccount, 10);
-			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = toRewardShares(repository, dilbertAccount, dilbertSponsees);
+			List<PrivateKeyAccount> dilbertSponsees = AccountUtils.generateSponsorshipRewardShares(repository, dilbertAccount, 10);
+			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, dilbertAccount, dilbertSponsees);
 			onlineAccounts.addAll(dilbertSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -935,7 +935,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				block = BlockMinter.mintTestingBlock(repository, onlineAccounts.toArray(new PrivateKeyAccount[0]));
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> dilbertSponseeSelfShares = generateSelfShares(repository, dilbertSponsees);
+			List<PrivateKeyAccount> dilbertSponseeSelfShares = AccountUtils.generateSelfShares(repository, dilbertSponsees);
 			onlineAccounts.addAll(dilbertSponseeSelfShares);
 
 			// Mint blocks
@@ -985,8 +985,8 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount dilbertAccount = Common.getTestAccount(repository, "dilbert");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Chloe sponsors THE SAME 10 accounts
@@ -996,12 +996,12 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				TransactionUtils.signAndImportValid(repository, transactionData, chloeAccount);
 			}
 			List<PrivateKeyAccount> chloeSponsees = new ArrayList<>(bobSponsees);
-			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = toRewardShares(repository, chloeAccount, chloeSponsees);
+			List<PrivateKeyAccount> chloeSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, chloeAccount, chloeSponsees);
 			onlineAccounts.addAll(chloeSponseesOnlineAccounts);
 
 			// Dilbert sponsors 5 accounts
-			List<PrivateKeyAccount> dilbertSponsees = generateSponsorshipRewardShares(repository, dilbertAccount, 5);
-			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = toRewardShares(repository, dilbertAccount, dilbertSponsees);
+			List<PrivateKeyAccount> dilbertSponsees = AccountUtils.generateSponsorshipRewardShares(repository, dilbertAccount, 5);
+			List<PrivateKeyAccount> dilbertSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, dilbertAccount, dilbertSponsees);
 			onlineAccounts.addAll(dilbertSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -1023,7 +1023,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -1108,8 +1108,8 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -1128,7 +1128,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -1220,8 +1220,8 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -1240,7 +1240,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -1316,8 +1316,8 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -1336,7 +1336,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -1392,8 +1392,8 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
 
 			// Bob sponsors 10 accounts
-			List<PrivateKeyAccount> bobSponsees = generateSponsorshipRewardShares(repository, bobAccount, 10);
-			List<PrivateKeyAccount> bobSponseesOnlineAccounts = toRewardShares(repository, bobAccount, bobSponsees);
+			List<PrivateKeyAccount> bobSponsees = AccountUtils.generateSponsorshipRewardShares(repository, bobAccount, 10);
+			List<PrivateKeyAccount> bobSponseesOnlineAccounts = AccountUtils.toRewardShares(repository, bobAccount, bobSponsees);
 			onlineAccounts.addAll(bobSponseesOnlineAccounts);
 
 			// Mint blocks
@@ -1412,7 +1412,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 				assertTrue(new Account(repository, bobSponsee.getAddress()).getLevel() > 0);
 
 			// Generate self shares so the sponsees can start minting
-			List<PrivateKeyAccount> bobSponseeSelfShares = generateSelfShares(repository, bobSponsees);
+			List<PrivateKeyAccount> bobSponseeSelfShares = AccountUtils.generateSelfShares(repository, bobSponsees);
 			onlineAccounts.addAll(bobSponseeSelfShares);
 
 			// Mint blocks
@@ -1541,61 +1541,6 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 		TransactionData transactionData = new TransferPrivsTransactionData(baseTransactionData, recipientAccount.getAddress());
 
 		return new TransferPrivsTransaction(repository, transactionData);
-	}
-
-	private static List<PrivateKeyAccount> generateSponsorshipRewardShares(Repository repository, PrivateKeyAccount sponsorAccount, int accountsCount) throws DataException {
-		final int sharePercent = 0;
-		Random random = new Random();
-
-		List<PrivateKeyAccount> sponsees = new ArrayList<>();
-		for (int i = 0; i < accountsCount; i++) {
-
-			// Generate random sponsee account
-			byte[] randomPrivateKey = new byte[32];
-			random.nextBytes(randomPrivateKey);
-			PrivateKeyAccount sponseeAccount = new PrivateKeyAccount(repository, randomPrivateKey);
-			sponsees.add(sponseeAccount);
-
-			// Create reward-share
-			TransactionData transactionData = AccountUtils.createRewardShare(repository, sponsorAccount, sponseeAccount, sharePercent, fee);
-			TransactionUtils.signAndImportValid(repository, transactionData, sponsorAccount);
-		}
-
-		return sponsees;
-	}
-
-	private static Transaction.ValidationResult createRandomRewardShare(Repository repository, PrivateKeyAccount account) throws DataException {
-		// Bob attempts to create a reward share transaction
-		byte[] randomPrivateKey = new byte[32];
-		new Random().nextBytes(randomPrivateKey);
-		PrivateKeyAccount sponseeAccount = new PrivateKeyAccount(repository, randomPrivateKey);
-		TransactionData transactionData = AccountUtils.createRewardShare(repository, account, sponseeAccount, 0, fee);
-		return TransactionUtils.signAndImport(repository, transactionData, account);
-	}
-
-	private static List<PrivateKeyAccount> generateSelfShares(Repository repository, List<PrivateKeyAccount> accounts) throws DataException {
-		final int sharePercent = 0;
-
-		for (PrivateKeyAccount account : accounts) {
-			// Create reward-share
-			TransactionData transactionData = AccountUtils.createRewardShare(repository, account, account, sharePercent, 0L);
-			TransactionUtils.signAndImportValid(repository, transactionData, account);
-		}
-
-		return toRewardShares(repository, null, accounts);
-	}
-
-	private static List<PrivateKeyAccount> toRewardShares(Repository repository, PrivateKeyAccount parentAccount, List<PrivateKeyAccount> accounts) {
-		List<PrivateKeyAccount> rewardShares = new ArrayList<>();
-
-		for (PrivateKeyAccount account : accounts) {
-			PrivateKeyAccount sponsor = (parentAccount != null) ? parentAccount : account;
-			byte[] rewardSharePrivateKey = sponsor.getRewardSharePrivateKey(account.getPublicKey());
-			PrivateKeyAccount rewardShareAccount = new PrivateKeyAccount(repository, rewardSharePrivateKey);
-			rewardShares.add(rewardShareAccount);
-		}
-
-		return rewardShares;
 	}
 
 	private boolean areAllAccountsPresentInBlock(List<PrivateKeyAccount> accounts, Block block) throws DataException {
