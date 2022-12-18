@@ -44,7 +44,7 @@
 		{ "height": 1000000, "share": 0.01 }
 	],
 	"qoraPerQortReward": 250,
-	"minAccountsToActivateShareBin": 30,
+	"minAccountsToActivateShareBin": 0,
 	"shareBinActivationMinLevel": 7,
 	"blocksNeededByLevel": [ 5, 20, 30, 40, 50, 60, 18, 80, 90, 100 ],
 	"blockTimingsByHeight": [
