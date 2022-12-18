@@ -120,7 +120,9 @@ public class Common {
 	}
 
 	public static void useSettingsAndDb(String settingsFilename, boolean dbInMemory) throws DataException {
-		closeRepository();
+		if (RepositoryManager.getRepositoryFactory() != null) {
+			closeRepository();
+		}
 
 		// Load/check settings, which potentially sets up blockchain config, etc.
 		LOGGER.debug(String.format("Using setting file: %s", settingsFilename));
