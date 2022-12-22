@@ -1,7 +1,9 @@
 package org.qortal.transaction;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
@@ -16,6 +18,7 @@ import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
+import org.qortal.settings.Settings;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
@@ -169,6 +172,14 @@ public class ChatTransaction extends Transaction {
 			}
 		}
 
+		PublicKeyAccount creator = this.getCreator();
+		if (creator == null)
+			return ValidationResult.MISSING_CREATOR;
+
+		// Reject if unconfirmed pile already has X recent CHAT transactions from same creator
+		if (countRecentChatTransactionsByCreator(creator) >= Settings.getInstance().getMaxRecentChatMessagesPerAccount())
+			return ValidationResult.TOO_MANY_UNCONFIRMED;
+
 		// If we exist in the repository then we've been imported as unconfirmed,
 		// but we don't want to make it into a block, so return fake non-OK result.
 		if (this.repository.getTransactionRepository().exists(this.chatTransactionData.getSignature()))
@@ -218,6 +229,26 @@ public class ChatTransaction extends Transaction {
 		// Check nonce
 		return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
 	}
+
+	private int countRecentChatTransactionsByCreator(PublicKeyAccount creator) throws DataException {
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+		final Long now = NTP.getTime();
+		long recentThreshold = Settings.getInstance().getRecentChatMessagesMaxAge();
+
+		// We only care about chat transactions, and only those that are considered 'recent'
+		Predicate<TransactionData> hasSameCreatorAndIsRecentChat = transactionData -> {
+			if (transactionData.getType() != TransactionType.CHAT)
+				return false;
+
+			if (transactionData.getTimestamp() < now - recentThreshold)
+				return false;
+
+			return Arrays.equals(creator.getPublicKey(), transactionData.getCreatorPublicKey());
+		};
+
+		return (int) unconfirmedTransactions.stream().filter(hasSameCreatorAndIsRecentChat).count();
+	}
+
 
 	/**
 	 * Ensure there's at least a skeleton account so people

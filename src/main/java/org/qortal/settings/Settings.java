@@ -111,6 +111,12 @@ public class Settings {
 	private int maxUnconfirmedPerAccount = 25;
 	/** Max milliseconds into future for accepting new, unconfirmed transactions */
 	private int maxTransactionTimestampFuture = 30 * 60 * 1000; // milliseconds
+
+	/** Maximum number of CHAT transactions allowed per account in recent timeframe */
+	private int maxRecentChatMessagesPerAccount = 250;
+	/** Maximum age of a CHAT transaction to be considered 'recent' */
+	private long recentChatMessagesMaxAge = 60 * 60 * 1000L; // milliseconds
+
 	/** Whether we check, fetch and install auto-updates */
 	private boolean autoUpdateEnabled = true;
 	/** How long between repository backups (ms), or 0 if disabled. */
@@ -638,6 +644,14 @@ public class Settings {
 
 	public int getMaxTransactionTimestampFuture() {
 		return this.maxTransactionTimestampFuture;
+	}
+
+	public int getMaxRecentChatMessagesPerAccount() {
+		return this.maxRecentChatMessagesPerAccount;
+	}
+
+	public long getRecentChatMessagesMaxAge() {
+		return recentChatMessagesMaxAge;
 	}
 
 	public int getBlockCacheSize() {
