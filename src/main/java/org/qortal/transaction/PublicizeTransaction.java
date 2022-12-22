@@ -4,7 +4,9 @@ import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
+import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.asset.Asset;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.transaction.PublicizeTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -101,6 +103,12 @@ public class PublicizeTransaction extends Transaction {
 		if (NTP.getTime() - this.transactionData.getTimestamp() < HISTORIC_THRESHOLD)
 			if (!verifyNonce())
 				return ValidationResult.INCORRECT_NONCE;
+
+		// Validate fee if one has been included
+		PublicKeyAccount creator = this.getCreator();
+		if (this.transactionData.getFee() > 0)
+			if (creator.getConfirmedBalance(Asset.QORT) < this.transactionData.getFee())
+				return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
 	}
