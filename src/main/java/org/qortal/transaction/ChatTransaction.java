@@ -32,8 +32,9 @@ public class ChatTransaction extends Transaction {
 	// Other useful constants
 	public static final int MAX_DATA_SIZE = 1024;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	public static final int POW_DIFFICULTY_WITH_QORT = 8; // leading zero bits
-	public static final int POW_DIFFICULTY_NO_QORT = 12; // leading zero bits
+	public static final int POW_DIFFICULTY_ABOVE_QORT_THRESHOLD = 8; // leading zero bits
+	public static final int POW_DIFFICULTY_BELOW_QORT_THRESHOLD = 18; // leading zero bits
+	public static final long POW_QORT_THRESHOLD = 400000000L;
 
 	// Constructors
 
@@ -82,7 +83,7 @@ public class ChatTransaction extends Transaction {
 		// Clear nonce from transactionBytes
 		ChatTransactionTransformer.clearNonce(transactionBytes);
 
-		int difficulty = this.getSender().getConfirmedBalance(Asset.QORT) > 0 ? POW_DIFFICULTY_WITH_QORT : POW_DIFFICULTY_NO_QORT;
+		int difficulty = this.getSender().getConfirmedBalance(Asset.QORT) >= POW_QORT_THRESHOLD ? POW_DIFFICULTY_ABOVE_QORT_THRESHOLD : POW_DIFFICULTY_BELOW_QORT_THRESHOLD;
 
 		// Calculate nonce
 		this.chatTransactionData.setNonce(MemoryPoW.compute2(transactionBytes, POW_BUFFER_SIZE, difficulty));
@@ -221,7 +222,7 @@ public class ChatTransaction extends Transaction {
 
 		int difficulty;
 		try {
-			difficulty = this.getSender().getConfirmedBalance(Asset.QORT) > 0 ? POW_DIFFICULTY_WITH_QORT : POW_DIFFICULTY_NO_QORT;
+			difficulty = this.getSender().getConfirmedBalance(Asset.QORT) >= POW_QORT_THRESHOLD ? POW_DIFFICULTY_ABOVE_QORT_THRESHOLD : POW_DIFFICULTY_BELOW_QORT_THRESHOLD;
 		} catch (DataException e) {
 			return false;
 		}
