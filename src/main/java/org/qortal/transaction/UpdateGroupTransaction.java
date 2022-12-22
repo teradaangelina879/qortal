@@ -103,7 +103,7 @@ public class UpdateGroupTransaction extends Transaction {
 		Account newOwner = getNewOwner();
 
 		// Check new owner is not banned
-		if (this.repository.getGroupRepository().banExists(this.updateGroupTransactionData.getGroupId(), newOwner.getAddress()))
+		if (this.repository.getGroupRepository().banExists(this.updateGroupTransactionData.getGroupId(), newOwner.getAddress(), this.updateGroupTransactionData.getTimestamp()))
 			return ValidationResult.BANNED_FROM_GROUP;
 
 		return ValidationResult.OK;
