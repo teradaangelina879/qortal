@@ -752,19 +752,6 @@ public class Controller extends Thread {
 		return peerChainTipData == null || peerChainTipData.getSignature() == null || inferiorChainTips.contains(ByteArray.wrap(peerChainTipData.getSignature()));
 	};
 
-	/**
-	 * If a peer has a recent block timestamp, but its height is more than 25 blocks behind ours,
-	 * we can assume it has a significantly inferior chain, and is most likely too divergent.
-	 * Early filtering of these peers prevents a lot of very expensive chain weight comparisons.
-	 */
-	public static final Predicate<Peer> hasInferiorChain = peer -> {
-		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
-		final int ourHeight = Controller.getInstance().getChainHeight();
-		final BlockSummaryData peerChainTipData = peer.getChainTipData();
-		boolean peerUpToDate = peerChainTipData != null && peerChainTipData.getTimestamp() != null && peerChainTipData.getTimestamp() >= minLatestBlockTimestamp;
-		return peerUpToDate && ourHeight - peerChainTipData.getHeight() > 25;
-	};
-
 	public static final Predicate<Peer> hasOldVersion = peer -> {
 		final String minPeerVersion = Settings.getInstance().getMinPeerVersion();
 		return peer.isAtLeastVersion(minPeerVersion) == false;
