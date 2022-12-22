@@ -1522,6 +1522,9 @@ public class Block {
 		// Batch update in repository
 		repository.getAccountRepository().modifyMintedBlockCounts(allUniqueExpandedAccounts.stream().map(AccountData::getAddress).collect(Collectors.toList()), +1);
 
+		// Keep track of level bumps in case we need to apply to other entries
+		Map<String, Integer> bumpedAccounts = new HashMap<>();
+
 		// Local changes and also checks for level bump
 		for (AccountData accountData : allUniqueExpandedAccounts) {
 			// Adjust count locally (in Java)
@@ -1535,12 +1538,32 @@ public class Block {
 					if (newLevel > accountData.getLevel()) {
 						// Account has increased in level!
 						accountData.setLevel(newLevel);
+						bumpedAccounts.put(accountData.getAddress(), newLevel);
 						repository.getAccountRepository().setLevel(accountData);
 						LOGGER.trace(() -> String.format("Block minter %s bumped to level %d", accountData.getAddress(), accountData.getLevel()));
 					}
 
 					break;
 				}
+		}
+
+		// Also bump other entries if need be
+		if (!bumpedAccounts.isEmpty()) {
+			for (ExpandedAccount expandedAccount : expandedAccounts) {
+				Integer newLevel = bumpedAccounts.get(expandedAccount.mintingAccountData.getAddress());
+				if (newLevel != null && expandedAccount.mintingAccountData.getLevel() != newLevel) {
+					expandedAccount.mintingAccountData.setLevel(newLevel);
+					LOGGER.trace("Also bumped {} to level {}", expandedAccount.mintingAccountData.getAddress(), newLevel);
+				}
+
+				if (!expandedAccount.isRecipientAlsoMinter) {
+					newLevel = bumpedAccounts.get(expandedAccount.recipientAccountData.getAddress());
+					if (newLevel != null && expandedAccount.recipientAccountData.getLevel() != newLevel) {
+						expandedAccount.recipientAccountData.setLevel(newLevel);
+						LOGGER.trace("Also bumped {} to level {}", expandedAccount.recipientAccountData.getAddress(), newLevel);
+					}
+				}
+			}
 		}
 	}
 
