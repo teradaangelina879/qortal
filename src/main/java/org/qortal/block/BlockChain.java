@@ -76,7 +76,8 @@ public class BlockChain {
 		disableReferenceTimestamp,
 		increaseOnlineAccountsDifficultyTimestamp,
 		onlineAccountMinterLevelValidationHeight,
-		selfSponsorshipAlgoV1Height;
+		selfSponsorshipAlgoV1Height,
+		feeValidationFixTimestamp;
 	}
 
 	// Custom transaction fees
@@ -499,6 +500,10 @@ public class BlockChain {
 
 	public long getOnlineAccountMinterLevelValidationHeight() {
 		return this.featureTriggers.get(FeatureTrigger.onlineAccountMinterLevelValidationHeight.name()).intValue();
+	}
+
+	public long getFeeValidationFixTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.feeValidationFixTimestamp.name()).longValue();
 	}
 
 

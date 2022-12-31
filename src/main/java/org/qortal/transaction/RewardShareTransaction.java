@@ -164,8 +164,13 @@ public class RewardShareTransaction extends Transaction {
 		}
 
 		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORT) < this.rewardShareTransactionData.getFee())
-			return ValidationResult.NO_BALANCE;
+		if (this.rewardShareTransactionData.getTimestamp() >= BlockChain.getInstance().getFeeValidationFixTimestamp())
+			if (creator.getConfirmedBalance(Asset.QORT) < this.rewardShareTransactionData.getFee())
+				return ValidationResult.NO_BALANCE;
+
+		else if (!(isRecipientAlsoMinter && existingRewardShareData == null))
+			if (creator.getConfirmedBalance(Asset.QORT) < this.rewardShareTransactionData.getFee())
+				return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
 	}
