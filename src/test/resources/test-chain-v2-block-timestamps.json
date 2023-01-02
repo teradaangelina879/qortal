@@ -73,7 +73,8 @@
 		"disableReferenceTimestamp": 9999999999999,
 		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
 		"onlineAccountMinterLevelValidationHeight": 0,
-		"selfSponsorshipAlgoV1Height": 999999999
+		"selfSponsorshipAlgoV1Height": 999999999,
+		"chatReferenceTimestamp": 0
 	},
 	"genesisInfo": {
 		"version": 4,

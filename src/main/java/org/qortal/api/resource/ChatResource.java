@@ -70,6 +70,8 @@ public class ChatResource {
 			@QueryParam("txGroupId") Integer txGroupId,
 			@QueryParam("involving") List<String> involvingAddresses,
 			@QueryParam("reference") String reference,
+			@QueryParam("chatreference") String chatReference,
+			@QueryParam("haschatreference") Boolean hasChatReference,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -92,12 +94,18 @@ public class ChatResource {
 		if (reference != null)
 			referenceBytes = Base58.decode(reference);
 
+		byte[] chatReferenceBytes = null;
+		if (chatReference != null)
+			chatReferenceBytes = Base58.decode(chatReference);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getChatRepository().getMessagesMatchingCriteria(
 					before,
 					after,
 					txGroupId,
 					referenceBytes,
+					chatReferenceBytes,
+					hasChatReference,
 					involvingAddresses,
 					limit, offset, reverse);
 		} catch (DataException e) {

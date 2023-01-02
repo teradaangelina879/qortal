@@ -980,6 +980,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE Accounts ADD blocks_minted_penalty INTEGER NOT NULL DEFAULT 0");
 					break;
 
+				case 45:
+					// Add a chat reference, to allow one message to reference another, and for this to be easily
+					// searchable. Null values are allowed as most transactions won't have a reference.
+					stmt.execute("ALTER TABLE ChatTransactions ADD chat_reference Signature");
+					break;
+
 				default:
 					// nothing to do
 					return false;
