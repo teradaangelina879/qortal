@@ -984,6 +984,8 @@ public class HSQLDBDatabaseUpdates {
 					// Add a chat reference, to allow one message to reference another, and for this to be easily
 					// searchable. Null values are allowed as most transactions won't have a reference.
 					stmt.execute("ALTER TABLE ChatTransactions ADD chat_reference Signature");
+					// For finding chat messages by reference
+					stmt.execute("CREATE INDEX ChatTransactionsChatReferenceIndex ON ChatTransactions (chat_reference)");
 					break;
 
 				default:
