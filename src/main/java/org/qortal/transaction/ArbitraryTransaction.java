@@ -24,6 +24,7 @@ import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.ArbitraryTransactionUtils;
+import org.qortal.utils.NTP;
 
 public class ArbitraryTransaction extends Transaction {
 
@@ -34,8 +35,12 @@ public class ArbitraryTransaction extends Transaction {
 	public static final int MAX_DATA_SIZE = 4000;
 	public static final int MAX_METADATA_LENGTH = 32;
 	public static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
-	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
 	public static final int MAX_IDENTIFIER_LENGTH = 64;
+
+	/** If time difference between transaction and now is greater than this then we don't verify proof-of-work. */
+	public static final long HISTORIC_THRESHOLD = 2 * 7 * 24 * 60 * 60 * 1000L;
+	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
+
 
 	// Constructors
 
@@ -202,9 +207,11 @@ public class ArbitraryTransaction extends Transaction {
 			// Clear nonce from transactionBytes
 			ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
-			// Check nonce
-			int difficulty = ArbitraryDataManager.getInstance().getPowDifficulty();
-			return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+			// We only need to check nonce for recent transactions due to PoW verification overhead
+			if (NTP.getTime() - this.arbitraryTransactionData.getTimestamp() < HISTORIC_THRESHOLD) {
+				int difficulty = ArbitraryDataManager.getInstance().getPowDifficulty();
+				return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+			}
 		}
 
 		return true;
