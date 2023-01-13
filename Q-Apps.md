@@ -352,40 +352,43 @@ Here is a sample application to display the logged-in user's avatar:
 <html>
 <head>
     <script>
-        try {
-            // Get QORT address of logged in account
-            let address = await qortalRequest({
-                action: "GET_ACCOUNT_ADDRESS"
-            });
-            console.log("address: " + address);
-        
-            // Get names owned by this account
-            let names = await qortalRequest({
-                action: "GET_ACCOUNT_NAMES",
-                address: address
-            });
-            console.log("names: " + JSON.stringify(names));
-        
-            if (names.size == 0) {
-                console.log("User has no registered names");
-                return;
-            }
-        
-            // Download the avatar of the first registered name
-            let avatar = await qortalRequest({
-                action: "FETCH_QDN_RESOURCE",
-                name: names[0].name,
-                service: "THUMBNAIL",
-                identifier: "qortal_avatar"
-            });
-            console.log("avatar: " + JSON.stringify(avatar));
-        
-            // Display the avatar image on the screen
-            document.getElementsById("avatar").src = "data:image/png;base64," + avatar;
+        async function showAvatar() {
+            try {
+                // Get QORT address of logged in account
+                let address = await qortalRequest({
+                    action: "GET_ACCOUNT_ADDRESS"
+                });
+                console.log("address: " + address);
             
-        } catch(e) {
-            console.log("Error: " + JSON.stringify(e));
+                // Get names owned by this account
+                let names = await qortalRequest({
+                    action: "GET_ACCOUNT_NAMES",
+                    address: address
+                });
+                console.log("names: " + JSON.stringify(names));
+            
+                if (names.size == 0) {
+                    console.log("User has no registered names");
+                    return;
+                }
+            
+                // Download the avatar of the first registered name
+                let avatar = await qortalRequest({
+                    action: "FETCH_QDN_RESOURCE",
+                    name: names[0].name,
+                    service: "THUMBNAIL",
+                    identifier: "qortal_avatar"
+                });
+                console.log("avatar: " + JSON.stringify(avatar));
+            
+                // Display the avatar image on the screen
+                document.getElementsById("avatar").src = "data:image/png;base64," + avatar;
+                
+            } catch(e) {
+                console.log("Error: " + JSON.stringify(e));
+            }
         }
+        showAvatar();
     </script>
 </head>
 <body>
