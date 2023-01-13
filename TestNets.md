@@ -110,6 +110,7 @@ Your options are:
 }
 ```
 
+<a name="quick-start"></a>
 ## Quick start
 Here are some steps to quickly get a single node testnet up and running with a generic minting account:
 1. Start with template `settings-test.json`, and create a `testchain.json` based on mainnet's blockchain.json (or obtain one from Qortal developers). These should be in the same directory as the jar.

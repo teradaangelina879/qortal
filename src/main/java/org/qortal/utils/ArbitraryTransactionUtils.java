@@ -3,11 +3,11 @@ package org.qortal.utils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.arbitrary.ArbitraryDataFile;
-import org.qortal.arbitrary.ArbitraryDataFileChunk;
-import org.qortal.arbitrary.ArbitraryDataReader;
-import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.*;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
+import org.qortal.data.arbitrary.ArbitraryResourceInfo;
+import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -438,6 +438,43 @@ public class ArbitraryTransactionUtils {
 
         ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
         return resource.getStatus(false);
+    }
+
+    public static List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
+        // Determine and add the status of each resource
+        List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
+        for (ArbitraryResourceInfo resourceInfo : resources) {
+            try {
+                ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ArbitraryDataFile.ResourceIdType.NAME,
+                        resourceInfo.service, resourceInfo.identifier);
+                ArbitraryResourceStatus status = resource.getStatus(true);
+                if (status != null) {
+                    resourceInfo.status = status;
+                }
+                updatedResources.add(resourceInfo);
+
+            } catch (Exception e) {
+                // Catch and log all exceptions, since some systems are experiencing 500 errors when including statuses
+                LOGGER.info("Caught exception when adding status to resource %s: %s", resourceInfo, e.toString());
+            }
+        }
+        return updatedResources;
+    }
+
+    public static List<ArbitraryResourceInfo> addMetadataToResources(List<ArbitraryResourceInfo> resources) {
+        // Add metadata fields to each resource if they exist
+        List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
+        for (ArbitraryResourceInfo resourceInfo : resources) {
+            ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ArbitraryDataFile.ResourceIdType.NAME,
+                    resourceInfo.service, resourceInfo.identifier);
+            ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
+            ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+            if (resourceMetadata != null) {
+                resourceInfo.metadata = resourceMetadata;
+            }
+            updatedResources.add(resourceInfo);
+        }
+        return updatedResources;
     }
 
 }

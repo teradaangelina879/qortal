@@ -128,10 +128,10 @@ public class ArbitraryResource {
 			}
 
 			if (includeStatus != null && includeStatus) {
-				resources = this.addStatusToResources(resources);
+				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
 			}
 			if (includeMetadata != null && includeMetadata) {
-				resources = this.addMetadataToResources(resources);
+				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -175,10 +175,10 @@ public class ArbitraryResource {
 			}
 
 			if (includeStatus != null && includeStatus) {
-				resources = this.addStatusToResources(resources);
+				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
 			}
 			if (includeMetadata != null && includeMetadata) {
-				resources = this.addMetadataToResources(resources);
+				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -232,10 +232,10 @@ public class ArbitraryResource {
 							.getArbitraryResources(service, identifier, Arrays.asList(name), defaultRes, null, null, reverse);
 
 					if (includeStatus != null && includeStatus) {
-						resources = this.addStatusToResources(resources);
+						resources = ArbitraryTransactionUtils.addStatusToResources(resources);
 					}
 					if (includeMetadata != null && includeMetadata) {
-						resources = this.addMetadataToResources(resources);
+						resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 					}
 
 					creatorName.resources = resources;
@@ -511,10 +511,10 @@ public class ArbitraryResource {
 			}
 
 			if (includeStatus != null && includeStatus) {
-				resources = this.addStatusToResources(resources);
+				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
 			}
 			if (includeMetadata != null && includeMetadata) {
-				resources = this.addMetadataToResources(resources);
+				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -1257,43 +1257,5 @@ public class ArbitraryResource {
 			LOGGER.debug(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, e.getMessage());
 		}
-	}
-
-
-	private List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
-		// Determine and add the status of each resource
-		List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
-		for (ArbitraryResourceInfo resourceInfo : resources) {
-			try {
-				ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
-						resourceInfo.service, resourceInfo.identifier);
-				ArbitraryResourceStatus status = resource.getStatus(true);
-				if (status != null) {
-					resourceInfo.status = status;
-				}
-				updatedResources.add(resourceInfo);
-
-			} catch (Exception e) {
-				// Catch and log all exceptions, since some systems are experiencing 500 errors when including statuses
-				LOGGER.info("Caught exception when adding status to resource %s: %s", resourceInfo, e.toString());
-			}
-		}
-		return updatedResources;
-	}
-
-	private List<ArbitraryResourceInfo> addMetadataToResources(List<ArbitraryResourceInfo> resources) {
-		// Add metadata fields to each resource if they exist
-		List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
-		for (ArbitraryResourceInfo resourceInfo : resources) {
-			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
-					resourceInfo.service, resourceInfo.identifier);
-			ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
-			ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
-			if (resourceMetadata != null) {
-				resourceInfo.metadata = resourceMetadata;
-			}
-			updatedResources.add(resourceInfo);
-		}
-		return updatedResources;
 	}
 }

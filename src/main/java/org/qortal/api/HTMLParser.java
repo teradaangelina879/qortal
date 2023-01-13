@@ -25,6 +25,10 @@ public class HTMLParser {
         String baseUrl = this.linkPrefix + "/";
         Elements head = document.getElementsByTag("head");
         if (!head.isEmpty()) {
+            // Add q-apps script tag
+            String qAppsScriptElement = String.format("<script src=\"/apps/q-apps.js?time=%d\">", System.currentTimeMillis());
+            head.get(0).prepend(qAppsScriptElement);
+
             // Add base href tag
             String baseElement = String.format("<base href=\"%s\">", baseUrl);
             head.get(0).prepend(baseElement);
