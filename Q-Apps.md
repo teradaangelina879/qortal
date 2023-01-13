@@ -50,9 +50,9 @@ async function myfunction() {
 myfunction();
 ```
 
-## Supported methods
+## Supported actions
 
-Here is a list of currently supported methods:
+Here is a list of currently supported actions:
 - GET_ACCOUNT_ADDRESS
 - GET_ACCOUNT_PUBLIC_KEY
 - GET_ACCOUNT_DATA
@@ -78,7 +78,7 @@ More functionality will be added in the future.
 
 ## Example Requests
 
-Here is some example requests for each of the above:
+Here are some example requests for each of the above:
 
 ### Get address of logged in account
 _Will likely require user approval_
