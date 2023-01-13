@@ -8,7 +8,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import java.io.*;
 import java.nio.file.Paths;
-import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,7 +27,6 @@ import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.repository.DataException;
-import org.qortal.settings.Settings;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.utils.Base58;
 
@@ -81,17 +79,21 @@ public class RenderResource {
             arbitraryDataWriter.save();
         } catch (IOException | DataException | InterruptedException | MissingDataException e) {
             LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
+            throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
         } catch (RuntimeException e) {
             LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+            throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
         }
 
         ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
         if (arbitraryDataFile != null) {
             String digest58 = arbitraryDataFile.digest58();
             if (digest58 != null) {
-                return "http://localhost:12393/render/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
+                // Pre-authorize resource
+                ArbitraryDataResource resource = new ArbitraryDataResource(digest58, null, null, null);
+                ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
+
+                return "http://localhost:12391/render/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
             }
         }
         return "Unable to generate preview URL";
