@@ -8,7 +8,7 @@ Q-Apps are static web apps written in javascript, HTML, CSS, and other static as
 
 ## Making a request
 
-Qortal core  will automatically inject a `qortalRequest()` javascript function (a Promise) to all websites/apps. This can be used to fetch or publish data to or from the Qortal blockchain. This functionality supports async/await, as well as try/catch error handling.
+Qortal core  will automatically inject a `qortalRequest()` javascript function to all websites/apps, which returns a Promise. This can be used to fetch data or publish data to the Qortal blockchain. This functionality supports async/await, as well as try/catch error handling.
 
 ```
 async function myfunction() {
@@ -28,7 +28,7 @@ myfunction();
 
 ## Timeouts
 
-By default, all requests will timeout after 10 seconds, and will throw an error - `The request timed out`. If you need a longer timeout - e.g. when fetching large QDN resources that may take a long time to be retried, you can use `qortalRequestWithTimeout(request, timeout)` as an alternative to `qortalRequest(request)`.
+By default, all requests will timeout after 10 seconds, and will throw an error - `The request timed out`. If you need a longer timeout - e.g. when fetching large QDN resources that may take a long time to be retrieved, you can use `qortalRequestWithTimeout(request, timeout)` as an alternative to `qortalRequest(request)`.
 
 ```
 async function myfunction() {
@@ -72,6 +72,7 @@ Here is a list of currently supported methods:
 - DEPLOY_AT
 - GET_AT
 - GET_AT_DATA
+- LIST_ATS
 
 More functionality will be added in the future.
 
