@@ -56,7 +56,7 @@ public abstract class Security {
 	public static void disallowLoopbackRequests(HttpServletRequest request) {
 		try {
 			InetAddress remoteAddr = InetAddress.getByName(request.getRemoteAddr());
-			if (remoteAddr.isLoopbackAddress()) {
+			if (remoteAddr.isLoopbackAddress() && !Settings.getInstance().isGatewayLoopbackEnabled()) {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.UNAUTHORIZED, "Local requests not allowed");
 			}
 		} catch (UnknownHostException e) {

@@ -104,6 +104,7 @@ public class Settings {
 	private Integer gatewayPort;
 	private boolean gatewayEnabled = false;
 	private boolean gatewayLoggingEnabled = false;
+	private boolean gatewayLoopbackEnabled = false;
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -631,6 +632,10 @@ public class Settings {
 
 	public boolean isGatewayLoggingEnabled() {
 		return this.gatewayLoggingEnabled;
+	}
+
+	public boolean isGatewayLoopbackEnabled() {
+		return this.gatewayLoopbackEnabled;
 	}
 
 
