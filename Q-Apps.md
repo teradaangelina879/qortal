@@ -53,6 +53,8 @@ myfunction();
 ## Supported methods
 
 Here is a list of currently supported methods:
+- GET_ACCOUNT_ADDRESS
+- GET_ACCOUNT_PUBLIC_KEY
 - GET_ACCOUNT_DATA
 - GET_ACCOUNT_NAMES
 - GET_NAME_DATA
@@ -77,20 +79,36 @@ More functionality will be added in the future.
 
 Here is some example requests for each of the above:
 
+### Get address of logged in account
+_Will likely require user approval_
+```
+let address = await qortalRequest({
+     action: "GET_ACCOUNT_ADDRESS"
+});
+```
+
+### Get public key of logged in account
+_Will likely require user approval_
+```
+let pubkey = await qortalRequest({
+     action: "GET_ACCOUNT_PUBLIC_KEY"
+});
+```
+
 ### Get account data
 ```
 let res = await qortalRequest({
-        action: "GET_ACCOUNT_DATA",
-        address: "QZLJV7wbaFyxaoZQsjm6rb9MWMiDzWsqM2"
-    });
+    action: "GET_ACCOUNT_DATA",
+    address: "QZLJV7wbaFyxaoZQsjm6rb9MWMiDzWsqM2"
+});
 ```
 
 ### Get names owned by account
 ```
 let res = await qortalRequest({
-        action: "GET_ACCOUNT_NAMES",
-        address: "QZLJV7wbaFyxaoZQsjm6rb9MWMiDzWsqM2"
-    });
+    action: "GET_ACCOUNT_NAMES",
+    address: "QZLJV7wbaFyxaoZQsjm6rb9MWMiDzWsqM2"
+});
 ```
 
 ### Get name data
