@@ -82,7 +82,7 @@ public class ArbitraryDataFileManager extends Thread {
 
         try {
             // Use a fixed thread pool to execute the arbitrary data file requests
-            int threadCount = 10;
+            int threadCount = 5;
             ExecutorService arbitraryDataFileRequestExecutor = Executors.newFixedThreadPool(threadCount);
             for (int i = 0; i < threadCount; i++) {
                 arbitraryDataFileRequestExecutor.execute(new ArbitraryDataFileRequestThread());
