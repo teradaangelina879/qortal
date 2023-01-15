@@ -757,9 +757,7 @@ public class BlockChain {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.checkConsistency();
 
-			// Set the number of blocks to validate based on the pruned state of the chain
-			// If pruned, subtract an extra 10 to allow room for error
-			int blocksToValidate = (isTopOnly || archiveEnabled) ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
+			int blocksToValidate = Math.min(Settings.getInstance().getPruneBlockLimit() - 10, 1440);
 
 			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - blocksToValidate, 1);
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);

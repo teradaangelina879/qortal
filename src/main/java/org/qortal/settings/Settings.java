@@ -159,7 +159,7 @@ public class Settings {
 	 * This prevents the node from being able to serve older blocks */
 	private boolean topOnly = false;
 	/** The amount of recent blocks we should keep when pruning */
-	private int pruneBlockLimit = 1450;
+	private int pruneBlockLimit = 6000;
 
 	/** How often to attempt AT state pruning (ms). */
 	private long atStatesPruneInterval = 3219L; // milliseconds
