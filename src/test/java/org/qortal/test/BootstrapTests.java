@@ -176,7 +176,8 @@ public class BootstrapTests extends Common {
         repository.getBlockRepository().setBlockPruneHeight(901);
 
         // Prune the AT states for the archived blocks
-        repository.getATRepository().rebuildLatestAtStates();
+        repository.getATRepository().rebuildLatestAtStates(900);
+        repository.saveChanges();
         repository.getATRepository().pruneAtStates(0, 900);
         repository.getATRepository().setAtPruneHeight(901);
 

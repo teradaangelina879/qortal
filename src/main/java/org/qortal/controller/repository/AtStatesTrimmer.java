@@ -26,9 +26,10 @@ public class AtStatesTrimmer implements Runnable {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int trimStartHeight = repository.getATRepository().getAtTrimHeight();
+			int maxLatestAtStatesHeight = PruneManager.getMaxHeightForLatestAtStates(repository);
 
 			repository.discardChanges();
-			repository.getATRepository().rebuildLatestAtStates();
+			repository.getATRepository().rebuildLatestAtStates(maxLatestAtStatesHeight);
 
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
@@ -69,7 +70,8 @@ public class AtStatesTrimmer implements Runnable {
 					if (upperTrimmableHeight > upperBatchHeight) {
 						trimStartHeight = upperBatchHeight;
 						repository.getATRepository().setAtTrimHeight(trimStartHeight);
-						repository.getATRepository().rebuildLatestAtStates();
+						maxLatestAtStatesHeight = PruneManager.getMaxHeightForLatestAtStates(repository);
+						repository.getATRepository().rebuildLatestAtStates(maxLatestAtStatesHeight);
 						repository.saveChanges();
 
 						final int finalTrimStartHeight = trimStartHeight;
