@@ -99,7 +99,7 @@ public class HSQLDBDatabasePruning {
 
         // It's essential that we rebuild the latest AT states here, as we are using this data in the next query.
         // Failing to do this will result in important AT states being deleted, rendering the database unusable.
-        repository.getATRepository().rebuildLatestAtStates();
+        repository.getATRepository().rebuildLatestAtStates(endHeight);
 
 
         // Loop through all the LatestATStates and copy them to the new table

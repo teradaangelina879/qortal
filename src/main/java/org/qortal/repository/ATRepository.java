@@ -119,7 +119,7 @@ public interface ATRepository {
 	 * <p>
 	 * NOTE: performs implicit <tt>repository.saveChanges()</tt>.
 	 */
-	public void rebuildLatestAtStates() throws DataException;
+	public void rebuildLatestAtStates(int maxHeight) throws DataException;
 
 
 	/** Returns height of first trimmable AT state. */
