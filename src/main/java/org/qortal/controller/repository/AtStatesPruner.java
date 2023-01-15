@@ -43,6 +43,7 @@ public class AtStatesPruner implements Runnable {
 
 			repository.discardChanges();
 			repository.getATRepository().rebuildLatestAtStates(maxLatestAtStatesHeight);
+			repository.saveChanges();
 
 			while (!Controller.isStopping()) {
 				repository.discardChanges();
