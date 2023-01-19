@@ -266,7 +266,7 @@ public class ArbitraryResource {
 															@PathParam("name") String name,
 															@QueryParam("build") Boolean build) {
 
-		Security.requirePriorAuthorizationOrApiKey(request, name, service, null);
+		Security.requirePriorAuthorizationOrApiKey(request, name, service, null, apiKey);
 		return ArbitraryTransactionUtils.getStatus(service, name, null, build);
 	}
 
@@ -288,7 +288,7 @@ public class ArbitraryResource {
 													 @PathParam("identifier") String identifier,
 													 @QueryParam("build") Boolean build) {
 
-		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier);
+		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
 		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build);
 	}
 
@@ -682,7 +682,7 @@ public class ArbitraryResource {
 
 		// Authentication can be bypassed in the settings, for those running public QDN nodes
 		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
-			Security.checkApiCallAllowed(request);
+			Security.checkApiCallAllowed(request, apiKey);
 		}
 
 		return this.download(service, name, identifier, filepath, rebuild, async, attempts);

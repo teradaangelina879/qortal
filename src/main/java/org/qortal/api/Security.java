@@ -15,7 +15,21 @@ public abstract class Security {
 
 	public static final String API_KEY_HEADER = "X-API-KEY";
 
+	/**
+	 * Check API call is allowed, retrieving the API key from the request header or GET/POST parameters where required
+	 * @param request
+	 */
 	public static void checkApiCallAllowed(HttpServletRequest request) {
+		checkApiCallAllowed(request, null);
+	}
+
+	/**
+	 * Check API call is allowed, retrieving the API key first from the passedApiKey parameter, with a fallback
+	 * to the request header or GET/POST parameters when null.
+	 * @param request
+	 * @param passedApiKey - the API key to test, or null if it should be retrieved from the request headers.
+	 */
+	public static void checkApiCallAllowed(HttpServletRequest request, String passedApiKey) {
 		// We may want to allow automatic authentication for local requests, if enabled in settings
 		boolean localAuthBypassEnabled = Settings.getInstance().isLocalAuthBypassEnabled();
 		if (localAuthBypassEnabled) {
@@ -38,7 +52,10 @@ public abstract class Security {
 		}
 
 		// We require an API key to be passed
-		String passedApiKey = request.getHeader(API_KEY_HEADER);
+		if (passedApiKey == null) {
+			// API call not passed as a parameter, so try the header
+			passedApiKey = request.getHeader(API_KEY_HEADER);
+		}
 		if (passedApiKey == null) {
 			// Try query string - this is needed to avoid a CORS preflight. See: https://stackoverflow.com/a/43881141
 			passedApiKey = request.getParameter("apiKey");
@@ -84,9 +101,9 @@ public abstract class Security {
 		}
 	}
 
-	public static void requirePriorAuthorizationOrApiKey(HttpServletRequest request, String resourceId, Service service, String identifier) {
+	public static void requirePriorAuthorizationOrApiKey(HttpServletRequest request, String resourceId, Service service, String identifier, String apiKey) {
 		try {
-			Security.checkApiCallAllowed(request);
+			Security.checkApiCallAllowed(request, apiKey);
 
 		} catch (ApiException e) {
 			// API call wasn't allowed, but maybe it was pre-authorized
