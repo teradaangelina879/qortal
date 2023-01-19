@@ -20,6 +20,8 @@ import org.qortal.data.block.BlockData;
 import org.qortal.data.chat.ChatMessage;
 import org.qortal.data.group.GroupData;
 import org.qortal.data.naming.NameData;
+import org.qortal.data.transaction.TransactionData;
+import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 
 import javax.servlet.ServletContext;
@@ -202,6 +204,14 @@ public class AppsResource {
     public List<BlockData> getBlockRange(@QueryParam("height") int height, @Parameter(ref = "count") @QueryParam("count") int count, @Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse, @QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
         BlocksResource blocksResource = (BlocksResource) buildResource(BlocksResource.class, request, response, context);
         return blocksResource.getBlockRange(height, count, reverse, includeOnlineSignatures);
+    }
+
+    @GET
+    @Path("/transactions/search")
+    @Hidden // For internal Q-App API use only
+    public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit, @QueryParam("txGroupId") Integer txGroupId, @QueryParam("txType") List<Transaction.TransactionType> txTypes, @QueryParam("address") String address, @Parameter() @QueryParam("confirmationStatus") TransactionsResource.ConfirmationStatus confirmationStatus, @Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset, @Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
+        TransactionsResource transactionsResource = (TransactionsResource) buildResource(TransactionsResource.class, request, response, context);
+        return transactionsResource.searchTransactions(startBlock, blockLimit, txGroupId, txTypes, address, confirmationStatus, limit, offset, reverse);
     }
 
 

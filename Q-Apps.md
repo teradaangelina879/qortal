@@ -75,6 +75,7 @@ Here is a list of currently supported actions:
 - LIST_ATS
 - FETCH_BLOCK
 - FETCH_BLOCK_RANGE
+- SEARCH_TRANSACTIONS
 
 More functionality will be added in the future.
 
@@ -369,6 +370,24 @@ let res = await qortalRequest({
     action: "FETCH_BLOCK_RANGE",
     height: "1139800",
     count: 20,
+    reverse: false
+});
+```
+
+### Search transactions
+```
+let res = await qortalRequest({
+    action: "SEARCH_TRANSACTIONS",
+    // startBlock: 1139000,
+    // blockLimit: 1000,
+    txGroupId: 0,
+    txType: [
+        "PAYMENT",
+        "REWARD_SHARE"
+    ],
+    confirmationStatus: "CONFIRMED",
+    limit: 10,
+    offset: 0,
     reverse: false
 });
 ```

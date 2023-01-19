@@ -177,6 +177,19 @@ window.addEventListener("message", (event) => {
             response = httpGet(url);
             break;
 
+        case "SEARCH_TRANSACTIONS":
+            url = "/apps/transactions/search?";
+            if (data.startBlock != null) url = url.concat("&startBlock=" + data.startBlock);
+            if (data.blockLimit != null) url = url.concat("&blockLimit=" + data.blockLimit);
+            if (data.txGroupId != null) url = url.concat("&txGroupId=" + data.txGroupId);
+            if (data.txType != null) data.txType.forEach((x, i) => url = url.concat("&txType=" + x));
+            if (data.confirmationStatus != null) url = url.concat("&confirmationStatus=" + data.confirmationStatus);
+            if (data.limit != null) url = url.concat("&limit=" + data.limit);
+            if (data.offset != null) url = url.concat("&offset=" + data.offset);
+            if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
+            response = httpGet(url);
+            break;
+
         default:
             // Pass to parent (UI), in case they can fulfil this request
             event.data.requestedHandler = "UI";
