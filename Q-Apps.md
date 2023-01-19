@@ -76,6 +76,7 @@ Here is a list of currently supported actions:
 - FETCH_BLOCK
 - FETCH_BLOCK_RANGE
 - SEARCH_TRANSACTIONS
+- GET_PRICE
 
 More functionality will be added in the future.
 
@@ -389,6 +390,16 @@ let res = await qortalRequest({
     limit: 10,
     offset: 0,
     reverse: false
+});
+```
+
+### Get an estimate of the QORT price
+```
+let res = await qortalRequest({
+    action: "GET_PRICE",
+    blockchain: "LITECOIN",
+    // maxtrades: 10,
+    inverse: true
 });
 ```
 

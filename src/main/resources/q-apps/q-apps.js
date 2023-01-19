@@ -190,6 +190,14 @@ window.addEventListener("message", (event) => {
             response = httpGet(url);
             break;
 
+        case "GET_PRICE":
+            url = "/apps/price?";
+            if (data.blockchain != null) url = url.concat("&blockchain=" + data.blockchain);
+            if (data.maxtrades != null) url = url.concat("&maxtrades=" + data.maxtrades);
+            if (data.inverse != null) url = url.concat("&inverse=" + data.inverse);
+            response = httpGet(url);
+            break;
+
         default:
             // Pass to parent (UI), in case they can fulfil this request
             event.data.requestedHandler = "UI";

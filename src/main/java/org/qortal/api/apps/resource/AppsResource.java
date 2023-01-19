@@ -12,6 +12,7 @@ import org.qortal.api.*;
 import org.qortal.api.model.NameSummary;
 import org.qortal.api.resource.*;
 import org.qortal.arbitrary.misc.Service;
+import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
@@ -212,6 +213,14 @@ public class AppsResource {
     public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit, @QueryParam("txGroupId") Integer txGroupId, @QueryParam("txType") List<Transaction.TransactionType> txTypes, @QueryParam("address") String address, @Parameter() @QueryParam("confirmationStatus") TransactionsResource.ConfirmationStatus confirmationStatus, @Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset, @Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
         TransactionsResource transactionsResource = (TransactionsResource) buildResource(TransactionsResource.class, request, response, context);
         return transactionsResource.searchTransactions(startBlock, blockLimit, txGroupId, txTypes, address, confirmationStatus, limit, offset, reverse);
+    }
+
+    @GET
+    @Path("/price")
+    @Hidden // For internal Q-App API use only
+    public long getPrice(@QueryParam("blockchain") SupportedBlockchain foreignBlockchain, @QueryParam("maxtrades") Integer maxtrades, @QueryParam("inverse") Boolean inverse) {
+        CrossChainResource crossChainResource = (CrossChainResource) buildResource(CrossChainResource.class, request, response, context);
+        return crossChainResource.getTradePriceEstimate(foreignBlockchain, maxtrades, inverse);
     }
 
 
