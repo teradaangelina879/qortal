@@ -155,6 +155,28 @@ window.addEventListener("message", (event) => {
             response = httpGet(url);
             break;
 
+        case "FETCH_BLOCK":
+            if (data.signature != null) {
+                url = "/apps/block?";
+                url = url.concat("&signature=" + data.signature);
+            }
+            else if (data.height != null) {
+                url = "/apps/block/byheight?";
+                url = url.concat("&height=" + data.height);
+            }
+            if (data.includeOnlineSignatures != null) url = url.concat("&includeOnlineSignatures=" + data.includeOnlineSignatures);
+            response = httpGet(url);
+            break;
+
+        case "FETCH_BLOCK_RANGE":
+            url = "/apps/block/range?";
+            if (data.height != null) url = url.concat("&height=" + data.height);
+            if (data.count != null) url = url.concat("&count=" + data.count);
+            if (data.reverse != null) url = url.concat("&reverse=" + data.reverse);
+            if (data.includeOnlineSignatures != null) url = url.concat("&includeOnlineSignatures=" + data.includeOnlineSignatures);
+            response = httpGet(url);
+            break;
+
         default:
             // Pass to parent (UI), in case they can fulfil this request
             event.data.requestedHandler = "UI";

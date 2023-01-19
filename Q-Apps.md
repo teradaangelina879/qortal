@@ -73,6 +73,8 @@ Here is a list of currently supported actions:
 - GET_AT
 - GET_AT_DATA
 - LIST_ATS
+- FETCH_BLOCK
+- FETCH_BLOCK_RANGE
 
 More functionality will be added in the future.
 
@@ -342,6 +344,32 @@ let res = await qortalRequest({
     limit: 100,
     offset: 0,
     reverse: true
+});
+```
+
+### Fetch block by signature
+```
+let res = await qortalRequest({
+    action: "FETCH_BLOCK",
+    signature: "875yGFUy1zHV2hmxNWzrhtn9S1zkeD7SQppwdXFysvTXrankCHCz4iyAUgCBM3GjvibbnyRQpriuy1cyu953U1u5uQdzuH3QjQivi9UVwz86z1Akn17MGd5Z5STjpDT7248K6vzMamuqDei57Znonr8GGgn8yyyABn35CbZUCeAuXju"
+});
+```
+
+### Fetch block by height
+```
+let res = await qortalRequest({
+    action: "FETCH_BLOCK",
+    height: "1139850"
+});
+```
+
+### Fetch a range of blocks
+```
+let res = await qortalRequest({
+    action: "FETCH_BLOCK_RANGE",
+    height: "1139800",
+    count: 20,
+    reverse: false
 });
 ```
 

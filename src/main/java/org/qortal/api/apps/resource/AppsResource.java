@@ -16,6 +16,7 @@ import org.qortal.data.account.AccountData;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.at.ATData;
+import org.qortal.data.block.BlockData;
 import org.qortal.data.chat.ChatMessage;
 import org.qortal.data.group.GroupData;
 import org.qortal.data.naming.NameData;
@@ -177,6 +178,30 @@ public class AppsResource {
     public List<ATData> listATs(@QueryParam("codeHash58") String codeHash58, @QueryParam("isExecutable") Boolean isExecutable, @Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset, @Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
         AtResource atResource = (AtResource) buildResource(AtResource.class, request, response, context);
         return atResource.getByFunctionality(codeHash58, isExecutable, limit, offset, reverse);
+    }
+
+    @GET
+    @Path("/block")
+    @Hidden // For internal Q-App API use only
+    public BlockData fetchBlockByHeight(@QueryParam("signature") String signature58, @QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
+        BlocksResource blocksResource = (BlocksResource) buildResource(BlocksResource.class, request, response, context);
+        return blocksResource.getBlock(signature58, includeOnlineSignatures);
+    }
+
+    @GET
+    @Path("/block/byheight")
+    @Hidden // For internal Q-App API use only
+    public BlockData fetchBlockByHeight(@QueryParam("height") int height, @QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
+        BlocksResource blocksResource = (BlocksResource) buildResource(BlocksResource.class, request, response, context);
+        return blocksResource.getByHeight(height, includeOnlineSignatures);
+    }
+
+    @GET
+    @Path("/block/range")
+    @Hidden // For internal Q-App API use only
+    public List<BlockData> getBlockRange(@QueryParam("height") int height, @Parameter(ref = "count") @QueryParam("count") int count, @Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse, @QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
+        BlocksResource blocksResource = (BlocksResource) buildResource(BlocksResource.class, request, response, context);
+        return blocksResource.getBlockRange(height, count, reverse, includeOnlineSignatures);
     }
 
 
