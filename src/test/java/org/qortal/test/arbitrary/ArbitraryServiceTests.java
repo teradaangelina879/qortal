@@ -117,7 +117,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.OK, service.validate(path));
     }
 
@@ -140,7 +139,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.DIRECTORIES_NOT_ALLOWED, service.validate(path));
     }
 
@@ -151,7 +149,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.MISSING_DATA, service.validate(path));
     }
 
@@ -171,7 +168,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.INVALID_FILE_EXTENSION, service.validate(path));
     }
 
@@ -181,7 +177,7 @@ public class ArbitraryServiceTests extends Common {
         byte[] data = new byte[1024];
         new Random().nextBytes(data);
 
-        // Write the data to several files in a temp path
+        // Write the data a single file in a temp path
         Path path = Files.createTempDirectory("testValidateQChatAttachment");
         path.toFile().deleteOnExit();
         Files.write(Paths.get(path.toString(), "document.pdf"), data, StandardOpenOption.CREATE);
@@ -189,7 +185,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.QCHAT_ATTACHMENT;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.OK, service.validate(path));
     }
 
@@ -199,7 +194,7 @@ public class ArbitraryServiceTests extends Common {
         byte[] data = new byte[1024];
         new Random().nextBytes(data);
 
-        // Write the data to several files in a temp path
+        // Write the data a single file in a temp path
         Path path = Files.createTempDirectory("testValidateInvalidQChatAttachmentFileExtension");
         path.toFile().deleteOnExit();
         Files.write(Paths.get(path.toString(), "application.exe"), data, StandardOpenOption.CREATE);
@@ -207,7 +202,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.QCHAT_ATTACHMENT;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.INVALID_FILE_EXTENSION, service.validate(path));
     }
 
@@ -218,7 +212,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.QCHAT_ATTACHMENT;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
     }
 
@@ -241,7 +234,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.QCHAT_ATTACHMENT;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.DIRECTORIES_NOT_ALLOWED, service.validate(path));
     }
 
@@ -260,7 +252,6 @@ public class ArbitraryServiceTests extends Common {
         Service service = Service.QCHAT_ATTACHMENT;
         assertTrue(service.isValidationRequired());
 
-        // There is an index file in the root
         assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
     }
 
