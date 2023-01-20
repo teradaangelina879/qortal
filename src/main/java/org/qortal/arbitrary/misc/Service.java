@@ -24,6 +24,10 @@ public enum Service {
             // Custom validation function to require a single file, with a whitelisted extension
             int fileCount = 0;
             File[] files = path.toFile().listFiles();
+            // If already a single file, replace the list with one that contains that file only
+            if (files == null && path.toFile().isFile()) {
+                files = new File[] { path.toFile() };
+            }
             if (files != null) {
                 for (File file : files) {
                     if (file.isDirectory()) {
@@ -80,6 +84,10 @@ public enum Service {
             // Custom validation function to require .gif files only, and at least 1
             int gifCount = 0;
             File[] files = path.toFile().listFiles();
+            // If already a single file, replace the list with one that contains that file only
+            if (files == null && path.toFile().isFile()) {
+                files = new File[] { path.toFile() };
+            }
             if (files != null) {
                 for (File file : files) {
                     if (file.isDirectory()) {

@@ -121,6 +121,24 @@ public class ArbitraryServiceTests extends Common {
     }
 
     @Test
+    public void testValidateSingleFileGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateSingleFileGifRepository");
+        path.toFile().deleteOnExit();
+        Path imagePath = Paths.get(path.toString(), "image1.gif");
+        Files.write(imagePath, data, StandardOpenOption.CREATE);
+
+        Service service = Service.GIF_REPOSITORY;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(imagePath));
+    }
+
+    @Test
     public void testValidateMultiLayerGifRepository() throws IOException {
         // Generate some random data
         byte[] data = new byte[1024];
@@ -186,6 +204,24 @@ public class ArbitraryServiceTests extends Common {
         assertTrue(service.isValidationRequired());
 
         assertEquals(ValidationResult.OK, service.validate(path));
+    }
+
+    @Test
+    public void testValidateSingleFileQChatAttachment() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateSingleFileQChatAttachment");
+        path.toFile().deleteOnExit();
+        Path filePath = Paths.get(path.toString(), "document.pdf");
+        Files.write(filePath, data, StandardOpenOption.CREATE);
+
+        Service service = Service.QCHAT_ATTACHMENT;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(filePath));
     }
 
     @Test
