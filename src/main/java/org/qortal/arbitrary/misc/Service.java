@@ -35,6 +35,9 @@ public enum Service {
             }
             if (files != null) {
                 for (File file : files) {
+                    if (file.getName().equals(".qortal")) {
+                        continue;
+                    }
                     if (file.isDirectory()) {
                         return ValidationResult.DIRECTORIES_NOT_ALLOWED;
                     }
@@ -105,6 +108,9 @@ public enum Service {
             }
             if (files != null) {
                 for (File file : files) {
+                    if (file.getName().equals(".qortal")) {
+                        continue;
+                    }
                     if (file.isDirectory()) {
                         return ValidationResult.DIRECTORIES_NOT_ALLOWED;
                     }
