@@ -468,7 +468,7 @@ public class ArbitraryTransactionUtils {
             ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ArbitraryDataFile.ResourceIdType.NAME,
                     resourceInfo.service, resourceInfo.identifier);
             ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
-            ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+            ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata, false);
             if (resourceMetadata != null) {
                 resourceInfo.metadata = resourceMetadata;
             }
