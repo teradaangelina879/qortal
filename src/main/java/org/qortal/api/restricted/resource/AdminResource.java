@@ -1,4 +1,4 @@
-package org.qortal.api.resource;
+package org.qortal.api.restricted.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

@@ -14,7 +14,6 @@ import java.security.SecureRandom;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 
-import org.checkerframework.checker.units.qual.A;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
@@ -53,7 +52,7 @@ public class ApiService {
 
 	private ApiService() {
 		this.config = new ResourceConfig();
-		this.config.packages("org.qortal.api.resource", "org.qortal.api.apps.resource");
+		this.config.packages("org.qortal.api.resource", "org.qortal.api.restricted.resource");
 		this.config.register(OpenApiResource.class);
 		this.config.register(ApiDefinition.class);
 		this.config.register(AnnotationPostProcessor.class);

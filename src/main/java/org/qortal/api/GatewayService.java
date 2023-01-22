@@ -37,7 +37,7 @@ public class GatewayService {
 
 	private GatewayService() {
 		this.config = new ResourceConfig();
-		this.config.packages("org.qortal.api.gateway.resource", "org.qortal.api.apps.resource");
+		this.config.packages("org.qortal.api.resource", "org.qortal.api.gateway.resource");
 		this.config.register(OpenApiResource.class);
 		this.config.register(ApiDefinition.class);
 		this.config.register(AnnotationPostProcessor.class);

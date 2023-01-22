@@ -60,25 +60,25 @@ window.addEventListener("message", (event) => {
 
     switch (data.action) {
         case "GET_ACCOUNT_DATA":
-            response = httpGet("/apps/account?address=" + data.address);
+            response = httpGet("/addresses/" + data.address);
             break;
 
         case "GET_ACCOUNT_NAMES":
-            response = httpGet("/apps/account/names?address=" + data.address);
+            response = httpGet("/names/address/" + data.address);
             break;
 
         case "GET_NAME_DATA":
-            response = httpGet("/apps/name?name=" + data.name);
+            response = httpGet("/names/" + data.name);
             break;
 
         case "SEARCH_QDN_RESOURCES":
-            url = "/apps/resources?";
+            url = "/arbitrary/resources?";
             if (data.service != null) url = url.concat("&service=" + data.service);
             if (data.identifier != null) url = url.concat("&identifier=" + data.identifier);
             if (data.default != null) url = url.concat("&default=" + data.default);
-            if (data.nameListFilter != null) url = url.concat("&nameListFilter=" + data.nameListFilter);
-            if (data.includeStatus != null) url = url.concat("&includeStatus=" + new Boolean(data.includeStatus).toString());
-            if (data.includeMetadata != null) url = url.concat("&includeMetadata=" + new Boolean(data.includeMetadata).toString());
+            if (data.nameListFilter != null) url = url.concat("&namefilter=" + data.nameListFilter);
+            if (data.includeStatus != null) url = url.concat("&includestatus=" + new Boolean(data.includeStatus).toString());
+            if (data.includeMetadata != null) url = url.concat("&includemetadata=" + new Boolean(data.includeMetadata).toString());
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
@@ -86,32 +86,29 @@ window.addEventListener("message", (event) => {
             break;
 
         case "FETCH_QDN_RESOURCE":
-            url = "/apps/resource?";
-            if (data.service != null) url = url.concat("&service=" + data.service);
-            if (data.name != null) url = url.concat("&name=" + data.name);
-            if (data.identifier != null) url = url.concat("&identifier=" + data.identifier);
+            url = "/arbitrary/" + data.service + "/" + data.name;
+            if (data.identifier != null) url = url.concat("/" + data.identifier);
+            url = url.concat("?");
             if (data.filepath != null) url = url.concat("&filepath=" + data.filepath);
             if (data.rebuild != null) url = url.concat("&rebuild=" + new Boolean(data.rebuild).toString())
             response = httpGet(url);
             break;
 
         case "GET_QDN_RESOURCE_STATUS":
-            url = "/apps/resourcestatus?";
-            if (data.service != null) url = url.concat("&service=" + data.service);
-            if (data.name != null) url = url.concat("&name=" + data.name);
-            if (data.identifier != null) url = url.concat("&identifier=" + data.identifier);
+            url = "/arbitrary/resource/status/" + data.service + "/" + data.name;
+            if (data.identifier != null) url = url.concat("/" + data.identifier);
             response = httpGet(url);
             break;
 
         case "SEARCH_CHAT_MESSAGES":
-            url = "/apps/chatmessages?";
+            url = "/chat/messages?";
             if (data.before != null) url = url.concat("&before=" + data.before);
             if (data.after != null) url = url.concat("&after=" + data.after);
             if (data.txGroupId != null) url = url.concat("&txGroupId=" + data.txGroupId);
             if (data.involving != null) data.involving.forEach((x, i) => url = url.concat("&involving=" + x));
             if (data.reference != null) url = url.concat("&reference=" + data.reference);
-            if (data.chatReference != null) url = url.concat("&chatReference=" + data.chatReference);
-            if (data.hasChatReference != null) url = url.concat("&hasChatReference=" + new Boolean(data.hasChatReference).toString());
+            if (data.chatReference != null) url = url.concat("&chatreference=" + data.chatReference);
+            if (data.hasChatReference != null) url = url.concat("&haschatreference=" + new Boolean(data.hasChatReference).toString());
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
@@ -119,7 +116,7 @@ window.addEventListener("message", (event) => {
             break;
 
         case "LIST_GROUPS":
-            url = "/apps/groups?";
+            url = "/groups?";
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
@@ -127,27 +124,23 @@ window.addEventListener("message", (event) => {
             break;
 
         case "GET_BALANCE":
-            url = "/apps/balance?";
+            url = "/addresses/balance/" + data.address;
             if (data.assetId != null) url = url.concat("&assetId=" + data.assetId);
-            if (data.address != null) url = url.concat("&address=" + data.address);
             response = httpGet(url);
             break;
 
         case "GET_AT":
-            url = "/apps/at?";
-            if (data.atAddress != null) url = url.concat("&atAddress=" + data.atAddress);
+            url = "/at" + data.atAddress;
             response = httpGet(url);
             break;
 
         case "GET_AT_DATA":
-            url = "/apps/atdata?";
-            if (data.atAddress != null) url = url.concat("&atAddress=" + data.atAddress);
+            url = "/at/" + data.atAddress + "/data";
             response = httpGet(url);
             break;
 
         case "LIST_ATS":
-            url = "/apps/ats?";
-            if (data.codeHash58 != null) url = url.concat("&codeHash58=" + data.codeHash58);
+            url = "/at/byfunction/" + data.codeHash58 + "?";
             if (data.isExecutable != null) url = url.concat("&isExecutable=" + data.isExecutable);
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
@@ -157,20 +150,18 @@ window.addEventListener("message", (event) => {
 
         case "FETCH_BLOCK":
             if (data.signature != null) {
-                url = "/apps/block?";
-                url = url.concat("&signature=" + data.signature);
+                url = "/blocks/" + data.signature;
             }
             else if (data.height != null) {
-                url = "/apps/block/byheight?";
-                url = url.concat("&height=" + data.height);
+                url = "/blocks/byheight/" + data.height;
             }
+            url = url.concat("?");
             if (data.includeOnlineSignatures != null) url = url.concat("&includeOnlineSignatures=" + data.includeOnlineSignatures);
             response = httpGet(url);
             break;
 
         case "FETCH_BLOCK_RANGE":
-            url = "/apps/block/range?";
-            if (data.height != null) url = url.concat("&height=" + data.height);
+            url = "/blocks/range/" + data.height + "?";
             if (data.count != null) url = url.concat("&count=" + data.count);
             if (data.reverse != null) url = url.concat("&reverse=" + data.reverse);
             if (data.includeOnlineSignatures != null) url = url.concat("&includeOnlineSignatures=" + data.includeOnlineSignatures);
@@ -178,11 +169,12 @@ window.addEventListener("message", (event) => {
             break;
 
         case "SEARCH_TRANSACTIONS":
-            url = "/apps/transactions/search?";
+            url = "/transactions/search?";
             if (data.startBlock != null) url = url.concat("&startBlock=" + data.startBlock);
             if (data.blockLimit != null) url = url.concat("&blockLimit=" + data.blockLimit);
             if (data.txGroupId != null) url = url.concat("&txGroupId=" + data.txGroupId);
             if (data.txType != null) data.txType.forEach((x, i) => url = url.concat("&txType=" + x));
+            if (data.address != null) url = url.concat("&address=" + data.address);
             if (data.confirmationStatus != null) url = url.concat("&confirmationStatus=" + data.confirmationStatus);
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
@@ -191,8 +183,7 @@ window.addEventListener("message", (event) => {
             break;
 
         case "GET_PRICE":
-            url = "/apps/price?";
-            if (data.blockchain != null) url = url.concat("&blockchain=" + data.blockchain);
+            url = "/crosschain/price/" + data.blockchain + "?";
             if (data.maxtrades != null) url = url.concat("&maxtrades=" + data.maxtrades);
             if (data.inverse != null) url = url.concat("&inverse=" + data.inverse);
             response = httpGet(url);

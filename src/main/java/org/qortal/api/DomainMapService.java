@@ -3,7 +3,6 @@ package org.qortal.api;
 import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
-import org.eclipse.jetty.rewrite.handler.RewritePatternRule;
 import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.server.handler.ErrorHandler;
 import org.eclipse.jetty.server.handler.InetAccessHandler;
@@ -38,7 +37,7 @@ public class DomainMapService {
 
 	private DomainMapService() {
 		this.config = new ResourceConfig();
-		this.config.packages("org.qortal.api.domainmap.resource");
+		this.config.packages("org.qortal.api.resource", "org.qortal.api.domainmap.resource");
 		this.config.register(OpenApiResource.class);
 		this.config.register(ApiDefinition.class);
 		this.config.register(AnnotationPostProcessor.class);
