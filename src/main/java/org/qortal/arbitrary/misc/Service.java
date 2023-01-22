@@ -10,9 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
@@ -20,9 +18,52 @@ import static java.util.stream.Collectors.toMap;
 public enum Service {
     AUTO_UPDATE(1, false, null, null),
     ARBITRARY_DATA(100, false, null, null),
+    QCHAT_ATTACHMENT(120, true, 1024*1024L, null) {
+        @Override
+        public ValidationResult validate(Path path) throws IOException {
+            ValidationResult superclassResult = super.validate(path);
+            if (superclassResult != ValidationResult.OK) {
+                return superclassResult;
+            }
+
+            // Custom validation function to require a single file, with a whitelisted extension
+            int fileCount = 0;
+            File[] files = path.toFile().listFiles();
+            // If already a single file, replace the list with one that contains that file only
+            if (files == null && path.toFile().isFile()) {
+                files = new File[] { path.toFile() };
+            }
+            if (files != null) {
+                for (File file : files) {
+                    if (file.getName().equals(".qortal")) {
+                        continue;
+                    }
+                    if (file.isDirectory()) {
+                        return ValidationResult.DIRECTORIES_NOT_ALLOWED;
+                    }
+                    final String extension = FilenameUtils.getExtension(file.getName()).toLowerCase();
+                    // We must allow blank file extensions because these are used by data published from a plaintext or base64-encoded string
+                    final List<String> allowedExtensions = Arrays.asList("zip", "pdf", "txt", "odt", "ods", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "");
+                    if (extension == null || !allowedExtensions.contains(extension)) {
+                        return ValidationResult.INVALID_FILE_EXTENSION;
+                    }
+                    fileCount++;
+                }
+            }
+            if (fileCount != 1) {
+                return ValidationResult.INVALID_FILE_COUNT;
+            }
+            return ValidationResult.OK;
+        }
+    },
     WEBSITE(200, true, null, null) {
         @Override
-        public ValidationResult validate(Path path) {
+        public ValidationResult validate(Path path) throws IOException {
+            ValidationResult superclassResult = super.validate(path);
+            if (superclassResult != ValidationResult.OK) {
+                return superclassResult;
+            }
+
             // Custom validation function to require an index HTML file in the root directory
             List<String> fileNames = ArbitraryDataRenderer.indexFiles();
             String[] files = path.toFile().list();
@@ -53,12 +94,24 @@ public enum Service {
     METADATA(1100, false, null, null),
     GIF_REPOSITORY(1200, true, 25*1024*1024L, null) {
         @Override
-        public ValidationResult validate(Path path) {
+        public ValidationResult validate(Path path) throws IOException {
+            ValidationResult superclassResult = super.validate(path);
+            if (superclassResult != ValidationResult.OK) {
+                return superclassResult;
+            }
+
             // Custom validation function to require .gif files only, and at least 1
             int gifCount = 0;
             File[] files = path.toFile().listFiles();
+            // If already a single file, replace the list with one that contains that file only
+            if (files == null && path.toFile().isFile()) {
+                files = new File[] { path.toFile() };
+            }
             if (files != null) {
                 for (File file : files) {
+                    if (file.getName().equals(".qortal")) {
+                        continue;
+                    }
                     if (file.isDirectory()) {
                         return ValidationResult.DIRECTORIES_NOT_ALLOWED;
                     }
@@ -143,7 +196,8 @@ public enum Service {
         MISSING_INDEX_FILE(4),
         DIRECTORIES_NOT_ALLOWED(5),
         INVALID_FILE_EXTENSION(6),
-        MISSING_DATA(7);
+        MISSING_DATA(7),
+        INVALID_FILE_COUNT(8);
 
         public final int value;
 

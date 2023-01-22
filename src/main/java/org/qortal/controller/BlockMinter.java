@@ -26,9 +26,6 @@ import org.qortal.data.block.CommonBlockData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
-import org.qortal.network.message.BlockSummariesV2Message;
-import org.qortal.network.message.HeightV2Message;
-import org.qortal.network.message.Message;
 import org.qortal.repository.BlockRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -37,6 +34,8 @@ import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
+
+import static org.junit.Assert.assertNotNull;
 
 // Minting new blocks
 
@@ -64,8 +63,8 @@ public class BlockMinter extends Thread {
 	public void run() {
 		Thread.currentThread().setName("BlockMinter");
 
-		if (Settings.getInstance().isLite()) {
-			// Lite nodes do not mint
+		if (Settings.getInstance().isTopOnly() || Settings.getInstance().isLite()) {
+			// Top only and lite nodes do not sign blocks
 			return;
 		}
 		if (Settings.getInstance().getWipeUnconfirmedOnStart()) {
@@ -511,6 +510,21 @@ public class BlockMinter extends Thread {
 
 		PrivateKeyAccount mintingAccount = mintingAndOnlineAccounts[0];
 
+		Block block = mintTestingBlockRetainingTimestamps(repository, mintingAccount);
+		assertNotNull("Minted block must not be null", block);
+
+		return block;
+	}
+
+	public static Block mintTestingBlockUnvalidated(Repository repository, PrivateKeyAccount... mintingAndOnlineAccounts) throws DataException {
+		if (!BlockChain.getInstance().isTestChain())
+			throw new DataException("Ignoring attempt to mint testing block for non-test chain!");
+
+		// Ensure mintingAccount is 'online' so blocks can be minted
+		OnlineAccountsManager.getInstance().ensureTestingAccountsOnline(mintingAndOnlineAccounts);
+
+		PrivateKeyAccount mintingAccount = mintingAndOnlineAccounts[0];
+
 		return mintTestingBlockRetainingTimestamps(repository, mintingAccount);
 	}
 
@@ -518,6 +532,8 @@ public class BlockMinter extends Thread {
 		BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
 
 		Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
+		if (newBlock == null)
+			return null;
 
 		// Make sure we're the only thread modifying the blockchain
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();

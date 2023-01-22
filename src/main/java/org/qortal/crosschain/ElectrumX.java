@@ -40,7 +40,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private static final String VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE = "verbose transactions are currently unsupported";
 
 	private static final int RESPONSE_TIME_READINGS = 5;
-	private static final long MAX_AVG_RESPONSE_TIME = 500L; // ms
+	private static final long MAX_AVG_RESPONSE_TIME = 1000L; // ms
 
 	public static class Server {
 		String hostname;

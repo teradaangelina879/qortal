@@ -67,6 +67,11 @@ public class TransferPrivsTransaction extends Transaction {
 		if (getSender().getConfirmedBalance(Asset.QORT) < this.transferPrivsTransactionData.getFee())
 			return ValidationResult.NO_BALANCE;
 
+		// Check sender doesn't have a blocksMintedPenalty, as these accounts cannot be transferred
+		AccountData senderAccountData = this.repository.getAccountRepository().getAccount(getSender().getAddress());
+		if (senderAccountData == null || senderAccountData.getBlocksMintedPenalty() != 0)
+			return ValidationResult.ACCOUNT_NOT_TRANSFERABLE;
+
 		return ValidationResult.OK;
 	}
 

@@ -29,6 +29,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.account.Account;
 import org.qortal.api.ApiService;
 import org.qortal.api.DomainMapService;
 import org.qortal.api.GatewayService;
@@ -754,6 +755,28 @@ public class Controller extends Thread {
 	public static final Predicate<Peer> hasOldVersion = peer -> {
 		final String minPeerVersion = Settings.getInstance().getMinPeerVersion();
 		return peer.isAtLeastVersion(minPeerVersion) == false;
+	};
+
+	public static final Predicate<Peer> hasInvalidSigner = peer -> {
+		final BlockSummaryData peerChainTipData = peer.getChainTipData();
+		if (peerChainTipData == null)
+			return true;
+
+		try (Repository repository = RepositoryManager.getRepository()) {
+			return Account.getRewardShareEffectiveMintingLevel(repository, peerChainTipData.getMinterPublicKey()) == 0;
+		} catch (DataException e) {
+			return true;
+		}
+	};
+
+	public static final Predicate<Peer> wasRecentlyTooDivergent = peer -> {
+		Long now = NTP.getTime();
+		Long peerLastTooDivergentTime = peer.getLastTooDivergentTime();
+		if (now == null || peerLastTooDivergentTime == null)
+			return false;
+
+		// Exclude any peers that were TOO_DIVERGENT in the last 5 mins
+		return (now - peerLastTooDivergentTime < 5 * 60 * 1000L);
 	};
 
 	private long getRandomRepositoryMaintenanceInterval() {

@@ -110,7 +110,13 @@ public class Settings {
 	/** Maximum number of unconfirmed transactions allowed per account */
 	private int maxUnconfirmedPerAccount = 25;
 	/** Max milliseconds into future for accepting new, unconfirmed transactions */
-	private int maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
+	private int maxTransactionTimestampFuture = 30 * 60 * 1000; // milliseconds
+
+	/** Maximum number of CHAT transactions allowed per account in recent timeframe */
+	private int maxRecentChatMessagesPerAccount = 250;
+	/** Maximum age of a CHAT transaction to be considered 'recent' */
+	private long recentChatMessagesMaxAge = 60 * 60 * 1000L; // milliseconds
+
 	/** Whether we check, fetch and install auto-updates */
 	private boolean autoUpdateEnabled = true;
 	/** How long between repository backups (ms), or 0 if disabled. */
@@ -153,7 +159,7 @@ public class Settings {
 	 * This prevents the node from being able to serve older blocks */
 	private boolean topOnly = false;
 	/** The amount of recent blocks we should keep when pruning */
-	private int pruneBlockLimit = 1450;
+	private int pruneBlockLimit = 6000;
 
 	/** How often to attempt AT state pruning (ms). */
 	private long atStatesPruneInterval = 3219L; // milliseconds
@@ -209,7 +215,7 @@ public class Settings {
 	public long recoveryModeTimeout = 10 * 60 * 1000L;
 
 	/** Minimum peer version number required in order to sync with them */
-	private String minPeerVersion = "3.6.3";
+	private String minPeerVersion = "3.8.2";
 	/** Whether to allow connections with peers below minPeerVersion
 	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
@@ -267,7 +273,7 @@ public class Settings {
 	private String[] bootstrapHosts = new String[] {
 			"http://bootstrap.qortal.org",
 			"http://bootstrap2.qortal.org",
-			"http://62.171.190.193"
+			"http://bootstrap.qortal.online"
 	};
 
 	// Auto-update sources
@@ -638,6 +644,14 @@ public class Settings {
 
 	public int getMaxTransactionTimestampFuture() {
 		return this.maxTransactionTimestampFuture;
+	}
+
+	public int getMaxRecentChatMessagesPerAccount() {
+		return this.maxRecentChatMessagesPerAccount;
+	}
+
+	public long getRecentChatMessagesMaxAge() {
+		return recentChatMessagesMaxAge;
 	}
 
 	public int getBlockCacheSize() {

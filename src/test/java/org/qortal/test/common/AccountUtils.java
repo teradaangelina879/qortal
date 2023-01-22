@@ -8,7 +8,6 @@ import java.util.*;
 
 import com.google.common.primitives.Longs;
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.Qortal25519Extras;
 import org.qortal.data.network.OnlineAccountData;
@@ -19,6 +18,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+import org.qortal.transaction.Transaction;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Amounts;
 
@@ -49,10 +49,10 @@ public class AccountUtils {
 	public static TransactionData createRewardShare(Repository repository, String minter, String recipient, int sharePercent) throws DataException {
 		PrivateKeyAccount mintingAccount = Common.getTestAccount(repository, minter);
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
-		return createRewardShare(repository, mintingAccount, recipientAccount, sharePercent);
+		return createRewardShare(repository, mintingAccount, recipientAccount, sharePercent, fee);
 	}
 
-	public static TransactionData createRewardShare(Repository repository, PrivateKeyAccount mintingAccount, PrivateKeyAccount recipientAccount, int sharePercent) throws DataException {
+	public static TransactionData createRewardShare(Repository repository, PrivateKeyAccount mintingAccount, PrivateKeyAccount recipientAccount, int sharePercent, long fee) throws DataException {
 		byte[] reference = mintingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
@@ -78,12 +78,67 @@ public class AccountUtils {
 	}
 
 	public static byte[] rewardShare(Repository repository, PrivateKeyAccount minterAccount, PrivateKeyAccount recipientAccount, int sharePercent) throws DataException {
-		TransactionData transactionData = createRewardShare(repository, minterAccount, recipientAccount, sharePercent);
+		TransactionData transactionData = createRewardShare(repository, minterAccount, recipientAccount, sharePercent, fee);
 
 		TransactionUtils.signAndMint(repository, transactionData, minterAccount);
 		byte[] rewardSharePrivateKey = minterAccount.getRewardSharePrivateKey(recipientAccount.getPublicKey());
 
 		return rewardSharePrivateKey;
+	}
+
+	public static List<PrivateKeyAccount> generateSponsorshipRewardShares(Repository repository, PrivateKeyAccount sponsorAccount, int accountsCount) throws DataException {
+		final int sharePercent = 0;
+		Random random = new Random();
+
+		List<PrivateKeyAccount> sponsees = new ArrayList<>();
+		for (int i = 0; i < accountsCount; i++) {
+
+			// Generate random sponsee account
+			byte[] randomPrivateKey = new byte[32];
+			random.nextBytes(randomPrivateKey);
+			PrivateKeyAccount sponseeAccount = new PrivateKeyAccount(repository, randomPrivateKey);
+			sponsees.add(sponseeAccount);
+
+			// Create reward-share
+			TransactionData transactionData = AccountUtils.createRewardShare(repository, sponsorAccount, sponseeAccount, sharePercent, fee);
+			TransactionUtils.signAndImportValid(repository, transactionData, sponsorAccount);
+		}
+
+		return sponsees;
+	}
+
+	public static Transaction.ValidationResult createRandomRewardShare(Repository repository, PrivateKeyAccount account) throws DataException {
+		// Bob attempts to create a reward share transaction
+		byte[] randomPrivateKey = new byte[32];
+		new Random().nextBytes(randomPrivateKey);
+		PrivateKeyAccount sponseeAccount = new PrivateKeyAccount(repository, randomPrivateKey);
+		TransactionData transactionData = createRewardShare(repository, account, sponseeAccount, 0, fee);
+		return TransactionUtils.signAndImport(repository, transactionData, account);
+	}
+
+	public static List<PrivateKeyAccount> generateSelfShares(Repository repository, List<PrivateKeyAccount> accounts) throws DataException {
+		final int sharePercent = 0;
+
+		for (PrivateKeyAccount account : accounts) {
+			// Create reward-share
+			TransactionData transactionData = createRewardShare(repository, account, account, sharePercent, 0L);
+			TransactionUtils.signAndImportValid(repository, transactionData, account);
+		}
+
+		return toRewardShares(repository, null, accounts);
+	}
+
+	public static List<PrivateKeyAccount> toRewardShares(Repository repository, PrivateKeyAccount parentAccount, List<PrivateKeyAccount> accounts) {
+		List<PrivateKeyAccount> rewardShares = new ArrayList<>();
+
+		for (PrivateKeyAccount account : accounts) {
+			PrivateKeyAccount sponsor = (parentAccount != null) ? parentAccount : account;
+			byte[] rewardSharePrivateKey = sponsor.getRewardSharePrivateKey(account.getPublicKey());
+			PrivateKeyAccount rewardShareAccount = new PrivateKeyAccount(repository, rewardSharePrivateKey);
+			rewardShares.add(rewardShareAccount);
+		}
+
+		return rewardShares;
 	}
 
 	public static Map<String, Map<Long, Long>> getBalances(Repository repository, long... assetIds) throws DataException {

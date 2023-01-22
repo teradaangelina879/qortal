@@ -136,7 +136,7 @@ public class Block {
 	}
 
 	/** Lazy-instantiated expanded info on block's online accounts. */
-	private static class ExpandedAccount {
+	public static class ExpandedAccount {
 		private final RewardShareData rewardShareData;
 		private final int sharePercent;
 		private final boolean isRecipientAlsoMinter;
@@ -167,6 +167,13 @@ public class Block {
 				this.recipientAccount = new Account(repository, this.rewardShareData.getRecipient());
 				this.recipientAccountData = repository.getAccountRepository().getAccount(this.recipientAccount.getAddress());
 			}
+		}
+
+		public Account getMintingAccount() {
+			return this.mintingAccount;
+		}
+		public Account getRecipientAccount() {
+			return this.recipientAccount;
 		}
 
 		/**
@@ -363,12 +370,26 @@ public class Block {
 			return null;
 		}
 
+		int height = parentBlockData.getHeight() + 1;
 		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 		long onlineAccountsTimestamp = OnlineAccountsManager.getCurrentOnlineAccountTimestamp();
 
 		// Fetch our list of online accounts, removing any that are missing a nonce
 		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
 		onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
+
+		// After feature trigger, remove any online accounts that are level 0
+		if (height >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+			onlineAccounts.removeIf(a -> {
+				try {
+					return Account.getRewardShareEffectiveMintingLevel(repository, a.getPublicKey()) == 0;
+				} catch (DataException e) {
+					// Something went wrong, so remove the account
+					return true;
+				}
+			});
+		}
+
 		if (onlineAccounts.isEmpty()) {
 			LOGGER.debug("No online accounts - not even our own?");
 			return null;
@@ -435,7 +456,6 @@ public class Block {
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
-		int height = parentBlockData.getHeight() + 1;
 
 		int atCount = 0;
 		long atFees = 0;
@@ -1029,6 +1049,15 @@ public class Block {
 		if (onlineRewardShares == null)
 			return ValidationResult.ONLINE_ACCOUNT_UNKNOWN;
 
+		// After feature trigger, require all online account minters to be greater than level 0
+		if (this.getBlockData().getHeight() >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+			List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
+			for (ExpandedAccount account : expandedAccounts) {
+				if (account.getMintingAccount().getEffectiveMintingLevel() == 0)
+					return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+		}
+
 		// If block is past a certain age then we simply assume the signatures were correct
 		long signatureRequirementThreshold = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMinLifetime();
 		if (this.blockData.getTimestamp() < signatureRequirementThreshold)
@@ -1434,6 +1463,9 @@ public class Block {
 			if (this.blockData.getHeight() == 212937)
 				// Apply fix for block 212937
 				Block212937.processFix(this);
+
+			else if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height())
+				SelfSponsorshipAlgoV1Block.processAccountPenalties(this);
 		}
 
 		// We're about to (test-)process a batch of transactions,
@@ -1490,25 +1522,48 @@ public class Block {
 		// Batch update in repository
 		repository.getAccountRepository().modifyMintedBlockCounts(allUniqueExpandedAccounts.stream().map(AccountData::getAddress).collect(Collectors.toList()), +1);
 
+		// Keep track of level bumps in case we need to apply to other entries
+		Map<String, Integer> bumpedAccounts = new HashMap<>();
+
 		// Local changes and also checks for level bump
 		for (AccountData accountData : allUniqueExpandedAccounts) {
 			// Adjust count locally (in Java)
 			accountData.setBlocksMinted(accountData.getBlocksMinted() + 1);
 			LOGGER.trace(() -> String.format("Block minter %s up to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 
-			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
+			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment() + accountData.getBlocksMintedPenalty();
 
 			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
 					if (newLevel > accountData.getLevel()) {
 						// Account has increased in level!
 						accountData.setLevel(newLevel);
+						bumpedAccounts.put(accountData.getAddress(), newLevel);
 						repository.getAccountRepository().setLevel(accountData);
 						LOGGER.trace(() -> String.format("Block minter %s bumped to level %d", accountData.getAddress(), accountData.getLevel()));
 					}
 
 					break;
 				}
+		}
+
+		// Also bump other entries if need be
+		if (!bumpedAccounts.isEmpty()) {
+			for (ExpandedAccount expandedAccount : expandedAccounts) {
+				Integer newLevel = bumpedAccounts.get(expandedAccount.mintingAccountData.getAddress());
+				if (newLevel != null && expandedAccount.mintingAccountData.getLevel() != newLevel) {
+					expandedAccount.mintingAccountData.setLevel(newLevel);
+					LOGGER.trace("Also bumped {} to level {}", expandedAccount.mintingAccountData.getAddress(), newLevel);
+				}
+
+				if (!expandedAccount.isRecipientAlsoMinter) {
+					newLevel = bumpedAccounts.get(expandedAccount.recipientAccountData.getAddress());
+					if (newLevel != null && expandedAccount.recipientAccountData.getLevel() != newLevel) {
+						expandedAccount.recipientAccountData.setLevel(newLevel);
+						LOGGER.trace("Also bumped {} to level {}", expandedAccount.recipientAccountData.getAddress(), newLevel);
+					}
+				}
+			}
 		}
 	}
 
@@ -1669,6 +1724,9 @@ public class Block {
 				// Revert fix for block 212937
 				Block212937.orphanFix(this);
 
+			else if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height())
+				SelfSponsorshipAlgoV1Block.orphanAccountPenalties(this);
+
 			// Block rewards, including transaction fees, removed after transactions undone
 			orphanBlockRewards();
 
@@ -1797,7 +1855,7 @@ public class Block {
 			accountData.setBlocksMinted(accountData.getBlocksMinted() - 1);
 			LOGGER.trace(() -> String.format("Block minter %s down to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 
-			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
+			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment() + accountData.getBlocksMintedPenalty();
 
 			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {

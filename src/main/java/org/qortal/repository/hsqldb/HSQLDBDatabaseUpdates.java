@@ -975,6 +975,19 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN receiving_account_info SET DATA TYPE VARBINARY(128)");
 					break;
 
+				case 44:
+					// Add blocks minted penalty
+					stmt.execute("ALTER TABLE Accounts ADD blocks_minted_penalty INTEGER NOT NULL DEFAULT 0");
+					break;
+
+				case 45:
+					// Add a chat reference, to allow one message to reference another, and for this to be easily
+					// searchable. Null values are allowed as most transactions won't have a reference.
+					stmt.execute("ALTER TABLE ChatTransactions ADD chat_reference Signature");
+					// For finding chat messages by reference
+					stmt.execute("CREATE INDEX ChatTransactionsChatReferenceIndex ON ChatTransactions (chat_reference)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
