@@ -719,7 +719,7 @@ public class ArbitraryResource {
 		try {
 			ArbitraryDataTransactionMetadata transactionMetadata = ArbitraryMetadataManager.getInstance().fetchMetadata(resource, false);
 			if (transactionMetadata != null) {
-				ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+				ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata, true);
 				if (resourceMetadata != null) {
 					return resourceMetadata;
 				}
@@ -1288,7 +1288,7 @@ public class ArbitraryResource {
 			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
 					resourceInfo.service, resourceInfo.identifier);
 			ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
-			ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+			ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata, false);
 			if (resourceMetadata != null) {
 				resourceInfo.metadata = resourceMetadata;
 			}

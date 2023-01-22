@@ -12,6 +12,7 @@ import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.repository.DataException;
@@ -311,6 +312,15 @@ public class ArbitraryTransactionMetadataTests extends Common {
             // Check the file list metadata is correct
             assertEquals(1, arbitraryDataFile.getMetadata().getFiles().size());
             assertTrue(arbitraryDataFile.getMetadata().getFiles().contains("file.txt"));
+
+            // Ensure the file list can be read back out again, when specified to be included
+            ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(arbitraryDataFile.getMetadata(), true);
+            assertTrue(resourceMetadata.getFiles().contains("file.txt"));
+
+            // Ensure it's not returned when specified to be excluded
+            // The entire object will be null because there is no metadata
+            ArbitraryResourceMetadata resourceMetadataSimple = ArbitraryResourceMetadata.fromTransactionMetadata(arbitraryDataFile.getMetadata(), false);
+            assertNull(resourceMetadataSimple);
         }
     }
 
@@ -348,6 +358,17 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertTrue(arbitraryDataFile.getMetadata().getFiles().contains("file.txt"));
             assertTrue(arbitraryDataFile.getMetadata().getFiles().contains("image1.jpg"));
             assertTrue(arbitraryDataFile.getMetadata().getFiles().contains("subdirectory/config.json"));
+
+            // Ensure the file list can be read back out again, when specified to be included
+            ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(arbitraryDataFile.getMetadata(), true);
+            assertTrue(resourceMetadata.getFiles().contains("file.txt"));
+            assertTrue(resourceMetadata.getFiles().contains("image1.jpg"));
+            assertTrue(resourceMetadata.getFiles().contains("subdirectory/config.json"));
+
+            // Ensure it's not returned when specified to be excluded
+            // The entire object will be null because there is no metadata
+            ArbitraryResourceMetadata resourceMetadataSimple = ArbitraryResourceMetadata.fromTransactionMetadata(arbitraryDataFile.getMetadata(), false);
+            assertNull(resourceMetadataSimple);
         }
     }
 
