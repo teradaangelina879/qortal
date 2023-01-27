@@ -351,7 +351,7 @@ public class Settings {
 	private Long maxStorageCapacity = null;
 
 	/** Whether to serve QDN data without authentication */
-	private boolean qdnAuthBypassEnabled = false;
+	private boolean qdnAuthBypassEnabled = true;
 
 	// Domain mapping
 	public static class DomainMap {
