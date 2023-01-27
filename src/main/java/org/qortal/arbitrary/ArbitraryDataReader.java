@@ -446,7 +446,7 @@ public class ArbitraryDataReader {
         byte[] secret = this.secret58 != null ? Base58.decode(this.secret58) : null;
         if (secret != null && secret.length == Transformer.AES256_LENGTH) {
             try {
-                LOGGER.info("Decrypting {} using algorithm {}...", this.arbitraryDataResource, algorithm);
+                LOGGER.debug("Decrypting {} using algorithm {}...", this.arbitraryDataResource, algorithm);
                 Path unencryptedPath = Paths.get(this.workingPath.toString(), "zipped.zip");
                 SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
                 AES.decryptFile(algorithm, aesKey, this.filePath.toString(), unencryptedPath.toString());
@@ -457,7 +457,7 @@ public class ArbitraryDataReader {
 
             } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException | NoSuchPaddingException
                     | BadPaddingException | IllegalBlockSizeException | IOException | InvalidKeyException e) {
-                LOGGER.info(String.format("Exception when decrypting using algorithm %s", algorithm), e);
+                LOGGER.info(String.format("Exception when decrypting %s using algorithm %s", this.arbitraryDataResource, algorithm), e);
                 throw new DataException(String.format("Unable to decrypt file at path %s using algorithm %s: %s", this.filePath, algorithm, e.getMessage()));
             }
         } else {
