@@ -63,6 +63,11 @@ public class ArbitraryDataResource {
             this.calculateChunkCounts();
         }
 
+        if (this.totalChunkCount == 0) {
+            // Assume not published
+            return new ArbitraryResourceStatus(Status.NOT_PUBLISHED, this.localChunkCount, this.totalChunkCount);
+        }
+
         if (resourceIdType != ResourceIdType.NAME) {
             // We only support statuses for resources with a name
             return new ArbitraryResourceStatus(Status.UNSUPPORTED, this.localChunkCount, this.totalChunkCount);

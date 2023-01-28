@@ -8,6 +8,7 @@ public class ArbitraryResourceStatus {
 
     public enum Status {
         PUBLISHED("Published", "Published but not yet downloaded"),
+        NOT_PUBLISHED("Not published", "Resource does not exist"),
         DOWNLOADING("Downloading", "Locating and downloading files..."),
         DOWNLOADED("Downloaded", "Files downloaded"),
         BUILDING("Building", "Building..."),
