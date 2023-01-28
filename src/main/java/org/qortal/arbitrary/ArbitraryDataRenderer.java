@@ -40,12 +40,13 @@ public class ArbitraryDataRenderer {
     private final String prefix;
     private final boolean usePrefix;
     private final boolean async;
+    private final String qdnContext;
     private final HttpServletRequest request;
     private final HttpServletResponse response;
     private final ServletContext context;
 
     public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
-                                 String secret58, String prefix, boolean usePrefix, boolean async,
+                                 String secret58, String prefix, boolean usePrefix, boolean async, String qdnContext,
                                  HttpServletRequest request, HttpServletResponse response, ServletContext context) {
 
         this.resourceId = resourceId;
@@ -56,6 +57,7 @@ public class ArbitraryDataRenderer {
         this.prefix = prefix;
         this.usePrefix = usePrefix;
         this.async = async;
+        this.qdnContext = qdnContext;
         this.request = request;
         this.response = response;
         this.context = context;
@@ -118,7 +120,7 @@ public class ArbitraryDataRenderer {
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
-                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data);
+                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data, qdnContext);
                 htmlParser.addAdditionalHeaderTags();
                 response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' blob:; img-src 'self' data: blob:;");
                 response.setContentType(context.getMimeType(filename));

@@ -51,7 +51,7 @@ public class DomainMapResource {
                                     String secret58, String prefix, boolean usePrefix, boolean async) {
 
         ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
-                secret58, prefix, usePrefix, async, request, response, context);
+                secret58, prefix, usePrefix, async, "domainMap", request, response, context);
         return renderer.render();
     }
 

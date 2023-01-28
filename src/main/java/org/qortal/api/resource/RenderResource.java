@@ -216,7 +216,7 @@ public class RenderResource {
                                     String secret58, String prefix, boolean usePrefix, boolean async, String theme) {
 
         ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
-                secret58, prefix, usePrefix, async, request, response, context);
+                secret58, prefix, usePrefix, async, "render", request, response, context);
 
         if (theme != null) {
             renderer.setTheme(theme);

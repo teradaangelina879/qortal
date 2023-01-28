@@ -119,7 +119,7 @@ public class GatewayResource {
                                     String secret58, String prefix, boolean usePrefix, boolean async) {
 
         ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
-                secret58, prefix, usePrefix, async, request, response, context);
+                secret58, prefix, usePrefix, async, "gateway", request, response, context);
         return renderer.render();
     }
 

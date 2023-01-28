@@ -12,11 +12,13 @@ public class HTMLParser {
 
     private String linkPrefix;
     private byte[] data;
+    private String qdnContext;
 
-    public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data) {
+    public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data, String qdnContext) {
         String inPathWithoutFilename = inPath.substring(0, inPath.lastIndexOf('/'));
         this.linkPrefix = usePrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : "";
         this.data = data;
+        this.qdnContext = qdnContext;
     }
 
     public void addAdditionalHeaderTags() {
@@ -28,6 +30,10 @@ public class HTMLParser {
             // Add q-apps script tag
             String qAppsScriptElement = String.format("<script src=\"/apps/q-apps.js?time=%d\">", System.currentTimeMillis());
             head.get(0).prepend(qAppsScriptElement);
+
+            // Add QDN context var
+            String qdnContextVar = String.format("<script>var qdnContext=\"%s\";</script>", this.qdnContext);
+            head.get(0).prepend(qdnContextVar);
 
             // Add base href tag
             String baseElement = String.format("<base href=\"%s\">", baseUrl);
