@@ -1,11 +1,26 @@
 package org.qortal.test.arbitrary;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.Before;
 import org.junit.Test;
+import org.qortal.account.PrivateKeyAccount;
+import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.arbitrary.ArbitraryDataReader;
+import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.arbitrary.misc.Service.ValidationResult;
+import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
+import org.qortal.test.common.ArbitraryUtils;
 import org.qortal.test.common.Common;
+import org.qortal.test.common.TransactionUtils;
+import org.qortal.test.common.transaction.TestTransaction;
+import org.qortal.transaction.RegisterNameTransaction;
+import org.qortal.utils.Base58;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -102,77 +117,276 @@ public class ArbitraryServiceTests extends Common {
     }
 
     @Test
-    public void testValidQortalMetadata() throws IOException {
-        // Metadata is to describe an arbitrary resource (title, description, tags, etc)
-        String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";
+    public void testValidateGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
 
-        // Write to temp path
-        Path path = Files.createTempFile("testValidQortalMetadata", null);
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateGifRepository");
         path.toFile().deleteOnExit();
-        Files.write(path, dataString.getBytes(), StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image3.gif"), data, StandardOpenOption.CREATE);
 
-        Service service = Service.QORTAL_METADATA;
+        Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
+
         assertEquals(ValidationResult.OK, service.validate(path));
     }
 
     @Test
-    public void testQortalMetadataMissingKeys() throws IOException {
-        // Metadata is to describe an arbitrary resource (title, description, tags, etc)
-        String dataString = "{\"description\":\"Test description\", \"tags\":[\"test\"]}";
+    public void testValidateSingleFileGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
 
-        // Write to temp path
-        Path path = Files.createTempFile("testQortalMetadataMissingKeys", null);
+        // Write the data to a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateSingleFileGifRepository");
         path.toFile().deleteOnExit();
-        Files.write(path, dataString.getBytes(), StandardOpenOption.CREATE);
+        Path imagePath = Paths.get(path.toString(), "image1.gif");
+        Files.write(imagePath, data, StandardOpenOption.CREATE);
 
-        Service service = Service.QORTAL_METADATA;
+        Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
-        assertEquals(ValidationResult.MISSING_KEYS, service.validate(path));
+
+        assertEquals(ValidationResult.OK, service.validate(imagePath));
     }
 
     @Test
-    public void testQortalMetadataTooLarge() throws IOException {
-        // Metadata is to describe an arbitrary resource (title, description, tags, etc)
-        String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";
+    public void testValidateMultiLayerGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
 
-        // Generate some large data to go along with it
-        int largeDataSize = 11*1024; // Larger than allowed 10kiB
-        byte[] largeData = new byte[largeDataSize];
-        new Random().nextBytes(largeData);
-
-        // Write to temp path
-        Path path = Files.createTempDirectory("testQortalMetadataTooLarge");
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateMultiLayerGifRepository");
         path.toFile().deleteOnExit();
-        Files.write(Paths.get(path.toString(), "data"), dataString.getBytes(), StandardOpenOption.CREATE);
-        Files.write(Paths.get(path.toString(), "large_data"), largeData, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
 
-        Service service = Service.QORTAL_METADATA;
+        Path subdirectory = Paths.get(path.toString(), "subdirectory");
+        Files.createDirectories(subdirectory);
+        Files.write(Paths.get(subdirectory.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(subdirectory.toString(), "image3.gif"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
-        assertEquals(ValidationResult.EXCEEDS_SIZE_LIMIT, service.validate(path));
+
+        assertEquals(ValidationResult.DIRECTORIES_NOT_ALLOWED, service.validate(path));
     }
 
     @Test
-    public void testMultipleFileMetadata() throws IOException {
-        // Metadata is to describe an arbitrary resource (title, description, tags, etc)
-        String dataString = "{\"title\":\"Test Title\", \"description\":\"Test description\", \"tags\":[\"test\"]}";
+    public void testValidateEmptyGifRepository() throws IOException {
+        Path path = Files.createTempDirectory("testValidateEmptyGifRepository");
 
-        // Generate some large data to go along with it
-        int otherDataSize = 1024; // Smaller than 10kiB limit
-        byte[] otherData = new byte[otherDataSize];
-        new Random().nextBytes(otherData);
-
-        // Write to temp path
-        Path path = Files.createTempDirectory("testMultipleFileMetadata");
-        path.toFile().deleteOnExit();
-        Files.write(Paths.get(path.toString(), "data"), dataString.getBytes(), StandardOpenOption.CREATE);
-        Files.write(Paths.get(path.toString(), "other_data"), otherData, StandardOpenOption.CREATE);
-
-        Service service = Service.QORTAL_METADATA;
+        Service service = Service.GIF_REPOSITORY;
         assertTrue(service.isValidationRequired());
 
-        // There are multiple files, so we don't know which one to parse as JSON
-        assertEquals(ValidationResult.MISSING_KEYS, service.validate(path));
+        assertEquals(ValidationResult.MISSING_DATA, service.validate(path));
+    }
+
+    @Test
+    public void testValidateInvalidGifRepository() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateInvalidGifRepository");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "image3.jpg"), data, StandardOpenOption.CREATE); // Invalid extension
+
+        Service service = Service.GIF_REPOSITORY;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.INVALID_FILE_EXTENSION, service.validate(path));
+    }
+
+    @Test
+    public void testValidatePublishedGifRepository() throws IOException, DataException, MissingDataException, IllegalAccessException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+
+            // Generate some random data
+            byte[] data = new byte[1024];
+            new Random().nextBytes(data);
+
+            // Write the data to several files in a temp path
+            Path path = Files.createTempDirectory("testValidateGifRepository");
+            path.toFile().deleteOnExit();
+            Files.write(Paths.get(path.toString(), "image1.gif"), data, StandardOpenOption.CREATE);
+            Files.write(Paths.get(path.toString(), "image2.gif"), data, StandardOpenOption.CREATE);
+            Files.write(Paths.get(path.toString(), "image3.gif"), data, StandardOpenOption.CREATE);
+
+            Service service = Service.GIF_REPOSITORY;
+            assertTrue(service.isValidationRequired());
+
+            assertEquals(ValidationResult.OK, service.validate(path));
+
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = "test_identifier";
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Set difficulty to 1
+            FieldUtils.writeField(ArbitraryDataManager.getInstance(), "powDifficulty", 1, true);
+
+            // Create PUT transaction
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path, name, identifier, ArbitraryTransactionData.Method.PUT, service, alice);
+
+            // Build the latest data state for this name, and no exceptions should be thrown because validation passes
+            ArbitraryDataReader arbitraryDataReader1a = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+            arbitraryDataReader1a.loadSynchronously(true);
+        }
+    }
+
+    @Test
+    public void testValidateQChatAttachment() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateQChatAttachment");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "document.pdf"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.QCHAT_ATTACHMENT;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(path));
+    }
+
+    @Test
+    public void testValidateSingleFileQChatAttachment() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateSingleFileQChatAttachment");
+        path.toFile().deleteOnExit();
+        Path filePath = Paths.get(path.toString(), "document.pdf");
+        Files.write(filePath, data, StandardOpenOption.CREATE);
+
+        Service service = Service.QCHAT_ATTACHMENT;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+
+    @Test
+    public void testValidateInvalidQChatAttachmentFileExtension() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateInvalidQChatAttachmentFileExtension");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "application.exe"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.QCHAT_ATTACHMENT;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.INVALID_FILE_EXTENSION, service.validate(path));
+    }
+
+    @Test
+    public void testValidateEmptyQChatAttachment() throws IOException {
+        Path path = Files.createTempDirectory("testValidateEmptyQChatAttachment");
+
+        Service service = Service.QCHAT_ATTACHMENT;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
+    }
+
+    @Test
+    public void testValidateMultiLayerQChatAttachment() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateMultiLayerQChatAttachment");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "file1.txt"), data, StandardOpenOption.CREATE);
+
+        Path subdirectory = Paths.get(path.toString(), "subdirectory");
+        Files.createDirectories(subdirectory);
+        Files.write(Paths.get(subdirectory.toString(), "file2.txt"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(subdirectory.toString(), "file3.txt"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.QCHAT_ATTACHMENT;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.DIRECTORIES_NOT_ALLOWED, service.validate(path));
+    }
+
+    @Test
+    public void testValidateMultiFileQChatAttachment() throws IOException {
+        // Generate some random data
+        byte[] data = new byte[1024];
+        new Random().nextBytes(data);
+
+        // Write the data to several files in a temp path
+        Path path = Files.createTempDirectory("testValidateMultiFileQChatAttachment");
+        path.toFile().deleteOnExit();
+        Files.write(Paths.get(path.toString(), "file1.txt"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(path.toString(), "file2.txt"), data, StandardOpenOption.CREATE);
+
+        Service service = Service.QCHAT_ATTACHMENT;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
+    }
+
+    @Test
+    public void testValidatePublishedQChatAttachment() throws IOException, DataException, MissingDataException, IllegalAccessException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+
+            // Generate some random data
+            byte[] data = new byte[1024];
+            new Random().nextBytes(data);
+
+            // Write the data a single file in a temp path
+            Path path = Files.createTempDirectory("testValidateSingleFileQChatAttachment");
+            path.toFile().deleteOnExit();
+            Path filePath = Paths.get(path.toString(), "document.pdf");
+            Files.write(filePath, data, StandardOpenOption.CREATE);
+
+            Service service = Service.QCHAT_ATTACHMENT;
+            assertTrue(service.isValidationRequired());
+
+            assertEquals(ValidationResult.OK, service.validate(filePath));
+
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = "test_identifier";
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Set difficulty to 1
+            FieldUtils.writeField(ArbitraryDataManager.getInstance(), "powDifficulty", 1, true);
+
+            // Create PUT transaction
+            ArbitraryUtils.createAndMintTxn(repository, publicKey58, filePath, name, identifier, ArbitraryTransactionData.Method.PUT, service, alice);
+
+            // Build the latest data state for this name, and no exceptions should be thrown because validation passes
+            ArbitraryDataReader arbitraryDataReader1a = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+            arbitraryDataReader1a.loadSynchronously(true);
+        }
     }
 
 }

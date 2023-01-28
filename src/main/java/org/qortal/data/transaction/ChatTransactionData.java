@@ -26,6 +26,8 @@ public class ChatTransactionData extends TransactionData {
 
 	private String recipient; // can be null
 
+	private byte[] chatReference; // can be null
+
 	@Schema(description = "raw message data, possibly UTF8 text", example = "2yGEbwRFyhPZZckKA")
 	private byte[] data;
 
@@ -44,13 +46,14 @@ public class ChatTransactionData extends TransactionData {
 	}
 
 	public ChatTransactionData(BaseTransactionData baseTransactionData,
-			String sender, int nonce, String recipient, byte[] data, boolean isText, boolean isEncrypted) {
+			String sender, int nonce, String recipient, byte[] chatReference, byte[] data, boolean isText, boolean isEncrypted) {
 		super(TransactionType.CHAT, baseTransactionData);
 
 		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.sender = sender;
 		this.nonce = nonce;
 		this.recipient = recipient;
+		this.chatReference = chatReference;
 		this.data = data;
 		this.isText = isText;
 		this.isEncrypted = isEncrypted;
@@ -76,6 +79,14 @@ public class ChatTransactionData extends TransactionData {
 
 	public String getRecipient() {
 		return this.recipient;
+	}
+
+	public byte[] getChatReference() {
+		return this.chatReference;
+	}
+
+	public void setChatReference(byte[] chatReference) {
+		this.chatReference = chatReference;
 	}
 
 	public byte[] getData() {

@@ -5,12 +5,14 @@ import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.SSLSocketFactory;
 
+import cash.z.wallet.sdk.rpc.CompactFormats.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONArray;
@@ -29,7 +31,11 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private static final Logger LOGGER = LogManager.getLogger(ElectrumX.class);
 	private static final Random RANDOM = new Random();
 
+	// See: https://electrumx.readthedocs.io/en/latest/protocol-changes.html
 	private static final double MIN_PROTOCOL_VERSION = 1.2;
+	private static final double MAX_PROTOCOL_VERSION = 2.0; // Higher than current latest, for hopeful future-proofing
+	private static final String CLIENT_NAME = "Qortal";
+
 	private static final int BLOCK_HEADER_LENGTH = 80;
 
 	// "message": "daemon error: DaemonError({'code': -5, 'message': 'No such mempool or blockchain transaction. Use gettransaction for wallet transactions.'})"
@@ -39,7 +45,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private static final String VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE = "verbose transactions are currently unsupported";
 
 	private static final int RESPONSE_TIME_READINGS = 5;
-	private static final long MAX_AVG_RESPONSE_TIME = 500L; // ms
+	private static final long MAX_AVG_RESPONSE_TIME = 1000L; // ms
 
 	public static class Server {
 		String hostname;
@@ -107,6 +113,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private final String netId;
 	private final String expectedGenesisHash;
 	private final Map<Server.ConnectionType, Integer> defaultPorts = new EnumMap<>(Server.ConnectionType.class);
+	private Bitcoiny blockchain;
 
 	private final Object serverLock = new Object();
 	private Server currentServer;
@@ -136,6 +143,11 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	// Methods for use by other classes
 
 	@Override
+	public void setBlockchain(Bitcoiny blockchain) {
+		this.blockchain = blockchain;
+	}
+
+	@Override
 	public String getNetId() {
 		return this.netId;
 	}
@@ -159,6 +171,16 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			throw new ForeignBlockchainException.NetworkException("Missing/invalid 'height' in JSON from ElectrumX blockchain.headers.subscribe RPC");
 
 		return ((Long) heightObj).intValue();
+	}
+
+	/**
+	 * Returns list of raw blocks, starting from <tt>startHeight</tt> inclusive.
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	@Override
+	public List<CompactBlock> getCompactBlocks(int startHeight, int count) throws ForeignBlockchainException {
+		throw new ForeignBlockchainException("getCompactBlocks not implemented for ElectrumX due to being specific to zcash");
 	}
 
 	/**
@@ -223,6 +245,17 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	}
 
 	/**
+	 * Returns list of raw block timestamps, starting from <tt>startHeight</tt> inclusive.
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	@Override
+	public List<Long> getBlockTimestamps(int startHeight, int count) throws ForeignBlockchainException {
+		// FUTURE: implement this if needed. For now we use getRawBlockHeaders directly
+		throw new ForeignBlockchainException("getBlockTimestamps not yet implemented for ElectrumX");
+	}
+
+	/**
 	 * Returns confirmed balance, based on passed payment script.
 	 * <p>
 	 * @return confirmed balance, or zero if script unknown
@@ -245,6 +278,29 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			throw new ForeignBlockchainException.NetworkException("Missing confirmed balance from ElectrumX blockchain.scripthash.get_balance RPC");
 
 		return (Long) balanceJson.get("confirmed");
+	}
+
+	/**
+	 * Returns confirmed balance, based on passed base58 encoded address.
+	 * <p>
+	 * @return confirmed balance, or zero if address unknown
+	 * @throws ForeignBlockchainException if there was an error
+	 */
+	@Override
+	public long getConfirmedAddressBalance(String base58Address) throws ForeignBlockchainException {
+		throw new ForeignBlockchainException("getConfirmedAddressBalance not yet implemented for ElectrumX");
+	}
+
+	/**
+	 * Returns list of unspent outputs pertaining to passed address.
+	 * <p>
+	 * @return list of unspent outputs, or empty list if address unknown
+	 * @throws ForeignBlockchainException if there was an error.
+	 */
+	@Override
+	public List<UnspentOutput> getUnspentOutputs(String address, boolean includeUnconfirmed) throws ForeignBlockchainException {
+		byte[] script = this.blockchain.addressToScriptPubKey(address);
+		return this.getUnspentOutputs(script, includeUnconfirmed);
 	}
 
 	/**
@@ -482,6 +538,12 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		return transactionHashes;
 	}
 
+	@Override
+	public List<BitcoinyTransaction> getAddressBitcoinyTransactions(String address, boolean includeUnconfirmed) throws ForeignBlockchainException {
+		// FUTURE: implement this if needed. For now we use getAddressTransactions() + getTransaction()
+		throw new ForeignBlockchainException("getAddressBitcoinyTransactions not yet implemented for ElectrumX");
+	}
+
 	/**
 	 * Broadcasts raw transaction to network.
 	 * <p>
@@ -622,6 +684,9 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				this.scanner = new Scanner(this.socket.getInputStream());
 				this.scanner.useDelimiter("\n");
 
+				// All connections need to start with a version negotiation
+				this.connectedRpc("server.version");
+
 				// Check connection is suitable by asking for server features, including genesis block hash
 				JSONObject featuresJson = (JSONObject) this.connectedRpc("server.features");
 
@@ -668,6 +733,17 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 
 		JSONArray requestParams = new JSONArray();
 		requestParams.addAll(Arrays.asList(params));
+
+		// server.version needs additional params to negotiate a version
+		if (method.equals("server.version")) {
+			requestParams.add(CLIENT_NAME);
+			List<String> versions = new ArrayList<>();
+			DecimalFormat df = new DecimalFormat("#.#");
+			versions.add(df.format(MIN_PROTOCOL_VERSION));
+			versions.add(df.format(MAX_PROTOCOL_VERSION));
+			requestParams.add(versions);
+		}
+
 		requestJson.put("params", requestParams);
 
 		String request = requestJson.toJSONString() + "\n";
@@ -681,6 +757,10 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			response = scanner.next();
 		} catch (IOException | NoSuchElementException e) {
 			// Unable to send, or receive -- try another server?
+			return null;
+		} catch (NoSuchMethodError e) {
+			// Likely an SSL dependency issue - retries are unlikely to succeed
+			LOGGER.error("ElectrumX output stream error", e);
 			return null;
 		}
 

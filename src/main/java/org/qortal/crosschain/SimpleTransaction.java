@@ -7,11 +7,12 @@ import java.util.List;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class SimpleTransaction {
     private String txHash;
-    private Integer timestamp;
+    private Long timestamp;
     private long totalAmount;
     private long feeAmount;
     private List<Input> inputs;
     private List<Output> outputs;
+    private String memo;
 
 
     @XmlAccessorType(XmlAccessType.FIELD)
@@ -74,20 +75,21 @@ public class SimpleTransaction {
     public SimpleTransaction() {
     }
 
-    public SimpleTransaction(String txHash, Integer timestamp, long totalAmount, long feeAmount, List<Input> inputs, List<Output> outputs) {
+    public SimpleTransaction(String txHash, Long timestamp, long totalAmount, long feeAmount, List<Input> inputs, List<Output> outputs, String memo) {
         this.txHash = txHash;
         this.timestamp = timestamp;
         this.totalAmount = totalAmount;
         this.feeAmount = feeAmount;
         this.inputs = inputs;
         this.outputs = outputs;
+        this.memo = memo;
     }
 
     public String getTxHash() {
         return txHash;
     }
 
-    public Integer getTimestamp() {
+    public Long getTimestamp() {
         return timestamp;
     }
 

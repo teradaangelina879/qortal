@@ -1,9 +1,10 @@
 package org.qortal.controller.tradebot;
 
+import com.google.common.hash.HashCode;
+import com.rust.litewalletjni.LiteWalletJni;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.*;
-import org.bitcoinj.script.Script.ScriptType;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
@@ -45,9 +46,9 @@ import static java.util.stream.Collectors.toMap;
  * 	<li>Trade-bot entries</li>
  * </ul>
  */
-public class LitecoinACCTv2TradeBot implements AcctTradeBot {
+public class PirateChainACCTv3TradeBot implements AcctTradeBot {
 
-	private static final Logger LOGGER = LogManager.getLogger(LitecoinACCTv2TradeBot.class);
+	private static final Logger LOGGER = LogManager.getLogger(PirateChainACCTv3TradeBot.class);
 
 	public enum State implements TradeBot.StateNameAndValueSupplier {
 		BOB_WAITING_FOR_AT_CONFIRM(10, false, false),
@@ -91,18 +92,18 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 	/** Maximum time Bob waits for his AT creation transaction to be confirmed into a block. (milliseconds) */
 	private static final long MAX_AT_CONFIRMATION_PERIOD = 24 * 60 * 60 * 1000L; // ms
 
-	private static LitecoinACCTv2TradeBot instance;
+	private static PirateChainACCTv3TradeBot instance;
 
 	private final List<String> endStates = Arrays.asList(State.BOB_DONE, State.BOB_REFUNDED, State.ALICE_DONE, State.ALICE_REFUNDING_A, State.ALICE_REFUNDED).stream()
 			.map(State::name)
 			.collect(Collectors.toUnmodifiableList());
 
-	private LitecoinACCTv2TradeBot() {
+	private PirateChainACCTv3TradeBot() {
 	}
 
-	public static synchronized LitecoinACCTv2TradeBot getInstance() {
+	public static synchronized PirateChainACCTv3TradeBot getInstance() {
 		if (instance == null)
-			instance = new LitecoinACCTv2TradeBot();
+			instance = new PirateChainACCTv3TradeBot();
 
 		return instance;
 	}
@@ -113,7 +114,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 	}
 
 	/**
-	 * Creates a new trade-bot entry from the "Bob" viewpoint, i.e. OFFERing QORT in exchange for LTC.
+	 * Creates a new trade-bot entry from the "Bob" viewpoint, i.e. OFFERing QORT in exchange for ARRR.
 	 * <p>
 	 * Generates:
 	 * <ul>
@@ -122,14 +123,14 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 	 * Derives:
 	 * <ul>
 	 * 	<li>'native' (as in Qortal) public key, public key hash, address (starting with Q)</li>
-	 * 	<li>'foreign' (as in Litecoin) public key, public key hash</li>
+	 * 	<li>'foreign' (as in PirateChain) public key, public key hash</li>
 	 * </ul>
 	 * A Qortal AT is then constructed including the following as constants in the 'data segment':
 	 * <ul>
 	 * 	<li>'native'/Qortal 'trade' address - used as a MESSAGE contact</li>
-	 * 	<li>'foreign'/Litecoin public key hash - used by Alice's P2SH scripts to allow redeem</li>
+	 * 	<li>'foreign'/PirateChain public key hash - used by Alice's P2SH scripts to allow redeem</li>
 	 * 	<li>QORT amount on offer by Bob</li>
-	 * 	<li>LTC amount expected in return by Bob (from Alice)</li>
+	 * 	<li>ARRR amount expected in return by Bob (from Alice)</li>
 	 * 	<li>trading timeout, in case things go wrong and everyone needs to refund</li>
 	 * </ul>
 	 * Returns a DEPLOY_AT transaction that needs to be signed and broadcast to the Qortal network.
@@ -151,17 +152,18 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		byte[] tradeForeignPublicKey = TradeBot.deriveTradeForeignPublicKey(tradePrivateKey);
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 
-		// Convert Litecoin receiving address into public key hash (we only support P2PKH at this time)
-		Address litecoinReceivingAddress;
-		try {
-			litecoinReceivingAddress = Address.fromString(Litecoin.getInstance().getNetworkParameters(), tradeBotCreateRequest.receivingAddress);
-		} catch (AddressFormatException e) {
-			throw new DataException("Unsupported Litecoin receiving address: " + tradeBotCreateRequest.receivingAddress);
+		// ARRR wallet must be loaded before a trade can be created
+		// This is to stop trades from nodes on unsupported architectures (e.g. 32bit)
+		if (!LiteWalletJni.isLoaded()) {
+			throw new DataException("Pirate wallet not found. Check wallets screen for details.");
 		}
-		if (litecoinReceivingAddress.getOutputScriptType() != ScriptType.P2PKH)
-			throw new DataException("Unsupported Litecoin receiving address: " + tradeBotCreateRequest.receivingAddress);
 
-		byte[] litecoinReceivingAccountInfo = litecoinReceivingAddress.getHash();
+		if (!PirateChain.getInstance().isValidAddress(tradeBotCreateRequest.receivingAddress)) {
+			throw new DataException("Unsupported Pirate Chain receiving address: " + tradeBotCreateRequest.receivingAddress);
+		}
+
+		Bech32.Bech32Data decodedReceivingAddress = Bech32.decode(tradeBotCreateRequest.receivingAddress);
+		byte[] pirateChainReceivingAccountInfo = decodedReceivingAddress.data;
 
 		PublicKeyAccount creator = new PublicKeyAccount(repository, tradeBotCreateRequest.creatorPublicKey);
 
@@ -172,11 +174,11 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		byte[] signature = null;
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, creator.getPublicKey(), fee, signature);
 
-		String name = "QORT/LTC ACCT";
-		String description = "QORT/LTC cross-chain trade";
+		String name = "QORT/ARRR ACCT";
+		String description = "QORT/ARRR cross-chain trade";
 		String aTType = "ACCT";
-		String tags = "ACCT QORT LTC";
-		byte[] creationBytes = LitecoinACCTv2.buildQortalAT(tradeNativeAddress, tradeForeignPublicKeyHash, tradeBotCreateRequest.qortAmount,
+		String tags = "ACCT QORT ARRR";
+		byte[] creationBytes = PirateChainACCTv3.buildQortalAT(tradeNativeAddress, tradeForeignPublicKey, tradeBotCreateRequest.qortAmount,
 				tradeBotCreateRequest.foreignAmount, tradeBotCreateRequest.tradeTimeout);
 		long amount = tradeBotCreateRequest.fundingQortAmount;
 
@@ -189,14 +191,14 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		DeployAtTransaction.ensureATAddress(deployAtTransactionData);
 		String atAddress = deployAtTransactionData.getAtAddress();
 
-		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, LitecoinACCTv2.NAME,
+		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, PirateChainACCTv3.NAME,
 				State.BOB_WAITING_FOR_AT_CONFIRM.name(), State.BOB_WAITING_FOR_AT_CONFIRM.value,
 				creator.getAddress(), atAddress, timestamp, tradeBotCreateRequest.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				null, null,
-				SupportedBlockchain.LITECOIN.name(),
+				SupportedBlockchain.PIRATECHAIN.name(),
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
-				tradeBotCreateRequest.foreignAmount, null, null, null, litecoinReceivingAccountInfo);
+				tradeBotCreateRequest.foreignAmount, null, null, null, pirateChainReceivingAccountInfo);
 
 		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Built AT %s. Waiting for deployment", atAddress));
 
@@ -212,15 +214,15 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 	}
 
 	/**
-	 * Creates a trade-bot entry from the 'Alice' viewpoint, i.e. matching LTC to an existing offer.
+	 * Creates a trade-bot entry from the 'Alice' viewpoint, i.e. matching ARRR to an existing offer.
 	 * <p>
 	 * Requires a chosen trade offer from Bob, passed by <tt>crossChainTradeData</tt>
-	 * and access to a Litecoin wallet via <tt>xprv58</tt>.
+	 * and access to a PirateChain wallet via <tt>xprv58</tt>.
 	 * <p>
 	 * The <tt>crossChainTradeData</tt> contains the current trade offer state
 	 * as extracted from the AT's data segment.
 	 * <p>
-	 * Access to a funded wallet is via a Litecoin BIP32 hierarchical deterministic key,
+	 * Access to a funded wallet is via a PirateChain BIP32 hierarchical deterministic key,
 	 * passed via <tt>xprv58</tt>.
 	 * <b>This key will be stored in your node's database</b>
 	 * to allow trade-bot to create/fund the necessary P2SH transactions!
@@ -230,26 +232,26 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 	 * As an example, the xprv58 can be extract from a <i>legacy, password-less</i>
 	 * Electrum wallet by going to the console tab and entering:<br>
 	 * <tt>wallet.keystore.xprv</tt><br>
-	 * which should result in a base58 string starting with either 'xprv' (for Litecoin main-net)
-	 * or 'tprv' for (Litecoin test-net).
+	 * which should result in a base58 string starting with either 'xprv' (for PirateChain main-net)
+	 * or 'tprv' for (PirateChain test-net).
 	 * <p>
 	 * It is envisaged that the value in <tt>xprv58</tt> will actually come from a Qortal-UI-managed wallet.
 	 * <p>
 	 * If sufficient funds are available, <b>this method will actually fund the P2SH-A</b>
-	 * with the Litecoin amount expected by 'Bob'.
+	 * with the PirateChain amount expected by 'Bob'.
 	 * <p>
-	 * If the Litecoin transaction is successfully broadcast to the network then
+	 * If the PirateChain transaction is successfully broadcast to the network then
 	 * we also send a MESSAGE to Bob's trade-bot to let them know.
 	 * <p>
 	 * The trade-bot entry is saved to the repository and the cross-chain trading process commences.
 	 * <p>
 	 * @param repository
 	 * @param crossChainTradeData chosen trade OFFER that Alice wants to match
-	 * @param xprv58 funded wallet xprv in base58
-	 * @return true if P2SH-A funding transaction successfully broadcast to Litecoin network, false otherwise
+	 * @param seed58 funded wallet xprv in base58
+	 * @return true if P2SH-A funding transaction successfully broadcast to PirateChain network, false otherwise
 	 * @throws DataException
 	 */
-	public ResponseResult startResponse(Repository repository, ATData atData, ACCT acct, CrossChainTradeData crossChainTradeData, String xprv58, String receivingAddress) throws DataException {
+	public ResponseResult startResponse(Repository repository, ATData atData, ACCT acct, CrossChainTradeData crossChainTradeData, String seed58, String receivingAddress) throws DataException {
 		byte[] tradePrivateKey = TradeBot.generateTradePrivateKey();
 		byte[] secretA = TradeBot.generateSecret();
 		byte[] hashOfSecretA = Crypto.hash160(secretA);
@@ -262,18 +264,22 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		byte[] tradeForeignPublicKeyHash = Crypto.hash160(tradeForeignPublicKey);
 		byte[] receivingPublicKeyHash = Base58.decode(receivingAddress); // Actually the whole address, not just PKH
 
+		String tradePrivateKey58 = Base58.encode(tradePrivateKey);
+        String tradeForeignPublicKey58 = Base58.encode(tradeForeignPublicKey);
+		String secret58 = Base58.encode(secretA);
+
 		// We need to generate lockTime-A: add tradeTimeout to now
 		long now = NTP.getTime();
 		int lockTimeA = crossChainTradeData.tradeTimeout * 60 + (int) (now / 1000L);
 
-		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, LitecoinACCTv2.NAME,
+		TradeBotData tradeBotData =  new TradeBotData(tradePrivateKey, PirateChainACCTv3.NAME,
 				State.ALICE_WAITING_FOR_AT_LOCK.name(), State.ALICE_WAITING_FOR_AT_LOCK.value,
 				receivingAddress, crossChainTradeData.qortalAtAddress, now, crossChainTradeData.qortAmount,
 				tradeNativePublicKey, tradeNativePublicKeyHash, tradeNativeAddress,
 				secretA, hashOfSecretA,
-				SupportedBlockchain.LITECOIN.name(),
+				SupportedBlockchain.PIRATECHAIN.name(),
 				tradeForeignPublicKey, tradeForeignPublicKeyHash,
-				crossChainTradeData.expectedForeignAmount, xprv58, null, lockTimeA, receivingPublicKeyHash);
+				crossChainTradeData.expectedForeignAmount, seed58, null, lockTimeA, receivingPublicKeyHash);
 
 		// Attempt to backup the trade bot data
 		// Include tradeBotData as an additional parameter, since it's not in the repository yet
@@ -282,9 +288,9 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		// Check we have enough funds via xprv58 to fund P2SH to cover expectedForeignAmount
 		long p2shFee;
 		try {
-			p2shFee = Litecoin.getInstance().getP2shFee(now);
+			p2shFee = PirateChain.getInstance().getP2shFee(now);
 		} catch (ForeignBlockchainException e) {
-			LOGGER.debug("Couldn't estimate Litecoin fees?");
+			LOGGER.debug("Couldn't estimate PirateChain fees?");
 			return ResponseResult.NETWORK_ISSUE;
 		}
 
@@ -293,26 +299,23 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		long amountA = crossChainTradeData.expectedForeignAmount + p2shFee /*redeeming/refunding P2SH-A*/;
 
 		// P2SH-A to be funded
-		byte[] redeemScriptBytes = BitcoinyHTLC.buildScript(tradeForeignPublicKeyHash, lockTimeA, crossChainTradeData.creatorForeignPKH, hashOfSecretA);
-		String p2shAddress = Litecoin.getInstance().deriveP2shAddress(redeemScriptBytes);
+		byte[] redeemScriptBytes = PirateChainHTLC.buildScript(tradeForeignPublicKey, lockTimeA, crossChainTradeData.creatorForeignPKH, hashOfSecretA);
+		String p2shAddressT3 = PirateChain.getInstance().deriveP2shAddress(redeemScriptBytes); // Use t3 prefix when funding
+		byte[] redeemScriptWithPrefixBytes = PirateChainHTLC.buildScriptWithPrefix(tradeForeignPublicKey, lockTimeA, crossChainTradeData.creatorForeignPKH, hashOfSecretA);
+		String redeemScriptWithPrefix58 = Base58.encode(redeemScriptWithPrefixBytes);
 
-		// Build transaction for funding P2SH-A
-		Transaction p2shFundingTransaction = Litecoin.getInstance().buildSpend(tradeBotData.getForeignKey(), p2shAddress, amountA);
-		if (p2shFundingTransaction == null) {
-			LOGGER.debug("Unable to build P2SH-A funding transaction - lack of funds?");
+		// Send to P2SH address
+		try {
+			String txid = PirateChain.getInstance().fundP2SH(seed58, p2shAddressT3, amountA, redeemScriptWithPrefix58);
+			LOGGER.info("fundingTxidHex: {}", txid);
+
+		} catch (ForeignBlockchainException e) {
+			LOGGER.debug("Unable to build and send P2SH-A funding transaction - lack of funds?");
 			return ResponseResult.BALANCE_ISSUE;
 		}
 
-		try {
-			Litecoin.getInstance().broadcastTransaction(p2shFundingTransaction);
-		} catch (ForeignBlockchainException e) {
-			// We couldn't fund P2SH-A at this time
-			LOGGER.debug("Couldn't broadcast P2SH-A funding transaction?");
-			return ResponseResult.NETWORK_ISSUE;
-		}
-
 		// Attempt to send MESSAGE to Bob's Qortal trade address
-		byte[] messageData = LitecoinACCTv2.buildOfferMessage(tradeBotData.getTradeForeignPublicKeyHash(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
+		byte[] messageData = PirateChainACCTv3.buildOfferMessage(tradeBotData.getTradeForeignPublicKey(), tradeBotData.getHashOfSecret(), tradeBotData.getLockTimeA());
 		String messageRecipient = crossChainTradeData.qortalCreatorTradeAddress;
 
 		boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, messageData);
@@ -333,9 +336,19 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 			}
 		}
 
-		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Funding P2SH-A %s. Messaged Bob. Waiting for AT-lock", p2shAddress));
+		TradeBot.updateTradeBotState(repository, tradeBotData, () -> String.format("Funding P2SH-A %s. Messaged Bob. Waiting for AT-lock", p2shAddressT3));
 
 		return ResponseResult.OK;
+	}
+
+	public static String hex(byte[] bytes) {
+		StringBuilder result = new StringBuilder();
+		for (byte aByte : bytes) {
+			result.append(String.format("%02x", aByte));
+			// upper case
+			// result.append(String.format("%02X", aByte));
+		}
+		return result.toString();
 	}
 
 	@Override
@@ -382,7 +395,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 			}
 
 			if (tradeBotState.requiresTradeData) {
-				tradeData = LitecoinACCTv2.getInstance().populateTradeData(repository, atData);
+				tradeData = PirateChainACCTv3.getInstance().populateTradeData(repository, atData);
 				if (tradeData == null) {
 					LOGGER.warn(() -> String.format("Unable to fetch ACCT trade data for AT %s from repository", tradeBotData.getAtAddress()));
 					return;
@@ -463,7 +476,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 	 * <p>
 	 * Details from Alice are used to derive P2SH-A address and this is checked for funding balance.
 	 * <p>
-	 * Assuming P2SH-A has at least expected Litecoin balance,
+	 * Assuming P2SH-A has at least expected PirateChain balance,
 	 * Bob's trade-bot constructs a zero-fee, PoW MESSAGE to send to Bob's AT with more trade details.
 	 * <p>
 	 * On processing this MESSAGE, Bob's AT should switch into 'TRADE' mode and only trade with Alice.
@@ -481,7 +494,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 			return;
 		}
 
-		Litecoin litecoin = Litecoin.getInstance();
+		PirateChain pirateChain = PirateChain.getInstance();
 
 		String address = tradeBotData.getTradeNativeAddress();
 		List<MessageTransactionData> messageTransactionsData = repository.getMessageRepository().getMessagesByParticipants(null, address, null, null, null);
@@ -490,27 +503,27 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 			if (messageTransactionData.isText())
 				continue;
 
-			// We're expecting: HASH160(secret-A), Alice's Litecoin pubkeyhash and lockTime-A
+			// We're expecting: HASH160(secret-A), Alice's PirateChain pubkeyhash and lockTime-A
 			byte[] messageData = messageTransactionData.getData();
-			LitecoinACCTv2.OfferMessageData offerMessageData = LitecoinACCTv2.extractOfferMessageData(messageData);
+			PirateChainACCTv3.OfferMessageData offerMessageData = PirateChainACCTv3.extractOfferMessageData(messageData);
 			if (offerMessageData == null)
 				continue;
 
-			byte[] aliceForeignPublicKeyHash = offerMessageData.partnerLitecoinPKH;
+			byte[] aliceForeignPublicKey = offerMessageData.partnerPirateChainPublicKey;
 			byte[] hashOfSecretA = offerMessageData.hashOfSecretA;
 			int lockTimeA = (int) offerMessageData.lockTimeA;
 			long messageTimestamp = messageTransactionData.getTimestamp();
-			int refundTimeout = LitecoinACCTv2.calcRefundTimeout(messageTimestamp, lockTimeA);
+			int refundTimeout = PirateChainACCTv3.calcRefundTimeout(messageTimestamp, lockTimeA);
 
 			// Determine P2SH-A address and confirm funded
-			byte[] redeemScriptA = BitcoinyHTLC.buildScript(aliceForeignPublicKeyHash, lockTimeA, tradeBotData.getTradeForeignPublicKeyHash(), hashOfSecretA);
-			String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
+			byte[] redeemScriptA = PirateChainHTLC.buildScript(aliceForeignPublicKey, lockTimeA, tradeBotData.getTradeForeignPublicKey(), hashOfSecretA);
+			String p2shAddress = pirateChain.deriveP2shAddressBPrefix(redeemScriptA); // Use 'b' prefix when checking status
 
 			long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
-			long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
+			long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 			final long minimumAmountA = tradeBotData.getForeignAmount() + p2shFee;
 
-			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+			BitcoinyHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -522,7 +535,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 				case REDEEMED:
 					// We've already redeemed this?
 					TradeBot.updateTradeBotState(repository, tradeBotData, State.BOB_DONE,
-							() -> String.format("P2SH-A %s already spent? Assuming trade complete", p2shAddressA));
+							() -> String.format("P2SH-A %s already spent? Assuming trade complete", p2shAddress));
 					return;
 
 				case REFUND_IN_PROGRESS:
@@ -540,7 +553,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 			String aliceNativeAddress = Crypto.toAddress(messageTransactionData.getCreatorPublicKey());
 
 			// Build outgoing message, padding each part to 32 bytes to make it easier for AT to consume
-			byte[] outgoingMessageData = LitecoinACCTv2.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKeyHash, hashOfSecretA, lockTimeA, refundTimeout);
+			byte[] outgoingMessageData = PirateChainACCTv3.buildTradeMessage(aliceNativeAddress, aliceForeignPublicKey, hashOfSecretA, lockTimeA, refundTimeout);
 			String messageRecipient = tradeBotData.getAtAddress();
 
 			boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, outgoingMessageData);
@@ -579,7 +592,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 	 * <p>
 	 * If all is well, trade-bot then redeems AT using Alice's secret-A, releasing Bob's QORT to Alice.
 	 * <p>
-	 * In revealing a valid secret-A, Bob can then redeem the LTC funds from P2SH-A.
+	 * In revealing a valid secret-A, Bob can then redeem the ARRR funds from P2SH-A.
 	 * <p>
 	 * @throws ForeignBlockchainException
 	 */
@@ -588,19 +601,19 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		if (aliceUnexpectedState(repository, tradeBotData, atData, crossChainTradeData))
 			return;
 
-		Litecoin litecoin = Litecoin.getInstance();
+		PirateChain pirateChain = PirateChain.getInstance();
 		int lockTimeA = tradeBotData.getLockTimeA();
 
 		// Refund P2SH-A if we've passed lockTime-A
 		if (NTP.getTime() >= lockTimeA * 1000L) {
-			byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
-			String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
+			byte[] redeemScriptA = PirateChainHTLC.buildScript(tradeBotData.getTradeForeignPublicKey(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
+			String p2shAddress = pirateChain.deriveP2shAddressBPrefix(redeemScriptA); // Use 'b' prefix when checking status
 
 			long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
-			long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
+			long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 			long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
 
-			BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+			BitcoinyHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 			switch (htlcStatusA) {
 				case UNFUNDED:
@@ -612,21 +625,21 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 				case REDEEMED:
 					// Already redeemed?
 					TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_DONE,
-							() -> String.format("P2SH-A %s already spent? Assuming trade completed", p2shAddressA));
+							() -> String.format("P2SH-A %s already spent? Assuming trade completed", p2shAddress));
 					return;
 
 				case REFUND_IN_PROGRESS:
 				case REFUNDED:
 					TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_REFUNDED,
-							() -> String.format("P2SH-A %s already refunded. Trade aborted", p2shAddressA));
+							() -> String.format("P2SH-A %s already refunded. Trade aborted", p2shAddress));
 					return;
 
 			}
 
 			TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_REFUNDING_A,
 					() -> atData.getIsFinished()
-					? String.format("AT %s cancelled. Refunding P2SH-A %s - aborting trade", tradeBotData.getAtAddress(), p2shAddressA)
-					: String.format("LockTime-A reached, refunding P2SH-A %s - aborting trade", p2shAddressA));
+					? String.format("AT %s cancelled. Refunding P2SH-A %s - aborting trade", tradeBotData.getAtAddress(), p2shAddress)
+					: String.format("LockTime-A reached, refunding P2SH-A %s - aborting trade", p2shAddress));
 
 			return;
 		}
@@ -646,7 +659,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		}
 
 		long recipientMessageTimestamp = messageTransactionsData.get(0).getTimestamp();
-		int refundTimeout = LitecoinACCTv2.calcRefundTimeout(recipientMessageTimestamp, lockTimeA);
+		int refundTimeout = PirateChainACCTv3.calcRefundTimeout(recipientMessageTimestamp, lockTimeA);
 
 		// Our calculated refundTimeout should match AT's refundTimeout
 		if (refundTimeout != crossChainTradeData.refundTimeout) {
@@ -660,7 +673,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		// Send 'redeem' MESSAGE to AT using both secret
 		byte[] secretA = tradeBotData.getSecret();
 		String qortalReceivingAddress = Base58.encode(tradeBotData.getReceivingAccountInfo()); // Actually contains whole address, not just PKH
-		byte[] messageData = LitecoinACCTv2.buildRedeemMessage(secretA, qortalReceivingAddress);
+		byte[] messageData = PirateChainACCTv3.buildRedeemMessage(secretA, qortalReceivingAddress);
 		String messageRecipient = tradeBotData.getAtAddress();
 
 		boolean isMessageAlreadySent = repository.getMessageRepository().exists(tradeBotData.getTradeNativePublicKey(), messageRecipient, messageData);
@@ -687,15 +700,15 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 	}
 
 	/**
-	 * Trade-bot is waiting for Alice to redeem Bob's AT, thus revealing secret-A which is required to spend the LTC funds from P2SH-A.
+	 * Trade-bot is waiting for Alice to redeem Bob's AT, thus revealing secret-A which is required to spend the ARRR funds from P2SH-A.
 	 * <p>
 	 * It's possible that Bob's AT has reached its trading timeout and automatically refunded QORT back to Bob. In which case,
 	 * trade-bot is done with this specific trade and finalizes in refunded state.
 	 * <p>
-	 * Assuming trade-bot can extract a valid secret-A from Alice's MESSAGE then trade-bot uses that to redeem the LTC funds from P2SH-A
-	 * to Bob's 'foreign'/Litecoin trade legacy-format address, as derived from trade private key.
+	 * Assuming trade-bot can extract a valid secret-A from Alice's MESSAGE then trade-bot uses that to redeem the ARRR funds from P2SH-A
+	 * to Bob's 'foreign'/PirateChain trade legacy-format address, as derived from trade private key.
 	 * <p>
-	 * (This could potentially be 'improved' to send LTC to any address of Bob's choosing by changing the transaction output).
+	 * (This could potentially be 'improved' to send ARRR to any address of Bob's choosing by changing the transaction output).
 	 * <p>
 	 * If trade-bot successfully broadcasts the transaction, then this specific trade is done.
 	 * @throws ForeignBlockchainException
@@ -709,14 +722,14 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 
 		// If AT is REFUNDED or CANCELLED then something has gone wrong
 		if (crossChainTradeData.mode == AcctMode.REFUNDED || crossChainTradeData.mode == AcctMode.CANCELLED) {
-			// Alice hasn't redeemed the QORT, so there is no point in trying to redeem the LTC
+			// Alice hasn't redeemed the QORT, so there is no point in trying to redeem the ARRR
 			TradeBot.updateTradeBotState(repository, tradeBotData, State.BOB_REFUNDED,
 					() -> String.format("AT %s has auto-refunded - trade aborted", tradeBotData.getAtAddress()));
 
 			return;
 		}
 
-		byte[] secretA = LitecoinACCTv2.getInstance().findSecretA(repository, crossChainTradeData);
+		byte[] secretA = PirateChainACCTv3.getInstance().findSecretA(repository, crossChainTradeData);
 		if (secretA == null) {
 			LOGGER.debug(() -> String.format("Unable to find secret-A from redeem message to AT %s?", tradeBotData.getAtAddress()));
 			return;
@@ -724,18 +737,21 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 
 		// Use secret-A to redeem P2SH-A
 
-		Litecoin litecoin = Litecoin.getInstance();
+		PirateChain pirateChain = PirateChain.getInstance();
 
 		byte[] receivingAccountInfo = tradeBotData.getReceivingAccountInfo();
 		int lockTimeA = crossChainTradeData.lockTimeA;
-		byte[] redeemScriptA = BitcoinyHTLC.buildScript(crossChainTradeData.partnerForeignPKH, lockTimeA, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretA);
-		String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
+		byte[] redeemScriptA = PirateChainHTLC.buildScript(crossChainTradeData.partnerForeignPKH, lockTimeA, crossChainTradeData.creatorForeignPKH, crossChainTradeData.hashOfSecretA);
+		String p2shAddress = pirateChain.deriveP2shAddressBPrefix(redeemScriptA); // Use 'b' prefix when checking status
+		String p2shAddressT3 = pirateChain.deriveP2shAddress(redeemScriptA); // Use 't3' prefix when refunding
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
-		long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
+		long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
-		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+		String receivingAddress = Bech32.encode("zs", receivingAccountInfo);
+
+		BitcoinyHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 		switch (htlcStatusA) {
 			case UNFUNDED:
@@ -754,19 +770,26 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 				return;
 
 			case FUNDED: {
+				// Get funding txid
+				String fundingTxidHex = PirateChainHTLC.getUnspentFundingTxid(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
+				if (fundingTxidHex == null) {
+					throw new ForeignBlockchainException("Missing funding txid when redeeming P2SH");
+				}
+				String fundingTxid58 = Base58.encode(HashCode.fromString(fundingTxidHex).asBytes());
+
+				// Redeem P2SH
 				Coin redeemAmount = Coin.valueOf(crossChainTradeData.expectedForeignAmount);
-				ECKey redeemKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-				List<TransactionOutput> fundingOutputs = litecoin.getUnspentOutputs(p2shAddressA);
+				byte[] privateKey = tradeBotData.getTradePrivateKey();
+				String secret58 = Base58.encode(secretA);
+				String privateKey58 = Base58.encode(privateKey);
+				String redeemScript58 = Base58.encode(redeemScriptA);
 
-				Transaction p2shRedeemTransaction = BitcoinyHTLC.buildRedeemTransaction(litecoin.getNetworkParameters(), redeemAmount, redeemKey,
-						fundingOutputs, redeemScriptA, secretA, receivingAccountInfo);
-
-				litecoin.broadcastTransaction(p2shRedeemTransaction);
+				String txid = PirateChain.getInstance().redeemP2sh(p2shAddressT3, receivingAddress, redeemAmount.value,
+						redeemScript58, fundingTxid58, secret58, privateKey58);
+				LOGGER.info("Redeem txid: {}", txid);
 				break;
 			}
 		}
-
-		String receivingAddress = litecoin.pkhToAddress(receivingAccountInfo);
 
 		TradeBot.updateTradeBotState(repository, tradeBotData, State.BOB_DONE,
 				() -> String.format("P2SH-A %s redeemed. Funds should arrive at %s", tradeBotData.getAtAddress(), receivingAddress));
@@ -784,21 +807,22 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 		if (NTP.getTime() <= lockTimeA * 1000L)
 			return;
 
-		Litecoin litecoin = Litecoin.getInstance();
+		PirateChain pirateChain = PirateChain.getInstance();
 
 		// We can't refund P2SH-A until median block time has passed lockTime-A (see BIP113)
-		int medianBlockTime = litecoin.getMedianBlockTime();
+		int medianBlockTime = pirateChain.getMedianBlockTime();
 		if (medianBlockTime <= lockTimeA)
 			return;
 
-		byte[] redeemScriptA = BitcoinyHTLC.buildScript(tradeBotData.getTradeForeignPublicKeyHash(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
-		String p2shAddressA = litecoin.deriveP2shAddress(redeemScriptA);
+		byte[] redeemScriptA = PirateChainHTLC.buildScript(tradeBotData.getTradeForeignPublicKey(), lockTimeA, crossChainTradeData.creatorForeignPKH, tradeBotData.getHashOfSecret());
+		String p2shAddress = pirateChain.deriveP2shAddressBPrefix(redeemScriptA); // Use 'b' prefix when checking status
+		String p2shAddressT3 = pirateChain.deriveP2shAddress(redeemScriptA); // Use 't3' prefix when refunding
 
 		// Fee for redeem/refund is subtracted from P2SH-A balance.
 		long feeTimestamp = calcFeeTimestamp(lockTimeA, crossChainTradeData.tradeTimeout);
-		long p2shFee = Litecoin.getInstance().getP2shFee(feeTimestamp);
+		long p2shFee = PirateChain.getInstance().getP2shFee(feeTimestamp);
 		long minimumAmountA = crossChainTradeData.expectedForeignAmount + p2shFee;
-		BitcoinyHTLC.Status htlcStatusA = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddressA, minimumAmountA);
+		BitcoinyHTLC.Status htlcStatusA = PirateChainHTLC.determineHtlcStatus(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
 
 		switch (htlcStatusA) {
 			case UNFUNDED:
@@ -810,7 +834,7 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 			case REDEEMED:
 				// Too late!
 				TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_DONE,
-						() -> String.format("P2SH-A %s already spent!", p2shAddressA));
+						() -> String.format("P2SH-A %s already spent!", p2shAddress));
 				return;
 
 			case REFUND_IN_PROGRESS:
@@ -818,24 +842,28 @@ public class LitecoinACCTv2TradeBot implements AcctTradeBot {
 				break;
 
 			case FUNDED:{
+				// Get funding txid
+				String fundingTxidHex = PirateChainHTLC.getUnspentFundingTxid(pirateChain.getBlockchainProvider(), p2shAddress, minimumAmountA);
+				if (fundingTxidHex == null) {
+					throw new ForeignBlockchainException("Missing funding txid when refunding P2SH");
+				}
+				String fundingTxid58 = Base58.encode(HashCode.fromString(fundingTxidHex).asBytes());
+
 				Coin refundAmount = Coin.valueOf(crossChainTradeData.expectedForeignAmount);
-				ECKey refundKey = ECKey.fromPrivate(tradeBotData.getTradePrivateKey());
-				List<TransactionOutput> fundingOutputs = litecoin.getUnspentOutputs(p2shAddressA);
+				byte[] privateKey = tradeBotData.getTradePrivateKey();
+				String privateKey58 = Base58.encode(privateKey);
+				String redeemScript58 = Base58.encode(redeemScriptA);
+				String receivingAddress = pirateChain.getWalletAddress(tradeBotData.getForeignKey());
 
-				// Determine receive address for refund
-				String receiveAddress = litecoin.getUnusedReceiveAddress(tradeBotData.getForeignKey());
-				Address receiving = Address.fromString(litecoin.getNetworkParameters(), receiveAddress);
-
-				Transaction p2shRefundTransaction = BitcoinyHTLC.buildRefundTransaction(litecoin.getNetworkParameters(), refundAmount, refundKey,
-						fundingOutputs, redeemScriptA, lockTimeA, receiving.getHash());
-
-				litecoin.broadcastTransaction(p2shRefundTransaction);
+				String txid = PirateChain.getInstance().refundP2sh(p2shAddressT3,
+						receivingAddress, refundAmount.value, redeemScript58, fundingTxid58, lockTimeA, privateKey58);
+				LOGGER.info("Refund txid: {}", txid);
 				break;
 			}
 		}
 
 		TradeBot.updateTradeBotState(repository, tradeBotData, State.ALICE_REFUNDED,
-				() -> String.format("LockTime-A reached. Refunded P2SH-A %s. Trade aborted", p2shAddressA));
+				() -> String.format("LockTime-A reached. Refunded P2SH-A %s. Trade aborted", p2shAddress));
 	}
 
 	/**

@@ -211,7 +211,8 @@ public class Account {
 		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToMint())
 			return true;
 
-		if (Account.isFounder(accountData.getFlags()))
+		// Founders can always mint, unless they have a penalty
+		if (Account.isFounder(accountData.getFlags()) && accountData.getBlocksMintedPenalty() == 0)
 			return true;
 
 		return false;
@@ -220,6 +221,11 @@ public class Account {
 	/** Returns account's blockMinted (0+) or null if account not found in repository. */
 	public Integer getBlocksMinted() throws DataException {
 		return this.repository.getAccountRepository().getMintedBlockCount(this.address);
+	}
+
+	/** Returns account's blockMintedPenalty or null if account not found in repository. */
+	public Integer getBlocksMintedPenalty() throws DataException {
+		return this.repository.getAccountRepository().getBlocksMintedPenaltyCount(this.address);
 	}
 
 
@@ -243,7 +249,7 @@ public class Account {
 		if (level != null && level >= BlockChain.getInstance().getMinAccountLevelToRewardShare())
 			return true;
 
-		if (Account.isFounder(accountData.getFlags()))
+		if (Account.isFounder(accountData.getFlags()) && accountData.getBlocksMintedPenalty() == 0)
 			return true;
 
 		return false;
@@ -271,7 +277,7 @@ public class Account {
 	/**
 	 * Returns 'effective' minting level, or zero if account does not exist/cannot mint.
 	 * <p>
-	 * For founder accounts, this returns "founderEffectiveMintingLevel" from blockchain config.
+	 * For founder accounts with no penalty, this returns "founderEffectiveMintingLevel" from blockchain config.
 	 * 
 	 * @return 0+
 	 * @throws DataException
@@ -281,7 +287,8 @@ public class Account {
 		if (accountData == null)
 			return 0;
 
-		if (Account.isFounder(accountData.getFlags()))
+		// Founders are assigned a different effective minting level, as long as they have no penalty
+		if (Account.isFounder(accountData.getFlags()) && accountData.getBlocksMintedPenalty() == 0)
 			return BlockChain.getInstance().getFounderEffectiveMintingLevel();
 
 		return accountData.getLevel();
@@ -289,8 +296,6 @@ public class Account {
 
 	/**
 	 * Returns 'effective' minting level, or zero if reward-share does not exist.
-	 * <p>
-	 * this is being used on src/main/java/org/qortal/api/resource/AddressesResource.java to fulfil the online accounts api call
 	 * 
 	 * @param repository
 	 * @param rewardSharePublicKey
@@ -309,7 +314,7 @@ public class Account {
 	/**
 	 * Returns 'effective' minting level, with a fix for the zero level.
 	 * <p>
-	 * For founder accounts, this returns "founderEffectiveMintingLevel" from blockchain config.
+	 * For founder accounts with no penalty, this returns "founderEffectiveMintingLevel" from blockchain config.
 	 *
 	 * @param repository
 	 * @param rewardSharePublicKey
@@ -322,7 +327,7 @@ public class Account {
 		if (rewardShareData == null)
 			return 0;
 
-		else if(!rewardShareData.getMinter().equals(rewardShareData.getRecipient()))//the minter is different than the recipient this means sponsorship
+		else if (!rewardShareData.getMinter().equals(rewardShareData.getRecipient())) // Sponsorship reward share
 			return 0;
 
 		Account rewardShareMinter = new Account(repository, rewardShareData.getMinter());

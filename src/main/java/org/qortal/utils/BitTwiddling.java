@@ -1,5 +1,7 @@
 package org.qortal.utils;
 
+import java.nio.ByteBuffer;
+
 public class BitTwiddling {
 
 	/**
@@ -46,6 +48,27 @@ public class BitTwiddling {
 	public static long longFromBEBytes(byte[] bytes, int start) {
 		return (bytes[start] & 0xffL) << 56 | (bytes[start + 1] & 0xffL) << 48 | (bytes[start + 2] & 0xffL) << 40 | (bytes[start + 3] & 0xffL) << 32
 				| (bytes[start + 4] & 0xffL) << 24 | (bytes[start + 5] & 0xffL) << 16 | (bytes[start + 6] & 0xffL) << 8 | (bytes[start + 7] & 0xffL);
+	}
+
+	/** Convert little-endian bytes to long */
+	public static long longFromLEBytes(byte[] bytes, int start) {
+		return (bytes[start] & 0xffL) | (bytes[start + 1] & 0xffL) << 8 | (bytes[start + 2] & 0xffL) << 16 | (bytes[start + 3] & 0xffL) << 24
+				| (bytes[start + 4] & 0xffL) << 32 | (bytes[start + 5] & 0xffL) << 40 | (bytes[start + 6] & 0xffL) << 48 | (bytes[start + 7] & 0xffL) << 56;
+	}
+
+
+	/** Read 8-bit unsigned integer from byte buffer */
+	public static int readU8(ByteBuffer byteBuffer) {
+		byte[] sizeBytes = new byte[1];
+		byteBuffer.get(sizeBytes);
+		return sizeBytes[0] & 0xff;
+	}
+
+	/** Read 32-bit unsigned integer from byte buffer */
+	public static int readU32(ByteBuffer byteBuffer) {
+		byte[] bytes = new byte[4];
+		byteBuffer.get(bytes);
+		return BitTwiddling.intFromLEBytes(bytes, 0);
 	}
 
 }

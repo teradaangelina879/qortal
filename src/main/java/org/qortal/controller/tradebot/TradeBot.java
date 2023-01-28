@@ -96,13 +96,12 @@ public class TradeBot implements Listener {
 		acctTradeBotSuppliers.put(BitcoinACCTv1.class, BitcoinACCTv1TradeBot::getInstance);
 		acctTradeBotSuppliers.put(BitcoinACCTv3.class, BitcoinACCTv3TradeBot::getInstance);
 		acctTradeBotSuppliers.put(LitecoinACCTv1.class, LitecoinACCTv1TradeBot::getInstance);
-		acctTradeBotSuppliers.put(LitecoinACCTv2.class, LitecoinACCTv2TradeBot::getInstance);
 		acctTradeBotSuppliers.put(LitecoinACCTv3.class, LitecoinACCTv3TradeBot::getInstance);
 		acctTradeBotSuppliers.put(DogecoinACCTv1.class, DogecoinACCTv1TradeBot::getInstance);
-		acctTradeBotSuppliers.put(DogecoinACCTv2.class, DogecoinACCTv2TradeBot::getInstance);
 		acctTradeBotSuppliers.put(DogecoinACCTv3.class, DogecoinACCTv3TradeBot::getInstance);
 		acctTradeBotSuppliers.put(DigibyteACCTv3.class, DigibyteACCTv3TradeBot::getInstance);
 		acctTradeBotSuppliers.put(RavencoinACCTv3.class, RavencoinACCTv3TradeBot::getInstance);
+		acctTradeBotSuppliers.put(PirateChainACCTv3.class, PirateChainACCTv3TradeBot::getInstance);
 	}
 
 	private static TradeBot instance;
@@ -292,14 +291,14 @@ public class TradeBot implements Listener {
 	}
 
 	public static byte[] deriveTradeNativePublicKey(byte[] privateKey) {
-		return PrivateKeyAccount.toPublicKey(privateKey);
+		return Crypto.toPublicKey(privateKey);
 	}
 
 	public static byte[] deriveTradeForeignPublicKey(byte[] privateKey) {
 		return ECKey.fromPrivate(privateKey).getPubKey();
 	}
 
-	/*package*/ static byte[] generateSecret() {
+	/*package*/ public static byte[] generateSecret() {
 		byte[] secret = new byte[32];
 		RANDOM.nextBytes(secret);
 		return secret;
@@ -469,9 +468,6 @@ public class TradeBot implements Listener {
 
 		List<TradePresenceData> safeTradePresences = List.copyOf(this.safeAllTradePresencesByPubkey.values());
 
-		if (safeTradePresences.isEmpty())
-			return;
-
 		LOGGER.debug("Broadcasting all {} known trade presences. Next broadcast timestamp: {}",
 				safeTradePresences.size(), nextTradePresenceBroadcastTimestamp
 		);
@@ -638,7 +634,7 @@ public class TradeBot implements Listener {
 		}
 
 		if (newCount > 0) {
-			LOGGER.debug("New trade presences: {}", newCount);
+			LOGGER.debug("New trade presences: {}, all trade presences: {}", newCount, allTradePresencesByPubkey.size());
 			rebuildSafeAllTradePresences();
 		}
 	}

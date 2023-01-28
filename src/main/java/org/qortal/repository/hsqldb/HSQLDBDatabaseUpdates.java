@@ -969,6 +969,30 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE Blocks ALTER COLUMN online_accounts SET DATA TYPE VARBINARY(10240)");
 					break;
 
+				case 43:
+					// Pirate Chain requires storing addresses that are 78 bytes long (69 bytes when decoded), so increase
+					// from 32 to 128 to give some padding for potentially even larger addresses in the future
+					stmt.execute("ALTER TABLE TradeBotStates ALTER COLUMN receiving_account_info SET DATA TYPE VARBINARY(128)");
+					break;
+
+				case 44:
+					// Add blocks minted penalty
+					stmt.execute("ALTER TABLE Accounts ADD blocks_minted_penalty INTEGER NOT NULL DEFAULT 0");
+					break;
+
+				case 45:
+					// Add a chat reference, to allow one message to reference another, and for this to be easily
+					// searchable. Null values are allowed as most transactions won't have a reference.
+					stmt.execute("ALTER TABLE ChatTransactions ADD chat_reference Signature");
+					// For finding chat messages by reference
+					stmt.execute("CREATE INDEX ChatTransactionsChatReferenceIndex ON ChatTransactions (chat_reference)");
+					break;
+
+				case 46:
+					// We need to track the sale price when canceling a name sale, so it can be put back when orphaned
+					stmt.execute("ALTER TABLE CancelSellNameTransactions ADD sale_price QortalAmount");
+					break;
+
 				default:
 					// nothing to do
 					return false;

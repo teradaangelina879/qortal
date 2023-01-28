@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use POSIX;
 use Getopt::Std;
+use File::Slurp;
 
 sub usage() {
 	die("usage: $0 [-p api-port] dev-private-key [short-commit-hash]\n");
@@ -33,6 +34,8 @@ while (<POM>) {
 	}
 }
 close(POM);
+
+my $apikey = read_file('apikey.txt');
 
 # Do we need to determine commit hash?
 unless ($commit_hash) {
@@ -124,7 +127,7 @@ my $raw_tx = `curl --silent --url http://localhost:${port}/utils/tobase58/${raw_
 die("Can't convert raw transaction hex to base58:\n$raw_tx\n") unless $raw_tx =~ m/^\w{300,320}$/; # Roughly 305 to 320 base58 chars
 printf "\nRaw transaction (base58):\n%s\n", $raw_tx;
 
-my $computed_tx = `curl --silent -X POST --url http://localhost:${port}/arbitrary/compute -d "${raw_tx}"`;
+my $computed_tx = `curl --silent -X POST --url http://localhost:${port}/arbitrary/compute -H "X-API-KEY: ${apikey}" -d "${raw_tx}"`;
 die("Can't compute nonce for transaction:\n$computed_tx\n") unless $computed_tx =~ m/^\w{300,320}$/; # Roughly 300 to 320 base58 chars
 printf "\nRaw computed transaction (base58):\n%s\n", $computed_tx;
 

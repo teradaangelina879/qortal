@@ -29,6 +29,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.account.Account;
 import org.qortal.api.ApiService;
 import org.qortal.api.DomainMapService;
 import org.qortal.api.GatewayService;
@@ -45,7 +46,6 @@ import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.naming.NameData;
-import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -113,6 +113,7 @@ public class Controller extends Thread {
 	private long repositoryBackupTimestamp = startTime; // ms
 	private long repositoryMaintenanceTimestamp = startTime; // ms
 	private long repositoryCheckpointTimestamp = startTime; // ms
+	private long prunePeersTimestamp = startTime; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
 
@@ -316,6 +317,10 @@ public class Controller extends Thread {
 		}
 	}
 
+	public static long uptime() {
+		return System.currentTimeMillis() - Controller.startTime;
+	}
+
 	/** Returns highest block, or null if it's not available. */
 	public BlockData getChainTip() {
 		synchronized (this.latestBlocks) {
@@ -496,6 +501,9 @@ public class Controller extends Thread {
 			AutoUpdate.getInstance().start();
 		}
 
+		LOGGER.info("Starting wallets");
+		PirateChainWalletController.getInstance().start();
+
 		LOGGER.info(String.format("Starting API on port %d", Settings.getInstance().getApiPort()));
 		try {
 			ApiService apiService = ApiService.getInstance();
@@ -552,6 +560,7 @@ public class Controller extends Thread {
 		final long repositoryBackupInterval = Settings.getInstance().getRepositoryBackupInterval();
 		final long repositoryCheckpointInterval = Settings.getInstance().getRepositoryCheckpointInterval();
 		long repositoryMaintenanceInterval = getRandomRepositoryMaintenanceInterval();
+		final long prunePeersInterval = 5 * 60 * 1000L; // Every 5 minutes
 
 		// Start executor service for trimming or pruning
 		PruneManager.getInstance().start();
@@ -649,10 +658,15 @@ public class Controller extends Thread {
 				}
 
 				// Prune stuck/slow/old peers
-				try {
-					Network.getInstance().prunePeers();
-				} catch (DataException e) {
-					LOGGER.warn(String.format("Repository issue when trying to prune peers: %s", e.getMessage()));
+				if (now >= prunePeersTimestamp + prunePeersInterval) {
+					prunePeersTimestamp = now + prunePeersInterval;
+
+					try {
+						LOGGER.debug("Pruning peers...");
+						Network.getInstance().prunePeers();
+					} catch (DataException e) {
+						LOGGER.warn(String.format("Repository issue when trying to prune peers: %s", e.getMessage()));
+					}
 				}
 
 				// Delete expired transactions
@@ -717,30 +731,52 @@ public class Controller extends Thread {
 
 	public static final Predicate<Peer> hasNoRecentBlock = peer -> {
 		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
-		final PeerChainTipData peerChainTipData = peer.getChainTipData();
-		return peerChainTipData == null || peerChainTipData.getLastBlockTimestamp() == null || peerChainTipData.getLastBlockTimestamp() < minLatestBlockTimestamp;
+		final BlockSummaryData peerChainTipData = peer.getChainTipData();
+		return peerChainTipData == null || peerChainTipData.getTimestamp() == null || peerChainTipData.getTimestamp() < minLatestBlockTimestamp;
 	};
 
 	public static final Predicate<Peer> hasNoOrSameBlock = peer -> {
 		final BlockData latestBlockData = getInstance().getChainTip();
-		final PeerChainTipData peerChainTipData = peer.getChainTipData();
-		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peerChainTipData.getLastBlockSignature());
+		final BlockSummaryData peerChainTipData = peer.getChainTipData();
+		return peerChainTipData == null || peerChainTipData.getSignature() == null || Arrays.equals(latestBlockData.getSignature(), peerChainTipData.getSignature());
 	};
 
 	public static final Predicate<Peer> hasOnlyGenesisBlock = peer -> {
-		final PeerChainTipData peerChainTipData = peer.getChainTipData();
-		return peerChainTipData == null || peerChainTipData.getLastHeight() == null || peerChainTipData.getLastHeight() == 1;
+		final BlockSummaryData peerChainTipData = peer.getChainTipData();
+		return peerChainTipData == null || peerChainTipData.getHeight() == 1;
 	};
 
 	public static final Predicate<Peer> hasInferiorChainTip = peer -> {
-		final PeerChainTipData peerChainTipData = peer.getChainTipData();
+		final BlockSummaryData peerChainTipData = peer.getChainTipData();
 		final List<ByteArray> inferiorChainTips = Synchronizer.getInstance().inferiorChainSignatures;
-		return peerChainTipData == null || peerChainTipData.getLastBlockSignature() == null || inferiorChainTips.contains(ByteArray.wrap(peerChainTipData.getLastBlockSignature()));
+		return peerChainTipData == null || peerChainTipData.getSignature() == null || inferiorChainTips.contains(ByteArray.wrap(peerChainTipData.getSignature()));
 	};
 
 	public static final Predicate<Peer> hasOldVersion = peer -> {
 		final String minPeerVersion = Settings.getInstance().getMinPeerVersion();
 		return peer.isAtLeastVersion(minPeerVersion) == false;
+	};
+
+	public static final Predicate<Peer> hasInvalidSigner = peer -> {
+		final BlockSummaryData peerChainTipData = peer.getChainTipData();
+		if (peerChainTipData == null)
+			return true;
+
+		try (Repository repository = RepositoryManager.getRepository()) {
+			return Account.getRewardShareEffectiveMintingLevel(repository, peerChainTipData.getMinterPublicKey()) == 0;
+		} catch (DataException e) {
+			return true;
+		}
+	};
+
+	public static final Predicate<Peer> wasRecentlyTooDivergent = peer -> {
+		Long now = NTP.getTime();
+		Long peerLastTooDivergentTime = peer.getLastTooDivergentTime();
+		if (now == null || peerLastTooDivergentTime == null)
+			return false;
+
+		// Exclude any peers that were TOO_DIVERGENT in the last 5 mins
+		return (now - peerLastTooDivergentTime < 5 * 60 * 1000L);
 	};
 
 	private long getRandomRepositoryMaintenanceInterval() {
@@ -812,7 +848,7 @@ public class Controller extends Thread {
 				actionText = String.format("%s", Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_BLOCKCHAIN"));
 				SysTray.getInstance().setTrayIcon(3);
 			}
-			else if (OnlineAccountsManager.getInstance().hasOnlineAccounts()) {
+			else if (OnlineAccountsManager.getInstance().hasActiveOnlineAccountSignatures()) {
 				actionText = Translator.INSTANCE.translate("SysTray", "MINTING_ENABLED");
 				SysTray.getInstance().setTrayIcon(2);
 			}
@@ -825,6 +861,12 @@ public class Controller extends Thread {
 		String tooltip = String.format("%s - %d %s", actionText, numberOfPeers, connectionsText);
 		if (!Settings.getInstance().isLite()) {
 			tooltip = tooltip.concat(String.format(" - %s %d", heightText, height));
+
+			final Integer blocksRemaining = Synchronizer.getInstance().getBlocksRemaining();
+			if (blocksRemaining != null && blocksRemaining > 0) {
+				String blocksRemainingText = Translator.INSTANCE.translate("SysTray", "BLOCKS_REMAINING");
+				tooltip = tooltip.concat(String.format(" - %d %s", blocksRemaining, blocksRemainingText));
+			}
 		}
 		tooltip = tooltip.concat(String.format("\n%s: %s", Translator.INSTANCE.translate("SysTray", "BUILD_VERSION"), this.buildVersion));
 		SysTray.getInstance().setToolTipText(tooltip);
@@ -882,6 +924,9 @@ public class Controller extends Thread {
 
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();
+
+				LOGGER.info("Shutting down wallets");
+				PirateChainWalletController.getInstance().shutdown();
 
 				if (Settings.getInstance().isAutoUpdateEnabled()) {
 					LOGGER.info("Shutting down auto-update");
@@ -994,8 +1039,7 @@ public class Controller extends Thread {
 		network.broadcast(peer -> peer.isOutbound() ? network.buildPeersMessage(peer) : new GetPeersMessage());
 
 		// Send our current height
-		BlockData latestBlockData = getChainTip();
-		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
+		network.broadcastOurChain();
 
 		// Request unconfirmed transaction signatures, but only if we're up-to-date.
 		// If we're NOT up-to-date then priority is synchronizing first
@@ -1202,6 +1246,10 @@ public class Controller extends Thread {
 				onNetworkHeightV2Message(peer, message);
 				break;
 
+			case BLOCK_SUMMARIES_V2:
+				onNetworkBlockSummariesV2Message(peer, message);
+				break;
+
 			case GET_TRANSACTION:
 				TransactionImporter.getInstance().onNetworkGetTransactionMessage(peer, message);
 				break;
@@ -1219,19 +1267,18 @@ public class Controller extends Thread {
 				break;
 
 			case GET_ONLINE_ACCOUNTS:
-				OnlineAccountsManager.getInstance().onNetworkGetOnlineAccountsMessage(peer, message);
-				break;
-
 			case ONLINE_ACCOUNTS:
-				OnlineAccountsManager.getInstance().onNetworkOnlineAccountsMessage(peer, message);
-				break;
-
 			case GET_ONLINE_ACCOUNTS_V2:
-				OnlineAccountsManager.getInstance().onNetworkGetOnlineAccountsV2Message(peer, message);
+			case ONLINE_ACCOUNTS_V2:
+				// No longer supported - to be eventually removed
 				break;
 
-			case ONLINE_ACCOUNTS_V2:
-				OnlineAccountsManager.getInstance().onNetworkOnlineAccountsV2Message(peer, message);
+			case GET_ONLINE_ACCOUNTS_V3:
+				OnlineAccountsManager.getInstance().onNetworkGetOnlineAccountsV3Message(peer, message);
+				break;
+
+			case ONLINE_ACCOUNTS_V3:
+				OnlineAccountsManager.getInstance().onNetworkOnlineAccountsV3Message(peer, message);
 				break;
 
 			case GET_ARBITRARY_DATA:
@@ -1357,8 +1404,10 @@ public class Controller extends Thread {
 				// Send valid, yet unexpected message type in response, so peer's synchronizer doesn't have to wait for timeout
 				LOGGER.debug(() -> String.format("Sending 'block unknown' response to peer %s for GET_BLOCK request for unknown block %s", peer, Base58.encode(signature)));
 
-				// We'll send empty block summaries message as it's very short
-				Message blockUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				// Send generic 'unknown' message as it's very short
+				Message blockUnknownMessage = peer.getPeersVersion() >= GenericUnknownMessage.MINIMUM_PEER_VERSION
+						? new GenericUnknownMessage()
+						: new BlockSummariesMessage(Collections.emptyList());
 				blockUnknownMessage.setId(message.getId());
 				if (!peer.sendMessage(blockUnknownMessage))
 					peer.disconnect("failed to send block-unknown response");
@@ -1407,11 +1456,15 @@ public class Controller extends Thread {
 		this.stats.getBlockSummariesStats.requests.incrementAndGet();
 
 		// If peer's parent signature matches our latest block signature
-		// then we can short-circuit with an empty response
+		// then we have no blocks after that and can short-circuit with an empty response
 		BlockData chainTip = getChainTip();
 		if (chainTip != null && Arrays.equals(parentSignature, chainTip.getSignature())) {
-			Message blockSummariesMessage = new BlockSummariesMessage(Collections.emptyList());
+			Message blockSummariesMessage = peer.getPeersVersion() >= BlockSummariesV2Message.MINIMUM_PEER_VERSION
+					? new BlockSummariesV2Message(Collections.emptyList())
+					: new BlockSummariesMessage(Collections.emptyList());
+
 			blockSummariesMessage.setId(message.getId());
+
 			if (!peer.sendMessage(blockSummariesMessage))
 				peer.disconnect("failed to send block summaries");
 
@@ -1467,7 +1520,9 @@ public class Controller extends Thread {
 				this.stats.getBlockSummariesStats.fullyFromCache.incrementAndGet();
 		}
 
-		Message blockSummariesMessage = new BlockSummariesMessage(blockSummaries);
+		Message blockSummariesMessage = peer.getPeersVersion() >= BlockSummariesV2Message.MINIMUM_PEER_VERSION
+				? new BlockSummariesV2Message(blockSummaries)
+				: new BlockSummariesMessage(blockSummaries);
 		blockSummariesMessage.setId(message.getId());
 		if (!peer.sendMessage(blockSummariesMessage))
 			peer.disconnect("failed to send block summaries");
@@ -1542,13 +1597,54 @@ public class Controller extends Thread {
 			// If peer is inbound and we've not updated their height
 			// then this is probably their initial HEIGHT_V2 message
 			// so they need a corresponding HEIGHT_V2 message from us
-			if (!peer.isOutbound() && (peer.getChainTipData() == null || peer.getChainTipData().getLastHeight() == null))
-				peer.sendMessage(Network.getInstance().buildHeightMessage(peer, getChainTip()));
+			if (!peer.isOutbound() && peer.getChainTipData() == null) {
+				Message responseMessage = Network.getInstance().buildHeightOrChainTipInfo(peer);
+
+				if (responseMessage == null || !peer.sendMessage(responseMessage)) {
+					peer.disconnect("failed to send our chain tip info");
+					return;
+				}
+			}
 		}
 
 		// Update peer chain tip data
-		PeerChainTipData newChainTipData = new PeerChainTipData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getTimestamp(), heightV2Message.getMinterPublicKey());
+		BlockSummaryData newChainTipData = new BlockSummaryData(heightV2Message.getHeight(), heightV2Message.getSignature(), heightV2Message.getMinterPublicKey(), heightV2Message.getTimestamp());
 		peer.setChainTipData(newChainTipData);
+
+		// Potentially synchronize
+		Synchronizer.getInstance().requestSync();
+	}
+
+	private void onNetworkBlockSummariesV2Message(Peer peer, Message message) {
+		BlockSummariesV2Message blockSummariesV2Message = (BlockSummariesV2Message) message;
+
+		if (!Settings.getInstance().isLite()) {
+			// If peer is inbound and we've not updated their height
+			// then this is probably their initial BLOCK_SUMMARIES_V2 message
+			// so they need a corresponding BLOCK_SUMMARIES_V2 message from us
+			if (!peer.isOutbound() && peer.getChainTipData() == null) {
+				Message responseMessage = Network.getInstance().buildHeightOrChainTipInfo(peer);
+
+				if (responseMessage == null || !peer.sendMessage(responseMessage)) {
+					peer.disconnect("failed to send our chain tip info");
+					return;
+				}
+			}
+		}
+
+		if (message.hasId()) {
+			/*
+			 * Experimental proof-of-concept: discard messages with ID
+			 * These are 'late' reply messages received after timeout has expired,
+			 * having been passed upwards from Peer to Network to Controller.
+			 * Hence, these are NOT simple "here's my chain tip" broadcasts from other peers.
+			 */
+			LOGGER.debug("Discarding late {} message with ID {} from {}", message.getType().name(), message.getId(), peer);
+			return;
+		}
+
+		// Update peer chain tip data
+		peer.setChainTipSummaries(blockSummariesV2Message.getBlockSummaries());
 
 		// Potentially synchronize
 		Synchronizer.getInstance().requestSync();
@@ -1569,8 +1665,8 @@ public class Controller extends Thread {
 				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
 				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT request for unknown account %s", peer, address));
 
-				// We'll send empty block summaries message as it's very short
-				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				// Send generic 'unknown' message as it's very short
+				Message accountUnknownMessage = new GenericUnknownMessage();
 				accountUnknownMessage.setId(message.getId());
 				if (!peer.sendMessage(accountUnknownMessage))
 					peer.disconnect("failed to send account-unknown response");
@@ -1605,8 +1701,8 @@ public class Controller extends Thread {
 				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
 				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT_BALANCE request for unknown account %s and asset ID %d", peer, address, assetId));
 
-				// We'll send empty block summaries message as it's very short
-				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				// Send generic 'unknown' message as it's very short
+				Message accountUnknownMessage = new GenericUnknownMessage();
 				accountUnknownMessage.setId(message.getId());
 				if (!peer.sendMessage(accountUnknownMessage))
 					peer.disconnect("failed to send account-unknown response");
@@ -1649,8 +1745,8 @@ public class Controller extends Thread {
 				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
 				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT_TRANSACTIONS request for unknown account %s", peer, address));
 
-				// We'll send empty block summaries message as it's very short
-				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				// Send generic 'unknown' message as it's very short
+				Message accountUnknownMessage = new GenericUnknownMessage();
 				accountUnknownMessage.setId(message.getId());
 				if (!peer.sendMessage(accountUnknownMessage))
 					peer.disconnect("failed to send account-unknown response");
@@ -1686,8 +1782,8 @@ public class Controller extends Thread {
 				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
 				LOGGER.debug(() -> String.format("Sending 'account unknown' response to peer %s for GET_ACCOUNT_NAMES request for unknown account %s", peer, address));
 
-				// We'll send empty block summaries message as it's very short
-				Message accountUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				// Send generic 'unknown' message as it's very short
+				Message accountUnknownMessage = new GenericUnknownMessage();
 				accountUnknownMessage.setId(message.getId());
 				if (!peer.sendMessage(accountUnknownMessage))
 					peer.disconnect("failed to send account-unknown response");
@@ -1721,8 +1817,8 @@ public class Controller extends Thread {
 				// Send valid, yet unexpected message type in response, so peer doesn't have to wait for timeout
 				LOGGER.debug(() -> String.format("Sending 'name unknown' response to peer %s for GET_NAME request for unknown name %s", peer, name));
 
-				// We'll send empty block summaries message as it's very short
-				Message nameUnknownMessage = new BlockSummariesMessage(Collections.emptyList());
+				// Send generic 'unknown' message as it's very short
+				Message nameUnknownMessage = new GenericUnknownMessage();
 				nameUnknownMessage.setId(message.getId());
 				if (!peer.sendMessage(nameUnknownMessage))
 					peer.disconnect("failed to send name-unknown response");
@@ -1770,14 +1866,14 @@ public class Controller extends Thread {
 				continue;
 			}
 
-			final PeerChainTipData peerChainTipData = peer.getChainTipData();
+			BlockSummaryData peerChainTipData = peer.getChainTipData();
 			if (peerChainTipData == null) {
 				iterator.remove();
 				continue;
 			}
 
 			// Disregard peers that don't have a recent block
-			if (peerChainTipData.getLastBlockTimestamp() == null || peerChainTipData.getLastBlockTimestamp() < minLatestBlockTimestamp) {
+			if (peerChainTipData.getTimestamp() == null || peerChainTipData.getTimestamp() < minLatestBlockTimestamp) {
 				iterator.remove();
 				continue;
 			}
@@ -1804,6 +1900,10 @@ public class Controller extends Thread {
 		final BlockData latestBlockData = getChainTip();
 		if (latestBlockData == null || latestBlockData.getTimestamp() < minLatestBlockTimestamp)
 			return false;
+
+		if (Settings.getInstance().isSingleNodeTestnet())
+			// Single node testnets won't have peers, so we can assume up to date from this point
+			return true;
 
 		// Needs a mutable copy of the unmodifiableList
 		List<Peer> peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());

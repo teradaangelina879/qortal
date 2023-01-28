@@ -6,15 +6,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.qortal.asset.Asset;
-import org.qortal.data.account.AccountBalanceData;
-import org.qortal.data.account.AccountData;
-import org.qortal.data.account.EligibleQoraHolderData;
-import org.qortal.data.account.MintingAccountData;
-import org.qortal.data.account.QortFromQoraData;
-import org.qortal.data.account.RewardShareData;
+import org.qortal.data.account.*;
 import org.qortal.repository.AccountRepository;
 import org.qortal.repository.DataException;
 
@@ -30,7 +26,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		String sql = "SELECT reference, public_key, default_group_id, flags, level, blocks_minted, blocks_minted_adjustment FROM Accounts WHERE account = ?";
+		String sql = "SELECT reference, public_key, default_group_id, flags, level, blocks_minted, blocks_minted_adjustment, blocks_minted_penalty FROM Accounts WHERE account = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
@@ -43,8 +39,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			int level = resultSet.getInt(5);
 			int blocksMinted = resultSet.getInt(6);
 			int blocksMintedAdjustment = resultSet.getInt(7);
+			int blocksMintedPenalty = resultSet.getInt(8);
 
-			return new AccountData(address, reference, publicKey, defaultGroupId, flags, level, blocksMinted, blocksMintedAdjustment);
+			return new AccountData(address, reference, publicKey, defaultGroupId, flags, level, blocksMinted, blocksMintedAdjustment, blocksMintedPenalty);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -52,7 +49,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public List<AccountData> getFlaggedAccounts(int mask) throws DataException {
-		String sql = "SELECT reference, public_key, default_group_id, flags, level, blocks_minted, blocks_minted_adjustment, account FROM Accounts WHERE BITAND(flags, ?) != 0";
+		String sql = "SELECT reference, public_key, default_group_id, flags, level, blocks_minted, blocks_minted_adjustment, blocks_minted_penalty, account FROM Accounts WHERE BITAND(flags, ?) != 0";
 
 		List<AccountData> accounts = new ArrayList<>();
 
@@ -68,14 +65,45 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				int level = resultSet.getInt(5);
 				int blocksMinted = resultSet.getInt(6);
 				int blocksMintedAdjustment = resultSet.getInt(7);
-				String address = resultSet.getString(8);
+				int blocksMintedPenalty = resultSet.getInt(8);
+				String address = resultSet.getString(9);
 
-				accounts.add(new AccountData(address, reference, publicKey, defaultGroupId, flags, level, blocksMinted, blocksMintedAdjustment));
+				accounts.add(new AccountData(address, reference, publicKey, defaultGroupId, flags, level, blocksMinted, blocksMintedAdjustment, blocksMintedPenalty));
 			} while (resultSet.next());
 
 			return accounts;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch flagged accounts from repository", e);
+		}
+	}
+
+	@Override
+	public List<AccountData> getPenaltyAccounts() throws DataException {
+		String sql = "SELECT reference, public_key, default_group_id, flags, level, blocks_minted, blocks_minted_adjustment, blocks_minted_penalty, account FROM Accounts WHERE blocks_minted_penalty != 0";
+
+		List<AccountData> accounts = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return accounts;
+
+			do {
+				byte[] reference = resultSet.getBytes(1);
+				byte[] publicKey = resultSet.getBytes(2);
+				int defaultGroupId = resultSet.getInt(3);
+				int flags = resultSet.getInt(4);
+				int level = resultSet.getInt(5);
+				int blocksMinted = resultSet.getInt(6);
+				int blocksMintedAdjustment = resultSet.getInt(7);
+				int blocksMintedPenalty = resultSet.getInt(8);
+				String address = resultSet.getString(9);
+
+				accounts.add(new AccountData(address, reference, publicKey, defaultGroupId, flags, level, blocksMinted, blocksMintedAdjustment, blocksMintedPenalty));
+			} while (resultSet.next());
+
+			return accounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch penalty accounts from repository", e);
 		}
 	}
 
@@ -295,6 +323,39 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			this.repository.executeCheckedBatchUpdate(sql, bindParamRows);
 		} catch (SQLException e) {
 			throw new DataException("Unable to modify many account minted block counts in repository", e);
+		}
+	}
+
+	@Override
+	public Integer getBlocksMintedPenaltyCount(String address) throws DataException {
+		String sql = "SELECT blocks_minted_penalty FROM Accounts WHERE account = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
+			if (resultSet == null)
+				return null;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's block minted penalty count from repository", e);
+		}
+	}
+	public void updateBlocksMintedPenalties(Set<AccountPenaltyData> accountPenalties) throws DataException {
+		// Nothing to do?
+		if (accountPenalties == null || accountPenalties.isEmpty())
+			return;
+
+		// Map balance changes into SQL bind params, filtering out no-op changes
+		List<Object[]> updateBlocksMintedPenaltyParams = accountPenalties.stream()
+				.map(accountPenalty -> new Object[] { accountPenalty.getAddress(), accountPenalty.getBlocksMintedPenalty(), accountPenalty.getBlocksMintedPenalty() })
+				.collect(Collectors.toList());
+
+		// Perform actual balance changes
+		String sql = "INSERT INTO Accounts (account, blocks_minted_penalty) VALUES (?, ?) " +
+				"ON DUPLICATE KEY UPDATE blocks_minted_penalty = blocks_minted_penalty + ?";
+		try {
+			this.repository.executeCheckedBatchUpdate(sql, updateBlocksMintedPenaltyParams);
+		} catch (SQLException e) {
+			throw new DataException("Unable to set blocks minted penalties in repository", e);
 		}
 	}
 
@@ -685,6 +746,17 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to count reward-shares in repository", e);
+		}
+	}
+
+	@Override
+	public int countSelfShares(byte[] minterPublicKey) throws DataException {
+		String sql = "SELECT COUNT(*) FROM RewardShares WHERE minter_public_key = ? AND minter = recipient";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, minterPublicKey)) {
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to count self-shares in repository", e);
 		}
 	}
 

@@ -28,6 +28,7 @@ import org.qortal.crosschain.Litecoin.LitecoinNet;
 import org.qortal.crosschain.Dogecoin.DogecoinNet;
 import org.qortal.crosschain.Digibyte.DigibyteNet;
 import org.qortal.crosschain.Ravencoin.RavencoinNet;
+import org.qortal.crosschain.PirateChain.PirateChainNet;
 import org.qortal.utils.EnumUtils;
 
 // All properties to be converted to JSON via JAXB
@@ -109,7 +110,13 @@ public class Settings {
 	/** Maximum number of unconfirmed transactions allowed per account */
 	private int maxUnconfirmedPerAccount = 25;
 	/** Max milliseconds into future for accepting new, unconfirmed transactions */
-	private int maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
+	private int maxTransactionTimestampFuture = 30 * 60 * 1000; // milliseconds
+
+	/** Maximum number of CHAT transactions allowed per account in recent timeframe */
+	private int maxRecentChatMessagesPerAccount = 250;
+	/** Maximum age of a CHAT transaction to be considered 'recent' */
+	private long recentChatMessagesMaxAge = 60 * 60 * 1000L; // milliseconds
+
 	/** Whether we check, fetch and install auto-updates */
 	private boolean autoUpdateEnabled = true;
 	/** How long between repository backups (ms), or 0 if disabled. */
@@ -152,7 +159,7 @@ public class Settings {
 	 * This prevents the node from being able to serve older blocks */
 	private boolean topOnly = false;
 	/** The amount of recent blocks we should keep when pruning */
-	private int pruneBlockLimit = 1450;
+	private int pruneBlockLimit = 6000;
 
 	/** How often to attempt AT state pruning (ms). */
 	private long atStatesPruneInterval = 3219L; // milliseconds
@@ -183,6 +190,8 @@ public class Settings {
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
+	/** Single node testnet mode */
+	private boolean singleNodeTestnet = false;
 	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
 	/** Whether to attempt to open the listen port via UPnP */
@@ -202,17 +211,20 @@ public class Settings {
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
 	private int maxRetries = 2;
 
+	/** The number of seconds of no activity before recovery mode begins */
+	public long recoveryModeTimeout = 10 * 60 * 1000L;
+
 	/** Minimum peer version number required in order to sync with them */
-	private String minPeerVersion = "3.1.0";
+	private String minPeerVersion = "3.8.2";
 	/** Whether to allow connections with peers below minPeerVersion
 	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
 	private boolean allowConnectionsWithOlderPeerVersions = true;
 
 	/** Minimum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int minPeerConnectionTime = 5 * 60; // seconds
+	private int minPeerConnectionTime = 60 * 60; // seconds
 	/** Maximum time (in seconds) that we should attempt to remain connected to a peer for */
-	private int maxPeerConnectionTime = 60 * 60; // seconds
+	private int maxPeerConnectionTime = 4 * 60 * 60; // seconds
 	/** Maximum time (in seconds) that a peer should remain connected when requesting QDN data */
 	private int maxDataPeerConnectionTime = 2 * 60; // seconds
 
@@ -232,9 +244,15 @@ public class Settings {
 	private DogecoinNet dogecoinNet = DogecoinNet.MAIN;
 	private DigibyteNet digibyteNet = DigibyteNet.MAIN;
 	private RavencoinNet ravencoinNet = RavencoinNet.MAIN;
+	private PirateChainNet pirateChainNet = PirateChainNet.MAIN;
 	// Also crosschain-related:
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
+
+	/** Wallets path - used for storing encrypted wallet caches for coins that require them */
+	private String walletsPath = "wallets";
+
+	private int arrrDefaultBirthday = 2000000;
 
 	// Repository related
 	/** Queries that take longer than this are logged. (milliseconds) */
@@ -255,7 +273,7 @@ public class Settings {
 	private String[] bootstrapHosts = new String[] {
 			"http://bootstrap.qortal.org",
 			"http://bootstrap2.qortal.org",
-			"http://62.171.190.193"
+			"http://bootstrap.qortal.online"
 	};
 
 	// Auto-update sources
@@ -282,6 +300,17 @@ public class Settings {
 	};
 	/** Additional offset added to values returned by NTP.getTime() */
 	private Long testNtpOffset = null;
+
+
+
+	/* Foreign chains */
+
+	/** The number of consecutive empty addresses required before treating a wallet's transaction set as complete */
+	private int gapLimit = 24;
+
+	/** How many wallet keys to generate when using bitcoinj as the blockchain interface (e.g. when sending coins) */
+	private int bitcoinjLookaheadSize = 50;
+
 
 
 	// Data storage (QDN)
@@ -468,7 +497,7 @@ public class Settings {
 
 	private void validate() {
 		// Validation goes here
-		if (this.minBlockchainPeers < 1)
+		if (this.minBlockchainPeers < 1 && !singleNodeTestnet)
 			throwValidationError("minBlockchainPeers must be at least 1");
 
 		if (this.apiKey != null && this.apiKey.trim().length() < 8)
@@ -617,12 +646,24 @@ public class Settings {
 		return this.maxTransactionTimestampFuture;
 	}
 
+	public int getMaxRecentChatMessagesPerAccount() {
+		return this.maxRecentChatMessagesPerAccount;
+	}
+
+	public long getRecentChatMessagesMaxAge() {
+		return recentChatMessagesMaxAge;
+	}
+
 	public int getBlockCacheSize() {
 		return this.blockCacheSize;
 	}
 
 	public boolean isTestNet() {
 		return this.isTestNet;
+	}
+
+	public boolean isSingleNodeTestnet() {
+		return this.singleNodeTestnet;
 	}
 
 	public int getListenPort() {
@@ -645,6 +686,9 @@ public class Settings {
 	}
 
 	public int getMinBlockchainPeers() {
+		if (singleNodeTestnet)
+			return 0;
+
 		return this.minBlockchainPeers;
 	}
 
@@ -669,6 +713,10 @@ public class Settings {
 	}
 
 	public int getMaxRetries() { return this.maxRetries; }
+
+	public long getRecoveryModeTimeout() {
+		return recoveryModeTimeout;
+	}
 
 	public String getMinPeerVersion() { return this.minPeerVersion; }
 
@@ -704,6 +752,18 @@ public class Settings {
 
 	public RavencoinNet getRavencoinNet() {
 		return this.ravencoinNet;
+	}
+
+	public PirateChainNet getPirateChainNet() {
+		return this.pirateChainNet;
+	}
+
+	public String getWalletsPath() {
+		return this.walletsPath;
+	}
+
+	public int getArrrDefaultBirthday() {
+		return this.arrrDefaultBirthday;
 	}
 
 	public boolean isTradebotSystrayEnabled() {
@@ -869,6 +929,15 @@ public class Settings {
 
 	public boolean getBootstrap() {
 		return this.bootstrap;
+	}
+
+
+	public int getGapLimit() {
+		return this.gapLimit;
+	}
+
+	public int getBitcoinjLookaheadSize() {
+		return bitcoinjLookaheadSize;
 	}
 
 

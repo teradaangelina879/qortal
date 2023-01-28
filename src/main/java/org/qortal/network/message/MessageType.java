@@ -21,6 +21,7 @@ public enum MessageType {
     HEIGHT_V2(10, HeightV2Message::fromByteBuffer),
     PING(11, PingMessage::fromByteBuffer),
     PONG(12, PongMessage::fromByteBuffer),
+    GENERIC_UNKNOWN(13, GenericUnknownMessage::fromByteBuffer),
 
     // Requesting data
     PEERS_V2(20, PeersV2Message::fromByteBuffer),
@@ -41,11 +42,14 @@ public enum MessageType {
 
     BLOCK_SUMMARIES(70, BlockSummariesMessage::fromByteBuffer),
     GET_BLOCK_SUMMARIES(71, GetBlockSummariesMessage::fromByteBuffer),
+    BLOCK_SUMMARIES_V2(72, BlockSummariesV2Message::fromByteBuffer),
 
     ONLINE_ACCOUNTS(80, OnlineAccountsMessage::fromByteBuffer),
     GET_ONLINE_ACCOUNTS(81, GetOnlineAccountsMessage::fromByteBuffer),
     ONLINE_ACCOUNTS_V2(82, OnlineAccountsV2Message::fromByteBuffer),
     GET_ONLINE_ACCOUNTS_V2(83, GetOnlineAccountsV2Message::fromByteBuffer),
+    ONLINE_ACCOUNTS_V3(84, OnlineAccountsV3Message::fromByteBuffer),
+    GET_ONLINE_ACCOUNTS_V3(85, GetOnlineAccountsV3Message::fromByteBuffer),
 
     ARBITRARY_DATA(90, ArbitraryDataMessage::fromByteBuffer),
     GET_ARBITRARY_DATA(91, GetArbitraryDataMessage::fromByteBuffer),

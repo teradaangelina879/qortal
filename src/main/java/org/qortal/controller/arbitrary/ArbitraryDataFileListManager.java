@@ -67,6 +67,9 @@ public class ArbitraryDataFileListManager {
     /** Maximum number of hops that a file list relay request is allowed to make */
     public static int RELAY_REQUEST_MAX_HOPS = 4;
 
+    /** Minimum peer version to use relay */
+    public static String RELAY_MIN_PEER_VERSION = "3.4.0";
+
 
     private ArbitraryDataFileListManager() {
     }
@@ -120,12 +123,22 @@ public class ArbitraryDataFileListManager {
             }
         }
 
-        // Then allow another 5 attempts, each 5 minutes apart
+        // Then allow another 3 attempts, each 5 minutes apart
         if (timeSinceLastAttempt > 5 * 60 * 1000L) {
             // We haven't tried for at least 5 minutes
 
-            if (networkBroadcastCount < 5) {
-                // We've made less than 5 total attempts
+            if (networkBroadcastCount < 6) {
+                // We've made less than 6 total attempts
+                return true;
+            }
+        }
+
+        // Then allow another 4 attempts, each 30 minutes apart
+        if (timeSinceLastAttempt > 30 * 60 * 1000L) {
+            // We haven't tried for at least 5 minutes
+
+            if (networkBroadcastCount < 10) {
+                // We've made less than 10 total attempts
                 return true;
             }
         }
@@ -184,8 +197,8 @@ public class ArbitraryDataFileListManager {
             }
         }
 
-        if (timeSinceLastAttempt > 24 * 60 * 60 * 1000L) {
-            // We haven't tried for at least 24 hours
+        if (timeSinceLastAttempt > 60 * 60 * 1000L) {
+            // We haven't tried for at least 1 hour
             return true;
         }
 
@@ -524,6 +537,7 @@ public class ArbitraryDataFileListManager {
                         forwardArbitraryDataFileListMessage = new ArbitraryDataFileListMessage(signature, hashes, requestTime, requestHops,
                                 arbitraryDataFileListMessage.getPeerAddress(), arbitraryDataFileListMessage.isRelayPossible());
                     }
+                    forwardArbitraryDataFileListMessage.setId(message.getId());
 
                     // Forward to requesting peer
                     LOGGER.debug("Forwarding file list with {} hashes to requesting peer: {}", hashes.size(), requestingPeer);
@@ -694,9 +708,10 @@ public class ArbitraryDataFileListManager {
 
                     LOGGER.debug("Rebroadcasting hash list request from peer {} for signature {} to our other peers... totalRequestTime: {}, requestHops: {}", peer, Base58.encode(signature), totalRequestTime, requestHops);
                     Network.getInstance().broadcast(
-                            broadcastPeer -> broadcastPeer == peer ||
-                                    Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost())
-                                    ? null : relayGetArbitraryDataFileListMessage);
+                            broadcastPeer ->
+                                    !broadcastPeer.isAtLeastVersion(RELAY_MIN_PEER_VERSION) ? null :
+                                    broadcastPeer == peer || Objects.equals(broadcastPeer.getPeerData().getAddress().getHost(), peer.getPeerData().getAddress().getHost()) ? null : relayGetArbitraryDataFileListMessage
+                    );
 
                 }
                 else {

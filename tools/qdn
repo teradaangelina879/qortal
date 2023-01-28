@@ -2,7 +2,7 @@
 
 # Qortal defaults
 host="localhost"
-port=12393
+port=12391
 
 if [ -z "$*" ]; then
 	echo "Usage:"

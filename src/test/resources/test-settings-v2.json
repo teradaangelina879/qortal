@@ -15,5 +15,6 @@
   "tempDataPath": "data-test/_temp",
   "listsPath": "lists-test",
   "storagePolicy": "FOLLOWED_OR_VIEWED",
-  "maxStorageCapacity": 104857600
+  "maxStorageCapacity": 104857600,
+  "arrrDefaultBirthday": 1900000
 }

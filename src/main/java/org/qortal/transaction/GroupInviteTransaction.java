@@ -78,7 +78,7 @@ public class GroupInviteTransaction extends Transaction {
 			return ValidationResult.ALREADY_GROUP_MEMBER;
 
 		// Check invitee is not banned
-		if (this.repository.getGroupRepository().banExists(groupId, invitee.getAddress()))
+		if (this.repository.getGroupRepository().banExists(groupId, invitee.getAddress(), this.groupInviteTransactionData.getTimestamp()))
 			return ValidationResult.BANNED_FROM_GROUP;
 
 		// Check creator has enough funds

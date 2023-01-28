@@ -6,8 +6,8 @@ import com.google.common.net.InetAddresses;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
+import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.CommonBlockData;
-import org.qortal.data.network.PeerChainTipData;
 import org.qortal.data.network.PeerData;
 import org.qortal.network.message.ChallengeMessage;
 import org.qortal.network.message.Message;
@@ -27,6 +27,8 @@ import java.nio.channels.SocketChannel;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.LongAccumulator;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -146,12 +148,27 @@ public class Peer {
     /**
      * Latest block info as reported by peer.
      */
-    private PeerChainTipData peersChainTipData;
+    private List<BlockSummaryData> peersChainTipData = Collections.emptyList();
 
     /**
      * Our common block with this peer
      */
     private CommonBlockData commonBlockData;
+
+    /**
+     * Last time we detected this peer as TOO_DIVERGENT
+     */
+    private Long lastTooDivergentTime;
+
+    // Message stats
+
+    private static class MessageStats {
+        public final LongAdder count = new LongAdder();
+        public final LongAdder totalBytes = new LongAdder();
+    }
+
+    private final Map<MessageType, MessageStats> receivedMessageStats = new ConcurrentHashMap<>();
+    private final Map<MessageType, MessageStats> sentMessageStats = new ConcurrentHashMap<>();
 
     // Constructors
 
@@ -341,28 +358,42 @@ public class Peer {
         }
     }
 
-    public PeerChainTipData getChainTipData() {
-        synchronized (this.peerInfoLock) {
-            return this.peersChainTipData;
-        }
+    public BlockSummaryData getChainTipData() {
+        List<BlockSummaryData> chainTipSummaries = this.peersChainTipData;
+
+        if (chainTipSummaries.isEmpty())
+            return null;
+
+        // Return last entry, which should have greatest height
+        return chainTipSummaries.get(chainTipSummaries.size() - 1);
     }
 
-    public void setChainTipData(PeerChainTipData chainTipData) {
-        synchronized (this.peerInfoLock) {
-            this.peersChainTipData = chainTipData;
-        }
+    public void setChainTipData(BlockSummaryData chainTipData) {
+        this.peersChainTipData = Collections.singletonList(chainTipData);
+    }
+
+    public List<BlockSummaryData> getChainTipSummaries() {
+        return this.peersChainTipData;
+    }
+
+    public void setChainTipSummaries(List<BlockSummaryData> chainTipSummaries) {
+        this.peersChainTipData = List.copyOf(chainTipSummaries);
     }
 
     public CommonBlockData getCommonBlockData() {
-        synchronized (this.peerInfoLock) {
-            return this.commonBlockData;
-        }
+        return this.commonBlockData;
     }
 
     public void setCommonBlockData(CommonBlockData commonBlockData) {
-        synchronized (this.peerInfoLock) {
-            this.commonBlockData = commonBlockData;
-        }
+        this.commonBlockData = commonBlockData;
+    }
+
+    public Long getLastTooDivergentTime() {
+        return this.lastTooDivergentTime;
+    }
+
+    public void setLastTooDivergentTime(Long lastTooDivergentTime) {
+        this.lastTooDivergentTime = lastTooDivergentTime;
     }
 
     public boolean isSyncInProgress() {
@@ -542,10 +573,17 @@ public class Peer {
                     // Tidy up buffers:
                     this.byteBuffer.flip();
                     // Read-only, flipped buffer's position will be after end of message, so copy that
+                    long messageByteSize = readOnlyBuffer.position();
                     this.byteBuffer.position(readOnlyBuffer.position());
                     // Copy bytes after read message to front of buffer,
                     // adjusting position accordingly, reset limit to capacity
                     this.byteBuffer.compact();
+
+                    // Record message stats
+                    MessageStats messageStats = this.receivedMessageStats.computeIfAbsent(message.getType(), k -> new MessageStats());
+                    // Ideally these two operations would be atomic, we could pack 'count' in top X bits of the 64-bit long, but meh
+                    messageStats.count.increment();
+                    messageStats.totalBytes.add(messageByteSize);
 
                     // Unsupported message type? Discard with no further processing
                     if (message.getType() == MessageType.UNSUPPORTED)
@@ -609,6 +647,12 @@ public class Peer {
 
                     LOGGER.trace("[{}] Sending {} message with ID {} to peer {}",
                             this.peerConnectionId, this.outputMessageType, this.outputMessageId, this);
+
+                    // Record message stats
+                    MessageStats messageStats = this.sentMessageStats.computeIfAbsent(message.getType(), k -> new MessageStats());
+                    // Ideally these two operations would be atomic, we could pack 'count' in top X bits of the 64-bit long, but meh
+                    messageStats.count.increment();
+                    messageStats.totalBytes.add(this.outputBuffer.limit());
                 } catch (MessageException e) {
                     // Something went wrong converting message to bytes, so discard but allow another round
                     LOGGER.warn("[{}] Failed to send {} message with ID {} to peer {}: {}", this.peerConnectionId,
@@ -799,8 +843,11 @@ public class Peer {
     }
 
     public void shutdown() {
+        boolean logStats = false;
+
         if (!isStopping) {
             LOGGER.debug("[{}] Shutting down peer {}", this.peerConnectionId, this);
+            logStats = true;
         }
         isStopping = true;
 
@@ -812,8 +859,34 @@ public class Peer {
                 LOGGER.debug("[{}] IOException while trying to close peer {}", this.peerConnectionId, this);
             }
         }
+
+        if (logStats && this.receivedMessageStats.size() > 0) {
+            StringBuilder statsBuilder = new StringBuilder(1024);
+            statsBuilder.append("peer ").append(this).append(" message stats:\n=received=");
+            appendMessageStats(statsBuilder, this.receivedMessageStats);
+            statsBuilder.append("\n=sent=");
+            appendMessageStats(statsBuilder, this.sentMessageStats);
+
+            LOGGER.debug(statsBuilder.toString());
+        }
     }
 
+    private static void appendMessageStats(StringBuilder statsBuilder, Map<MessageType, MessageStats> messageStats) {
+        if (messageStats.isEmpty()) {
+            statsBuilder.append("\n  none");
+            return;
+        }
+
+        messageStats.keySet().stream()
+                .sorted(Comparator.comparing(MessageType::name))
+                .forEach(messageType -> {
+                    MessageStats stats = messageStats.get(messageType);
+
+                    statsBuilder.append("\n  ").append(messageType.name())
+                            .append(": count=").append(stats.count.sum())
+                            .append(", total bytes=").append(stats.totalBytes.sum());
+                });
+    }
 
     // Minimum version
 
@@ -850,20 +923,22 @@ public class Peer {
     // Common block data
 
     public boolean canUseCachedCommonBlockData() {
-        PeerChainTipData peerChainTipData = this.getChainTipData();
-        CommonBlockData commonBlockData = this.getCommonBlockData();
+        BlockSummaryData peerChainTipData = this.getChainTipData();
+        if (peerChainTipData == null || peerChainTipData.getSignature() == null)
+            return false;
 
-        if (peerChainTipData != null && commonBlockData != null) {
-            PeerChainTipData commonBlockChainTipData = commonBlockData.getChainTipData();
-            if (peerChainTipData.getLastBlockSignature() != null && commonBlockChainTipData != null
-                    && commonBlockChainTipData.getLastBlockSignature() != null) {
-                if (Arrays.equals(peerChainTipData.getLastBlockSignature(),
-                        commonBlockChainTipData.getLastBlockSignature())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        CommonBlockData commonBlockData = this.getCommonBlockData();
+        if (commonBlockData == null)
+            return false;
+
+        BlockSummaryData commonBlockChainTipData = commonBlockData.getChainTipData();
+        if (commonBlockChainTipData == null || commonBlockChainTipData.getSignature() == null)
+            return false;
+
+        if (!Arrays.equals(peerChainTipData.getSignature(), commonBlockChainTipData.getSignature()))
+            return false;
+
+        return true;
     }
 
 

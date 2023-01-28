@@ -12,10 +12,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.servlet.ServletContext;
@@ -45,6 +45,7 @@ import org.qortal.data.arbitrary.*;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -56,6 +57,7 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 import org.qortal.utils.ZipUtils;
@@ -91,6 +93,7 @@ public class ArbitraryResource {
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
+			@Parameter(description = "Filter names by list") @QueryParam("namefilter") String nameFilter,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
 
@@ -107,8 +110,18 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "identifier cannot be specified when requesting a default resource");
 			}
 
+			// Load filter from list if needed
+			List<String> names = null;
+			if (nameFilter != null) {
+				names = ResourceListManager.getInstance().getStringsInList(nameFilter);
+				if (names.isEmpty()) {
+					// List doesn't exist or is empty - so there will be no matches
+					return new ArrayList<>();
+				}
+			}
+
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.getArbitraryResources(service, identifier, null, defaultRes, limit, offset, reverse);
+					.getArbitraryResources(service, identifier, names, defaultRes, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
@@ -216,7 +229,7 @@ public class ArbitraryResource {
 				String name = creatorName.name;
 				if (name != null) {
 					List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-							.getArbitraryResources(service, identifier, name, defaultRes, null, null, reverse);
+							.getArbitraryResources(service, identifier, Arrays.asList(name), defaultRes, null, null, reverse);
 
 					if (includeStatus != null && includeStatus) {
 						resources = this.addStatusToResources(resources);
@@ -254,7 +267,7 @@ public class ArbitraryResource {
 															@QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, null);
-		return this.getStatus(service, name, null, build);
+		return ArbitraryTransactionUtils.getStatus(service, name, null, build);
 	}
 
 	@GET
@@ -276,7 +289,7 @@ public class ArbitraryResource {
 													 @QueryParam("build") Boolean build) {
 
 		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier);
-		return this.getStatus(service, name, identifier, build);
+		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build);
 	}
 
 
@@ -706,7 +719,7 @@ public class ArbitraryResource {
 		try {
 			ArbitraryDataTransactionMetadata transactionMetadata = ArbitraryMetadataManager.getInstance().fetchMetadata(resource, false);
 			if (transactionMetadata != null) {
-				ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+				ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata, true);
 				if (resourceMetadata != null) {
 					return resourceMetadata;
 				}
@@ -1115,7 +1128,7 @@ public class ArbitraryResource {
 			if (path == null) {
 				// See if we have a string instead
 				if (string != null) {
-					File tempFile = File.createTempFile("qortal-", ".tmp");
+					File tempFile = File.createTempFile("qortal-", "");
 					tempFile.deleteOnExit();
 					BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile.toPath().toString()));
 					writer.write(string);
@@ -1125,7 +1138,7 @@ public class ArbitraryResource {
 				}
 				// ... or base64 encoded raw data
 				else if (base64 != null) {
-					File tempFile = File.createTempFile("qortal-", ".tmp");
+					File tempFile = File.createTempFile("qortal-", "");
 					tempFile.deleteOnExit();
 					Files.write(tempFile.toPath(), Base64.decode(base64));
 					path = tempFile.toPath().toString();
@@ -1247,24 +1260,6 @@ public class ArbitraryResource {
 	}
 
 
-	private ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build) {
-
-		// If "build=true" has been specified in the query string, build the resource before returning its status
-		if (build != null && build == true) {
-			ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
-			try {
-				if (!reader.isBuilding()) {
-					reader.loadSynchronously(false);
-				}
-			} catch (Exception e) {
-				// No need to handle exception, as it will be reflected in the status
-			}
-		}
-
-		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.getStatus(false);
-	}
-
 	private List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
 		// Determine and add the status of each resource
 		List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
@@ -1293,7 +1288,7 @@ public class ArbitraryResource {
 			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
 					resourceInfo.service, resourceInfo.identifier);
 			ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
-			ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata);
+			ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata, false);
 			if (resourceMetadata != null) {
 				resourceInfo.metadata = resourceMetadata;
 			}

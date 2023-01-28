@@ -27,6 +27,7 @@ import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.block.BlockChain.AccountLevelShareBin;
 import org.qortal.controller.OnlineAccountsManager;
 import org.qortal.crypto.Crypto;
+import org.qortal.crypto.Qortal25519Extras;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.account.EligibleQoraHolderData;
@@ -88,7 +89,8 @@ public class Block {
 		ONLINE_ACCOUNT_UNKNOWN(71),
 		ONLINE_ACCOUNT_SIGNATURES_MISSING(72),
 		ONLINE_ACCOUNT_SIGNATURES_MALFORMED(73),
-		ONLINE_ACCOUNT_SIGNATURE_INCORRECT(74);
+		ONLINE_ACCOUNT_SIGNATURE_INCORRECT(74),
+		ONLINE_ACCOUNT_NONCE_INCORRECT(75);
 
 		public final int value;
 
@@ -134,7 +136,7 @@ public class Block {
 	}
 
 	/** Lazy-instantiated expanded info on block's online accounts. */
-	private static class ExpandedAccount {
+	public static class ExpandedAccount {
 		private final RewardShareData rewardShareData;
 		private final int sharePercent;
 		private final boolean isRecipientAlsoMinter;
@@ -167,6 +169,13 @@ public class Block {
 			}
 		}
 
+		public Account getMintingAccount() {
+			return this.mintingAccount;
+		}
+		public Account getRecipientAccount() {
+			return this.recipientAccount;
+		}
+
 		/**
 		 * Returns share bin for expanded account.
 		 * <p>
@@ -183,8 +192,11 @@ public class Block {
 			if (accountLevel <= 0)
 				return null; // level 0 isn't included in any share bins
 
+			// Select the correct set of share bins based on block height
 			final BlockChain blockChain = BlockChain.getInstance();
-			final AccountLevelShareBin[] shareBinsByLevel = blockChain.getShareBinsByAccountLevel();
+			final AccountLevelShareBin[] shareBinsByLevel = (blockHeight >= blockChain.getSharesByLevelV2Height()) ?
+					blockChain.getShareBinsByAccountLevelV2() : blockChain.getShareBinsByAccountLevelV1();
+
 			if (accountLevel > shareBinsByLevel.length)
 				return null;
 
@@ -195,6 +207,11 @@ public class Block {
 			// level 1 stored at index 0, level 2 stored at index 1, etc.
 			return shareBinsByLevel[accountLevel-1];
 
+		}
+
+		public boolean hasShareBin(AccountLevelShareBin shareBin, int blockHeight) {
+			AccountLevelShareBin ourShareBin = this.getShareBin(blockHeight);
+			return ourShareBin != null && shareBin.id == ourShareBin.id;
 		}
 
 		public long distribute(long accountAmount, Map<String, Long> balanceChanges) {
@@ -221,11 +238,10 @@ public class Block {
 			return accountAmount;
 		}
 	}
+
 	/** Always use getExpandedAccounts() to access this, as it's lazy-instantiated. */
 	private List<ExpandedAccount> cachedExpandedAccounts = null;
 
-	/** Opportunistic cache of this block's valid online accounts. Only created by call to isValid(). */
-	private List<OnlineAccountData> cachedValidOnlineAccounts = null;
 	/** Opportunistic cache of this block's valid online reward-shares. Only created by call to isValid(). */
 	private List<RewardShareData> cachedOnlineRewardShares = null;
 
@@ -347,18 +363,36 @@ public class Block {
 		int version = parentBlock.getNextBlockVersion();
 		byte[] reference = parentBlockData.getSignature();
 
-		// Fetch our list of online accounts
-		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts();
-		if (onlineAccounts.isEmpty()) {
-			LOGGER.error("No online accounts - not even our own?");
+		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
+		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
+		if (minterLevel == 0) {
+			LOGGER.error("Minter effective level returned zero?");
 			return null;
 		}
 
-		// Find newest online accounts timestamp
-		long onlineAccountsTimestamp = 0;
-		for (OnlineAccountData onlineAccountData : onlineAccounts) {
-			if (onlineAccountData.getTimestamp() > onlineAccountsTimestamp)
-				onlineAccountsTimestamp = onlineAccountData.getTimestamp();
+		int height = parentBlockData.getHeight() + 1;
+		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
+		long onlineAccountsTimestamp = OnlineAccountsManager.getCurrentOnlineAccountTimestamp();
+
+		// Fetch our list of online accounts, removing any that are missing a nonce
+		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
+		onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
+
+		// After feature trigger, remove any online accounts that are level 0
+		if (height >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+			onlineAccounts.removeIf(a -> {
+				try {
+					return Account.getRewardShareEffectiveMintingLevel(repository, a.getPublicKey()) == 0;
+				} catch (DataException e) {
+					// Something went wrong, so remove the account
+					return true;
+				}
+			});
+		}
+
+		if (onlineAccounts.isEmpty()) {
+			LOGGER.debug("No online accounts - not even our own?");
+			return null;
 		}
 
 		// Load sorted list of reward share public keys into memory, so that the indexes can be obtained.
@@ -369,10 +403,6 @@ public class Block {
 		// Map using index into sorted list of reward-shares as key
 		Map<Integer, OnlineAccountData> indexedOnlineAccounts = new HashMap<>();
 		for (OnlineAccountData onlineAccountData : onlineAccounts) {
-			// Disregard online accounts with different timestamps
-			if (onlineAccountData.getTimestamp() != onlineAccountsTimestamp)
-				continue;
-
 			Integer accountIndex = getRewardShareIndex(onlineAccountData.getPublicKey(), allRewardSharePublicKeys);
 			if (accountIndex == null)
 				// Online account (reward-share) with current timestamp but reward-share cancelled
@@ -389,29 +419,43 @@ public class Block {
 		byte[] encodedOnlineAccounts = BlockTransformer.encodeOnlineAccounts(onlineAccountsSet);
 		int onlineAccountsCount = onlineAccountsSet.size();
 
-		// Concatenate online account timestamp signatures (in correct order)
-		byte[] onlineAccountsSignatures = new byte[onlineAccountsCount * Transformer.SIGNATURE_LENGTH];
-		for (int i = 0; i < onlineAccountsCount; ++i) {
-			Integer accountIndex = accountIndexes.get(i);
-			OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
-			System.arraycopy(onlineAccountData.getSignature(), 0, onlineAccountsSignatures, i * Transformer.SIGNATURE_LENGTH, Transformer.SIGNATURE_LENGTH);
+		// Collate all signatures
+		Collection<byte[]> signaturesToAggregate = indexedOnlineAccounts.values()
+				.stream()
+				.map(OnlineAccountData::getSignature)
+				.collect(Collectors.toList());
+
+		// Aggregated, single signature
+		byte[] onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
+
+		// Add nonces to the end of the online accounts signatures
+		try {
+			// Create ordered list of nonce values
+			List<Integer> nonces = new ArrayList<>();
+			for (int i = 0; i < onlineAccountsCount; ++i) {
+				Integer accountIndex = accountIndexes.get(i);
+				OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
+				nonces.add(onlineAccountData.getNonce());
+			}
+
+			// Encode the nonces to a byte array
+			byte[] encodedNonces = BlockTransformer.encodeOnlineAccountNonces(nonces);
+
+			// Append the encoded nonces to the encoded online account signatures
+			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+			outputStream.write(onlineAccountsSignatures);
+			outputStream.write(encodedNonces);
+			onlineAccountsSignatures = outputStream.toByteArray();
+		}
+		catch (TransformationException | IOException e) {
+			return null;
 		}
 
 		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData,
 				minter.getPublicKey(), encodedOnlineAccounts));
 
-		// Qortal: minter is always a reward-share, so find actual minter and get their effective minting level
-		int minterLevel = Account.getRewardShareEffectiveMintingLevel(repository, minter.getPublicKey());
-		if (minterLevel == 0) {
-			LOGGER.error("Minter effective level returned zero?");
-			return null;
-		}
-
-		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
-
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
-		int height = parentBlockData.getHeight() + 1;
 
 		int atCount = 0;
 		long atFees = 0;
@@ -1005,6 +1049,15 @@ public class Block {
 		if (onlineRewardShares == null)
 			return ValidationResult.ONLINE_ACCOUNT_UNKNOWN;
 
+		// After feature trigger, require all online account minters to be greater than level 0
+		if (this.getBlockData().getHeight() >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+			List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
+			for (ExpandedAccount account : expandedAccounts) {
+				if (account.getMintingAccount().getEffectiveMintingLevel() == 0)
+					return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+		}
+
 		// If block is past a certain age then we simply assume the signatures were correct
 		long signatureRequirementThreshold = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMinLifetime();
 		if (this.blockData.getTimestamp() < signatureRequirementThreshold)
@@ -1013,49 +1066,64 @@ public class Block {
 		if (this.blockData.getOnlineAccountsSignatures() == null || this.blockData.getOnlineAccountsSignatures().length == 0)
 			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MISSING;
 
-		if (this.blockData.getOnlineAccountsSignatures().length != onlineRewardShares.size() * Transformer.SIGNATURE_LENGTH)
+		final int signaturesLength = Transformer.SIGNATURE_LENGTH;
+		final int noncesLength = onlineRewardShares.size() * Transformer.INT_LENGTH;
+
+		// We expect nonces to be appended to the online accounts signatures
+		if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength + noncesLength)
 			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 
 		// Check signatures
 		long onlineTimestamp = this.blockData.getOnlineAccountsTimestamp();
 		byte[] onlineTimestampBytes = Longs.toByteArray(onlineTimestamp);
 
-		// If this block is much older than current online timestamp, then there's no point checking current online accounts
-		List<OnlineAccountData> currentOnlineAccounts = onlineTimestamp < NTP.getTime() - OnlineAccountsManager.ONLINE_TIMESTAMP_MODULUS
-				? null
-				: OnlineAccountsManager.getInstance().getOnlineAccounts();
-		List<OnlineAccountData> latestBlocksOnlineAccounts = OnlineAccountsManager.getInstance().getLatestBlocksOnlineAccounts();
+		byte[] encodedOnlineAccountSignatures = this.blockData.getOnlineAccountsSignatures();
 
-		// Extract online accounts' timestamp signatures from block data
-		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(this.blockData.getOnlineAccountsSignatures());
+		// Split online account signatures into signature(s) + nonces, then validate the nonces
+		byte[] extractedSignatures = BlockTransformer.extract(encodedOnlineAccountSignatures, 0, signaturesLength);
+		byte[] extractedNonces = BlockTransformer.extract(encodedOnlineAccountSignatures, signaturesLength, onlineRewardShares.size() * Transformer.INT_LENGTH);
+		encodedOnlineAccountSignatures = extractedSignatures;
 
-		// We'll build up a list of online accounts to hand over to Controller if block is added to chain
-		// and this will become latestBlocksOnlineAccounts (above) to reduce CPU load when we process next block...
-		List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
+		List<Integer> nonces = BlockTransformer.decodeOnlineAccountNonces(extractedNonces);
 
-		for (int i = 0; i < onlineAccountsSignatures.size(); ++i) {
-			byte[] signature = onlineAccountsSignatures.get(i);
+		// Build block's view of online accounts (without signatures, as we don't need them here)
+		Set<OnlineAccountData> onlineAccounts = new HashSet<>();
+		for (int i = 0; i < onlineRewardShares.size(); ++i) {
+			Integer nonce = nonces.get(i);
 			byte[] publicKey = onlineRewardShares.get(i).getRewardSharePublicKey();
 
-			OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, signature, publicKey);
-			ourOnlineAccounts.add(onlineAccountData);
-
-			// If signature is still current then no need to perform Ed25519 verify
-			if (currentOnlineAccounts != null && currentOnlineAccounts.remove(onlineAccountData))
-				// remove() returned true, so online account still current
-				// and one less entry in currentOnlineAccounts to check next time
-				continue;
-
-			// If signature was okay in latest block then no need to perform Ed25519 verify
-			if (latestBlocksOnlineAccounts != null && latestBlocksOnlineAccounts.contains(onlineAccountData))
-				continue;
-
-			if (!Crypto.verify(publicKey, signature, onlineTimestampBytes))
-				return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
+			OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, null, publicKey, nonce);
+			onlineAccounts.add(onlineAccountData);
 		}
 
+		// Remove those already validated & cached by online accounts manager - no need to re-validate them
+		OnlineAccountsManager.getInstance().removeKnown(onlineAccounts, onlineTimestamp);
+
+		// Validate the rest
+		for (OnlineAccountData onlineAccount : onlineAccounts)
+			if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount, null))
+				return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
+
+		// Cache the valid online accounts as they will likely be needed for the next block
+		OnlineAccountsManager.getInstance().addBlocksOnlineAccounts(onlineAccounts, onlineTimestamp);
+
+		// Extract online accounts' timestamp signatures from block data. Only one signature if aggregated.
+		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(encodedOnlineAccountSignatures);
+
+		// Aggregate all public keys
+		Collection<byte[]> publicKeys = onlineRewardShares.stream()
+				.map(RewardShareData::getRewardSharePublicKey)
+				.collect(Collectors.toList());
+
+		byte[] aggregatePublicKey = Qortal25519Extras.aggregatePublicKeys(publicKeys);
+
+		byte[] aggregateSignature = onlineAccountsSignatures.get(0);
+
+		// One-step verification of aggregate signature using aggregate public key
+		if (!Qortal25519Extras.verifyAggregated(aggregatePublicKey, aggregateSignature, onlineTimestampBytes))
+			return ValidationResult.ONLINE_ACCOUNT_SIGNATURE_INCORRECT;
+
 		// All online accounts valid, so save our list of online accounts for potential later use
-		this.cachedValidOnlineAccounts = ourOnlineAccounts;
 		this.cachedOnlineRewardShares = onlineRewardShares;
 
 		return ValidationResult.OK;
@@ -1202,6 +1270,7 @@ public class Block {
 				}
 			}
 		} catch (DataException e) {
+			LOGGER.info("DataException during transaction validation", e);
 			return ValidationResult.TRANSACTION_INVALID;
 		} finally {
 			// Rollback repository changes made by test-processing transactions above
@@ -1394,6 +1463,9 @@ public class Block {
 			if (this.blockData.getHeight() == 212937)
 				// Apply fix for block 212937
 				Block212937.processFix(this);
+
+			else if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height())
+				SelfSponsorshipAlgoV1Block.processAccountPenalties(this);
 		}
 
 		// We're about to (test-)process a batch of transactions,
@@ -1426,9 +1498,6 @@ public class Block {
 
 		postBlockTidy();
 
-		// Give Controller our cached, valid online accounts data (if any) to help reduce CPU load for next block
-		OnlineAccountsManager.getInstance().pushLatestBlocksOnlineAccounts(this.cachedValidOnlineAccounts);
-
 		// Log some debugging info relating to the block weight calculation
 		this.logDebugInfo();
 	}
@@ -1453,25 +1522,48 @@ public class Block {
 		// Batch update in repository
 		repository.getAccountRepository().modifyMintedBlockCounts(allUniqueExpandedAccounts.stream().map(AccountData::getAddress).collect(Collectors.toList()), +1);
 
+		// Keep track of level bumps in case we need to apply to other entries
+		Map<String, Integer> bumpedAccounts = new HashMap<>();
+
 		// Local changes and also checks for level bump
 		for (AccountData accountData : allUniqueExpandedAccounts) {
 			// Adjust count locally (in Java)
 			accountData.setBlocksMinted(accountData.getBlocksMinted() + 1);
 			LOGGER.trace(() -> String.format("Block minter %s up to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 
-			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
+			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment() + accountData.getBlocksMintedPenalty();
 
 			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
 					if (newLevel > accountData.getLevel()) {
 						// Account has increased in level!
 						accountData.setLevel(newLevel);
+						bumpedAccounts.put(accountData.getAddress(), newLevel);
 						repository.getAccountRepository().setLevel(accountData);
 						LOGGER.trace(() -> String.format("Block minter %s bumped to level %d", accountData.getAddress(), accountData.getLevel()));
 					}
 
 					break;
 				}
+		}
+
+		// Also bump other entries if need be
+		if (!bumpedAccounts.isEmpty()) {
+			for (ExpandedAccount expandedAccount : expandedAccounts) {
+				Integer newLevel = bumpedAccounts.get(expandedAccount.mintingAccountData.getAddress());
+				if (newLevel != null && expandedAccount.mintingAccountData.getLevel() != newLevel) {
+					expandedAccount.mintingAccountData.setLevel(newLevel);
+					LOGGER.trace("Also bumped {} to level {}", expandedAccount.mintingAccountData.getAddress(), newLevel);
+				}
+
+				if (!expandedAccount.isRecipientAlsoMinter) {
+					newLevel = bumpedAccounts.get(expandedAccount.recipientAccountData.getAddress());
+					if (newLevel != null && expandedAccount.recipientAccountData.getLevel() != newLevel) {
+						expandedAccount.recipientAccountData.setLevel(newLevel);
+						LOGGER.trace("Also bumped {} to level {}", expandedAccount.recipientAccountData.getAddress(), newLevel);
+					}
+				}
+			}
 		}
 	}
 
@@ -1632,6 +1724,9 @@ public class Block {
 				// Revert fix for block 212937
 				Block212937.orphanFix(this);
 
+			else if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height())
+				SelfSponsorshipAlgoV1Block.orphanAccountPenalties(this);
+
 			// Block rewards, including transaction fees, removed after transactions undone
 			orphanBlockRewards();
 
@@ -1644,9 +1739,6 @@ public class Block {
 		this.blockData.setHeight(null);
 
 		postBlockTidy();
-
-		// Remove any cached, valid online accounts data from Controller
-		OnlineAccountsManager.getInstance().popLatestBlocksOnlineAccounts();
 	}
 
 	protected void orphanTransactionsFromBlock() throws DataException {
@@ -1763,7 +1855,7 @@ public class Block {
 			accountData.setBlocksMinted(accountData.getBlocksMinted() - 1);
 			LOGGER.trace(() -> String.format("Block minter %s down to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 
-			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
+			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment() + accountData.getBlocksMintedPenalty();
 
 			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
@@ -1883,13 +1975,72 @@ public class Block {
 		final List<ExpandedAccount> onlineFounderAccounts = expandedAccounts.stream().filter(expandedAccount -> expandedAccount.isMinterFounder).collect(Collectors.toList());
 		final boolean haveFounders = !onlineFounderAccounts.isEmpty();
 
+		// Select the correct set of share bins based on block height
+		List<AccountLevelShareBin> accountLevelShareBinsForBlock = (this.blockData.getHeight() >= BlockChain.getInstance().getSharesByLevelV2Height()) ?
+				BlockChain.getInstance().getAccountLevelShareBinsV2() : BlockChain.getInstance().getAccountLevelShareBinsV1();
+
 		// Determine reward candidates based on account level
-		List<AccountLevelShareBin> accountLevelShareBins = BlockChain.getInstance().getAccountLevelShareBins();
-		for (int binIndex = 0; binIndex < accountLevelShareBins.size(); ++binIndex) {
-			// Find all accounts in share bin. getShareBin() returns null for minter accounts that are also founders, so they are effectively filtered out.
+		// This needs a deep copy, so the shares can be modified when tiers aren't activated yet
+		List<AccountLevelShareBin> accountLevelShareBins = new ArrayList<>();
+		for (AccountLevelShareBin accountLevelShareBin : accountLevelShareBinsForBlock) {
+			accountLevelShareBins.add((AccountLevelShareBin) accountLevelShareBin.clone());
+		}
+
+		Map<Integer, List<ExpandedAccount>> accountsForShareBin = new HashMap<>();
+
+		// We might need to combine some share bins if they haven't reached the minimum number of minters yet
+		for (int binIndex = accountLevelShareBins.size()-1; binIndex >= 0; --binIndex) {
 			AccountLevelShareBin accountLevelShareBin = accountLevelShareBins.get(binIndex);
-			// Object reference compare is OK as all references are read-only from blockchain config.
-			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.getShareBin(this.blockData.getHeight()) == accountLevelShareBin).collect(Collectors.toList());
+
+			// Find all accounts in share bin. getShareBin() returns null for minter accounts that are also founders, so they are effectively filtered out.
+			List<ExpandedAccount> binnedAccounts = expandedAccounts.stream().filter(accountInfo -> accountInfo.hasShareBin(accountLevelShareBin, this.blockData.getHeight())).collect(Collectors.toList());
+			// Add any accounts that have been moved down from a higher tier
+			List<ExpandedAccount> existingBinnedAccounts = accountsForShareBin.get(binIndex);
+			if (existingBinnedAccounts != null)
+				binnedAccounts.addAll(existingBinnedAccounts);
+
+			// Logic below may only apply to higher levels, and only for share bins with a specific range of online accounts
+			if (accountLevelShareBin.levels.get(0) < BlockChain.getInstance().getShareBinActivationMinLevel() ||
+					binnedAccounts.isEmpty() || binnedAccounts.size() >= BlockChain.getInstance().getMinAccountsToActivateShareBin()) {
+				// Add all accounts for this share bin to the accountsForShareBin list
+				accountsForShareBin.put(binIndex, binnedAccounts);
+				continue;
+			}
+
+			// Share bin contains more than one, but less than the minimum number of minters. We treat this share bin
+			// as not activated yet. In these cases, the rewards and minters are combined and paid out to the previous
+			// share bin, to prevent a single or handful of accounts receiving the entire rewards for a share bin.
+			//
+			// Example:
+			//
+			// - Share bin for levels 5 and 6 has 100 minters
+			// - Share bin for levels 7 and 8 has 10 minters
+			//
+			// This is below the minimum of 30, so share bins are reconstructed as follows:
+			//
+			// - Share bin for levels 5 and 6 now contains 110 minters
+			// - Share bin for levels 7 and 8 now contains 0 minters
+			// - Share bin for levels 5 and 6 now pays out rewards for levels 5, 6, 7, and 8
+			// - Share bin for levels 7 and 8 pays zero rewards
+			//
+			// This process is iterative, so will combine several tiers if needed.
+
+			// Designate this share bin as empty
+			accountsForShareBin.put(binIndex, new ArrayList<>());
+
+			// Move the accounts originally intended for this share bin to the previous one
+			accountsForShareBin.put(binIndex - 1, binnedAccounts);
+
+			// Move the block reward from this share bin to the previous one
+			AccountLevelShareBin previousShareBin = accountLevelShareBins.get(binIndex - 1);
+			previousShareBin.share += accountLevelShareBin.share;
+			accountLevelShareBin.share = 0L;
+		}
+
+		// Now loop through (potentially modified) share bins and determine the reward candidates
+		for (int binIndex = 0; binIndex < accountLevelShareBins.size(); ++binIndex) {
+			AccountLevelShareBin accountLevelShareBin = accountLevelShareBins.get(binIndex);
+			List<ExpandedAccount> binnedAccounts = accountsForShareBin.get(binIndex);
 
 			// No online accounts in this bin? Skip to next one
 			if (binnedAccounts.isEmpty())
@@ -1907,7 +2058,7 @@ public class Block {
 		// Fetch list of legacy QORA holders who haven't reached their cap of QORT reward.
 		List<EligibleQoraHolderData> qoraHolders = this.repository.getAccountRepository().getEligibleLegacyQoraHolders(isProcessingNotOrphaning ? null : this.blockData.getHeight());
 		final boolean haveQoraHolders = !qoraHolders.isEmpty();
-		final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShare();
+		final long qoraHoldersShare = BlockChain.getInstance().getQoraHoldersShareAtHeight(this.blockData.getHeight());
 
 		// Perform account-level-based reward scaling if appropriate
 		if (!haveFounders) {

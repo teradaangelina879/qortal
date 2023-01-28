@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -40,6 +41,7 @@ public class AutoUpdate extends Thread {
 
 	public static final String JAR_FILENAME = "qortal.jar";
 	public static final String NEW_JAR_FILENAME = "new-" + JAR_FILENAME;
+	public static final String AGENTLIB_JVM_HOLDER_ARG = "-DQORTAL_agentlib=";
 
 	private static final Logger LOGGER = LogManager.getLogger(AutoUpdate.class);
 	private static final long CHECK_INTERVAL = 20 * 60 * 1000L; // ms
@@ -243,6 +245,11 @@ public class AutoUpdate extends Thread {
 			// JVM arguments
 			javaCmd.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
 
+			// Disable, but retain, any -agentlib JVM arg as sub-process might fail if it tries to reuse same port
+			javaCmd = javaCmd.stream()
+					.map(arg -> arg.replace("-agentlib", AGENTLIB_JVM_HOLDER_ARG))
+					.collect(Collectors.toList());
+
 			// Remove JNI options as they won't be supported by command-line 'java'
 			// These are typically added by the AdvancedInstaller Java launcher EXE
 			javaCmd.removeAll(Arrays.asList("abort", "exit", "vfprintf"));
@@ -261,10 +268,19 @@ public class AutoUpdate extends Thread {
 					Translator.INSTANCE.translate("SysTray", "APPLYING_UPDATE_AND_RESTARTING"),
 					MessageType.INFO);
 
-			new ProcessBuilder(javaCmd).start();
+			ProcessBuilder processBuilder = new ProcessBuilder(javaCmd);
+
+			// New process will inherit our stdout and stderr
+			processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+			processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+
+			Process process = processBuilder.start();
+
+			// Nothing to pipe to new process, so close output stream (process's stdin)
+			process.getOutputStream().close();
 
 			return true; // applying update OK
-		} catch (IOException e) {
+		} catch (Exception e) {
 			LOGGER.error(String.format("Failed to apply update: %s", e.getMessage()));
 
 			try {

@@ -28,6 +28,9 @@ public class PeerData {
 	private Long addedWhen;
 	private String addedBy;
 
+	/** The number of consecutive times we failed to sync with this peer */
+	private int failedSyncCount = 0;
+
 	// Constructors
 
 	// necessary for JAXB serialization
@@ -90,6 +93,18 @@ public class PeerData {
 
 	public String getAddedBy() {
 		return this.addedBy;
+	}
+
+	public int getFailedSyncCount() {
+		return this.failedSyncCount;
+	}
+
+	public void setFailedSyncCount(int failedSyncCount) {
+		this.failedSyncCount = failedSyncCount;
+	}
+
+	public void incrementFailedSyncCount() {
+		this.failedSyncCount++;
 	}
 
 	// Pretty peerAddress getter for JAXB

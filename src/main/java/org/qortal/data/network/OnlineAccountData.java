@@ -5,6 +5,7 @@ import java.util.Arrays;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlTransient;
 
 import org.qortal.account.PublicKeyAccount;
 
@@ -15,6 +16,10 @@ public class OnlineAccountData {
 	protected long timestamp;
 	protected byte[] signature;
 	protected byte[] publicKey;
+	protected Integer nonce;
+
+	@XmlTransient
+	private int hash;
 
 	// Constructors
 
@@ -22,10 +27,15 @@ public class OnlineAccountData {
 	protected OnlineAccountData() {
 	}
 
-	public OnlineAccountData(long timestamp, byte[] signature, byte[] publicKey) {
+	public OnlineAccountData(long timestamp, byte[] signature, byte[] publicKey, Integer nonce) {
 		this.timestamp = timestamp;
 		this.signature = signature;
 		this.publicKey = publicKey;
+		this.nonce = nonce;
+	}
+
+	public OnlineAccountData(long timestamp, byte[] signature, byte[] publicKey) {
+		this(timestamp, signature, publicKey, null);
 	}
 
 	public long getTimestamp() {
@@ -38,6 +48,10 @@ public class OnlineAccountData {
 
 	public byte[] getPublicKey() {
 		return this.publicKey;
+	}
+
+	public Integer getNonce() {
+		return this.nonce;
 	}
 
 	// For JAXB
@@ -62,20 +76,23 @@ public class OnlineAccountData {
 		if (otherOnlineAccountData.timestamp != this.timestamp)
 			return false;
 
-		// Signature more likely to be unique than public key
-		if (!Arrays.equals(otherOnlineAccountData.signature, this.signature))
-			return false;
-
 		if (!Arrays.equals(otherOnlineAccountData.publicKey, this.publicKey))
 			return false;
+
+		// We don't compare signature because it's not our remit to verify and newer aggregate signatures use random nonces
 
 		return true;
 	}
 
 	@Override
 	public int hashCode() {
-		// Pretty lazy implementation
-		return (int) this.timestamp;
+		int h = this.hash;
+		if (h == 0) {
+			this.hash = h = Long.hashCode(this.timestamp)
+					^ Arrays.hashCode(this.publicKey);
+			// We don't use signature because newer aggregate signatures use random nonces
+		}
+		return h;
 	}
 
 }

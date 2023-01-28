@@ -4,7 +4,9 @@ import java.util.Collections;
 import java.util.List;
 
 import org.qortal.account.Account;
+import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qortal.asset.Asset;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.transaction.PublicizeTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -26,7 +28,7 @@ public class PublicizeTransaction extends Transaction {
 	/** If time difference between transaction and now is greater than this then we don't verify proof-of-work. */
 	public static final long HISTORIC_THRESHOLD = 2 * 7 * 24 * 60 * 60 * 1000L;
 	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
-	public static final int POW_DIFFICULTY = 15; // leading zero bits
+	public static final int POW_DIFFICULTY = 14; // leading zero bits
 
 	// Constructors
 
@@ -101,6 +103,12 @@ public class PublicizeTransaction extends Transaction {
 		if (NTP.getTime() - this.transactionData.getTimestamp() < HISTORIC_THRESHOLD)
 			if (!verifyNonce())
 				return ValidationResult.INCORRECT_NONCE;
+
+		// Validate fee if one has been included
+		PublicKeyAccount creator = this.getCreator();
+		if (this.transactionData.getFee() > 0)
+			if (creator.getConfirmedBalance(Asset.QORT) < this.transactionData.getFee())
+				return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
 	}

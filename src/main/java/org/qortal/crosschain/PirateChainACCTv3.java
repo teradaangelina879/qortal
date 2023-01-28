@@ -2,8 +2,6 @@ package org.qortal.crosschain;
 
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.ciyam.at.*;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
@@ -29,7 +27,7 @@ import static org.ciyam.at.OpCode.calcOffset;
  * 
  * <p>
  * <ul>
- * <li>Bob generates Dogecoin & Qortal 'trade' keys
+ * <li>Bob generates PirateChain & Qortal 'trade' keys
  * 		<ul>
  * 			<li>private key required to sign P2SH redeem tx</li>
  * 			<li>private key could be used to create 'secret' (e.g. double-SHA256)</li>
@@ -42,12 +40,12 @@ import static org.ciyam.at.OpCode.calcOffset;
  * </li>
  * <li>Alice finds Qortal AT and wants to trade
  * 		<ul>
- * 			<li>Alice generates Dogecoin & Qortal 'trade' keys</li>
- * 			<li>Alice funds Dogecoin P2SH-A</li>
+ * 			<li>Alice generates PirateChain & Qortal 'trade' keys</li>
+ * 			<li>Alice funds PirateChain P2SH-A</li>
  * 			<li>Alice sends 'offer' MESSAGE to Bob from her Qortal trade address, containing:
  * 				<ul>
  * 					<li>hash-of-secret-A</li>
- * 					<li>her 'trade' Dogecoin PKH</li>
+ * 					<li>her 'trade' Pirate Chain public key</li>
  * 				</ul>
  * 			</li>
  * 		</ul>
@@ -58,7 +56,7 @@ import static org.ciyam.at.OpCode.calcOffset;
  * 			<li>Sends 'trade' MESSAGE to Qortal AT from his trade address, containing:
  * 				<ul>
  * 					<li>Alice's trade Qortal address</li>
- * 					<li>Alice's trade Dogecoin PKH</li>
+ * 					<li>Alice's trade Pirate Chain public key</li>
  * 					<li>hash-of-secret-A</li>
  * 				</ul>
  * 			</li>
@@ -77,48 +75,46 @@ import static org.ciyam.at.OpCode.calcOffset;
  * </li>
  * <li>Bob checks AT, extracts secret-A
  * 		<ul>
- * 			<li>Bob redeems P2SH-A using his Dogecoin trade key and secret-A</li>
- * 			<li>P2SH-A DOGE funds end up at Dogecoin address determined by redeem transaction output(s)</li>
+ * 			<li>Bob redeems P2SH-A using his PirateChain trade key and secret-A</li>
+ * 			<li>P2SH-A ARRR funds end up at PirateChain address determined by redeem transaction output(s)</li>
  * 		</ul>
  * </li>
  * </ul>
  */
-public class DogecoinACCTv2 implements ACCT {
+public class PirateChainACCTv3 implements ACCT {
 
-	private static final Logger LOGGER = LogManager.getLogger(DogecoinACCTv2.class);
-
-	public static final String NAME = DogecoinACCTv2.class.getSimpleName();
-	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("6fff38d6eeb06568a9c879c5628527730319844aa0de53f5f4ffab5506efe885").asBytes(); // SHA256 of AT code bytes
+	public static final String NAME = PirateChainACCTv3.class.getSimpleName();
+	public static final byte[] CODE_BYTES_HASH = HashCode.fromString("fc2818ac0819ab658a065ab0d050e75f167921e2dce5969b9b7741e47e477d83").asBytes(); // SHA256 of AT code bytes
 
 	public static final int SECRET_LENGTH = 32;
 
 	/** <b>Value</b> offset into AT segment where 'mode' variable (long) is stored. (Multiply by MachineState.VALUE_SIZE for byte offset). */
-	private static final int MODE_VALUE_OFFSET = 61;
+	private static final int MODE_VALUE_OFFSET = 68;
 	/** <b>Byte</b> offset into AT state data where 'mode' variable (long) is stored. */
 	public static final int MODE_BYTE_OFFSET = MachineState.HEADER_LENGTH + (MODE_VALUE_OFFSET * MachineState.VALUE_SIZE);
 
 	public static class OfferMessageData {
-		public byte[] partnerDogecoinPKH;
+		public byte[] partnerPirateChainPublicKey;
 		public byte[] hashOfSecretA;
 		public long lockTimeA;
 	}
-	public static final int OFFER_MESSAGE_LENGTH = 20 /*partnerDogecoinPKH*/ + 20 /*hashOfSecretA*/ + 8 /*lockTimeA*/;
+	public static final int OFFER_MESSAGE_LENGTH = 33 /*partnerPirateChainPublicKey*/ + 20 /*hashOfSecretA*/ + 8 /*lockTimeA*/;
 	public static final int TRADE_MESSAGE_LENGTH = 32 /*partner's Qortal trade address (padded from 25 to 32)*/
-			+ 24 /*partner's Dogecoin PKH (padded from 20 to 24)*/
+			+ 40 /*partner's Pirate Chain public key (padded from 33 to 40)*/
 			+ 8 /*AT trade timeout (minutes)*/
 			+ 24 /*hash of secret-A (padded from 20 to 24)*/
 			+ 8 /*lockTimeA*/;
 	public static final int REDEEM_MESSAGE_LENGTH = 32 /*secret-A*/ + 32 /*partner's Qortal receiving address padded from 25 to 32*/;
 	public static final int CANCEL_MESSAGE_LENGTH = 32 /*AT creator's Qortal address*/;
 
-	private static DogecoinACCTv2 instance;
+	private static PirateChainACCTv3 instance;
 
-	private DogecoinACCTv2() {
+	private PirateChainACCTv3() {
 	}
 
-	public static synchronized DogecoinACCTv2 getInstance() {
+	public static synchronized PirateChainACCTv3 getInstance() {
 		if (instance == null)
-			instance = new DogecoinACCTv2();
+			instance = new PirateChainACCTv3();
 
 		return instance;
 	}
@@ -135,7 +131,7 @@ public class DogecoinACCTv2 implements ACCT {
 
 	@Override
 	public ForeignBlockchain getBlockchain() {
-		return Dogecoin.getInstance();
+		return PirateChain.getInstance();
 	}
 
 	/**
@@ -145,14 +141,14 @@ public class DogecoinACCTv2 implements ACCT {
 	 * 32-byte secret to the AT, before the AT automatically refunds the AT's creator.
 	 * 
 	 * @param creatorTradeAddress AT creator's trade Qortal address
-	 * @param dogecoinPublicKeyHash 20-byte HASH160 of creator's trade Dogecoin public key
+	 * @param pirateChainPublicKeyHash 33-byte creator's trade PirateChain public key
 	 * @param qortAmount how much QORT to pay trade partner if they send correct 32-byte secrets to AT
-	 * @param dogecoinAmount how much DOGE the AT creator is expecting to trade
+	 * @param arrrAmount how much ARRR the AT creator is expecting to trade
 	 * @param tradeTimeout suggested timeout for entire trade
 	 */
-	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] dogecoinPublicKeyHash, long qortAmount, long dogecoinAmount, int tradeTimeout) {
-		if (dogecoinPublicKeyHash.length != 20)
-			throw new IllegalArgumentException("Dogecoin public key hash should be 20 bytes");
+	public static byte[] buildQortalAT(String creatorTradeAddress, byte[] pirateChainPublicKeyHash, long qortAmount, long arrrAmount, int tradeTimeout) {
+		if (pirateChainPublicKeyHash.length != 33)
+			throw new IllegalArgumentException("PirateChain public key hash should be 33 bytes");
 
 		// Labels for data segment addresses
 		int addrCounter = 0;
@@ -164,11 +160,11 @@ public class DogecoinACCTv2 implements ACCT {
 		final int addrCreatorTradeAddress3 = addrCounter++;
 		final int addrCreatorTradeAddress4 = addrCounter++;
 
-		final int addrDogecoinPublicKeyHash = addrCounter;
-		addrCounter += 4;
+		final int addrPirateChainPublicKeyHash = addrCounter;
+		addrCounter += 5;
 
 		final int addrQortAmount = addrCounter++;
-		final int addrDogecoinAmount = addrCounter++;
+		final int addrarrrAmount = addrCounter++;
 		final int addrTradeTimeout = addrCounter++;
 
 		final int addrMessageTxnType = addrCounter++;
@@ -179,8 +175,10 @@ public class DogecoinACCTv2 implements ACCT {
 		final int addrQortalPartnerAddressPointer = addrCounter++;
 		final int addrMessageSenderPointer = addrCounter++;
 
-		final int addrTradeMessagePartnerDogecoinPKHOffset = addrCounter++;
-		final int addrPartnerDogecoinPKHPointer = addrCounter++;
+		final int addrTradeMessagePartnerPirateChainPublicKeyFirst32BytesOffset = addrCounter++;
+		final int addrTradeMessagePartnerPirateChainPublicKeyLastByteOffset = addrCounter++; // Remainder of public key, plus timeout
+		final int addrPartnerPirateChainPublicKeyFirst32BytesPointer = addrCounter++;
+		final int addrPartnerPirateChainPublicKeyLastBytePointer = addrCounter++; // Remainder of public key
 		final int addrTradeMessageHashOfSecretAOffset = addrCounter++;
 		final int addrHashOfSecretAPointer = addrCounter++;
 
@@ -226,8 +224,11 @@ public class DogecoinACCTv2 implements ACCT {
 		final int addrHashOfSecretA = addrCounter;
 		addrCounter += 4;
 
-		final int addrPartnerDogecoinPKH = addrCounter;
+		final int addrPartnerPirateChainPublicKeyFirst32Bytes = addrCounter;
 		addrCounter += 4;
+
+		final int addrPartnerPirateChainPublicKeyLastByte = addrCounter;
+		addrCounter += 4; // We retrieve using GET_B_IND, so need to allow space for the full 32 bytes
 
 		final int addrPartnerReceivingAddress = addrCounter;
 		addrCounter += 4;
@@ -243,17 +244,17 @@ public class DogecoinACCTv2 implements ACCT {
 		byte[] creatorTradeAddressBytes = Base58.decode(creatorTradeAddress);
 		dataByteBuffer.put(Bytes.ensureCapacity(creatorTradeAddressBytes, 32, 0));
 
-		// Dogecoin public key hash
-		assert dataByteBuffer.position() == addrDogecoinPublicKeyHash * MachineState.VALUE_SIZE : "addrDogecoinPublicKeyHash incorrect";
-		dataByteBuffer.put(Bytes.ensureCapacity(dogecoinPublicKeyHash, 32, 0));
+		// PirateChain public key hash
+		assert dataByteBuffer.position() == addrPirateChainPublicKeyHash * MachineState.VALUE_SIZE : "addrPirateChainPublicKeyHash incorrect";
+		dataByteBuffer.put(Bytes.ensureCapacity(pirateChainPublicKeyHash, 40, 0));
 
 		// Redeem Qort amount
 		assert dataByteBuffer.position() == addrQortAmount * MachineState.VALUE_SIZE : "addrQortAmount incorrect";
 		dataByteBuffer.putLong(qortAmount);
 
-		// Expected Dogecoin amount
-		assert dataByteBuffer.position() == addrDogecoinAmount * MachineState.VALUE_SIZE : "addrDogecoinAmount incorrect";
-		dataByteBuffer.putLong(dogecoinAmount);
+		// Expected PirateChain amount
+		assert dataByteBuffer.position() == addrarrrAmount * MachineState.VALUE_SIZE : "addrarrrAmount incorrect";
+		dataByteBuffer.putLong(arrrAmount);
 
 		// Suggested trade timeout (minutes)
 		assert dataByteBuffer.position() == addrTradeTimeout * MachineState.VALUE_SIZE : "addrTradeTimeout incorrect";
@@ -283,17 +284,25 @@ public class DogecoinACCTv2 implements ACCT {
 		assert dataByteBuffer.position() == addrMessageSenderPointer * MachineState.VALUE_SIZE : "addrMessageSenderPointer incorrect";
 		dataByteBuffer.putLong(addrMessageSender1);
 
-		// Offset into 'trade' MESSAGE data payload for extracting partner's Dogecoin PKH
-		assert dataByteBuffer.position() == addrTradeMessagePartnerDogecoinPKHOffset * MachineState.VALUE_SIZE : "addrTradeMessagePartnerDogecoinPKHOffset incorrect";
+		// Offset into 'trade' MESSAGE data payload for extracting first 32 bytes of partner's Pirate Chain public key
+		assert dataByteBuffer.position() == addrTradeMessagePartnerPirateChainPublicKeyFirst32BytesOffset * MachineState.VALUE_SIZE : "addrTradeMessagePartnerPirateChainPublicKeyFirst32BytesOffset incorrect";
 		dataByteBuffer.putLong(32L);
 
-		// Index into data segment of partner's Dogecoin PKH, used by GET_B_IND
-		assert dataByteBuffer.position() == addrPartnerDogecoinPKHPointer * MachineState.VALUE_SIZE : "addrPartnerDogecoinPKHPointer incorrect";
-		dataByteBuffer.putLong(addrPartnerDogecoinPKH);
+		// Offset into 'trade' MESSAGE data payload for extracting last byte of public key
+		assert dataByteBuffer.position() == addrTradeMessagePartnerPirateChainPublicKeyLastByteOffset * MachineState.VALUE_SIZE : "addrTradeMessagePartnerPirateChainPublicKeyLastByteOffset incorrect";
+		dataByteBuffer.putLong(64L);
+
+		// Index into data segment of partner's Pirate Chain public key, used by GET_B_IND
+		assert dataByteBuffer.position() == addrPartnerPirateChainPublicKeyFirst32BytesPointer * MachineState.VALUE_SIZE : "addrPartnerPirateChainPublicKeyFirst32BytesPointer incorrect";
+		dataByteBuffer.putLong(addrPartnerPirateChainPublicKeyFirst32Bytes);
+
+		// Index into data segment of remainder of partner's Pirate Chain public key, used by GET_B_IND
+		assert dataByteBuffer.position() == addrPartnerPirateChainPublicKeyLastBytePointer * MachineState.VALUE_SIZE : "addrPartnerPirateChainPublicKeyLastBytePointer incorrect";
+		dataByteBuffer.putLong(addrPartnerPirateChainPublicKeyLastByte);
 
 		// Offset into 'trade' MESSAGE data payload for extracting hash-of-secret-A
 		assert dataByteBuffer.position() == addrTradeMessageHashOfSecretAOffset * MachineState.VALUE_SIZE : "addrTradeMessageHashOfSecretAOffset incorrect";
-		dataByteBuffer.putLong(64L);
+		dataByteBuffer.putLong(80L);
 
 		// Index into data segment to hash of secret A, used by GET_B_IND
 		assert dataByteBuffer.position() == addrHashOfSecretAPointer * MachineState.VALUE_SIZE : "addrHashOfSecretAPointer incorrect";
@@ -337,9 +346,6 @@ public class DogecoinACCTv2 implements ACCT {
 
 			try {
 				/* Initialization */
-
-				/* NOP - to ensure DOGECOIN ACCT is unique */
-				codeByteBuffer.put(OpCode.NOP.compile());
 
 				// Use AT creation 'timestamp' as starting point for finding transactions sent to AT
 				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_CREATION_TIMESTAMP, addrLastTxnTimestamp));
@@ -429,12 +435,17 @@ public class DogecoinACCTv2 implements ACCT {
 				// Save B register into data segment starting at addrQortalPartnerAddress1 (as pointed to by addrQortalPartnerAddressPointer)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrQortalPartnerAddressPointer));
 
-				// Extract trade partner's Dogecoin public key hash (PKH) from message into B
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrTradeMessagePartnerDogecoinPKHOffset));
-				// Store partner's Dogecoin PKH (we only really use values from B1-B3)
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrPartnerDogecoinPKHPointer));
-				// Extract AT trade timeout (minutes) (from B4)
-				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_B4, addrRefundTimeout));
+				// Extract first 32 bytes of trade partner's Pirate Chain public key from message into B
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrTradeMessagePartnerPirateChainPublicKeyFirst32BytesOffset));
+				// Store first 32 bytes of partner's Pirate Chain public key
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrPartnerPirateChainPublicKeyFirst32BytesPointer));
+
+				// Extract last byte of public key, plus trade timeout, from message into B
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrTradeMessagePartnerPirateChainPublicKeyLastByteOffset));
+				// Store last byte of partner's Pirate Chain public key
+				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.GET_B_IND, addrPartnerPirateChainPublicKeyLastBytePointer));
+				// Extract AT trade timeout (minutes) (from B2)
+				codeByteBuffer.put(OpCode.EXT_FUN_RET.compile(FunctionCode.GET_B2, addrRefundTimeout));
 
 				// Grab next 32 bytes
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.PUT_PARTIAL_MESSAGE_FROM_TX_IN_A_INTO_B.value, addrTradeMessageHashOfSecretAOffset));
@@ -464,9 +475,6 @@ public class DogecoinACCTv2 implements ACCT {
 
 				/* Transaction processing loop */
 				labelRedeemTxnLoop = codeByteBuffer.position();
-
-				/* Sleep until message arrives */
-				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(QortalFunctionCode.SLEEP_UNTIL_MESSAGE.value, addrLastTxnTimestamp));
 
 				// Find next transaction to this AT since the last one (if any)
 				codeByteBuffer.put(OpCode.EXT_FUN_DAT.compile(FunctionCode.PUT_TX_AFTER_TIMESTAMP_INTO_A, addrLastTxnTimestamp));
@@ -546,7 +554,7 @@ public class DogecoinACCTv2 implements ACCT {
 				// We're finished forever (finishing auto-refunds remaining balance to AT creator)
 				codeByteBuffer.put(OpCode.FIN_IMD.compile());
 			} catch (CompilationException e) {
-				throw new IllegalStateException("Unable to compile DOGE-QORT ACCT?", e);
+				throw new IllegalStateException("Unable to compile ARRR-QORT ACCT?", e);
 			}
 		}
 
@@ -555,7 +563,7 @@ public class DogecoinACCTv2 implements ACCT {
 		byte[] codeBytes = new byte[codeByteBuffer.limit()];
 		codeByteBuffer.get(codeBytes);
 
-		assert Arrays.equals(Crypto.digest(codeBytes), DogecoinACCTv2.CODE_BYTES_HASH)
+		assert Arrays.equals(Crypto.digest(codeBytes), PirateChainACCTv3.CODE_BYTES_HASH)
 			: String.format("BTCACCT.CODE_BYTES_HASH mismatch: expected %s, actual %s", HashCode.fromBytes(CODE_BYTES_HASH), HashCode.fromBytes(Crypto.digest(codeBytes)));
 
 		final short ciyamAtVersion = 2;
@@ -593,7 +601,7 @@ public class DogecoinACCTv2 implements ACCT {
 
 		CrossChainTradeData tradeData = new CrossChainTradeData();
 
-		tradeData.foreignBlockchain = SupportedBlockchain.DOGECOIN.name();
+		tradeData.foreignBlockchain = SupportedBlockchain.PIRATECHAIN.name();
 		tradeData.acctName = NAME;
 
 		tradeData.qortalAtAddress = atAddress;
@@ -614,10 +622,10 @@ public class DogecoinACCTv2 implements ACCT {
 		tradeData.qortalCreatorTradeAddress = Base58.encode(addressBytes);
 		dataByteBuffer.position(dataByteBuffer.position() + 32 - addressBytes.length);
 
-		// Creator's Dogecoin/foreign public key hash
-		tradeData.creatorForeignPKH = new byte[20];
+		// Creator's PirateChain/foreign public key (full 33 bytes, not hashed, so ignore references to "PKH")
+		tradeData.creatorForeignPKH = new byte[33];
 		dataByteBuffer.get(tradeData.creatorForeignPKH);
-		dataByteBuffer.position(dataByteBuffer.position() + 32 - tradeData.creatorForeignPKH.length); // skip to 32 bytes
+		dataByteBuffer.position(dataByteBuffer.position() + 40 - tradeData.creatorForeignPKH.length); // skip to 40 bytes
 
 		// We don't use secret-B
 		tradeData.hashOfSecretB = null;
@@ -625,7 +633,7 @@ public class DogecoinACCTv2 implements ACCT {
 		// Redeem payout
 		tradeData.qortAmount = dataByteBuffer.getLong();
 
-		// Expected DOGE amount
+		// Expected ARRR amount
 		tradeData.expectedForeignAmount = dataByteBuffer.getLong();
 
 		// Trade timeout
@@ -649,10 +657,16 @@ public class DogecoinACCTv2 implements ACCT {
 		// Skip pointer to message sender
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
-		// Skip 'trade' message data offset for partner's Dogecoin PKH
+		// Skip 'trade' message data offset for first 32 bytes of partner's Pirate Chain public key
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
-		// Skip pointer to partner's Dogecoin PKH
+		// Skip 'trade' message data offset for last 32 byte of partner's Pirate Chain public key
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip pointer to partner's Pirate Chain public key (first 32 bytes)
+		dataByteBuffer.position(dataByteBuffer.position() + 8);
+
+		// Skip pointer to partner's Pirate Chain public key (last byte)
 		dataByteBuffer.position(dataByteBuffer.position() + 8);
 
 		// Skip 'trade' message data offset for hash-of-secret-A
@@ -718,10 +732,10 @@ public class DogecoinACCTv2 implements ACCT {
 		dataByteBuffer.get(hashOfSecretA);
 		dataByteBuffer.position(dataByteBuffer.position() + 32 - hashOfSecretA.length); // skip to 32 bytes
 
-		// Potential partner's Dogecoin PKH
-		byte[] partnerDogecoinPKH = new byte[20];
-		dataByteBuffer.get(partnerDogecoinPKH);
-		dataByteBuffer.position(dataByteBuffer.position() + 32 - partnerDogecoinPKH.length); // skip to 32 bytes
+		// Potential partner's PirateChain public key
+		byte[] partnerPirateChainPublicKey = new byte[33];
+		dataByteBuffer.get(partnerPirateChainPublicKey);
+		dataByteBuffer.position(dataByteBuffer.position() + 64 - partnerPirateChainPublicKey.length); // skip to 64 bytes
 
 		// Partner's receiving address (if present)
 		byte[] partnerReceivingAddress = new byte[25];
@@ -740,7 +754,7 @@ public class DogecoinACCTv2 implements ACCT {
 			tradeData.tradeRefundHeight = new Timestamp(tradeRefundTimestamp).blockHeight;
 			tradeData.qortalPartnerAddress = qortalRecipient;
 			tradeData.hashOfSecretA = hashOfSecretA;
-			tradeData.partnerForeignPKH = partnerDogecoinPKH;
+			tradeData.partnerForeignPKH = partnerPirateChainPublicKey; // Not hashed
 			tradeData.lockTimeA = lockTimeA;
 
 			if (mode == AcctMode.REDEEMED)
@@ -755,9 +769,9 @@ public class DogecoinACCTv2 implements ACCT {
 	}
 
 	/** Returns 'offer' MESSAGE payload for trade partner to send to AT creator's trade address. */
-	public static byte[] buildOfferMessage(byte[] partnerBitcoinPKH, byte[] hashOfSecretA, int lockTimeA) {
+	public static byte[] buildOfferMessage(byte[] partnerBitcoinPublicKey, byte[] hashOfSecretA, int lockTimeA) {
 		byte[] lockTimeABytes = BitTwiddling.toBEByteArray((long) lockTimeA);
-		return Bytes.concat(partnerBitcoinPKH, hashOfSecretA, lockTimeABytes);
+		return Bytes.concat(partnerBitcoinPublicKey, hashOfSecretA, lockTimeABytes);
 	}
 
 	/** Returns info extracted from 'offer' MESSAGE payload sent by trade partner to AT creator's trade address, or null if not valid. */
@@ -766,25 +780,25 @@ public class DogecoinACCTv2 implements ACCT {
 			return null;
 
 		OfferMessageData offerMessageData = new OfferMessageData();
-		offerMessageData.partnerDogecoinPKH = Arrays.copyOfRange(messageData, 0, 20);
-		offerMessageData.hashOfSecretA = Arrays.copyOfRange(messageData, 20, 40);
-		offerMessageData.lockTimeA = BitTwiddling.longFromBEBytes(messageData, 40);
+		offerMessageData.partnerPirateChainPublicKey = Arrays.copyOfRange(messageData, 0, 33);
+		offerMessageData.hashOfSecretA = Arrays.copyOfRange(messageData, 33, 53);
+		offerMessageData.lockTimeA = BitTwiddling.longFromBEBytes(messageData, 53);
 
 		return offerMessageData;
 	}
 
 	/** Returns 'trade' MESSAGE payload for AT creator to send to AT. */
-	public static byte[] buildTradeMessage(String partnerQortalTradeAddress, byte[] partnerBitcoinPKH, byte[] hashOfSecretA, int lockTimeA, int refundTimeout) {
+	public static byte[] buildTradeMessage(String partnerQortalTradeAddress, byte[] partnerBitcoinPublicKey, byte[] hashOfSecretA, int lockTimeA, int refundTimeout) {
 		byte[] data = new byte[TRADE_MESSAGE_LENGTH];
 		byte[] partnerQortalAddressBytes = Base58.decode(partnerQortalTradeAddress);
 		byte[] lockTimeABytes = BitTwiddling.toBEByteArray((long) lockTimeA);
 		byte[] refundTimeoutBytes = BitTwiddling.toBEByteArray((long) refundTimeout);
 
 		System.arraycopy(partnerQortalAddressBytes, 0, data, 0, partnerQortalAddressBytes.length);
-		System.arraycopy(partnerBitcoinPKH, 0, data, 32, partnerBitcoinPKH.length);
-		System.arraycopy(refundTimeoutBytes, 0, data, 56, refundTimeoutBytes.length);
-		System.arraycopy(hashOfSecretA, 0, data, 64, hashOfSecretA.length);
-		System.arraycopy(lockTimeABytes, 0, data, 88, lockTimeABytes.length);
+		System.arraycopy(partnerBitcoinPublicKey, 0, data, 32, partnerBitcoinPublicKey.length);
+		System.arraycopy(refundTimeoutBytes, 0, data, 72, refundTimeoutBytes.length);
+		System.arraycopy(hashOfSecretA, 0, data, 80, hashOfSecretA.length);
+		System.arraycopy(lockTimeABytes, 0, data, 104, lockTimeABytes.length);
 
 		return data;
 	}

@@ -68,10 +68,17 @@ public class BlockChain {
 		atFindNextTransactionFix,
 		newBlockSigHeight,
 		shareBinFix,
+		sharesByLevelV2Height,
+		rewardShareLimitTimestamp,
 		calcChainWeightTimestamp,
 		transactionV5Timestamp,
 		transactionV6Timestamp,
-		disableReferenceTimestamp
+		disableReferenceTimestamp,
+		increaseOnlineAccountsDifficultyTimestamp,
+		onlineAccountMinterLevelValidationHeight,
+		selfSponsorshipAlgoV1Height,
+		feeValidationFixTimestamp,
+		chatReferenceTimestamp;
 	}
 
 	// Custom transaction fees
@@ -93,6 +100,13 @@ public class BlockChain {
 	/** Whether only one registered name is allowed per account. */
 	private boolean oneNamePerAccount = false;
 
+	/** Checkpoints */
+	public static class Checkpoint {
+		public int height;
+		public String signature;
+	}
+	private List<Checkpoint> checkpoints;
+
 	/** Block rewards by block height */
 	public static class RewardByHeight {
 		public int height;
@@ -102,22 +116,47 @@ public class BlockChain {
 	private List<RewardByHeight> rewardsByHeight;
 
 	/** Share of block reward/fees by account level */
-	public static class AccountLevelShareBin {
+	public static class AccountLevelShareBin implements Cloneable {
+		public int id;
 		public List<Integer> levels;
 		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 		public long share;
-	}
-	private List<AccountLevelShareBin> sharesByLevel;
-	/** Generated lookup of share-bin by account level */
-	private AccountLevelShareBin[] shareBinsByLevel;
 
-	/** Share of block reward/fees to legacy QORA coin holders */
-	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	private Long qoraHoldersShare;
+		public Object clone() {
+			AccountLevelShareBin shareBinCopy = new AccountLevelShareBin();
+			List<Integer> levelsCopy = new ArrayList<>();
+			for (Integer level : this.levels) {
+				levelsCopy.add(level);
+			}
+			shareBinCopy.id = this.id;
+			shareBinCopy.levels = levelsCopy;
+			shareBinCopy.share = this.share;
+			return shareBinCopy;
+		}
+	}
+	private List<AccountLevelShareBin> sharesByLevelV1;
+	private List<AccountLevelShareBin> sharesByLevelV2;
+	/** Generated lookup of share-bin by account level */
+	private AccountLevelShareBin[] shareBinsByLevelV1;
+	private AccountLevelShareBin[] shareBinsByLevelV2;
+
+	/** Share of block reward/fees to legacy QORA coin holders, by block height */
+	public static class ShareByHeight {
+		public int height;
+		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
+		public long share;
+	}
+	private List<ShareByHeight> qoraHoldersShareByHeight;
 
 	/** How many legacy QORA per 1 QORT of block reward. */
 	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 	private Long qoraPerQortReward;
+
+	/** Minimum number of accounts before a share bin is considered activated */
+	private int minAccountsToActivateShareBin;
+
+	/** Min level at which share bin activation takes place; lower levels allow less than minAccountsPerShareBin */
+	private int shareBinActivationMinLevel;
 
 	/**
 	 * Number of minted blocks required to reach next level from previous.
@@ -156,13 +195,27 @@ public class BlockChain {
 	private int minAccountLevelToMint;
 	private int minAccountLevelForBlockSubmissions;
 	private int minAccountLevelToRewardShare;
-	private int maxRewardSharesPerMintingAccount;
+	private int maxRewardSharesPerFounderMintingAccount;
 	private int founderEffectiveMintingLevel;
 
 	/** Minimum time to retain online account signatures (ms) for block validity checks. */
 	private long onlineAccountSignaturesMinLifetime;
 	/** Maximum time to retain online account signatures (ms) for block validity checks, to allow for clock variance. */
 	private long onlineAccountSignaturesMaxLifetime;
+
+	/** Feature trigger timestamp for ONLINE_ACCOUNTS_MODULUS time interval increase. Can't use
+	 * featureTriggers because unit tests need to set this value via Reflection. */
+	private long onlineAccountsModulusV2Timestamp;
+
+	/** Snapshot timestamp for self sponsorship algo V1 */
+	private long selfSponsorshipAlgoV1SnapshotTimestamp;
+
+	/** Max reward shares by block height */
+	public static class MaxRewardSharesByTimestamp {
+		public long timestamp;
+		public int maxShares;
+	}
+	private List<MaxRewardSharesByTimestamp> maxRewardSharesByTimestamp;
 
 	/** Settings relating to CIYAM AT feature. */
 	public static class CiyamAtSettings {
@@ -312,6 +365,16 @@ public class BlockChain {
 		return this.maxBlockSize;
 	}
 
+	// Online accounts
+	public long getOnlineAccountsModulusV2Timestamp() {
+		return this.onlineAccountsModulusV2Timestamp;
+	}
+
+	// Self sponsorship algo
+	public long getSelfSponsorshipAlgoV1SnapshotTimestamp() {
+		return this.selfSponsorshipAlgoV1SnapshotTimestamp;
+	}
+
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
 	public boolean getRequireGroupForApproval() {
 		return this.requireGroupForApproval;
@@ -325,16 +388,28 @@ public class BlockChain {
 		return this.oneNamePerAccount;
 	}
 
+	public List<Checkpoint> getCheckpoints() {
+		return this.checkpoints;
+	}
+
 	public List<RewardByHeight> getBlockRewardsByHeight() {
 		return this.rewardsByHeight;
 	}
 
-	public List<AccountLevelShareBin> getAccountLevelShareBins() {
-		return this.sharesByLevel;
+	public List<AccountLevelShareBin> getAccountLevelShareBinsV1() {
+		return this.sharesByLevelV1;
 	}
 
-	public AccountLevelShareBin[] getShareBinsByAccountLevel() {
-		return this.shareBinsByLevel;
+	public List<AccountLevelShareBin> getAccountLevelShareBinsV2() {
+		return this.sharesByLevelV2;
+	}
+
+	public AccountLevelShareBin[] getShareBinsByAccountLevelV1() {
+		return this.shareBinsByLevelV1;
+	}
+
+	public AccountLevelShareBin[] getShareBinsByAccountLevelV2() {
+		return this.shareBinsByLevelV2;
 	}
 
 	public List<Integer> getBlocksNeededByLevel() {
@@ -345,12 +420,16 @@ public class BlockChain {
 		return this.cumulativeBlocksByLevel;
 	}
 
-	public long getQoraHoldersShare() {
-		return this.qoraHoldersShare;
-	}
-
 	public long getQoraPerQortReward() {
 		return this.qoraPerQortReward;
+	}
+
+	public int getMinAccountsToActivateShareBin() {
+		return this.minAccountsToActivateShareBin;
+	}
+
+	public int getShareBinActivationMinLevel() {
+		return this.shareBinActivationMinLevel;
 	}
 
 	public int getMinAccountLevelToMint() {
@@ -365,8 +444,8 @@ public class BlockChain {
 		return this.minAccountLevelToRewardShare;
 	}
 
-	public int getMaxRewardSharesPerMintingAccount() {
-		return this.maxRewardSharesPerMintingAccount;
+	public int getMaxRewardSharesPerFounderMintingAccount() {
+		return this.maxRewardSharesPerFounderMintingAccount;
 	}
 
 	public int getFounderEffectiveMintingLevel() {
@@ -399,6 +478,14 @@ public class BlockChain {
 		return this.featureTriggers.get(FeatureTrigger.shareBinFix.name()).intValue();
 	}
 
+	public int getSharesByLevelV2Height() {
+		return this.featureTriggers.get(FeatureTrigger.sharesByLevelV2Height.name()).intValue();
+	}
+
+	public long getRewardShareLimitTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.rewardShareLimitTimestamp.name()).longValue();
+	}
+
 	public long getCalcChainWeightTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.calcChainWeightTimestamp.name()).longValue();
 	}
@@ -414,6 +501,27 @@ public class BlockChain {
 	public long getDisableReferenceTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.disableReferenceTimestamp.name()).longValue();
 	}
+
+	public long getIncreaseOnlineAccountsDifficultyTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.increaseOnlineAccountsDifficultyTimestamp.name()).longValue();
+	}
+
+	public int getSelfSponsorshipAlgoV1Height() {
+		return this.featureTriggers.get(FeatureTrigger.selfSponsorshipAlgoV1Height.name()).intValue();
+	}
+
+	public long getOnlineAccountMinterLevelValidationHeight() {
+		return this.featureTriggers.get(FeatureTrigger.onlineAccountMinterLevelValidationHeight.name()).intValue();
+	}
+
+	public long getFeeValidationFixTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.feeValidationFixTimestamp.name()).longValue();
+	}
+
+	public long getChatReferenceTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.chatReferenceTimestamp.name()).longValue();
+	}
+
 
 	// More complex getters for aspects that change by height or timestamp
 
@@ -443,6 +551,23 @@ public class BlockChain {
 		return this.getUnitFee();
 	}
 
+	public int getMaxRewardSharesAtTimestamp(long ourTimestamp) {
+		for (int i = maxRewardSharesByTimestamp.size() - 1; i >= 0; --i)
+			if (maxRewardSharesByTimestamp.get(i).timestamp <= ourTimestamp)
+				return maxRewardSharesByTimestamp.get(i).maxShares;
+
+		return 0;
+	}
+
+	public long getQoraHoldersShareAtHeight(int ourHeight) {
+		// Scan through for QORA share at our height
+		for (int i = qoraHoldersShareByHeight.size() - 1; i >= 0; --i)
+			if (qoraHoldersShareByHeight.get(i).height <= ourHeight)
+				return qoraHoldersShareByHeight.get(i).share;
+
+		return 0;
+	}
+
 	/** Validate blockchain config read from JSON */
 	private void validateConfig() {
 		if (this.genesisInfo == null)
@@ -451,11 +576,14 @@ public class BlockChain {
 		if (this.rewardsByHeight == null)
 			Settings.throwValidationError("No \"rewardsByHeight\" entry found in blockchain config");
 
-		if (this.sharesByLevel == null)
-			Settings.throwValidationError("No \"sharesByLevel\" entry found in blockchain config");
+		if (this.sharesByLevelV1 == null)
+			Settings.throwValidationError("No \"sharesByLevelV1\" entry found in blockchain config");
 
-		if (this.qoraHoldersShare == null)
-			Settings.throwValidationError("No \"qoraHoldersShare\" entry found in blockchain config");
+		if (this.sharesByLevelV2 == null)
+			Settings.throwValidationError("No \"sharesByLevelV2\" entry found in blockchain config");
+
+		if (this.qoraHoldersShareByHeight == null)
+			Settings.throwValidationError("No \"qoraHoldersShareByHeight\" entry found in blockchain config");
 
 		if (this.qoraPerQortReward == null)
 			Settings.throwValidationError("No \"qoraPerQortReward\" entry found in blockchain config");
@@ -492,13 +620,22 @@ public class BlockChain {
 			if (!this.featureTriggers.containsKey(featureTrigger.name()))
 				Settings.throwValidationError(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
 
-		// Check block reward share bounds
-		long totalShare = this.qoraHoldersShare;
+		// Check block reward share bounds (V1)
+		long totalShareV1 = this.qoraHoldersShareByHeight.get(0).share;
 		// Add share percents for account-level-based rewards
-		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevel)
-			totalShare += accountLevelShareBin.share;
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevelV1)
+			totalShareV1 += accountLevelShareBin.share;
 
-		if (totalShare < 0 || totalShare > 1_00000000L)
+		if (totalShareV1 < 0 || totalShareV1 > 1_00000000L)
+			Settings.throwValidationError("Total non-founder share out of bounds (0<x<1e8)");
+
+		// Check block reward share bounds (V2)
+		long totalShareV2 = this.qoraHoldersShareByHeight.get(1).share;
+		// Add share percents for account-level-based rewards
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevelV2)
+			totalShareV2 += accountLevelShareBin.share;
+
+		if (totalShareV2 < 0 || totalShareV2 > 1_00000000L)
 			Settings.throwValidationError("Total non-founder share out of bounds (0<x<1e8)");
 	}
 
@@ -514,23 +651,34 @@ public class BlockChain {
 				cumulativeBlocks += this.blocksNeededByLevel.get(level);
 		}
 
-		// Generate lookup-array for account-level share bins
-		AccountLevelShareBin lastAccountLevelShareBin = this.sharesByLevel.get(this.sharesByLevel.size() - 1);
-		final int lastLevel = lastAccountLevelShareBin.levels.get(lastAccountLevelShareBin.levels.size() - 1);
-		this.shareBinsByLevel = new AccountLevelShareBin[lastLevel];
-
-		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevel)
+		// Generate lookup-array for account-level share bins (V1)
+		AccountLevelShareBin lastAccountLevelShareBinV1 = this.sharesByLevelV1.get(this.sharesByLevelV1.size() - 1);
+		final int lastLevelV1 = lastAccountLevelShareBinV1.levels.get(lastAccountLevelShareBinV1.levels.size() - 1);
+		this.shareBinsByLevelV1 = new AccountLevelShareBin[lastLevelV1];
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevelV1)
 			for (int level : accountLevelShareBin.levels)
 				// level 1 stored at index 0, level 2 stored at index 1, etc.
 				// level 0 not allowed
-				this.shareBinsByLevel[level - 1] = accountLevelShareBin;
+				this.shareBinsByLevelV1[level - 1] = accountLevelShareBin;
+
+		// Generate lookup-array for account-level share bins (V2)
+		AccountLevelShareBin lastAccountLevelShareBinV2 = this.sharesByLevelV2.get(this.sharesByLevelV2.size() - 1);
+		final int lastLevelV2 = lastAccountLevelShareBinV2.levels.get(lastAccountLevelShareBinV2.levels.size() - 1);
+		this.shareBinsByLevelV2 = new AccountLevelShareBin[lastLevelV2];
+		for (AccountLevelShareBin accountLevelShareBin : this.sharesByLevelV2)
+			for (int level : accountLevelShareBin.levels)
+				// level 1 stored at index 0, level 2 stored at index 1, etc.
+				// level 0 not allowed
+				this.shareBinsByLevelV2[level - 1] = accountLevelShareBin;
 
 		// Convert collections to unmodifiable form
 		this.rewardsByHeight = Collections.unmodifiableList(this.rewardsByHeight);
-		this.sharesByLevel = Collections.unmodifiableList(this.sharesByLevel);
+		this.sharesByLevelV1 = Collections.unmodifiableList(this.sharesByLevelV1);
+		this.sharesByLevelV2 = Collections.unmodifiableList(this.sharesByLevelV2);
 		this.blocksNeededByLevel = Collections.unmodifiableList(this.blocksNeededByLevel);
 		this.cumulativeBlocksByLevel = Collections.unmodifiableList(this.cumulativeBlocksByLevel);
 		this.blockTimingsByHeight = Collections.unmodifiableList(this.blockTimingsByHeight);
+		this.qoraHoldersShareByHeight = Collections.unmodifiableList(this.qoraHoldersShareByHeight);
 	}
 
 	/**
@@ -542,6 +690,7 @@ public class BlockChain {
 
 		boolean isTopOnly = Settings.getInstance().isTopOnly();
 		boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
+		boolean isLite = Settings.getInstance().isLite();
 		boolean canBootstrap = Settings.getInstance().getBootstrap();
 		boolean needsArchiveRebuild = false;
 		BlockData chainTip;
@@ -562,22 +711,44 @@ public class BlockChain {
 					}
 				}
 			}
+
+			// Validate checkpoints
+			// Limited to topOnly nodes for now, in order to reduce risk, and to solve a real-world problem with divergent topOnly nodes
+			// TODO: remove the isTopOnly conditional below once this feature has had more testing time
+			if (isTopOnly && !isLite) {
+				List<Checkpoint> checkpoints = BlockChain.getInstance().getCheckpoints();
+				for (Checkpoint checkpoint : checkpoints) {
+					BlockData blockData = repository.getBlockRepository().fromHeight(checkpoint.height);
+					if (blockData == null) {
+						// Try the archive
+						blockData = repository.getBlockArchiveRepository().fromHeight(checkpoint.height);
+					}
+					if (blockData == null) {
+						LOGGER.trace("Couldn't find block for height {}", checkpoint.height);
+						// This is likely due to the block being pruned, so is safe to ignore.
+						// Continue, as there might be other blocks we can check more definitively.
+						continue;
+					}
+
+					byte[] signature = Base58.decode(checkpoint.signature);
+					if (!Arrays.equals(signature, blockData.getSignature())) {
+						LOGGER.info("Error: block at height {} with signature {} doesn't match checkpoint sig: {}. Bootstrapping...", checkpoint.height, Base58.encode(blockData.getSignature()), checkpoint.signature);
+						needsArchiveRebuild = true;
+						break;
+					}
+					LOGGER.info("Block at height {} matches checkpoint signature", blockData.getHeight());
+				}
+			}
+
 		}
 
-		boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
+		// Check first block is Genesis Block
+		if (!isGenesisBlockValid() || needsArchiveRebuild) {
+			try {
+				rebuildBlockchain();
 
-		if (isTopOnly && hasBlocks) {
-			// Top-only mode is enabled and we have blocks, so it's possible that the genesis block has been pruned
-			// It's best not to validate it, and there's no real need to
-		} else {
-			// Check first block is Genesis Block
-			if (!isGenesisBlockValid() || needsArchiveRebuild) {
-				try {
-					rebuildBlockchain();
-
-				} catch (InterruptedException e) {
-					throw new DataException(String.format("Interrupted when trying to rebuild blockchain: %s", e.getMessage()));
-				}
+			} catch (InterruptedException e) {
+				throw new DataException(String.format("Interrupted when trying to rebuild blockchain: %s", e.getMessage()));
 			}
 		}
 
@@ -586,9 +757,7 @@ public class BlockChain {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.checkConsistency();
 
-			// Set the number of blocks to validate based on the pruned state of the chain
-			// If pruned, subtract an extra 10 to allow room for error
-			int blocksToValidate = (isTopOnly || archiveEnabled) ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
+			int blocksToValidate = Math.min(Settings.getInstance().getPruneBlockLimit() - 10, 1440);
 
 			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - blocksToValidate, 1);
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);

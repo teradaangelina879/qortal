@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.Security;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,6 +18,8 @@ import org.qortal.api.ApiKey;
 import org.qortal.api.ApiRequest;
 import org.qortal.controller.AutoUpdate;
 import org.qortal.settings.Settings;
+
+import static org.qortal.controller.AutoUpdate.AGENTLIB_JVM_HOLDER_ARG;
 
 public class ApplyUpdate {
 
@@ -197,6 +200,11 @@ public class ApplyUpdate {
 			// JVM arguments
 			javaCmd.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
 
+			// Reapply any retained, but disabled, -agentlib JVM arg
+			javaCmd = javaCmd.stream()
+					.map(arg -> arg.replace(AGENTLIB_JVM_HOLDER_ARG, "-agentlib"))
+					.collect(Collectors.toList());
+
 			// Call mainClass in JAR
 			javaCmd.addAll(Arrays.asList("-jar", JAR_FILENAME));
 
@@ -205,7 +213,7 @@ public class ApplyUpdate {
 		}
 
 		try {
-			LOGGER.info(() -> String.format("Restarting node with: %s", String.join(" ", javaCmd)));
+			LOGGER.info(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
 
 			ProcessBuilder processBuilder = new ProcessBuilder(javaCmd);
 
@@ -214,8 +222,15 @@ public class ApplyUpdate {
 				processBuilder.environment().put(JAVA_TOOL_OPTIONS_NAME, JAVA_TOOL_OPTIONS_VALUE);
 			}
 
-			processBuilder.start();
-		} catch (IOException e) {
+			// New process will inherit our stdout and stderr
+			processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+			processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+
+			Process process = processBuilder.start();
+
+			// Nothing to pipe to new process, so close output stream (process's stdin)
+			process.getOutputStream().close();
+		} catch (Exception e) {
 			LOGGER.error(String.format("Failed to restart node (BAD): %s", e.getMessage()));
 		}
 	}

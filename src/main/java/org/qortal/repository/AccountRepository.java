@@ -1,13 +1,9 @@
 package org.qortal.repository;
 
 import java.util.List;
+import java.util.Set;
 
-import org.qortal.data.account.AccountBalanceData;
-import org.qortal.data.account.AccountData;
-import org.qortal.data.account.EligibleQoraHolderData;
-import org.qortal.data.account.MintingAccountData;
-import org.qortal.data.account.QortFromQoraData;
-import org.qortal.data.account.RewardShareData;
+import org.qortal.data.account.*;
 
 public interface AccountRepository {
 
@@ -18,6 +14,9 @@ public interface AccountRepository {
 
 	/** Returns accounts with <b>any</b> bit set in given mask. */
 	public List<AccountData> getFlaggedAccounts(int mask) throws DataException;
+
+	/** Returns accounts with a blockedMintedPenalty */
+	public List<AccountData> getPenaltyAccounts() throws DataException;
 
 	/** Returns account's last reference or null if not set or account not found. */
 	public byte[] getLastReference(String address) throws DataException;
@@ -100,6 +99,18 @@ public interface AccountRepository {
 	 */
 	public void modifyMintedBlockCounts(List<String> addresses, int delta) throws DataException;
 
+	/** Returns account's block minted penalty count or null if account not found. */
+	public Integer getBlocksMintedPenaltyCount(String address) throws DataException;
+
+	/**
+	 * Sets blocks minted penalties for given list of accounts.
+	 * This replaces the existing values rather than modifying them by a delta.
+	 *
+	 * @param accountPenalties
+	 * @throws DataException
+	 */
+	public void updateBlocksMintedPenalties(Set<AccountPenaltyData> accountPenalties) throws DataException;
+
 	/** Delete account from repository. */
 	public void delete(String address) throws DataException;
 
@@ -158,6 +169,9 @@ public interface AccountRepository {
 
 	/** Returns number of active reward-shares involving passed public key as the minting account only. */
 	public int countRewardShares(byte[] mintingAccountPublicKey) throws DataException;
+
+	/** Returns number of active self-shares involving passed public key as the minting account only. */
+	public int countSelfShares(byte[] mintingAccountPublicKey) throws DataException;
 
 	public List<RewardShareData> getRewardShares() throws DataException;
 

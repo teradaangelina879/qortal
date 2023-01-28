@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.SecureRandom;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,6 +26,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.qortal.account.PrivateKeyAccount;
 import org.qortal.block.BlockChain;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.asset.AssetData;
@@ -111,8 +113,16 @@ public class Common {
 		return testAccountsByName.values().stream().map(account -> new TestAccount(repository, account)).collect(Collectors.toList());
 	}
 
+	public static PrivateKeyAccount generateRandomSeedAccount(Repository repository) {
+		byte[] seed = new byte[32];
+		new SecureRandom().nextBytes(seed);
+		return new PrivateKeyAccount(repository, seed);
+	}
+
 	public static void useSettingsAndDb(String settingsFilename, boolean dbInMemory) throws DataException {
-		closeRepository();
+		if (RepositoryManager.getRepositoryFactory() != null) {
+			closeRepository();
+		}
 
 		// Load/check settings, which potentially sets up blockchain config, etc.
 		LOGGER.debug(String.format("Using setting file: %s", settingsFilename));

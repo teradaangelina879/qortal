@@ -46,6 +46,9 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 						null,
 						txGroupId,
 						null,
+						null,
+						null,
+						null,
 						null, null, null);
 
 				sendMessages(session, chatMessages);
@@ -69,6 +72,9 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<ChatMessage> chatMessages = repository.getChatRepository().getMessagesMatchingCriteria(
+					null,
+					null,
+					null,
 					null,
 					null,
 					null,

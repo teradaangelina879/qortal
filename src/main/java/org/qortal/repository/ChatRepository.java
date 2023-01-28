@@ -14,8 +14,8 @@ public interface ChatRepository {
 	 * Expects EITHER non-null txGroupID OR non-null sender and recipient addresses.
 	 */
 	public List<ChatMessage> getMessagesMatchingCriteria(Long before, Long after,
-			Integer txGroupId, List<String> involving,
-			Integer limit, Integer offset, Boolean reverse) throws DataException;
+			Integer txGroupId, byte[] reference, byte[] chatReferenceBytes, Boolean hasChatReference,
+			List<String> involving, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public ChatMessage toChatMessage(ChatTransactionData chatTransactionData) throws DataException;
 

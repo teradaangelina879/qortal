@@ -1,7 +1,8 @@
 package org.qortal.api.model;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import org.qortal.data.network.PeerChainTipData;
+import org.qortal.controller.Controller;
+import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.network.PeerData;
 import org.qortal.network.Handshake;
 import org.qortal.network.Peer;
@@ -36,6 +37,7 @@ public class ConnectedPeer {
     public Long lastBlockTimestamp;
     public UUID connectionId;
     public String age;
+    public Boolean isTooDivergent;
 
     protected ConnectedPeer() {
     }
@@ -63,11 +65,16 @@ public class ConnectedPeer {
             this.age = "connecting...";
         }
 
-        PeerChainTipData peerChainTipData = peer.getChainTipData();
+        BlockSummaryData peerChainTipData = peer.getChainTipData();
         if (peerChainTipData != null) {
-            this.lastHeight = peerChainTipData.getLastHeight();
-            this.lastBlockSignature = peerChainTipData.getLastBlockSignature();
-            this.lastBlockTimestamp = peerChainTipData.getLastBlockTimestamp();
+            this.lastHeight = peerChainTipData.getHeight();
+            this.lastBlockSignature = peerChainTipData.getSignature();
+            this.lastBlockTimestamp = peerChainTipData.getTimestamp();
+        }
+
+        // Only include isTooDivergent decision if we've had the opportunity to request block summaries this peer
+        if (peer.getLastTooDivergentTime() != null) {
+            this.isTooDivergent = Controller.wasRecentlyTooDivergent.test(peer);
         }
     }
 
