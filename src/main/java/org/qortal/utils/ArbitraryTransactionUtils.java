@@ -455,7 +455,7 @@ public class ArbitraryTransactionUtils {
 
             } catch (Exception e) {
                 // Catch and log all exceptions, since some systems are experiencing 500 errors when including statuses
-                LOGGER.info("Caught exception when adding status to resource %s: %s", resourceInfo, e.toString());
+                LOGGER.info("Caught exception when adding status to resource {}: {}", resourceInfo, e.toString());
             }
         }
         return updatedResources;

@@ -21,6 +21,11 @@ public class ArbitraryResourceInfo {
 	}
 
 	@Override
+	public String toString() {
+		return String.format("%s %s %s", name, service, identifier);
+	}
+
+	@Override
 	public boolean equals(Object o) {
 		if (o == this)
 			return true;
