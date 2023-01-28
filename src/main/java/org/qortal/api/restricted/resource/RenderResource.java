@@ -1,4 +1,4 @@
-package org.qortal.api.resource;
+package org.qortal.api.restricted.resource;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
