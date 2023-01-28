@@ -266,7 +266,9 @@ public class ArbitraryResource {
 															@PathParam("name") String name,
 															@QueryParam("build") Boolean build) {
 
-		Security.requirePriorAuthorizationOrApiKey(request, name, service, null, apiKey);
+		if (!Settings.getInstance().isQDNAuthBypassEnabled())
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, null, apiKey);
+
 		return ArbitraryTransactionUtils.getStatus(service, name, null, build);
 	}
 
@@ -288,7 +290,9 @@ public class ArbitraryResource {
 													 @PathParam("identifier") String identifier,
 													 @QueryParam("build") Boolean build) {
 
-		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+		if (!Settings.getInstance().isQDNAuthBypassEnabled())
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+
 		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build);
 	}
 
