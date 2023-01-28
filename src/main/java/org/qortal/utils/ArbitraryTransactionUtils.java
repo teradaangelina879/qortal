@@ -426,7 +426,7 @@ public class ArbitraryTransactionUtils {
 
         // If "build" has been specified, build the resource before returning its status
         if (build != null && build == true) {
-            ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
+            ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
             try {
                 if (!reader.isBuilding()) {
                     reader.loadSynchronously(false);

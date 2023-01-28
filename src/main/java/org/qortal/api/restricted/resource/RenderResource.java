@@ -203,12 +203,13 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByName(@PathParam("service") Service service,
                                               @PathParam("name") String name,
+                                              @QueryParam("identifier") String identifier,
                                               @QueryParam("theme") String theme) {
         if (!Settings.getInstance().isQDNAuthBypassEnabled())
             Security.requirePriorAuthorization(request, name, service, null);
 
         String prefix = String.format("/render/%s", service);
-        return this.get(name, ResourceIdType.NAME, service, null, "/", null, prefix, true, true, theme);
+        return this.get(name, ResourceIdType.NAME, service, identifier, "/", null, prefix, true, true, theme);
     }
 
 
