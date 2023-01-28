@@ -146,7 +146,7 @@ public class RenderResource {
         if (!Settings.getInstance().isQDNAuthBypassEnabled())
             Security.requirePriorAuthorization(request, signature, Service.WEBSITE, null);
 
-        return this.get(signature, ResourceIdType.SIGNATURE, null, "/", null, "/render/signature", true, true, theme);
+        return this.get(signature, ResourceIdType.SIGNATURE, null, null, "/", null, "/render/signature", true, true, theme);
     }
 
     @GET
@@ -157,7 +157,7 @@ public class RenderResource {
         if (!Settings.getInstance().isQDNAuthBypassEnabled())
             Security.requirePriorAuthorization(request, signature, Service.WEBSITE, null);
 
-        return this.get(signature, ResourceIdType.SIGNATURE, null, inPath,null, "/render/signature", true, true, theme);
+        return this.get(signature, ResourceIdType.SIGNATURE, null, null, inPath,null, "/render/signature", true, true, theme);
     }
 
     @GET
@@ -168,7 +168,7 @@ public class RenderResource {
         if (!Settings.getInstance().isQDNAuthBypassEnabled())
             Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
 
-        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, "/", secret58, "/render/hash", true, false, theme);
+        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, null, "/", secret58, "/render/hash", true, false, theme);
     }
 
     @GET
@@ -180,7 +180,7 @@ public class RenderResource {
         if (!Settings.getInstance().isQDNAuthBypassEnabled())
             Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
 
-        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, inPath, secret58, "/render/hash", true, false, theme);
+        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, null, inPath, secret58, "/render/hash", true, false, theme);
     }
 
     @GET
@@ -189,12 +189,13 @@ public class RenderResource {
     public HttpServletResponse getPathByName(@PathParam("service") Service service,
                                              @PathParam("name") String name,
                                              @PathParam("path") String inPath,
+                                             @QueryParam("identifier") String identifier,
                                              @QueryParam("theme") String theme) {
         if (!Settings.getInstance().isQDNAuthBypassEnabled())
             Security.requirePriorAuthorization(request, name, service, null);
 
         String prefix = String.format("/render/%s", service);
-        return this.get(name, ResourceIdType.NAME, service, inPath, null, prefix, true, true, theme);
+        return this.get(name, ResourceIdType.NAME, service, identifier, inPath, null, prefix, true, true, theme);
     }
 
     @GET
@@ -207,15 +208,15 @@ public class RenderResource {
             Security.requirePriorAuthorization(request, name, service, null);
 
         String prefix = String.format("/render/%s", service);
-        return this.get(name, ResourceIdType.NAME, service, "/", null, prefix, true, true, theme);
+        return this.get(name, ResourceIdType.NAME, service, null, "/", null, prefix, true, true, theme);
     }
 
 
 
-    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
-                                    String secret58, String prefix, boolean usePrefix, boolean async, String theme) {
+    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
+                                    String inPath, String secret58, String prefix, boolean usePrefix, boolean async, String theme) {
 
-        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
+        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, identifier, inPath,
                 secret58, prefix, usePrefix, async, "render", request, response, context);
 
         if (theme != null) {

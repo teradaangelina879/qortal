@@ -82,7 +82,7 @@ public class GatewayResource {
                                              @PathParam("path") String inPath) {
         // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
         Security.disallowLoopbackRequests(request);
-        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, inPath, null, "", true, true);
+        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, null, inPath, null, "", true, true);
     }
 
     @GET
@@ -91,7 +91,7 @@ public class GatewayResource {
     public HttpServletResponse getIndexByName(@PathParam("name") String name) {
         // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
         Security.disallowLoopbackRequests(request);
-        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, "/", null, "", true, true);
+        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, null, "/", null, "", true, true);
     }
 
 
@@ -103,7 +103,7 @@ public class GatewayResource {
                                                  @PathParam("path") String inPath) {
         // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
         Security.disallowLoopbackRequests(request);
-        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, inPath, null, "/site", true, true);
+        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, null, inPath, null, "/site", true, true);
     }
 
     @GET
@@ -111,14 +111,14 @@ public class GatewayResource {
     public HttpServletResponse getSiteIndexByName(@PathParam("name") String name) {
         // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
         Security.disallowLoopbackRequests(request);
-        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, "/", null, "/site", true, true);
+        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, null, "/", null, "/site", true, true);
     }
 
     
-    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
-                                    String secret58, String prefix, boolean usePrefix, boolean async) {
+    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
+                                    String inPath, String secret58, String prefix, boolean usePrefix, boolean async) {
 
-        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
+        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, identifier, inPath,
                 secret58, prefix, usePrefix, async, "gateway", request, response, context);
         return renderer.render();
     }

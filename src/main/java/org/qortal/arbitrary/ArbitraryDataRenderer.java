@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import com.google.common.io.Resources;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.HTMLParser;
@@ -34,6 +35,7 @@ public class ArbitraryDataRenderer {
     private final String resourceId;
     private final ResourceIdType resourceIdType;
     private final Service service;
+    private final String identifier;
     private String theme = "light";
     private String inPath;
     private final String secret58;
@@ -45,13 +47,14 @@ public class ArbitraryDataRenderer {
     private final HttpServletResponse response;
     private final ServletContext context;
 
-    public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
-                                 String secret58, String prefix, boolean usePrefix, boolean async, String qdnContext,
+    public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
+                                 String inPath, String secret58, String prefix, boolean usePrefix, boolean async, String qdnContext,
                                  HttpServletRequest request, HttpServletResponse response, ServletContext context) {
 
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;
+        this.identifier = identifier != null ? identifier : "default";
         this.inPath = inPath;
         this.secret58 = secret58;
         this.prefix = prefix;
@@ -73,14 +76,14 @@ public class ArbitraryDataRenderer {
             return ArbitraryDataRenderer.getResponse(response, 500, "QDN is disabled in settings");
         }
 
-        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, null);
+        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, identifier);
         arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {
             if (!arbitraryDataReader.isCachedDataAvailable()) {
                 // If async is requested, show a loading screen whilst build is in progress
                 if (async) {
                     arbitraryDataReader.loadAsynchronously(false, 10);
-                    return this.getLoadingResponse(service, resourceId, theme);
+                    return this.getLoadingResponse(service, resourceId, identifier, theme);
                 }
 
                 // Otherwise, loop until we have data
@@ -112,6 +115,12 @@ public class ArbitraryDataRenderer {
             return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
         }
         String unzippedPath = path.toString();
+
+        String[] files = ArrayUtils.removeElement(new File(unzippedPath).list(), ".qortal");
+        if (files.length == 1) {
+            // This is a single file resource
+            inPath = files[0];
+        }
 
         try {
             String filename = this.getFilename(unzippedPath, inPath);
@@ -174,7 +183,7 @@ public class ArbitraryDataRenderer {
         return userPath;
     }
 
-    private HttpServletResponse getLoadingResponse(Service service, String name, String theme) {
+    private HttpServletResponse getLoadingResponse(Service service, String name, String identifier, String theme) {
         String responseString = "";
         URL url = Resources.getResource("loading/index.html");
         try {
@@ -183,6 +192,7 @@ public class ArbitraryDataRenderer {
             // Replace vars
             responseString = responseString.replace("%%SERVICE%%", service.toString());
             responseString = responseString.replace("%%NAME%%", name);
+            responseString = responseString.replace("%%IDENTIFIER%%", identifier);
             responseString = responseString.replace("%%THEME%%", theme);
 
         } catch (IOException e) {

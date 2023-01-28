@@ -81,6 +81,8 @@ window.addEventListener("message", (event) => {
                 url = "/" + data.name;
             }
             if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
+            if (data.identifier != null) url = url.concat("?identifier=" + data.identifier);
+
             window.location = url;
             response = true;
             break;
@@ -228,11 +230,26 @@ function interceptClickEvent(e) {
                 let parts = href.split("/");
                 const service = parts[0].toUpperCase(); parts.shift();
                 const name = parts[0]; parts.shift();
+                let identifier;
+
+                if (parts.length > 0) {
+                    identifier = parts[0]; // Do not shift yet
+                    // Check if a resource exists with this service, name and identifier combination
+                    const url = "/arbitrary/resource/status/" + service + "/" + name + "/" + identifier;
+                    const response = httpGet(url);
+                    const responseObj = JSON.parse(response);
+                    if (responseObj.totalChunkCount > 0) {
+                        // Identifier exists, so don't include it in the path
+                        parts.shift();
+                    }
+                }
+
                 const path = parts.join("/");
                 qortalRequest({
                     action: "LINK_TO_QDN_RESOURCE",
                     service: service,
                     name: name,
+                    identifier: identifier,
                     path: path
                 });
             }

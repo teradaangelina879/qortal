@@ -43,8 +43,9 @@
       var host = location.protocol + '//' + location.host;
       var service = "%%SERVICE%%"
       var name = "%%NAME%%"
+      var identifier = "%%IDENTIFIER%%"
 
-      var url = host + '/arbitrary/resource/status/' + service + '/' + name + '?build=true';
+      var url = host + '/arbitrary/resource/status/' + service + '/' + name + '/' + identifier + '?build=true';
       var textStatus = "Loading...";
       var textProgress = "";
       var retryInterval = 2500;

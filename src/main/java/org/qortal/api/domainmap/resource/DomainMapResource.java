@@ -42,15 +42,15 @@ public class DomainMapResource {
             // Build synchronously, so that we don't need to make the summary API endpoints available over
             // the domain map server. This means that there will be no loading screen, but this is potentially
             // preferred in this situation anyway (e.g. to avoid confusing search engine robots).
-            return this.get(domainMap.get(request.getServerName()), ResourceIdType.NAME, Service.WEBSITE, inPath, null, "", false, false);
+            return this.get(domainMap.get(request.getServerName()), ResourceIdType.NAME, Service.WEBSITE, null, inPath, null, "", false, false);
         }
         return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
     }
 
-    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
-                                    String secret58, String prefix, boolean usePrefix, boolean async) {
+    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
+                                    String inPath, String secret58, String prefix, boolean usePrefix, boolean async) {
 
-        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
+        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, identifier, inPath,
                 secret58, prefix, usePrefix, async, "domainMap", request, response, context);
         return renderer.render();
     }
