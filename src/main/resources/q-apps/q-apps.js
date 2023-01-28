@@ -71,6 +71,20 @@ window.addEventListener("message", (event) => {
             response = httpGet("/names/" + data.name);
             break;
 
+        case "LINK_TO_QDN_RESOURCE":
+            if (data.service == null) data.service = "WEBSITE"; // Default to WEBSITE
+            if (qdnContext == "render") {
+                url = "/render/" + data.service + "/" + data.name;
+            }
+            else {
+                // gateway / domainMap only serve websites right now
+                url = "/" + data.name;
+            }
+            if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
+            window.location = url;
+            response = true;
+            break;
+
         case "SEARCH_QDN_RESOURCES":
             url = "/arbitrary/resources?";
             if (data.service != null) url = url.concat("&service=" + data.service);
@@ -199,6 +213,40 @@ window.addEventListener("message", (event) => {
     handleResponse(event, response);
 
 }, false);
+
+
+/**
+ * Listen for and intercept all link click events
+ */
+function interceptClickEvent(e) {
+    var target = e.target || e.srcElement;
+    if (target.tagName === 'A') {
+        let href = target.getAttribute('href');
+        if (href.startsWith("qortal://")) {
+            href = href.replace(/^(qortal\:\/\/)/,"");
+            if (href.includes("/")) {
+                let parts = href.split("/");
+                const service = parts[0].toUpperCase(); parts.shift();
+                const name = parts[0]; parts.shift();
+                const path = parts.join("/");
+                qortalRequest({
+                    action: "LINK_TO_QDN_RESOURCE",
+                    service: service,
+                    name: name,
+                    path: path
+                });
+            }
+            e.preventDefault();
+        }
+    }
+}
+if (document.addEventListener) {
+    document.addEventListener('click', interceptClickEvent);
+}
+else if (document.attachEvent) {
+    document.attachEvent('onclick', interceptClickEvent);
+}
+
 
 const awaitTimeout = (timeout, reason) =>
     new Promise((resolve, reject) =>

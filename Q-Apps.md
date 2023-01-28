@@ -77,6 +77,7 @@ Here is a list of currently supported actions:
 - FETCH_BLOCK_RANGE
 - SEARCH_TRANSACTIONS
 - GET_PRICE
+- LINK_TO_QDN_RESOURCE
 
 More functionality will be added in the future.
 
@@ -400,6 +401,27 @@ let res = await qortalRequest({
     blockchain: "LITECOIN",
     // maxtrades: 10,
     inverse: true
+});
+```
+
+### Link/redirect to another QDN website
+Note: an alternate method is to include `<a href="qortal://WEBSITE/QortalDemo">link text</a>` within your HTML code.
+```
+let res = await qortalRequest({
+    action: "LINK_TO_QDN_RESOURCE",
+    service: "WEBSITE",
+    name: "QortalDemo",
+});
+```
+
+### Link/redirect to a specific path of another QDN website
+Note: an alternate method is to include `<a href="qortal://WEBSITE/QortalDemo/minting-leveling/index.html">link text</a>` within your HTML code.
+```
+let res = await qortalRequest({
+    action: "LINK_TO_QDN_RESOURCE",
+    service: "WEBSITE",
+    name: "QortalDemo",
+    path: "/minting-leveling/index.html"
 });
 ```
 
