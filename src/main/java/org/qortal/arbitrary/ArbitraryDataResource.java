@@ -143,6 +143,9 @@ public class ArbitraryDataResource {
     public boolean delete() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return false;
+            }
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
@@ -198,6 +201,9 @@ public class ArbitraryDataResource {
 
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return false;
+            }
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
@@ -217,6 +223,11 @@ public class ArbitraryDataResource {
     private void calculateChunkCounts() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                this.localChunkCount = 0;
+                this.totalChunkCount = 0;
+                return;
+            }
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
             int localChunkCount = 0;
@@ -236,6 +247,9 @@ public class ArbitraryDataResource {
     private boolean isRateLimited() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return true;
+            }
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
@@ -259,6 +273,10 @@ public class ArbitraryDataResource {
     private boolean isDataPotentiallyAvailable() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return false;
+            }
+
             Long now = NTP.getTime();
             if (now == null) {
                 return false;
@@ -290,6 +308,10 @@ public class ArbitraryDataResource {
     private boolean isDownloading() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return false;
+            }
+
             Long now = NTP.getTime();
             if (now == null) {
                 return false;
