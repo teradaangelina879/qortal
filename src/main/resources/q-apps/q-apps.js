@@ -75,13 +75,19 @@ window.addEventListener("message", (event) => {
             if (data.service == null) data.service = "WEBSITE"; // Default to WEBSITE
             if (qdnContext == "render") {
                 url = "/render/" + data.service + "/" + data.name;
+                if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
+                if (data.identifier != null) url = url.concat("?identifier=" + data.identifier);
+            }
+            else if (qdnContext == "gateway") {
+                url = "/" + data.service + "/" + data.name;
+                if (data.identifier != null) url = url.concat("/" + data.identifier);
+                if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
             }
             else {
-                // gateway / domainMap only serve websites right now
+                // domainMap only serves websites right now
                 url = "/" + data.name;
+                if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
             }
-            if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
-            if (data.identifier != null) url = url.concat("?identifier=" + data.identifier);
 
             window.location = url;
             response = true;
