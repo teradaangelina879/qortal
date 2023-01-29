@@ -82,6 +82,9 @@ function extractComponents(url) {
                 // Identifier exists, so don't include it in the path
                 parts.shift();
             }
+            else {
+                identifier = null;
+            }
         }
 
         const path = parts.join("/");
