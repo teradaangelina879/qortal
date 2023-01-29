@@ -59,6 +59,10 @@ function buildResourceUrl(service, name, identifier, path) {
 }
 
 function extractComponents(url) {
+    if (!url.startsWith("qortal://")) {
+        return null;
+    }
+
     url = url.replace(/^(qortal\:\/\/)/,"");
     if (url.includes("/")) {
         let parts = url.split("/");
@@ -94,6 +98,9 @@ function extractComponents(url) {
 }
 
 function convertToResourceUrl(url) {
+    if (!url.startsWith("qortal://")) {
+        return null;
+    }
     const c = extractComponents(url);
     if (c == null) {
         return null;
@@ -312,11 +319,28 @@ else if (document.attachEvent) {
  */
 document.addEventListener('DOMContentLoaded', () => {
     let url = document.querySelector('img').src;
-    if (url.startsWith("qortal://")) {
-        const newUrl = convertToResourceUrl(url);
-        console.log("Loading newUrl " + newUrl);
+    const newUrl = convertToResourceUrl(url);
+    if (newUrl != null) {
         document.querySelector('img').src = newUrl;
     }
+});
+
+/**
+ * Intercept img src updates
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    let img = document.querySelector('img');
+    let observer = new MutationObserver((changes) => {
+        changes.forEach(change => {
+            if (change.attributeName.includes('src')) {
+                const newUrl = convertToResourceUrl(img.src);
+                if (newUrl != null) {
+                    document.querySelector('img').src = newUrl;
+                }
+            }
+        });
+    });
+    observer.observe(img, {attributes: true});
 });
 
 
