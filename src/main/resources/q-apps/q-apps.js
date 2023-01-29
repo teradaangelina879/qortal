@@ -39,6 +39,69 @@ function handleResponse(event, response) {
     }
 }
 
+function buildResourceUrl(service, name, identifier, path) {
+    if (qdnContext == "render") {
+        url = "/render/" + service + "/" + name;
+        if (path != null) url = url.concat((path.startsWith("/") ? "" : "/") + path);
+        if (identifier != null) url = url.concat("?identifier=" + identifier);
+    }
+    else if (qdnContext == "gateway") {
+        url = "/" + service + "/" + name;
+        if (identifier != null) url = url.concat("/" + identifier);
+        if (path != null) url = url.concat((path.startsWith("/") ? "" : "/") + path);
+    }
+    else {
+        // domainMap only serves websites right now
+        url = "/" + name;
+        if (path != null) url = url.concat((path.startsWith("/") ? "" : "/") + path);
+    }
+    return url;
+}
+
+function extractComponents(url) {
+    url = url.replace(/^(qortal\:\/\/)/,"");
+    if (url.includes("/")) {
+        let parts = url.split("/");
+        const service = parts[0].toUpperCase();
+        parts.shift();
+        const name = parts[0];
+        parts.shift();
+        let identifier;
+
+        if (parts.length > 0) {
+            identifier = parts[0]; // Do not shift yet
+            // Check if a resource exists with this service, name and identifier combination
+            const url = "/arbitrary/resource/status/" + service + "/" + name + "/" + identifier;
+            const response = httpGet(url);
+            const responseObj = JSON.parse(response);
+            if (responseObj.totalChunkCount > 0) {
+                // Identifier exists, so don't include it in the path
+                parts.shift();
+            }
+        }
+
+        const path = parts.join("/");
+
+        const components = [];
+        components["service"] = service;
+        components["name"] = name;
+        components["identifier"] = identifier;
+        components["path"] = path;
+        return components;
+    }
+
+    return null;
+}
+
+function convertToResourceUrl(url) {
+    const c = extractComponents(url);
+    if (c == null) {
+        return null;
+    }
+
+    return buildResourceUrl(c.service, c.name, c.identifier, c.path);
+}
+
 window.addEventListener("message", (event) => {
     if (event == null || event.data == null || event.data.length == 0) {
         return;
@@ -73,23 +136,7 @@ window.addEventListener("message", (event) => {
 
         case "LINK_TO_QDN_RESOURCE":
             if (data.service == null) data.service = "WEBSITE"; // Default to WEBSITE
-            if (qdnContext == "render") {
-                url = "/render/" + data.service + "/" + data.name;
-                if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
-                if (data.identifier != null) url = url.concat("?identifier=" + data.identifier);
-            }
-            else if (qdnContext == "gateway") {
-                url = "/" + data.service + "/" + data.name;
-                if (data.identifier != null) url = url.concat("/" + data.identifier);
-                if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
-            }
-            else {
-                // domainMap only serves websites right now
-                url = "/" + data.name;
-                if (data.path != null) url = url.concat((data.path.startsWith("/") ? "" : "/") + data.path);
-            }
-
-            window.location = url;
+            window.location = buildResourceUrl(data.service, data.name, data.identifier, data.path);
             response = true;
             break;
 
@@ -228,39 +275,25 @@ window.addEventListener("message", (event) => {
  */
 function interceptClickEvent(e) {
     var target = e.target || e.srcElement;
-    if (target.tagName === 'A') {
-        let href = target.getAttribute('href');
-        if (href.startsWith("qortal://")) {
-            href = href.replace(/^(qortal\:\/\/)/,"");
-            if (href.includes("/")) {
-                let parts = href.split("/");
-                const service = parts[0].toUpperCase(); parts.shift();
-                const name = parts[0]; parts.shift();
-                let identifier;
-
-                if (parts.length > 0) {
-                    identifier = parts[0]; // Do not shift yet
-                    // Check if a resource exists with this service, name and identifier combination
-                    const url = "/arbitrary/resource/status/" + service + "/" + name + "/" + identifier;
-                    const response = httpGet(url);
-                    const responseObj = JSON.parse(response);
-                    if (responseObj.totalChunkCount > 0) {
-                        // Identifier exists, so don't include it in the path
-                        parts.shift();
-                    }
-                }
-
-                const path = parts.join("/");
-                qortalRequest({
-                    action: "LINK_TO_QDN_RESOURCE",
-                    service: service,
-                    name: name,
-                    identifier: identifier,
-                    path: path
-                });
-            }
-            e.preventDefault();
+    if (target.tagName !== 'A') {
+        target = target.closest('A');
+    }
+    if (target == null || target.getAttribute('href') == null) {
+        return;
+    }
+    let href = target.getAttribute('href');
+    if (href.startsWith("qortal://")) {
+        const c = extractComponents(href);
+        if (c != null) {
+            qortalRequest({
+                action: "LINK_TO_QDN_RESOURCE",
+                service: c.service,
+                name: c.name,
+                identifier: c.identifier,
+                path: c.path
+            });
         }
+        e.preventDefault();
     }
 }
 if (document.addEventListener) {
@@ -269,6 +302,19 @@ if (document.addEventListener) {
 else if (document.attachEvent) {
     document.attachEvent('onclick', interceptClickEvent);
 }
+
+/**
+ * Intercept image loads from the DOM
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    let url = document.querySelector('img').src;
+    if (url.startsWith("qortal://")) {
+        const newUrl = convertToResourceUrl(url);
+        console.log("Loading newUrl " + newUrl);
+        document.querySelector('img').src = newUrl;
+    }
+});
+
 
 
 const awaitTimeout = (timeout, reason) =>
