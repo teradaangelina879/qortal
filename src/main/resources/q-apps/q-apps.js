@@ -358,6 +358,36 @@ const awaitTimeout = (timeout, reason) =>
         )
     );
 
+function getDefaultTimeout(action) {
+    if (action != null) {
+        // Some actions need longer default timeouts, especially those that create transactions
+        switch (action) {
+            case "FETCH_QDN_RESOURCE":
+                // Fetching data can take a while, especially if the status hasn't been checked first
+                return 60 * 1000;
+
+            case "PUBLISH_QDN_RESOURCE":
+                // Publishing could take a very long time on slow system, due to the proof-of-work computation
+                // It's best not to timeout
+                return 60 * 60 * 1000;
+
+            case "SEND_CHAT_MESSAGE":
+                // Chat messages rely on PoW computations, so allow extra time
+                return 60 * 1000;
+
+            case "JOIN_GROUP":
+            case "DEPLOY_AT":
+            case "SEND_COIN":
+                // Allow extra time for other actions that create transactions, even if there is no PoW
+                return 30 * 1000;
+
+            default:
+                break;
+        }
+    }
+    return 10 * 1000;
+}
+
 /**
  * Make a Qortal (Q-Apps) request with no timeout
  */
@@ -381,7 +411,7 @@ const qortalRequestWithNoTimeout = (request) => new Promise((res, rej) => {
  * Make a Qortal (Q-Apps) request with the default timeout (10 seconds)
  */
 const qortalRequest = (request) =>
-    Promise.race([qortalRequestWithNoTimeout(request), awaitTimeout(10000, "The request timed out")]);
+    Promise.race([qortalRequestWithNoTimeout(request), awaitTimeout(getDefaultTimeout(request.action), "The request timed out")]);
 
 /**
  * Make a Qortal (Q-Apps) request with a custom timeout, specified in milliseconds

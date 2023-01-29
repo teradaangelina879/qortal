@@ -28,7 +28,7 @@ myfunction();
 
 ## Timeouts
 
-By default, all requests will timeout after 10 seconds, and will throw an error - `The request timed out`. If you need a longer timeout - e.g. when fetching large QDN resources that may take a long time to be retrieved, you can use `qortalRequestWithTimeout(request, timeout)` as an alternative to `qortalRequest(request)`.
+By default, all requests will timeout after a certain amount of time (default 10 seconds, but some actions use a higher value), and will throw an error - `The request timed out`. If you need a longer timeout - e.g. when fetching large QDN resources that may take a long time to be retrieved, you can use `qortalRequestWithTimeout(request, timeout)` as an alternative to `qortalRequest(request)`.
 
 ```
 async function myfunction() {
