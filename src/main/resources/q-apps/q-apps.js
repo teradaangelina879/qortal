@@ -318,29 +318,34 @@ else if (document.attachEvent) {
  * Intercept image loads from the DOM
  */
 document.addEventListener('DOMContentLoaded', () => {
-    let url = document.querySelector('img').src;
-    const newUrl = convertToResourceUrl(url);
-    if (newUrl != null) {
-        document.querySelector('img').src = newUrl;
-    }
+    const imgElements = document.querySelectorAll('img');
+    imgElements.forEach((img) => {
+        let url = img.src;
+        const newUrl = convertToResourceUrl(url);
+        if (newUrl != null) {
+            document.querySelector('img').src = newUrl;
+        }
+    });
 });
 
 /**
  * Intercept img src updates
  */
 document.addEventListener('DOMContentLoaded', () => {
-    let img = document.querySelector('img');
-    let observer = new MutationObserver((changes) => {
-        changes.forEach(change => {
-            if (change.attributeName.includes('src')) {
-                const newUrl = convertToResourceUrl(img.src);
-                if (newUrl != null) {
-                    document.querySelector('img').src = newUrl;
+    const imgElements = document.querySelectorAll('img');
+    imgElements.forEach((img) => {
+        let observer = new MutationObserver((changes) => {
+            changes.forEach(change => {
+                if (change.attributeName.includes('src')) {
+                    const newUrl = convertToResourceUrl(img.src);
+                    if (newUrl != null) {
+                        document.querySelector('img').src = newUrl;
+                    }
                 }
-            }
+            });
         });
+        observer.observe(img, {attributes: true});
     });
-    observer.observe(img, {attributes: true});
 });
 
 
