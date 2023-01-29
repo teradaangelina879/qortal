@@ -57,7 +57,7 @@ Javascript apps allow for much more complex integrations with Qortal's blockchai
 
 ## Section 2a: Direct API calls
 
-The standard [Qortal Core API](http://localhost:12391/api-documentation) is available to websites and apps, and can be called directly using standard AJAX request, such as:
+The standard [Qortal Core API](http://localhost:12391/api-documentation) is available to websites and apps, and can be called directly using a standard AJAX request, such as:
 ```
 async function getNameInfo(name) {
     const response = await fetch("/names/" + name);
@@ -67,7 +67,7 @@ async function getNameInfo(name) {
 getNameInfo("QortalDemo");
 ```
 
-However, this only works to for read-only data, such as looking up transactions, names, balances, etc.
+However, this only works for read-only data, such as looking up transactions, names, balances, etc. Also, since the address of the logged in account can't be retrieved from the core, apps can't show personalized data with this approach.
 
 
 ## Section 2b: User interaction via qortalRequest()
@@ -81,12 +81,12 @@ To take things a step further, the qortalRequest() function can be used to inter
 - Deploy ATs (smart contracts)
 - Send QORT or any supported foreign coin
 
-In addition to the above, qortalRequest() also supports many read-only functions that are also available via direct core API calls. Using qortalRequest helps with futureproofing, as the core APIs can be modified without breaking functionality of existing Q-Apps.
+In addition to the above, qortalRequest() also supports many read-only functions that are also available via direct core API calls. Using qortalRequest() helps with futureproofing, as the core APIs can be modified without breaking functionality of existing Q-Apps.
 
 
 ### Making a request
 
-Qortal core will automatically inject a `qortalRequest()` javascript function to all websites/apps, which returns a Promise. This can be used to fetch data or publish data to the Qortal blockchain. This functionality supports async/await, as well as try/catch error handling.
+Qortal core will automatically inject the `qortalRequest()` javascript function to all websites/apps, which returns a Promise. This can be used to fetch data or publish data to the Qortal blockchain. This functionality supports async/await, as well as try/catch error handling.
 
 ```
 async function myfunction() {
