@@ -53,8 +53,7 @@ myfunction();
 ## Supported actions
 
 Here is a list of currently supported actions:
-- GET_ACCOUNT_ADDRESS
-- GET_ACCOUNT_PUBLIC_KEY
+- GET_USER_ACCOUNT
 - GET_ACCOUNT_DATA
 - GET_ACCOUNT_NAMES
 - GET_NAME_DATA
@@ -89,17 +88,19 @@ Here are some example requests for each of the above:
 ### Get address of logged in account
 _Will likely require user approval_
 ```
-let address = await qortalRequest({
-     action: "GET_ACCOUNT_ADDRESS"
+let account = await qortalRequest({
+     action: "GET_USER_ACCOUNT"
 });
+let address = account.address;
 ```
 
 ### Get public key of logged in account
 _Will likely require user approval_
 ```
 let pubkey = await qortalRequest({
-     action: "GET_ACCOUNT_PUBLIC_KEY"
+     action: "GET_USER_ACCOUNT"
 });
+let publicKey = account.publicKey;
 ```
 
 ### Get account data
@@ -467,9 +468,10 @@ Here is a sample application to display the logged-in user's avatar:
         async function showAvatar() {
             try {
                 // Get QORT address of logged in account
-                let address = await qortalRequest({
-                    action: "GET_ACCOUNT_ADDRESS"
+                let account = await qortalRequest({
+                    action: "GET_USER_ACCOUNT"
                 });
+                let address = account.address;
                 console.log("address: " + address);
             
                 // Get names owned by this account
