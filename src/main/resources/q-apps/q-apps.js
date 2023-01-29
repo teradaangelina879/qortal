@@ -134,6 +134,10 @@ window.addEventListener("message", (event) => {
             response = httpGet("/names/" + data.name);
             break;
 
+        case "GET_QDN_RESOURCE_URL":
+            response = buildResourceUrl(data.service, data.name, data.identifier, data.path);
+            break;
+
         case "LINK_TO_QDN_RESOURCE":
             if (data.service == null) data.service = "WEBSITE"; // Default to WEBSITE
             window.location = buildResourceUrl(data.service, data.name, data.identifier, data.path);

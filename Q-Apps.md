@@ -77,6 +77,7 @@ Here is a list of currently supported actions:
 - FETCH_BLOCK_RANGE
 - SEARCH_TRANSACTIONS
 - GET_PRICE
+- GET_QDN_RESOURCE_URL
 - LINK_TO_QDN_RESOURCE
 
 More functionality will be added in the future.
@@ -401,6 +402,36 @@ let res = await qortalRequest({
     blockchain: "LITECOIN",
     // maxtrades: 10,
     inverse: true
+});
+```
+
+### Get URL to load a QDN resource
+```
+let url = await qortalRequest({
+    action: "GET_QDN_RESOURCE_URL",
+    service: "THUMBNAIL",
+    name: "QortalDemo",
+    identifier: "qortal_avatar"
+    // path: "filename.jpg" // optional - not needed if resource contains only one file
+});
+```
+
+### Get URL to load a QDN website
+```
+let url = await qortalRequest({
+    action: "GET_QDN_RESOURCE_URL",
+    service: "WEBSITE",
+    name: "QortalDemo",
+});
+```
+
+### Get URL to load a specific file from a QDN website
+```
+let url = await qortalRequest({
+    action: "GET_QDN_RESOURCE_URL",
+    service: "WEBSITE",
+    name: "AlphaX",
+    path: "/assets/img/logo.png"
 });
 ```
 
