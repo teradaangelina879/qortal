@@ -5,10 +5,88 @@
 Q-Apps are static web apps written in javascript, HTML, CSS, and other static assets. The key difference between a Q-App and a fully static site is its ability to interact with both the logged-in user and on-chain data. This is achieved using the API described in this document.
 
 
+# Section 1: Simple links and image loading via HTML
 
-## Making a request
+## Section 1a: Linking to other QDN websites / resources
 
-Qortal core  will automatically inject a `qortalRequest()` javascript function to all websites/apps, which returns a Promise. This can be used to fetch data or publish data to the Qortal blockchain. This functionality supports async/await, as well as try/catch error handling.
+The `qortal://` protocol can be used to access QDN data from within Qortal websites and apps. The basic format is as follows:
+```
+<a href="qortal://{service}/{name}/{identifier}/{path}">link text</a>
+```
+
+However, the system will support the omission of the `identifier` and/or `path` components to allow for simpler URL formats.
+
+A simple link to another website can be achieved with this HTML code:
+```
+<a href="qortal://WEBSITE/QortalDemo">link text</a>
+```
+
+To link to a specific page of another website:
+```
+<a href="qortal://WEBSITE/QortalDemo/minting-leveling/index.html">link text</a>
+```
+
+To link to a standalone resource, such as an avatar
+```
+<a href="qortal://THUMBNAIL/QortalDemo/qortal_avatar">avatar</a>
+```
+
+For cases where you would prefer to explicitly include an identifier (to remove ambiguity) you can use the keyword `default` to access a resource that doesn't have an identifier. For instance:
+```
+<a href="qortal://WEBSITE/QortalDemo/default">link to root of website</a>
+<a href="qortal://WEBSITE/QortalDemo/default/minting-leveling/index.html">link to subpage of website</a>
+```
+
+
+## Section 1b: Linking to other QDN images
+
+The same applies for images, such as displaying an avatar:
+```
+<img src="qortal://THUMBNAIL/QortalDemo/qortal_avatar" />
+```
+
+...or even an image from an entirely different website:
+```
+<img src="qortal://WEBSITE/AlphaX/assets/img/logo.png" />
+```
+
+
+# Section 2: Integrating a Javascript app
+
+Javascript apps allow for much more complex integrations with Qortal's blockchain data.
+
+## Section 2a: Direct API calls
+
+The standard [Qortal Core API](http://localhost:12391/api-documentation) is available to websites and apps, and can be called directly using standard AJAX request, such as:
+```
+async function getNameInfo(name) {
+    const response = await fetch("/names/" + name);
+    const nameData = await response.json();
+    console.log("nameData: " + JSON.stringify(nameData));
+}
+getNameInfo("QortalDemo");
+```
+
+However, this only works to for read-only data, such as looking up transactions, names, balances, etc.
+
+
+## Section 2b: User interaction via qortalRequest()
+
+To take things a step further, the qortalRequest() function can be used to interact with the user, in order to:
+
+- Request address and public key of the logged in account
+- Publish data to QDN
+- Send chat messages
+- Join groups
+- Deploy ATs (smart contracts)
+- Send QORT or any supported foreign coin
+
+In addition to the above, qortalRequest() also supports many read-only functions that are also available via direct core API calls. Using qortalRequest helps with futureproofing, as the core APIs can be modified without breaking functionality of existing Q-Apps.
+
+
+### Making a request
+
+Qortal core will automatically inject a `qortalRequest()` javascript function to all websites/apps, which returns a Promise. This can be used to fetch data or publish data to the Qortal blockchain. This functionality supports async/await, as well as try/catch error handling.
 
 ```
 async function myfunction() {
@@ -26,7 +104,7 @@ async function myfunction() {
 myfunction();
 ```
 
-## Timeouts
+### Timeouts
 
 By default, all requests will timeout after a certain amount of time (default 10 seconds, but some actions use a higher value), and will throw an error - `The request timed out`. If you need a longer timeout - e.g. when fetching large QDN resources that may take a long time to be retrieved, you can use `qortalRequestWithTimeout(request, timeout)` as an alternative to `qortalRequest(request)`.
 
@@ -49,6 +127,8 @@ async function myfunction() {
 }
 myfunction();
 ```
+
+# Section 3: qortalRequest Documentation
 
 ## Supported actions
 
@@ -458,6 +538,8 @@ let res = await qortalRequest({
 ```
 
 
+# Section 4: Examples
+
 ## Sample App
 
 Here is a sample application to display the logged-in user's avatar:
@@ -512,7 +594,7 @@ Here is a sample application to display the logged-in user's avatar:
 ```
 
 
-## Testing and Development
+# Section 5: Testing and Development
 
 Publishing an in-development app to mainnet isn't recommended. There are several options for developing and testing a Q-app before publishing to mainnet:
 
