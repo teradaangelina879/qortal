@@ -364,7 +364,10 @@ public class ArbitraryDataResource {
             this.transactions = transactionDataList;
             this.layerCount = transactionDataList.size();
 
-        } catch (DataException e) {
+        } catch (DataNotPublishedException e) {
+            // Ignore without logging
+        }
+        catch (DataException e) {
             LOGGER.info(String.format("Repository error when fetching transactions for resource %s: %s", this, e.getMessage()));
         }
     }
