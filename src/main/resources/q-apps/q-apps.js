@@ -86,7 +86,7 @@ function extractComponents(url) {
 
         const path = parts.join("/");
 
-        const components = [];
+        const components = {};
         components["service"] = service;
         components["name"] = name;
         components["identifier"] = identifier;
