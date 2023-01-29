@@ -43,6 +43,7 @@ public class ArbitraryDataResource {
     private int layerCount;
     private Integer localChunkCount = null;
     private Integer totalChunkCount = null;
+    private boolean exists = false;
 
     public ArbitraryDataResource(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         this.resourceId = resourceId.toLowerCase();
@@ -61,11 +62,10 @@ public class ArbitraryDataResource {
         // Avoid this for "quick" statuses, to speed things up
         if (!quick) {
             this.calculateChunkCounts();
-        }
 
-        if (this.totalChunkCount == null || this.totalChunkCount == 0) {
-            // Assume not published
-            return new ArbitraryResourceStatus(Status.NOT_PUBLISHED, this.localChunkCount, this.totalChunkCount);
+            if (!this.exists) {
+                return new ArbitraryResourceStatus(Status.NOT_PUBLISHED, this.localChunkCount, this.totalChunkCount);
+            }
         }
 
         if (resourceIdType != ResourceIdType.NAME) {
@@ -224,10 +224,13 @@ public class ArbitraryDataResource {
         try {
             this.fetchTransactions();
             if (this.transactions == null) {
+                this.exists = false;
                 this.localChunkCount = 0;
                 this.totalChunkCount = 0;
                 return;
             }
+
+            this.exists = true;
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
             int localChunkCount = 0;
