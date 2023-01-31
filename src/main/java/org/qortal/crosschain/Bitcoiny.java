@@ -167,6 +167,16 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		return blockTimestamps.get(5);
 	}
 
+	/**
+	 * Returns height from latest block.
+	 * <p>
+	 * @throws ForeignBlockchainException if error occurs
+	 */
+	public int getBlockchainHeight() throws ForeignBlockchainException {
+		int height = this.blockchainProvider.getCurrentHeight();
+		return height;
+	}
+
 	/** Returns fee per transaction KB. To be overridden for testnet/regtest. */
 	public Coin getFeePerKb() {
 		return this.bitcoinjContext.getFeePerKb();
