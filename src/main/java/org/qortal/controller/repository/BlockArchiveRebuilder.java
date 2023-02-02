@@ -60,6 +60,7 @@ public class BlockArchiveRebuilder {
                         // Delete existing archive and move the newly built one into its place
                         FileUtils.deleteDirectory(originalArchivePath.toFile());
                         FileUtils.moveDirectory(newArchivePath.toFile(), originalArchivePath.toFile());
+                        BlockArchiveReader.getInstance().invalidateFileListCache();
                         LOGGER.info("Block archive successfully rebuilt");
                         return;
                     }
