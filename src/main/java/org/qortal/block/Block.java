@@ -657,6 +657,10 @@ public class Block {
 		return this.atStates;
 	}
 
+	public byte[] getAtStatesHash() {
+		return this.atStatesHash;
+	}
+
 	/**
 	 * Return expanded info on block's online accounts.
 	 * <p>

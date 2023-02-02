@@ -3,10 +3,7 @@ package org.qortal.repository;
 import com.google.common.primitives.Ints;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.data.at.ATStateData;
 import org.qortal.data.block.BlockArchiveData;
-import org.qortal.data.block.BlockData;
-import org.qortal.data.transaction.TransactionData;
 import org.qortal.settings.Settings;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.block.BlockTransformation;
@@ -72,15 +69,30 @@ public class BlockArchiveReader {
             this.fetchFileList();
         }
 
-        byte[] serializedBytes = this.fetchSerializedBlockBytesForHeight(height);
-        if (serializedBytes == null) {
+        Triple<byte[], Integer, Integer> serializedBlock = this.fetchSerializedBlockBytesForHeight(height);
+        byte[] serializedBytes = serializedBlock.getA();
+        Integer serializationVersion = serializedBlock.getB();
+        if (serializedBytes == null || serializationVersion == null) {
             return null;
         }
 
         ByteBuffer byteBuffer = ByteBuffer.wrap(serializedBytes);
         BlockTransformation blockInfo = null;
         try {
-            blockInfo = BlockTransformer.fromByteBuffer(byteBuffer);
+            switch (serializationVersion) {
+                case 1:
+                    blockInfo = BlockTransformer.fromByteBuffer(byteBuffer);
+                    break;
+
+                case 2:
+                    blockInfo = BlockTransformer.fromByteBufferV2(byteBuffer);
+                    break;
+
+                default:
+                    // Invalid serialization version
+                    return null;
+            }
+
             if (blockInfo != null && blockInfo.getBlockData() != null) {
                 // Block height is stored outside of the main serialized bytes, so it
                 // won't be set automatically.
@@ -168,15 +180,17 @@ public class BlockArchiveReader {
         return null;
     }
 
-    public byte[] fetchSerializedBlockBytesForSignature(byte[] signature, boolean includeHeightPrefix, Repository repository) {
+    public Triple<byte[], Integer, Integer> fetchSerializedBlockBytesForSignature(byte[] signature, boolean includeHeightPrefix, Repository repository) {
         if (this.fileListCache == null) {
             this.fetchFileList();
         }
 
         Integer height = this.fetchHeightForSignature(signature, repository);
         if (height != null) {
-            byte[] blockBytes = this.fetchSerializedBlockBytesForHeight(height);
-            if (blockBytes == null) {
+            Triple<byte[], Integer, Integer> serializedBlock = this.fetchSerializedBlockBytesForHeight(height);
+            byte[] blockBytes = serializedBlock.getA();
+            Integer version = serializedBlock.getB();
+            if (blockBytes == null || version == null) {
                 return null;
             }
 
@@ -187,18 +201,18 @@ public class BlockArchiveReader {
                 try {
                     bytes.write(Ints.toByteArray(height));
                     bytes.write(blockBytes);
-                    return bytes.toByteArray();
+                    return new Triple<>(bytes.toByteArray(), version, height);
 
                 } catch (IOException e) {
                     return null;
                 }
             }
-            return blockBytes;
+            return new Triple<>(blockBytes, version, height);
         }
         return null;
     }
 
-    public byte[] fetchSerializedBlockBytesForHeight(int height) {
+    public Triple<byte[], Integer, Integer> fetchSerializedBlockBytesForHeight(int height) {
         String filename = this.getFilenameForHeight(height);
         if (filename == null) {
             // We don't have this block in the archive
@@ -221,7 +235,7 @@ public class BlockArchiveReader {
             // End of fixed length header
 
             // Make sure the version is one we recognize
-            if (version != 1) {
+            if (version != 1 && version != 2) {
                 LOGGER.info("Error: unknown version in file {}: {}", filename, version);
                 return null;
             }
@@ -258,7 +272,7 @@ public class BlockArchiveReader {
             byte[] blockBytes = new byte[blockLength];
             file.read(blockBytes);
 
-            return blockBytes;
+            return new Triple<>(blockBytes, version, height);
 
         } catch (FileNotFoundException e) {
             LOGGER.info("File {} not found: {}", filename, e.getMessage());
@@ -277,6 +291,30 @@ public class BlockArchiveReader {
                 }
             }
         }
+    }
+
+    public int getHeightOfLastArchivedBlock() {
+        if (this.fileListCache == null) {
+            this.fetchFileList();
+        }
+
+        int maxEndHeight = 0;
+
+        Iterator it = this.fileListCache.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry pair = (Map.Entry) it.next();
+            if (pair == null && pair.getKey() == null && pair.getValue() == null) {
+                continue;
+            }
+            Triple<Integer, Integer, Integer> heightInfo = (Triple<Integer, Integer, Integer>) pair.getValue();
+            Integer endHeight = heightInfo.getB();
+
+            if (endHeight != null && endHeight > maxEndHeight) {
+                maxEndHeight = endHeight;
+            }
+        }
+
+        return maxEndHeight;
     }
 
     public void invalidateFileListCache() {

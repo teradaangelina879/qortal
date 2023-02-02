@@ -1379,9 +1379,24 @@ public class Controller extends Thread {
 			// If we have no block data, we should check the archive in case it's there
 			if (blockData == null) {
 				if (Settings.getInstance().isArchiveEnabled()) {
-					byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, true, repository);
-					if (bytes != null) {
-						CachedBlockMessage blockMessage = new CachedBlockMessage(bytes);
+					Triple<byte[], Integer, Integer> serializedBlock = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, true, repository);
+					if (serializedBlock != null) {
+						byte[] bytes = serializedBlock.getA();
+						Integer serializationVersion = serializedBlock.getB();
+
+						Message blockMessage;
+						switch (serializationVersion) {
+							case 1:
+								blockMessage = new CachedBlockMessage(bytes);
+								break;
+
+							case 2:
+								blockMessage = new CachedBlockV2Message(bytes);
+								break;
+
+							default:
+								return;
+						}
 						blockMessage.setId(message.getId());
 
 						// This call also causes the other needed data to be pulled in from repository
