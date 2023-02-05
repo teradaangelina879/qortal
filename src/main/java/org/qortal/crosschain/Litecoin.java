@@ -53,6 +53,7 @@ public class Litecoin extends Bitcoiny {
 						new Server("electrum.ltc.xurious.com", Server.ConnectionType.SSL, 50002),
 						new Server("electrum-ltc.petrkr.net", Server.ConnectionType.SSL, 60002),
 						new Server("electrum-ltc.qortal.online", Server.ConnectionType.SSL, 50002),
+						new Server("electrum1-ltc.qortal.online", Server.ConnectionType.SSL, 50002),
 						new Server("electrum1.cipig.net", Server.ConnectionType.SSL, 20063),
 						new Server("electrum2.cipig.net", Server.ConnectionType.SSL, 20063),
 						new Server("electrum3.cipig.net", Server.ConnectionType.SSL, 20063),
