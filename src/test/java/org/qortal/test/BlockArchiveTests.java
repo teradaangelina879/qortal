@@ -23,7 +23,6 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.block.BlockTransformation;
 import org.qortal.utils.BlockArchiveUtils;
 import org.qortal.utils.NTP;
-import org.qortal.utils.Triple;
 
 import java.io.File;
 import java.io.IOException;
@@ -314,9 +313,10 @@ public class BlockArchiveTests extends Common {
 			repository.getBlockRepository().setBlockPruneHeight(901);
 
 			// Prune the AT states for the archived blocks
-			repository.getATRepository().rebuildLatestAtStates();
+			repository.getATRepository().rebuildLatestAtStates(900);
+			repository.saveChanges();
 			int numATStatesPruned = repository.getATRepository().pruneAtStates(0, 900);
-			assertEquals(900-1, numATStatesPruned);
+			assertEquals(900-2, numATStatesPruned); // Minus 1 for genesis block, and another for the latest AT state
 			repository.getATRepository().setAtPruneHeight(901);
 
 			// Now ensure the SQL repository is missing blocks 2 and 900...
@@ -563,16 +563,23 @@ public class BlockArchiveTests extends Common {
 			// Trim the first 500 blocks
 			repository.getBlockRepository().trimOldOnlineAccountsSignatures(0, 500);
 			repository.getBlockRepository().setOnlineAccountsSignaturesTrimHeight(501);
+			repository.getATRepository().rebuildLatestAtStates(500);
 			repository.getATRepository().trimAtStates(0, 500, 1000);
 			repository.getATRepository().setAtTrimHeight(501);
 
-			// Now block 500 should only have the AT state data hash
-			block500AtStatesData = repository.getATRepository().getBlockATStatesAtHeight(500);
-			atStatesData = repository.getATRepository().getATStateAtHeight(block500AtStatesData.get(0).getATAddress(), 500);
+			// Now block 499 should only have the AT state data hash
+			List<ATStateData> block499AtStatesData = repository.getATRepository().getBlockATStatesAtHeight(499);
+			atStatesData = repository.getATRepository().getATStateAtHeight(block499AtStatesData.get(0).getATAddress(), 499);
 			assertNotNull(atStatesData.getStateHash());
 			assertNull(atStatesData.getStateData());
 
-			// ... but block 501 should have the full data
+			// ... but block 500 should have the full data (due to being retained as the "latest" AT state in the trimmed range
+			block500AtStatesData = repository.getATRepository().getBlockATStatesAtHeight(500);
+			atStatesData = repository.getATRepository().getATStateAtHeight(block500AtStatesData.get(0).getATAddress(), 500);
+			assertNotNull(atStatesData.getStateHash());
+			assertNotNull(atStatesData.getStateData());
+
+			// ... and block 501 should also have the full data
 			List<ATStateData> block501AtStatesData = repository.getATRepository().getBlockATStatesAtHeight(501);
 			atStatesData = repository.getATRepository().getATStateAtHeight(block501AtStatesData.get(0).getATAddress(), 501);
 			assertNotNull(atStatesData.getStateHash());
@@ -612,9 +619,10 @@ public class BlockArchiveTests extends Common {
 			repository.getBlockRepository().setBlockPruneHeight(501);
 
 			// Prune the AT states for the archived blocks
-			repository.getATRepository().rebuildLatestAtStates();
+			repository.getATRepository().rebuildLatestAtStates(500);
+			repository.saveChanges();
 			int numATStatesPruned = repository.getATRepository().pruneAtStates(2, 500);
-			assertEquals(499, numATStatesPruned);
+			assertEquals(498, numATStatesPruned); // Minus 1 for genesis block, and another for the latest AT state
 			repository.getATRepository().setAtPruneHeight(501);
 
 			// Now ensure the SQL repository is missing blocks 2 and 500...

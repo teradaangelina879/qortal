@@ -603,7 +603,7 @@ public class HSQLDBATRepository implements ATRepository {
 
 
 	@Override
-	public void rebuildLatestAtStates() throws DataException {
+	public void rebuildLatestAtStates(int maxHeight) throws DataException {
 		// latestATStatesLock is to prevent concurrent updates on LatestATStates
 		// that could result in one process using a partial or empty dataset
 		// because it was in the process of being rebuilt by another thread
@@ -624,11 +624,12 @@ public class HSQLDBATRepository implements ATRepository {
 					+ "CROSS JOIN LATERAL("
 					+ "SELECT height FROM ATStates "
 					+ "WHERE ATStates.AT_address = ATs.AT_address "
+					+ "AND height <= ?"
 					+ "ORDER BY AT_address DESC, height DESC LIMIT 1"
 					+ ") "
 					+ ")";
 			try {
-				this.repository.executeCheckedUpdate(insertSql);
+				this.repository.executeCheckedUpdate(insertSql, maxHeight);
 			} catch (SQLException e) {
 				repository.examineException(e);
 				throw new DataException("Unable to populate temporary latest AT states cache in repository", e);

@@ -2,29 +2,20 @@ package org.qortal.test.at;
 
 import static org.junit.Assert.*;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 
-import org.ciyam.at.CompilationException;
 import org.ciyam.at.MachineState;
-import org.ciyam.at.OpCode;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.asset.Asset;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
-import org.qortal.data.transaction.BaseTransactionData;
-import org.qortal.data.transaction.DeployAtTransactionData;
-import org.qortal.data.transaction.TransactionData;
-import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.test.common.AtUtils;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
-import org.qortal.test.common.TransactionUtils;
 import org.qortal.transaction.DeployAtTransaction;
 
 public class AtRepositoryTests extends Common {
@@ -76,7 +67,7 @@ public class AtRepositoryTests extends Common {
 			Integer testHeight = maxHeight - 2;
 
 			// Trim AT state data
-			repository.getATRepository().rebuildLatestAtStates();
+			repository.getATRepository().rebuildLatestAtStates(maxHeight);
 			repository.getATRepository().trimAtStates(2, maxHeight, 1000);
 
 			ATStateData atStateData = repository.getATRepository().getATStateAtHeight(atAddress, testHeight);
@@ -130,7 +121,7 @@ public class AtRepositoryTests extends Common {
 			Integer testHeight = blockchainHeight;
 
 			// Trim AT state data
-			repository.getATRepository().rebuildLatestAtStates();
+			repository.getATRepository().rebuildLatestAtStates(maxHeight);
 			// COMMIT to check latest AT states persist / TEMPORARY table interaction
 			repository.saveChanges();
 
@@ -163,8 +154,8 @@ public class AtRepositoryTests extends Common {
 			int maxTrimHeight = blockchainHeight - 4;
 			Integer testHeight = maxTrimHeight + 1;
 
-			// Trim AT state data
-			repository.getATRepository().rebuildLatestAtStates();
+			// Trim AT state data (using a max height of maxTrimHeight + 1, so it is beyond the trimmed range)
+			repository.getATRepository().rebuildLatestAtStates(maxTrimHeight + 1);
 			repository.saveChanges();
 			repository.getATRepository().trimAtStates(2, maxTrimHeight, 1000);
 
@@ -333,7 +324,7 @@ public class AtRepositoryTests extends Common {
 			Integer testHeight = maxHeight - 2;
 
 			// Trim AT state data
-			repository.getATRepository().rebuildLatestAtStates();
+			repository.getATRepository().rebuildLatestAtStates(maxHeight);
 			repository.getATRepository().trimAtStates(2, maxHeight, 1000);
 
 			List<ATStateData> atStates = repository.getATRepository().getBlockATStatesAtHeight(testHeight);
