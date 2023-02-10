@@ -18,18 +18,20 @@ public class ActiveChats {
 		private String sender;
 		private String senderName;
 		private byte[] signature;
+		private byte[] data;
 
 		protected GroupChat() {
 			/* JAXB */
 		}
 
-		public GroupChat(int groupId, String groupName, Long timestamp, String sender, String senderName, byte[] signature) {
+		public GroupChat(int groupId, String groupName, Long timestamp, String sender, String senderName, byte[] signature, byte[] data) {
 			this.groupId = groupId;
 			this.groupName = groupName;
 			this.timestamp = timestamp;
 			this.sender = sender;
 			this.senderName = senderName;
 			this.signature = signature;
+			this.data = data;
 		}
 
 		public int getGroupId() {
@@ -54,6 +56,10 @@ public class ActiveChats {
 
 		public byte[] getSignature() {
 			return this.signature;
+		}
+
+		public byte[] getData() {
+			return this.data;
 		}
 	}
 

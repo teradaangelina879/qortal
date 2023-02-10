@@ -177,11 +177,11 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 	private List<GroupChat> getActiveGroupChats(String address) throws DataException {
 		// Find groups where address is a member and potential latest message details
-		String groupsSql = "SELECT group_id, group_name, latest_timestamp, sender, sender_name, signature "
+		String groupsSql = "SELECT group_id, group_name, latest_timestamp, sender, sender_name, signature, data "
 				+ "FROM GroupMembers "
 				+ "JOIN Groups USING (group_id) "
 				+ "LEFT OUTER JOIN LATERAL("
-					+ "SELECT created_when AS latest_timestamp, sender, name AS sender_name, signature "
+					+ "SELECT created_when AS latest_timestamp, sender, name AS sender_name, signature, data "
 					+ "FROM ChatTransactions "
 					+ "JOIN Transactions USING (signature) "
 					+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
@@ -206,8 +206,9 @@ public class HSQLDBChatRepository implements ChatRepository {
 					String sender = resultSet.getString(4);
 					String senderName = resultSet.getString(5);
 					byte[] signature = resultSet.getBytes(6);
+					byte[] data = resultSet.getBytes(7);
 
-					GroupChat groupChat = new GroupChat(groupId, groupName, timestamp, sender, senderName, signature);
+					GroupChat groupChat = new GroupChat(groupId, groupName, timestamp, sender, senderName, signature, data);
 					groupChats.add(groupChat);
 				} while (resultSet.next());
 			}
@@ -216,7 +217,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 		}
 
 		// We need different SQL to handle group-less chat
-		String grouplessSql = "SELECT created_when, sender, SenderNames.name, signature "
+		String grouplessSql = "SELECT created_when, sender, SenderNames.name, signature, data "
 				+ "FROM ChatTransactions "
 				+ "JOIN Transactions USING (signature) "
 				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
@@ -230,6 +231,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 			String sender = null;
 			String senderName = null;
 			byte[] signature = null;
+			byte[] data = null;
 
 			if (resultSet != null) {
 				// We found a recipient-less, group-less CHAT message, so report its details
@@ -237,9 +239,10 @@ public class HSQLDBChatRepository implements ChatRepository {
 				sender = resultSet.getString(2);
 				senderName = resultSet.getString(3);
 				signature = resultSet.getBytes(4);
+				data = resultSet.getBytes(5);
 			}
 
-			GroupChat groupChat = new GroupChat(0, null, timestamp, sender, senderName, signature);
+			GroupChat groupChat = new GroupChat(0, null, timestamp, sender, senderName, signature, data);
 			groupChats.add(groupChat);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch active group chats from repository", e);
