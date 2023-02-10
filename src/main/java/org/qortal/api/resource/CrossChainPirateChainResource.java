@@ -20,6 +20,7 @@ import org.qortal.crosschain.SimpleTransaction;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
+import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -31,6 +32,37 @@ public class CrossChainPirateChainResource {
 
 	@Context
 	HttpServletRequest request;
+
+	@GET
+	@Path("/height")
+	@Operation(
+		summary = "Returns current PirateChain block height",
+		description = "Returns the height of the most recent block in the PirateChain chain.",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					schema = @Schema(
+						type = "number"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	public String getPirateChainHeight() {
+		PirateChain pirateChain = PirateChain.getInstance();
+
+		try {
+			Integer height = pirateChain.getBlockchainHeight();
+			if (height == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+
+			return height.toString();
+
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
+	}
 
 	@POST
 	@Path("/walletbalance")
