@@ -296,10 +296,9 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public Integer getATCreationBlockHeight(String atAddress) throws DataException {
-		String sql = "SELECT height "
+		String sql = "SELECT block_height "
 				+ "FROM DeployATTransactions "
-				+ "JOIN BlockTransactions ON transaction_signature = signature "
-				+ "JOIN Blocks ON Blocks.signature = block_signature "
+				+ "JOIN Transactions USING (signature) "
 				+ "WHERE AT_address = ? "
 				+ "LIMIT 1";
 
@@ -877,18 +876,17 @@ public class HSQLDBATRepository implements ATRepository {
 	public NextTransactionInfo findNextTransaction(String recipient, int height, int sequence) throws DataException {
 		// We only need to search for a subset of transaction types: MESSAGE, PAYMENT or AT
 
-		String sql = "SELECT height, sequence, Transactions.signature "
+		String sql = "SELECT block_height, block_sequence, Transactions.signature "
 				+ "FROM ("
 					+ "SELECT signature FROM PaymentTransactions WHERE recipient = ? "
 					+ "UNION "
 					+ "SELECT signature FROM MessageTransactions WHERE recipient = ? "
 					+ "UNION "
 					+ "SELECT signature FROM ATTransactions WHERE recipient = ?"
-				+ ") AS Transactions "
-				+ "JOIN BlockTransactions ON BlockTransactions.transaction_signature = Transactions.signature "
-				+ "JOIN Blocks ON Blocks.signature = BlockTransactions.block_signature "
-				+ "WHERE (height > ? OR (height = ? AND sequence > ?)) "
-				+ "ORDER BY height ASC, sequence ASC "
+				+ ") AS SelectedTransactions "
+				+ "JOIN Transactions USING (signature)"
+				+ "WHERE (block_height > ? OR (block_height = ? AND block_sequence > ?)) "
+				+ "ORDER BY block_height ASC, block_sequence ASC "
 				+ "LIMIT 1";
 
 		Object[] bindParams = new Object[] { recipient, recipient, recipient, height, height, sequence };

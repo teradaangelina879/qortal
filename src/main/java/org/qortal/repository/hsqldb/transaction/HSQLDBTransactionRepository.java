@@ -194,8 +194,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromHeightAndSequence(int height, int sequence) throws DataException {
-		String sql = "SELECT transaction_signature FROM BlockTransactions JOIN Blocks ON signature = block_signature "
-				+ "WHERE height = ? AND sequence = ?";
+		String sql = "SELECT signature FROM Transactions WHERE block_height = ? AND block_sequence = ?";
 		
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, height, sequence)) {
 			if (resultSet == null)
