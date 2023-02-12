@@ -218,14 +218,25 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-		    // Check if the block exists in either the database or archive
-			if (repository.getBlockRepository().getHeightFromSignature(signature) == 0 &&
-					repository.getBlockArchiveRepository().getHeightFromSignature(signature) == 0) {
-				// Not found in either the database or archive
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
-            }
+			// Check if the block exists in either the database or archive
+			int height = repository.getBlockRepository().getHeightFromSignature(signature);
+			if (height == 0) {
+				height = repository.getBlockArchiveRepository().getHeightFromSignature(signature);
+				if (height == 0) {
+					// Not found in either the database or archive
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+				}
+			}
 
-			return repository.getBlockRepository().getTransactionsFromSignature(signature, limit, offset, reverse);
+			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, height, height);
+
+			// Expand signatures to transactions
+			List<TransactionData> transactions = new ArrayList<>(signatures.size());
+			for (byte[] s : signatures) {
+				transactions.add(repository.getTransactionRepository().fromSignature(s));
+			}
+
+			return transactions;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
