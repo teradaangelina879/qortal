@@ -48,6 +48,7 @@ public class Ravencoin extends Bitcoiny {
 						//CLOSED new Server("aethyn.com", ConnectionType.SSL, 50002),
 						//CLOSED new Server("electrum2.rvn.rocks", ConnectionType.SSL, 50002),
 						//BEHIND new Server("electrum3.rvn.rocks", ConnectionType.SSL, 50002),
+						new Server("electrum.qortal.link", Server.ConnectionType.SSL, 56002),
 						new Server("electrum-rvn.qortal.online", ConnectionType.SSL, 50002),
 						new Server("electrum1-rvn.qortal.online", ConnectionType.SSL, 50002),
 						new Server("electrum1.cipig.net", ConnectionType.SSL, 20051),
