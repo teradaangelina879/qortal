@@ -407,8 +407,8 @@ public class Controller extends Thread {
 				RepositoryManager.rebuildTransactionSequences(repository);
 			}
 		} catch (DataException e) {
-			// If exception has no cause then repository is in use by some other process.
-			if (e.getCause() == null) {
+			// If exception has no cause or message then repository is in use by some other process.
+			if (e.getCause() == null && e.getMessage() == null) {
 				LOGGER.info("Repository in use by another process?");
 				Gui.getInstance().fatalError("Repository issue", "Repository in use by another process?");
 			} else {
