@@ -993,6 +993,17 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE CancelSellNameTransactions ADD sale_price QortalAmount");
 					break;
 
+				case 47:
+					// Add `block_sequence` to the Transaction table, as the BlockTransactions table is pruned for
+					// older blocks and therefore the sequence becomes unavailable
+					LOGGER.info("Reshaping Transactions table - this can take a while...");
+					stmt.execute("ALTER TABLE Transactions ADD block_sequence INTEGER");
+
+					// For finding transactions by height and sequence
+					LOGGER.info("Adding index to Transactions table - this can take a while...");
+					stmt.execute("CREATE INDEX TransactionHeightSequenceIndex on Transactions (block_height, block_sequence)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

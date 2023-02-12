@@ -404,6 +404,7 @@ public class Controller extends Thread {
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				RepositoryManager.archive(repository);
 				RepositoryManager.prune(repository);
+				RepositoryManager.rebuildTransactionSequences(repository);
 			}
 		} catch (DataException e) {
 			// If exception has no cause then repository is in use by some other process.

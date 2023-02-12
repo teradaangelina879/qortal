@@ -309,6 +309,8 @@ public interface TransactionRepository {
 
 	public void updateBlockHeight(byte[] signature, Integer height) throws DataException;
 
+	public void updateBlockSequence(byte[] signature, Integer sequence) throws DataException;
+
 	public void updateApprovalHeight(byte[] signature, Integer approvalHeight) throws DataException;
 
 	/**

@@ -2,13 +2,18 @@ package org.qortal.repository;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.gui.SplashFrame;
 import org.qortal.repository.hsqldb.HSQLDBDatabaseArchiving;
 import org.qortal.repository.hsqldb.HSQLDBDatabasePruning;
 import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.settings.Settings;
+import org.qortal.transaction.Transaction;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 public abstract class RepositoryManager {
@@ -115,6 +120,69 @@ public abstract class RepositoryManager {
 			}
 		}
 		return false;
+	}
+
+	public static boolean rebuildTransactionSequences(Repository repository) throws DataException {
+		if (Settings.getInstance().isLite()) {
+			// Lite nodes have no blockchain
+			return false;
+		}
+
+		try {
+			// Check if we have any unpopulated block_sequence values for the first 1000 blocks
+			List<byte[]> testSignatures = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+					null, Arrays.asList("block_height < 1000 AND block_sequence IS NULL"), new ArrayList<>());
+			if (testSignatures.isEmpty()) {
+				// block_sequence already populated for the first 1000 blocks, so assume complete.
+				// We avoid checkpointing and prevent the node from starting up in the case of a rebuild failure, so
+				// we shouldn't ever be left in a partially rebuilt state.
+				return false;
+			}
+
+			int blockchainHeight = repository.getBlockRepository().getBlockchainHeight();
+			int totalTransactionCount = 0;
+
+			for (int height = 1; height < blockchainHeight; height++) {
+				List<TransactionData> transactions = new ArrayList<>();
+
+				// Fetch transactions for height
+				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, height, height);
+				for (byte[] signature : signatures) {
+					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+					if (transactionData != null) {
+						transactions.add(transactionData);
+					}
+				}
+				totalTransactionCount += transactions.size();
+
+				// Sort the transactions for this height
+				transactions.sort(Transaction.getDataComparator());
+
+				// Loop through and update sequences
+				for (int sequence = 0; sequence < transactions.size(); ++sequence) {
+					TransactionData transactionData = transactions.get(sequence);
+
+					// Update transaction's sequence in repository
+					repository.getTransactionRepository().updateBlockSequence(transactionData.getSignature(), sequence);
+				}
+
+				if (height % 10000 == 0) {
+					LOGGER.info("Rebuilt sequences for {} blocks (total transactions: {})", height, totalTransactionCount);
+				}
+
+				repository.saveChanges();
+			}
+
+			LOGGER.info("Completed rebuild of transaction sequences.");
+			return true;
+		}
+		catch (DataException e) {
+			LOGGER.info("Unable to rebuild transaction sequences: {}. The database may have been left in an inconsistent state.", e.getMessage());
+
+			// Throw an exception so that the node startup is halted, allowing for a retry next time.
+			repository.discardChanges();
+			throw new DataException("Rebuild of transaction sequences failed.");
+		}
 	}
 
 	public static void setRequestedCheckpoint(Boolean quick) {
