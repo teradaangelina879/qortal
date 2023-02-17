@@ -737,7 +737,7 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, e.getMessage());
 		}
 
-		throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+		throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FILE_NOT_FOUND);
 	}
 
 
