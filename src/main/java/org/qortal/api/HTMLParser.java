@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
+import org.qortal.arbitrary.misc.Service;
 
 public class HTMLParser {
 
@@ -13,12 +14,21 @@ public class HTMLParser {
     private String linkPrefix;
     private byte[] data;
     private String qdnContext;
+    private String resourceId;
+    private Service service;
+    private String identifier;
+    private String path;
 
-    public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data, String qdnContext) {
+    public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data,
+                      String qdnContext, Service service, String identifier) {
         String inPathWithoutFilename = inPath.substring(0, inPath.lastIndexOf('/'));
         this.linkPrefix = usePrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : "";
         this.data = data;
         this.qdnContext = qdnContext;
+        this.resourceId = resourceId;
+        this.service = service;
+        this.identifier = identifier;
+        this.path = inPath;
     }
 
     public void addAdditionalHeaderTags() {
@@ -31,8 +41,8 @@ public class HTMLParser {
             String qAppsScriptElement = String.format("<script src=\"/apps/q-apps.js?time=%d\">", System.currentTimeMillis());
             head.get(0).prepend(qAppsScriptElement);
 
-            // Add QDN context var
-            String qdnContextVar = String.format("<script>var qdnContext=\"%s\";</script>", this.qdnContext);
+            // Add vars
+            String qdnContextVar = String.format("<script>var qdnContext=\"%s\"; var qdnService=\"%s\"; var qdnName=\"%s\"; var qdnIdentifier=\"%s\"; var qdnPath=\"%s\";</script>", this.qdnContext, this.service.toString(), this.resourceId, this.identifier, this.path);
             head.get(0).prepend(qdnContextVar);
 
             // Add base href tag

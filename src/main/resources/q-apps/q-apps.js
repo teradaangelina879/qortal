@@ -10,7 +10,7 @@ function handleResponse(event, response) {
         return;
     }
 
-    // Handle emmpty or missing responses
+    // Handle empty or missing responses
     if (response == null || response.length == 0) {
         response = "{\"error\": \"Empty response\"}"
     }
@@ -151,7 +151,6 @@ window.addEventListener("message", (event) => {
         case "LINK_TO_QDN_RESOURCE":
             if (data.service == null) data.service = "WEBSITE"; // Default to WEBSITE
             window.location = buildResourceUrl(data.service, data.name, data.identifier, data.path);
-            response = true;
             break;
 
         case "SEARCH_QDN_RESOURCES":
@@ -279,6 +278,13 @@ window.addEventListener("message", (event) => {
             return;
     }
 
+    if (response == null) {
+        // Pass to parent (UI), in case they can fulfil this request
+        event.data.requestedHandler = "UI";
+        parent.postMessage(event.data, '*', [event.ports[0]]);
+        return;
+    }
+
     handleResponse(event, response);
 
 }, false);
@@ -316,6 +322,19 @@ if (document.addEventListener) {
 else if (document.attachEvent) {
     document.attachEvent('onclick', interceptClickEvent);
 }
+
+/**
+ * Send current page details to UI
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    qortalRequest({
+        action: "QDN_RESOURCE_DISPLAYED",
+        service: qdnService,
+        name: qdnName,
+        identifier: qdnIdentifier,
+        path: qdnPath
+    });
+});
 
 /**
  * Intercept image loads from the DOM
