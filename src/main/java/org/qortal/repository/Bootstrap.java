@@ -279,7 +279,9 @@ public class Bootstrap {
 
             LOGGER.info("Generating checksum file...");
             String checksum = Crypto.digestHexString(compressedOutputPath.toFile(), 1024*1024);
+            LOGGER.info("checksum: {}", checksum);
             Path checksumPath = Paths.get(String.format("%s.sha256", compressedOutputPath.toString()));
+            LOGGER.info("Writing checksum to path: {}", checksumPath);
             Files.writeString(checksumPath, checksum, StandardOpenOption.CREATE);
 
             // Return the path to the compressed bootstrap file
