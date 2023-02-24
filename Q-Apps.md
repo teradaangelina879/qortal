@@ -307,29 +307,17 @@ let res = await qortalRequest({
 });
 ```
 
-### Send coin to address
+### Send QORT to address
 _Requires user approval_
 ```
 await qortalRequest({
     action: "SEND_COIN",
     coin: "QORT",
     destinationAddress: "QZLJV7wbaFyxaoZQsjm6rb9MWMiDzWsqM2",
-    amount: 100000000, // 1 QORT
-    fee: 10000 // 0.0001 QORT
+    amount: 1.00000000 // 1 QORT
 });
 ```
 
-### Send coin to address
-_Requires user approval_
-```
-await qortalRequest({
-    action: "SEND_COIN",
-    coin: "LTC",
-    destinationAddress: "LSdTvMHRm8sScqwCi6x9wzYQae8JeZhx6y",
-    amount: 100000000, // 1 LTC
-    fee: 20 // 0.00000020 LTC per byte
-});
-```
 
 ### Search or list chat messages
 ```
@@ -393,14 +381,14 @@ _Requires user approval_
 ```
 let res = await qortalRequest({
     action: "DEPLOY_AT",
-    creationBytes: "12345",
+    creationBytes: "12345", // Must be Base58 encoded
     name: "test name",
     description: "test description",
     type: "test type",
     tags: "test tags",
-    amount: 100000000, // 1 QORT
+    amount: 1.00000000, // 1 QORT
     assetId: 0,
-    fee: 20000 // 0.0002 QORT
+    // fee: 0.002 // optional - will use default fee if excluded
 });
 ```
 
