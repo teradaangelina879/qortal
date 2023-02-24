@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.io.IOException;
+import java.io.StringWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -18,19 +20,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
+import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.api.ApiError;
-import org.qortal.api.ApiErrors;
-import org.qortal.api.ApiException;
-import org.qortal.api.ApiExceptionFactory;
+import org.qortal.api.*;
 import org.qortal.api.model.SimpleTransactionSignRequest;
 import org.qortal.controller.Controller;
 import org.qortal.controller.LiteNode;
@@ -709,7 +704,7 @@ public class TransactionsResource {
 		),
 		responses = {
 			@ApiResponse(
-				description = "true if accepted, false otherwise",
+				description = "For API version 1, this returns true if accepted.\nFor API version 2, the transactionData is returned as a JSON string if accepted.",
 				content = @Content(
 					mediaType = MediaType.TEXT_PLAIN,
 					schema = @Schema(
@@ -722,7 +717,9 @@ public class TransactionsResource {
 	@ApiErrors({
 		ApiError.BLOCKCHAIN_NEEDS_SYNC, ApiError.INVALID_SIGNATURE, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE
 	})
-	public String processTransaction(String rawBytes58) {
+	public String processTransaction(String rawBytes58, @HeaderParam(ApiService.API_VERSION_HEADER) String apiVersionHeader) {
+		int apiVersion = ApiService.getApiVersion(request);
+
 		// Only allow a transaction to be processed if our latest block is less than 60 minutes old
 		// If older than this, we should first wait until the blockchain is synced
 		final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
@@ -759,13 +756,27 @@ public class TransactionsResource {
 				blockchainLock.unlock();
 			}
 
-			return "true";
+			switch (apiVersion) {
+				case 1:
+					return "true";
+
+				case 2:
+				default:
+					// Marshall transactionData to string
+					StringWriter stringWriter = new StringWriter();
+					ApiRequest.marshall(stringWriter, transactionData);
+					return stringWriter.toString();
+			}
+
+
 		} catch (NumberFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		} catch (InterruptedException e) {
 			throw createTransactionInvalidException(request, ValidationResult.NO_BLOCKCHAIN_LOCK);
+		} catch (IOException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		}
 	}
 

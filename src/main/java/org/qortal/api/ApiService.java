@@ -13,6 +13,7 @@ import java.security.SecureRandom;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.servlet.http.HttpServletRequest;
 
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
@@ -49,6 +50,8 @@ public class ApiService {
 	private final ResourceConfig config;
 	private Server server;
 	private ApiKey apiKey;
+
+	public static final String API_VERSION_HEADER = "X-API-VERSION";
 
 	private ApiService() {
 		this.config = new ResourceConfig();
@@ -227,6 +230,21 @@ public class ApiService {
 		}
 
 		this.server = null;
+	}
+
+	public static int getApiVersion(HttpServletRequest request) {
+		// Get API version
+		String apiVersionString = request.getHeader(API_VERSION_HEADER);
+		if (apiVersionString == null) {
+			// Try query string - this is needed to avoid a CORS preflight. See: https://stackoverflow.com/a/43881141
+			apiVersionString = request.getParameter("apiVersion");
+		}
+
+		int apiVersion = 1;
+		if (apiVersionString != null) {
+			apiVersion = Integer.parseInt(apiVersionString);
+		}
+		return apiVersion;
 	}
 
 }
