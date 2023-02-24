@@ -122,7 +122,7 @@ public class ApiRequest {
 
 			return marshaller;
 		} catch (JAXBException e) {
-			throw new RuntimeException("Unable to create websocket marshaller", e);
+			throw new RuntimeException("Unable to create API marshaller", e);
 		}
 	}
 
@@ -132,7 +132,7 @@ public class ApiRequest {
 		try {
 			marshaller.marshal(object, writer);
 		} catch (JAXBException e) {
-			throw new IOException("Unable to create marshall object for websocket", e);
+			throw new IOException("Unable to create marshall object for API", e);
 		}
 	}
 
