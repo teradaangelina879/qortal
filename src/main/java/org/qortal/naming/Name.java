@@ -16,6 +16,8 @@ import org.qortal.repository.Repository;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Unicode;
 
+import java.util.Objects;
+
 public class Name {
 
 	// Properties
@@ -116,7 +118,7 @@ public class Name {
 
 		this.repository.getNameRepository().save(this.nameData);
 
-		if (!updateNameTransactionData.getNewName().isEmpty())
+		if (!updateNameTransactionData.getNewName().isEmpty() && !Objects.equals(updateNameTransactionData.getName(), updateNameTransactionData.getNewName()))
 			// Name has changed, delete old entry
 			this.repository.getNameRepository().delete(updateNameTransactionData.getNewName());
 

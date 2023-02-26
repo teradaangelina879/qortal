@@ -84,6 +84,8 @@ public enum Service {
     QCHAT_IMAGE(420, true, 500*1024L, null),
     VIDEO(500, false, null, null),
     AUDIO(600, false, null, null),
+    QCHAT_AUDIO(610, true, 10*1024*1024L, null),
+    QCHAT_VOICE(620, true, 10*1024*1024L, null),
     BLOG(700, false, null, null),
     BLOG_POST(777, false, null, null),
     BLOG_COMMENT(778, false, null, null),

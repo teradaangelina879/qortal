@@ -204,7 +204,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 						if (completeFileExists && !allChunksExist) {
 							// We have the complete file but not the chunks, so let's convert it
-							LOGGER.info(String.format("Transaction %s has complete file but no chunks",
+							LOGGER.debug(String.format("Transaction %s has complete file but no chunks",
 									Base58.encode(arbitraryTransactionData.getSignature())));
 
 							ArbitraryTransactionUtils.convertFileToChunks(arbitraryTransactionData, now, STALE_FILE_TIMEOUT);
