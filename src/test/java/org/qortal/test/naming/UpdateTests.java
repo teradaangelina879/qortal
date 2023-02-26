@@ -219,6 +219,65 @@ public class UpdateTests extends Common {
 		}
 	}
 
+	// Test that multiple UPDATE_NAME transactions work as expected, when using a matching name and newName string
+	@Test
+	public void testDoubleUpdateNameWithMatchingNewName() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Register-name
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			String name = "name";
+			String reducedName = "name";
+			String data = "{\"age\":30}";
+
+			TransactionData initialTransactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, data);
+			initialTransactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(initialTransactionData.getTimestamp()));
+			TransactionUtils.signAndMint(repository, initialTransactionData, alice);
+
+			// Check name exists
+			assertTrue(repository.getNameRepository().nameExists(name));
+			assertNotNull(repository.getNameRepository().fromReducedName(reducedName));
+
+			// Update name
+			TransactionData middleTransactionData = new UpdateNameTransactionData(TestTransaction.generateBase(alice), name, name, data);
+			TransactionUtils.signAndMint(repository, middleTransactionData, alice);
+
+			// Check name still exists
+			assertTrue(repository.getNameRepository().nameExists(name));
+			assertNotNull(repository.getNameRepository().fromReducedName(reducedName));
+
+			// Update name again
+			TransactionData newestTransactionData = new UpdateNameTransactionData(TestTransaction.generateBase(alice), name, name, data);
+			TransactionUtils.signAndMint(repository, newestTransactionData, alice);
+
+			// Check name still exists
+			assertTrue(repository.getNameRepository().nameExists(name));
+			assertNotNull(repository.getNameRepository().fromReducedName(reducedName));
+
+			// Check updated timestamp is correct
+			assertEquals((Long) newestTransactionData.getTimestamp(), repository.getNameRepository().fromName(name).getUpdated());
+
+			// orphan and recheck
+			BlockUtils.orphanLastBlock(repository);
+
+			// Check name still exists
+			assertTrue(repository.getNameRepository().nameExists(name));
+			assertNotNull(repository.getNameRepository().fromReducedName(reducedName));
+
+			// Check updated timestamp is correct
+			assertEquals((Long) middleTransactionData.getTimestamp(), repository.getNameRepository().fromName(name).getUpdated());
+
+			// orphan and recheck
+			BlockUtils.orphanLastBlock(repository);
+
+			// Check name still exists
+			assertTrue(repository.getNameRepository().nameExists(name));
+			assertNotNull(repository.getNameRepository().fromReducedName(reducedName));
+
+			// Check updated timestamp is empty
+			assertNull(repository.getNameRepository().fromName(name).getUpdated());
+		}
+	}
+
 	// Test that reverting using previous UPDATE_NAME works as expected
 	@Test
 	public void testIntermediateUpdateName() throws DataException {
