@@ -80,7 +80,7 @@ public class BlockArchiveWriter {
      * @param repository
      */
     public BlockArchiveWriter(int startHeight, int endHeight, Repository repository) {
-        this(startHeight, endHeight, 2, Paths.get(Settings.getInstance().getRepositoryPath(), "archive"), repository);
+        this(startHeight, endHeight, Settings.getInstance().getArchiveVersion(), Paths.get(Settings.getInstance().getRepositoryPath(), "archive"), repository);
     }
 
     public static int getMaxArchiveHeight(Repository repository) throws DataException {
