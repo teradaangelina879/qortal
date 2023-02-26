@@ -20,7 +20,7 @@
 		<xz.version>1.9</xz.version>
 		<dagger.version>1.2.2</dagger.version>
 		<guava.version>28.1-jre</guava.version>
-		<hsqldb.version>2.7.1</hsqldb.version>
+		<hsqldb.version>2.5.1</hsqldb.version>
 		<homoglyph.version>1.2.1</homoglyph.version>
 		<icu4j.version>70.1</icu4j.version>
 		<upnp.version>1.1</upnp.version>
@@ -34,7 +34,7 @@
 		<package-info-maven-plugin.version>1.1.0</package-info-maven-plugin.version>
 		<jsoup.version>1.13.1</jsoup.version>
 		<java-diff-utils.version>4.10</java-diff-utils.version>
-		<grpc.version>1.53.0</grpc.version>
+		<grpc.version>1.45.1</grpc.version>
 		<protobuf.version>3.19.4</protobuf.version>
 	</properties>
 	<build>
