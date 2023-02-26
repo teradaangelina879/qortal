@@ -2,11 +2,6 @@ package org.qortal.repository;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.gui.SplashFrame;
-import org.qortal.repository.hsqldb.HSQLDBDatabaseArchiving;
-import org.qortal.repository.hsqldb.HSQLDBDatabasePruning;
-import org.qortal.repository.hsqldb.HSQLDBRepository;
-import org.qortal.settings.Settings;
 
 import java.sql.SQLException;
 import java.util.concurrent.TimeoutException;
@@ -59,62 +54,6 @@ public abstract class RepositoryManager {
 		} catch (DataException e) {
 			// Backup is best-effort so don't complain
 		}
-	}
-
-	public static boolean archive(Repository repository) {
-		if (Settings.getInstance().isLite()) {
-			// Lite nodes have no blockchain
-			return false;
-		}
-
-		// Bulk archive the database the first time we use archive mode
-		if (Settings.getInstance().isArchiveEnabled()) {
-			if (RepositoryManager.canArchiveOrPrune()) {
-				try {
-					return HSQLDBDatabaseArchiving.buildBlockArchive(repository, BlockArchiveWriter.DEFAULT_FILE_SIZE_TARGET);
-
-				} catch (DataException e) {
-					LOGGER.info("Unable to build block archive. The database may have been left in an inconsistent state.");
-				}
-			}
-			else {
-				LOGGER.info("Unable to build block archive due to missing ATStatesHeightIndex. Bootstrapping is recommended.");
-				LOGGER.info("To bootstrap, stop the core and delete the db folder, then start the core again.");
-				SplashFrame.getInstance().updateStatus("Missing index. Bootstrapping is recommended.");
-			}
-		}
-		return false;
-	}
-
-	public static boolean prune(Repository repository) {
-		if (Settings.getInstance().isLite()) {
-			// Lite nodes have no blockchain
-			return false;
-		}
-
-		// Bulk prune the database the first time we use top-only or block archive mode
-		if (Settings.getInstance().isTopOnly() ||
-			Settings.getInstance().isArchiveEnabled()) {
-			if (RepositoryManager.canArchiveOrPrune()) {
-				try {
-					boolean prunedATStates = HSQLDBDatabasePruning.pruneATStates((HSQLDBRepository) repository);
-					boolean prunedBlocks = HSQLDBDatabasePruning.pruneBlocks((HSQLDBRepository) repository);
-
-					// Perform repository maintenance to shrink the db size down
-					if (prunedATStates && prunedBlocks) {
-						HSQLDBDatabasePruning.performMaintenance(repository);
-						return true;
-					}
-
-				} catch (SQLException | DataException e) {
-					LOGGER.info("Unable to bulk prune AT states. The database may have been left in an inconsistent state.");
-				}
-			}
-			else {
-				LOGGER.info("Unable to prune blocks due to missing ATStatesHeightIndex. Bootstrapping is recommended.");
-			}
-		}
-		return false;
 	}
 
 	public static void setRequestedCheckpoint(Boolean quick) {

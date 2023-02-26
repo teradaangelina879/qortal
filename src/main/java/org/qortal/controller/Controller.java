@@ -400,12 +400,8 @@ public class Controller extends Thread {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
 			RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
-
-			try (final Repository repository = RepositoryManager.getRepository()) {
-				RepositoryManager.archive(repository);
-				RepositoryManager.prune(repository);
-			}
-		} catch (DataException e) {
+		}
+		catch (DataException e) {
 			// If exception has no cause then repository is in use by some other process.
 			if (e.getCause() == null) {
 				LOGGER.info("Repository in use by another process?");
