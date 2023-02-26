@@ -21,6 +21,16 @@ public class BlockArchiveUtils {
      * into the HSQLDB, in order to make it SQL-compatible
      * again.
      * <p>
+     * This is only fully compatible with archives that use
+     * serialization version 1. For version 2 (or above),
+     * we are unable to import individual AT states as we
+     * only have a single combined hash, so the use cases
+     * for this are greatly limited.
+     * <p>
+     * A version 1 archive should ultimately be rebuildable
+     * via a resync or reindex from genesis, allowing
+     * access to this feature once again.
+     * <p>
      * Note: calls discardChanges() and saveChanges(), so
      * make sure that you commit any existing repository
      * changes before calling this method.
@@ -61,9 +71,18 @@ public class BlockArchiveUtils {
                 repository.getBlockRepository().save(blockInfo.getBlockData());
 
                 // Save AT state data hashes
-                for (ATStateData atStateData : blockInfo.getAtStates()) {
-                    atStateData.setHeight(blockInfo.getBlockData().getHeight());
-                    repository.getATRepository().save(atStateData);
+                if (blockInfo.getAtStates() != null) {
+                    for (ATStateData atStateData : blockInfo.getAtStates()) {
+                        atStateData.setHeight(blockInfo.getBlockData().getHeight());
+                        repository.getATRepository().save(atStateData);
+                    }
+                }
+                else {
+                    // We don't have AT state hashes, so we are only importing a partial state.
+                    // This can still be useful to allow orphaning to very old blocks, when we
+                    // need to access other chainstate info (such as balances) at an earlier block.
+                    // In order to do this, the orphan process must be temporarily adjusted to avoid
+                    // orphaning AT states, as it will otherwise fail due to having no previous state.
                 }
 
             } catch (DataException e) {

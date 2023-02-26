@@ -134,6 +134,7 @@ public class BlockArchiveWriter {
                 return BlockArchiveWriteResult.STOPPING;
             }
             if (Synchronizer.getInstance().isSynchronizing()) {
+                Thread.sleep(1000L);
                 continue;
             }
 
@@ -180,8 +181,11 @@ public class BlockArchiveWriter {
             if (atStatesHash != null) {
                 block = new Block(repository, blockData, transactions, atStatesHash);
             }
-            else {
+            else if (atStates != null) {
                 block = new Block(repository, blockData, transactions, atStates);
+            }
+            else {
+                block = new Block(repository, blockData);
             }
 
             // Write the block data to some byte buffers

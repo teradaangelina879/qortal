@@ -70,6 +70,9 @@ public class BlockArchiveReader {
         }
 
         Triple<byte[], Integer, Integer> serializedBlock = this.fetchSerializedBlockBytesForHeight(height);
+        if (serializedBlock == null) {
+            return null;
+        }
         byte[] serializedBytes = serializedBlock.getA();
         Integer serializationVersion = serializedBlock.getB();
         if (serializedBytes == null || serializationVersion == null) {
@@ -188,6 +191,9 @@ public class BlockArchiveReader {
         Integer height = this.fetchHeightForSignature(signature, repository);
         if (height != null) {
             Triple<byte[], Integer, Integer> serializedBlock = this.fetchSerializedBlockBytesForHeight(height);
+            if (serializedBlock == null) {
+                return null;
+            }
             byte[] blockBytes = serializedBlock.getA();
             Integer version = serializedBlock.getB();
             if (blockBytes == null || version == null) {
