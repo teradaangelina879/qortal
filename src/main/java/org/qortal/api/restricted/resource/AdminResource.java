@@ -223,6 +223,42 @@ public class AdminResource {
 	}
 
 	@GET
+	@Path("/summary/alltime")
+	@Operation(
+			summary = "Summary of activity since genesis",
+			responses = {
+					@ApiResponse(
+							content = @Content(schema = @Schema(implementation = ActivitySummary.class))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public ActivitySummary allTimeSummary(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		ActivitySummary summary = new ActivitySummary();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			int startHeight = 1;
+			long start = repository.getBlockRepository().fromHeight(startHeight).getTimestamp();
+			int endHeight = repository.getBlockRepository().getBlockchainHeight();
+
+			summary.setBlockCount(endHeight - startHeight);
+
+			summary.setTransactionCountByType(repository.getTransactionRepository().getTransactionSummary(startHeight + 1, endHeight));
+
+			summary.setAssetsIssued(repository.getAssetRepository().getRecentAssetIds(start).size());
+
+			summary.setNamesRegistered (repository.getNameRepository().getRecentNames(start).size());
+
+			return summary;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
 	@Path("/enginestats")
 	@Operation(
 		summary = "Fetch statistics snapshot for core engine",

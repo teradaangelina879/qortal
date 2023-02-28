@@ -60,7 +60,7 @@ public class BootstrapResource {
 			bootstrap.validateBlockchain();
 			return bootstrap.create();
 
-		} catch (DataException | InterruptedException | IOException e) {
+		} catch (Exception e) {
 			LOGGER.info("Unable to create bootstrap", e);
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
 		}

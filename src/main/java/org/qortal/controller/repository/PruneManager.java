@@ -157,4 +157,18 @@ public class PruneManager {
         return (height < latestUnprunedHeight);
     }
 
+    /**
+     * When rebuilding the latest AT states, we need to specify a maxHeight, so that we aren't tracking
+     * very recent AT states that could potentially be orphaned. This method ensures that AT states
+     * are given a sufficient number of blocks to confirm before being tracked as a latest AT state.
+     */
+    public static int getMaxHeightForLatestAtStates(Repository repository) throws DataException {
+        // Get current chain height, and subtract a certain number of "confirmation" blocks
+        // This is to ensure we are basing our latest AT states data on confirmed blocks -
+        // ones that won't be orphaned in any normal circumstances
+        final int confirmationBlocks = 250;
+        final int chainHeight = repository.getBlockRepository().getBlockchainHeight();
+        return chainHeight - confirmationBlocks;
+    }
+
 }
