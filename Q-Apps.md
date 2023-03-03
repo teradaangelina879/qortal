@@ -544,7 +544,7 @@ Here is a sample application to display the logged-in user's avatar:
                 });
                 console.log("names: " + JSON.stringify(names));
             
-                if (names.size == 0) {
+                if (names.length == 0) {
                     console.log("User has no registered names");
                     return;
                 }
@@ -587,3 +587,12 @@ Select "Preview" in the UI after choosing the zip. This allows for full Q-App te
 ### Testnets
 
 For an end-to-end test of Q-App publishing, you can use the official testnet, or set up a single node testnet of your own (often referred to as devnet) on your local machine. See [Single Node Testnet Quick Start Guide](TestNets.md#quick-start).
+
+
+### Debugging
+
+It is recommended that you develop and test in a web browser, to allow access to the javascript console. To do this:
+1. Open the UI app, then minimise it.
+2. In a Chromium-based web browser, visit: http://localhost:12388/
+3. Log in to your account and then preview your app/website.
+4. Go to `View > Developer > JavaScript Console`. Here you can monitor console logs, errors, and network requests from your app, in the same way as any other web-app.
