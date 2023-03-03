@@ -384,6 +384,10 @@ function getDefaultTimeout(action) {
     if (action != null) {
         // Some actions need longer default timeouts, especially those that create transactions
         switch (action) {
+            case "GET_USER_ACCOUNT":
+                // User may take a long time to accept/deny the popup
+                return 60 * 60 * 1000;
+
             case "FETCH_QDN_RESOURCE":
                 // Fetching data can take a while, especially if the status hasn't been checked first
                 return 60 * 1000;
