@@ -243,6 +243,8 @@ public class ArbitraryTransaction extends Transaction {
 	@Override
 	public void preProcess() throws DataException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+		if (arbitraryTransactionData.getName() == null)
+			return;
 
 		// Rebuild this name in the Names table from the transaction history
 		// This is necessary because in some rare cases names can be missing from the Names table after registration
