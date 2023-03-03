@@ -17,6 +17,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -646,6 +647,7 @@ public class ArbitraryResource {
 								   @PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
+								   @QueryParam("encoding") String encoding,
 								   @QueryParam("rebuild") boolean rebuild,
 								   @QueryParam("async") boolean async,
 								   @QueryParam("attempts") Integer attempts) {
@@ -655,7 +657,7 @@ public class ArbitraryResource {
 			Security.checkApiCallAllowed(request);
 		}
 
-		return this.download(service, name, null, filepath, rebuild, async, attempts);
+		return this.download(service, name, null, filepath, encoding, rebuild, async, attempts);
 	}
 
 	@GET
@@ -681,6 +683,7 @@ public class ArbitraryResource {
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
+								   @QueryParam("encoding") String encoding,
 								   @QueryParam("rebuild") boolean rebuild,
 								   @QueryParam("async") boolean async,
 								   @QueryParam("attempts") Integer attempts) {
@@ -690,7 +693,7 @@ public class ArbitraryResource {
 			Security.checkApiCallAllowed(request, apiKey);
 		}
 
-		return this.download(service, name, identifier, filepath, rebuild, async, attempts);
+		return this.download(service, name, identifier, filepath, encoding, rebuild, async, attempts);
 	}
 
 
@@ -1239,7 +1242,7 @@ public class ArbitraryResource {
 		}
 	}
 
-	private HttpServletResponse download(Service service, String name, String identifier, String filepath, boolean rebuild, boolean async, Integer maxAttempts) {
+	private HttpServletResponse download(Service service, String name, String identifier, String filepath, String encoding, boolean rebuild, boolean async, Integer maxAttempts) {
 
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
@@ -1298,7 +1301,14 @@ public class ArbitraryResource {
 				String message = String.format("No file exists at filepath: %s", filepath);
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, message);
 			}
+
 			byte[] data = Files.readAllBytes(path);
+
+			// Encode the data if requested
+			if (encoding != null && Objects.equals(encoding.toLowerCase(), "base64")) {
+				data = Base64.encode(data);
+			}
+
 			response.setContentType(context.getMimeType(path.toString()));
 			response.setContentLength(data.length);
 			response.getOutputStream().write(data);

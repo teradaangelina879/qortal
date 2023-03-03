@@ -173,6 +173,7 @@ window.addEventListener("message", (event) => {
             url = url.concat("?");
             if (data.filepath != null) url = url.concat("&filepath=" + data.filepath);
             if (data.rebuild != null) url = url.concat("&rebuild=" + new Boolean(data.rebuild).toString())
+            if (data.encoding != null) url = url.concat("&encoding=" + data.encoding);
             response = httpGet(url);
             break;
 

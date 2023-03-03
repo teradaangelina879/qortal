@@ -116,7 +116,8 @@ async function myfunction() {
             action: "FETCH_QDN_RESOURCE",
             name: "QortalDemo",
             service: "THUMBNAIL",
-            identifier: "qortal_avatar"
+            identifier: "qortal_avatar",
+            encoding: "base64"
         }, timeout);
         
         // Do something with the avatar here
@@ -225,13 +226,13 @@ let res = await qortalRequest({
 ```
 
 ### Fetch QDN single file resource
-Data is returned in the base64 format
 ```
 let res = await qortalRequest({
     action: "FETCH_QDN_RESOURCE",
     name: "QortalDemo",
     service: "THUMBNAIL",
     identifier: "qortal_avatar", // Optional. If omitted, the default resource is returned, or you can alternatively use the keyword "default"
+    encoding: "base64", // Optional. If omitted, data is returned in raw form
     rebuild: false
 });
 ```
@@ -548,26 +549,26 @@ Here is a sample application to display the logged-in user's avatar:
                     return;
                 }
             
-                // Download the avatar of the first registered name
+                // Download base64-encoded avatar of the first registered name
                 let avatar = await qortalRequest({
                     action: "FETCH_QDN_RESOURCE",
                     name: names[0].name,
                     service: "THUMBNAIL",
-                    identifier: "qortal_avatar"
+                    identifier: "qortal_avatar",
+                    encoding: "base64"
                 });
-                console.log("avatar: " + JSON.stringify(avatar));
+                console.log("Avatar size: " + avatar.length + " bytes");
             
                 // Display the avatar image on the screen
-                document.getElementsById("avatar").src = "data:image/png;base64," + avatar;
+                document.getElementById("avatar").src = "data:image/png;base64," + avatar;
                 
             } catch(e) {
                 console.log("Error: " + JSON.stringify(e));
             }
         }
-        showAvatar();
     </script>
 </head>
-<body>
+<body onload="showAvatar()">
     <img width="500" id="avatar" />
 </body>
 </html>
