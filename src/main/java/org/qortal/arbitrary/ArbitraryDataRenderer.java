@@ -129,7 +129,7 @@ public class ArbitraryDataRenderer {
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
-                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data, qdnContext, service, identifier);
+                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data, qdnContext, service, identifier, theme);
                 htmlParser.addAdditionalHeaderTags();
                 response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' blob:; img-src 'self' data: blob:;");
                 response.setContentType(context.getMimeType(filename));

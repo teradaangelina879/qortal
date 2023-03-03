@@ -18,9 +18,10 @@ public class HTMLParser {
     private Service service;
     private String identifier;
     private String path;
+    private String theme;
 
     public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data,
-                      String qdnContext, Service service, String identifier) {
+                      String qdnContext, Service service, String identifier, String theme) {
         String inPathWithoutFilename = inPath.contains("/") ? inPath.substring(0, inPath.lastIndexOf('/')) : "";
         this.linkPrefix = usePrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : "";
         this.data = data;
@@ -29,6 +30,7 @@ public class HTMLParser {
         this.service = service;
         this.identifier = identifier;
         this.path = inPath;
+        this.theme = theme;
     }
 
     public void addAdditionalHeaderTags() {
@@ -46,7 +48,8 @@ public class HTMLParser {
             String name = this.resourceId != null ? this.resourceId.replace("\"","\\\"") : "";
             String identifier = this.identifier != null ? this.identifier.replace("\"","\\\"") : "";
             String path = this.path != null ? this.path.replace("\"","\\\"") : "";
-            String qdnContextVar = String.format("<script>var _qdnContext=\"%s\"; var _qdnService=\"%s\"; var _qdnName=\"%s\"; var _qdnIdentifier=\"%s\"; var _qdnPath=\"%s\";</script>", this.qdnContext, service, name, identifier, path);
+            String theme = this.theme != null ? this.theme.replace("\"","\\\"") : "";
+            String qdnContextVar = String.format("<script>var _qdnContext=\"%s\"; var _qdnTheme=\"%s\"; var _qdnService=\"%s\"; var _qdnName=\"%s\"; var _qdnIdentifier=\"%s\"; var _qdnPath=\"%s\";</script>", this.qdnContext, theme, service, name, identifier, path);
             head.get(0).prepend(qdnContextVar);
 
             // Add base href tag
