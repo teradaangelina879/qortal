@@ -283,14 +283,6 @@ await qortalRequest({
 });
 ```
 
-### Get wallet balance (foreign coin)
-_Requires user approval_
-```
-await qortalRequest({
-    action: "GET_WALLET_BALANCE",
-    coin: "LTC"
-});
-```
 
 ### Get address or asset balance
 ```
