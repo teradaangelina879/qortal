@@ -588,19 +588,9 @@ Publishing an in-development app to mainnet isn't recommended. There are several
 
 ### Preview mode
 
-All read-only operations can be tested using preview mode. It can be used as follows:
-
-1. Ensure Qortal core is running locally on the machine you are developing on. Previewing via a remote node is not currently possible.
-2. Make a local API call to `POST /render/preview`, passing in the API key (found in apikey.txt), and the path to the root of your Q-App, for example:
-```
-curl -X POST "http://localhost:12391/render/preview" -H "X-API-KEY: apiKeyGoesHere" -d "/home/username/Websites/MyApp"
-```
-3. This returns a URL, which can be copied and pasted into a browser to view the preview
-4. Modify the Q-App as required, then repeat from step 2 to generate a new preview URL
-
-This is a short term method until preview functionality has been implemented within the UI.
+Select "Preview" in the UI after choosing the zip. This allows for full Q-App testing without the need to publish any data.
 
 
-### Single node testnet
+### Testnets
 
-For full read/write testing of a Q-App, you can set up a single node testnet (often referred to as devnet) on your local machine. See [Single Node Testnet Quick Start Guide](TestNets.md#quick-start).
+For an end-to-end test of Q-App publishing, you can use the official testnet, or set up a single node testnet of your own (often referred to as devnet) on your local machine. See [Single Node Testnet Quick Start Guide](TestNets.md#quick-start).

@@ -43,64 +43,6 @@ public class RenderResource {
     @Context ServletContext context;
 
     @POST
-    @Path("/preview")
-    @Operation(
-            summary = "Generate preview URL based on a user-supplied path and service",
-            requestBody = @RequestBody(
-                    required = true,
-                    content = @Content(
-                            mediaType = MediaType.TEXT_PLAIN,
-                            schema = @Schema(
-                                    type = "string", example = "/Users/user/Documents/MyStaticWebsite"
-                            )
-                    )
-            ),
-            responses = {
-                    @ApiResponse(
-                            description = "a temporary URL to preview the website",
-                            content = @Content(
-                                    mediaType = MediaType.TEXT_PLAIN,
-                                    schema = @Schema(
-                                            type = "string"
-                                    )
-                            )
-                    )
-            }
-    )
-    @SecurityRequirement(name = "apiKey")
-    public String preview(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String directoryPath) {
-        Security.checkApiCallAllowed(request);
-        Method method = Method.PUT;
-        Compression compression = Compression.ZIP;
-
-        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath),
-                null, Service.WEBSITE, null, method, compression,
-                null, null, null, null);
-        try {
-            arbitraryDataWriter.save();
-        } catch (IOException | DataException | InterruptedException | MissingDataException e) {
-            LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-            throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
-        } catch (RuntimeException e) {
-            LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-            throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
-        }
-
-        ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
-        if (arbitraryDataFile != null) {
-            String digest58 = arbitraryDataFile.digest58();
-            if (digest58 != null) {
-                // Pre-authorize resource
-                ArbitraryDataResource resource = new ArbitraryDataResource(digest58, null, null, null);
-                ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
-
-                return "http://localhost:12391/render/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
-            }
-        }
-        return "Unable to generate preview URL";
-    }
-
-    @POST
     @Path("/authorize/{resourceId}")
     @SecurityRequirement(name = "apiKey")
     public boolean authorizeResource(@HeaderParam(Security.API_KEY_HEADER) String apiKey, @PathParam("resourceId") String resourceId) {

@@ -38,6 +38,7 @@ import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
+import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.controller.arbitrary.ArbitraryMetadataManager;
 import org.qortal.data.account.AccountData;
@@ -777,6 +778,7 @@ public class ArbitraryResource {
 					   @QueryParam("description") String description,
 					   @QueryParam("tags") List<String> tags,
 					   @QueryParam("category") Category category,
+					   @QueryParam("preview") Boolean preview,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -785,7 +787,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, path, null, null, false,
-				title, description, tags, category);
+				title, description, tags, category, preview);
 	}
 
 	@POST
@@ -822,6 +824,7 @@ public class ArbitraryResource {
 					   @QueryParam("description") String description,
 					   @QueryParam("tags") List<String> tags,
 					   @QueryParam("category") Category category,
+					   @QueryParam("preview") Boolean preview,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -830,7 +833,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null, false,
-				title, description, tags, category);
+				title, description, tags, category, preview);
 	}
 
 
@@ -868,6 +871,7 @@ public class ArbitraryResource {
 										@QueryParam("description") String description,
 										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
+										@QueryParam("preview") Boolean preview,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -876,7 +880,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64, false,
-				title, description, tags, category);
+				title, description, tags, category, preview);
 	}
 
 	@POST
@@ -911,6 +915,7 @@ public class ArbitraryResource {
 										@QueryParam("description") String description,
 										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
+										@QueryParam("preview") Boolean preview,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -919,7 +924,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64, false,
-				title, description, tags, category);
+				title, description, tags, category, preview);
 	}
 
 
@@ -956,6 +961,7 @@ public class ArbitraryResource {
 								 @QueryParam("description") String description,
 								 @QueryParam("tags") List<String> tags,
 								 @QueryParam("category") Category category,
+								 @QueryParam("preview") Boolean preview,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -964,7 +970,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64Zip, true,
-				title, description, tags, category);
+				title, description, tags, category, preview);
 	}
 
 	@POST
@@ -999,6 +1005,7 @@ public class ArbitraryResource {
 								 @QueryParam("description") String description,
 								 @QueryParam("tags") List<String> tags,
 								 @QueryParam("category") Category category,
+								 @QueryParam("preview") Boolean preview,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -1007,7 +1014,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64Zip, true,
-				title, description, tags, category);
+				title, description, tags, category, preview);
 	}
 
 
@@ -1047,6 +1054,7 @@ public class ArbitraryResource {
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
+							 @QueryParam("preview") Boolean preview,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -1055,7 +1063,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, string, null, false,
-				title, description, tags, category);
+				title, description, tags, category, preview);
 	}
 
 	@POST
@@ -1092,6 +1100,7 @@ public class ArbitraryResource {
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
+							 @QueryParam("preview") Boolean preview,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -1100,15 +1109,48 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null, false,
-				title, description, tags, category);
+				title, description, tags, category, preview);
 	}
 
 
 	// Shared methods
 
+	private String preview(String directoryPath, Service service) {
+		Security.checkApiCallAllowed(request);
+		ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
+		ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
+
+		ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath),
+				null, service, null, method, compression,
+				null, null, null, null);
+		try {
+			arbitraryDataWriter.save();
+		} catch (IOException | DataException | InterruptedException | MissingDataException e) {
+			LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
+		} catch (RuntimeException e) {
+			LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
+		}
+
+		ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
+		if (arbitraryDataFile != null) {
+			String digest58 = arbitraryDataFile.digest58();
+			if (digest58 != null) {
+				// Pre-authorize resource
+				ArbitraryDataResource resource = new ArbitraryDataResource(digest58, null, null, null);
+				ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
+
+				return "/render/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
+			}
+		}
+		return "Unable to generate preview URL";
+	}
+
 	private String upload(Service service, String name, String identifier,
 						  String path, String string, String base64, boolean zipped,
-						  String title, String description, List<String> tags, Category category) {
+						  String title, String description, List<String> tags, Category category,
+						  Boolean preview) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
@@ -1169,6 +1211,11 @@ public class ArbitraryResource {
 						path = Paths.get(tempDirectory.toString(), files[0]).toString();
 					}
 				}
+			}
+
+			// Finish here if user has requested a preview
+			if (preview != null && preview == true) {
+				return this.preview(path, service);
 			}
 
 			try {
