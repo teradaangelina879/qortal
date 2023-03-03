@@ -110,7 +110,7 @@ public class RenderResource {
         if (!Settings.getInstance().isQDNAuthBypassEnabled())
             Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
 
-        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, null, "/", secret58, "/render/hash", true, false, theme);
+        return this.get(hash58, ResourceIdType.FILE_HASH, Service.ARBITRARY_DATA, null, "/", secret58, "/render/hash", true, false, theme);
     }
 
     @GET
