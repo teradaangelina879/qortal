@@ -193,7 +193,7 @@ public class ArbitraryTransactionUtils {
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
         arbitraryDataFile.setMetadataHash(metadataHash);
 
-        return arbitraryDataFile.chunkCount() + 1; // +1 for the metadata file
+        return arbitraryDataFile.fileCount();
     }
 
     public static boolean isFileRecent(Path filePath, long now, long cleanupAfter) {

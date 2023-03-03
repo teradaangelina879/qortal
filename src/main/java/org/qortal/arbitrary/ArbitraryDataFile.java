@@ -612,6 +612,22 @@ public class ArbitraryDataFile {
         return this.chunks.size();
     }
 
+    public int fileCount() {
+        int fileCount = this.chunkCount();
+        
+        if (fileCount == 0) {
+            // Transactions without any chunks can already be treated as a complete file
+            fileCount++;
+        }
+
+        if (this.getMetadataHash() != null) {
+            // Add the metadata file
+            fileCount++;
+        }
+
+        return fileCount;
+    }
+
     public List<ArbitraryDataFileChunk> getChunks() {
         return this.chunks;
     }
