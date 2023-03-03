@@ -55,6 +55,8 @@ function buildResourceUrl(service, name, identifier, path) {
         url = "/" + name;
         if (path != null) url = url.concat((path.startsWith("/") ? "" : "/") + path);
     }
+    url = url.concat((url.includes("?") ? "" : "?") + "&theme=" + _qdnTheme);
+
     return url;
 }
 
