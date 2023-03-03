@@ -40,12 +40,12 @@ function handleResponse(event, response) {
 }
 
 function buildResourceUrl(service, name, identifier, path) {
-    if (qdnContext == "render") {
+    if (_qdnContext == "render") {
         url = "/render/" + service + "/" + name;
         if (path != null) url = url.concat((path.startsWith("/") ? "" : "/") + path);
         if (identifier != null) url = url.concat("?identifier=" + identifier);
     }
-    else if (qdnContext == "gateway") {
+    else if (_qdnContext == "gateway") {
         url = "/" + service + "/" + name;
         if (identifier != null) url = url.concat("/" + identifier);
         if (path != null) url = url.concat((path.startsWith("/") ? "" : "/") + path);
@@ -329,10 +329,10 @@ else if (document.attachEvent) {
 document.addEventListener('DOMContentLoaded', () => {
     qortalRequest({
         action: "QDN_RESOURCE_DISPLAYED",
-        service: qdnService,
-        name: qdnName,
-        identifier: qdnIdentifier,
-        path: qdnPath
+        service: _qdnService,
+        name: _qdnName,
+        identifier: _qdnIdentifier,
+        path: _qdnPath
     });
 });
 

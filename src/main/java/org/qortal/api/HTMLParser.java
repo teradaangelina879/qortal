@@ -41,8 +41,12 @@ public class HTMLParser {
             String qAppsScriptElement = String.format("<script src=\"/apps/q-apps.js?time=%d\">", System.currentTimeMillis());
             head.get(0).prepend(qAppsScriptElement);
 
-            // Add vars
-            String qdnContextVar = String.format("<script>var qdnContext=\"%s\"; var qdnService=\"%s\"; var qdnName=\"%s\"; var qdnIdentifier=\"%s\"; var qdnPath=\"%s\";</script>", this.qdnContext, this.service.toString(), this.resourceId, this.identifier, this.path);
+            // Escape and add vars
+            String service = this.service.toString().replace("\"","\\\"");
+            String name = this.resourceId != null ? this.resourceId.replace("\"","\\\"") : "";
+            String identifier = this.identifier != null ? this.identifier.replace("\"","\\\"") : "";
+            String path = this.path != null ? this.path.replace("\"","\\\"") : "";
+            String qdnContextVar = String.format("<script>var _qdnContext=\"%s\"; var _qdnService=\"%s\"; var _qdnName=\"%s\"; var _qdnIdentifier=\"%s\"; var _qdnPath=\"%s\";</script>", this.qdnContext, service, name, identifier, path);
             head.get(0).prepend(qdnContextVar);
 
             // Add base href tag
