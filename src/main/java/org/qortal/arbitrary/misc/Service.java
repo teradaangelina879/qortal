@@ -8,9 +8,12 @@ import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
@@ -94,6 +97,31 @@ public enum Service {
     PLAYLIST(910, true, null, null),
     APP(1000, false, null, null),
     METADATA(1100, false, null, null),
+    JSON(1110, true, 25*1024L, null) {
+        @Override
+        public ValidationResult validate(Path path) throws IOException {
+            ValidationResult superclassResult = super.validate(path);
+            if (superclassResult != ValidationResult.OK) {
+                return superclassResult;
+            }
+
+            File[] files = path.toFile().listFiles();
+
+            // Require a single file
+            if (files != null || !path.toFile().isFile()) {
+                return ValidationResult.INVALID_FILE_COUNT;
+            }
+
+            // Require valid JSON
+            String json = Files.readString(path);
+            try {
+                objectMapper.readTree(json);
+                return ValidationResult.OK;
+            } catch (IOException e) {
+                return ValidationResult.INVALID_CONTENT;
+            }
+        }
+    },
     GIF_REPOSITORY(1200, true, 25*1024*1024L, null) {
         @Override
         public ValidationResult validate(Path path) throws IOException {
@@ -138,6 +166,9 @@ public enum Service {
 
     private static final Map<Integer, Service> map = stream(Service.values())
             .collect(toMap(service -> service.value, service -> service));
+
+    // For JSON validation
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     Service(int value, boolean requiresValidation, Long maxSize, List<String> requiredKeys) {
         this.value = value;
@@ -199,7 +230,8 @@ public enum Service {
         DIRECTORIES_NOT_ALLOWED(5),
         INVALID_FILE_EXTENSION(6),
         MISSING_DATA(7),
-        INVALID_FILE_COUNT(8);
+        INVALID_FILE_COUNT(8),
+        INVALID_CONTENT(9);
 
         public final int value;
 

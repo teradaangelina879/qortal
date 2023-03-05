@@ -22,6 +22,8 @@ import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Base58;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -387,6 +389,53 @@ public class ArbitraryServiceTests extends Common {
             ArbitraryDataReader arbitraryDataReader1a = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
             arbitraryDataReader1a.loadSynchronously(true);
         }
+    }
+
+    @Test
+    public void testValidateValidJson() throws IOException {
+        String invalidJsonString = "{\"test\": true, \"test2\": \"valid\"}";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateValidJson");
+        Path filePath = Paths.get(path.toString(), "test.json");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(invalidJsonString);
+        writer.close();
+
+        Service service = Service.JSON;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+    @Test
+    public void testValidateInvalidJson() throws IOException {
+        String invalidJsonString = "{\"test\": true, \"test2\": invalid}";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateInvalidJson");
+        Path filePath = Paths.get(path.toString(), "test.json");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(invalidJsonString);
+        writer.close();
+
+        Service service = Service.JSON;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.INVALID_CONTENT, service.validate(filePath));
+    }
+
+    @Test
+    public void testValidateEmptyJson() throws IOException {
+        Path path = Files.createTempDirectory("testValidateEmptyJson");
+
+        Service service = Service.JSON;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
     }
 
 }
