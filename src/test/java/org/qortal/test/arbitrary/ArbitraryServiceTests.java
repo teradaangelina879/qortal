@@ -319,17 +319,15 @@ public class ArbitraryServiceTests extends Common {
         // Write the data to several files in a temp path
         Path path = Files.createTempDirectory("testValidateMultiLayerQChatAttachment");
         path.toFile().deleteOnExit();
-        Files.write(Paths.get(path.toString(), "file1.txt"), data, StandardOpenOption.CREATE);
 
         Path subdirectory = Paths.get(path.toString(), "subdirectory");
         Files.createDirectories(subdirectory);
-        Files.write(Paths.get(subdirectory.toString(), "file2.txt"), data, StandardOpenOption.CREATE);
-        Files.write(Paths.get(subdirectory.toString(), "file3.txt"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(subdirectory.toString(), "file.txt"), data, StandardOpenOption.CREATE);
 
         Service service = Service.QCHAT_ATTACHMENT;
         assertTrue(service.isValidationRequired());
 
-        assertEquals(ValidationResult.DIRECTORIES_NOT_ALLOWED, service.validate(path));
+        assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
     }
 
     @Test

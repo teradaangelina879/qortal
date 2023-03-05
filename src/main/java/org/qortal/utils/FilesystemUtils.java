@@ -241,7 +241,9 @@ public class FilesystemUtils {
             String[] files = ArrayUtils.removeElement(path.toFile().list(), ".qortal");
             if (files.length == 1) {
                 Path filePath = Paths.get(path.toString(), files[0]);
-                data = Files.readAllBytes(filePath);
+                if (filePath.toFile().isFile()) {
+                    data = Files.readAllBytes(filePath);
+                }
             }
         }
 

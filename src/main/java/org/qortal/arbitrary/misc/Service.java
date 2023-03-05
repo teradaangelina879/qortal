@@ -19,9 +19,9 @@ import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
 public enum Service {
-    AUTO_UPDATE(1, false, null, null),
-    ARBITRARY_DATA(100, false, null, null),
-    QCHAT_ATTACHMENT(120, true, 1024*1024L, null) {
+    AUTO_UPDATE(1, false, null, false, null),
+    ARBITRARY_DATA(100, false, null, false, null),
+    QCHAT_ATTACHMENT(120, true, 1024*1024L, true, null) {
         @Override
         public ValidationResult validate(Path path) throws IOException {
             ValidationResult superclassResult = super.validate(path);
@@ -29,37 +29,24 @@ public enum Service {
                 return superclassResult;
             }
 
-            // Custom validation function to require a single file, with a whitelisted extension
-            int fileCount = 0;
             File[] files = path.toFile().listFiles();
             // If already a single file, replace the list with one that contains that file only
             if (files == null && path.toFile().isFile()) {
                 files = new File[] { path.toFile() };
             }
-            if (files != null) {
-                for (File file : files) {
-                    if (file.getName().equals(".qortal")) {
-                        continue;
-                    }
-                    if (file.isDirectory()) {
-                        return ValidationResult.DIRECTORIES_NOT_ALLOWED;
-                    }
-                    final String extension = FilenameUtils.getExtension(file.getName()).toLowerCase();
-                    // We must allow blank file extensions because these are used by data published from a plaintext or base64-encoded string
-                    final List<String> allowedExtensions = Arrays.asList("zip", "pdf", "txt", "odt", "ods", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "");
-                    if (extension == null || !allowedExtensions.contains(extension)) {
-                        return ValidationResult.INVALID_FILE_EXTENSION;
-                    }
-                    fileCount++;
+            // Now validate the file's extension
+            if (files != null && files[0] != null) {
+                final String extension = FilenameUtils.getExtension(files[0].getName()).toLowerCase();
+                // We must allow blank file extensions because these are used by data published from a plaintext or base64-encoded string
+                final List<String> allowedExtensions = Arrays.asList("zip", "pdf", "txt", "odt", "ods", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "");
+                if (extension == null || !allowedExtensions.contains(extension)) {
+                    return ValidationResult.INVALID_FILE_EXTENSION;
                 }
-            }
-            if (fileCount != 1) {
-                return ValidationResult.INVALID_FILE_COUNT;
             }
             return ValidationResult.OK;
         }
     },
-    WEBSITE(200, true, null, null) {
+    WEBSITE(200, true, null, false, null) {
         @Override
         public ValidationResult validate(Path path) throws IOException {
             ValidationResult superclassResult = super.validate(path);
@@ -81,35 +68,28 @@ public enum Service {
             return ValidationResult.MISSING_INDEX_FILE;
         }
     },
-    GIT_REPOSITORY(300, false, null, null),
-    IMAGE(400, true, 10*1024*1024L, null),
-    THUMBNAIL(410, true, 500*1024L, null),
-    QCHAT_IMAGE(420, true, 500*1024L, null),
-    VIDEO(500, false, null, null),
-    AUDIO(600, false, null, null),
-    QCHAT_AUDIO(610, true, 10*1024*1024L, null),
-    QCHAT_VOICE(620, true, 10*1024*1024L, null),
-    BLOG(700, false, null, null),
-    BLOG_POST(777, false, null, null),
-    BLOG_COMMENT(778, false, null, null),
-    DOCUMENT(800, false, null, null),
-    LIST(900, true, null, null),
-    PLAYLIST(910, true, null, null),
-    APP(1000, false, null, null),
-    METADATA(1100, false, null, null),
-    JSON(1110, true, 25*1024L, null) {
+    GIT_REPOSITORY(300, false, null, false, null),
+    IMAGE(400, true, 10*1024*1024L, true, null),
+    THUMBNAIL(410, true, 500*1024L, true, null),
+    QCHAT_IMAGE(420, true, 500*1024L, true, null),
+    VIDEO(500, false, null, true, null),
+    AUDIO(600, false, null, true, null),
+    QCHAT_AUDIO(610, true, 10*1024*1024L, true, null),
+    QCHAT_VOICE(620, true, 10*1024*1024L, true, null),
+    BLOG(700, false, null, false, null),
+    BLOG_POST(777, false, null, true, null),
+    BLOG_COMMENT(778, false, null, true, null),
+    DOCUMENT(800, false, null, true, null),
+    LIST(900, true, null, true, null),
+    PLAYLIST(910, true, null, true, null),
+    APP(1000, false, null, false, null),
+    METADATA(1100, false, null, true, null),
+    JSON(1110, true, 25*1024L, true, null) {
         @Override
         public ValidationResult validate(Path path) throws IOException {
             ValidationResult superclassResult = super.validate(path);
             if (superclassResult != ValidationResult.OK) {
                 return superclassResult;
-            }
-
-            File[] files = path.toFile().listFiles();
-
-            // Require a single file
-            if (files != null || !path.toFile().isFile()) {
-                return ValidationResult.INVALID_FILE_COUNT;
             }
 
             // Require valid JSON
@@ -122,7 +102,7 @@ public enum Service {
             }
         }
     },
-    GIF_REPOSITORY(1200, true, 25*1024*1024L, null) {
+    GIF_REPOSITORY(1200, true, 25*1024*1024L, false, null) {
         @Override
         public ValidationResult validate(Path path) throws IOException {
             ValidationResult superclassResult = super.validate(path);
@@ -162,6 +142,7 @@ public enum Service {
     public final int value;
     private final boolean requiresValidation;
     private final Long maxSize;
+    private final boolean single;
     private final List<String> requiredKeys;
 
     private static final Map<Integer, Service> map = stream(Service.values())
@@ -170,10 +151,11 @@ public enum Service {
     // For JSON validation
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    Service(int value, boolean requiresValidation, Long maxSize, List<String> requiredKeys) {
+    Service(int value, boolean requiresValidation, Long maxSize, boolean single, List<String> requiredKeys) {
         this.value = value;
         this.requiresValidation = requiresValidation;
         this.maxSize = maxSize;
+        this.single = single;
         this.requiredKeys = requiredKeys;
     }
 
@@ -190,6 +172,11 @@ public enum Service {
             if (size > this.maxSize) {
                 return ValidationResult.EXCEEDS_SIZE_LIMIT;
             }
+        }
+
+        // Validate file count if needed
+        if (this.single && data == null) {
+            return ValidationResult.INVALID_FILE_COUNT;
         }
 
         // Validate required keys if needed
