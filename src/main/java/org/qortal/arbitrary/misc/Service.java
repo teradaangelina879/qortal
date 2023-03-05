@@ -8,6 +8,7 @@ import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -93,7 +94,8 @@ public enum Service {
             }
 
             // Require valid JSON
-            String json = Files.readString(path);
+            byte[] data = FilesystemUtils.getSingleFileContents(path);
+            String json = new String(data, StandardCharsets.UTF_8);
             try {
                 objectMapper.readTree(json);
                 return ValidationResult.OK;
