@@ -43,7 +43,7 @@ public class BlockArchiveWriter {
 
     private int startHeight;
     private final int endHeight;
-    private final int serializationVersion;
+    private final Integer serializationVersion;
     private final Path archivePath;
     private final Repository repository;
 
@@ -65,12 +65,17 @@ public class BlockArchiveWriter {
      * @param endHeight
      * @param repository
      */
-    public BlockArchiveWriter(int startHeight, int endHeight, int serializationVersion, Path archivePath, Repository repository) {
+    public BlockArchiveWriter(int startHeight, int endHeight, Integer serializationVersion, Path archivePath, Repository repository) {
         this.startHeight = startHeight;
         this.endHeight = endHeight;
-        this.serializationVersion = serializationVersion;
         this.archivePath = archivePath.toAbsolutePath();
         this.repository = repository;
+
+        if (serializationVersion == null) {
+            // When serialization version isn't specified, fetch it from the existing archive
+            serializationVersion = this.findSerializationVersion();
+        }
+        this.serializationVersion = serializationVersion;
     }
 
     /**
@@ -80,7 +85,18 @@ public class BlockArchiveWriter {
      * @param repository
      */
     public BlockArchiveWriter(int startHeight, int endHeight, Repository repository) {
-        this(startHeight, endHeight, Settings.getInstance().getArchiveVersion(), Paths.get(Settings.getInstance().getRepositoryPath(), "archive"), repository);
+        this(startHeight, endHeight, null, Paths.get(Settings.getInstance().getRepositoryPath(), "archive"), repository);
+    }
+
+    private int findSerializationVersion() {
+        // Attempt to fetch the serialization version from the existing archive
+        Integer block2SerializationVersion = BlockArchiveReader.getInstance().fetchSerializationVersionForHeight(2);
+        if (block2SerializationVersion != null) {
+            return block2SerializationVersion;
+        }
+
+        // Default to version specified in settings
+        return Settings.getInstance().getDefaultArchiveVersion();
     }
 
     public static int getMaxArchiveHeight(Repository repository) throws DataException {

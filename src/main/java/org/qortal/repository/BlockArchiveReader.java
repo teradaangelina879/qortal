@@ -64,6 +64,19 @@ public class BlockArchiveReader {
         this.fileListCache = Map.copyOf(map);
     }
 
+    public Integer fetchSerializationVersionForHeight(int height) {
+        if (this.fileListCache == null) {
+            this.fetchFileList();
+        }
+
+        Triple<byte[], Integer, Integer> serializedBlock = this.fetchSerializedBlockBytesForHeight(height);
+        if (serializedBlock == null) {
+            return null;
+        }
+        Integer serializationVersion = serializedBlock.getB();
+        return serializationVersion;
+    }
+
     public BlockTransformation fetchBlockAtHeight(int height) {
         if (this.fileListCache == null) {
             this.fetchFileList();

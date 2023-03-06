@@ -738,8 +738,17 @@ public class AdminResource {
 	@POST
 	@Path("/repository/archive/rebuild")
 	@Operation(
-			summary = "Rebuild archive.",
-			description = "Rebuilds archive files, using the serialization version specified via the archiveVersion setting.",
+			summary = "Rebuild archive",
+			description = "Rebuilds archive files, using the specified serialization version",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "number", example = "2"
+							)
+					)
+			),
 			responses = {
 					@ApiResponse(
 							description = "\"true\"",
@@ -749,8 +758,13 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	@SecurityRequirement(name = "apiKey")
-	public String rebuildArchive(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+	public String rebuildArchive(@HeaderParam(Security.API_KEY_HEADER) String apiKey, Integer serializationVersion) {
 		Security.checkApiCallAllowed(request);
+
+		// Default serialization version to value specified in settings
+		if (serializationVersion == null) {
+			serializationVersion = Settings.getInstance().getDefaultArchiveVersion();
+		}
 
 		try {
 			// We don't actually need to lock the blockchain here, but we'll do it anyway so that
@@ -760,9 +774,7 @@ public class AdminResource {
 			blockchainLock.lockInterruptibly();
 
 			try {
-				int archiveVersion = Settings.getInstance().getArchiveVersion();
-
-				BlockArchiveRebuilder blockArchiveRebuilder = new BlockArchiveRebuilder(archiveVersion);
+				BlockArchiveRebuilder blockArchiveRebuilder = new BlockArchiveRebuilder(serializationVersion);
 				blockArchiveRebuilder.start();
 
 				return "true";
