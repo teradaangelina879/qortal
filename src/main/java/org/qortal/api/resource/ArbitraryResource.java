@@ -773,6 +773,7 @@ public class ArbitraryResource {
 					   @QueryParam("description") String description,
 					   @QueryParam("tags") List<String> tags,
 					   @QueryParam("category") Category category,
+					   @QueryParam("fee") Long fee,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -781,7 +782,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, path, null, null, false,
-				title, description, tags, category);
+				fee, title, description, tags, category);
 	}
 
 	@POST
@@ -818,6 +819,7 @@ public class ArbitraryResource {
 					   @QueryParam("description") String description,
 					   @QueryParam("tags") List<String> tags,
 					   @QueryParam("category") Category category,
+					   @QueryParam("fee") Long fee,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -826,7 +828,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null, false,
-				title, description, tags, category);
+				fee, title, description, tags, category);
 	}
 
 
@@ -864,6 +866,7 @@ public class ArbitraryResource {
 										@QueryParam("description") String description,
 										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
+										@QueryParam("fee") Long fee,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -872,7 +875,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64, false,
-				title, description, tags, category);
+				fee, title, description, tags, category);
 	}
 
 	@POST
@@ -907,6 +910,7 @@ public class ArbitraryResource {
 										@QueryParam("description") String description,
 										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
+										@QueryParam("fee") Long fee,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -915,7 +919,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64, false,
-				title, description, tags, category);
+				fee, title, description, tags, category);
 	}
 
 
@@ -952,6 +956,7 @@ public class ArbitraryResource {
 								 @QueryParam("description") String description,
 								 @QueryParam("tags") List<String> tags,
 								 @QueryParam("category") Category category,
+								 @QueryParam("fee") Long fee,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -960,7 +965,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64Zip, true,
-				title, description, tags, category);
+				fee, title, description, tags, category);
 	}
 
 	@POST
@@ -995,6 +1000,7 @@ public class ArbitraryResource {
 								 @QueryParam("description") String description,
 								 @QueryParam("tags") List<String> tags,
 								 @QueryParam("category") Category category,
+								 @QueryParam("fee") Long fee,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -1003,7 +1009,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64Zip, true,
-				title, description, tags, category);
+				fee, title, description, tags, category);
 	}
 
 
@@ -1043,6 +1049,7 @@ public class ArbitraryResource {
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
+							 @QueryParam("fee") Long fee,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -1051,7 +1058,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, string, null, false,
-				title, description, tags, category);
+				fee, title, description, tags, category);
 	}
 
 	@POST
@@ -1088,6 +1095,7 @@ public class ArbitraryResource {
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
+							 @QueryParam("fee") Long fee,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -1096,14 +1104,14 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null, false,
-				title, description, tags, category);
+				fee, title, description, tags, category);
 	}
 
 
 	// Shared methods
 
-	private String upload(Service service, String name, String identifier,
-						  String path, String string, String base64, boolean zipped,
+	private String upload(Service service, String name, String identifier, String path,
+						  String string, String base64, boolean zipped, Long fee,
 						  String title, String description, List<String> tags, Category category) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -1167,9 +1175,14 @@ public class ArbitraryResource {
 				}
 			}
 
+			// Default to zero fee if not specified
+			if (fee == null) {
+				fee = 0L;
+			}
+
 			try {
 				ArbitraryDataTransactionBuilder transactionBuilder = new ArbitraryDataTransactionBuilder(
-						repository, publicKey58, Paths.get(path), name, null, service, identifier,
+						repository, publicKey58, fee, Paths.get(path), name, null, service, identifier,
 						title, description, tags, category
 				);
 

@@ -88,6 +88,12 @@ public class ArbitraryTransaction extends Transaction {
 		if (this.transactionData.getFee() < 0)
 			return ValidationResult.NEGATIVE_FEE;
 
+		// After the feature trigger, we require the fee to be sufficient if it's not 0.
+		// If the fee is zero, then the nonce is validated in isSignatureValid() as an alternative to a fee
+		if (this.arbitraryTransactionData.getTimestamp() >= BlockChain.getInstance().getArbitraryOptionalFeeTimestamp() && this.arbitraryTransactionData.getFee() != 0L) {
+			return super.isFeeValid();
+		}
+
 		return ValidationResult.OK;
 	}
 
@@ -208,10 +214,14 @@ public class ArbitraryTransaction extends Transaction {
 			// Clear nonce from transactionBytes
 			ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
-			// We only need to check nonce for recent transactions due to PoW verification overhead
-			if (NTP.getTime() - this.arbitraryTransactionData.getTimestamp() < HISTORIC_THRESHOLD) {
-				int difficulty = ArbitraryDataManager.getInstance().getPowDifficulty();
-				return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+			// As of feature-trigger timestamp, we only require a nonce when the fee is zero
+			boolean beforeFeatureTrigger = this.arbitraryTransactionData.getTimestamp() < BlockChain.getInstance().getArbitraryOptionalFeeTimestamp();
+			if (beforeFeatureTrigger || this.arbitraryTransactionData.getFee() == 0L) {
+				// We only need to check nonce for recent transactions due to PoW verification overhead
+				if (NTP.getTime() - this.arbitraryTransactionData.getTimestamp() < HISTORIC_THRESHOLD) {
+					int difficulty = ArbitraryDataManager.getInstance().getPowDifficulty();
+					return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+				}
 			}
 		}
 

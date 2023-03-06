@@ -46,6 +46,7 @@ public class ArbitraryDataTransactionBuilder {
     private static final double MAX_FILE_DIFF = 0.5f;
 
     private final String publicKey58;
+    private final long fee;
     private final Path path;
     private final String name;
     private Method method;
@@ -64,11 +65,12 @@ public class ArbitraryDataTransactionBuilder {
     private ArbitraryTransactionData arbitraryTransactionData;
     private ArbitraryDataFile arbitraryDataFile;
 
-    public ArbitraryDataTransactionBuilder(Repository repository, String publicKey58, Path path, String name,
+    public ArbitraryDataTransactionBuilder(Repository repository, String publicKey58, long fee, Path path, String name,
                                            Method method, Service service, String identifier,
                                            String title, String description, List<String> tags, Category category) {
         this.repository = repository;
         this.publicKey58 = publicKey58;
+        this.fee = fee;
         this.path = path;
         this.name = name;
         this.method = method;
@@ -261,7 +263,7 @@ public class ArbitraryDataTransactionBuilder {
             }
 
             final BaseTransactionData baseTransactionData = new BaseTransactionData(now, Group.NO_GROUP,
-                    lastReference, creatorPublicKey, 0L, null);
+                    lastReference, creatorPublicKey, fee, null);
             final int size = (int) arbitraryDataFile.size();
             final int version = 5;
             final int nonce = 0;
