@@ -106,6 +106,7 @@ public class BlockArchiveRebuilder {
 
                 } catch (IOException | TransformationException e) {
                     LOGGER.info("Caught exception when rebuilding block archive", e);
+                    throw new DataException("Unable to rebuild block archive");
                 }
 
             }
