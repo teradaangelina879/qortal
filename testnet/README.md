@@ -2,9 +2,10 @@
 
 ## Create testnet blockchain config
 
-- You can begin by copying the mainnet blockchain config `src/main/resources/blockchain.json`
+- The simplest option is to use the testchain.json included in this folder.
+- Alternatively, you can create one by copying the mainnet blockchain config `src/main/resources/blockchain.json`
 - Insert `"isTestChain": true,` after the opening `{`
-- Modify testnet genesis block
+- Modify testnet genesis block, feature triggers etc
 
 ### Testnet genesis block
 
@@ -97,6 +98,10 @@ Your options are:
 {
   "isTestNet": true,
   "bitcoinNet": "TEST3",
+  "litecoinNet": "TEST3",
+  "dogecoinNet": "TEST3",
+  "digibyteNet": "TEST3",
+  "ravencoinNet": "TEST3",
   "repositoryPath": "db-testnet",
   "blockchainConfig": "testchain.json",
   "minBlockchainPeers": 1,
@@ -112,7 +117,7 @@ Your options are:
 
 ## Quick start
 Here are some steps to quickly get a single node testnet up and running with a generic minting account:
-1. Start with template `settings-test.json`, and create a `testchain.json` based on mainnet's blockchain.json (or obtain one from Qortal developers). These should be in the same directory as the jar.
+1. Start with template `settings-test.json`, and `testchain.json` which can be found in this folder. Copy/move them to the same directory as the jar.
 2. Make sure feature triggers and other timestamp/height activations are correctly set. Generally these would be `0` so that they are enabled from the start.
 3. Set a recent genesis `timestamp` in testchain.json, and add this reward share entry:
 `{ "type": "REWARD_SHARE", "minterPublicKey": "DwcUnhxjamqppgfXCLgbYRx8H9XFPUc2qYRy3CEvQWEw", "recipient": "QbTDMss7NtRxxQaSqBZtSLSNdSYgvGaqFf", "rewardSharePublicKey": "CRvQXxFfUMfr4q3o1PcUZPA4aPCiubBsXkk47GzRo754", "sharePercent": 0 },`
