@@ -86,7 +86,7 @@
 		"selfSponsorshipAlgoV1Height": 9999999,
 		"feeValidationFixTimestamp": 0,
 		"chatReferenceTimestamp": 0,
-		"arbitraryOptionalFeeTimestamp": 9999999999999
+		"arbitraryOptionalFeeTimestamp": 1678622400000
 	},
 	"genesisInfo": {
 		"version": 4,
