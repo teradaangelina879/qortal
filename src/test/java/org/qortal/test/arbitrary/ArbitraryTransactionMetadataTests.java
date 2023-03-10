@@ -107,7 +107,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             // Create PUT transaction
             Path path1 = ArbitraryUtils.generateRandomDataPath(dataLength);
             ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name,
-                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize,
+                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize, 0L, true,
                     title, description, tags, category);
 
             // Check the chunk count is correct
@@ -157,7 +157,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             // Create PUT transaction
             Path path1 = ArbitraryUtils.generateRandomDataPath(dataLength);
             ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name,
-                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize,
+                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize, 0L, true,
                     title, description, tags, category);
 
             // Check the chunk count is correct
@@ -219,7 +219,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             // Create PUT transaction
             Path path1 = ArbitraryUtils.generateRandomDataPath(dataLength);
             ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name,
-                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize,
+                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize, 0L, true,
                     title, description, tags, category);
 
             // Check the chunk count is correct
@@ -273,7 +273,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             // Create PUT transaction
             Path path1 = ArbitraryUtils.generateRandomDataPath(dataLength);
             ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name,
-                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize,
+                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize, 0L, true,
                     title, description, tags, category);
 
             // Check the metadata is correct

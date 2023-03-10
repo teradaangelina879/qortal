@@ -74,12 +74,13 @@
 		"calcChainWeightTimestamp": 0,
 		"transactionV5Timestamp": 0,
 		"transactionV6Timestamp": 0,
-		"disableReferenceTimestamp": 9999999999999,
+		"disableReferenceTimestamp": 0,
 		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
 		"onlineAccountMinterLevelValidationHeight": 0,
 		"selfSponsorshipAlgoV1Height": 999999999,
 		"feeValidationFixTimestamp": 0,
-		"chatReferenceTimestamp": 0
+		"chatReferenceTimestamp": 0,
+		"arbitraryOptionalFeeTimestamp": 9999999999999
 	},
 	"genesisInfo": {
 		"version": 4,

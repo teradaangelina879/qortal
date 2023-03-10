@@ -15,7 +15,7 @@ public interface ChatRepository {
 	 */
 	public List<ChatMessage> getMessagesMatchingCriteria(Long before, Long after,
 			Integer txGroupId, byte[] reference, byte[] chatReferenceBytes, Boolean hasChatReference,
-			List<String> involving, Integer limit, Integer offset, Boolean reverse) throws DataException;
+			List<String> involving, String senderAddress, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public ChatMessage toChatMessage(ChatTransactionData chatTransactionData) throws DataException;
 

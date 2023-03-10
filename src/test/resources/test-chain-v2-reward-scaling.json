@@ -79,7 +79,8 @@
 		"onlineAccountMinterLevelValidationHeight": 0,
 		"selfSponsorshipAlgoV1Height": 999999999,
 		"feeValidationFixTimestamp": 0,
-		"chatReferenceTimestamp": 0
+		"chatReferenceTimestamp": 0,
+		"arbitraryOptionalFeeTimestamp": 0
 	},
 	"genesisInfo": {
 		"version": 4,
