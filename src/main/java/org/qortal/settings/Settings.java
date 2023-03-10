@@ -178,6 +178,8 @@ public class Settings {
 	private boolean archiveEnabled = true;
 	/** How often to attempt archiving (ms). */
 	private long archiveInterval = 7171L; // milliseconds
+	/** Serialization version to use when building an archive */
+	private int defaultArchiveVersion = 1;
 
 
 	/** Whether to automatically bootstrap instead of syncing from genesis */
@@ -925,6 +927,10 @@ public class Settings {
 
 	public long getArchiveInterval() {
 		return this.archiveInterval;
+	}
+
+	public int getDefaultArchiveVersion() {
+		return this.defaultArchiveVersion;
 	}
 
 
