@@ -2,9 +2,12 @@ package org.qortal.repository;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.block.Block;
+import org.qortal.data.block.BlockData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
+import org.qortal.transform.block.BlockTransformation;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -66,6 +69,10 @@ public abstract class RepositoryManager {
 			// Lite nodes have no blockchain
 			return false;
 		}
+		if (Settings.getInstance().isTopOnly()) {
+			// topOnly nodes are unable to perform this reindex, and so are temporarily unsupported
+			throw new DataException("topOnly nodes are now unsupported, as they are missing data required for a db reshape");
+		}
 
 		try {
 			// Check if we have any unpopulated block_sequence values for the first 1000 blocks
@@ -78,24 +85,30 @@ public abstract class RepositoryManager {
 				return false;
 			}
 
+			LOGGER.info("Rebuilding transaction sequences - this will take a while...");
+
 			int blockchainHeight = repository.getBlockRepository().getBlockchainHeight();
 			int totalTransactionCount = 0;
 
 			for (int height = 1; height < blockchainHeight; height++) {
 				List<TransactionData> transactions = new ArrayList<>();
 
-				// Fetch transactions for height
-				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, height, height);
-				for (byte[] signature : signatures) {
-					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-					if (transactionData != null) {
-						transactions.add(transactionData);
+				// Fetch block and transactions
+				BlockData blockData = repository.getBlockRepository().fromHeight(height);
+				if (blockData == null) {
+					// Try the archive
+					BlockTransformation blockTransformation = BlockArchiveReader.getInstance().fetchBlockAtHeight(height);
+					transactions = blockTransformation.getTransactions();
+				}
+				else {
+					// Get transactions from db
+					Block block = new Block(repository, blockData);
+					for (Transaction transaction : block.getTransactions()) {
+						transactions.add(transaction.getTransactionData());
 					}
 				}
-				totalTransactionCount += transactions.size();
 
-				// Sort the transactions for this height
-				transactions.sort(Transaction.getDataComparator());
+				totalTransactionCount += transactions.size();
 
 				// Loop through and update sequences
 				for (int sequence = 0; sequence < transactions.size(); ++sequence) {
