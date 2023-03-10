@@ -586,7 +586,7 @@ Select "Preview" in the UI after choosing the zip. This allows for full Q-App te
 
 ### Testnets
 
-For an end-to-end test of Q-App publishing, you can use the official testnet, or set up a single node testnet of your own (often referred to as devnet) on your local machine. See [Single Node Testnet Quick Start Guide](TestNets.md#quick-start).
+For an end-to-end test of Q-App publishing, you can use the official testnet, or set up a single node testnet of your own (often referred to as devnet) on your local machine. See [Single Node Testnet Quick Start Guide](testnet/README.md#quick-start).
 
 
 ### Debugging
