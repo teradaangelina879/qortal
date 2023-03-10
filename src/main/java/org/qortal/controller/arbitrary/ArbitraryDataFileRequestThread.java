@@ -114,7 +114,7 @@ public class ArbitraryDataFileRequestThread implements Runnable {
                 return;
             }
 
-            LOGGER.debug("Fetching file {} from peer {} via request thread...", hash58, peer);
+            LOGGER.trace("Fetching file {} from peer {} via request thread...", hash58, peer);
             arbitraryDataFileManager.fetchArbitraryDataFiles(repository, peer, signature, arbitraryTransactionData, Arrays.asList(hash));
 
         } catch (DataException e) {

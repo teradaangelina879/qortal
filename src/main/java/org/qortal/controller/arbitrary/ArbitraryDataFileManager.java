@@ -148,10 +148,10 @@ public class ArbitraryDataFileManager extends Thread {
                 if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
                     LOGGER.debug("Requesting data file {} from peer {}", hash58, peer);
                     Long startTime = NTP.getTime();
-                    ArbitraryDataFileMessage receivedArbitraryDataFileMessage = fetchArbitraryDataFile(peer, null, signature, hash, null);
+                    ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, null, signature, hash, null);
                     Long endTime = NTP.getTime();
-                    if (receivedArbitraryDataFileMessage != null && receivedArbitraryDataFileMessage.getArbitraryDataFile() != null) {
-                        LOGGER.debug("Received data file {} from peer {}. Time taken: {} ms", receivedArbitraryDataFileMessage.getArbitraryDataFile().getHash58(), peer, (endTime-startTime));
+                    if (receivedArbitraryDataFile != null) {
+                        LOGGER.debug("Received data file {} from peer {}. Time taken: {} ms", receivedArbitraryDataFile.getHash58(), peer, (endTime-startTime));
                         receivedAtLeastOneFile = true;
 
                         // Remove this hash from arbitraryDataFileHashResponses now that we have received it
@@ -193,11 +193,11 @@ public class ArbitraryDataFileManager extends Thread {
         return receivedAtLeastOneFile;
     }
 
-    private ArbitraryDataFileMessage fetchArbitraryDataFile(Peer peer, Peer requestingPeer, byte[] signature, byte[] hash, Message originalMessage) throws DataException {
+    private ArbitraryDataFile fetchArbitraryDataFile(Peer peer, Peer requestingPeer, byte[] signature, byte[] hash, Message originalMessage) throws DataException {
         ArbitraryDataFile existingFile = ArbitraryDataFile.fromHash(hash, signature);
         boolean fileAlreadyExists = existingFile.exists();
         String hash58 = Base58.encode(hash);
-        ArbitraryDataFileMessage arbitraryDataFileMessage;
+        ArbitraryDataFile arbitraryDataFile;
 
         // Fetch the file if it doesn't exist locally
         if (!fileAlreadyExists) {
@@ -227,28 +227,27 @@ public class ArbitraryDataFileManager extends Thread {
             }
 
             ArbitraryDataFileMessage peersArbitraryDataFileMessage = (ArbitraryDataFileMessage) response;
-            arbitraryDataFileMessage = new ArbitraryDataFileMessage(signature, peersArbitraryDataFileMessage.getArbitraryDataFile());
+            arbitraryDataFile = peersArbitraryDataFileMessage.getArbitraryDataFile();
         } else {
             LOGGER.debug(String.format("File hash %s already exists, so skipping the request", hash58));
-            arbitraryDataFileMessage = new ArbitraryDataFileMessage(signature, existingFile);
+            arbitraryDataFile = existingFile;
         }
 
         // We might want to forward the request to the peer that originally requested it
-        this.handleArbitraryDataFileForwarding(requestingPeer, arbitraryDataFileMessage, originalMessage);
+        this.handleArbitraryDataFileForwarding(requestingPeer, new ArbitraryDataFileMessage(signature, arbitraryDataFile), originalMessage);
 
         boolean isRelayRequest = (requestingPeer != null);
         if (isRelayRequest) {
             if (!fileAlreadyExists) {
                 // File didn't exist locally before the request, and it's a forwarding request, so delete it
                 LOGGER.debug("Deleting file {} because it was needed for forwarding only", Base58.encode(hash));
-                ArbitraryDataFile dataFile = arbitraryDataFileMessage.getArbitraryDataFile();
 
                 // Keep trying to delete the data until it is deleted, or we reach 10 attempts
-                dataFile.delete(10);
+                arbitraryDataFile.delete(10);
             }
         }
 
-        return arbitraryDataFileMessage;
+        return arbitraryDataFile;
     }
 
     private void handleFileListRequests(byte[] signature) {
