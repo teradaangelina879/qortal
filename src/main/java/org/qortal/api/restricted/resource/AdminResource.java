@@ -45,6 +45,7 @@ import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.repository.BlockArchiveRebuilder;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.network.Network;
@@ -728,6 +729,64 @@ public class AdminResource {
 			}
 		} catch (InterruptedException | TimeoutException e) {
 			// We couldn't lock blockchain to perform backup
+			return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/repository/archive/rebuild")
+	@Operation(
+			summary = "Rebuild archive",
+			description = "Rebuilds archive files, using the specified serialization version",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "number", example = "2"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "\"true\"",
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String rebuildArchive(@HeaderParam(Security.API_KEY_HEADER) String apiKey, Integer serializationVersion) {
+		Security.checkApiCallAllowed(request);
+
+		// Default serialization version to value specified in settings
+		if (serializationVersion == null) {
+			serializationVersion = Settings.getInstance().getDefaultArchiveVersion();
+		}
+
+		try {
+			// We don't actually need to lock the blockchain here, but we'll do it anyway so that
+			// the node can focus on rebuilding rather than synchronizing / minting.
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				BlockArchiveRebuilder blockArchiveRebuilder = new BlockArchiveRebuilder(serializationVersion);
+				blockArchiveRebuilder.start();
+
+				return "true";
+
+			} catch (IOException e) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
+
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform rebuild
 			return "false";
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);

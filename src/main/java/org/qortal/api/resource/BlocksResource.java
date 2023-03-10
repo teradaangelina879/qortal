@@ -48,6 +48,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.Triple;
 
 @Path("/blocks")
 @Tag(name = "Blocks")
@@ -165,10 +166,13 @@ public class BlocksResource {
             }
 
             // Not found, so try the block archive
-            byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, false, repository);
-            if (bytes != null) {
-				if (version != 1) {
-					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Archived blocks require version 1");
+            Triple<byte[], Integer, Integer> serializedBlock = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, false, repository);
+            if (serializedBlock != null) {
+				byte[] bytes = serializedBlock.getA();
+				Integer serializationVersion = serializedBlock.getB();
+				if (version != serializationVersion) {
+					// TODO: we could quite easily reserialize the block with the requested version
+					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Block is not stored using requested serialization version.");
 				}
 				return Base58.encode(bytes);
             }

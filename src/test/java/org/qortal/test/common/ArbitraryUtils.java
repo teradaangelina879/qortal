@@ -29,19 +29,22 @@ public class ArbitraryUtils {
                                                      int chunkSize) throws DataException {
 
         return ArbitraryUtils.createAndMintTxn(repository, publicKey58, path, name, identifier, method, service,
-                account, chunkSize, null, null, null, null);
+                account, chunkSize, 0L, true, null, null, null, null);
     }
 
     public static ArbitraryDataFile createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
                                                      ArbitraryTransactionData.Method method, Service service, PrivateKeyAccount account,
-                                                     int chunkSize, String title, String description, List<String> tags, Category category) throws DataException {
+                                                     int chunkSize, long fee, boolean computeNonce,
+                                                     String title, String description, List<String> tags, Category category) throws DataException {
 
         ArbitraryDataTransactionBuilder txnBuilder = new ArbitraryDataTransactionBuilder(
-                repository, publicKey58, path, name, method, service, identifier, title, description, tags, category);
+                repository, publicKey58, fee, path, name, method, service, identifier, title, description, tags, category);
 
         txnBuilder.setChunkSize(chunkSize);
         txnBuilder.build();
-        txnBuilder.computeNonce();
+        if (computeNonce) {
+            txnBuilder.computeNonce();
+        }
         ArbitraryTransactionData transactionData = txnBuilder.getArbitraryTransactionData();
         Transaction.ValidationResult result = TransactionUtils.signAndImport(repository, transactionData, account);
         assertEquals(Transaction.ValidationResult.OK, result);

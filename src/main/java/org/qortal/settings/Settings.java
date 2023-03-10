@@ -179,6 +179,8 @@ public class Settings {
 	private boolean archiveEnabled = true;
 	/** How often to attempt archiving (ms). */
 	private long archiveInterval = 7171L; // milliseconds
+	/** Serialization version to use when building an archive */
+	private int defaultArchiveVersion = 1;
 
 
 	/** Whether to automatically bootstrap instead of syncing from genesis */
@@ -274,6 +276,7 @@ public class Settings {
 	private String[] bootstrapHosts = new String[] {
 			"http://bootstrap.qortal.org",
 			"http://bootstrap2.qortal.org",
+			"http://bootstrap3.qortal.org",
 			"http://bootstrap.qortal.online"
 	};
 
@@ -929,6 +932,10 @@ public class Settings {
 
 	public long getArchiveInterval() {
 		return this.archiveInterval;
+	}
+
+	public int getDefaultArchiveVersion() {
+		return this.defaultArchiveVersion;
 	}
 
 

@@ -49,6 +49,7 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 						null,
 						null,
 						null,
+						null,
 						null, null, null);
 
 				sendMessages(session, chatMessages);
@@ -79,6 +80,7 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 					null,
 					null,
 					involvingAddresses,
+					null,
 					null, null, null);
 
 			sendMessages(session, chatMessages);

@@ -9,5 +9,6 @@
   "testNtpOffset": 0,
   "minPeers": 0,
   "pruneBlockLimit": 100,
-  "repositoryPath": "dbtest"
+  "repositoryPath": "dbtest",
+  "defaultArchiveVersion": 1
 }

@@ -72,6 +72,7 @@ public class ChatResource {
 			@QueryParam("reference") String reference,
 			@QueryParam("chatreference") String chatReference,
 			@QueryParam("haschatreference") Boolean hasChatReference,
+			@QueryParam("sender") String sender,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -107,6 +108,7 @@ public class ChatResource {
 					chatReferenceBytes,
 					hasChatReference,
 					involvingAddresses,
+					sender,
 					limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
