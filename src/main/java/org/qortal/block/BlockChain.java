@@ -871,6 +871,9 @@ public class BlockChain {
 				BlockData orphanBlockData = repository.getBlockRepository().fromHeight(height);
 
 				while (height > targetHeight) {
+					if (Controller.isStopping()) {
+						return false;
+					}
 					LOGGER.info(String.format("Forcably orphaning block %d", height));
 
 					Block block = new Block(repository, orphanBlockData);
