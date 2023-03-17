@@ -2,6 +2,7 @@ package org.qortal.api.websocket;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -20,6 +21,8 @@ import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
+
+import static org.qortal.data.chat.ChatMessage.Encoding;
 
 @WebSocket
 @SuppressWarnings("serial")
@@ -75,7 +78,7 @@ public class ActiveChatsWebSocket extends ApiWebSocket {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			ActiveChats activeChats = repository.getChatRepository().getActiveChats(ourAddress);
+			ActiveChats activeChats = repository.getChatRepository().getActiveChats(ourAddress, getTargetEncoding(session));
 
 			StringWriter stringWriter = new StringWriter();
 
@@ -91,6 +94,13 @@ public class ActiveChatsWebSocket extends ApiWebSocket {
 		} catch (DataException | IOException | WebSocketException e) {
 			// No output this time?
 		}
+	}
+
+	private Encoding getTargetEncoding(Session session) {
+		// Default to Base58 if not specified, for backwards support
+		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		String encoding = (queryParams.get("encoding") != null && !queryParams.get("encoding").isEmpty()) ? queryParams.get("encoding").get(0) : "BASE58";
+		return Encoding.valueOf(encoding);
 	}
 
 }

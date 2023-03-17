@@ -22,6 +22,8 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 
+import static org.qortal.data.chat.ChatMessage.Encoding;
+
 @WebSocket
 @SuppressWarnings("serial")
 public class ChatMessagesWebSocket extends ApiWebSocket {
@@ -35,6 +37,7 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 	@Override
 	public void onWebSocketConnect(Session session) {
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		Encoding encoding = getTargetEncoding(session);
 
 		List<String> txGroupIds = queryParams.get("txGroupId");
 		if (txGroupIds != null && txGroupIds.size() == 1) {
@@ -50,6 +53,7 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 						null,
 						null,
 						null,
+						encoding,
 						null, null, null);
 
 				sendMessages(session, chatMessages);
@@ -81,6 +85,7 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 					null,
 					involvingAddresses,
 					null,
+					encoding,
 					null, null, null);
 
 			sendMessages(session, chatMessages);
@@ -155,13 +160,20 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 		// Convert ChatTransactionData to ChatMessage
 		ChatMessage chatMessage;
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			chatMessage = repository.getChatRepository().toChatMessage(chatTransactionData);
+			chatMessage = repository.getChatRepository().toChatMessage(chatTransactionData, getTargetEncoding(session));
 		} catch (DataException e) {
 			// No output this time?
 			return;
 		}
 
 		sendMessages(session, Collections.singletonList(chatMessage));
+	}
+
+	private Encoding getTargetEncoding(Session session) {
+		// Default to Base58 if not specified, for backwards support
+		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		String encoding = (queryParams.get("encoding") != null && !queryParams.get("encoding").isEmpty()) ? queryParams.get("encoding").get(0) : "BASE58";
+		return Encoding.valueOf(encoding);
 	}
 
 }
