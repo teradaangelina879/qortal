@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.jetty.websocket.api.Session;
@@ -65,7 +66,9 @@ public class ActiveChatsWebSocket extends ApiWebSocket {
 
 	@OnWebSocketMessage
 	public void onWebSocketMessage(Session session, String message) {
-		/* ignored */
+		if (Objects.equals(message, "ping")) {
+			session.getRemote().sendStringByFuture("pong");
+		}
 	}
 
 	private void onNotify(Session session, ChatTransactionData chatTransactionData, String ourAddress, AtomicReference<String> previousOutput) {
