@@ -14,6 +14,8 @@ import org.qortal.repository.ChatRepository;
 import org.qortal.repository.DataException;
 import org.qortal.transaction.Transaction.TransactionType;
 
+import static org.qortal.data.chat.ChatMessage.Encoding;
+
 public class HSQLDBChatRepository implements ChatRepository {
 
 	protected HSQLDBRepository repository;
@@ -24,8 +26,8 @@ public class HSQLDBChatRepository implements ChatRepository {
 
 	@Override
 	public List<ChatMessage> getMessagesMatchingCriteria(Long before, Long after, Integer txGroupId, byte[] referenceBytes,
-			byte[] chatReferenceBytes, Boolean hasChatReference, List<String> involving, String senderAddress,
-			Integer limit, Integer offset, Boolean reverse) throws DataException {
+														 byte[] chatReferenceBytes, Boolean hasChatReference, List<String> involving, String senderAddress,
+														 Encoding encoding, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		// Check args meet expectations
 		if ((txGroupId != null && involving != null && !involving.isEmpty())
 				|| (txGroupId == null && (involving == null || involving.size() != 2)))
@@ -127,7 +129,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 				byte[] signature = resultSet.getBytes(13);
 
 				ChatMessage chatMessage = new ChatMessage(timestamp, groupId, reference, senderPublicKey, sender,
-						senderName, recipient, recipientName, chatReference, data, isText, isEncrypted, signature);
+						senderName, recipient, recipientName, chatReference, encoding, data, isText, isEncrypted, signature);
 
 				chatMessages.add(chatMessage);
 			} while (resultSet.next());
@@ -139,7 +141,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 	}
 
 	@Override
-	public ChatMessage toChatMessage(ChatTransactionData chatTransactionData) throws DataException {
+	public ChatMessage toChatMessage(ChatTransactionData chatTransactionData, Encoding encoding) throws DataException {
 		String sql = "SELECT SenderNames.name, RecipientNames.name "
 				+ "FROM ChatTransactions "
 				+ "LEFT OUTER JOIN Names AS SenderNames ON SenderNames.owner = sender "
@@ -166,21 +168,22 @@ public class HSQLDBChatRepository implements ChatRepository {
 			byte[] signature = chatTransactionData.getSignature();
 
 			return new ChatMessage(timestamp, groupId, reference, senderPublicKey, sender,
-					senderName, recipient, recipientName, chatReference, data, isText, isEncrypted, signature);
+					senderName, recipient, recipientName, chatReference, encoding, data,
+					isText, isEncrypted, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch convert chat transaction from repository", e);
 		}
 	}
 
 	@Override
-	public ActiveChats getActiveChats(String address) throws DataException {
-		List<GroupChat> groupChats = getActiveGroupChats(address);
+	public ActiveChats getActiveChats(String address, Encoding encoding) throws DataException {
+		List<GroupChat> groupChats = getActiveGroupChats(address, encoding);
 		List<DirectChat> directChats = getActiveDirectChats(address);
 
 		return new ActiveChats(groupChats, directChats);
 	}
 
-	private List<GroupChat> getActiveGroupChats(String address) throws DataException {
+	private List<GroupChat> getActiveGroupChats(String address, Encoding encoding) throws DataException {
 		// Find groups where address is a member and potential latest message details
 		String groupsSql = "SELECT group_id, group_name, latest_timestamp, sender, sender_name, signature, data "
 				+ "FROM GroupMembers "
@@ -213,7 +216,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 					byte[] signature = resultSet.getBytes(6);
 					byte[] data = resultSet.getBytes(7);
 
-					GroupChat groupChat = new GroupChat(groupId, groupName, timestamp, sender, senderName, signature, data);
+					GroupChat groupChat = new GroupChat(groupId, groupName, timestamp, sender, senderName, signature, encoding, data);
 					groupChats.add(groupChat);
 				} while (resultSet.next());
 			}
@@ -247,7 +250,7 @@ public class HSQLDBChatRepository implements ChatRepository {
 				data = resultSet.getBytes(5);
 			}
 
-			GroupChat groupChat = new GroupChat(0, null, timestamp, sender, senderName, signature, data);
+			GroupChat groupChat = new GroupChat(0, null, timestamp, sender, senderName, signature, encoding, data);
 			groupChats.add(groupChat);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch active group chats from repository", e);

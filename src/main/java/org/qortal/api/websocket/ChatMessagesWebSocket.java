@@ -2,10 +2,7 @@ package org.qortal.api.websocket;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketException;
@@ -22,6 +19,8 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 
+import static org.qortal.data.chat.ChatMessage.Encoding;
+
 @WebSocket
 @SuppressWarnings("serial")
 public class ChatMessagesWebSocket extends ApiWebSocket {
@@ -35,6 +34,16 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 	@Override
 	public void onWebSocketConnect(Session session) {
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		Encoding encoding = getTargetEncoding(session);
+
+		List<String> limitList = queryParams.get("limit");
+		Integer limit = (limitList != null && limitList.size() == 1) ? Integer.parseInt(limitList.get(0)) : null;
+
+		List<String> offsetList = queryParams.get("offset");
+		Integer offset = (offsetList != null && offsetList.size() == 1) ? Integer.parseInt(offsetList.get(0)) : null;
+
+		List<String> reverseList = queryParams.get("offset");
+		Boolean reverse = (reverseList != null && reverseList.size() == 1) ? Boolean.getBoolean(reverseList.get(0)) : null;
 
 		List<String> txGroupIds = queryParams.get("txGroupId");
 		if (txGroupIds != null && txGroupIds.size() == 1) {
@@ -50,7 +59,8 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 						null,
 						null,
 						null,
-						null, null, null);
+						encoding,
+						limit, offset, reverse);
 
 				sendMessages(session, chatMessages);
 			} catch (DataException e) {
@@ -81,7 +91,8 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 					null,
 					involvingAddresses,
 					null,
-					null, null, null);
+					encoding,
+					limit, offset, reverse);
 
 			sendMessages(session, chatMessages);
 		} catch (DataException e) {
@@ -107,7 +118,9 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 
 	@OnWebSocketMessage
 	public void onWebSocketMessage(Session session, String message) {
-		/* ignored */
+		if (Objects.equals(message, "ping")) {
+			session.getRemote().sendStringByFuture("pong");
+		}
 	}
 
 	private void onNotify(Session session, ChatTransactionData chatTransactionData, int txGroupId) {
@@ -155,13 +168,21 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 		// Convert ChatTransactionData to ChatMessage
 		ChatMessage chatMessage;
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			chatMessage = repository.getChatRepository().toChatMessage(chatTransactionData);
+			chatMessage = repository.getChatRepository().toChatMessage(chatTransactionData, getTargetEncoding(session));
 		} catch (DataException e) {
 			// No output this time?
 			return;
 		}
 
 		sendMessages(session, Collections.singletonList(chatMessage));
+	}
+
+	private Encoding getTargetEncoding(Session session) {
+		// Default to Base58 if not specified, for backwards support
+		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
+		List<String> encodingList = queryParams.get("encoding");
+		String encoding = (encodingList != null && encodingList.size() == 1) ? encodingList.get(0) : "BASE58";
+		return Encoding.valueOf(encoding);
 	}
 
 }

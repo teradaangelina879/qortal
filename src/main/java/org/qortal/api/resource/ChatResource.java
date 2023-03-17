@@ -40,6 +40,8 @@ import org.qortal.utils.Base58;
 
 import com.google.common.primitives.Bytes;
 
+import static org.qortal.data.chat.ChatMessage.Encoding;
+
 @Path("/chat")
 @Tag(name = "Chat")
 public class ChatResource {
@@ -73,6 +75,7 @@ public class ChatResource {
 			@QueryParam("chatreference") String chatReference,
 			@QueryParam("haschatreference") Boolean hasChatReference,
 			@QueryParam("sender") String sender,
+			@QueryParam("encoding") Encoding encoding,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -109,6 +112,7 @@ public class ChatResource {
 					hasChatReference,
 					involvingAddresses,
 					sender,
+					encoding,
 					limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
@@ -131,7 +135,7 @@ public class ChatResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public ChatMessage getMessageBySignature(@PathParam("signature") String signature58) {
+	public ChatMessage getMessageBySignature(@PathParam("signature") String signature58, @QueryParam("encoding") Encoding encoding) {
 		byte[] signature = Base58.decode(signature58);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -141,7 +145,7 @@ public class ChatResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Message not found");
 			}
 
-			return repository.getChatRepository().toChatMessage(chatTransactionData);
+			return repository.getChatRepository().toChatMessage(chatTransactionData, encoding);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -164,12 +168,12 @@ public class ChatResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public ActiveChats getActiveChats(@PathParam("address") String address) {
+	public ActiveChats getActiveChats(@PathParam("address") String address, @QueryParam("encoding") Encoding encoding) {
 		if (address == null || !Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getChatRepository().getActiveChats(address);
+			return repository.getChatRepository().getActiveChats(address, encoding);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
