@@ -157,7 +157,10 @@ public class ArbitraryResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryResourceInfo> searchResources(
 			@QueryParam("service") Service service,
-			@QueryParam("query") String query,
+			@Parameter(description = "Query (searches both name and identifier fields)") @QueryParam("query") String query,
+			@Parameter(description = "Identifier (searches identifier field only)") @QueryParam("identifier") String identifier,
+			@Parameter(description = "Name (searches name field only)") @QueryParam("name") String name,
+			@Parameter(description = "Prefix only (if true, only the beginning of fields are matched)") @QueryParam("prefix") Boolean prefixOnly,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
@@ -168,9 +171,10 @@ public class ArbitraryResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			boolean defaultRes = Boolean.TRUE.equals(defaultResource);
+			boolean usePrefixOnly = Boolean.TRUE.equals(prefixOnly);
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.searchArbitraryResources(service, query, defaultRes, limit, offset, reverse);
+					.searchArbitraryResources(service, query, identifier, name, usePrefixOnly, defaultRes, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();

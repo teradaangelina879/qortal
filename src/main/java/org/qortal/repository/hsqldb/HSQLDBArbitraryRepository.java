@@ -378,15 +378,10 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query,
+	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, String name, boolean prefixOnly,
 															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
-
-		// For now we are searching anywhere in the fields
-		// Note that this will bypass any indexes so may not scale well
-		// Longer term we probably want to copy resources to their own table anyway
-		String queryWildcard = String.format("%%%s%%", query.toLowerCase());
 
 		sql.append("SELECT name, service, identifier, MAX(size) AS max_size FROM ArbitraryTransactions WHERE 1=1");
 
@@ -395,16 +390,39 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			sql.append(service.value);
 		}
 
-		if (defaultResource) {
-			// Default resource requested - use NULL identifier and search name only
-			sql.append(" AND LCASE(name) LIKE ? AND identifier IS NULL");
+		// Handle general query matches
+		if (query != null) {
+			// Search anywhere in the fields, unless "prefixOnly" has been requested
+			// Note that without prefixOnly it will bypass any indexes so may not scale well
+			// Longer term we probably want to copy resources to their own table anyway
+			String queryWildcard = prefixOnly ? String.format("%s%%", query.toLowerCase()) : String.format("%%%s%%", query.toLowerCase());
+
+			if (defaultResource) {
+				// Default resource requested - use NULL identifier and search name only
+				sql.append(" AND LCASE(name) LIKE ? AND identifier IS NULL");
+				bindParams.add(queryWildcard);
+			} else {
+				// Non-default resource requested
+				// In this case we search the identifier as well as the name
+				sql.append(" AND (LCASE(name) LIKE ? OR LCASE(identifier) LIKE ?)");
+				bindParams.add(queryWildcard);
+				bindParams.add(queryWildcard);
+			}
+		}
+
+		// Handle identifier matches
+		if (identifier != null) {
+			// Search anywhere in the identifier, unless "prefixOnly" has been requested
+			String queryWildcard = prefixOnly ? String.format("%s%%", identifier.toLowerCase()) : String.format("%%%s%%", identifier.toLowerCase());
+			sql.append(" AND LCASE(identifier) LIKE ?");
 			bindParams.add(queryWildcard);
 		}
-		else {
-			// Non-default resource requested
-			// In this case we search the identifier as well as the name
-			sql.append(" AND (LCASE(name) LIKE ? OR LCASE(identifier) LIKE ?)");
-			bindParams.add(queryWildcard);
+
+		// Handle name matches
+		if (name != null) {
+			// Search anywhere in the identifier, unless "prefixOnly" has been requested
+			String queryWildcard = prefixOnly ? String.format("%s%%", name.toLowerCase()) : String.format("%%%s%%", name.toLowerCase());
+			sql.append(" AND LCASE(name) LIKE ?");
 			bindParams.add(queryWildcard);
 		}
 
