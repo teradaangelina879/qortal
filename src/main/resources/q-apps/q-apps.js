@@ -155,12 +155,27 @@ window.addEventListener("message", (event) => {
             window.location = buildResourceUrl(data.service, data.name, data.identifier, data.path);
             break;
 
-        case "SEARCH_QDN_RESOURCES":
+        case "LIST_QDN_RESOURCES":
             url = "/arbitrary/resources?";
             if (data.service != null) url = url.concat("&service=" + data.service);
             if (data.identifier != null) url = url.concat("&identifier=" + data.identifier);
-            if (data.default != null) url = url.concat("&default=" + data.default);
-            if (data.nameListFilter != null) url = url.concat("&namefilter=" + data.nameListFilter);
+            if (data.default != null) url = url.concat("&default=" + new Boolean(data.default).toString());
+            if (data.includeStatus != null) url = url.concat("&includestatus=" + new Boolean(data.includeStatus).toString());
+            if (data.includeMetadata != null) url = url.concat("&includemetadata=" + new Boolean(data.includeMetadata).toString());
+            if (data.limit != null) url = url.concat("&limit=" + data.limit);
+            if (data.offset != null) url = url.concat("&offset=" + data.offset);
+            if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
+            response = httpGet(url);
+            break;
+
+        case "SEARCH_QDN_RESOURCES":
+            url = "/arbitrary/resources/search?";
+            if (data.service != null) url = url.concat("&service=" + data.service);
+            if (data.query != null) url = url.concat("&query=" + data.query);
+            if (data.identifier != null) url = url.concat("&identifier=" + data.identifier);
+            if (data.name != null) url = url.concat("&name=" + data.name);
+            if (data.prefix != null) url = url.concat("&prefix=" + new Boolean(data.prefix).toString());
+            if (data.default != null) url = url.concat("&default=" + new Boolean(data.default).toString());
             if (data.includeStatus != null) url = url.concat("&includestatus=" + new Boolean(data.includeStatus).toString());
             if (data.includeMetadata != null) url = url.concat("&includemetadata=" + new Boolean(data.includeMetadata).toString());
             if (data.limit != null) url = url.concat("&limit=" + data.limit);

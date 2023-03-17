@@ -138,6 +138,7 @@ Here is a list of currently supported actions:
 - GET_ACCOUNT_DATA
 - GET_ACCOUNT_NAMES
 - GET_NAME_DATA
+- LIST_QDN_RESOURCES
 - SEARCH_QDN_RESOURCES
 - GET_QDN_RESOURCE_STATUS
 - FETCH_QDN_RESOURCE
@@ -209,16 +210,33 @@ let res = await qortalRequest({
 ```
 
 
+### List QDN resources
+```
+let res = await qortalRequest({
+    action: "LIST_QDN_RESOURCES",
+    service: "THUMBNAIL",
+    identifier: "qortal_avatar", // Optional
+    default: true, // Optional
+    includeStatus: false, // Optional - will take time to respond, so only request if necessary
+    includeMetadata: false, // Optional - will take time to respond, so only request if necessary
+    limit: 100,
+    offset: 0,
+    reverse: true
+});
+```
+
 ### Search QDN resources
 ```
 let res = await qortalRequest({
     action: "SEARCH_QDN_RESOURCES",
     service: "THUMBNAIL",
-    identifier: "qortal_avatar", // Optional
-    default: true, // Optional
-    nameListFilter: "FollowedNames", // Optional
-    includeStatus: false,
-    includeMetadata: false,
+    query: "search query goes here", // Optional - searches both "identifier" and "name" fields
+    identifier: "search query goes here", // Optional - searches only the "identifier" field
+    name: "search query goes here", // Optional - searches only the "name" field
+    prefix: false, // Optional - if true, only the beginning of fields are matched in all of the above filters
+    default: false, // Optional - if true, only resources without identifiers are returned
+    includeStatus: false, // Optional - will take time to respond, so only request if necessary
+    includeMetadata: false, // Optional - will take time to respond, so only request if necessary
     limit: 100,
     offset: 0,
     reverse: true
