@@ -36,6 +36,15 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
 		Encoding encoding = getTargetEncoding(session);
 
+		List<String> limitList = queryParams.get("limit");
+		Integer limit = (limitList != null && limitList.size() == 1) ? Integer.parseInt(limitList.get(0)) : null;
+
+		List<String> offsetList = queryParams.get("offset");
+		Integer offset = (offsetList != null && offsetList.size() == 1) ? Integer.parseInt(offsetList.get(0)) : null;
+
+		List<String> reverseList = queryParams.get("offset");
+		Boolean reverse = (reverseList != null && reverseList.size() == 1) ? Boolean.getBoolean(reverseList.get(0)) : null;
+
 		List<String> txGroupIds = queryParams.get("txGroupId");
 		if (txGroupIds != null && txGroupIds.size() == 1) {
 			int txGroupId = Integer.parseInt(txGroupIds.get(0));
@@ -51,7 +60,7 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 						null,
 						null,
 						encoding,
-						null, null, null);
+						limit, offset, reverse);
 
 				sendMessages(session, chatMessages);
 			} catch (DataException e) {
@@ -83,7 +92,7 @@ public class ChatMessagesWebSocket extends ApiWebSocket {
 					involvingAddresses,
 					null,
 					encoding,
-					null, null, null);
+					limit, offset, reverse);
 
 			sendMessages(session, chatMessages);
 		} catch (DataException e) {
