@@ -102,7 +102,8 @@ public class ActiveChatsWebSocket extends ApiWebSocket {
 	private Encoding getTargetEncoding(Session session) {
 		// Default to Base58 if not specified, for backwards support
 		Map<String, List<String>> queryParams = session.getUpgradeRequest().getParameterMap();
-		String encoding = (queryParams.get("encoding") != null && !queryParams.get("encoding").isEmpty()) ? queryParams.get("encoding").get(0) : "BASE58";
+		List<String> encodingList = queryParams.get("encoding");
+		String encoding = (encodingList != null && encodingList.size() == 1) ? encodingList.get(0) : "BASE58";
 		return Encoding.valueOf(encoding);
 	}
 
