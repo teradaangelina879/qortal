@@ -39,8 +39,15 @@ function handleResponse(event, response) {
     }
 }
 
-function buildResourceUrl(service, name, identifier, path) {
-    if (_qdnContext == "render") {
+function buildResourceUrl(service, name, identifier, path, isLink) {
+    if (isLink == false) {
+        // If this URL isn't being used as a link, then we need to fetch the data
+        // synchronously, instead of showing the loading screen.
+        url = "/arbitrary/" + service + "/" + name;
+        if (identifier != null) url = url.concat("/" + identifier);
+        if (path != null) url = url.concat("?filepath=" + path);
+    }
+    else if (_qdnContext == "render") {
         url = "/render/" + service + "/" + name;
         if (path != null) url = url.concat((path.startsWith("/") ? "" : "/") + path);
         if (identifier != null) url = url.concat("?identifier=" + identifier);
@@ -55,7 +62,8 @@ function buildResourceUrl(service, name, identifier, path) {
         url = "/" + name;
         if (path != null) url = url.concat((path.startsWith("/") ? "" : "/") + path);
     }
-    url = url.concat((url.includes("?") ? "" : "?") + "&theme=" + _qdnTheme);
+
+    if (isLink) url = url.concat((url.includes("?") ? "" : "?") + "&theme=" + _qdnTheme);
 
     return url;
 }
@@ -102,7 +110,7 @@ function extractComponents(url) {
     return null;
 }
 
-function convertToResourceUrl(url) {
+function convertToResourceUrl(url, isLink) {
     if (!url.startsWith("qortal://")) {
         return null;
     }
@@ -111,7 +119,7 @@ function convertToResourceUrl(url) {
         return null;
     }
 
-    return buildResourceUrl(c.service, c.name, c.identifier, c.path);
+    return buildResourceUrl(c.service, c.name, c.identifier, c.path, isLink);
 }
 
 window.addEventListener("message", (event) => {
@@ -147,12 +155,12 @@ window.addEventListener("message", (event) => {
             break;
 
         case "GET_QDN_RESOURCE_URL":
-            response = buildResourceUrl(data.service, data.name, data.identifier, data.path);
+            response = buildResourceUrl(data.service, data.name, data.identifier, data.path, false);
             break;
 
         case "LINK_TO_QDN_RESOURCE":
             if (data.service == null) data.service = "WEBSITE"; // Default to WEBSITE
-            window.location = buildResourceUrl(data.service, data.name, data.identifier, data.path);
+            window.location = buildResourceUrl(data.service, data.name, data.identifier, data.path, true);
             break;
 
         case "LIST_QDN_RESOURCES":
@@ -361,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const imgElements = document.querySelectorAll('img');
     imgElements.forEach((img) => {
         let url = img.src;
-        const newUrl = convertToResourceUrl(url);
+        const newUrl = convertToResourceUrl(url, false);
         if (newUrl != null) {
             document.querySelector('img').src = newUrl;
         }
@@ -377,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let observer = new MutationObserver((changes) => {
             changes.forEach(change => {
                 if (change.attributeName.includes('src')) {
-                    const newUrl = convertToResourceUrl(img.src);
+                    const newUrl = convertToResourceUrl(img.src, false);
                     if (newUrl != null) {
                         document.querySelector('img').src = newUrl;
                     }
