@@ -795,7 +795,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, path, null, null, false,
-				fee, title, description, tags, category, preview);
+				fee, null, title, description, tags, category, preview);
 	}
 
 	@POST
@@ -842,7 +842,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null, false,
-				fee, title, description, tags, category, preview);
+				fee, null, title, description, tags, category, preview);
 	}
 
 
@@ -880,6 +880,7 @@ public class ArbitraryResource {
 										@QueryParam("description") String description,
 										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
+										@QueryParam("filename") String filename,
 										@QueryParam("fee") Long fee,
 										@QueryParam("preview") Boolean preview,
 										String base64) {
@@ -890,7 +891,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64, false,
-				fee, title, description, tags, category, preview);
+				fee, filename, title, description, tags, category, preview);
 	}
 
 	@POST
@@ -925,6 +926,7 @@ public class ArbitraryResource {
 										@QueryParam("description") String description,
 										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
+										@QueryParam("filename") String filename,
 										@QueryParam("fee") Long fee,
 										@QueryParam("preview") Boolean preview,
 										String base64) {
@@ -935,7 +937,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64, false,
-				fee, title, description, tags, category, preview);
+				fee, filename, title, description, tags, category, preview);
 	}
 
 
@@ -982,7 +984,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64Zip, true,
-				fee, title, description, tags, category, preview);
+				fee, null, title, description, tags, category, preview);
 	}
 
 	@POST
@@ -1027,7 +1029,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64Zip, true,
-				fee, title, description, tags, category, preview);
+				fee, null, title, description, tags, category, preview);
 	}
 
 
@@ -1067,6 +1069,7 @@ public class ArbitraryResource {
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
+							 @QueryParam("filename") String filename,
 							 @QueryParam("fee") Long fee,
 							 @QueryParam("preview") Boolean preview,
 							 String string) {
@@ -1077,7 +1080,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, string, null, false,
-				fee, title, description, tags, category, preview);
+				fee, filename, title, description, tags, category, preview);
 	}
 
 	@POST
@@ -1114,6 +1117,7 @@ public class ArbitraryResource {
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
+							 @QueryParam("filename") String filename,
 							 @QueryParam("fee") Long fee,
 							 @QueryParam("preview") Boolean preview,
 							 String string) {
@@ -1124,7 +1128,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null, false,
-				fee, title, description, tags, category, preview);
+				fee, filename, title, description, tags, category, preview);
 	}
 
 
@@ -1163,7 +1167,7 @@ public class ArbitraryResource {
 	}
 
 	private String upload(Service service, String name, String identifier,
-						  String path, String string, String base64, boolean zipped, Long fee,
+						  String path, String string, String base64, boolean zipped, Long fee, String filename,
 						  String title, String description, List<String> tags, Category category,
 						  Boolean preview) {
 		// Fetch public key from registered name
@@ -1189,7 +1193,12 @@ public class ArbitraryResource {
 			if (path == null) {
 				// See if we have a string instead
 				if (string != null) {
-					File tempFile = File.createTempFile("qortal-", "");
+					if (filename == null) {
+						// Use current time as filename
+						filename = String.format("qortal-%d", NTP.getTime());
+					}
+					java.nio.file.Path tempDirectory = Files.createTempDirectory("qortal-");
+					File tempFile = Paths.get(tempDirectory.toString(), filename).toFile();
 					tempFile.deleteOnExit();
 					BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile.toPath().toString()));
 					writer.write(string);
@@ -1199,7 +1208,12 @@ public class ArbitraryResource {
 				}
 				// ... or base64 encoded raw data
 				else if (base64 != null) {
-					File tempFile = File.createTempFile("qortal-", "");
+					if (filename == null) {
+						// Use current time as filename
+						filename = String.format("qortal-%d", NTP.getTime());
+					}
+					java.nio.file.Path tempDirectory = Files.createTempDirectory("qortal-");
+					File tempFile = Paths.get(tempDirectory.toString(), filename).toFile();
 					tempFile.deleteOnExit();
 					Files.write(tempFile.toPath(), Base64.decode(base64));
 					path = tempFile.toPath().toString();
