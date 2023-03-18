@@ -31,7 +31,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 
 			int version = resultSet.getInt(1);
 			int nonce = resultSet.getInt(2);
-			Service service = Service.valueOf(resultSet.getInt(3));
+			int serviceInt = resultSet.getInt(3);
 			int size = resultSet.getInt(4);
 			boolean isDataRaw = resultSet.getBoolean(5); // NOT NULL, so no null to false
 			DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
@@ -44,7 +44,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 			ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.valueOf(resultSet.getInt(12));
 
 			List<PaymentData> payments = this.getPaymentsFromSignature(baseTransactionData.getSignature());
-			return new ArbitraryTransactionData(baseTransactionData, version, service, nonce, size, name,
+			return new ArbitraryTransactionData(baseTransactionData, version, serviceInt, nonce, size, name,
 					identifier, method, secret, compression, data, dataType, metadataHash, payments);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch arbitrary transaction from repository", e);

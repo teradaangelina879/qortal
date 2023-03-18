@@ -45,7 +45,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		List<PaymentData> payments = new ArrayList<>();
 		payments.add(new PaymentData(recipient, assetId, amount));
 
-		return new ArbitraryTransactionData(generateBase(account), version, service, nonce, size,name, identifier,
+		return new ArbitraryTransactionData(generateBase(account), version, service.value, nonce, size,name, identifier,
 				method, secret, compression, data, dataType, metadataHash, payments);
 	}
 

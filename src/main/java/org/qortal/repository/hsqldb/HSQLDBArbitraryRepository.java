@@ -202,7 +202,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 				int version = resultSet.getInt(11);
 				int nonce = resultSet.getInt(12);
-				Service serviceResult = Service.valueOf(resultSet.getInt(13));
+				int serviceInt = resultSet.getInt(13);
 				int size = resultSet.getInt(14);
 				boolean isDataRaw = resultSet.getBoolean(15); // NOT NULL, so no null to false
 				DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
@@ -216,7 +216,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				// FUTURE: get payments from signature if needed. Avoiding for now to reduce database calls.
 
 				ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-						version, serviceResult, nonce, size, nameResult, identifierResult, method, secret,
+						version, serviceInt, nonce, size, nameResult, identifierResult, method, secret,
 						compression, data, dataType, metadataHash, null);
 
 				arbitraryTransactionData.add(transactionData);
@@ -277,7 +277,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 			int version = resultSet.getInt(11);
 			int nonce = resultSet.getInt(12);
-			Service serviceResult = Service.valueOf(resultSet.getInt(13));
+			int serviceInt = resultSet.getInt(13);
 			int size = resultSet.getInt(14);
 			boolean isDataRaw = resultSet.getBoolean(15); // NOT NULL, so no null to false
 			DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
@@ -291,7 +291,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			// FUTURE: get payments from signature if needed. Avoiding for now to reduce database calls.
 
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-					version, serviceResult, nonce, size, nameResult, identifierResult, methodResult, secret,
+					version, serviceInt, nonce, size, nameResult, identifierResult, methodResult, secret,
 					compression, data, dataType, metadataHash, null);
 
 			return transactionData;

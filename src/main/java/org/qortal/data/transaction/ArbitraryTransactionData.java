@@ -73,7 +73,7 @@ public class ArbitraryTransactionData extends TransactionData {
 	@Schema(example = "sender_public_key")
 	private byte[] senderPublicKey;
 
-	private Service service;
+	private int service;
 	private int nonce;
 	private int size;
 
@@ -103,7 +103,7 @@ public class ArbitraryTransactionData extends TransactionData {
 	}
 
 	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
-									int version, Service service, int nonce, int size,
+									int version, int service, int nonce, int size,
 									String name, String identifier, Method method, byte[] secret, Compression compression,
 									byte[] data, DataType dataType, byte[] metadataHash, List<PaymentData> payments) {
 		super(TransactionType.ARBITRARY, baseTransactionData);
@@ -135,7 +135,7 @@ public class ArbitraryTransactionData extends TransactionData {
 	}
 
 	public Service getService() {
-		return this.service;
+		return Service.valueOf(this.service);
 	}
 
 	public int getNonce() {

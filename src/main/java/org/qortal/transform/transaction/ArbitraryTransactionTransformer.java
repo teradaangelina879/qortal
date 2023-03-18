@@ -131,7 +131,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 				payments.add(PaymentTransformer.fromByteBuffer(byteBuffer));
 		}
 
-		Service service = Service.valueOf(byteBuffer.getInt());
+		int service = byteBuffer.getInt();
 
 		// We might be receiving hash of data instead of actual raw data
 		boolean isRaw = byteBuffer.get() != 0;

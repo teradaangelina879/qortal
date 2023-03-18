@@ -274,7 +274,7 @@ public class ArbitraryDataTransactionBuilder {
             final List<PaymentData> payments = new ArrayList<>();
 
             ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-                    version, service, nonce, size, name, identifier, method,
+                    version, service.value, nonce, size, name, identifier, method,
                     secret, compression, digest, dataType, metadataHash, payments);
 
             this.arbitraryTransactionData = transactionData;
