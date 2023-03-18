@@ -284,12 +284,13 @@ _Requires user approval_
 await qortalRequest({
     action: "PUBLISH_QDN_RESOURCE",
     name: "Demo", // Publisher must own the registered name - use GET_ACCOUNT_NAMES for a list
-    service: "WEBSITE",
+    service: "IMAGE",
     data64: "base64_encoded_data",
-    title: "Title",
-    description: "Description",
-    category: "TECHNOLOGY",
-    tags: ["tag1", "tag2", "tag3", "tag4", "tag5"]
+    filename: "image.jpg", // Optional - to help apps determine the file's type
+    // title: "Title", // Optional
+    // description: "Description", // Optional
+    // category: "TECHNOLOGY", // Optional
+    // tags: ["tag1", "tag2", "tag3", "tag4", "tag5"] // Optional
 });
 ```
 
