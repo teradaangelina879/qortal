@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.*;
+import java.net.FileNameMap;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -1397,7 +1399,16 @@ public class ArbitraryResource {
 				java.nio.file.Path filePath = Paths.get(outputPath.toString(), files[0]);
 				ContentInfoUtil util = new ContentInfoUtil();
 				ContentInfo info = util.findMatch(filePath.toFile());
-				String mimeType = (info != null) ? info.getMimeType() : null;
+				String mimeType;
+				if (info != null) {
+					// Attempt to extract MIME type from file contents
+					mimeType = info.getMimeType();
+				}
+				else {
+					// Fall back to using the filename
+					FileNameMap fileNameMap = URLConnection.getFileNameMap();
+					mimeType = fileNameMap.getContentTypeFor(filename);
+				}
 				fileProperties.filename = filename;
 				fileProperties.mimeType = mimeType;
 			}
