@@ -279,6 +279,33 @@ public class ArbitraryResource {
 	}
 
 	@GET
+	@Path("/resource/filename/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Get filename in published data",
+			description = "This causes a download of the data if it's not local. A filename will only be returned for single file resources.",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String getResourceFilename(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+													 @PathParam("service") Service service,
+													 @PathParam("name") String name,
+													 @PathParam("identifier") String identifier) {
+
+		if (!Settings.getInstance().isQDNAuthBypassEnabled())
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+
+		return this.getFilename(service, name, identifier);
+	}
+
+	@GET
 	@Path("/resource/status/{service}/{name}/{identifier}")
 	@Operation(
 			summary = "Get status of arbitrary resource with supplied service, name and identifier",
@@ -1345,6 +1372,32 @@ public class ArbitraryResource {
 			response.getOutputStream().write(data);
 
 			return response;
+		} catch (Exception e) {
+			LOGGER.debug(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, e.getMessage());
+		}
+	}
+
+	private String getFilename(Service service, String name, String identifier) {
+
+		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+		try {
+			arbitraryDataReader.loadSynchronously(false);
+			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
+			if (outputPath == null) {
+				// Assume the resource doesn't exist
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, "File not found");
+			}
+
+			String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
+			if (files.length == 1) {
+				LOGGER.info("File: {}", files[0]);
+				return files[0];
+			}
+			else {
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Filename not available for multi file resources");
+			}
+
 		} catch (Exception e) {
 			LOGGER.debug(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, e.getMessage());
