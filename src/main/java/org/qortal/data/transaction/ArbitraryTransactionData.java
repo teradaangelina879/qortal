@@ -138,6 +138,10 @@ public class ArbitraryTransactionData extends TransactionData {
 		return Service.valueOf(this.service);
 	}
 
+	public int getServiceInt() {
+		return this.service;
+	}
+
 	public int getNonce() {
 		return this.nonce;
 	}
