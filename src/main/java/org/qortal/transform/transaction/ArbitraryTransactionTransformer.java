@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.google.common.base.Utf8;
-import org.qortal.arbitrary.misc.Service;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
@@ -226,7 +225,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			for (PaymentData paymentData : payments)
 				bytes.write(PaymentTransformer.toBytes(paymentData));
 
-			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService().value));
+			bytes.write(Ints.toByteArray(arbitraryTransactionData.getServiceInt()));
 
 			bytes.write((byte) (arbitraryTransactionData.getDataType() == DataType.RAW_DATA ? 1 : 0));
 
@@ -299,7 +298,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 					bytes.write(PaymentTransformer.toBytes(paymentData));
 			}
 
-			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService().value));
+			bytes.write(Ints.toByteArray(arbitraryTransactionData.getServiceInt()));
 
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getData().length));
 
