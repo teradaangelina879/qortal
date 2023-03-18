@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.*;
+import java.net.FileNameMap;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -26,11 +28,13 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.util.encoders.Base64;
 import org.qortal.api.*;
+import org.qortal.api.model.FileProperties;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.*;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
@@ -279,30 +283,26 @@ public class ArbitraryResource {
 	}
 
 	@GET
-	@Path("/resource/filename/{service}/{name}/{identifier}")
+	@Path("/resource/properties/{service}/{name}/{identifier}")
 	@Operation(
-			summary = "Get filename in published data",
-			description = "This causes a download of the data if it's not local. A filename will only be returned for single file resources.",
+			summary = "Get properties of a QDN resource",
+			description = "This attempts a download of the data if it's not available locally. A filename will only be returned for single file resources. mimeType is only returned when it can be determined.",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.TEXT_PLAIN,
-									schema = @Schema(
-											type = "string"
-									)
-							)
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = FileProperties.class))
 					)
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public String getResourceFilename(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-													 @PathParam("service") Service service,
-													 @PathParam("name") String name,
-													 @PathParam("identifier") String identifier) {
+	public FileProperties getResourceProperties(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+											  @PathParam("service") Service service,
+											  @PathParam("name") String name,
+											  @PathParam("identifier") String identifier) {
 
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
 			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
 
-		return this.getFilename(service, name, identifier);
+		return this.getFileProperties(service, name, identifier);
 	}
 
 	@GET
@@ -1378,8 +1378,7 @@ public class ArbitraryResource {
 		}
 	}
 
-	private String getFilename(Service service, String name, String identifier) {
-
+	private FileProperties getFileProperties(Service service, String name, String identifier) {
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
 			arbitraryDataReader.loadSynchronously(false);
@@ -1389,14 +1388,19 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, "File not found");
 			}
 
+			FileProperties fileProperties = new FileProperties();
+			fileProperties.size = FileUtils.sizeOfDirectory(outputPath.toFile());
+
 			String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
 			if (files.length == 1) {
-				LOGGER.info("File: {}", files[0]);
-				return files[0];
+				String filename = files[0];
+				FileNameMap fileNameMap = URLConnection.getFileNameMap();
+				String mimeType = fileNameMap.getContentTypeFor(filename);
+				fileProperties.filename = filename;
+				fileProperties.mimeType = mimeType;
 			}
-			else {
-				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Filename not available for multi file resources");
-			}
+
+			return fileProperties;
 
 		} catch (Exception e) {
 			LOGGER.debug(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
