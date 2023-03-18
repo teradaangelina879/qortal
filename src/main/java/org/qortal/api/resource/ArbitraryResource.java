@@ -1,6 +1,8 @@
 package org.qortal.api.resource;
 
 import com.google.common.primitives.Bytes;
+import com.j256.simplemagic.ContentInfo;
+import com.j256.simplemagic.ContentInfoUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -12,8 +14,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.*;
-import java.net.FileNameMap;
-import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -1394,8 +1394,10 @@ public class ArbitraryResource {
 			String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
 			if (files.length == 1) {
 				String filename = files[0];
-				FileNameMap fileNameMap = URLConnection.getFileNameMap();
-				String mimeType = fileNameMap.getContentTypeFor(filename);
+				java.nio.file.Path filePath = Paths.get(outputPath.toString(), files[0]);
+				ContentInfoUtil util = new ContentInfoUtil();
+				ContentInfo info = util.findMatch(filePath.toFile());
+				String mimeType = (info != null) ? info.getMimeType() : null;
 				fileProperties.filename = filename;
 				fileProperties.mimeType = mimeType;
 			}
