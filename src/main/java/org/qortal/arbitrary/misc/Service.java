@@ -83,7 +83,7 @@ public enum Service {
     DOCUMENT(800, false, null, true, null),
     LIST(900, true, null, true, null),
     PLAYLIST(910, true, null, true, null),
-    APP(1000, false, null, false, null),
+    APP(1000, true, 50*1024*1024L, false, null),
     METADATA(1100, false, null, true, null),
     JSON(1110, true, 25*1024L, true, null) {
         @Override
