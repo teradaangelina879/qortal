@@ -2,6 +2,7 @@ package org.qortal.api.gateway.resource;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.apache.commons.lang3.StringUtils;
 import org.qortal.api.Security;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
@@ -16,6 +17,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -84,11 +86,11 @@ public class GatewayResource {
     public HttpServletResponse getPath(@PathParam("path") String inPath) {
         // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
         Security.disallowLoopbackRequests(request);
-        return this.parsePath(inPath, "gateway", null, "", true, true);
+        return this.parsePath(inPath, "gateway", null, true, true);
     }
 
     
-    private HttpServletResponse parsePath(String inPath, String qdnContext, String secret58, String prefix, boolean usePrefix, boolean async) {
+    private HttpServletResponse parsePath(String inPath, String qdnContext, String secret58, boolean usePrefix, boolean async) {
 
         if (inPath == null || inPath.equals("")) {
             // Assume not a real file
@@ -100,6 +102,7 @@ public class GatewayResource {
         String name = null;
         String identifier = null;
         String outPath = "";
+        List<String> prefixParts = new ArrayList<>();
 
         if (!inPath.contains("/")) {
             // Assume entire inPath is a registered name
@@ -116,6 +119,7 @@ public class GatewayResource {
                     // First element matches a service, so we can assume it is one
                     service = parsedService;
                     parts.remove(0);
+                    prefixParts.add(service.name());
                 }
             } catch (IllegalArgumentException e) {
                 // Not a service
@@ -137,6 +141,7 @@ public class GatewayResource {
                     // Matched service, name and identifier combination - so assume this is an identifier and can be removed
                     identifier = parts.get(0);
                     parts.remove(0);
+                    prefixParts.add(identifier);
                 }
             }
 
@@ -144,6 +149,11 @@ public class GatewayResource {
                 // outPath can be built by combining any remaining parts
                 outPath = String.join("/", parts);
             }
+        }
+
+        String prefix = StringUtils.join(prefixParts, "/");
+        if (prefix != null && prefix.length() > 0) {
+            prefix = "/" + prefix;
         }
 
         ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(name, ResourceIdType.NAME, service, identifier, outPath,
