@@ -6,12 +6,14 @@ import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataTransactionBuilder;
-import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
+import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.RegisterNameTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.group.Group;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -25,9 +27,11 @@ import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
-import javax.xml.crypto.Data;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 import static org.junit.Assert.*;
 
@@ -422,5 +426,45 @@ public class ArbitraryTransactionTests extends Common {
             FieldUtils.writeField(ArbitraryDataManager.getInstance(), "powDifficulty", 1, true);
             assertTrue(transaction.isSignatureValid());
         }
+    }
+
+    @Test
+    public void testInvalidService() {
+        byte[] randomHash = new byte[32];
+        new Random().nextBytes(randomHash);
+
+        byte[] lastReference = new byte[64];
+        new Random().nextBytes(lastReference);
+
+        Long now = NTP.getTime();
+
+        final BaseTransactionData baseTransactionData = new BaseTransactionData(now, Group.NO_GROUP,
+                lastReference, randomHash, 0L, null);
+        final String name = "test";
+        final String identifier = "test";
+        final ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
+        final ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
+        final int size = 999;
+        final int version = 5;
+        final int nonce = 0;
+        final byte[] secret = randomHash;
+        final ArbitraryTransactionData.DataType dataType = ArbitraryTransactionData.DataType.DATA_HASH;
+        final byte[] digest = randomHash;
+        final byte[] metadataHash = null;
+        final List<PaymentData> payments = new ArrayList<>();
+        final int validService = Service.IMAGE.value;
+        final int invalidService = 99999999;
+
+        // Try with valid service
+        ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
+                version, validService, nonce, size, name, identifier, method,
+                secret, compression, digest, dataType, metadataHash, payments);
+        assertEquals(Service.IMAGE, transactionData.getService());
+
+        // Try with invalid service
+        transactionData = new ArbitraryTransactionData(baseTransactionData,
+                version, invalidService, nonce, size, name, identifier, method,
+                secret, compression, digest, dataType, metadataHash, payments);
+        assertNull(transactionData.getService());
     }
 }
