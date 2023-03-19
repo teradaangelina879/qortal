@@ -7,6 +7,8 @@ import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.qortal.arbitrary.misc.Service;
 
+import java.util.Objects;
+
 public class HTMLParser {
 
     private static final Logger LOGGER = LogManager.getLogger(HTMLParser.class);
@@ -42,6 +44,12 @@ public class HTMLParser {
             // Add q-apps script tag
             String qAppsScriptElement = String.format("<script src=\"/apps/q-apps.js?time=%d\">", System.currentTimeMillis());
             head.get(0).prepend(qAppsScriptElement);
+
+            // Add q-apps gateway script tag if in gateway mode
+            if (Objects.equals(this.qdnContext, "gateway")) {
+                String qAppsGatewayScriptElement = String.format("<script src=\"/apps/q-apps-gateway.js?time=%d\">", System.currentTimeMillis());
+                head.get(0).prepend(qAppsGatewayScriptElement);
+            }
 
             // Escape and add vars
             String service = this.service.toString().replace("\"","\\\"");

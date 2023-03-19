@@ -54,4 +54,30 @@ public class AppsResource {
         }
     }
 
+    @GET
+    @Path("/q-apps-gateway.js")
+    @Hidden // For internal Q-App API use only
+    @Operation(
+            summary = "Gateway-specific interface for Q-Apps",
+            responses = {
+                    @ApiResponse(
+                            description = "javascript",
+                            content = @Content(
+                                    mediaType = MediaType.TEXT_PLAIN,
+                                    schema = @Schema(
+                                            type = "string"
+                                    )
+                            )
+                    )
+            }
+    )
+    public String getQAppsGatewayJs() {
+        URL url = Resources.getResource("q-apps/q-apps-gateway.js");
+        try {
+            return Resources.toString(url, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FILE_NOT_FOUND);
+        }
+    }
+
 }
