@@ -208,6 +208,12 @@ window.addEventListener("message", (event) => {
             response = httpGet(url);
             break;
 
+        case "GET_QDN_RESOURCE_PROPERTIES":
+            let identifier = (data.identifier != null) ? data.identifier : "default";
+            url = "/arbitrary/resource/properties/" + data.service + "/" + data.name + "/" + identifier;
+            response = httpGet(url);
+            break;
+
         case "SEARCH_CHAT_MESSAGES":
             url = "/chat/messages?";
             if (data.before != null) url = url.concat("&before=" + data.before);

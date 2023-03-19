@@ -141,6 +141,7 @@ Here is a list of currently supported actions:
 - LIST_QDN_RESOURCES
 - SEARCH_QDN_RESOURCES
 - GET_QDN_RESOURCE_STATUS
+- GET_QDN_RESOURCE_PROPERTIES
 - FETCH_QDN_RESOURCE
 - PUBLISH_QDN_RESOURCE
 - GET_WALLET_BALANCE
@@ -276,6 +277,17 @@ let res = await qortalRequest({
     service: "THUMBNAIL",
     identifier: "qortal_avatar" // Optional
 });
+```
+
+### Get QDN resource properties
+```
+let res = await qortalRequest({
+    action: "GET_QDN_RESOURCE_PROPERTIES",
+    name: "QortalDemo",
+    service: "THUMBNAIL",
+    identifier: "qortal_avatar" // Optional
+});
+// Returns: filename, size, mimeType (where available)
 ```
 
 ### Publish QDN resource
