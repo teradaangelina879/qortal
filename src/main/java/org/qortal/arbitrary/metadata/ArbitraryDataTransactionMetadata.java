@@ -20,6 +20,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
     private List<String> tags;
     private Category category;
     private List<String> files;
+    private String mimeType;
 
     private static int MAX_TITLE_LENGTH = 80;
     private static int MAX_DESCRIPTION_LENGTH = 500;
@@ -92,6 +93,10 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             }
             this.files = filesList;
         }
+
+        if (metadata.has("mimeType")) {
+            this.mimeType = metadata.getString("mimeType");
+        }
     }
 
     @Override
@@ -133,6 +138,10 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             }
         }
         outer.put("files", files);
+
+        if (this.mimeType != null && !this.mimeType.isEmpty()) {
+            outer.put("mimeType", this.mimeType);
+        }
 
         this.jsonString = outer.toString(2);
         LOGGER.trace("Transaction metadata: {}", this.jsonString);
@@ -185,6 +194,14 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
 
     public List<String> getFiles() {
         return this.files;
+    }
+
+    public void setMimeType(String mimeType) {
+        this.mimeType = mimeType;
+    }
+
+    public String getMimeType() {
+        return this.mimeType;
     }
 
     public boolean containsChunk(byte[] chunk) {

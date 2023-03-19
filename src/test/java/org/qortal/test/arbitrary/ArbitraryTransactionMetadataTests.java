@@ -118,6 +118,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
             assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
             assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -168,6 +169,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
             assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
             assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
 
             // Delete the file, to simulate that it hasn't been fetched from the network yet
             arbitraryDataFile.delete();
@@ -230,6 +232,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
             assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
             assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -318,9 +321,11 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertTrue(resourceMetadata.getFiles().contains("file.txt"));
 
             // Ensure it's not returned when specified to be excluded
-            // The entire object will be null because there is no metadata
             ArbitraryResourceMetadata resourceMetadataSimple = ArbitraryResourceMetadata.fromTransactionMetadata(arbitraryDataFile.getMetadata(), false);
-            assertNull(resourceMetadataSimple);
+            assertNull(resourceMetadataSimple.getFiles());
+
+            // Single-file resources should have a MIME type
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
         }
     }
 
@@ -369,6 +374,9 @@ public class ArbitraryTransactionMetadataTests extends Common {
             // The entire object will be null because there is no metadata
             ArbitraryResourceMetadata resourceMetadataSimple = ArbitraryResourceMetadata.fromTransactionMetadata(arbitraryDataFile.getMetadata(), false);
             assertNull(resourceMetadataSimple);
+
+            // Multi-file resources won't have a MIME type
+            assertEquals(null, arbitraryDataFile.getMetadata().getMimeType());
         }
     }
 

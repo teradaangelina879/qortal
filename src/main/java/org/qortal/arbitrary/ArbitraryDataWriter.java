@@ -1,5 +1,7 @@
 package org.qortal.arbitrary;
 
+import com.j256.simplemagic.ContentInfo;
+import com.j256.simplemagic.ContentInfoUtil;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,6 +25,8 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import java.io.File;
 import java.io.IOException;
+import java.net.FileNameMap;
+import java.net.URLConnection;
 import java.nio.file.*;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -48,6 +52,7 @@ public class ArbitraryDataWriter {
     private final List<String> tags;
     private final Category category;
     private List<String> files;
+    private String mimeType;
 
     private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
 
@@ -79,6 +84,7 @@ public class ArbitraryDataWriter {
         this.tags = ArbitraryDataTransactionMetadata.limitTags(tags);
         this.category = category;
         this.files = new ArrayList<>(); // Populated in buildFileList()
+        this.mimeType = null; // Populated in buildFileList()
     }
 
     public void save() throws IOException, DataException, InterruptedException, MissingDataException {
@@ -144,20 +150,41 @@ public class ArbitraryDataWriter {
     }
 
     private void buildFileList() throws IOException {
-        // Single file resources consist of a single element in the file list
+        // Check if the path already points to a single file
         boolean isSingleFile = this.filePath.toFile().isFile();
+        Path singleFilePath = null;
         if (isSingleFile) {
             this.files.add(this.filePath.getFileName().toString());
-            return;
+            singleFilePath = this.filePath;
+        }
+        else {
+            // Multi file resources (or a single file in a directory) require a walk through the directory tree
+            try (Stream<Path> stream = Files.walk(this.filePath)) {
+                this.files = stream
+                        .filter(Files::isRegularFile)
+                        .map(p -> this.filePath.relativize(p).toString())
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toList());
+
+                if (this.files.size() == 1) {
+                    singleFilePath = Paths.get(this.filePath.toString(), this.files.get(0));
+                }
+            }
         }
 
-        // Multi file resources require a walk through the directory tree
-        try (Stream<Path> stream = Files.walk(this.filePath)) {
-            this.files = stream
-                    .filter(Files::isRegularFile)
-                    .map(p -> this.filePath.relativize(p).toString())
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toList());
+        if (singleFilePath != null) {
+            // Single file resource, so try and determine the MIME type
+            ContentInfoUtil util = new ContentInfoUtil();
+            ContentInfo info = util.findMatch(singleFilePath.toFile());
+            if (info != null) {
+                // Attempt to extract MIME type from file contents
+                this.mimeType = info.getMimeType();
+            }
+            else {
+                // Fall back to using the filename
+                FileNameMap fileNameMap = URLConnection.getFileNameMap();
+                this.mimeType = fileNameMap.getContentTypeFor(singleFilePath.toFile().getName());
+            }
         }
     }
 
@@ -304,6 +331,7 @@ public class ArbitraryDataWriter {
             metadata.setCategory(this.category);
             metadata.setChunks(this.arbitraryDataFile.chunkHashList());
             metadata.setFiles(this.files);
+            metadata.setMimeType(this.mimeType);
             metadata.write();
 
             // Create an ArbitraryDataFile from the JSON file (we don't have a signature yet)

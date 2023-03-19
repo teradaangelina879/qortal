@@ -16,16 +16,18 @@ public class ArbitraryResourceMetadata {
     private Category category;
     private String categoryName;
     private List<String> files;
+    private String mimeType;
 
     public ArbitraryResourceMetadata() {
     }
 
-    public ArbitraryResourceMetadata(String title, String description, List<String> tags, Category category, List<String> files) {
+    public ArbitraryResourceMetadata(String title, String description, List<String> tags, Category category, List<String> files, String mimeType) {
         this.title = title;
         this.description = description;
         this.tags = tags;
         this.category = category;
         this.files = files;
+        this.mimeType = mimeType;
 
         if (category != null) {
             this.categoryName = category.getName();
@@ -40,6 +42,7 @@ public class ArbitraryResourceMetadata {
         String description = transactionMetadata.getDescription();
         List<String> tags = transactionMetadata.getTags();
         Category category = transactionMetadata.getCategory();
+        String mimeType = transactionMetadata.getMimeType();
 
         // We don't always want to include the file list as it can be too verbose
         List<String> files = null;
@@ -47,11 +50,11 @@ public class ArbitraryResourceMetadata {
             files = transactionMetadata.getFiles();
         }
 
-        if (title == null && description == null && tags == null && category == null && files == null) {
+        if (title == null && description == null && tags == null && category == null && files == null && mimeType == null) {
             return null;
         }
 
-        return new ArbitraryResourceMetadata(title, description, tags, category, files);
+        return new ArbitraryResourceMetadata(title, description, tags, category, files, mimeType);
     }
 
     public List<String> getFiles() {
