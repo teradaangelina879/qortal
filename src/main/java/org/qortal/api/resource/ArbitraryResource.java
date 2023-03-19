@@ -501,6 +501,9 @@ public class ArbitraryResource {
 			}
 
 			for (ArbitraryTransactionData transactionData : transactionDataList) {
+				if (transactionData.getService() == null) {
+					continue;
+				}
 				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
 				arbitraryResourceInfo.name = transactionData.getName();
 				arbitraryResourceInfo.service = transactionData.getService();

@@ -163,7 +163,7 @@ public class PirateChainWalletController extends Thread {
 
             // Library not found, so check if we've fetched the resource from QDN
             ArbitraryTransactionData t = this.getTransactionData(repository);
-            if (t == null) {
+            if (t == null || t.getService() == null) {
                 // Can't find the transaction - maybe on a different chain?
                 return;
             }

@@ -398,6 +398,11 @@ public class ArbitraryDataManager extends Thread {
 	// Entrypoint to request new metadata from peers
 	public ArbitraryDataTransactionMetadata fetchMetadata(ArbitraryTransactionData arbitraryTransactionData) {
 
+		if (arbitraryTransactionData.getService() == null) {
+			// Can't fetch metadata without a valid service
+			return null;
+		}
+
 		ArbitraryDataResource resource = new ArbitraryDataResource(
 				arbitraryTransactionData.getName(),
 				ArbitraryDataFile.ResourceIdType.NAME,
@@ -489,7 +494,7 @@ public class ArbitraryDataManager extends Thread {
 	public void invalidateCache(ArbitraryTransactionData arbitraryTransactionData) {
 		String signature58 = Base58.encode(arbitraryTransactionData.getSignature());
 
-		if (arbitraryTransactionData.getName() != null) {
+		if (arbitraryTransactionData.getName() != null && arbitraryTransactionData.getService() != null) {
 			String resourceId = arbitraryTransactionData.getName().toLowerCase();
 			Service service = arbitraryTransactionData.getService();
 			String identifier = arbitraryTransactionData.getIdentifier();

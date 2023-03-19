@@ -137,7 +137,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 						// Fetch the transaction data
 						ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
-						if (arbitraryTransactionData == null) {
+						if (arbitraryTransactionData == null || arbitraryTransactionData.getService() == null) {
 							continue;
 						}
 
