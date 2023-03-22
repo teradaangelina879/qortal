@@ -23,7 +23,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
     private String mimeType;
 
     private static int MAX_TITLE_LENGTH = 80;
-    private static int MAX_DESCRIPTION_LENGTH = 500;
+    private static int MAX_DESCRIPTION_LENGTH = 240;
     private static int MAX_TAG_LENGTH = 20;
     private static int MAX_TAGS_COUNT = 5;
 
