@@ -116,19 +116,47 @@ public class ArbitraryDataRenderer {
         }
         String unzippedPath = path.toString();
 
+        // Set path automatically for single file resources (except for apps, which handle routing differently)
         String[] files = ArrayUtils.removeElement(new File(unzippedPath).list(), ".qortal");
-        if (files.length == 1) {
+        if (files.length == 1 && this.service != Service.APP) {
             // This is a single file resource
             inPath = files[0];
         }
 
         try {
             String filename = this.getFilename(unzippedPath, inPath);
-            String filePath = Paths.get(unzippedPath, filename).toString();
+            Path filePath = Paths.get(unzippedPath, filename);
+
+            // If the file doesn't exist, we may need to route the request elsewhere, or cleanup
+            if (!Files.exists(filePath)) {
+                if (inPath.equals("/")) {
+                    // Delete the unzipped folder if no index file was found
+                    try {
+                        FileUtils.deleteDirectory(new File(unzippedPath));
+                    } catch (IOException e) {
+                        LOGGER.debug("Unable to delete directory: {}", unzippedPath, e);
+                    }
+                }
+
+                // If this is an app, then forward all unhandled requests to the index, to give the app the option to route it
+                if (this.service == Service.APP) {
+                    // Locate index file
+                    List<String> indexFiles = ArbitraryDataRenderer.indexFiles();
+                    for (String indexFile : indexFiles) {
+                        Path indexPath = Paths.get(unzippedPath, indexFile);
+                        if (Files.exists(indexPath)) {
+                            // Forward request to index file
+                            filePath = indexPath;
+                            filename = indexFile;
+                            break;
+                        }
+                    }
+                }
+            }
 
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
-                byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
+                byte[] data = Files.readAllBytes(filePath); // TODO: limit file size that can be read into memory
                 HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data, qdnContext, service, identifier, theme);
                 htmlParser.addAdditionalHeaderTags();
                 response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' data: blob:; img-src 'self' data: blob:;");
@@ -138,7 +166,7 @@ public class ArbitraryDataRenderer {
             }
             else {
                 // Regular file - can be streamed directly
-                File file = new File(filePath);
+                File file = filePath.toFile();
                 FileInputStream inputStream = new FileInputStream(file);
                 response.addHeader("Content-Security-Policy", "default-src 'self'");
                 response.setContentType(context.getMimeType(filename));
@@ -154,14 +182,6 @@ public class ArbitraryDataRenderer {
             return response;
         } catch (FileNotFoundException | NoSuchFileException e) {
             LOGGER.info("Unable to serve file: {}", e.getMessage());
-            if (inPath.equals("/")) {
-                // Delete the unzipped folder if no index file was found
-                try {
-                    FileUtils.deleteDirectory(new File(unzippedPath));
-                } catch (IOException ioException) {
-                    LOGGER.debug("Unable to delete directory: {}", unzippedPath, e);
-                }
-            }
         } catch (IOException e) {
             LOGGER.info("Unable to serve file at path {}: {}", inPath, e.getMessage());
         }
