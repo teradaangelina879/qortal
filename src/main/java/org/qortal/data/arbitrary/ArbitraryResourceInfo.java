@@ -16,6 +16,8 @@ public class ArbitraryResourceInfo {
 	public ArbitraryResourceMetadata metadata;
 
 	public Long size;
+	public Long created;
+	public Long updated;
 
 	public ArbitraryResourceInfo() {
 	}
