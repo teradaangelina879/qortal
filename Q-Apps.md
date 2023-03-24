@@ -5,6 +5,89 @@
 Q-Apps are static web apps written in javascript, HTML, CSS, and other static assets. The key difference between a Q-App and a fully static site is its ability to interact with both the logged-in user and on-chain data. This is achieved using the API described in this document.
 
 
+# Section 0: Basic QDN concepts
+
+## Introduction to QDN resources
+Each published item on QDN (Qortal Data Network) is referred to as a "resource". A resource could contain anything from a few characters of text, to a multi-layered directory structure containing thousands of files.
+
+Resources are stored on-chain, however the data payload is generally stored off-chain, and verified using an on-chain SHA-256 hash.
+
+To publish a resource, a user must first register a name, and then include that name when publishing the data. Accounts without a registered name are unable to publish to QDN from a Q-App at this time.
+
+Owning the name grants update privileges to the data. If that name is later sold or transferred, the permission to update that resource is moved to the new owner.
+
+
+## Name, service & identifier
+
+Each QDN resource has 3 important fields:
+- `name` - the registered name of the account that is publishing the data (which will hold update/edit privileges going forwards).<br /><br />
+- `service` - the type of content (e.g. IMAGE or JSON). Different services have different validation rules. See [list of available services](#services).<br /><br />
+- `identifier` - an optional string to allow more than one resource to exist for a given name/service combination. For example, the name `QortalDemo` may wish to publish multiple images. This can be achieved by using a different identifier string for each. The identifier is only unique to the name in question, and so it doesn't matter if another name is using the same service and identifier string.
+
+
+## Shared identifiers
+
+Since an identifier can be used by multiple names, this can be used to the advantage of Q-App developers as it allows for data to be stored in a deterministic location.
+
+An example of this is the user's avatar. This will always be published with service `THUMBNAIL` and identifier `qortal_avatar`, along with the user's name. So, an app can display the avatar of a user just by specifying their name when requesting the data. The same applies when publishing data.
+
+
+## "Default" resources
+
+A "default" resource refers to one without an identifier. For example, when a website is published via the UI, it will use the user's name and the service `WEBSITE`. These do not have an identifier, and are therefore the "default" website for this name. When requesting or publishing data without an identifier, apps can either omit the `identifier` key entirely, or include `"identifier": "default"` to indicate that the resource(s) being queried or published do not have an identifier.
+
+
+<a name="services"></a>
+## Available service types
+
+Here is a list of currently available services that can be used in Q-Apps:
+
+IMAGE,
+THUMBNAIL,
+VIDEO,
+AUDIO,
+ARBITRARY_DATA,
+JSON,
+DOCUMENT,
+LIST,
+PLAYLIST,
+METADATA,
+BLOG,
+BLOG_POST,
+BLOG_COMMENT,
+GIF_REPOSITORY
+WEBSITE,
+APP,
+QCHAT_ATTACHMENT,
+QCHAT_IMAGE,
+QCHAT_AUDIO,
+QCHAT_VOICE
+
+
+## Single vs multi-file resources
+
+Some resources, such as those published with the `IMAGE` or `JSON` service, consist of a single file or piece of data (the image or the JSON string). This is the most common type of QDN resource, especially in the context of Q-Apps. These can be published by supplying a base64-encoded string containing the data.
+
+Other resources, such as those published with the `WEBSITE`, `APP`, or `GIF_REPOSITORY` service, can contain multiple files and directories. Publishing these kinds of files is not yet available for Q-Apps, however it is possible to retrieve multi-file resources that are already published. When retrieving this data (via FETCH_QDN_RESOURCE), a `filepath` must be included to indicate the file that you would like to retrieve. There is no need to specify a filepath for single file resources, as these will automatically return the contents of the single file.
+
+
+## App-specific data
+
+Some apps may want to make all QDN data for a particular service available. However, others may prefer to only deal with data that has been published by their app (if a specific format/schema is being used for instance).
+
+Identifiers can be used to allow app developers to locate data that has been published by their app. The recommended approach for this is to use the app name as a prefix on all identifiers when publishing data.
+
+For instance, an app called `MyApp` could allow users to publish JSON data. The app could choose to prefix all identifiers with the string `myapp_`, and then use a random string for each published resource (resulting in identifiers such as `myapp_qR5ndZ8v`). Then, to locate data that has potentially been published by users of MyApp, it can later search the QDN database for items with `"service": "JSON"` and `"identifier": "myapp_"`. The SEARCH_QDN_RESOURCES action has a `prefix` option in order to match identifiers beginning with the supplied string.
+
+Note that QDN is a permissionless system, and therefore it's not possible to verify that a resource was actually published by the app. It is recommended that apps validate the contents of the resource to ensure it is formatted correctly, instead of making assumptions.
+
+
+## Updating a resource
+
+To update a resource, it can be overwritten by publishing with the same `name`, `service`, and `identifier` combination. Note that the authenticated account must currently own the name in order to publish an update.
+
+
+
 # Section 1: Simple links and image loading via HTML
 
 ## Section 1a: Linking to other QDN websites / resources
@@ -290,15 +373,17 @@ let res = await qortalRequest({
 // Returns: filename, size, mimeType (where available)
 ```
 
-### Publish QDN resource
-_Requires user approval_
+### Publish a single file to QDN
+_Requires user approval_.<br />
+Note: this publishes a single, base64-encoded file. Multi-file resource publishing (such as a WEBSITE or GIF_REPOSITORY) is not yet supported via a Q-App. It will be added in a future update.
 ```
 await qortalRequest({
     action: "PUBLISH_QDN_RESOURCE",
     name: "Demo", // Publisher must own the registered name - use GET_ACCOUNT_NAMES for a list
     service: "IMAGE",
+    identifier: "myapp-image1234" // Optional
     data64: "base64_encoded_data",
-    filename: "image.jpg", // Optional - to help apps determine the file's type
+    // filename: "image.jpg", // Optional - to help apps determine the file's type
     // title: "Title", // Optional
     // description: "Description", // Optional
     // category: "TECHNOLOGY", // Optional
