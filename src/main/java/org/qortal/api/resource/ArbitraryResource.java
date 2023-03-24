@@ -96,6 +96,7 @@ public class ArbitraryResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryResourceInfo> getResources(
 			@QueryParam("service") Service service,
+			@QueryParam("name") String name,
 			@QueryParam("identifier") String identifier,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
@@ -118,9 +119,14 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "identifier cannot be specified when requesting a default resource");
 			}
 
-			// Load filter from list if needed
+			// Set up name filters if supplied
 			List<String> names = null;
-			if (nameFilter != null) {
+			if (name != null) {
+				// Filter using single name
+				names = Arrays.asList(name);
+			}
+			else if (nameFilter != null) {
+				// Filter using supplied list of names
 				names = ResourceListManager.getInstance().getStringsInList(nameFilter);
 				if (names.isEmpty()) {
 					// List doesn't exist or is empty - so there will be no matches

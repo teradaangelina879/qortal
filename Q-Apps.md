@@ -299,7 +299,8 @@ let res = await qortalRequest({
 let res = await qortalRequest({
     action: "LIST_QDN_RESOURCES",
     service: "THUMBNAIL",
-    identifier: "qortal_avatar", // Optional
+    name: "QortalDemo", // Optional (exact match)
+    identifier: "qortal_avatar", // Optional (exact match)
     default: true, // Optional
     includeStatus: false, // Optional - will take time to respond, so only request if necessary
     includeMetadata: false, // Optional - will take time to respond, so only request if necessary

@@ -166,6 +166,7 @@ window.addEventListener("message", (event) => {
         case "LIST_QDN_RESOURCES":
             url = "/arbitrary/resources?";
             if (data.service != null) url = url.concat("&service=" + data.service);
+            if (data.name != null) url = url.concat("&name=" + data.name);
             if (data.identifier != null) url = url.concat("&identifier=" + data.identifier);
             if (data.default != null) url = url.concat("&default=" + new Boolean(data.default).toString());
             if (data.includeStatus != null) url = url.concat("&includestatus=" + new Boolean(data.includeStatus).toString());
