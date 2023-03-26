@@ -227,6 +227,7 @@ Here is a list of currently supported actions:
 - GET_QDN_RESOURCE_PROPERTIES
 - FETCH_QDN_RESOURCE
 - PUBLISH_QDN_RESOURCE
+- PUBLISH_MULTIPLE_QDN_RESOURCES
 - GET_WALLET_BALANCE
 - GET_BALANCE
 - SEND_COIN
@@ -388,7 +389,38 @@ await qortalRequest({
     // title: "Title", // Optional
     // description: "Description", // Optional
     // category: "TECHNOLOGY", // Optional
-    // tags: ["tag1", "tag2", "tag3", "tag4", "tag5"] // Optional
+    // tag1: "any", // Optional
+    // tag2: "strings", // Optional
+    // tag3: "can", // Optional
+    // tag4: "go", // Optional
+    // tag5: "here" // Optional
+});
+```
+
+### Publish multiple resources at once to QDN
+_Requires user approval_.<br />
+Note: each resource being published consists of a single, base64-encoded file, each in its own transaction. Useful for publishing two or more related things, such as a video and a video thumbnail.
+```
+await qortalRequest({
+    action: "PUBLISH_MULTIPLE_QDN_RESOURCES",
+    resources: [
+        name: "Demo", // Publisher must own the registered name - use GET_ACCOUNT_NAMES for a list
+        service: "IMAGE",
+        identifier: "myapp-image1234" // Optional
+        data64: "base64_encoded_data",
+        // filename: "image.jpg", // Optional - to help apps determine the file's type
+        // title: "Title", // Optional
+        // description: "Description", // Optional
+        // category: "TECHNOLOGY", // Optional
+        // tag1: "any", // Optional
+        // tag2: "strings", // Optional
+        // tag3: "can", // Optional
+        // tag4: "go", // Optional
+        // tag5: "here" // Optional
+    ],
+    [
+        ... more resources here if needed ...
+    ]
 });
 ```
 
