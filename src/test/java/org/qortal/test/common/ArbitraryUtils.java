@@ -51,12 +51,8 @@ public class ArbitraryUtils {
         BlockUtils.mintBlock(repository);
 
         // We need a new ArbitraryDataFile instance because the files will have been moved to the signature's folder
-        byte[] hash = txnBuilder.getArbitraryDataFile().getHash();
-        byte[] signature = transactionData.getSignature();
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-        arbitraryDataFile.setMetadataHash(transactionData.getMetadataHash());
-
-        return arbitraryDataFile;
+        // Or, it may now be using RAW_DATA instead of a hash
+        return ArbitraryDataFile.fromTransactionData(transactionData);
     }
 
     public static ArbitraryDataFile createAndMintTxn(Repository repository, String publicKey58, Path path, String name, String identifier,
@@ -68,6 +64,17 @@ public class ArbitraryUtils {
     }
 
     public static Path generateRandomDataPath(int length) throws IOException {
+        return generateRandomDataPath(length, false);
+    }
+
+    /**
+     * Generate random data, held in a single file within a directory
+     * @param length - size of file to create
+     * @param returnFilePath - if true, the file's path is returned. If false, the outer directory's path is returned.
+     * @return - path to file or directory, depending on the "returnFilePath" boolean
+     * @throws IOException
+     */
+    public static Path generateRandomDataPath(int length, boolean returnFilePath) throws IOException {
         // Create a file in a random temp directory
         Path tempDir = Files.createTempDirectory("generateRandomDataPath");
         File file = new File(Paths.get(tempDir.toString(), "file.txt").toString());
@@ -83,6 +90,10 @@ public class ArbitraryUtils {
         file1Writer.write(initialString);
         file1Writer.newLine();
         file1Writer.close();
+
+        if (returnFilePath) {
+            return file.toPath();
+        }
 
         return tempDir;
     }

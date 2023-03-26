@@ -107,10 +107,9 @@ public class ArbitraryDataWriter {
     private void preExecute() throws DataException {
         this.checkEnabled();
 
-        // Enforce compression when uploading a directory
-        File file = new File(this.filePath.toString());
-        if (file.isDirectory() && compression == Compression.NONE) {
-            throw new DataException("Unable to upload a directory without compression");
+        // Enforce compression when uploading multiple files
+        if (!FilesystemUtils.isSingleFileResource(this.filePath, false) && compression == Compression.NONE) {
+            throw new DataException("Unable to publish multiple files without compression");
         }
 
         // Create temporary working directory
@@ -168,6 +167,9 @@ public class ArbitraryDataWriter {
 
                 if (this.files.size() == 1) {
                     singleFilePath = Paths.get(this.filePath.toString(), this.files.get(0));
+
+                    // Update filePath to point to the single file (instead of the directory containing the file)
+                    this.filePath = singleFilePath;
                 }
             }
         }
@@ -313,9 +315,6 @@ public class ArbitraryDataWriter {
         int chunkCount = this.arbitraryDataFile.split(this.chunkSize);
         if (chunkCount > 0) {
             LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
-        }
-        else {
-            throw new DataException("Unable to split file into chunks");
         }
     }
 

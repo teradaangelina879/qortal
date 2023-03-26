@@ -362,11 +362,6 @@ public class ArbitraryDataReader {
             throw new DataException(String.format("Transaction data not found for signature %s", this.resourceId));
         }
 
-        // Load hashes
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
         // Load secret
         byte[] secret = transactionData.getSecret();
         if (secret != null) {
@@ -374,16 +369,14 @@ public class ArbitraryDataReader {
         }
 
         // Load data file(s)
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
         ArbitraryTransactionUtils.checkAndRelocateMiscFiles(transactionData);
-        arbitraryDataFile.setMetadataHash(metadataHash);
 
         if (!arbitraryDataFile.allFilesExist()) {
             if (ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName())) {
                 throw new DataException(
                         String.format("Unable to request missing data for file %s because the name is blocked", arbitraryDataFile));
-            }
-            else {
+            } else {
                 // Ask the arbitrary data manager to fetch data for this transaction
                 String message;
                 if (this.canRequestMissingFiles) {
@@ -394,8 +387,7 @@ public class ArbitraryDataReader {
                     } else {
                         message = String.format("Unable to reissue request for missing file %s for signature %s due to rate limit. Please try again later.", arbitraryDataFile, Base58.encode(transactionData.getSignature()));
                     }
-                }
-                else {
+                } else {
                     message = String.format("Missing data for file %s", arbitraryDataFile);
                 }
 
@@ -405,21 +397,25 @@ public class ArbitraryDataReader {
             }
         }
 
-        if (arbitraryDataFile.allChunksExist() && !arbitraryDataFile.exists()) {
-            // We have all the chunks but not the complete file, so join them
-            arbitraryDataFile.join();
+        // Data hashes need some extra processing
+        if (transactionData.getDataType() == DataType.DATA_HASH) {
+            if (arbitraryDataFile.allChunksExist() && !arbitraryDataFile.exists()) {
+                // We have all the chunks but not the complete file, so join them
+                arbitraryDataFile.join();
+            }
+
+            // If the complete file still doesn't exist then something went wrong
+            if (!arbitraryDataFile.exists()) {
+                throw new IOException(String.format("File doesn't exist: %s", arbitraryDataFile));
+            }
+            // Ensure the complete hash matches the joined chunks
+            if (!Arrays.equals(arbitraryDataFile.digest(), transactionData.getData())) {
+                // Delete the invalid file
+                arbitraryDataFile.delete();
+                throw new DataException("Unable to validate complete file hash");
+            }
         }
 
-        // If the complete file still doesn't exist then something went wrong
-        if (!arbitraryDataFile.exists()) {
-            throw new IOException(String.format("File doesn't exist: %s", arbitraryDataFile));
-        }
-        // Ensure the complete hash matches the joined chunks
-        if (!Arrays.equals(arbitraryDataFile.digest(), digest)) {
-            // Delete the invalid file
-            arbitraryDataFile.delete();
-            throw new DataException("Unable to validate complete file hash");
-        }
         // Ensure the file's size matches the size reported by the transaction (throws a DataException if not)
         arbitraryDataFile.validateFileSize(transactionData.getSize());
 

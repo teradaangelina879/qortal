@@ -5,9 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.bouncycastle.util.Longs;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
-import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.BaseTransactionData;
@@ -15,6 +13,7 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.DataException;
 import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.utils.Base58;
 
@@ -26,8 +25,6 @@ import java.util.List;
 public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBArbitraryRepository.class);
-
-	private static final int MAX_RAW_DATA_SIZE = 255; // size of VARBINARY
 
 	protected HSQLDBRepository repository;
 	
@@ -55,13 +52,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return true;
 		}
 
-		// Load hashes
-		byte[] hash = transactionData.getData();
-		byte[] metadataHash = transactionData.getMetadataHash();
-
 		// Load data file(s)
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-		arbitraryDataFile.setMetadataHash(metadataHash);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
 		// Check if we already have the complete data file or all chunks
 		if (arbitraryDataFile.allFilesExist()) {
@@ -84,13 +76,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				return transactionData.getData();
 			}
 
-			// Load hashes
-			byte[] digest = transactionData.getData();
-			byte[] metadataHash = transactionData.getMetadataHash();
-
 			// Load data file(s)
-			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-			arbitraryDataFile.setMetadataHash(metadataHash);
+			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
 			// If we have the complete data file, return it
 			if (arbitraryDataFile.exists()) {
@@ -105,6 +92,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryDataFile.join();
 
 				// Verify that the combined hash matches the expected hash
+				byte[] digest = transactionData.getData();
 				if (!digest.equals(arbitraryDataFile.digest())) {
 					LOGGER.info(String.format("Hash mismatch for transaction: %s", Base58.encode(signature)));
 					return null;
@@ -132,11 +120,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		}
 
 		// Trivial-sized payloads can remain in raw form
-		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA && arbitraryTransactionData.getData().length <= MAX_RAW_DATA_SIZE) {
+		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA && arbitraryTransactionData.getData().length <= ArbitraryTransaction.MAX_DATA_SIZE) {
 			return;
 		}
 
-		throw new IllegalStateException(String.format("Supplied data is larger than maximum size (%d bytes). Please use ArbitraryDataWriter.", MAX_RAW_DATA_SIZE));
+		throw new IllegalStateException(String.format("Supplied data is larger than maximum size (%d bytes). Please use ArbitraryDataWriter.", ArbitraryTransaction.MAX_DATA_SIZE));
 	}
 
 	@Override
@@ -146,14 +134,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return;
 		}
 
-		// Load hashes
-		byte[] hash = arbitraryTransactionData.getData();
-		byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
-
 		// Load data file(s)
-		byte[] signature = arbitraryTransactionData.getSignature();
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-		arbitraryDataFile.setMetadataHash(metadataHash);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
 
 		// Delete file, chunks, and metadata
 		arbitraryDataFile.deleteAll(true);

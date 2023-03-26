@@ -33,7 +33,7 @@ public class ArbitraryTransaction extends Transaction {
 	private ArbitraryTransactionData arbitraryTransactionData;
 
 	// Other useful constants
-	public static final int MAX_DATA_SIZE = 4000;
+	public static final int MAX_DATA_SIZE = 256;
 	public static final int MAX_METADATA_LENGTH = 32;
 	public static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
 	public static final int MAX_IDENTIFIER_LENGTH = 64;

@@ -258,8 +258,6 @@ public class ArbitraryDataFileListManager {
     // Lookup file lists by signature (and optionally hashes)
 
     public boolean fetchArbitraryDataFileList(ArbitraryTransactionData arbitraryTransactionData) {
-        byte[] digest = arbitraryTransactionData.getData();
-        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
         byte[] signature = arbitraryTransactionData.getSignature();
         String signature58 = Base58.encode(signature);
 
@@ -286,8 +284,7 @@ public class ArbitraryDataFileListManager {
 
         // Find hashes that we are missing
         try {
-            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-            arbitraryDataFile.setMetadataHash(metadataHash);
+            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
             missingHashes = arbitraryDataFile.missingHashes();
         } catch (DataException e) {
             // Leave missingHashes as null, so that all hashes are requested
@@ -460,10 +457,9 @@ public class ArbitraryDataFileListManager {
 
             arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-            // Load data file(s)
-            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
-            arbitraryDataFile.setMetadataHash(arbitraryTransactionData.getMetadataHash());
-
+//          // Load data file(s)
+//          ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
+//
 //			// Check all hashes exist
 //			for (byte[] hash : hashes) {
 //				//LOGGER.debug("Received hash {}", Base58.encode(hash));
@@ -594,12 +590,8 @@ public class ArbitraryDataFileListManager {
                 // Check if we're even allowed to serve data for this transaction
                 if (ArbitraryDataStorageManager.getInstance().canStoreData(transactionData)) {
 
-                    byte[] hash = transactionData.getData();
-                    byte[] metadataHash = transactionData.getMetadataHash();
-
                     // Load file(s) and add any that exist to the list of hashes
-                    ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-                    arbitraryDataFile.setMetadataHash(metadataHash);
+                    ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
                     // If the peer didn't supply a hash list, we need to return all hashes for this transaction
                     if (requestedHashes == null || requestedHashes.isEmpty()) {

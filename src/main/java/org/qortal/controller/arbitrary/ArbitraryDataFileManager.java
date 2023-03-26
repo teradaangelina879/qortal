@@ -132,9 +132,7 @@ public class ArbitraryDataFileManager extends Thread {
                                            List<byte[]> hashes) throws DataException {
 
         // Load data file(s)
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
-        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
         boolean receivedAtLeastOneFile = false;
 
         // Now fetch actual data from this peer

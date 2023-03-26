@@ -150,11 +150,7 @@ public class ArbitraryDataResource {
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
             for (ArbitraryTransactionData transactionData : transactionDataList) {
-                byte[] hash = transactionData.getData();
-                byte[] metadataHash = transactionData.getMetadataHash();
-                byte[] signature = transactionData.getSignature();
-                ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-                arbitraryDataFile.setMetadataHash(metadataHash);
+                ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
                 // Delete any chunks or complete files from each transaction
                 arbitraryDataFile.deleteAll(deleteMetadata);

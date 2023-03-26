@@ -91,8 +91,8 @@ public class ArbitraryTransactionMetadataTests extends Common {
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
             Service service = Service.ARBITRARY_DATA;
-            int chunkSize = 1000;
-            int dataLength = 10; // Actual data length will be longer due to encryption
+            int chunkSize = 10000;
+            int dataLength = 1000; // Actual data length will be longer due to encryption
 
             String title = "Test title";
             String description = "Test description";
@@ -142,8 +142,8 @@ public class ArbitraryTransactionMetadataTests extends Common {
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
             Service service = Service.ARBITRARY_DATA;
-            int chunkSize = 1000;
-            int dataLength = 10; // Actual data length will be longer due to encryption
+            int chunkSize = 10000;
+            int dataLength = 1000; // Actual data length will be longer due to encryption
 
             String title = "Test title";
             String description = "Test description";
@@ -265,7 +265,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             Category category = Category.CRYPTOCURRENCY;
 
             String expectedTitle = "title Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat "; // 80 chars
-            String expectedDescription = "description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium massa, non pulvinar mi pretium id. Ut gravida sapien vitae dui posuere tincidunt. Quisque in nibh est. Curabitur at blandit nunc, id aliquet neque. Nulla condimentum eget dolor a egestas. Vestibulum vel tincidunt ex. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Cras congue lacus in risus mattis suscipit. Quisque nisl eros, facilisis a lorem quis, vehicula biben"; // 500 chars
+            String expectedDescription = "description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium massa, non pulvinar mi pretium id. Ut gravida sapien vitae dui posuere tincidunt. Quisque in nibh est. Curabitur at blandit nunc, id aliquet neque"; // 240 chars
             List<String> expectedTags = Arrays.asList("tag 1", "tag 2", "tag 4", "tag 5", "tag 6");
 
             // Register the name to Alice

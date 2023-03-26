@@ -110,13 +110,8 @@ public class ArbitraryTransactionUtils {
             return false;
         }
 
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
         return arbitraryDataFile.allChunksExist();
     }
@@ -126,18 +121,13 @@ public class ArbitraryTransactionUtils {
             return false;
         }
 
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
-        if (metadataHash == null) {
+        if (transactionData.getMetadataHash() == null) {
             // This file doesn't have any metadata/chunks, which means none exist
             return false;
         }
 
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
         return arbitraryDataFile.anyChunksExist();
     }
@@ -147,12 +137,7 @@ public class ArbitraryTransactionUtils {
             return 0;
         }
 
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
         // Find the folder containing the files
         Path parentPath = arbitraryDataFile.getFilePath().getParent();
@@ -180,18 +165,13 @@ public class ArbitraryTransactionUtils {
             return 0;
         }
 
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
-        if (metadataHash == null) {
+        if (transactionData.getMetadataHash() == null) {
             // This file doesn't have any metadata, therefore it has a single (complete) chunk
             return 1;
         }
 
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
         return arbitraryDataFile.fileCount();
     }
@@ -243,31 +223,24 @@ public class ArbitraryTransactionUtils {
     }
 
     public static void deleteCompleteFileAndChunks(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
-        byte[] completeHash = arbitraryTransactionData.getData();
-        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
-        byte[] signature = arbitraryTransactionData.getSignature();
-
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
         arbitraryDataFile.deleteAll(true);
     }
 
     public static void convertFileToChunks(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {
-        byte[] completeHash = arbitraryTransactionData.getData();
-        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
-        byte[] signature = arbitraryTransactionData.getSignature();
-
         // Find the expected chunk hashes
-        ArbitraryDataFile expectedDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
-        expectedDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile expectedDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
 
-        if (metadataHash == null || !expectedDataFile.getMetadataFile().exists()) {
+        if (arbitraryTransactionData.getMetadataHash() == null || !expectedDataFile.getMetadataFile().exists()) {
             // We don't have the metadata file, or this transaction doesn't have one - nothing to do
             return;
         }
 
+        byte[] completeHash = arbitraryTransactionData.getData();
+        byte[] signature = arbitraryTransactionData.getSignature();
+
         // Split the file into chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
         int chunkCount = arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
         if (chunkCount > 1) {
             LOGGER.info(String.format("Successfully split %s into %d chunk%s",
