@@ -87,6 +87,16 @@ Note that QDN is a permissionless system, and therefore it's not possible to ver
 To update a resource, it can be overwritten by publishing with the same `name`, `service`, and `identifier` combination. Note that the authenticated account must currently own the name in order to publish an update.
 
 
+## Routing
+
+If a non-existent `filepath` is accessed, the default behaviour of QDN is to return a `404: File not found` error. This includes anything published using the `WEBSITE` service.
+
+However, routing is handled differently for anything published using the `APP` service. 
+
+For apps, QDN automatically sends all unhandled requests to the index file (generally index.html). This allows the app to use custom routing, as it is able to listen on any path. If a file exists at a path, the file itself will be served, and so the request won't be sent to the index file.
+
+It's recommended that all apps return a 404 page if a request isn't able to be routed.
+
 
 # Section 1: Simple links and image loading via HTML
 
