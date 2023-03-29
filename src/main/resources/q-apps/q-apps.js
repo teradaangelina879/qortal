@@ -438,7 +438,7 @@ function getDefaultTimeout(action) {
             case "DEPLOY_AT":
             case "SEND_COIN":
                 // Allow extra time for other actions that create transactions, even if there is no PoW
-                return 30 * 1000;
+                return 5 * 60 * 1000;
 
             default:
                 break;
