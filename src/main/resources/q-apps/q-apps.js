@@ -348,6 +348,10 @@ function interceptClickEvent(e) {
         }
         e.preventDefault();
     }
+    else if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
+        // Block external links
+        e.preventDefault();
+    }
 }
 if (document.addEventListener) {
     document.addEventListener('click', interceptClickEvent);
