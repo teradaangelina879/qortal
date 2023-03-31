@@ -1006,6 +1006,10 @@ public class Settings {
 	}
 
 	public boolean isQDNAuthBypassEnabled() {
+		if (this.gatewayEnabled) {
+			// We must always bypass QDN authentication in gateway mode, in order for it to function properly
+			return true;
+		}
 		return this.qdnAuthBypassEnabled;
 	}
 }
