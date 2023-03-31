@@ -140,7 +140,7 @@ public class ArbitraryDataResource {
         return null;
     }
 
-    public boolean delete() {
+    public boolean delete(boolean deleteMetadata) {
         try {
             this.fetchTransactions();
             if (this.transactions == null) {
@@ -157,7 +157,7 @@ public class ArbitraryDataResource {
                 arbitraryDataFile.setMetadataHash(metadataHash);
 
                 // Delete any chunks or complete files from each transaction
-                arbitraryDataFile.deleteAll();
+                arbitraryDataFile.deleteAll(deleteMetadata);
             }
 
             // Also delete cached data for the entire resource

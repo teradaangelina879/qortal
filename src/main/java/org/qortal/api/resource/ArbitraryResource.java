@@ -592,7 +592,7 @@ public class ArbitraryResource {
 
 		Security.checkApiCallAllowed(request);
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.delete();
+		return resource.delete(false);
 	}
 
 	@POST

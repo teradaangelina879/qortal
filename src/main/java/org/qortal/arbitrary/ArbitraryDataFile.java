@@ -388,12 +388,15 @@ public class ArbitraryDataFile {
         return false;
     }
 
-    public boolean deleteAll() {
+    public boolean deleteAll(boolean deleteMetadata) {
         // Delete the complete file
         boolean fileDeleted = this.delete();
 
-        // Delete the metadata file
-        boolean metadataDeleted = this.deleteMetadata();
+        // Delete the metadata file if requested
+        boolean metadataDeleted = false;
+        if (deleteMetadata) {
+            metadataDeleted = this.deleteMetadata();
+        }
 
         // Delete the individual chunks
         boolean chunksDeleted = this.deleteAllChunks();

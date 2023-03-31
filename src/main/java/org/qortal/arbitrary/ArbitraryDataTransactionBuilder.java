@@ -281,7 +281,7 @@ public class ArbitraryDataTransactionBuilder {
 
         } catch (DataException e) {
             if (arbitraryDataFile != null) {
-                arbitraryDataFile.deleteAll();
+                arbitraryDataFile.deleteAll(true);
             }
             throw(e);
         }
@@ -315,7 +315,7 @@ public class ArbitraryDataTransactionBuilder {
 
         Transaction.ValidationResult result = transaction.isValidUnconfirmed();
         if (result != Transaction.ValidationResult.OK) {
-            arbitraryDataFile.deleteAll();
+            arbitraryDataFile.deleteAll(true);
             throw new DataException(String.format("Arbitrary transaction invalid: %s", result));
         }
         LOGGER.info("Transaction is valid");

@@ -249,7 +249,7 @@ public class ArbitraryTransactionUtils {
 
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
         arbitraryDataFile.setMetadataHash(metadataHash);
-        arbitraryDataFile.deleteAll();
+        arbitraryDataFile.deleteAll(true);
     }
 
     public static void convertFileToChunks(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {

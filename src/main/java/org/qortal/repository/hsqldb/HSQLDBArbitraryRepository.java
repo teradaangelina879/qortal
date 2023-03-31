@@ -155,8 +155,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
 		arbitraryDataFile.setMetadataHash(metadataHash);
 
-		// Delete file and chunks
-		arbitraryDataFile.deleteAll();
+		// Delete file, chunks, and metadata
+		arbitraryDataFile.deleteAll(true);
 	}
 
 	@Override
