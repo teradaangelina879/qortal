@@ -305,6 +305,9 @@ public class ArbitraryDataTransactionBuilder {
     }
 
     private boolean isMetadataEqual(ArbitraryDataTransactionMetadata existingMetadata) {
+        if (existingMetadata == null) {
+            return !this.hasMetadata();
+        }
         if (!Objects.equals(existingMetadata.getTitle(), this.title)) {
             return false;
         }
@@ -318,6 +321,10 @@ public class ArbitraryDataTransactionBuilder {
             return false;
         }
         return true;
+    }
+
+    private boolean hasMetadata() {
+        return (this.title != null || this.description != null || this.category != null || this.tags != null);
     }
 
     public void computeNonce() throws DataException {
