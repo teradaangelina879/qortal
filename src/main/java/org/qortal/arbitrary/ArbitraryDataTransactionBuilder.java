@@ -191,6 +191,14 @@ public class ArbitraryDataTransactionBuilder {
                 return Method.PUT;
             }
 
+            // We can't use PATCH for on-chain data because this requires the .qortal directory, which can't be put on chain
+            final boolean isSingleFileResource = FilesystemUtils.isSingleFileResource(this.path, false);
+            final boolean shouldUseOnChainData = (isSingleFileResource && AES.getEncryptedFileSize(FilesystemUtils.getSingleFileContents(path).length) <= ArbitraryTransaction.MAX_DATA_SIZE);
+            if (shouldUseOnChainData) {
+                LOGGER.info("Data size is small enough to go on chain - using PUT");
+                return Method.PUT;
+            }
+
             // State is appropriate for a PATCH transaction
             return Method.PATCH;
         }
