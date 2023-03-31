@@ -199,28 +199,12 @@ myfunction();
 
 ### Timeouts
 
-By default, all requests will timeout after a certain amount of time (default 10 seconds, but some actions use a higher value), and will throw an error - `The request timed out`. If you need a longer timeout - e.g. when fetching large QDN resources that may take a long time to be retrieved, you can use `qortalRequestWithTimeout(request, timeout)` as an alternative to `qortalRequest(request)`.
+Request timeouts are handled automatically when using qortalRequest(). The timeout value will differ based on the action being used - see `getDefaultTimeout()` in [q-apps.js](src/main/resources/q-apps/q-apps.js) for the current values.
 
-```
-async function myfunction() {
-    try {
-        let timeout = 60000; // 60 seconds
-        let res = await qortalRequestWithTimeout({
-            action: "FETCH_QDN_RESOURCE",
-            name: "QortalDemo",
-            service: "THUMBNAIL",
-            identifier: "qortal_avatar",
-            encoding: "base64"
-        }, timeout);
-        
-        // Do something with the avatar here
-    
-    } catch(e) {
-        console.log("Error: " + JSON.stringify(e));
-    }
-}
-myfunction();
-```
+If a request times out it will throw an error - `The request timed out` - which can be handled by the Q-App.
+
+It is also possible to specify a custom timeout using `qortalRequestWithTimeout(request, timeout)`, however this is discouraged. It's more reliable and futureproof to let the core handle the timeout values.
+
 
 # Section 3: qortalRequest Documentation
 
