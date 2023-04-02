@@ -11,10 +11,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
-import org.qortal.utils.ArbitraryTransactionUtils;
-import org.qortal.utils.Base58;
-import org.qortal.utils.FilesystemUtils;
-import org.qortal.utils.NTP;
+import org.qortal.utils.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -239,7 +236,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 					// Delete random data associated with name if we're over our storage limit for this name
 					// Use the DELETION_THRESHOLD, for the same reasons as above
-					for (String followedName : storageManager.followedNames()) {
+					for (String followedName : ListUtils.followedNames()) {
 						if (isStopping) {
 							return;
 						}
@@ -487,7 +484,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 				// Delete data relating to blocked names
 				String name = directory.getName();
-				if (name != null && storageManager.isNameBlocked(name)) {
+				if (name != null && ListUtils.isNameBlocked(name)) {
 					this.safeDeleteDirectory(directory, "blocked name");
 				}
 

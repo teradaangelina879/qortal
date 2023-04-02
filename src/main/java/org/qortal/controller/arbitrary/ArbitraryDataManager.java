@@ -27,6 +27,7 @@ import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
 
 public class ArbitraryDataManager extends Thread {
@@ -172,7 +173,7 @@ public class ArbitraryDataManager extends Thread {
 
 	private void processNames() throws InterruptedException {
 		// Fetch latest list of followed names
-		List<String> followedNames = ResourceListManager.getInstance().getStringsInList("followedNames");
+		List<String> followedNames = ListUtils.followedNames();
 		if (followedNames == null || followedNames.isEmpty()) {
 			return;
 		}

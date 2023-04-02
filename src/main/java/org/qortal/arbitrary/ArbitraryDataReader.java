@@ -19,10 +19,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.settings.Settings;
 import org.qortal.transform.Transformer;
-import org.qortal.utils.ArbitraryTransactionUtils;
-import org.qortal.utils.Base58;
-import org.qortal.utils.FilesystemUtils;
-import org.qortal.utils.ZipUtils;
+import org.qortal.utils.*;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -373,7 +370,7 @@ public class ArbitraryDataReader {
         ArbitraryTransactionUtils.checkAndRelocateMiscFiles(transactionData);
 
         if (!arbitraryDataFile.allFilesExist()) {
-            if (ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName())) {
+            if (ListUtils.isNameBlocked(transactionData.getName())) {
                 throw new DataException(
                         String.format("Unable to request missing data for file %s because the name is blocked", arbitraryDataFile));
             } else {

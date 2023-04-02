@@ -24,6 +24,7 @@ import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
@@ -103,6 +104,7 @@ public class ArbitraryDataStorageCapacityTests extends Common {
 
         // Storage capacity should initially equal the total
         assertEquals(0, resourceListManager.getItemCountForList("followedNames"));
+        assertEquals(0, ListUtils.followedNamesCount());
         long totalStorageCapacity = storageManager.getStorageCapacityIncludingThreshold(storageFullThreshold);
         assertEquals(totalStorageCapacity, storageManager.storageCapacityPerName(storageFullThreshold));
 
@@ -114,6 +116,7 @@ public class ArbitraryDataStorageCapacityTests extends Common {
 
         // Ensure the followed name count is correct
         assertEquals(4, resourceListManager.getItemCountForList("followedNames"));
+        assertEquals(4, ListUtils.followedNamesCount());
 
         // Storage space per name should be the total storage capacity divided by the number of names
         long expectedStorageCapacityPerName = (long)(totalStorageCapacity / 4.0f);

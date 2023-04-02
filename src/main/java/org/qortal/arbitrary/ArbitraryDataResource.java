@@ -11,13 +11,13 @@ import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.FilesystemUtils;
+import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
@@ -74,8 +74,7 @@ public class ArbitraryDataResource {
         }
 
         // Check if the name is blocked
-        if (ResourceListManager.getInstance()
-                .listContains("blockedNames", this.resourceId, false)) {
+        if (ListUtils.isNameBlocked(this.resourceId)) {
             return new ArbitraryResourceStatus(Status.BLOCKED, this.localChunkCount, this.totalChunkCount);
         }
 

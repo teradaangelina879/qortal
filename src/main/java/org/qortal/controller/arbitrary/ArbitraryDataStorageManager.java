@@ -5,15 +5,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
-import org.qortal.utils.ArbitraryTransactionUtils;
-import org.qortal.utils.Base58;
-import org.qortal.utils.FilesystemUtils;
-import org.qortal.utils.NTP;
+import org.qortal.utils.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -135,11 +131,11 @@ public class ArbitraryDataStorageManager extends Thread {
             case ALL:
             case VIEWED:
                 // If the policy includes viewed data, we can host it as long as it's not blocked
-                return !this.isNameBlocked(name);
+                return !ListUtils.isNameBlocked(name);
 
             case FOLLOWED:
                 // If the policy is for followed data only, we have to be following it
-                return this.isFollowingName(name);
+                return ListUtils.isFollowingName(name);
 
                 // For NONE or all else, we shouldn't host this data
             case NONE:
@@ -188,14 +184,14 @@ public class ArbitraryDataStorageManager extends Thread {
         }
 
         // Never fetch data from blocked names, even if they are followed
-        if (this.isNameBlocked(name)) {
+        if (ListUtils.isNameBlocked(name)) {
             return false;
         }
 
         switch (Settings.getInstance().getStoragePolicy()) {
             case FOLLOWED:
             case FOLLOWED_OR_VIEWED:
-                return this.isFollowingName(name);
+                return ListUtils.isFollowingName(name);
                 
             case ALL:
                 return true;
@@ -235,7 +231,7 @@ public class ArbitraryDataStorageManager extends Thread {
      * @return boolean - whether the resource is blocked or not
      */
     public boolean isBlocked(ArbitraryTransactionData arbitraryTransactionData) {
-        return isNameBlocked(arbitraryTransactionData.getName());
+        return ListUtils.isNameBlocked(arbitraryTransactionData.getName());
     }
 
     private boolean isDataTypeAllowed(ArbitraryTransactionData arbitraryTransactionData) {
@@ -251,22 +247,6 @@ public class ArbitraryDataStorageManager extends Thread {
             return false;
         }
         return true;
-    }
-
-    public boolean isNameBlocked(String name) {
-        return ResourceListManager.getInstance().listContains("blockedNames", name, false);
-    }
-
-    private boolean isFollowingName(String name) {
-        return ResourceListManager.getInstance().listContains("followedNames", name, false);
-    }
-
-    public List<String> followedNames() {
-        return ResourceListManager.getInstance().getStringsInList("followedNames");
-    }
-
-    private int followedNamesCount() {
-        return ResourceListManager.getInstance().getItemCountForList("followedNames");
     }
 
 
@@ -513,7 +493,7 @@ public class ArbitraryDataStorageManager extends Thread {
             return true;
         }
 
-        int followedNamesCount = this.followedNamesCount();
+        int followedNamesCount = ListUtils.followedNamesCount();
         if (followedNamesCount == 0) {
             // Not following any names, so we have space
             return true;
@@ -543,7 +523,7 @@ public class ArbitraryDataStorageManager extends Thread {
     }
 
     public long storageCapacityPerName(double threshold) {
-        int followedNamesCount = this.followedNamesCount();
+        int followedNamesCount = ListUtils.followedNamesCount();
         if (followedNamesCount == 0) {
             // Not following any names, so we have the total space available
             return this.getStorageCapacityIncludingThreshold(threshold);

@@ -16,6 +16,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
 import org.qortal.utils.Triple;
 
@@ -332,7 +333,7 @@ public class ArbitraryMetadataManager {
             }
 
             // Check if the name is blocked
-            boolean isBlocked = (arbitraryTransactionData == null || ArbitraryDataStorageManager.getInstance().isNameBlocked(arbitraryTransactionData.getName()));
+            boolean isBlocked = (arbitraryTransactionData == null || ListUtils.isNameBlocked(arbitraryTransactionData.getName()));
             if (!isBlocked) {
                 Peer requestingPeer = request.getB();
                 if (requestingPeer != null) {
@@ -420,7 +421,7 @@ public class ArbitraryMetadataManager {
         }
 
         // We may need to forward this request on
-        boolean isBlocked = (transactionData == null || ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName()));
+        boolean isBlocked = (transactionData == null || ListUtils.isNameBlocked(transactionData.getName()));
         if (Settings.getInstance().isRelayModeEnabled() && !isBlocked) {
             // In relay mode - so ask our other peers if they have it
 
