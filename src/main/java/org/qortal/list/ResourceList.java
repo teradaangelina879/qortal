@@ -52,6 +52,15 @@ public class ResourceList {
         String jsonString = ResourceList.listToJSONString(this.list);
         Path filePath = this.getFilePath();
 
+        // Don't create list if it's empty
+        if (this.list != null && this.list.isEmpty()) {
+            if (filePath != null && Files.exists(filePath)) {
+                // Delete empty list
+                Files.delete(filePath);
+            }
+            return;
+        }
+
         // Create parent directory if needed
         try {
             Files.createDirectories(filePath.getParent());
@@ -107,6 +116,13 @@ public class ResourceList {
             return;
         }
         this.list.remove(resource);
+    }
+
+    public void clear() {
+        if (this.list == null) {
+            return;
+        }
+        this.list.clear();
     }
 
     public boolean contains(String resource, boolean caseSensitive) {
