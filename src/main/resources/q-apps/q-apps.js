@@ -1,8 +1,30 @@
-function httpGet(url) {
+function httpGet(event, url) {
     var request = new XMLHttpRequest();
     request.open("GET", url, false);
     request.send(null);
     return request.responseText;
+}
+
+function httpGetAsyncWithEvent(event, url) {
+    fetch(url)
+        .then((response) => response.text())
+        .then((responseText) => {
+
+            if (responseText == null) {
+                // Pass to parent (UI), in case they can fulfil this request
+                event.data.requestedHandler = "UI";
+                parent.postMessage(event.data, '*', [event.ports[0]]);
+                return;
+            }
+
+            handleResponse(event, responseText);
+
+        })
+        .catch((error) => {
+            let res = new Object();
+            res.error = error;
+            handleResponse(JSON.stringify(res), responseText);
+        })
 }
 
 function handleResponse(event, response) {
@@ -143,15 +165,15 @@ window.addEventListener("message", (event) => {
 
     switch (data.action) {
         case "GET_ACCOUNT_DATA":
-            response = httpGet("/addresses/" + data.address);
+            response = httpGetAsyncWithEvent(event, "/addresses/" + data.address);
             break;
 
         case "GET_ACCOUNT_NAMES":
-            response = httpGet("/names/address/" + data.address);
+            response = httpGetAsyncWithEvent(event, "/names/address/" + data.address);
             break;
 
         case "GET_NAME_DATA":
-            response = httpGet("/names/" + data.name);
+            response = httpGetAsyncWithEvent(event, "/names/" + data.name);
             break;
 
         case "GET_QDN_RESOURCE_URL":
@@ -174,7 +196,7 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "SEARCH_QDN_RESOURCES":
@@ -190,7 +212,7 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "FETCH_QDN_RESOURCE":
@@ -200,19 +222,19 @@ window.addEventListener("message", (event) => {
             if (data.filepath != null) url = url.concat("&filepath=" + data.filepath);
             if (data.rebuild != null) url = url.concat("&rebuild=" + new Boolean(data.rebuild).toString())
             if (data.encoding != null) url = url.concat("&encoding=" + data.encoding);
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "GET_QDN_RESOURCE_STATUS":
             url = "/arbitrary/resource/status/" + data.service + "/" + data.name;
             if (data.identifier != null) url = url.concat("/" + data.identifier);
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "GET_QDN_RESOURCE_PROPERTIES":
             let identifier = (data.identifier != null) ? data.identifier : "default";
             url = "/arbitrary/resource/properties/" + data.service + "/" + data.name + "/" + identifier;
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "SEARCH_CHAT_MESSAGES":
@@ -227,7 +249,7 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "LIST_GROUPS":
@@ -235,23 +257,23 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "GET_BALANCE":
             url = "/addresses/balance/" + data.address;
             if (data.assetId != null) url = url.concat("&assetId=" + data.assetId);
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "GET_AT":
             url = "/at" + data.atAddress;
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "GET_AT_DATA":
             url = "/at/" + data.atAddress + "/data";
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "LIST_ATS":
@@ -260,19 +282,18 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "FETCH_BLOCK":
             if (data.signature != null) {
                 url = "/blocks/" + data.signature;
-            }
-            else if (data.height != null) {
+            } else if (data.height != null) {
                 url = "/blocks/byheight/" + data.height;
             }
             url = url.concat("?");
             if (data.includeOnlineSignatures != null) url = url.concat("&includeOnlineSignatures=" + data.includeOnlineSignatures);
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "FETCH_BLOCK_RANGE":
@@ -280,7 +301,7 @@ window.addEventListener("message", (event) => {
             if (data.count != null) url = url.concat("&count=" + data.count);
             if (data.reverse != null) url = url.concat("&reverse=" + data.reverse);
             if (data.includeOnlineSignatures != null) url = url.concat("&includeOnlineSignatures=" + data.includeOnlineSignatures);
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "SEARCH_TRANSACTIONS":
@@ -294,14 +315,14 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         case "GET_PRICE":
             url = "/crosschain/price/" + data.blockchain + "?";
             if (data.maxtrades != null) url = url.concat("&maxtrades=" + data.maxtrades);
             if (data.inverse != null) url = url.concat("&inverse=" + data.inverse);
-            response = httpGet(url);
+            response = httpGetAsyncWithEvent(event, url);
             break;
 
         default:
@@ -310,15 +331,6 @@ window.addEventListener("message", (event) => {
             parent.postMessage(event.data, '*', [event.ports[0]]);
             return;
     }
-
-    if (response == null) {
-        // Pass to parent (UI), in case they can fulfil this request
-        event.data.requestedHandler = "UI";
-        parent.postMessage(event.data, '*', [event.ports[0]]);
-        return;
-    }
-
-    handleResponse(event, response);
 
 }, false);
 
