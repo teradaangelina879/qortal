@@ -12,6 +12,7 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorNode;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.voting.PollData;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.transaction.Transaction.TransactionType;
 
@@ -29,6 +30,7 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 @XmlSeeAlso({GenesisTransactionData.class, PaymentTransactionData.class, RegisterNameTransactionData.class, UpdateNameTransactionData.class,
 	SellNameTransactionData.class, CancelSellNameTransactionData.class, BuyNameTransactionData.class,
 	CreatePollTransactionData.class, VoteOnPollTransactionData.class, ArbitraryTransactionData.class,
+	PollData.class,
 	IssueAssetTransactionData.class, TransferAssetTransactionData.class,
 	CreateAssetOrderTransactionData.class, CancelAssetOrderTransactionData.class,
 	MultiPaymentTransactionData.class, DeployAtTransactionData.class, MessageTransactionData.class, ATTransactionData.class,
