@@ -38,9 +38,9 @@ import javax.ws.rs.QueryParam;
 import org.qortal.api.ApiException;
 import org.qortal.data.voting.PollData;
 
-@Path("/Voting")
-@Tag(name = "Voting")
-public class VotingResource {
+@Path("/polls")
+@Tag(name = "Polls")
+public class PollsResource {
     @Context
     HttpServletRequest request;
 
@@ -103,7 +103,7 @@ public class VotingResource {
     }
 
     @POST
-    @Path("/CreatePoll")
+    @Path("/create")
     @Operation(
             summary = "Build raw, unsigned, CREATE_POLL transaction",
             requestBody = @RequestBody(
@@ -149,7 +149,7 @@ public class VotingResource {
     }
 
     @POST
-    @Path("/VoteOnPoll")
+    @Path("/vote")
     @Operation(
             summary = "Build raw, unsigned, VOTE_ON_POLL transaction",
             requestBody = @RequestBody(
