@@ -4,6 +4,7 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
+import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qortal.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -11,9 +12,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
+@XmlDiscriminatorValue("VOTE_ON_POLL")
 public class VoteOnPollTransactionData extends TransactionData {
 
 	// Properties
+	@Schema(description = "Vote creator's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] voterPublicKey;
 	private String pollName;
 	private int optionIndex;
