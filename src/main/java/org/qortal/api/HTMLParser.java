@@ -38,7 +38,7 @@ public class HTMLParser {
     public void addAdditionalHeaderTags() {
         String fileContents = new String(data);
         Document document = Jsoup.parse(fileContents);
-        String baseUrl = this.linkPrefix + "/";
+        String baseUrl = this.linkPrefix;
         Elements head = document.getElementsByTag("head");
         if (!head.isEmpty()) {
             // Add q-apps script tag
@@ -57,11 +57,11 @@ public class HTMLParser {
             String identifier = this.identifier != null ? this.identifier.replace("\"","\\\"") : "";
             String path = this.path != null ? this.path.replace("\"","\\\"") : "";
             String theme = this.theme != null ? this.theme.replace("\"","\\\"") : "";
-            String qdnContextVar = String.format("<script>var _qdnContext=\"%s\"; var _qdnTheme=\"%s\"; var _qdnService=\"%s\"; var _qdnName=\"%s\"; var _qdnIdentifier=\"%s\"; var _qdnPath=\"%s\";</script>", this.qdnContext, theme, service, name, identifier, path);
+            String qdnContextVar = String.format("<script>var _qdnContext=\"%s\"; var _qdnTheme=\"%s\"; var _qdnService=\"%s\"; var _qdnName=\"%s\"; var _qdnIdentifier=\"%s\"; var _qdnPath=\"%s\"; var _qdnBase=\"%s\";</script>", this.qdnContext, theme, service, name, identifier, path, baseUrl);
             head.get(0).prepend(qdnContextVar);
 
             // Add base href tag
-            String baseElement = String.format("<base href=\"%s\">", baseUrl);
+            String baseElement = String.format("<base href=\"%s/\">", baseUrl);
             head.get(0).prepend(baseElement);
 
             // Add meta charset tag
