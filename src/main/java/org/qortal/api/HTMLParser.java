@@ -24,8 +24,7 @@ public class HTMLParser {
 
     public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data,
                       String qdnContext, Service service, String identifier, String theme) {
-        String inPathWithoutFilename = inPath.contains("/") ? inPath.substring(0, inPath.lastIndexOf('/')) : "";
-        this.linkPrefix = usePrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : "";
+        this.linkPrefix = usePrefix ? String.format("%s/%s", prefix, resourceId) : "";
         this.data = data;
         this.qdnContext = qdnContext;
         this.resourceId = resourceId;
