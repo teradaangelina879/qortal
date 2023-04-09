@@ -389,13 +389,14 @@ document.addEventListener('DOMContentLoaded', () => {
  * Handle app navigation
  */
 navigation.addEventListener('navigate', (event) => {
-    let pathname = new URL(event.destination.url).pathname;
+    const url = new URL(event.destination.url);
+    let fullpath = url.pathname + url.hash;
     qortalRequest({
         action: "QDN_RESOURCE_DISPLAYED",
         service: _qdnService,
         name: _qdnName,
         identifier: _qdnIdentifier,
-        path: (pathname.startsWith(_qdnBase)) ? pathname.slice(_qdnBase.length) : pathname
+        path: (fullpath.startsWith(_qdnBase)) ? fullpath.slice(_qdnBase.length) : fullpath
     });
 });
 
