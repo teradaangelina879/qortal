@@ -386,6 +386,20 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * Handle app navigation
+ */
+navigation.addEventListener('navigate', (event) => {
+    let pathname = new URL(event.destination.url).pathname;
+    qortalRequest({
+        action: "QDN_RESOURCE_DISPLAYED",
+        service: _qdnService,
+        name: _qdnName,
+        identifier: _qdnIdentifier,
+        path: (pathname.startsWith(_qdnBase)) ? pathname.slice(_qdnBase.length) : pathname
+    });
+});
+
+/**
  * Intercept image loads from the DOM
  */
 document.addEventListener('DOMContentLoaded', () => {
