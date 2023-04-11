@@ -21,7 +21,7 @@ function httpGetAsyncWithEvent(event, url) {
 
         })
         .catch((error) => {
-            let res = new Object();
+            let res = {};
             res.error = error;
             handleResponse(JSON.stringify(res), responseText);
         })
@@ -160,30 +160,27 @@ window.addEventListener("message", (event) => {
     console.log("Core received event: " + JSON.stringify(event.data));
 
     let url;
-    let response;
     let data = event.data;
 
     switch (data.action) {
         case "GET_ACCOUNT_DATA":
-            response = httpGetAsyncWithEvent(event, "/addresses/" + data.address);
-            break;
+            return httpGetAsyncWithEvent(event, "/addresses/" + data.address);
 
         case "GET_ACCOUNT_NAMES":
-            response = httpGetAsyncWithEvent(event, "/names/address/" + data.address);
-            break;
+            return httpGetAsyncWithEvent(event, "/names/address/" + data.address);
 
         case "GET_NAME_DATA":
-            response = httpGetAsyncWithEvent(event, "/names/" + data.name);
-            break;
+            return httpGetAsyncWithEvent(event, "/names/" + data.name);
 
         case "GET_QDN_RESOURCE_URL":
-            response = buildResourceUrl(data.service, data.name, data.identifier, data.path, false);
-            break;
+            const response = buildResourceUrl(data.service, data.name, data.identifier, data.path, false);
+            handleResponse(event, response);
+            return;
 
         case "LINK_TO_QDN_RESOURCE":
             if (data.service == null) data.service = "WEBSITE"; // Default to WEBSITE
             window.location = buildResourceUrl(data.service, data.name, data.identifier, data.path, true);
-            break;
+            return;
 
         case "LIST_QDN_RESOURCES":
             url = "/arbitrary/resources?";
@@ -196,8 +193,7 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "SEARCH_QDN_RESOURCES":
             url = "/arbitrary/resources/search?";
@@ -212,8 +208,7 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "FETCH_QDN_RESOURCE":
             url = "/arbitrary/" + data.service + "/" + data.name;
@@ -222,20 +217,17 @@ window.addEventListener("message", (event) => {
             if (data.filepath != null) url = url.concat("&filepath=" + data.filepath);
             if (data.rebuild != null) url = url.concat("&rebuild=" + new Boolean(data.rebuild).toString())
             if (data.encoding != null) url = url.concat("&encoding=" + data.encoding);
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "GET_QDN_RESOURCE_STATUS":
             url = "/arbitrary/resource/status/" + data.service + "/" + data.name;
             if (data.identifier != null) url = url.concat("/" + data.identifier);
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "GET_QDN_RESOURCE_PROPERTIES":
             let identifier = (data.identifier != null) ? data.identifier : "default";
             url = "/arbitrary/resource/properties/" + data.service + "/" + data.name + "/" + identifier;
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "SEARCH_CHAT_MESSAGES":
             url = "/chat/messages?";
@@ -249,32 +241,27 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "LIST_GROUPS":
             url = "/groups?";
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "GET_BALANCE":
             url = "/addresses/balance/" + data.address;
             if (data.assetId != null) url = url.concat("&assetId=" + data.assetId);
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "GET_AT":
             url = "/at" + data.atAddress;
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "GET_AT_DATA":
             url = "/at/" + data.atAddress + "/data";
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "LIST_ATS":
             url = "/at/byfunction/" + data.codeHash58 + "?";
@@ -282,8 +269,7 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "FETCH_BLOCK":
             if (data.signature != null) {
@@ -293,16 +279,14 @@ window.addEventListener("message", (event) => {
             }
             url = url.concat("?");
             if (data.includeOnlineSignatures != null) url = url.concat("&includeOnlineSignatures=" + data.includeOnlineSignatures);
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "FETCH_BLOCK_RANGE":
             url = "/blocks/range/" + data.height + "?";
             if (data.count != null) url = url.concat("&count=" + data.count);
             if (data.reverse != null) url = url.concat("&reverse=" + data.reverse);
             if (data.includeOnlineSignatures != null) url = url.concat("&includeOnlineSignatures=" + data.includeOnlineSignatures);
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "SEARCH_TRANSACTIONS":
             url = "/transactions/search?";
@@ -315,15 +299,13 @@ window.addEventListener("message", (event) => {
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         case "GET_PRICE":
             url = "/crosschain/price/" + data.blockchain + "?";
             if (data.maxtrades != null) url = url.concat("&maxtrades=" + data.maxtrades);
             if (data.inverse != null) url = url.concat("&inverse=" + data.inverse);
-            response = httpGetAsyncWithEvent(event, url);
-            break;
+            return httpGetAsyncWithEvent(event, url);
 
         default:
             // Pass to parent (UI), in case they can fulfil this request
