@@ -231,6 +231,11 @@ public class ArbitraryDataFileManager extends Thread {
             arbitraryDataFile = existingFile;
         }
 
+        if (arbitraryDataFile == null) {
+            // We don't have a file, so give up here
+            return null;
+        }
+
         // We might want to forward the request to the peer that originally requested it
         this.handleArbitraryDataFileForwarding(requestingPeer, new ArbitraryDataFileMessage(signature, arbitraryDataFile), originalMessage);
 
