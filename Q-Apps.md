@@ -454,6 +454,17 @@ await qortalRequest({
 });
 ```
 
+### Send foreign coin to address
+_Requires user approval_
+```
+await qortalRequest({
+    action: "SEND_COIN",
+    coin: "LTC",
+    destinationAddress: "LSdTvMHRm8sScqwCi6x9wzYQae8JeZhx6y",
+    amount: 1.00000000, // 1 LTC
+    fee: 0.00000020 // fee per byte
+});
+
 
 ### Search or list chat messages
 ```
