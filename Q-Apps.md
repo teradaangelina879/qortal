@@ -323,6 +323,24 @@ let res = await qortalRequest({
 });
 ```
 
+### Search QDN resources (multiple names)
+```
+let res = await qortalRequest({
+    action: "SEARCH_QDN_RESOURCES",
+    service: "THUMBNAIL",
+    query: "search query goes here", // Optional - searches both "identifier" and "name" fields
+    identifier: "search query goes here", // Optional - searches only the "identifier" field
+    names: ["QortalDemo", "crowetic", "AlphaX"], // Optional - searches only the "name" field for any of the supplied names
+    prefix: false, // Optional - if true, only the beginning of fields are matched in all of the above filters
+    default: false, // Optional - if true, only resources without identifiers are returned
+    includeStatus: false, // Optional - will take time to respond, so only request if necessary
+    includeMetadata: false, // Optional - will take time to respond, so only request if necessary
+    limit: 100,
+    offset: 0,
+    reverse: true
+});
+```
+
 ### Fetch QDN single file resource
 ```
 let res = await qortalRequest({

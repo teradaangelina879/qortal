@@ -360,7 +360,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, String name, boolean prefixOnly,
+	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly,
 															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
@@ -404,11 +404,17 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		}
 
 		// Handle name matches
-		if (name != null) {
-			// Search anywhere in the identifier, unless "prefixOnly" has been requested
-			String queryWildcard = prefixOnly ? String.format("%s%%", name.toLowerCase()) : String.format("%%%s%%", name.toLowerCase());
-			sql.append(" AND LCASE(name) LIKE ?");
-			bindParams.add(queryWildcard);
+		if (names != null && !names.isEmpty()) {
+			sql.append(" AND (");
+
+			for (int i = 0; i < names.size(); ++i) {
+				// Search anywhere in the name, unless "prefixOnly" has been requested
+				String queryWildcard = prefixOnly ? String.format("%s%%", names.get(i).toLowerCase()) : String.format("%%%s%%", names.get(i).toLowerCase());
+				if (i > 0) sql.append(" OR ");
+				sql.append("LCASE(name) LIKE ?");
+				bindParams.add(queryWildcard);
+			}
+			sql.append(")");
 		}
 
 		sql.append(" GROUP BY name, service, identifier ORDER BY date_created");

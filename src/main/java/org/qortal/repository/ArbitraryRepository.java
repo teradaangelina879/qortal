@@ -26,7 +26,7 @@ public interface ArbitraryRepository {
 
 	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, List<String> names, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, String name, boolean prefixOnly, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public List<ArbitraryResourceNameInfo> getArbitraryResourceCreatorNames(Service service, String identifier, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
