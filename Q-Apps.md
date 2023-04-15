@@ -482,7 +482,7 @@ await qortalRequest({
     amount: 1.00000000, // 1 LTC
     fee: 0.00000020 // fee per byte
 });
-
+```
 
 ### Search or list chat messages
 ```
