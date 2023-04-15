@@ -355,33 +355,7 @@ else if (document.attachEvent) {
     document.attachEvent('onclick', interceptClickEvent);
 }
 
-/**
- * Send current page details to UI
- */
-document.addEventListener('DOMContentLoaded', () => {
-    qortalRequest({
-        action: "QDN_RESOURCE_DISPLAYED",
-        service: _qdnService,
-        name: _qdnName,
-        identifier: _qdnIdentifier,
-        path: _qdnPath
-    });
-});
 
-/**
- * Handle app navigation
- */
-navigation.addEventListener('navigate', (event) => {
-    const url = new URL(event.destination.url);
-    let fullpath = url.pathname + url.hash;
-    qortalRequest({
-        action: "QDN_RESOURCE_DISPLAYED",
-        service: _qdnService,
-        name: _qdnName,
-        identifier: _qdnIdentifier,
-        path: (fullpath.startsWith(_qdnBase)) ? fullpath.slice(_qdnBase.length) : fullpath
-    });
-});
 
 /**
  * Intercept image loads from the DOM
@@ -491,3 +465,32 @@ const qortalRequest = (request) =>
  */
 const qortalRequestWithTimeout = (request, timeout) =>
     Promise.race([qortalRequestWithNoTimeout(request), awaitTimeout(timeout, "The request timed out")]);
+
+
+/**
+ * Send current page details to UI
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    qortalRequest({
+        action: "QDN_RESOURCE_DISPLAYED",
+        service: _qdnService,
+        name: _qdnName,
+        identifier: _qdnIdentifier,
+        path: _qdnPath
+    });
+});
+
+/**
+ * Handle app navigation
+ */
+navigation.addEventListener('navigate', (event) => {
+    const url = new URL(event.destination.url);
+    let fullpath = url.pathname + url.hash;
+    qortalRequest({
+        action: "QDN_RESOURCE_DISPLAYED",
+        service: _qdnService,
+        name: _qdnName,
+        identifier: _qdnIdentifier,
+        path: (fullpath.startsWith(_qdnBase)) ? fullpath.slice(_qdnBase.length) : fullpath
+    });
+});
