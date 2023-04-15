@@ -51,21 +51,6 @@ public class CreatePollTransaction extends Transaction {
 		if (!Crypto.isValidAddress(this.createPollTransactionData.getOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		Account creator = getCreator();
-		Account owner = getOwner();
-		
-		String creatorAddress = creator.getAddress();
-		String ownerAddress = owner.getAddress();
-		
-		// Check Owner address is the same as the creator public key
-		if (!creatorAddress.equals(ownerAddress)) {
-			return ValidationResult.INVALID_ADDRESS;
-		}
-		
-			// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORT) < this.createPollTransactionData.getFee())
-			return ValidationResult.NO_BALANCE;
-
 		// Check name size bounds
 		String pollName = this.createPollTransactionData.getPollName();
 		int pollNameLength = Utf8.encodedLength(pollName);
@@ -102,6 +87,12 @@ public class CreatePollTransaction extends Transaction {
 
 			optionNames.add(pollOptionData.getOptionName());
 		}
+
+		Account creator = getCreator();
+
+		// Check creator has enough funds
+		if (creator.getConfirmedBalance(Asset.QORT) < this.createPollTransactionData.getFee())
+			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
 	}
