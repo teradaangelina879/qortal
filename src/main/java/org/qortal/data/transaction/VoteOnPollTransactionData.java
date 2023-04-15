@@ -3,6 +3,7 @@ package org.qortal.data.transaction;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qortal.transaction.Transaction.TransactionType;
@@ -20,6 +21,9 @@ public class VoteOnPollTransactionData extends TransactionData {
 	private byte[] voterPublicKey;
 	private String pollName;
 	private int optionIndex;
+	// For internal use when orphaning
+	@XmlTransient
+	@Schema(hidden = true)
 	private Integer previousOptionIndex;
 
 	// Constructors
