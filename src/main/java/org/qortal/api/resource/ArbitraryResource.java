@@ -217,67 +217,6 @@ public class ArbitraryResource {
 	}
 
 	@GET
-	@Path("/resources/names")
-	@Operation(
-			summary = "List arbitrary resources available on chain, grouped by creator's name",
-			responses = {
-					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
-					)
-			}
-	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryResourceNameInfo> getResourcesGroupedByName(
-			@QueryParam("service") Service service,
-			@QueryParam("identifier") String identifier,
-			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
-			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
-			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
-			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
-			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-
-			// Treat empty identifier as null
-			if (identifier != null && identifier.isEmpty()) {
-				identifier = null;
-			}
-
-			// Ensure that "default" and "identifier" parameters cannot coexist
-			boolean defaultRes = Boolean.TRUE.equals(defaultResource);
-			if (defaultRes == true && identifier != null) {
-				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "identifier cannot be specified when requesting a default resource");
-			}
-
-			List<ArbitraryResourceNameInfo> creatorNames = repository.getArbitraryRepository()
-					.getArbitraryResourceCreatorNames(service, identifier, defaultRes, limit, offset, reverse);
-
-			for (ArbitraryResourceNameInfo creatorName : creatorNames) {
-				String name = creatorName.name;
-				if (name != null) {
-					List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-							.getArbitraryResources(service, identifier, Arrays.asList(name), defaultRes, null, null, null, null, reverse);
-
-					if (includeStatus != null && includeStatus) {
-						resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-					}
-					if (includeMetadata != null && includeMetadata) {
-						resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
-					}
-
-					creatorName.resources = resources;
-				}
-			}
-
-			return creatorNames;
-
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@GET
 	@Path("/resource/status/{service}/{name}")
 	@Operation(
 			summary = "Get status of arbitrary resource with supplied service and name",
