@@ -173,6 +173,7 @@ To take things a step further, the qortalRequest() function can be used to inter
 - Join groups
 - Deploy ATs (smart contracts)
 - Send QORT or any supported foreign coin
+- Add/remove items from lists
 
 In addition to the above, qortalRequest() also supports many read-only functions that are also available via direct core API calls. Using qortalRequest() helps with futureproofing, as the core APIs can be modified without breaking functionality of existing Q-Apps.
 
@@ -239,6 +240,9 @@ Here is a list of currently supported actions:
 - GET_PRICE
 - GET_QDN_RESOURCE_URL
 - LINK_TO_QDN_RESOURCE
+- GET_LIST_ITEMS
+- ADD_LIST_ITEMS
+- DELETE_LIST_ITEM
 
 More functionality will be added in the future.
 
@@ -687,6 +691,36 @@ let res = await qortalRequest({
     service: "WEBSITE",
     name: "QortalDemo",
     path: "/minting-leveling/index.html"
+});
+```
+
+### Get the contents of a list
+_Requires user approval_
+```
+let res = await qortalRequest({
+    action: "GET_LIST_ITEMS",
+    list_name: "followedNames"
+});
+```
+
+### Add one or more items to a list
+_Requires user approval_
+```
+let res = await qortalRequest({
+    action: "ADD_LIST_ITEMS",
+    list_name: "blockedNames",
+    items: ["QortalDemo"]
+});
+```
+
+### Delete a single item from a list
+_Requires user approval_.
+Items must be deleted one at a time.
+```
+let res = await qortalRequest({
+    action: "DELETE_LIST_ITEM",
+    list_name: "blockedNames",
+    item: "QortalDemo"
 });
 ```
 
