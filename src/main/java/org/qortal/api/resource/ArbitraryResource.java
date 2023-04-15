@@ -174,29 +174,31 @@ public class ArbitraryResource {
 			@Parameter(description = "Query (searches both name and identifier fields)") @QueryParam("query") String query,
 			@Parameter(description = "Identifier (searches identifier field only)") @QueryParam("identifier") String identifier,
 			@Parameter(description = "Name (searches name field only)") @QueryParam("name") List<String> names,
-			@Parameter(description = "Filter names by list (partial matches allowed)") @QueryParam("namefilter") String nameListFilter,
 			@Parameter(description = "Prefix only (if true, only the beginning of fields are matched)") @QueryParam("prefix") Boolean prefixOnly,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
-			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
-			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
+			@Parameter(description = "Filter names by list (exact matches only)") @QueryParam("namefilter") String nameListFilter,
 			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
 			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
-			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
+			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata,
+			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
+			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			boolean defaultRes = Boolean.TRUE.equals(defaultResource);
 			boolean usePrefixOnly = Boolean.TRUE.equals(prefixOnly);
 
+			List<String> exactMatchNames = new ArrayList<>();
+
 			if (nameListFilter != null) {
 				// Load names from supplied list of names
-				names.addAll(ResourceListManager.getInstance().getStringsInList(nameListFilter));
+				exactMatchNames.addAll(ResourceListManager.getInstance().getStringsInList(nameListFilter));
 			}
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
+					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, exactMatchNames, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();

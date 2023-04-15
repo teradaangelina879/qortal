@@ -393,7 +393,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly,
-															 boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
+																List<String> exactMatchNames, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
 																Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
@@ -436,7 +436,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			bindParams.add(queryWildcard);
 		}
 
-		// Handle name matches
+		// Handle name searches
 		if (names != null && !names.isEmpty()) {
 			sql.append(" AND (");
 
@@ -446,6 +446,18 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				if (i > 0) sql.append(" OR ");
 				sql.append("LCASE(name) LIKE ?");
 				bindParams.add(queryWildcard);
+			}
+			sql.append(")");
+		}
+
+		// Handle name exact matches
+		if (exactMatchNames != null && !exactMatchNames.isEmpty()) {
+			sql.append(" AND name IN (?");
+			bindParams.add(exactMatchNames.get(0));
+
+			for (int i = 1; i < exactMatchNames.size(); ++i) {
+				sql.append(", ?");
+				bindParams.add(exactMatchNames.get(i));
 			}
 			sql.append(")");
 		}
