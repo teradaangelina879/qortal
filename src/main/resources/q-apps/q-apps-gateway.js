@@ -1,5 +1,37 @@
 console.log("Gateway mode");
 
+function qdnGatewayShowModal(message) {
+    const modalElementId = "qdnGatewayModal";
+
+    if (document.getElementById(modalElementId) != null) {
+        document.body.removeChild(document.getElementById(modalElementId));
+    }
+
+    var modalElement = document.createElement('div');
+    modalElement.style.cssText = 'position:fixed; z-index:99999; background:#fff; padding:20px; border-radius:5px; font-family:sans-serif; bottom:20px; right:20px; color:#000; max-width:400px; box-shadow:0 3px 10px rgb(0 0 0 / 0.2); font-family:arial; font-weight:normal; font-size:16px;';
+    modalElement.innerHTML = message + "<br /><br />";
+    modalElement.id = modalElementId;
+
+    var closeButton = document.createElement('button');
+    closeButton.style.cssText = 'background-color:#008CBA; border:none; color:white; cursor:pointer; float: right; margin: 10px; padding:15px; border-radius:5px; display:inline-block; text-align:center; text-decoration:none; font-family:arial; font-weight:normal; font-size:16px;';
+    closeButton.innerText = "Close";
+    closeButton.addEventListener ("click", function() {
+        document.body.removeChild(document.getElementById(modalElementId));
+    });
+    modalElement.appendChild(closeButton);
+
+    var qortalButton = document.createElement('button');
+    qortalButton.style.cssText = 'background-color:#4CAF50; border:none; color:white; cursor:pointer; float: right; margin: 10px; padding:15px; border-radius:5px; text-align:center; text-decoration:none; display:inline-block; font-family:arial; font-weight:normal; font-size:16px;';
+    qortalButton.innerText = "Learn more";
+    qortalButton.addEventListener ("click", function() {
+        document.body.removeChild(document.getElementById(modalElementId));
+        window.open("https://qortal.org");
+    });
+    modalElement.appendChild(qortalButton);
+
+    document.body.appendChild(modalElement);
+}
+
 window.addEventListener("message", (event) => {
     if (event == null || event.data == null || event.data.length == 0) {
         return;
@@ -24,8 +56,10 @@ window.addEventListener("message", (event) => {
         case "GET_WALLET_BALANCE":
         case "SEND_COIN":
             const errorString = "Authentication was requested, but this is not yet supported when viewing via a gateway. To use interactive features, please access using the Qortal UI desktop app. More info at: https://qortal.org";
-            alert(errorString);
             response = "{\"error\": \"" + errorString + "\"}"
+
+            const modalText = "This app is powered by the Qortal blockchain. You are viewing in read-only mode. To use interactive features, please access using the Qortal UI desktop app.";
+            qdnGatewayShowModal(modalText);
             break;
 
         default:
