@@ -104,7 +104,7 @@ public class ArbitraryResource {
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
 			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
 			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
-			@Parameter(description = "Filter names by list") @QueryParam("namefilter") String nameFilter,
+			@Parameter(description = "Filter names by list") @QueryParam("namefilter") String nameListFilter,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
 
@@ -127,11 +127,11 @@ public class ArbitraryResource {
 				// Filter using single name
 				names = Arrays.asList(name);
 			}
-			else if (nameFilter != null) {
+			else if (nameListFilter != null) {
 				// Filter using supplied list of names
-				names = ResourceListManager.getInstance().getStringsInList(nameFilter);
+				names = ResourceListManager.getInstance().getStringsInList(nameListFilter);
 				if (names.isEmpty()) {
-					// List doesn't exist or is empty - so there will be no matches
+					// If list is empty (or doesn't exist) we can shortcut with empty response
 					return new ArrayList<>();
 				}
 			}
@@ -195,6 +195,11 @@ public class ArbitraryResource {
 			if (nameListFilter != null) {
 				// Load names from supplied list of names
 				exactMatchNames.addAll(ResourceListManager.getInstance().getStringsInList(nameListFilter));
+
+				// If list is empty (or doesn't exist) we can shortcut with empty response
+				if (exactMatchNames.isEmpty()) {
+					return new ArrayList<>();
+				}
 			}
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
