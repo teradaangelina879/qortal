@@ -102,6 +102,8 @@ public class ArbitraryResource {
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
+			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
+			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
 			@Parameter(description = "Filter names by list") @QueryParam("namefilter") String nameFilter,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
@@ -135,7 +137,7 @@ public class ArbitraryResource {
 			}
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.getArbitraryResources(service, identifier, names, defaultRes, limit, offset, reverse);
+					.getArbitraryResources(service, identifier, names, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
@@ -178,6 +180,8 @@ public class ArbitraryResource {
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
+			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
+			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
 
@@ -192,7 +196,7 @@ public class ArbitraryResource {
 			}
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, defaultRes, limit, offset, reverse);
+					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
@@ -253,7 +257,7 @@ public class ArbitraryResource {
 				String name = creatorName.name;
 				if (name != null) {
 					List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-							.getArbitraryResources(service, identifier, Arrays.asList(name), defaultRes, null, null, reverse);
+							.getArbitraryResources(service, identifier, Arrays.asList(name), defaultRes, null, null, null, null, reverse);
 
 					if (includeStatus != null && includeStatus) {
 						resources = ArbitraryTransactionUtils.addStatusToResources(resources);

@@ -303,6 +303,8 @@ let res = await qortalRequest({
     default: true, // Optional
     includeStatus: false, // Optional - will take time to respond, so only request if necessary
     includeMetadata: false, // Optional - will take time to respond, so only request if necessary
+    followedOnly: false, // Optional - include followed names only
+    excludeBlocked: false, // Optional - exclude blocked content
     limit: 100,
     offset: 0,
     reverse: true
@@ -321,6 +323,8 @@ let res = await qortalRequest({
     default: false, // Optional - if true, only resources without identifiers are returned
     includeStatus: false, // Optional - will take time to respond, so only request if necessary
     includeMetadata: false, // Optional - will take time to respond, so only request if necessary
+    followedOnly: false, // Optional - include followed names only
+    excludeBlocked: false, // Optional - exclude blocked content
     limit: 100,
     offset: 0,
     reverse: true

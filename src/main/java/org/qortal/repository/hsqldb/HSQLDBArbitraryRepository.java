@@ -16,6 +16,7 @@ import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ListUtils;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -284,7 +285,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, List<String> names,
-															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
+															 boolean defaultResource,  Boolean followedOnly, Boolean excludeBlocked,
+															 Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
@@ -317,6 +319,36 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			}
 
 			sql.append(")");
+		}
+
+		// Handle "followed only"
+		if (followedOnly != null && followedOnly) {
+			List<String> followedNames = ListUtils.followedNames();
+			if (followedNames != null && !followedNames.isEmpty()) {
+				sql.append(" AND name IN (?");
+				bindParams.add(followedNames.get(0));
+
+				for (int i = 1; i < followedNames.size(); ++i) {
+					sql.append(", ?");
+					bindParams.add(followedNames.get(i));
+				}
+				sql.append(")");
+			}
+		}
+
+		// Handle "exclude blocked"
+		if (excludeBlocked != null && excludeBlocked) {
+			List<String> blockedNames = ListUtils.blockedNames();
+			if (blockedNames != null && !blockedNames.isEmpty()) {
+				sql.append(" AND name NOT IN (?");
+				bindParams.add(blockedNames.get(0));
+
+				for (int i = 1; i < blockedNames.size(); ++i) {
+					sql.append(", ?");
+					bindParams.add(blockedNames.get(i));
+				}
+				sql.append(")");
+			}
 		}
 
 		sql.append(" GROUP BY name, service, identifier ORDER BY name COLLATE SQL_TEXT_UCC_NO_PAD");
@@ -361,7 +393,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly,
-															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
+															 boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
+																Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
@@ -415,6 +448,36 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				bindParams.add(queryWildcard);
 			}
 			sql.append(")");
+		}
+
+		// Handle "followed only"
+		if (followedOnly != null && followedOnly) {
+			List<String> followedNames = ListUtils.followedNames();
+			if (followedNames != null && !followedNames.isEmpty()) {
+				sql.append(" AND name IN (?");
+				bindParams.add(followedNames.get(0));
+
+				for (int i = 1; i < followedNames.size(); ++i) {
+					sql.append(", ?");
+					bindParams.add(followedNames.get(i));
+				}
+				sql.append(")");
+			}
+		}
+
+		// Handle "exclude blocked"
+		if (excludeBlocked != null && excludeBlocked) {
+			List<String> blockedNames = ListUtils.blockedNames();
+			if (blockedNames != null && !blockedNames.isEmpty()) {
+				sql.append(" AND name NOT IN (?");
+				bindParams.add(blockedNames.get(0));
+
+				for (int i = 1; i < blockedNames.size(); ++i) {
+					sql.append(", ?");
+					bindParams.add(blockedNames.get(i));
+				}
+				sql.append(")");
+			}
 		}
 
 		sql.append(" GROUP BY name, service, identifier ORDER BY date_created");

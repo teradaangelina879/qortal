@@ -190,6 +190,8 @@ window.addEventListener("message", (event) => {
             if (data.default != null) url = url.concat("&default=" + new Boolean(data.default).toString());
             if (data.includeStatus != null) url = url.concat("&includestatus=" + new Boolean(data.includeStatus).toString());
             if (data.includeMetadata != null) url = url.concat("&includemetadata=" + new Boolean(data.includeMetadata).toString());
+            if (data.followedOnly != null) url = url.concat("&followedonly=" + new Boolean(data.followedOnly).toString());
+            if (data.excludeBlocked != null) url = url.concat("&excludeblocked=" + new Boolean(data.excludeBlocked).toString());
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
@@ -206,6 +208,8 @@ window.addEventListener("message", (event) => {
             if (data.default != null) url = url.concat("&default=" + new Boolean(data.default).toString());
             if (data.includeStatus != null) url = url.concat("&includestatus=" + new Boolean(data.includeStatus).toString());
             if (data.includeMetadata != null) url = url.concat("&includemetadata=" + new Boolean(data.includeMetadata).toString());
+            if (data.followedOnly != null) url = url.concat("&followedonly=" + new Boolean(data.followedOnly).toString());
+            if (data.excludeBlocked != null) url = url.concat("&excludeblocked=" + new Boolean(data.excludeBlocked).toString());
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
