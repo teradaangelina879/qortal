@@ -128,7 +128,7 @@ public class IntegrityTests extends Common {
 
             // Run the database integrity check for the initial name, to ensure it doesn't get into a loop
             NamesDatabaseIntegrityCheck integrityCheck = new NamesDatabaseIntegrityCheck();
-            assertEquals(2, integrityCheck.rebuildName(initialName, repository));
+            assertEquals(4, integrityCheck.rebuildName(initialName, repository)); // 4 transactions total
 
             // Ensure the new name still exists and the data is still correct
             assertTrue(repository.getNameRepository().nameExists(initialName));

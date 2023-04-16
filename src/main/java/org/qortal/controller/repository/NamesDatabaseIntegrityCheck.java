@@ -13,7 +13,9 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Unicode;
 
+import java.math.BigInteger;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class NamesDatabaseIntegrityCheck {
 
@@ -28,22 +30,22 @@ public class NamesDatabaseIntegrityCheck {
 
     private List<TransactionData> nameTransactions = new ArrayList<>();
 
+
     public int rebuildName(String name, Repository repository) {
-        return this.rebuildName(name, repository, null);
-    }
-
-    public int rebuildName(String name, Repository repository, List<String> referenceNames) {
-        // "referenceNames" tracks the linked names that have already been rebuilt, to prevent circular dependencies
-        if (referenceNames == null) {
-            referenceNames = new ArrayList<>();
-        }
-
         int modificationCount = 0;
         try {
             List<TransactionData> transactions = this.fetchAllTransactionsInvolvingName(name, repository);
             if (transactions.isEmpty()) {
                 // This name was never registered, so there's nothing to do
                 return modificationCount;
+            }
+
+            // If this name has been updated at any point, we need to add transactions from the other names to the sequence
+            int added = this.addAdditionalTransactionsRelatingToName(transactions, name, repository);
+            while (added > 0) {
+                // Keep going until all have been added
+                LOGGER.trace("{} added for {}. Looking for more transactions...", added, name);
+                added = this.addAdditionalTransactionsRelatingToName(transactions, name, repository);
             }
 
             // Loop through each past transaction and re-apply it to the Names table
@@ -61,29 +63,14 @@ public class NamesDatabaseIntegrityCheck {
                 // Process UPDATE_NAME transactions
                 if (currentTransaction.getType() == TransactionType.UPDATE_NAME) {
                     UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) currentTransaction;
-
-                    if (Objects.equals(updateNameTransactionData.getNewName(), name) &&
-                            !Objects.equals(updateNameTransactionData.getName(), updateNameTransactionData.getNewName())) {
-                        // This renames an existing name, so we need to process that instead
-
-                        if (!referenceNames.contains(name)) {
-                            referenceNames.add(name);
-                            this.rebuildName(updateNameTransactionData.getName(), repository, referenceNames);
-                        }
-                        else {
-                            // We've already processed this name so there's nothing more to do
-                        }
-                    }
-                    else {
-                        Name nameObj = new Name(repository, name);
-                        if (nameObj != null && nameObj.getNameData() != null) {
-                            nameObj.update(updateNameTransactionData);
-                            modificationCount++;
-                            LOGGER.trace("Processed UPDATE_NAME transaction for name {}", name);
-                        } else {
-                            // Something went wrong
-                            throw new DataException(String.format("Name data not found for name %s", updateNameTransactionData.getName()));
-                        }
+                    Name nameObj = new Name(repository, updateNameTransactionData.getName());
+                    if (nameObj != null && nameObj.getNameData() != null) {
+                        nameObj.update(updateNameTransactionData);
+                        modificationCount++;
+                        LOGGER.trace("Processed UPDATE_NAME transaction for name {}", name);
+                    } else {
+                        // Something went wrong
+                        throw new DataException(String.format("Name data not found for name %s", updateNameTransactionData.getName()));
                     }
                 }
 
@@ -354,8 +341,8 @@ public class NamesDatabaseIntegrityCheck {
             }
         }
 
-        // Sort by lowest timestamp first
-        transactions.sort(Comparator.comparingLong(TransactionData::getTimestamp));
+        // Sort by lowest block height first
+        sortTransactions(transactions);
 
         return transactions;
     }
@@ -417,6 +404,69 @@ public class NamesDatabaseIntegrityCheck {
             }
         }
         return names;
+    }
+
+    private int addAdditionalTransactionsRelatingToName(List<TransactionData> transactions, String name, Repository repository) throws DataException {
+        int added = 0;
+
+        // If this name has been updated at any point, we need to add transactions from the other names to the sequence
+        List<String> otherNames = new ArrayList<>();
+        List<TransactionData> updateNameTransactions = transactions.stream().filter(t -> t.getType() == TransactionType.UPDATE_NAME).collect(Collectors.toList());
+        for (TransactionData transactionData : updateNameTransactions) {
+            UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
+            // If the newName field isn't empty, and either the "name" or "newName" is different from our reference name,
+            // we should remember this additional name, in case it has relevant transactions associated with it.
+            if (updateNameTransactionData.getNewName() != null && !updateNameTransactionData.getNewName().isEmpty()) {
+                if (!Objects.equals(updateNameTransactionData.getName(), name)) {
+                    otherNames.add(updateNameTransactionData.getName());
+                }
+                if (!Objects.equals(updateNameTransactionData.getNewName(), name)) {
+                    otherNames.add(updateNameTransactionData.getNewName());
+                }
+            }
+        }
+
+
+        for (String otherName : otherNames) {
+            List<TransactionData> otherNameTransactions = this.fetchAllTransactionsInvolvingName(otherName, repository);
+            for (TransactionData otherNameTransactionData : otherNameTransactions) {
+                if (!transactions.contains(otherNameTransactionData)) {
+                    // Add new transaction relating to other name
+                    transactions.add(otherNameTransactionData);
+                    added++;
+                }
+            }
+        }
+
+        if (added > 0) {
+            // New transaction(s) added, so re-sort
+            sortTransactions(transactions);
+        }
+
+        return added;
+    }
+
+    private void sortTransactions(List<TransactionData> transactions) {
+        Collections.sort(transactions, new Comparator() {
+            public int compare(Object o1, Object o2) {
+                TransactionData td1 = (TransactionData) o1;
+                TransactionData td2 = (TransactionData) o2;
+
+                // Sort by block height first
+                int heightComparison = td1.getBlockHeight().compareTo(td2.getBlockHeight());
+                if (heightComparison != 0) {
+                    return heightComparison;
+                }
+
+                // Same height so compare timestamps
+                int timestampComparison = Long.compare(td1.getTimestamp(), td2.getTimestamp());
+                if (timestampComparison != 0) {
+                    return timestampComparison;
+                }
+
+                // Same timestamp so compare signatures
+                return new BigInteger(td1.getSignature()).compareTo(new BigInteger(td2.getSignature()));
+            }});
     }
 
 }
