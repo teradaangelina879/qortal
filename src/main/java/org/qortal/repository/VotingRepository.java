@@ -9,6 +9,8 @@ public interface VotingRepository {
 
 	// Polls
 
+	public List<PollData> getAllPolls(Integer limit, Integer offset, Boolean reverse) throws DataException;
+
 	public PollData fromPollName(String pollName) throws DataException;
 
 	public boolean pollExists(String pollName) throws DataException;
