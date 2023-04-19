@@ -61,6 +61,7 @@ public class Settings {
 
 	// Common to all networking (API/P2P)
 	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
+	private String bindAddressFallback = "0.0.0.0"; // Some systems are unable to bind using IPv6
 
 	// UI servers
 	private int uiPort = 12388;
@@ -687,6 +688,10 @@ public class Settings {
 
 	public String getBindAddress() {
 		return this.bindAddress;
+	}
+
+	public String getBindAddressFallback() {
+		return this.bindAddressFallback;
 	}
 
 	public boolean isUPnPEnabled() {

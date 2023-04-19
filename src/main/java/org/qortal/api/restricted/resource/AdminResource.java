@@ -154,6 +154,22 @@ public class AdminResource {
 	}
 
 	@GET
+	@Path("/settings")
+	@Operation(
+		summary = "Fetch node settings",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Settings.class))
+			)
+		}
+	)
+	public Settings settings() {
+		Settings nodeSettings = Settings.getInstance();
+
+		return nodeSettings;
+	}
+
+	@GET
 	@Path("/stop")
 	@Operation(
 		summary = "Shutdown",
