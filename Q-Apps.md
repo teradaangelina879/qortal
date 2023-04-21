@@ -653,6 +653,7 @@ let res = await qortalRequest({
 ```
 
 ### Get URL to load a QDN resource
+Note: this returns a "Resource does not exist" error if a non-existent resource is requested.
 ```
 let url = await qortalRequest({
     action: "GET_QDN_RESOURCE_URL",
@@ -664,6 +665,7 @@ let url = await qortalRequest({
 ```
 
 ### Get URL to load a QDN website
+Note: this returns a "Resource does not exist" error if a non-existent resource is requested.
 ```
 let url = await qortalRequest({
     action: "GET_QDN_RESOURCE_URL",
@@ -673,6 +675,7 @@ let url = await qortalRequest({
 ```
 
 ### Get URL to load a specific file from a QDN website
+Note: this returns a "Resource does not exist" error if a non-existent resource is requested.
 ```
 let url = await qortalRequest({
     action: "GET_QDN_RESOURCE_URL",

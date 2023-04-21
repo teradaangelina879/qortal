@@ -46,6 +46,18 @@ function handleResponse(event, response) {
         responseObj = response;
     }
 
+    // GET_QDN_RESOURCE_URL has custom handling
+    const data = event.data;
+    if (data.action == "GET_QDN_RESOURCE_URL") {
+        if (responseObj == null || responseObj.status == null || responseObj.status == "NOT_PUBLISHED") {
+            responseObj = {};
+            responseObj.error = "Resource does not exist";
+        }
+        else {
+            responseObj = buildResourceUrl(data.service, data.name, data.identifier, data.path, false);
+        }
+    }
+
     // Respond to app
     if (responseObj.error != null) {
         event.ports[0].postMessage({
@@ -173,9 +185,10 @@ window.addEventListener("message", (event) => {
             return httpGetAsyncWithEvent(event, "/names/" + data.name);
 
         case "GET_QDN_RESOURCE_URL":
-            const response = buildResourceUrl(data.service, data.name, data.identifier, data.path, false);
-            handleResponse(event, response);
-            return;
+            // Check status first; URL is built ant returned automatically after status check
+            url = "/arbitrary/resource/status/" + data.service + "/" + data.name;
+            if (data.identifier != null) url = url.concat("/" + data.identifier);
+            return httpGetAsyncWithEvent(event, url);
 
         case "LINK_TO_QDN_RESOURCE":
             if (data.service == null) data.service = "WEBSITE"; // Default to WEBSITE
