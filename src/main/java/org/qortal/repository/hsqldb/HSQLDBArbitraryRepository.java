@@ -453,7 +453,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		// Handle name exact matches
 		if (exactMatchNames != null && !exactMatchNames.isEmpty()) {
 			sql.append(" AND LCASE(name) IN (?");
-			bindParams.add(exactMatchNames.get(0));
+			bindParams.add(exactMatchNames.get(0).toLowerCase());
 
 			for (int i = 1; i < exactMatchNames.size(); ++i) {
 				sql.append(", ?");
@@ -467,7 +467,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			List<String> followedNames = ListUtils.followedNames();
 			if (followedNames != null && !followedNames.isEmpty()) {
 				sql.append(" AND LCASE(name) IN (?");
-				bindParams.add(followedNames.get(0));
+				bindParams.add(followedNames.get(0).toLowerCase());
 
 				for (int i = 1; i < followedNames.size(); ++i) {
 					sql.append(", ?");
@@ -482,7 +482,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			List<String> blockedNames = ListUtils.blockedNames();
 			if (blockedNames != null && !blockedNames.isEmpty()) {
 				sql.append(" AND LCASE(name) NOT IN (?");
-				bindParams.add(blockedNames.get(0));
+				bindParams.add(blockedNames.get(0).toLowerCase());
 
 				for (int i = 1; i < blockedNames.size(); ++i) {
 					sql.append(", ?");
