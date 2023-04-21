@@ -452,12 +452,12 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		// Handle name exact matches
 		if (exactMatchNames != null && !exactMatchNames.isEmpty()) {
-			sql.append(" AND name IN (?");
+			sql.append(" AND LCASE(name) IN (?");
 			bindParams.add(exactMatchNames.get(0));
 
 			for (int i = 1; i < exactMatchNames.size(); ++i) {
 				sql.append(", ?");
-				bindParams.add(exactMatchNames.get(i));
+				bindParams.add(exactMatchNames.get(i).toLowerCase());
 			}
 			sql.append(")");
 		}
@@ -466,12 +466,12 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		if (followedOnly != null && followedOnly) {
 			List<String> followedNames = ListUtils.followedNames();
 			if (followedNames != null && !followedNames.isEmpty()) {
-				sql.append(" AND name IN (?");
+				sql.append(" AND LCASE(name) IN (?");
 				bindParams.add(followedNames.get(0));
 
 				for (int i = 1; i < followedNames.size(); ++i) {
 					sql.append(", ?");
-					bindParams.add(followedNames.get(i));
+					bindParams.add(followedNames.get(i).toLowerCase());
 				}
 				sql.append(")");
 			}
@@ -481,12 +481,12 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		if (excludeBlocked != null && excludeBlocked) {
 			List<String> blockedNames = ListUtils.blockedNames();
 			if (blockedNames != null && !blockedNames.isEmpty()) {
-				sql.append(" AND name NOT IN (?");
+				sql.append(" AND LCASE(name) NOT IN (?");
 				bindParams.add(blockedNames.get(0));
 
 				for (int i = 1; i < blockedNames.size(); ++i) {
 					sql.append(", ?");
-					bindParams.add(blockedNames.get(i));
+					bindParams.add(blockedNames.get(i).toLowerCase());
 				}
 				sql.append(")");
 			}
