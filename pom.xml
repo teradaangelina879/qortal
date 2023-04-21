@@ -148,6 +148,7 @@
 										tagsSorter: "alpha",
 										operationsSorter:
 										"alpha",
+										validatorUrl: false,
 									</value>
 								</replacement>
 							</replacements>
