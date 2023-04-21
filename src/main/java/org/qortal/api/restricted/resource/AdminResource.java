@@ -184,7 +184,7 @@ public class AdminResource {
 					)
 			}
 	)
-	public Object setting(@PathParam("setting") String setting) {
+	public String setting(@PathParam("setting") String setting) {
 		try {
 			Object settingValue = FieldUtils.readField(Settings.getInstance(), setting, true);
 			if (settingValue == null) {
@@ -198,8 +198,8 @@ public class AdminResource {
 				JSONArray array = new JSONArray((List<Object>) settingValue);
 				return array.toString(4);
 			}
-			return settingValue;
 
+			return settingValue.toString();
 		} catch (IllegalAccessException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
 		}
