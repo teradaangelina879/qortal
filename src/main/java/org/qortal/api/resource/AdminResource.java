@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -31,10 +32,13 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.*;
@@ -168,6 +172,37 @@ public class AdminResource {
 		Settings nodeSettings = Settings.getInstance();
 
 		return nodeSettings;
+	}
+
+	@GET
+	@Path("/settings/{setting}")
+	@Operation(
+			summary = "Fetch a single node setting",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	public Object setting(@PathParam("setting") String setting) {
+		try {
+			Object settingValue = FieldUtils.readField(Settings.getInstance(), setting, true);
+			if (settingValue == null) {
+				return "null";
+			}
+			else if (settingValue instanceof String[]) {
+				JSONArray array = new JSONArray(settingValue);
+				return array.toString(4);
+			}
+			else if (settingValue instanceof List) {
+				JSONArray array = new JSONArray((List<Object>) settingValue);
+				return array.toString(4);
+			}
+			return settingValue;
+
+		} catch (IllegalAccessException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
+		}
 	}
 
 	@GET
