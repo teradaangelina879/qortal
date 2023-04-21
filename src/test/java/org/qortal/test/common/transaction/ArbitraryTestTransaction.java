@@ -33,7 +33,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		final byte[] metadataHash = new byte[32];
 		random.nextBytes(metadataHash);
 
-		byte[] data = new byte[1024];
+		byte[] data = new byte[256];
 		random.nextBytes(data);
 
 		DataType dataType = DataType.RAW_DATA;
