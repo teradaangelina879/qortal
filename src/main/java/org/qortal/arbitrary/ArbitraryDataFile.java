@@ -79,7 +79,7 @@ public class ArbitraryDataFile {
         this.signature = signature;
     }
 
-    public ArbitraryDataFile(byte[] fileContent, byte[] signature) throws DataException {
+    public ArbitraryDataFile(byte[] fileContent, byte[] signature, boolean useTemporaryFile) throws DataException {
         if (fileContent == null) {
             LOGGER.error("fileContent is null");
             return;
@@ -90,7 +90,20 @@ public class ArbitraryDataFile {
         this.signature = signature;
         LOGGER.trace(String.format("File digest: %s, size: %d bytes", this.hash58, fileContent.length));
 
-        Path outputFilePath = getOutputFilePath(this.hash58, signature, true);
+        Path outputFilePath;
+        if (useTemporaryFile) {
+            try {
+                outputFilePath = Files.createTempFile("qortalRawData", null);
+                outputFilePath.toFile().deleteOnExit();
+            }
+            catch (IOException e) {
+                throw new DataException(String.format("Unable to write data with hash %s to temporary file: %s", this.hash58, e.getMessage()));
+            }
+        }
+        else {
+            outputFilePath = getOutputFilePath(this.hash58, signature, true);
+        }
+
         File outputFile = outputFilePath.toFile();
         try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
             outputStream.write(fileContent);
@@ -116,7 +129,7 @@ public class ArbitraryDataFile {
         if (data == null) {
             return null;
         }
-        return new ArbitraryDataFile(data, signature);
+        return new ArbitraryDataFile(data, signature, true);
     }
 
     public static ArbitraryDataFile fromTransactionData(ArbitraryTransactionData transactionData) throws DataException {
