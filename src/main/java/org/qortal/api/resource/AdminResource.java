@@ -42,6 +42,7 @@ import org.qortal.api.model.ActivitySummary;
 import org.qortal.api.model.NodeInfo;
 import org.qortal.api.model.NodeStatus;
 import org.qortal.block.BlockChain;
+import org.qortal.controller.AutoUpdate;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
@@ -194,6 +195,37 @@ public class AdminResource {
 			}
 
 			Controller.getInstance().shutdownAndExit();
+		}).start();
+
+		return "true";
+	}
+
+	@GET
+	@Path("/restart")
+	@Operation(
+		summary = "Restart",
+		description = "Restart",
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String restart(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		new Thread(() -> {
+			// Short sleep to allow HTTP response body to be emitted
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				// Not important
+			}
+
+			AutoUpdate.attemptRestart();
+
 		}).start();
 
 		return "true";
