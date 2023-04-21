@@ -175,6 +175,7 @@ public class ArbitraryResource {
 			@Parameter(description = "Identifier (searches identifier field only)") @QueryParam("identifier") String identifier,
 			@Parameter(description = "Name (searches name field only)") @QueryParam("name") List<String> names,
 			@Parameter(description = "Prefix only (if true, only the beginning of fields are matched)") @QueryParam("prefix") Boolean prefixOnly,
+			@Parameter(description = "Exact match names only (if true, partial name matches are excluded)") @QueryParam("exactmatchnames") Boolean exactMatchNamesOnly,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
 			@Parameter(description = "Filter names by list (exact matches only)") @QueryParam("namefilter") String nameListFilter,
 			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
@@ -200,6 +201,12 @@ public class ArbitraryResource {
 				if (exactMatchNames.isEmpty()) {
 					return new ArrayList<>();
 				}
+			}
+
+			// Move names to exact match list, if requested
+			if (exactMatchNamesOnly != null && exactMatchNamesOnly && names != null) {
+				exactMatchNames.addAll(names);
+				names = null;
 			}
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()

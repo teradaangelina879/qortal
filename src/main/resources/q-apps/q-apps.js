@@ -206,6 +206,7 @@ window.addEventListener("message", (event) => {
             if (data.name != null) url = url.concat("&name=" + data.name);
             if (data.names != null) data.names.forEach((x, i) => url = url.concat("&name=" + x));
             if (data.prefix != null) url = url.concat("&prefix=" + new Boolean(data.prefix).toString());
+            if (data.exactMatchNames != null) url = url.concat("&exactmatchnames=" + new Boolean(data.exactMatchNames).toString());
             if (data.default != null) url = url.concat("&default=" + new Boolean(data.default).toString());
             if (data.includeStatus != null) url = url.concat("&includestatus=" + new Boolean(data.includeStatus).toString());
             if (data.includeMetadata != null) url = url.concat("&includemetadata=" + new Boolean(data.includeMetadata).toString());

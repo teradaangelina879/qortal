@@ -320,6 +320,7 @@ let res = await qortalRequest({
     identifier: "search query goes here", // Optional - searches only the "identifier" field
     name: "search query goes here", // Optional - searches only the "name" field
     prefix: false, // Optional - if true, only the beginning of fields are matched in all of the above filters
+    exactMatchNames: true, // Optional - if true, partial name matches are excluded
     default: false, // Optional - if true, only resources without identifiers are returned
     includeStatus: false, // Optional - will take time to respond, so only request if necessary
     includeMetadata: false, // Optional - will take time to respond, so only request if necessary
