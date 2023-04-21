@@ -23,7 +23,7 @@ function httpGetAsyncWithEvent(event, url) {
         .catch((error) => {
             let res = {};
             res.error = error;
-            handleResponse(JSON.stringify(res), responseText);
+            handleResponse(event, JSON.stringify(res));
         })
 }
 
