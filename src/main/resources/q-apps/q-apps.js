@@ -185,7 +185,7 @@ window.addEventListener("message", (event) => {
             return httpGetAsyncWithEvent(event, "/names/" + data.name);
 
         case "GET_QDN_RESOURCE_URL":
-            // Check status first; URL is built ant returned automatically after status check
+            // Check status first; URL is built and returned automatically after status check
             url = "/arbitrary/resource/status/" + data.service + "/" + data.name;
             if (data.identifier != null) url = url.concat("/" + data.identifier);
             return httpGetAsyncWithEvent(event, url);
