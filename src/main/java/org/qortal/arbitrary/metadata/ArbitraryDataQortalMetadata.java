@@ -2,6 +2,7 @@ package org.qortal.arbitrary.metadata;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONException;
 import org.qortal.repository.DataException;
 
 import java.io.BufferedWriter;
@@ -46,20 +47,6 @@ public class ArbitraryDataQortalMetadata extends ArbitraryDataMetadata {
         return null;
     }
 
-    protected void readJson() throws DataException {
-        // To be overridden
-    }
-
-    protected void buildJson() {
-        // To be overridden
-    }
-
-
-    @Override
-    public void read() throws IOException, DataException {
-        this.loadJson();
-        this.readJson();
-    }
 
     @Override
     public void write() throws IOException, DataException {
@@ -92,11 +79,6 @@ public class ArbitraryDataQortalMetadata extends ArbitraryDataMetadata {
         } catch (IOException e) {
             throw new DataException("Unable to create .qortal directory");
         }
-    }
-
-
-    public String getJsonString() {
-        return this.jsonString;
     }
 
 }

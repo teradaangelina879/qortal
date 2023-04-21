@@ -1,6 +1,7 @@
 package org.qortal.arbitrary.metadata;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.repository.DataException;
@@ -33,7 +34,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
     }
 
     @Override
-    protected void readJson() throws DataException {
+    protected void readJson() throws DataException, JSONException {
         if (this.jsonString == null) {
             throw new DataException("Transaction metadata JSON string is null");
         }

@@ -2,6 +2,7 @@ package org.qortal.arbitrary.metadata;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONException;
 import org.qortal.repository.DataException;
 
 import java.io.BufferedWriter;
@@ -34,7 +35,7 @@ public class ArbitraryDataMetadata {
         this.filePath = filePath;
     }
 
-    protected void readJson() throws DataException {
+    protected void readJson() throws DataException, JSONException {
         // To be overridden
     }
 
@@ -44,8 +45,13 @@ public class ArbitraryDataMetadata {
 
 
     public void read() throws IOException, DataException {
-        this.loadJson();
-        this.readJson();
+        try {
+            this.loadJson();
+            this.readJson();
+
+        } catch (JSONException e) {
+            throw new DataException(String.format("Unable to read JSON: %s", e.getMessage()));
+        }
     }
 
     public void write() throws IOException, DataException {
