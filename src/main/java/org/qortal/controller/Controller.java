@@ -47,6 +47,7 @@ import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.network.PeerData;
+import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.event.Event;
@@ -400,6 +401,10 @@ public class Controller extends Thread {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
 			RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
+
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				RepositoryManager.buildInitialArbitraryResourcesCache(repository);
+			}
 		}
 		catch (DataException e) {
 			// If exception has no cause then repository is in use by some other process.
@@ -891,6 +896,7 @@ public class Controller extends Thread {
 				if (now >= transaction.getDeadline()) {
 					LOGGER.debug(() -> String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
 					repository.getTransactionRepository().delete(transactionData);
+					this.onExpiredTransaction(transactionData);
 					deletedCount++;
 				}
 			}
@@ -1200,6 +1206,21 @@ public class Controller extends Thread {
 			// If this is a CHAT transaction, there may be extra listeners to notify
 			if (transactionData.getType() == TransactionType.CHAT)
 				ChatNotifier.getInstance().onNewChatTransaction((ChatTransactionData) transactionData);
+		});
+	}
+
+	/**
+	 * Callback for when we've deleted an expired, unconfirmed transaction.
+	 * <p>
+	 * @implSpec performs actions in a new thread
+	 */
+	public void onExpiredTransaction(TransactionData transactionData) {
+		this.callbackExecutor.execute(() -> {
+
+			// If this is an ARBITRARY transaction, we may need to update the cache
+			if (transactionData.getType() == TransactionType.ARBITRARY) {
+				ArbitraryDataManager.getInstance().onExpiredArbitraryTransaction((ArbitraryTransactionData)transactionData);
+			}
 		});
 	}
 

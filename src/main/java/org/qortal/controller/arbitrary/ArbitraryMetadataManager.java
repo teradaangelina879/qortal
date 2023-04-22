@@ -15,6 +15,7 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
+import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
@@ -324,37 +325,44 @@ public class ArbitraryMetadataManager {
         Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
         arbitraryMetadataRequests.put(message.getId(), newEntry);
 
-        ArbitraryTransactionData arbitraryTransactionData = null;
-
-        // Forwarding
-        if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
-
-            // Get transaction info
-            try (final Repository repository = RepositoryManager.getRepository()) {
-                TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-                if (!(transactionData instanceof ArbitraryTransactionData))
-                    return;
-                arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
-            } catch (DataException e) {
-                LOGGER.error(String.format("Repository issue while finding arbitrary transaction metadata for peer %s", peer), e);
+        // Get transaction info
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+            if (!(transactionData instanceof ArbitraryTransactionData)) {
+                return;
             }
+            ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-            // Check if the name is blocked
-            boolean isBlocked = (arbitraryTransactionData == null || ListUtils.isNameBlocked(arbitraryTransactionData.getName()));
-            if (!isBlocked) {
-                Peer requestingPeer = request.getB();
-                if (requestingPeer != null) {
+            // Forwarding
+            if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
 
-                    ArbitraryMetadataMessage forwardArbitraryMetadataMessage = new ArbitraryMetadataMessage(signature, arbitraryMetadataMessage.getArbitraryMetadataFile());
-                    forwardArbitraryMetadataMessage.setId(arbitraryMetadataMessage.getId());
+                // Check if the name is blocked
+                boolean isBlocked = (arbitraryTransactionData == null || ListUtils.isNameBlocked(arbitraryTransactionData.getName()));
+                if (!isBlocked) {
+                    Peer requestingPeer = request.getB();
+                    if (requestingPeer != null) {
 
-                    // Forward to requesting peer
-                    LOGGER.debug("Forwarding metadata to requesting peer: {}", requestingPeer);
-                    if (!requestingPeer.sendMessage(forwardArbitraryMetadataMessage)) {
-                        requestingPeer.disconnect("failed to forward arbitrary metadata");
+                        ArbitraryMetadataMessage forwardArbitraryMetadataMessage = new ArbitraryMetadataMessage(signature, arbitraryMetadataMessage.getArbitraryMetadataFile());
+                        forwardArbitraryMetadataMessage.setId(arbitraryMetadataMessage.getId());
+
+                        // Forward to requesting peer
+                        LOGGER.debug("Forwarding metadata to requesting peer: {}", requestingPeer);
+                        if (!requestingPeer.sendMessage(forwardArbitraryMetadataMessage)) {
+                            requestingPeer.disconnect("failed to forward arbitrary metadata");
+                        }
                     }
                 }
             }
+
+            // Update arbitrary resource caches
+            if (arbitraryTransactionData != null) {
+                ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, arbitraryTransactionData);
+                arbitraryTransaction.updateArbitraryResourceCache();
+                arbitraryTransaction.updateArbitraryMetadataCache();
+            }
+
+        } catch (DataException e) {
+            LOGGER.error(String.format("Repository issue while finding arbitrary transaction metadata for peer %s", peer), e);
         }
     }
 

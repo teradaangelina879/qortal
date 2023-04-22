@@ -7,7 +7,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import java.util.Objects;
 
 @XmlAccessorType(XmlAccessType.FIELD)
-public class ArbitraryResourceInfo {
+public class ArbitraryResourceData {
 
 	public String name;
 	public Service service;
@@ -15,11 +15,11 @@ public class ArbitraryResourceInfo {
 	public ArbitraryResourceStatus status;
 	public ArbitraryResourceMetadata metadata;
 
-	public Long size;
+	public Integer size;
 	public Long created;
 	public Long updated;
 
-	public ArbitraryResourceInfo() {
+	public ArbitraryResourceData() {
 	}
 
 	@Override
@@ -32,10 +32,10 @@ public class ArbitraryResourceInfo {
 		if (o == this)
 			return true;
 
-		if (!(o instanceof ArbitraryResourceInfo))
+		if (!(o instanceof ArbitraryResourceData))
 			return false;
 
-		ArbitraryResourceInfo other = (ArbitraryResourceInfo) o;
+		ArbitraryResourceData other = (ArbitraryResourceData) o;
 
 		return Objects.equals(this.name, other.name) &&
 				Objects.equals(this.service, other.service) &&

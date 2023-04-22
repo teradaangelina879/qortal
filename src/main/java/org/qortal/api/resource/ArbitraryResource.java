@@ -86,12 +86,12 @@ public class ArbitraryResource {
 					"- If default is set to true, only resources without identifiers will be returned.",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceData.class))
 					)
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryResourceInfo> getResources(
+	public List<ArbitraryResourceData> getResources(
 			@QueryParam("service") Service service,
 			@QueryParam("name") String name,
 			@QueryParam("identifier") String identifier,
@@ -133,8 +133,9 @@ public class ArbitraryResource {
 				}
 			}
 
-			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.getArbitraryResources(service, identifier, names, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
+			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
+					.getArbitraryResources(service, identifier, names, defaultRes, followedOnly, excludeBlocked,
+							includeMetadata, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
@@ -142,9 +143,6 @@ public class ArbitraryResource {
 
 			if (includeStatus != null && includeStatus) {
 				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-			}
-			if (includeMetadata != null && includeMetadata) {
-				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -161,12 +159,12 @@ public class ArbitraryResource {
 					"If default is set to true, only resources without identifiers will be returned.",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceData.class))
 					)
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryResourceInfo> searchResources(
+	public List<ArbitraryResourceData> searchResources(
 			@QueryParam("service") Service service,
 			@Parameter(description = "Query (searches both name and identifier fields)") @QueryParam("query") String query,
 			@Parameter(description = "Identifier (searches identifier field only)") @QueryParam("identifier") String identifier,
@@ -206,8 +204,9 @@ public class ArbitraryResource {
 				names = null;
 			}
 
-			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, exactMatchNames, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
+			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
+					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, exactMatchNames,
+							defaultRes, followedOnly, excludeBlocked, includeMetadata, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
@@ -215,9 +214,6 @@ public class ArbitraryResource {
 
 			if (includeStatus != null && includeStatus) {
 				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-			}
-			if (includeMetadata != null && includeMetadata) {
-				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -479,21 +475,20 @@ public class ArbitraryResource {
 			summary = "List arbitrary resources hosted by this node",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceData.class))
 					)
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryResourceInfo> getHostedResources(
+	public List<ArbitraryResourceData> getHostedResources(
 			@HeaderParam(Security.API_KEY_HEADER) String apiKey,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
-			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@QueryParam("query") String query) {
 		Security.checkApiCallAllowed(request);
 
-		List<ArbitraryResourceInfo> resources = new ArrayList<>();
+		List<ArbitraryResourceData> resources = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			
@@ -509,20 +504,17 @@ public class ArbitraryResource {
 				if (transactionData.getService() == null) {
 					continue;
 				}
-				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
-				arbitraryResourceInfo.name = transactionData.getName();
-				arbitraryResourceInfo.service = transactionData.getService();
-				arbitraryResourceInfo.identifier = transactionData.getIdentifier();
-				if (!resources.contains(arbitraryResourceInfo)) {
-					resources.add(arbitraryResourceInfo);
+				ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
+				arbitraryResourceData.name = transactionData.getName();
+				arbitraryResourceData.service = transactionData.getService();
+				arbitraryResourceData.identifier = transactionData.getIdentifier();
+				if (!resources.contains(arbitraryResourceData)) {
+					resources.add(arbitraryResourceData);
 				}
 			}
 
 			if (includeStatus != null && includeStatus) {
 				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-			}
-			if (includeMetadata != null && includeMetadata) {
-				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;

@@ -14,6 +14,7 @@ import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
+import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
@@ -537,6 +538,41 @@ public class ArbitraryDataManager extends Thread {
 			return false;
 		}
 		return true;
+	}
+
+	public void onExpiredArbitraryTransaction(ArbitraryTransactionData arbitraryTransactionData) {
+		if (arbitraryTransactionData.getName() == null) {
+			// No name, so we don't care about this transaction
+			return;
+		}
+
+		Service service = arbitraryTransactionData.getService();
+		String name = arbitraryTransactionData.getName();
+		String identifier = arbitraryTransactionData.getIdentifier();
+
+		ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
+		arbitraryResourceData.service = service;
+		arbitraryResourceData.name = name;
+		arbitraryResourceData.identifier = identifier;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Find next oldest transaction (which is now the latest transaction)
+			ArbitraryTransactionData latestTransactionData = repository.getArbitraryRepository().getLatestTransaction(name, service, null, identifier);
+
+			if (latestTransactionData == null) {
+				// There are no transactions anymore, so we can delete from the cache entirely (this deletes metadata too)
+				repository.getArbitraryRepository().delete(arbitraryResourceData);
+			}
+			else {
+				// We found the next oldest transaction, so we can update the cache
+				ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, latestTransactionData);
+				arbitraryTransaction.updateArbitraryResourceCache();
+				arbitraryTransaction.updateArbitraryMetadataCache();
+			}
+;
+		} catch (DataException  e) {
+			// Not much we can do, so ignore for now
+		}
 	}
 
 	public int getPowDifficulty() {
