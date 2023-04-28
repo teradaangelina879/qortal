@@ -250,6 +250,11 @@ window.addEventListener("message", (event) => {
             url = "/arbitrary/resource/properties/" + data.service + "/" + data.name + "/" + identifier;
             return httpGetAsyncWithEvent(event, url);
 
+        case "GET_QDN_RESOURCE_METADATA":
+            identifier = (data.identifier != null) ? data.identifier : "default";
+            url = "/arbitrary/metadata/" + data.service + "/" + data.name + "/" + identifier;
+            return httpGetAsyncWithEvent(event, url);
+
         case "SEARCH_CHAT_MESSAGES":
             url = "/chat/messages?";
             if (data.before != null) url = url.concat("&before=" + data.before);

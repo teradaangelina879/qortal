@@ -721,12 +721,9 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceMetadata getMetadata(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-							  @PathParam("service") Service service,
-							  @PathParam("name") String name,
-							  @PathParam("identifier") String identifier) {
-		Security.checkApiCallAllowed(request);
-
+	public ArbitraryResourceMetadata getMetadata(@PathParam("service") Service service,
+							  					 @PathParam("name") String name,
+							  					 @PathParam("identifier") String identifier) {
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
 
 		try {
