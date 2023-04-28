@@ -1341,6 +1341,7 @@ public class ArbitraryResource {
 				data = Base64.encode(data);
 			}
 
+			response.addHeader("Accept-Ranges", "bytes");
 			response.setContentType(context.getMimeType(path.toString()));
 			response.setContentLength(data.length);
 			response.getOutputStream().write(data);
