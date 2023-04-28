@@ -227,7 +227,7 @@ public enum Service {
     }
 
     public static JSONObject toJsonObject(byte[] data) {
-        String dataString = new String(data);
+        String dataString = new String(data, StandardCharsets.UTF_8);
         return new JSONObject(dataString);
     }
 
