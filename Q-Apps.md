@@ -539,6 +539,7 @@ let res = await qortalRequest({
     // reference: "reference", // Optional
     // chatReference: "chatreference", // Optional
     // hasChatReference: true, // Optional
+    encoding: "BASE64", // Optional (defaults to BASE58 if omitted)
     limit: 100,
     offset: 0,
     reverse: true

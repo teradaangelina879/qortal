@@ -264,6 +264,7 @@ window.addEventListener("message", (event) => {
             if (data.reference != null) url = url.concat("&reference=" + data.reference);
             if (data.chatReference != null) url = url.concat("&chatreference=" + data.chatReference);
             if (data.hasChatReference != null) url = url.concat("&haschatreference=" + new Boolean(data.hasChatReference).toString());
+            if (data.encoding != null) url = url.concat("&encoding=" + data.encoding);
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
