@@ -13,8 +13,8 @@ public class HTMLParser {
 
     private static final Logger LOGGER = LogManager.getLogger(HTMLParser.class);
 
-    private String linkPrefix;
     private String qdnBase;
+    private String qdnBaseWithPath;
     private byte[] data;
     private String qdnContext;
     private String resourceId;
@@ -22,12 +22,13 @@ public class HTMLParser {
     private String identifier;
     private String path;
     private String theme;
+    private boolean usingCustomRouting;
 
     public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data,
-                      String qdnContext, Service service, String identifier, String theme) {
+                      String qdnContext, Service service, String identifier, String theme, boolean usingCustomRouting) {
         String inPathWithoutFilename = inPath.contains("/") ? inPath.substring(0, inPath.lastIndexOf('/')) : "";
-        this.linkPrefix = usePrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : "";
         this.qdnBase = usePrefix ? String.format("%s/%s", prefix, resourceId) : "";
+        this.qdnBaseWithPath = usePrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : "";
         this.data = data;
         this.qdnContext = qdnContext;
         this.resourceId = resourceId;
@@ -35,6 +36,7 @@ public class HTMLParser {
         this.identifier = identifier;
         this.path = inPath;
         this.theme = theme;
+        this.usingCustomRouting = usingCustomRouting;
     }
 
     public void addAdditionalHeaderTags() {
@@ -58,11 +60,13 @@ public class HTMLParser {
             String identifier = this.identifier != null ? this.identifier.replace("\"","\\\"") : "";
             String path = this.path != null ? this.path.replace("\"","\\\"") : "";
             String theme = this.theme != null ? this.theme.replace("\"","\\\"") : "";
-            String qdnContextVar = String.format("<script>var _qdnContext=\"%s\"; var _qdnTheme=\"%s\"; var _qdnService=\"%s\"; var _qdnName=\"%s\"; var _qdnIdentifier=\"%s\"; var _qdnPath=\"%s\"; var _qdnBase=\"%s\";</script>", this.qdnContext, theme, service, name, identifier, path, this.qdnBase);
+            String qdnContextVar = String.format("<script>var _qdnContext=\"%s\"; var _qdnTheme=\"%s\"; var _qdnService=\"%s\"; var _qdnName=\"%s\"; var _qdnIdentifier=\"%s\"; var _qdnPath=\"%s\"; var _qdnBase=\"%s\"; var _qdnBaseWithPath=\"%s\";</script>", this.qdnContext, theme, service, name, identifier, path, this.qdnBase, this.qdnBaseWithPath);
             head.get(0).prepend(qdnContextVar);
 
             // Add base href tag
-            String baseElement = String.format("<base href=\"%s/\">", this.linkPrefix);
+            // Exclude the path if this request was routed back to the index automatically
+            String baseHref = this.usingCustomRouting ? this.qdnBase : this.qdnBaseWithPath;
+            String baseElement = String.format("<base href=\"%s/\">", baseHref);
             head.get(0).prepend(baseElement);
 
             // Add meta charset tag
