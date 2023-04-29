@@ -160,8 +160,8 @@ public enum Service {
     SNAPSHOT(1710, false, null, false, null),
     COMMENT(1800, true, 500*1024L, true, null),
     CHAIN_COMMENT(1810, true, 239L, true, null),
-    MAIL(1900, true, null, true, null),
-    MESSAGE(1910, true, null, true, null);
+    MAIL(1900, true, 1024*1024L, true, null),
+    MESSAGE(1910, true, 1024*1024L, true, null);
 
     public final int value;
     private final boolean requiresValidation;
