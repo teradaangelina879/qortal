@@ -359,6 +359,7 @@ public class ArbitraryMetadataManager {
                 ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, arbitraryTransactionData);
                 arbitraryTransaction.updateArbitraryResourceCache();
                 arbitraryTransaction.updateArbitraryMetadataCache();
+                repository.saveChanges();
             }
 
         } catch (DataException e) {

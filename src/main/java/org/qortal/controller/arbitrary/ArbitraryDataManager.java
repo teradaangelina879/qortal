@@ -570,6 +570,7 @@ public class ArbitraryDataManager extends Thread {
 				arbitraryTransaction.updateArbitraryMetadataCache();
 			}
 ;
+			repository.saveChanges();
 		} catch (DataException  e) {
 			// Not much we can do, so ignore for now
 		}

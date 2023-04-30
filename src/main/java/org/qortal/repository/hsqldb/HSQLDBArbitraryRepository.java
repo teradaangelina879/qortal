@@ -2,6 +2,7 @@ package org.qortal.repository.hsqldb;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceData;
@@ -219,6 +220,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	private ArbitraryTransactionData getSingleTransaction(String name, Service service, Method method, String identifier, boolean firstNotLast) throws DataException {
+		if (name == null || service == null) {
+			// Required fields
+			return null;
+		}
+
 		StringBuilder sql = new StringBuilder(1024);
 
 		sql.append("SELECT type, reference, signature, creator, created_when, fee, " +
@@ -490,7 +496,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		if (defaultResource) {
 			// Default resource requested - use NULL identifier
-			sql.append(" AND identifier IS NULL");
+			sql.append(" AND identifier='default'");
 		}
 		else {
 			// Non-default resource requested
@@ -641,7 +647,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 			if (defaultResource) {
 				// Default resource requested - use NULL identifier and search name only
-				sql.append(" AND LCASE(name) LIKE ? AND identifier IS NULL");
+				sql.append(" AND LCASE(name) LIKE ? AND identifier='default'");
 				bindParams.add(queryWildcard);
 			} else {
 				// Non-default resource requested
@@ -831,13 +837,17 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			throw new DataException("Can't save metadata without a referenced resource");
 		}
 
+		// Trim metadata values if they are too long to fit in the db
+		String title = ArbitraryDataTransactionMetadata.limitTitle(metadata.getTitle());
+		String description = ArbitraryDataTransactionMetadata.limitTitle(metadata.getDescription());
+		List<String> tags = ArbitraryDataTransactionMetadata.limitTags(metadata.getTags());
+
 		String tag1 = null;
 		String tag2 = null;
 		String tag3 = null;
 		String tag4 = null;
 		String tag5 = null;
 
-		List<String> tags = metadata.getTags();
 		if (tags != null) {
 			if (tags.size() > 0) tag1 = tags.get(0);
 			if (tags.size() > 1) tag2 = tags.get(1);
@@ -849,8 +859,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		String category = metadata.getCategory() != null ? metadata.getCategory().toString() : null;
 
 		saveHelper.bind("service", arbitraryResourceData.service.value).bind("name", arbitraryResourceData.name)
-				.bind("identifier", arbitraryResourceData.identifier).bind("title", metadata.getTitle())
-				.bind("description", metadata.getDescription()).bind("category", category)
+				.bind("identifier", arbitraryResourceData.identifier).bind("title", title)
+				.bind("description", description).bind("category", category)
 				.bind("tag1", tag1).bind("tag2", tag2).bind("tag3", tag3).bind("tag4", tag4)
 				.bind("tag5", tag5);
 
