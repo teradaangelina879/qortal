@@ -436,4 +436,71 @@ public class ArbitraryServiceTests extends Common {
         assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
     }
 
+    @Test
+    public void testValidPrivateData() throws IOException {
+        String dataString = "qortalEncryptedDatabMx4fELNTV+ifJxmv4+GcuOIJOTo+3qAvbWKNY2L1rfla5UBoEcoxbtjgZ9G7FLPb8V/Qfr0bfKWfvMmN06U/pgUdLuv2mGL2V0D3qYd1011MUzGdNG1qERjaCDz8GAi63+KnHHjfMtPgYt6bcqjs4CNV+ZZ4dIt3xxHYyVEBNc=";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidPrivateData");
+        Path filePath = Paths.get(path.toString(), "test");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(dataString);
+        writer.close();
+
+        Service service = Service.FILE_PRIVATE;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+
+    @Test
+    public void testEncryptedData() throws IOException {
+        String dataString = "qortalEncryptedDatabMx4fELNTV+ifJxmv4+GcuOIJOTo+3qAvbWKNY2L1rfla5UBoEcoxbtjgZ9G7FLPb8V/Qfr0bfKWfvMmN06U/pgUdLuv2mGL2V0D3qYd1011MUzGdNG1qERjaCDz8GAi63+KnHHjfMtPgYt6bcqjs4CNV+ZZ4dIt3xxHYyVEBNc=";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidPrivateData");
+        Path filePath = Paths.get(path.toString(), "test");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(dataString);
+        writer.close();
+
+        // Validate a private service
+        Service service = Service.FILE_PRIVATE;
+        assertTrue(service.isValidationRequired());
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+
+        // Validate a regular service
+        service = Service.FILE;
+        assertTrue(service.isValidationRequired());
+        assertEquals(ValidationResult.DATA_ENCRYPTED, service.validate(filePath));
+    }
+
+    @Test
+    public void testPlainTextData() throws IOException {
+        String dataString = "plaintext";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testInvalidPrivateData");
+        Path filePath = Paths.get(path.toString(), "test");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(dataString);
+        writer.close();
+
+        // Validate a private service
+        Service service = Service.FILE_PRIVATE;
+        assertTrue(service.isValidationRequired());
+        assertEquals(ValidationResult.DATA_NOT_ENCRYPTED, service.validate(filePath));
+
+        // Validate a regular service
+        service = Service.FILE;
+        assertTrue(service.isValidationRequired());
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+
 }
