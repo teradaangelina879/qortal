@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.Random;
 
 import static org.junit.Assert.*;
@@ -501,6 +502,22 @@ public class ArbitraryServiceTests extends Common {
         service = Service.FILE;
         assertTrue(service.isValidationRequired());
         assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+
+    @Test
+    public void testGetPrivateServices() {
+        List<Service> privateServices = Service.privateServices();
+        for (Service service : privateServices) {
+            assertTrue(service.isPrivate());
+        }
+    }
+
+    @Test
+    public void testGetPublicServices() {
+        List<Service> publicServices = Service.publicServices();
+        for (Service service : publicServices) {
+            assertFalse(service.isPrivate());
+        }
     }
 
 }

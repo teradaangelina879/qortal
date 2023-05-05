@@ -249,6 +249,10 @@ public enum Service {
         return this.requiresValidation || this.single;
     }
 
+    public boolean isPrivate() {
+        return this.isPrivate;
+    }
+
     public static Service valueOf(int value) {
         return map.get(value);
     }
@@ -256,6 +260,37 @@ public enum Service {
     public static JSONObject toJsonObject(byte[] data) {
         String dataString = new String(data, StandardCharsets.UTF_8);
         return new JSONObject(dataString);
+    }
+
+    public static List<Service> publicServices() {
+        List<Service> privateServices = new ArrayList<>();
+        for (Service service : Service.values()) {
+            if (!service.isPrivate) {
+                privateServices.add(service);
+            }
+        }
+        return privateServices;
+    }
+
+    /**
+     * Fetch a list of Service objects that require encrypted data.
+     *
+     * These can ultimately be used to help inform the cleanup manager
+     * on the best order to delete files when the node runs out of space.
+     * Public data should be given priority over private data (unless
+     * this node is part of a data market contract for that data - this
+     * isn't developed yet).
+     *
+     * @return a list of Service objects that require encrypted data.
+     */
+    public static List<Service> privateServices() {
+        List<Service> privateServices = new ArrayList<>();
+        for (Service service : Service.values()) {
+            if (service.isPrivate) {
+                privateServices.add(service);
+            }
+        }
+        return privateServices;
     }
 
     public enum ValidationResult {
