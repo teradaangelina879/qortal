@@ -440,8 +440,8 @@ function getDefaultTimeout(action) {
                 return 60 * 1000;
 
             case "PUBLISH_QDN_RESOURCE":
+            case "PUBLISH_MULTIPLE_QDN_RESOURCES":
                 // Publishing could take a very long time on slow system, due to the proof-of-work computation
-                // It's best not to timeout
                 return 60 * 60 * 1000;
 
             case "SEND_CHAT_MESSAGE":
