@@ -432,6 +432,8 @@ function getDefaultTimeout(action) {
         // Some actions need longer default timeouts, especially those that create transactions
         switch (action) {
             case "GET_USER_ACCOUNT":
+            case "SAVE_FILE":
+            case "DECRYPT_DATA":
                 // User may take a long time to accept/deny the popup
                 return 60 * 60 * 1000;
 
