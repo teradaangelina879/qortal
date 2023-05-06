@@ -9,7 +9,6 @@ import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
-import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -154,9 +153,6 @@ public class ArbitraryDataReader {
      * If no exception is thrown, you can then use getFilePath() to access the data immediately after returning
      *
      * @param overwrite - set to true to force rebuild an existing cache
-     * @throws IOException
-     * @throws DataException
-     * @throws MissingDataException
      */
     public void loadSynchronously(boolean overwrite) throws DataException, IOException, MissingDataException {
         try {
@@ -223,7 +219,6 @@ public class ArbitraryDataReader {
     /**
      * Working directory should only be deleted on failure, since it is currently used to
      * serve a cached version of the resource for subsequent requests.
-     * @throws IOException
      */
     private void deleteWorkingDirectory() {
         try {
@@ -303,7 +298,7 @@ public class ArbitraryDataReader {
                 break;
 
             default:
-                throw new DataException(String.format("Unknown resource ID type specified: %s", resourceIdType.toString()));
+                throw new DataException(String.format("Unknown resource ID type specified: %s", resourceIdType));
         }
     }
 
@@ -368,6 +363,9 @@ public class ArbitraryDataReader {
         // Load data file(s)
         ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
         ArbitraryTransactionUtils.checkAndRelocateMiscFiles(transactionData);
+        if (arbitraryDataFile == null) {
+            throw new DataException(String.format("arbitraryDataFile is null"));
+        }
 
         if (!arbitraryDataFile.allFilesExist()) {
             if (ListUtils.isNameBlocked(transactionData.getName())) {
