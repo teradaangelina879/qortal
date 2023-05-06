@@ -816,6 +816,9 @@ let res = await qortalRequest({
 
 # Section 4: Examples
 
+Some example projects can be found [here](https://github.com/Qortal/Q-Apps). These can be cloned and modified, or used as a reference when creating a new app.
+
+
 ## Sample App
 
 Here is a sample application to display the logged-in user's avatar:
