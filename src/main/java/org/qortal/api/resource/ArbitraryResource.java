@@ -1119,6 +1119,36 @@ public class ArbitraryResource {
 	}
 
 
+	@POST
+	@Path("/resources/cache/rebuild")
+	@Operation(
+			summary = "Rebuild arbitrary resources cache from transactions",
+			responses = {
+					@ApiResponse(
+							description = "true on success",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "boolean"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String rebuildCache(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			RepositoryManager.buildArbitraryResourcesCache(repository, true);
+
+			return "true";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
+		}
+	}
+
+
 	// Shared methods
 
 	private String preview(String directoryPath, Service service) {

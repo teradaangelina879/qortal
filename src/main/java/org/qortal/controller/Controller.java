@@ -403,7 +403,7 @@ public class Controller extends Thread {
 			RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
 
 			try (final Repository repository = RepositoryManager.getRepository()) {
-				RepositoryManager.buildInitialArbitraryResourcesCache(repository);
+				RepositoryManager.buildArbitraryResourcesCache(repository, false);
 			}
 		}
 		catch (DataException e) {

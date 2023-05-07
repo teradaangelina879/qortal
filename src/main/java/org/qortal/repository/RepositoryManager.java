@@ -64,7 +64,7 @@ public abstract class RepositoryManager {
 		}
 	}
 
-	public static boolean buildInitialArbitraryResourcesCache(Repository repository) throws DataException {
+	public static boolean buildArbitraryResourcesCache(Repository repository, boolean forceRebuild) throws DataException {
 		if (Settings.getInstance().isLite()) {
 			// Lite nodes have no blockchain
 			return false;
@@ -73,7 +73,7 @@ public abstract class RepositoryManager {
 		try {
 			// Check if QDNResources table is empty
 			List<ArbitraryResourceData> resources = repository.getArbitraryRepository().getArbitraryResources(10, 0, false);
-			if (!resources.isEmpty()) {
+			if (!resources.isEmpty() && !forceRebuild) {
 				// Resources exist in the cache, so assume complete.
 				// We avoid checkpointing and prevent the node from starting up in the case of a rebuild failure, so
 				// we shouldn't ever be left in a partially rebuilt state.
