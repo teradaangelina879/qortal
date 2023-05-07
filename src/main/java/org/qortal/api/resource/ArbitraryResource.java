@@ -1267,7 +1267,8 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
 			}
 
-		} catch (DataException | IOException e) {
+		} catch (Exception e) {
+			LOGGER.info("Exception when publishing data: ", e);
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
 		}
 	}
