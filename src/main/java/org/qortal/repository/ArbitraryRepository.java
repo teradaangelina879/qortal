@@ -37,9 +37,9 @@ public interface ArbitraryRepository {
 
 	public List<ArbitraryResourceData> getArbitraryResources(Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<ArbitraryResourceData> getArbitraryResources(Service service, String identifier, List<String> names, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked, Boolean includeMetadata, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<ArbitraryResourceData> getArbitraryResources(Service service, String identifier, List<String> names, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked, Boolean includeMetadata, Boolean includeStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<ArbitraryResourceData> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly, List<String> namesFilter, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked, Boolean includeMetadata, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<ArbitraryResourceData> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly, List<String> namesFilter, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked, Boolean includeMetadata, Boolean includeStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 
 	// Arbitrary resources cache save/load

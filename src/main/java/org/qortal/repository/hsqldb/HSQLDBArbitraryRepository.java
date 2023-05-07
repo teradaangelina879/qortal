@@ -488,7 +488,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	@Override
 	public List<ArbitraryResourceData> getArbitraryResources(Service service, String identifier, List<String> names,
 															 boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
-															 Boolean includeMetadata, Integer limit, Integer offset, Boolean reverse) throws DataException {
+															 Boolean includeMetadata, Boolean includeStatus,
+															 Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
@@ -600,9 +601,12 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryResourceData.service = serviceResult;
 				arbitraryResourceData.identifier = identifierResult;
 				arbitraryResourceData.size = sizeResult;
-				arbitraryResourceData.setStatus(ArbitraryResourceStatus.Status.valueOf(status));
 				arbitraryResourceData.created = created;
 				arbitraryResourceData.updated = (updated == 0) ? null : updated;
+
+				if (includeStatus != null && includeStatus) {
+					arbitraryResourceData.setStatus(ArbitraryResourceStatus.Status.valueOf(status));
+				}
 
 				if (includeMetadata != null && includeMetadata) {
 					// TODO: we could avoid the join altogether
@@ -636,7 +640,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	@Override
 	public List<ArbitraryResourceData> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly,
 																List<String> exactMatchNames, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
-																Boolean includeMetadata, Integer limit, Integer offset, Boolean reverse) throws DataException {
+																Boolean includeMetadata, Boolean includeStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
@@ -778,9 +782,12 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryResourceData.service = serviceResult;
 				arbitraryResourceData.identifier = identifierResult;
 				arbitraryResourceData.size = sizeResult;
-				arbitraryResourceData.setStatus(ArbitraryResourceStatus.Status.valueOf(status));
 				arbitraryResourceData.created = created;
 				arbitraryResourceData.updated = (updated == 0) ? null : updated;
+
+				if (includeStatus != null && includeStatus) {
+					arbitraryResourceData.setStatus(ArbitraryResourceStatus.Status.valueOf(status));
+				}
 
 				if (includeMetadata != null && includeMetadata) {
 					// TODO: we could avoid the join altogether

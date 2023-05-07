@@ -135,7 +135,7 @@ public class ArbitraryResource {
 
 			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
 					.getArbitraryResources(service, identifier, names, defaultRes, followedOnly, excludeBlocked,
-							includeMetadata, limit, offset, reverse);
+							includeMetadata, includeStatus, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
@@ -202,7 +202,7 @@ public class ArbitraryResource {
 
 			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
 					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, exactMatchNames,
-							defaultRes, followedOnly, excludeBlocked, includeMetadata, limit, offset, reverse);
+							defaultRes, followedOnly, excludeBlocked, includeMetadata, includeStatus, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
